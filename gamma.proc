@@ -1,0 +1,159 @@
+##### GAMMA Configuration File Location #####
+GAMMA_GA=~/GAMMA_CONFIG
+#GAMMA_GA=/nas/gemd/insar/SOFTWARE/GAMMA/GAMMA_CONFIG
+GAMMA_NCI=/home/547/mcg547/dg9-apps/GAMMA/GAMMA_CONFIG_bash
+
+
+###### Output Directories #####
+SLC_dir=SLC
+DEM_dir=DEM
+INT_dir=INT
+CR_dir=CR
+base_dir=BASELINE
+
+
+##### Processing Platform #####
+    # options: GA, NCI
+Platform=GA
+
+
+###### Project Directory Details #####
+Project=xxxx
+Track=TxxxxA/D
+
+
+##### Sensor/Data Details #####
+    # options: ASAR, CSK, ERS, JERS1, PALSAR1, PALSAR2, RSAT1, RSAT2, S1, TSX 
+Sensor=PALSAR1
+    # if ERS sensor, specify which one (ERS1 or ERS2):
+ERS_sensor=
+    # if PALSAR1 sensor, specify which raw data level (raw or slc):
+PALSAR1_data=raw
+    # orientation options: ascending, descending
+Orientation=ascending
+Polarisation=HH
+
+
+##### Reference Master Scene Details #####
+Master_scene=20081104
+    # options: yes/no
+Subsetting=no
+    # options: notyet,process,yes
+Subsetting_done=notyet
+    # Subsetting of master SLC
+range_offset=-
+range_lines=-
+azimuth_offset=-
+azimuth_lines=-
+
+
+##### Processing Steps #####
+    # options: yes/no
+Setup=yes
+Do_raw_data=yes
+Do_SLC=yes
+Coregister_DEM=no
+Coregister_slaves=no
+    # only process interferograms after slave coregistration has been checked
+Process_ifms=no
+    # options for adding new SLCs to already processed dataset
+Add_new_SLC=no
+Coregister_add_slaves=no
+Process_add_ifms=no
+
+
+##### Text File Names #####
+List_of_frames=frame.list
+List_of_scenes=scenes.list
+List_of_slaves=slaves.list
+List_of_ifms=ifms.list
+   # lists for adding new SLCs to already processed dataset
+List_of_add_scenes=add_scenes.list
+List_of_add_slaves=add_slaves.list
+List_of_add_ifms=add_ifms.list
+
+
+##### Raw Data and DEM Directories ######
+    # GA data directories
+Raw_data_GA=/nas/gemd/insar/RAW_SAR/ALOS/MERAPI/T096D
+DEM_location_GA=/nas/gemd/insar/DEM/merapi/GAMMA_DEM
+DEM_name_GA=merapi_aster.dem
+    # NCI MDSS data directories
+Raw_data_MDSS=insar/xxxxxxx
+DEM_location_MDSS=insar/DEM/xxxxx
+DEM_name_NCI=xxxxx.dem
+
+
+##### Multi-looking Values #####
+    # multi-look value for SLCs. This is used for coregistration purposes.
+SLC_multi_look=1
+    # interferogram multi-look value needs to be a multiple of the SLC multi-look value (eg. SLC=2 ifm=2,4,6,8,10...)
+ifm_multi_look=1
+
+##### Make Reference Master DEM Parameters (for create_diff_par) ##### 
+    # enter number of offset measurements in range, azimuth (default 32 32):
+offset_measure=32 32
+    # search window sizes (32, 64, 128...) (range, azimuth) (default 256 256):
+dem_win=256 256
+    # minimum matching SNR (nominal: 7):
+dem_snr=7
+
+
+##### Interferogram Parameters #####
+## adaptive spectral filtering (adf) parameters
+    # exponent for non-linear filtering
+Exponent=0.5
+    # filtering FFT window size (8 - 512, default 32)
+Filtering_window=32
+    # coherence estimation window value (must be odd numbers, default is 3)
+Coherence_window=3
+
+## phase unwrapping parameters
+    # coherence threshold for masking
+Coherence_threshold=0.3
+    # number of patches (for mcf, default is 1)
+Patches_range=1
+Patches_azimuth=1
+
+## create geotif of unwrapped interferogram
+    # options: yes/no
+create_geotif=yes
+
+## interferogram begin options: INT/FLAT/FILT/UNW
+ifm_begin=INT
+
+## interferogram end options: FLAT/FILT/UNW/DONE
+ifm_end=DONE
+
+
+##### NCI PBS parameters #####
+
+# raw data extraction
+raw_walltime=02:00:00
+raw_mem=500MB
+raw_ncpus=1
+
+# create slcs
+SLC_walltime=02:00:00
+SLC_mem=2GB
+SLC_ncpus=1
+
+# coregister dem
+DEM_walltime=02:00:00
+DEM_mem=2GB
+DEM_ncpus=1
+
+#coregister slcs
+coreg_walltime=02:00:00
+coreg_mem=2GB
+coreg_ncpus=2
+
+#create ifms
+ifm_walltime=48:00:00
+ifm_mem=10GB
+ifm_ncpus=2
+
+#geocode ifms
+geo_walltime=48:00:00
+geo_mem=2GB
+geo_ncpus=2

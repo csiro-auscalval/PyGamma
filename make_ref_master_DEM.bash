@@ -1,0 +1,264 @@
+#!/bin/bash
+
+display_usage() {
+    echo ""
+    echo "*******************************************************************************"
+    echo "* make_ref_master_DEM: Generate DEM coregistered to chosen master SLC in      *"
+    echo "*                      radar geometry.                                        *"
+    echo "*                                                                             *"
+    echo "* input:  [proc_file]    name of GAMMA proc file (eg. gamma.proc)             *"
+    echo "*         [rlks]        range multi-look value (for SLCs: from *.mli.par file *"
+    echo "*                       or for ifms: from proc file)                          *"
+    echo "*         [alks]        azimuth multi-look value (for SLCs: from *.mli.par    *"
+    echo "*                       file or for ifms: from proc file)                     *"
+    echo "*         <multi-look>  flag for creating ref DEM with no multi-looks, used   *"
+    echo "*                       for creating lookup table for geocoding full SLC data *"
+    echo "*                       (1 = no, 2 = yes)                                     *"
+    echo " *            xxxxxx *"
+    echo "*                                                                             *"
+    echo "* author: Sarah Lawrie @ GA       23/04/2015, v1.0                            *"
+    echo "*******************************************************************************"
+    echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] <multi-look> <roff> <rlines> <azoff> <azlines>"
+    }
+
+if [ $# -lt 3 ]
+then 
+    display_usage
+    exit 1
+fi
+
+
+rlks=$2
+alks=$3
+multi_look=$4
+roff=$5
+rlines=$6
+azoff=$7
+azlines=$8
+
+proc_file=$1
+
+## Variables from parameter file (*.proc)
+platform=`grep Platform= $proc_file | cut -d "=" -f 2`
+project=`grep Project= $proc_file | cut -d "=" -f 2`
+sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
+track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
+master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
+polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
+subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
+subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
+offset_measure=`grep offset_measure= $proc_file | cut -d "=" -f 2`
+dem_win=`grep dem_win= $proc_file | cut -d "=" -f 2`
+dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
+
+## Identify project directory based on platform
+if [ $platform == NCI ]; then
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    dem_loc_nci=`grep DEM_location_MDSS= $proc_file | cut -d "=" -f 2`
+else
+    proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    dem_dir_ga=`grep DEM_location_GA= $proc_file | cut -d "=" -f 2`
+    dem_name_ga=`grep DEM_name_GA= $proc_file | cut -d "=" -f 2`
+    dem=$dem_dir_ga/$dem_name_ga
+fi
+
+slc_dir=$proj_dir/$track_dir/`grep SLC_dir= $proc_file | cut -d "=" -f 2`
+dem_dir=$proj_dir/$track_dir/`grep DEM_dir= $proc_file | cut -d "=" -f 2`
+
+cd $proj_dir/$track_dir
+
+## Insert scene details top of NCI .e file
+echo "" 1>&2 # adds spaces at top so scene details are clear
+echo "" 1>&2
+echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+
+## Copy output of Gamma programs to log files
+GM()
+{
+    echo $* | tee -a command.log
+    echo
+    $* >> output.log 2> temp_log
+    cat temp_log >> error.log
+    #cat output.log (option to add output results to NCI .o file if required)
+}
+
+## Load GAMMA based on platform
+if [ $platform == NCI ]; then
+    GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
+    source $GAMMA
+else
+    GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
+    source $GAMMA
+fi
+
+mkdir -p $dem_dir
+cd $dem_dir
+
+dem_par=$dem.par
+master_dir=$slc_dir/$master
+slc_name=$master"_"$polar
+
+if [ $multi_look -eq 2 -a $subset == no ]; then
+    mli_name=$master"_"$polar"_0rlks"
+elif [ $multi_look -eq 2 -a $subset == yes -a $subset_done == notyet ]; then # preserve DEM data related to full SLC
+    mli_name=$master"_"$polar"-full_0rlks"
+elif [ $multi_look -eq 2 -a $subset == yes -a $subset_done == process ]; then
+    mli_name=$master"_"$polar"_0rlks"
+else
+    mli_name=$master"_"$polar"_"$rlks"rlks"
+fi
+
+## Files located in master SLC directory
+master_mli=$master_dir/$mli_name.mli
+master_mli_par=$master_mli.par
+master_slc=$master_dir/$slc_name.slc
+master_slc_par=$master_slc.par
+
+cd $master_dir
+
+## Determine range and azimuth looks for multi-looking
+echo " "
+echo "Range and azimuth looks: "$rlks $alks
+echo " "
+
+## Generate subsetted SLC and MLI files using parameters from gamma.proc
+GM SLC_copy $master_slc $master_slc_par r$slc_name.slc r$slc_name.slc.par 1 - $roff $rlines $azoff $azlines
+
+## Reset filenames after subsetting
+master_mli=$master_dir/r$mli_name.mli
+master_mli_par=$master_mli.par
+master_slc=$master_dir/r$slc_name.slc
+master_slc_par=$master_slc.par
+
+GM multi_look $master_slc $master_slc_par $master_mli $master_mli_par $rlks $alks 0
+
+#--------------------------------
+#DEM:
+
+mkdir -p $dem_dir
+cd $dem_dir
+
+# files located in DEM directory
+rdc_dem=$dem_dir/$mli_name"_rdc.dem"
+utm_dem=$dem_dir/$mli_name"_utm.dem"
+utm_dem_par=$utm_dem.par
+lt_rough=$dem_dir/$mli_name"_rough_utm_to_rdc.lt"
+lt_fine=$dem_dir/$mli_name"_fine_utm_to_rdc.lt"
+utm_sim_sar=$dem_dir/$mli_name"_utm.sim"
+rdc_sim_sar=$dem_dir/$mli_name"_rdc.sim"
+diff=$dem_dir/"diff_"$mli_name.par
+lsmap=$dem_dir/$mli_name"_utm.lsmap"
+
+
+## Determine oversampling factor for DEM coregistration
+dem_post=`grep post_lon $dem_par | awk '{printf "%.8f\n", $2}'`
+if [ $(bc <<< "$dem_post <= 0.00011111") -eq 1 ]; then # 0.4 arc second or smaller DEMs
+    ovr=1
+elif [ $(bc <<< "$dem_post <= 0.00027778") -eq 1 ]; then # between 0.4 and 1 arc second DEMs
+    ovr=4
+elif [ $(bc <<< "$dem_post < 0.00083333") -eq 1 ]; then # between 1 and 3 arc second DEMs
+    ovr=4
+elif [ $(bc <<< "$dem_post >= 0.00083333") -eq 1 ]; then # 3 arc second or larger DEMs
+    ovr=8
+else
+    :
+fi
+echo " "
+echo "DEM oversampling factor: "$ovr
+echo " "
+
+
+##Generate DEM coregistered to master SLC in rdc geometry
+
+## Derivation of initial geocoding look-up table and simulated SAR intensity image
+# note: gc_map can produce looking vector grids and shadow and layover maps
+# pre-determine segmented DEM_par by inputting constant height (necessary to avoid a bug in using gc_map)
+
+if [ -e $utm_dem_par ]; then
+    echo " "
+    echo  $utm_dem_par" exists, removing file."
+    echo " "
+    rm -f $utm_dem_par
+fi
+if [ -e $utm_dem ]; then
+    echo " "
+    echo  $utm_dem" exists, removing file."
+    echo " "
+    rm -f $utm_dem
+fi
+GM gc_map $master_mli_par - $dem_par 10. $utm_dem_par $utm_dem $lt_rough $ovr $ovr - - - - - - - 8 1
+# use predetermined dem_par to segment the full DEM
+GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - - - - $lsmap 8 1
+
+
+dem_width=`grep width: $utm_dem_par | awk '{print $2}'`
+master_mli_width=`grep range_samples: $master_mli_par | awk '{print $2}'`
+master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
+
+## Transform simulated SAR intensity image to radar geometry
+GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+
+## Fine coregistration of master MLI and simulated SAR image
+# Make file to input user-defined values from proc file
+returns=$dem_dir/returns
+echo "" > $returns 
+echo "" >> $returns 
+echo $offset_measure >> $returns
+echo $dem_win >> $returns 
+echo $dem_snr >> $returns 
+
+GM create_diff_par $master_mli_par - $diff 1 < $returns
+rm -f $returns
+
+## initial offset estimate
+GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks - - - - $dem_snr - 1 
+
+GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr - - offsets 1 - - -
+#GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr 512 512 offsets 1 16 16 7.0
+
+GM offset_fitm offs snr $diff coffs coffsets
+
+## precision estimation of the registration polynomial
+rwin=`echo $dem_win | awk '{print $1/4}'`
+azwin=`echo $dem_win | awk '{print $1/4}'`
+nr=`echo $offset_measure | awk '{print $1*4}'`
+naz=`echo $offset_measure | awk '{print $1*4}'`
+
+GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr $rwin $azwin offsets 2 $nr $naz -
+#GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr 128 128 offsets 2 64 64 7.0
+
+GM offset_fitm offs snr $diff coffs coffsets
+
+grep "final model fit std. dev." output.log
+#grep "final range offset poly. coeff.:" output.log
+#grep "final azimuth offset poly. coeff.:" output.log
+
+## Refinement of initial geocoding look up table
+GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 0
+
+rm -f $lt_rough offs snr offsets coffs coffsets test1.dat test2.dat
+
+## Geocode map geometry DEM to radar geometry
+GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_length 1 0 - - 2 4 -
+
+## Geocode simulated SAR intensity image to radar geometry
+GM geocode $lt_fine $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+
+## clean up files created for no multi-look
+if [ $multi_look -eq 2 ]; then
+    rm -f $master_mli $master_mli_par
+else
+    :
+fi
+
+
+# script end 
+####################
+
+## Copy errors to NCI error file (.e file)
+if [ $platform == NCI ]; then
+   cat error.log 1>&2
+   rm temp_log
+else
+    $dem_dir/temp_log
+fi

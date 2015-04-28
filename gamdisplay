@@ -1,0 +1,1022 @@
+#!/bin/bash
+
+display_usage() {
+    echo ""
+    echo "*******************************************************************************"
+    echo "* gamdisplay: Script automatically works out which GAMMA display command to   *"
+    echo "*             run based on the input file/s. Works with files with            *"
+    echo "*             extensions:                                                     *"
+    echo "*                                                                             *"
+    echo "*             *.mli, *_utm.mli                                                *" 
+    echo "*             *.slc, *_utm.slc                                                *"
+    echo "*             *.dem, *_rdc.dem                                                *"
+    echo "*             *_rdc.sim, *_utm.sim                                            *"
+    echo "*             *.lt                                                            *"
+    echo "*             *.cc, *_utm.cc                                                  *"
+    echo "*             *.flag, *_utm.flag                                              *"
+    echo "*             *.ras, *_utm.ras                                                *"
+    echo "*             *.int, *_utm.int                                                *"
+    echo "*             *.unw, *_sim.unw, *_utm.unw                                     *"
+    echo "*                                                                             *"
+    echo "* input:   [file_1]   name of file to display                                 *"
+    echo "*          <file_2>   name of second file to display (optional)               *"
+    echo "*          <start>    starting line of SLC (optional, default: 1)             *"
+    echo "*          <nlines>   number of lines to display (optional, default 4000      *"
+    echo "*                     for large files)                                        *"
+    echo "*                                                                             *"
+    echo "* author: Sarah Lawrie @ GA       22/04/2015, v1.0                            *"
+    echo "*******************************************************************************"
+    echo -e "Usage: gamdisplay [file_1] <file_2> <start> <nlines>"
+    }
+
+if [ $# -lt 1 ]
+then 
+    display_usage
+    exit 1
+fi
+
+file1=$1
+
+if [ $# -eq 2 ]; then
+    file2=$2
+fi
+
+# Identify file extension
+file1_ext=`echo $file1 | awk -F . '{if (NF>1) {print $NF}}'`
+file2_ext=`echo $file2 | awk -F . '{if (NF>1) {print $NF}}'`
+
+# Display MLI (*.mli, *_utm.mli)
+if [ $file1_ext == mli ]; then
+    file_name1=`echo $file1 | cut -d'.' -f1`
+    file_name2=`echo $file2 | cut -d'.' -f1`
+    mli_type=`echo $file_name1 | sed 's#.*_##'`
+    lks1=`echo $file_name1 | awk -F _ '{print $3}'`
+    lks2=`echo $file_name2 | awk -F _ '{print $3}'`
+    if [ $mli_type == utm ]; then
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width1=`grep width: $width_file | awk '{print $2}'`
+	    lines=`grep nlines: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disrmg $file1 - $width1 $start - $nlines - - - -
+	else # two files
+	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width1=`grep width: $width_file1 | awk '{print $2}'`
+	    width2=`grep width: $width_file2 | awk '{print $2}'`
+	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
+	    lines2=`grep nlines: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2rmg $file1 $file2 $width1 $width2 $start $nlines - - - - 
+	fi
+    else # *.mli files 
+	if [ -z $file2_ext ]; then # if no second file
+	    width1=`grep range_samples: $file1.par | awk '{print $2}'`
+	    lines=`grep azimuth_lines: $file1.par | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dispwr $file1 $width1 $start $nlines - - 0
+	else # two files
+	    width1=`grep range_samples: $file1.par | awk '{print $2}'` 
+	    width2=`grep range_samples: $file2.par | awk '{print $2}'`
+	    lines1=`grep azimuth_lines: $file1.par | awk '{print $2}'`
+	    lines2=`grep azimuth_lines: $file2.par | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2pwr $file1 $file2 $width1 $width2 $start $nlines - - - - 0
+	fi
+     fi
+else
+    :
+fi
+
+
+# Display SLC (*.slc)
+if [ $file1_ext == slc ]; then
+    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
+    file_name1=`echo $file1 | cut -d'.' -f1`
+    file_name2=`echo $file2 | cut -d'.' -f1`
+    slc_type=`echo $file_name1 | sed 's#.*_##'`
+    lks1=0rlks
+    lks2=0rlks
+    if [ $slc_type == utm ]; then
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width1=`grep width: $width_file | awk '{print $2}'`
+	    lines=`grep nlines: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disrmg $file1 - $width1 $start - $nlines - - - -
+	else # two files
+	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width1=`grep width: $width_file1 | awk '{print $2}'`
+	    width2=`grep width: $width_file2 | awk '{print $2}'`
+	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
+	    lines2=`grep nlines: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2rmg $file1 $file2 $width1 $width2 $start $nlines - - - - 
+	fi
+     else # *.slc files
+	if [ -z $file2_ext ]; then # if no second file
+	    width1=`grep range_samples: $file1.par | awk '{print $2}'`
+	    format1=`grep image_format: $file1.par | awk '{print $2}'`
+	    if [ $format1 == FCOMPLEX ]; then
+		type=0
+	    else
+		type=1 # for SCOMPLEX
+	    fi
+	    lines=`grep azimuth_lines: $file1.par | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disSLC $file1 $width1 $start $nlines - - $type
+	else # two files
+	    width1=`grep range_samples: $file1.par | awk '{print $2}'`
+	    width2=`grep range_samples: $file2.par | awk '{print $2}'`
+	    format1=`grep image_format: $file1.par | awk '{print $2}'`
+	    format2=`grep image_format: $file2.par | awk '{print $2}'`
+	    if [ $format1 == FCOMPLEX -a $format2 == FCOMPLEX ]; then
+		type=0
+	    else
+		type=1 # for SCOMPLEX
+	    fi
+	    lines1=`grep azimuth_lines: $file1.par | awk '{print $2}'`
+	    lines2=`grep azimuth_lines: $file2.par | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2SLC $file1 $file2 $width1 $width2 $start $nlines - - - - $type
+	fi
+    fi
+else
+    :
+fi
+
+# Display DEM files (*.dem, *rdc.dem, *utm.dem, *.lt, *.sim)
+if [ $file1_ext == dem ]; then
+    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
+    file_name1=`echo $file1 | cut -d'.' -f1`
+    file_name2=`echo $file2 | cut -d'.' -f1`
+    dem_type=`echo $file_name1 | sed 's#.*_##'`
+    lks1=`echo $file_name1 | awk -F _ '{print $3}'`
+    lks2=`echo $file_name2 | awk -F _ '{print $3}'`
+    if [ $dem_type == rdc ]; then
+    if [ -z $file2_ext ]; then # if no second file
+	width_file=$proj_dir/DEM/"diff"*$lks1.par
+	width1=`grep range_samp_1: $width_file | awk '{print $2}'`
+	lines=`grep az_samp_1: $width_file | awk '{print $2}'`
+	if [ $# -lt 4 -a $lines -gt 4000 ]; then
+	    echo  " "
+	    echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+	    echo  " "
+	    start=1
+	    nlines=4000
+	elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+	    start=$3
+	    nlines=$4
+	else
+	    start=1
+	    nlines=-
+	fi
+	dishgt $file1 - $width1 $start - $nlines - - -
+    else # two files
+	width_file1=$proj_dir/DEM/"diff"*$lks1.par
+	width_file2=$proj_dir/DEM/"diff"*$lks2.par
+	width1=`grep range_samp_1: $width_file1 | awk '{print $2}'`
+	width2=`grep range_samp_1: $width_file2 | awk '{print $2}'`
+	lines1=`grep az_samp_1: $width_file1 | awk '{print $2}'`
+	lines2=`grep az_samp_1: $width_file2 | awk '{print $2}'`
+	if [ "$lines1" -gt "$lines2" ]; then
+	    lines=$lines1
+	else
+	    lines=$lines2
+	fi
+	if [ $# -lt 4 -a $lines -gt 4000 ]; then
+	    echo  " "
+	    echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+	    echo  " "
+	    start=1
+	    nlines=4000
+	elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+	    start=$3
+	    nlines=$4
+	else
+	    start=1
+	    nlines=-
+	fi
+	dis2hgt $file1 $file2 $width1 $width2 $start $nlines
+    fi
+    elif [ $dem_type == utm ]; then
+	lines=`grep nlines: $file1.par | awk '{print $2}'`
+	if [ $# -lt 4 -a $lines -gt 4000 ]; then
+	    echo  " "
+	    echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+	    echo  " "
+	    start=1
+	    nlines=4000
+	elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+	    start=$3
+	    nlines=$4
+	else
+	    start=1
+	    nlines=-
+	fi
+	disdem_par $file1 $file1.par $start $nlines - - -
+    else # .dem files
+	lines=`grep nlines: $file1.par | awk '{print $2}'`
+	if [ $# -lt 4 -a $lines -gt 4000 ]; then
+	    echo  " "
+	    echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+	    echo  " "
+	    start=1
+	    nlines=4000
+	elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+	    start=$3
+	    nlines=$4
+	else
+	    start=1
+	    nlines=-
+	fi
+	disdem_par $file1 $file1.par $start $nlines - - - 
+    fi
+else
+    :
+fi
+if [ $file1_ext == lt ]; then
+    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
+    file_name1=`echo $file1 | cut -d'.' -f1`
+    file_name2=`echo $file2 | cut -d'.' -f1`
+    dem_type=`echo $file_name1 | sed 's#.*_##'`
+    lks1=`echo $file_name1 | awk -F _ '{print $3}'`
+    lks2=`echo $file_name2 | awk -F _ '{print $3}'`
+    if [ -z $file2_ext ]; then # if no second file
+	width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	width1=`grep width: $width_file | awk '{print $2}'`
+	lines=`grep nlines: $width_file | awk '{print $2}'`
+	if [ $# -lt 4 -a $lines -gt 4000 ]; then
+	    echo  " "
+	    echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+	    echo  " "
+	    start=1
+	    nlines=4000
+	elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+	    start=$3
+	    nlines=$4
+	else
+	    start=1
+	    nlines=-
+	fi
+	dismph $file1 $width1 $start $nlines - - 0
+    else # two files
+	width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	width1=`grep width: $width_file1 | awk '{print $2}'`
+	width2=`grep width: $width_file2 | awk '{print $2}'`
+	lines1=`grep nlines: $width_file1 | awk '{print $2}'`
+	lines2=`grep nlines: $width_file2 | awk '{print $2}'`
+	if [ "$lines1" -gt "$lines2" ]; then
+	    lines=$lines1
+	else
+	    lines=$lines2
+	fi
+	if [ $# -lt 4 -a $lines -gt 4000 ]; then
+	    echo  " "
+	    echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+	    echo  " "
+	    start=1
+	    nlines=4000
+	elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+	    start=$3
+	    nlines=$4
+	else
+	    start=1
+	    nlines=-
+	fi
+	dis2mph $file1 $file2 $width1 $width2 $start $nlines - - - -
+    fi
+else
+    :
+fi
+if [ $file1_ext == sim ]; then
+    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
+    file_name1=`echo $file1 | cut -d'.' -f1`
+    file_name2=`echo $file2 | cut -d'.' -f1`
+    dem_type=`echo $file_name1 | sed 's#.*_##'`
+    lks1=`echo $file_name1 | awk -F _ '{print $3}'`
+    lks2=`echo $file_name2 | awk -F _ '{print $3}'`
+    if [ $dem_type == rdc ]; then
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/"diff"*$lks1.par
+	    width1=`grep range_samp_1: $width_file | awk '{print $2}'`
+	    lines=`grep az_samp_1: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dispwr $file1 $width1 $start $nlines - - 0
+	else # two files
+	    width_file1=$proj_dir/DEM/"diff"*$lks1.par
+	    width_file2=$proj_dir/DEM/"diff"*$lks2.par
+	    width1=`grep range_samp_1: $width_file1 | awk '{print $2}'`
+	    width2=`grep range_samp_1: $width_file2 | awk '{print $2}'`
+	    lines1=`grep az_samp_1: $width_file1 | awk '{print $2}'`
+	    lines2=`grep az_samp_1: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2pwr $file1 $file2 $width1 $width2 $start $nlines - - - - 0
+	fi
+    elif [ $dem_type == utm ]; then
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width1=`grep width: $width_file | awk '{print $2}'`
+	    lines=`grep nlines: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dispwr $file1 $width1 $start $nlines - - 0
+	else # two files
+	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width1=`grep width: $width_file1 | awk '{print $2}'`
+	    width2=`grep width: $width_file2 | awk '{print $2}'`
+	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
+	    lines2=`grep nlines: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2pwr $file1 $file2 $width1 $width2 $start $nlines - - - - 0
+	fi
+    else
+	:
+    fi
+else
+    :
+fi
+
+
+# Display coherence file (*.cc)
+if [ $file1_ext == cc ]; then
+    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
+    file_name1=`echo $file1 | cut -d'.' -f1`
+    file_name2=`echo $file2 | cut -d'.' -f1`
+    cc_type=`echo $file_name1 | sed 's#.*_##'`
+    lks1=`echo $file_name1 | awk -F _ '{print $3}'`
+    lks2=`echo $file_name2 | awk -F _ '{print $3}'`
+    if [ $cc_type == utm ]; then
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width1=`grep width: $width_file | awk '{print $2}'`
+	    lines=`grep nlines: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disrmg $file1 - $width1 $start - $nlines - - - -
+	else # two files
+	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width1=`grep width: $width_file1 | awk '{print $2}'`
+	    width2=`grep width: $width_file2 | awk '{print $2}'`
+	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
+	    lines2=`grep nlines: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2rmg $file1 $file2 $width1 $width2 $start $nlines - - - - 
+	fi
+    else # *.cc files
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/"diff"*$lks1.par
+	    width1=`grep range_samp_1: $width_file | awk '{print $2}'`
+	    lines=`grep az_samp_1: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    discc $file1 - $width1 $start - $nlines - - - -
+	else # two files
+	    width_file1=$proj_dir/DEM/"diff"*$lks1.par
+	    width_file2=$proj_dir/DEM/"diff"*$lks2.par
+	    width1=`grep range_samp_1: $width_file1 | awk '{print $2}'`
+	    width2=`grep range_samp_1: $width_file2 | awk '{print $2}'`
+	    lines1=`grep az_samp_1: $width_file1 | awk '{print $2}'`
+	    lines2=`grep az_samp_1: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2cc $file1 $file2 $width1 $width2 $start $nlines - - - -    
+	fi
+    fi
+else
+    :
+fi
+
+# Display flag file (*.flag, *_utm.flag)
+if [ $file1_ext == flag ]; then
+    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
+    file_name1=`echo $file1 | cut -d'.' -f1`
+    file_name2=`echo $file2 | cut -d'.' -f1`
+    flag_type=`echo $file_name1 | sed 's#.*_##'`
+    lks1=`echo $file_name1 | awk -F _ '{print $3}'`
+    lks2=`echo $file_name2 | awk -F _ '{print $3}'`
+    if [ $flag_type == utm ]; then
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width1=`grep width: $width_file | awk '{print $2}'`
+	    lines=`grep nlines: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disrmg $file1 - $width1 $start - $nlines - - - -
+	else # two files
+	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width1=`grep width: $width_file1 | awk '{print $2}'`
+	    width2=`grep width: $width_file2 | awk '{print $2}'`
+	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
+	    lines2=`grep nlines: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2rmg $file1 $file2 $width1 $width2 $start $nlines - - - - 
+	fi
+    else # *.flag files
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/"diff"*$lks1.par
+	    width1=`grep range_samp_1: $width_file | awk '{print $2}'`
+	    lines=`grep az_samp_1: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disflag $file1 $width1 $start $nlines
+	else # no second file option
+	    :
+	fi
+    fi
+else
+    :
+fi
+
+# Display raster files (*.ras)
+if [ $file1_ext == ras ]; then
+    file_name1=`echo $file1 | cut -d'.' -f1`
+    file_name2=`echo $file2 | cut -d'.' -f1`
+    ras_type=`echo $file_name1 | sed 's#.*_##'`
+    lks1=`echo $file_name1 | awk -F _ '{print $3}'`
+    lks2=`echo $file_name2 | awk -F _ '{print $3}'`
+    if [ $ras_type == utm ]; then
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width1=`grep width: $width_file | awk '{print $2}'`
+	    lines=`grep nlines: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disrmg $file1 - $width1 $start - $nlines - - - -
+	else # two files
+	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width1=`grep width: $width_file1 | awk '{print $2}'`
+	    width2=`grep width: $width_file2 | awk '{print $2}'`
+	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
+	    lines2=`grep nlines: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2rmg $file1 $file2 $width1 $width2 $start $nlines - - - - 
+	fi
+    else # *.ras files 
+	if [ -z $file2_ext ]; then # if no second file
+	    disras $file1 - -
+	else # two files
+	    dis2ras $file1 $file2 - -
+	fi
+    fi
+else
+    :
+fi
+
+# Display interferogram (*.int)
+if [ $file1_ext == int ]; then
+    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
+    file_name1=`echo $file1 | cut -d'.' -f1`
+    file_name2=`echo $file2 | cut -d'.' -f1`
+    int_type=`echo $file_name1 | sed 's#.*_##'`
+    lks1=`echo $file_name1 | awk -F _ '{print $3}'`
+    lks2=`echo $file_name2 | awk -F _ '{print $3}'`
+    if [ $int_type == utm ]; then
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width1=`grep width: $width_file | awk '{print $2}'`
+	    lines=`grep nlines: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disrmg $file1 - $width1 $start - $nlines - - - -
+	else # two files
+	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width1=`grep width: $width_file1 | awk '{print $2}'`
+	    width2=`grep width: $width_file2 | awk '{print $2}'`
+	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
+	    lines2=`grep nlines: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2rmg $file1 $file2 $width1 $width2 $start $nlines - - - - 
+	fi
+    else # *.int files 
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/"diff"*$lks1.par
+	    width1=`grep range_samp_1: $width_file | awk '{print $2}'`
+	    lines=`grep az_samp_1: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dismph $file1 $width1 $start $nlines - - 0
+	else # two files
+	    width_file1=$proj_dir/DEM/"diff"*$lks1.par
+	    width_file2=$proj_dir/DEM/"diff"*$lks2.par
+	    width1=`grep range_samp_1: $width_file1 | awk '{print $2}'`
+	    width2=`grep range_samp_1: $width_file2 | awk '{print $2}'`
+	    lines1=`grep az_samp_1: $width_file1 | awk '{print $2}'`
+	    lines2=`grep az_samp_1: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2mph $file1 $file2 $width1 $width2 $start $nlines - - - -    
+	fi
+    fi
+else
+    :
+fi
+
+# Display unwrapped interferograms (*.unw)
+if [ $file1_ext == unw ]; then
+    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
+    file_name1=`echo $file1 | cut -d'.' -f1`
+    file_name2=`echo $file2 | cut -d'.' -f1`
+    unw_type=`echo $file_name1 | sed 's#.*_##'`
+    lks1=`echo $file_name1 | awk -F _ '{print $3}'`
+    lks2=`echo $file_name2 | awk -F _ '{print $3}'`
+    if [ $unw_type == sim ]; then
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/"diff"*$lks1.par
+	    width1=`grep range_samp_1: $width_file | awk '{print $2}'`
+	    lines=`grep az_samp_1: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disrmg $file1 - $width1 $start - $nlines - - - -
+	else # two files
+	    width_file1=$proj_dir/DEM/"diff"*$lks1.par
+	    width_file2=$proj_dir/DEM/"diff"*$lks2.par
+	    width1=`grep range_samp_1: $width_file1 | awk '{print $2}'`
+	    width2=`grep range_samp_1: $width_file2 | awk '{print $2}'`
+	    lines1=`grep az_samp_1: $width_file1 | awk '{print $2}'`
+	    lines2=`grep az_samp_1: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2rmg $file1 $file2 $width1 $width2 $start $nlines - - - - 
+	fi
+    elif [ $unw_type == utm ]; then
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width1=`grep width: $width_file | awk '{print $2}'`
+	    lines=`grep nlines: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disrmg $file1 - $width1 $start - $nlines - - - -
+	else # two files
+	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width1=`grep width: $width_file1 | awk '{print $2}'`
+	    width2=`grep width: $width_file2 | awk '{print $2}'`
+	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
+	    lines2=`grep nlines: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2rmg $file1 $file2 $width1 $width2 $start $nlines - - - - 
+	fi
+    else # *.unw files 
+	if [ -z $file2_ext ]; then # if no second file
+	    width_file=$proj_dir/DEM/"diff"*$lks1.par
+	    width1=`grep range_samp_1: $width_file | awk '{print $2}'`
+	    lines=`grep az_samp_1: $width_file | awk '{print $2}'`
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    disrmg $file1 - $width1 $start - $nlines - - - -
+	else # two files
+	    width_file1=$proj_dir/DEM/"diff"*$lks1.par
+	    width_file2=$proj_dir/DEM/"diff"*$lks2.par
+	    width1=`grep range_samp_1: $width_file1 | awk '{print $2}'`
+	    width2=`grep range_samp_1: $width_file2 | awk '{print $2}'`
+	    lines1=`grep az_samp_1: $width_file1 | awk '{print $2}'`
+	    lines2=`grep az_samp_1: $width_file2 | awk '{print $2}'`
+	    if [ "$lines1" -gt "$lines2" ]; then
+		lines=$lines1
+	    else
+		lines=$lines2
+	    fi
+	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
+		echo  " "
+		echo "Image length is "$lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+		echo  " "
+		start=1
+		nlines=4000
+	    elif [ $# -eq 4 -a $lines -gt 4000 ]; then
+		start=$3
+		nlines=$4
+	    else
+		start=1
+		nlines=-
+	    fi
+	    dis2rmg $file1 $file2 $width1 $width2 $start $nlines - - - - 
+	fi
+    fi
+else
+    :
+fi
+
