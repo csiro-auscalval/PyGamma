@@ -53,7 +53,7 @@ finish=`grep ifm_end= $proc_file | cut -d "=" -f 2`
 tif_flag=`grep create_geotif= $proc_file | cut -d "=" -f 2`
 
 
-if [ $begin == INT -o $begin == FLAT -o $begin == FILT -o $begin == UNW ]; then 
+if [ $begin == INT -o $begin == FLAT -o $begin == FILT -o $begin == UNW -o $begin == GEOCODE ]; then 
     :
 else
     echo " "
@@ -61,7 +61,7 @@ else
     echo " "
     exit 1
 fi
-if [ $finish == FLAT -o $finish == FILT -o $finish == UNW -o $finish == DONE ]; then 
+if [ $finish == FLAT -o $finish == FILT -o $finish == UNW -o $finish == GEOCODE -o $finish == DONE ]; then 
     :
 else
     echo " "
