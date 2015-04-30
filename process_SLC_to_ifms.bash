@@ -9,7 +9,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       22/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       30/04/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_SLC_to_ifms.bash [proc_file]"
     }
@@ -51,6 +51,9 @@ azoff=`grep azimuth_offset= $proc_file | cut -d "=" -f 2`
 azlines=`grep azimuth_lines= $proc_file | cut -d "=" -f 2`
 raw_dir_ga=`grep Raw_data_GA= $proc_file | cut -d "=" -f 2`
 raw_dir_mdss=`grep Raw_data_MDSS= $proc_file | cut -d "=" -f 2`
+list_walltime=`grep list_walltime= $proc_file | cut -d "=" -f 2`
+list_mem=`grep list_mem= $proc_file | cut -d "=" -f 2`
+list_ncpus=`grep list_ncpus= $proc_file | cut -d "=" -f 2`
 raw_walltime=`grep raw_walltime= $proc_file | cut -d "=" -f 2`
 raw_mem=`grep raw_mem= $proc_file | cut -d "=" -f 2`
 raw_ncpus=`grep raw_ncpus= $proc_file | cut -d "=" -f 2`
@@ -72,7 +75,7 @@ geo_ncpus=`grep geo_ncpus= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
@@ -167,39 +170,7 @@ if [ $do_setup == yes -a $platform == GA ]; then
 # create scenes.list file
     cd $raw_dir_ga
     echo "Creating scenes list file..."
-    if [ -f $frame_list ]; then 
-	while read frame; do
-	    if [ ! -z $frame ]; then 
-		cd $raw_dir_ga/F$frame
-		ls *.tar.gz > tar_list
-		if [ -f date_list ]; then # remove old file, just adding to it not creating a new one
-		    rm -rf date_list
-		fi
-		while read list; do
-		    if [ ! -z $list ]; then
-			date=`echo $list | awk '{print substr($1,1,8)}'`
-			echo $date >> date_list
-		    fi
-		done < tar_list
-		sort -n date_list > $scene_list
-		rm -rf tar_list date_list
-	    fi
-	done < $frame_list
-    else
-	cd $raw_dir_ga
-	ls *.tar.gz > tar_list
-	if [ -f date_list ]; then # remove old file, just adding to it not creating a new one
-	    rm -rf date_list
-	fi
-	while read list; do
-	    if [ ! -z $list ]; then
-		date=`echo $list | awk '{print substr($1,1,8)}'`
-		echo $date >> date_list
-	    fi
-	done < tar_list
-	sort -n date_list > $scene_list
-	rm -rf tar_list date_list
-    fi
+    create_scenes_list.bash $proj_dir/$proc_file
 # create slaves.list file
     cd $proj_dir/$track_dir
     echo "Creating slaves list file..."
@@ -216,21 +187,65 @@ elif [ $do_setup == no -a $platform == GA ]; then
 ## NCI ###
 elif [ $do_setup == yes -a $platform == NCI ]; then
     cd $proj_dir
-    mkdir $track_dir # GAMMA processing directory
-    mkdir $track_dir/batch_scripts # for PBS jobs
-    mkdir gamma_dem # DEM data directory
-    mkdir raw_data # raw data directory
-    mkdir raw_data/$track_dir
-    if [ -f $frame_list ]; then
+    mkdir -p $track_dir # GAMMA processing directory
+    mkdir -p $track_dir/batch_scripts # for PBS jobs
+    mkdir -p gamma_dem # DEM data directory
+    mkdir -p raw_data # raw data directory
+    mkdir -p raw_data/$track_dir
+    if [ -f frame.list ]; then
 	while read frame; do
 	    if [ ! -z $frame ]; then # skips any empty lines
-		mkdir raw_data/$track_dir/F$frame
+		mkdir -p raw_data/$track_dir/F$frame
 	    fi
-	done < $frame_list
+	done < frame.list
     else
 	:
     fi
-    mv $frame_list $track_dir
+    if [ -f frame.list ]; then
+	mv frame.list $track_dir
+    else
+	:
+    fi
+# create scenes.list file
+    cd $proj_dir/$track_dir/batch_scripts
+    sc_list=sc_list_gen
+    echo \#\!/bin/bash > $sc_list
+    echo \#\PBS -lother=gdata1 >> $sc_list
+    echo \#\PBS -l walltime=$list_walltime >> $sc_list
+    echo \#\PBS -l mem=$list_mem >> $sc_list
+    echo \#\PBS -l ncpus=$list_ncpus >> $sc_list
+    echo \#\PBS -l wd >> $sc_list
+    echo \#\PBS -q copyq >> $sc_list
+    echo ~/repo/gamma_bash/create_scenes_list.bash $proj_dir/$proc_file >> $sc_list
+    chmod +x $sc_list
+    qsub $sc_list | tee sc_list_job_id
+# create slaves.list file
+    sc_list_jobid=`sed s/.r-man2// sc_list_job_id`
+    slv_list=slv_list_gen
+    echo \#\!/bin/bash > $slv_list
+    echo \#\PBS -lother=gdata1 >> $slv_list
+    echo \#\PBS -l walltime=$list_walltime >> $slv_list
+    echo \#\PBS -l mem=$list_mem >> $slv_list
+    echo \#\PBS -l ncpus=$list_ncpus >> $slv_list
+    echo \#\PBS -l wd >> $slv_list
+    echo \#\PBS -q express >> $slv_list
+    echo \#\PBS -W depend=afterok:$sc_list_jobid >> $slv_list
+    echo ~/repo/gamma_bash/create_slaves_list.bash $proj_dir/$proc_file >> $slv_list
+    chmod +x $slv_list
+    qsub $slv_list
+# create ifms.list file
+    ifm_list=ifm_list_gen
+    echo \#\!/bin/bash > $ifm_list
+    echo \#\PBS -lother=gdata1 >> $ifm_list
+    echo \#\PBS -l walltime=$list_walltime >> $ifm_list
+    echo \#\PBS -l mem=$list_mem >> $ifm_list
+    echo \#\PBS -l ncpus=$list_ncpus >> $ifm_list
+    echo \#\PBS -l wd >> $ifm_list
+    echo \#\PBS -q express >> $ifm_list
+    echo \#\PBS -W depend=afterok:$sc_list_jobid >> $ifm_list
+    echo ~/repo/gamma_bash/create_ifms_list.bash $proj_dir/$proc_file >> $ifm_list
+    chmod +x $ifm_list
+    qsub $ifm_list
 else
     :
 fi
@@ -238,7 +253,7 @@ fi
 
 ##### EXTRACT RAW AND DEM DATA #####
 
-## GA ## raw data only (DEM already in right format for processing)
+## GA ## raw data only - DEM already in right format for processing
 if [ $do_raw == yes -a $platform == GA ]; then
     echo "Extracting raw data..."
     echo " "
@@ -298,7 +313,8 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     echo \#\PBS -l ncpus=$raw_ncpus >> $raw
     echo \#\PBS -l wd >> $raw
     echo \#\PBS -q copyq >> $raw
-    echo /home/547/mcg547/dg9-apps/GAMMA/gamma_scripts/extract_nci_raw_data.bash $proc_file >> $raw
+    user=`echo $USER | awk '{print $1}'`
+    echo $user/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file >> $raw
     chmod +x $raw
     qsub $raw 
 # extract dem from MDSS
@@ -310,7 +326,8 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     echo \#\PBS -l ncpus=$raw_ncpus >> $dem
     echo \#\PBS -l wd >> $dem
     echo \#\PBS -q copyq >> $dem
-    echo /home/547/mcg547/dg9-apps/GAMMA/gamma_scripts/make_GAMMA_DEM.bash $proc_file >> $dem
+    user=`echo $USER | awk '{print $1}'`
+    echo $user/repo/gamma_bash/make_GAMMA_DEM.bash $proj_dir/$proc_file >> $dem
     chmod +x $dem
     qsub $dem
 else

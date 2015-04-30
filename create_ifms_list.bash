@@ -8,7 +8,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       25/03/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       30/04/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: create_ifms_list.bash [proc_file]"
     }
@@ -31,7 +31,7 @@ do_add_ifms=`grep Process_add_ifms= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
