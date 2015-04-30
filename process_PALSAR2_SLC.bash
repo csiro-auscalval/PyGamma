@@ -40,6 +40,7 @@ platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
+beam=`grep Beam= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 frame_list=`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 raw_dir_ga=`grep Raw_data_GA= $proc_file | cut -d "=" -f 2`
@@ -94,99 +95,123 @@ cd $slc_dir
 mkdir -p $scene
 cd $scene_dir
 
-raw_file_list=raw_file_list
-rm -f $scene_dir/$raw_file_list 
+#raw_file_list=raw_file_list
+#rm -f $scene_dir/$raw_file_list 
 
 ## File names
 slc_name=$scene"_"$polar
 mli_name=$scene"_"$polar"_"$slc_rlks"rlks"
-sensor_antpat=$MSP_HOME/sensors/palsar_ant_20061024.dat
-msp_antpat="PALSAR_antpat_MSP_"$polar.dat
-sensor_par="PALSAR_sensor_"$polar.par
-msp_par="p"$slc_name.slc.par
 para=$slc_name"_SLC_parameters.txt"
-raw=$slc_name.raw
 slc=$slc_name.slc
 slc_par=$slc.par
 mli=$mli_name.mli
 mli_par=$mli.par
 tiff=$mli_name.tif
 ras_out=$mli_name.ras
+fbd2fbs_slc=$slc_name"_FBS.slc"
+fbd2fbs_par=p$slc_name"_FBS.slc.par"
 
+## Set mode based on polarisation
+pol_list=$scene_dir/pol_list
+rm -f $pol_list
 
-## Produce SLC data files
-while read frame_num; do
-    if [ ! -z $frame_num ]; then
-	frame=`echo $frame_num | awk '{print $1}'`
-	ls $raw_dir/F$frame/date_dirs/$scene/LED-ALP* >& temp
-	LED=`awk '{print $1}' temp`
-	rm -f temp
-        # Check polarisation
-	if [ $polar == HH ]; then
-	    ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >& temp
-	    IMG=`awk '{print $1}' temp`
-	    rm -f temp
-	else 
-	    ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >& temp
-	    IMG=`awk '{print $1}' temp`
-	    rm -f temp
+if [ ! -e $slc_dir/$scene/$slc ]; then
+    while read frame_num; do
+	if [ ! -z $frame_num ]; then
+	    frame=`echo $frame_num | awk '{print $1}'`
+	    ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >& hh_temp
+	    ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >& hv_temp
+	    temp="ls: cannot access"
+	    temp1=`awk '{print $1" "$2" "$3}' hh_temp`
+	    if [ "$temp1" == "$temp" ]; then
+		:
+	    else
+		basename $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >> $pol_list 
+	    fi
+	    temp2=`awk '{print $1" "$2" "$3}' hv_temp`
+	    if [ "$temp2"  == "$temp" ]; then
+		:
+	    else
+		basename $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >> $pol_list
+	    fi
 	fi
-	
-	par_EORC_PALSAR $LED $slc_par $IMG $slc
+	rm -rf hh_temp hv_temp
+    done < $proj_dir/$track_dir/$frame_list
 
+    num_hv=`grep -co "HV" $pol_list`
+    if [ "$num_hv" -eq 0 -a "$polar" == HH ]; then 
+	mode=FBS
+    elif [ "$num_hv" -ge 1 -a "$polar" == HH ]; then 
+	mode=FBD
+    elif [ $polar == HV ]; then
+	mode=FBD
+    else
+	:
+    fi
+    echo "Mode:" $mode "  Polarisation:" $polar
+    rm -f $pol_list
+
+    ## Produce SLC data files
+    while read frame_num; do
+	if [ ! -z $frame_num ]; then
+	    frame=`echo $frame_num | awk '{print $1}'`
+	    LED=$raw_dir/F$frame/date_dirs/$scene/LED-*
+    	    IMG=$raw_dir/F$frame/date_dirs/$scene/IMG-$polar*$beam*
+            par_EORC_PALSAR $LED $slc_par $IMG $slc
 
 ## Concatenate two SLC files into one SLC - details from SLC_cat ref manual. can only concatenate 2 slcs at a time
 
-create_offset      slc1_par slc2_par *.off 
-init_offset_orbit  slc1_par slc2_par *.off - - 0
-init_offset        slc1 slc2 slc1_par slc2_par *.off 1 1 - - 0 0 - 512 512 1
-offset_pwr         slc1 slc2 slc1_par slc2_par *.off offs snr
-offset_fit         offs snr *.off coffs coffsets 
-SLC_cat            slc1 slc2 slc1_par slc2_par *.off new_slc new_slc_par
+#create_offset      slc1_par slc2_par *.off 
+#init_offset_orbit  slc1_par slc2_par *.off - - 0
+#init_offset        slc1 slc2 slc1_par slc2_par *.off 1 1 - - 0 0 - 512 512 1
+#offset_pwr         slc1 slc2 slc1_par slc2_par *.off offs snr
+#offset_fit         offs snr *.off coffs coffsets 
+#SLC_cat            slc1 slc2 slc1_par slc2_par *.off new_slc new_slc_par
 
 
         ## Generate the processing parameter files and raw data in GAMMA format
-	GM PALSAR_proc $LED $sensor_fm_par $msp_fm_par $IMG $raw_fm_file $tx_pol1 $rx_pol1
+#	GM PALSAR_proc $LED $sensor_fm_par $msp_fm_par $IMG $raw_fm_file $tx_pol1 $rx_pol1
 
         ## Copy raw data file details to text file to check if concatenation of scenes along track is required
-	echo $raw_fm_file $sensor_fm_par $msp_fm_par >> $raw_file_list
-    fi
-done < $proj_dir/$track_dir/$frame_list
+#	echo $raw_fm_file $sensor_fm_par $msp_fm_par >> $raw_file_list
+	fi
+    done < $proj_dir/$track_dir/$frame_list
 
 ## Check if scene concatenation is required (i.e. a scene has more than one frame)
-lines=`awk 'END{print NR}' $raw_file_list`
-if [ $lines -eq 1 ]; then
+#lines=`awk 'END{print NR}' $raw_file_list`
+#if [ $lines -eq 1 ]; then
     ## rename files to enable further processing (remove reference to 'frame' in file names)
-    mv $sensor_fm_par $sensor_par
-    mv $msp_fm_par $msp_par
-    mv $raw_fm_file $raw
-    rm -f $raw_file_list
-else
-
-
-
-
-
-
-
-
-
-
+#    mv $sensor_fm_par $sensor_par
+#    mv $msp_fm_par $msp_par
+#    mv $raw_fm_file $raw
+#    rm -f $raw_file_list
+#else
 
 
     ## Concatenate scenes into one output data file
-    GM cat_raw $raw_file_list $sensor_par $msp_par $raw 1 0 - 
-    rm -f p$scene"_"*"_"$polar.slc.par
-    rm -f "PALSAR_sensor_"*"_"$polar.par
-    rm -f $scene"_"*"_"$polar.raw
-    rm -f $raw_file_list
+#    GM cat_raw $raw_file_list $sensor_par $msp_par $raw 1 0 - 
+#    rm -f p$scene"_"*"_"$polar.slc.par
+#    rm -f "PALSAR_sensor_"*"_"$polar.par
+#    rm -f $scene"_"*"_"$polar.raw
+#    rm -f $raw_file_list
+#fi
+
+    ## FBD to FBS Conversion
+    if [ $polar == HH -a $mode == FBD ]; then
+	GM SLC_ovr $slc $slc_par $fbd2fbs_slc $fbd2fbs_par 2
+	rm -f $slc
+	rm -f $slc_par
+	mv $fbd2fbs_slc $slc
+	mv $fbd2fbs_par $slc_par
+    else
+	:
+    fi
+
+else
+    echo " "
+    echo "Full SLC already created."
+    echo " "
 fi
-
-
-
-
-
-
 
 ## Multi-look SLC
 GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0

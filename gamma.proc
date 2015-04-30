@@ -32,6 +32,8 @@ PALSAR1_data=raw
     # orientation options: ascending, descending
 Orientation=ascending
 Polarisation=HH
+    # Beam to process for Wide-Swath data (PALSAR2 only, otherwise leave blank)
+Beam=
 
 
 ##### Reference Master Scene Details #####
