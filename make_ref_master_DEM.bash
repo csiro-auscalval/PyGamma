@@ -55,6 +55,8 @@ dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
 if [ $platform == NCI ]; then
     proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
     dem_loc_nci=`grep DEM_location_MDSS= $proc_file | cut -d "=" -f 2`
+    dem_name_nci=`grep DEM_name_NCI= $proc_file | cut -d "=" -f 2`
+    dem=
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     dem_dir_ga=`grep DEM_location_GA= $proc_file | cut -d "=" -f 2`

@@ -3,14 +3,14 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* create_slaves_list: Creates a list of slave SLCs based on the SLC scene     *"
-    echo "*                     list and master scene date.                             *"
+    echo "* collate_nci_slc_errors: Collates errors from processing SLCs on the NCI     *"
+    echo "*                         into one file.                                      *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       30/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       01/05/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: create_slaves_list.bash [proc_file]"
+    echo -e "Usage: collate_nci_slc_errors.bash [proc_file]"
     }
 
 if [ $# -lt 1 ]
@@ -26,27 +26,35 @@ platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
-master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
     proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
-    proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    :
 fi
-
-scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
-slave_list=$proj_dir/$track_dir/`grep List_of_slaves= $proc_file | cut -d "=" -f 2`
 
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 
-    ## Create list of slave SLCs
-cd $proj_dir/$track_dir
-sed "/$master/d" $scene_list > $slave_list
 
+cd $proj_dir/$track_dir/batch_scripts
 
-# script end 
-####################
+error_list=$project"_"$track_dir"_slc_errors.list"
+if [ -f $error_list ]; then
+    rm -rf $error_list
+else
+    :
+fi
+
+ls slc_*.e* > list
+while read error; do
+    if [ ! -z $error ]; then
+	less $error > temp
+	paste temp >> $error_list
+	rm -rf temp
+    fi
+done < list
+rm -rf list

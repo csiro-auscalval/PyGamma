@@ -42,6 +42,11 @@ scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f
 slave_list=$proj_dir/$track_dir/`grep List_of_slaves= $proc_file | cut -d "=" -f 2`
 ifm_list=$proj_dir/$track_dir/`grep List_of_ifms= $proc_file | cut -d "=" -f 2`  
 
+## Insert scene details top of NCI .e file
+echo "" 1>&2 # adds spaces at top so scene details are clear
+echo "" 1>&2
+echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+
 ## Identify if doing initial ifm list or updated ifm list with additional scenes
 if [ $do_add_ifms == yes ]; then
     add_scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
@@ -160,5 +165,6 @@ else
     :
 fi
 
-
+# script end 
+####################
 

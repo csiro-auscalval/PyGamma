@@ -9,7 +9,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       30/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       01/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_SLC_to_ifms.bash [proc_file]"
     }
@@ -95,23 +95,23 @@ echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 
 ## Copy output of Gamma programs to log files
-GM()
-{
-    echo $* | tee -a command.log
-    echo
-    $* >> output.log 2> temp_log
-    cat temp_log >> error.log
+#GM()
+#{
+#    echo $* | tee -a command.log
+#    echo
+#    $* >> output.log 2> temp_log
+#    cat temp_log >> error.log
     #cat output.log (option to add output results to NCI .o file if required)
-}
+#}
 
 ## Load GAMMA based on platform
-if [ $platform == NCI ]; then
-    GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
-    source $GAMMA
-else
-    GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
-    source $GAMMA
-fi
+#if [ $platform == NCI ]; then
+#    GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
+#    source $GAMMA
+#else
+#    GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
+#    source $GAMMA
+#fi
 
 slc_dir=$proj_dir/$track_dir/`grep SLC_dir= $proc_file | cut -d "=" -f 2`
 dem_dir=$proj_dir/$track_dir/`grep DEM_dir= $proc_file | cut -d "=" -f 2`
@@ -189,7 +189,6 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
     cd $proj_dir
     mkdir -p $track_dir # GAMMA processing directory
     mkdir -p $track_dir/batch_scripts # for PBS jobs
-    mkdir -p gamma_dem # DEM data directory
     mkdir -p raw_data # raw data directory
     mkdir -p raw_data/$track_dir
     if [ -f frame.list ]; then
@@ -253,47 +252,12 @@ fi
 
 ##### EXTRACT RAW AND DEM DATA #####
 
-## GA ## raw data only - DEM already in right format for processing
+## GA 
 if [ $do_raw == yes -a $platform == GA ]; then
+    cd $proj_dir/$track_dir
     echo "Extracting raw data..."
     echo " "
-    if [ -f $frame_list ]; then 
-	while read frame; do
-	    if [ ! -z $frame ]; then 
-		cd $raw_dir_ga/F$frame
-		mkdir -p date_dirs
-		while read scene; do
-		    tar=`echo $scene*.gz`
-		    if [ ! -z $tar ]; then
-			if [ ! -d $raw_dir_ga/F$frame/date_dirs/$scene ]; then #check if data have already been extracted from tar file
-			    tar -xvzf $tar
-			    mv $scene date_dirs
-			else
-			    echo "Raw data already extracted for F"$frame $scene"."
-			fi
-		    fi
-		done < $scene_list
-	    fi
-	done < $frame_list
-    else
-    cd $raw_dir_ga
-    echo "Extracting raw data..."
-    echo " "
-    mkdir -p date_dirs
-    while read scene; do
-	tar=`echo $scene*.gz`
-	if [ ! -z $tar ]; then
-	    if [ ! -d $raw_dir_ga/date_dirs/$scene ]; then #check if data have already been extracted from tar file
-		tar -xvzf $tar
-		mv $scene date_dirs
-	    else
-		echo "Raw data already extracted for "$scene"."
-	    fi
-	fi
-    done < $scene_list
-    echo " "
-    echo "Raw data extracted for "$project $sensor $track_dir"."
-    fi
+    extract_raw_data.bash $proj_dir/$proc_file
 elif [ $do_raw == no -a $platform == GA ]; then
     echo " "
     echo "Option to extract raw data not selected."
@@ -304,7 +268,6 @@ fi
 ## NCI ##
 if [ $do_raw == yes -a $platform == NCI ]; then
     cd $proj_dir/$track_dir/batch_scripts
-# extract raw data from MDSS
     raw=extract_raw 
     echo \#\!/bin/bash > $raw
     echo \#\PBS -lother=gdata1 >> $raw
@@ -313,23 +276,14 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     echo \#\PBS -l ncpus=$raw_ncpus >> $raw
     echo \#\PBS -l wd >> $raw
     echo \#\PBS -q copyq >> $raw
-    user=`echo $USER | awk '{print $1}'`
-    echo $user/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file >> $raw
+    if [ $do_setup == yes -a $platform == NCI ]; then # needs scene.list to be created first if it doesn't exist
+	echo \#\PBS -W depend=afterok:$sc_list_jobid >> $raw
+    else
+	:
+    fi
+    echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file >> $raw
     chmod +x $raw
-    qsub $raw 
-# extract dem from MDSS
-    dem=extract_dem 
-    echo \#\!/bin/bash > $dem
-    echo \#\PBS -lother=gdata1 >> $dem
-    echo \#\PBS -l walltime=$raw_walltime >> $dem
-    echo \#\PBS -l mem=$raw_mem >> $dem
-    echo \#\PBS -l ncpus=$raw_ncpus >> $dem
-    echo \#\PBS -l wd >> $dem
-    echo \#\PBS -q copyq >> $dem
-    user=`echo $USER | awk '{print $1}'`
-    echo $user/repo/gamma_bash/make_GAMMA_DEM.bash $proj_dir/$proc_file >> $dem
-    chmod +x $dem
-    qsub $dem
+    qsub $raw | tee raw_job_id
 else
     :
 fi
@@ -338,7 +292,7 @@ fi
 ##### CREATE SLC DATA #####
 
 ## GA ##
-if [ $do_slc == yes -a $platform == GA ]; then
+if [ $do_slc == yes ]; then
     if [ $palsar1_data == raw -a $sensor == PALSAR1 ]; then
 	sensor=PALSAR_L0 # PALSAR L1.0 script can process PALSAR1 raw data
     elif [ $palsar1_data == slc -a $sensor == PALSAR1 ]; then
@@ -348,6 +302,8 @@ if [ $do_slc == yes -a $platform == GA ]; then
     else
 	:
     fi
+fi
+if [ $do_slc == yes -a $platform == GA ]; then
     cd $proj_dir
 # consolidate error logs into one file
     err_log=$err_dir/SLC_error.log
@@ -402,6 +358,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
     # set up and submit PBS job script for each SLC
     while read scene; do
 	if [ ! -z $scene ]; then
+	    raw_jobid=`sed s/.r-man2// raw_job_id`
 	    slc_script=slc_$scene
 	    rm -rf $slc_script
 	    echo \#\!/bin/bash > $slc_script
@@ -410,14 +367,19 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l mem=$slc_mem >> $slc_script
 	    echo \#\PBS -l ncpus=$slc_ncpus >> $slc_script
 	    echo \#\PBS -l wd >> $slc_script
-	    echo \#\PBS -q normal >> $slc_script    
-	    echo /home/547/mcg547/dg9-apps/GAMMA/gamma_scripts/"process_"$sensor"_SLC.bash" $proc_file $scene >> $slc_script
+	    echo \#\PBS -q normal >> $slc_script
+	    if [ $do_raw == yes -a $platform == NCI ]; then # needs raw data extracted first if it hasn't already
+		echo \#\PBS -W depend=afterok:$raw_jobid >> $slc_script
+	    else
+		:
+	    fi
+	    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene >> $slc_script
 	    chmod +x $slc_script
-            qsub $slc_script | tee slc_job_id
+#            qsub $slc_script | tee slc_job_id
 	fi
     done < $scene_list
     slc_jobid=`sed s/.r-man2// slc_job_id`
-    slc_errors=slc_error_check
+    slc_errors=slc_err_check
     rm -rf $slc_errors
     echo \#\!/bin/bash > $slc_errors
     echo \#\PBS -lother=gdata1 >> $slc_errors
@@ -427,9 +389,9 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
     echo \#\PBS -l wd >> $slc_errors
     echo \#\PBS -q normal >> $slc_errors
     echo \#\PBS -W depend=afterok:$slc_jobid >> $slc_errors
-    echo /home/547/mcg547/dg9-apps/GAMMA/gamma_scripts/collate_errors_slc.bash $proc_file >> $slc_errors
+    echo ~/repo/gamma_bash/collate_nci_slc_errors.bash $proc_file >> $slc_errors
     chmod +x $slc_errors
-    qsub $slc_errors | tee slc_errors_job_id
+#    qsub $slc_errors | tee slc_errors_job_id
 else
     :
 fi
@@ -1403,9 +1365,9 @@ fi
 ####################
 
 ## Copy errors to NCI error file (.e file)
-if [ $platform == NCI ]; then
-   cat error.log 1>&2
-   rm temp_log
-else
-   :
-fi
+#if [ $platform == NCI ]; then
+#   cat error.log 1>&2
+#   rm temp_log
+#else
+#   :
+#fi

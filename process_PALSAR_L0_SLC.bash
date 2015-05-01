@@ -16,7 +16,7 @@ display_usage() {
     echo "*         [rlks]         MLI range looks                                      *"
     echo "*         [alks]         MLI azimuth looks                                    *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       23/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       01/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_PALSAR_L0_SLC.bash [proc_file] [scene] [rlks] [alks]"
     }
@@ -50,9 +50,11 @@ raw_dir_mdss=`grep Raw_data_MDSS= $proc_file | cut -d "=" -f 2`
 slc_rlks=$3
 slc_alks=$4
 
+
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    raw_dir=$proj_dir/raw_data/$track_dir
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     raw_dir=$raw_dir_ga
