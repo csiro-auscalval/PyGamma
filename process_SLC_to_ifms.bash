@@ -340,9 +340,11 @@ fi
 ## GA ##
 if [ $do_slc == yes -a $platform == GA ]; then
     if [ $palsar1_data == raw -a $sensor == PALSAR1 ]; then
-	sensor=PALSAR1
+	sensor=PALSAR_L0 # PALSAR L1.0 script can process PALSAR1 raw data
     elif [ $palsar1_data == slc -a $sensor == PALSAR1 ]; then
-	sensor=PALSAR2 # PALSAR2 script can process both PALSAR1 and PALSAR2 slc level data
+	sensor=PALSAR_L1 # PALSAR L1.1 script can process both PALSAR1 and PALSAR2 slc level data
+    elif [ $sensor == PALSAR2 ]; then
+        sensor=PALSAR_L1
     else
 	:
     fi

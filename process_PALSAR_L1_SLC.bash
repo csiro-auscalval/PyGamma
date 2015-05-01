@@ -3,12 +3,12 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* process_PALSAR2_SLC: Script takes Level 1.1 PALSAR1 and PALSAR2 data and    *"
-    echo "*                      produces sigma0 calibrated SLC.                        *"
+    echo "* process_PALSAR_L1_SLC: Script takes Level 1.1 PALSAR1 and PALSAR2 data and  *"
+    echo "*                        produces sigma0 calibrated SLC.                      *"
     echo "*                                                                             *"
-    echo "*                      Requires a 'frame.list' text file to be created in     *"
-    echo "*                      the project directory. This lists the frame numbers    *"
-    echo "*                      on each line (e.g. 7160).                              *"
+    echo "*                        Requires a 'frame.list' text file to be created in   *"
+    echo "*                        the project directory. This lists the frame numbers  *"
+    echo "*                        on each line (e.g. 7160).                            *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*         [scene]      scene ID (eg. 20070112)                                *"
@@ -17,7 +17,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       09/04/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: process_PALSAR2_SLC.bash [proc_file] [scene] [rlks] [alks]"
+    echo -e "Usage: process_PALSAR_L1_SLC.bash [proc_file] [scene] [rlks] [alks]"
     }
 
 if [ $# -lt 4 ]
