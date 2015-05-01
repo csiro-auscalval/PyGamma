@@ -105,13 +105,13 @@ echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 #}
 
 ## Load GAMMA based on platform
-#if [ $platform == NCI ]; then
-#    GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
-#    source $GAMMA
-#else
-#    GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
-#    source $GAMMA
-#fi
+if [ $platform == NCI ]; then
+    GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
+    source $GAMMA
+else
+    GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
+    source $GAMMA
+fi
 
 slc_dir=$proj_dir/$track_dir/`grep SLC_dir= $proc_file | cut -d "=" -f 2`
 dem_dir=$proj_dir/$track_dir/`grep DEM_dir= $proc_file | cut -d "=" -f 2`
