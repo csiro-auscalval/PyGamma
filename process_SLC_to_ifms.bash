@@ -1,4 +1,4 @@
-#!/bin/bash
+ #!/bin/bash
 
 display_usage() {
     echo ""
@@ -356,42 +356,42 @@ elif [ $do_slc == no -a $platform == GA ]; then
 elif [ $do_slc == yes -a $platform == NCI ]; then
     cd $proj_dir/$track_dir/batch_scripts
     # set up and submit PBS job script for each SLC
-    while read scene; do
-	if [ ! -z $scene ]; then
-	    raw_jobid=`sed s/.r-man2// raw_job_id`
-	    slc_script=slc_$scene
-	    rm -rf $slc_script
-	    echo \#\!/bin/bash > $slc_script
-	    echo \#\PBS -lother=gdata1 >> $slc_script
-	    echo \#\PBS -l walltime=$slc_walltime >> $slc_script
-	    echo \#\PBS -l mem=$slc_mem >> $slc_script
-	    echo \#\PBS -l ncpus=$slc_ncpus >> $slc_script
-	    echo \#\PBS -l wd >> $slc_script
-	    echo \#\PBS -q normal >> $slc_script
-	    if [ $do_raw == yes -a $platform == NCI ]; then # needs raw data extracted first if it hasn't already
-		echo \#\PBS -W depend=afterok:$raw_jobid >> $slc_script
-	    else
-		:
-	    fi
-	    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene >> $slc_script
-	    chmod +x $slc_script
-#            qsub $slc_script | tee slc_job_id
-	fi
-    done < $scene_list
-    slc_jobid=`sed s/.r-man2// slc_job_id`
-    slc_errors=slc_err_check
-    rm -rf $slc_errors
-    echo \#\!/bin/bash > $slc_errors
-    echo \#\PBS -lother=gdata1 >> $slc_errors
-    echo \#\PBS -l walltime=00:15:00 >> $slc_errors
-    echo \#\PBS -l mem=500MB >> $slc_errors
-    echo \#\PBS -l ncpus=1 >> $slc_errors
-    echo \#\PBS -l wd >> $slc_errors
-    echo \#\PBS -q normal >> $slc_errors
-    echo \#\PBS -W depend=afterok:$slc_jobid >> $slc_errors
-    echo ~/repo/gamma_bash/collate_nci_slc_errors.bash $proc_file >> $slc_errors
-    chmod +x $slc_errors
-#    qsub $slc_errors | tee slc_errors_job_id
+   while read scene; do
+       if [ ! -z $scene ]; then
+	   raw_jobid=`sed s/.r-man2// raw_job_id`
+	   slc_script=slc_$scene
+	   rm -rf $slc_script
+	   echo \#\!/bin/bash > $slc_script
+	   echo \#\PBS -lother=gdata1 >> $slc_script
+	   echo \#\PBS -l walltime=$slc_walltime >> $slc_script
+	   echo \#\PBS -l mem=$slc_mem >> $slc_script
+	   echo \#\PBS -l ncpus=$slc_ncpus >> $slc_script
+	   echo \#\PBS -l wd >> $slc_script
+	   echo \#\PBS -q normal >> $slc_script
+	   if [ $do_raw == yes -a $platform == NCI ]; then # needs raw data extracted first if it hasn't already
+	       echo \#\PBS -W depend=afterok:$raw_jobid >> $slc_script
+	   else
+	       :
+	   fi
+	   echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene >> $slc_script
+	   chmod +x $slc_script
+#           qsub $slc_script | tee slc_job_id
+       fi
+   done < $scene_list
+   slc_jobid=`sed s/.r-man2// slc_job_id`
+   slc_errors=slc_err_check
+   rm -rf $slc_errors
+   echo \#\!/bin/bash > $slc_errors
+   echo \#\PBS -lother=gdata1 >> $slc_errors
+   echo \#\PBS -l walltime=00:15:00 >> $slc_errors
+   echo \#\PBS -l mem=500MB >> $slc_errors
+   echo \#\PBS -l ncpus=1 >> $slc_errors
+   echo \#\PBS -l wd >> $slc_errors
+   echo \#\PBS -q normal >> $slc_errors
+   echo \#\PBS -W depend=afterok:$slc_jobid >> $slc_errors
+   echo ~/repo/gamma_bash/collate_nci_slc_errors.bash $proj_dir/$proc_file >> $slc_errors
+   chmod +x $slc_errors
+#   qsub $slc_errors | tee slc_errors_job_id
 else
     :
 fi
