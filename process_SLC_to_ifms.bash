@@ -7,7 +7,7 @@ display_usage() {
     echo "*                       GAMMA interferogram processing chain (ie. make SLCs,  *"
     echo "*                       coregister DEM, coregister slaves, make ifms).        *"
     echo "*                                                                             *"
-    echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)          xxxxx     *"
+    echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       01/05/2015, v1.0                            *"
     echo "*******************************************************************************"
