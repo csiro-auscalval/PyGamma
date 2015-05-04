@@ -276,11 +276,13 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     echo \#\PBS -l ncpus=$raw_ncpus >> $raw
     echo \#\PBS -l wd >> $raw
     echo \#\PBS -q copyq >> $raw
+    echo "xxxx" >> $raw
     if [ $do_setup == yes -a $platform == NCI ]; then # needs scene.list to be created first if it doesn't exist
 	echo \#\PBS -W depend=afterok:$sc_list_jobid >> $raw
     else
 	:
     fi
+    echo "xxxxx" >> $raw
     echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file >> $raw
     chmod +x $raw
     qsub $raw | tee raw_job_id
