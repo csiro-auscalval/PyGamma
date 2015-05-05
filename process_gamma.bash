@@ -745,6 +745,20 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	    :
 	fi
     done < $slave_list
+    # PBS job for checking slave coregistration
+    co_slc_jobid=`sed s/.r-man2// co_slc_job_id`
+    check_slc=check_slc_coreg
+    echo \#\!/bin/bash > $check_slc
+    echo \#\PBS -lother=gdata1 >> $check_slc
+    echo \#\PBS -l walltime=$coreg_walltime >> $check_slc
+    echo \#\PBS -l mem=$coreg_mem >> $check_slc
+    echo \#\PBS -l ncpus=$coreg_ncpus >> $check_slc
+    echo \#\PBS -l wd >> $check_slc
+    echo \#\PBS -q normal >> $check_slc
+    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $check_slc
+    echo ~/repo/gamma_bash/check_slave_coregistration.bash $proj_dir/$proc_file 1 >> $check_slc
+    chmod +x $check_slc
+#    qsub $check_slc
 else
     :
 fi
@@ -787,7 +801,6 @@ elif [ $do_ifms == no -a $platform == GA ]; then
     echo " "
 ## NCI ##
 elif [ $do_ifms == yes -a $platform == NCI ]; then
-    co_slc_jobid=`sed s/.r-man2// co_slc_job_id`
     cd $proj_dir/$track_dir/batch_scripts
     # set up header for PBS jobs for ifm creation
     if [ -e $ifm_list ]; then ## 190 or less ifms
@@ -805,11 +818,6 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
 		echo \#\PBS -l wd >> $ifm
 		echo \#\PBS -q normal >> $ifm
-		if [ $coregister == yes -a $platform == NCI ]; then
-		    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $ifm
-		else
-		    :
-		fi
 		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
 		chmod +x $ifm
 #		qsub $ifm
@@ -817,8 +825,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	done < $ifm_list    	
     else ## more than 190 ifms (ifms list split into multiple lists)
 	ifm_file_lists=$proj_dir/$track_dir/ifm_files.list
-	
-        # first list (relies on create ifm list to be run first, other lists rely of previous list to run first)
+	# first list (relies on create ifm list to be run first, other lists rely of previous list to run first)
 	first_list=`awk 'NR==1 {print $1}' $ifm_file_lists`
 	while read list; do
 	    if [ ! -z $list ]; then
@@ -836,16 +843,11 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 			echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
 			echo \#\PBS -l wd >> $ifm
 			echo \#\PBS -q normal >> $ifm
-			if [ $coregister == yes -a $platform == NCI ]; then
-			    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $ifm
-			else
-			    :
-			fi
 			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
 			chmod +x $ifm
 			paste $ifm > $first_list"_jobs_listing"
 		    fi
-		done < $list
+		done < $first_list
                 # create script to qsub each PBS job
 		script=$first_list.bash 
 		echo \#\!/bin/bash > $script
@@ -1002,12 +1004,60 @@ if [ $add_slc == yes -a $platform == GA ]; then
     echo " "
     echo "Processing additional SLCs completed."
     echo " "
-elif [ $do_slc == no -a $platform == GA ]; then
+elif [ $add_slc == no -a $platform == GA ]; then
     echo " "
     echo "Option to create additional SLC data not selected."
     echo " "
-elif [ $do_slc == yes -a $platform == NCI ]; then
-    :
+elif [ $add_slc == yes -a $platform == NCI ]; then
+    cd $proj_dir/$track_dir/batch_scripts
+    # extract raw data
+    add_raw=extract_add_raw 
+    echo \#\!/bin/bash > $add_raw
+    echo \#\PBS -lother=gdata1 >> $add_raw
+    echo \#\PBS -l walltime=$raw_walltime >> $add_raw
+    echo \#\PBS -l mem=$raw_mem >> $add_raw
+    echo \#\PBS -l ncpus=$raw_ncpus >> $add_raw
+    echo \#\PBS -l wd >> $add_raw
+    echo \#\PBS -q copyq >> $add_raw
+    echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file >> $add_raw
+    chmod +x $add_raw
+    qsub $add_raw | tee add_raw_job_id
+    # set up and submit PBS job script for each SLC
+    while read scene; do
+	if [ ! -z $scene ]; then
+	    add_raw_jobid=`sed s/.r-man2// add_raw_job_id`
+	    slc_script=slc_$scene
+	    echo \#\!/bin/bash > $slc_script
+	    echo \#\PBS -lother=gdata1 >> $slc_script
+	    echo \#\PBS -l walltime=$slc_walltime >> $slc_script
+	    echo \#\PBS -l mem=$slc_mem >> $slc_script
+	    echo \#\PBS -l ncpus=$slc_ncpus >> $slc_script
+	    echo \#\PBS -l wd >> $slc_script
+	    echo \#\PBS -q normal >> $slc_script
+	    echo \#\PBS -W depend=afterok:$add_raw_jobid >> $slc_script
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $slc_script
+	    else
+		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $slc_script
+		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $slc_script
+	    fi
+	    chmod +x $slc_script
+            qsub $slc_script | tee add_slc_job_id
+	fi
+    done < $add_scene_list
+    slc_jobid=`sed s/.r-man2// add_slc_job_id`
+    slc_errors=slc_err_check
+    echo \#\!/bin/bash > $slc_errors
+    echo \#\PBS -lother=gdata1 >> $slc_errors
+    echo \#\PBS -l walltime=00:10:00 >> $slc_errors
+    echo \#\PBS -l mem=50MB >> $slc_errors
+    echo \#\PBS -l ncpus=1 >> $slc_errors
+    echo \#\PBS -l wd >> $slc_errors
+    echo \#\PBS -q normal >> $slc_errors
+    echo \#\PBS -W depend=afterok:$slc_jobid >> $slc_errors
+    echo ~/repo/gamma_bash/collate_nci_slc_errors.bash $proj_dir/$proc_file >> $slc_errors
+    chmod +x $slc_errors
+    qsub $slc_errors | tee add_slc_errors_job_id
 else
     :
 fi
@@ -1070,7 +1120,53 @@ elif [ $coregister_add == no -a $platform == GA ]; then
     echo " "
 ## NCI ##
 elif [ $coregister_add == yes -a $platform == NCI ]; then
-    :
+    cd $proj_dir/$track_dir
+    cp add_scenes.list add_slaves.list
+    cd $proj_dir/$track_dir/batch_scripts
+    add_slc_jobid=`sed s/.r-man2// add_slc_errors_job_id`
+    fi
+    # set up header for PBS jobs for slave coregistration
+    while read slave; do
+	if [ ! -z $slave ]; then
+	    co_slc=co_slc_$slave
+	    echo \#\!/bin/bash > $co_slc
+	    echo \#\PBS -lother=gdata1 >> $co_slc
+	    echo \#\PBS -l walltime=$coreg_walltime >> $co_slc
+	    echo \#\PBS -l mem=$coreg_mem >> $co_slc
+	    echo \#\PBS -l ncpus=$coreg_ncpus >> $co_slc
+	    echo \#\PBS -l wd >> $co_slc
+	    echo \#\PBS -q normal >> $co_slc
+	    if [ $add_slc == yes -a $platform == NCI ]; then
+		echo \#\PBS -W depend=afterok:$add_slc_jobid >> $co_slc
+	    else
+		:
+	    fi
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks >> $co_slc
+	    else
+		echo ~/repo/gamma_bash/coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks >> $co_slc
+		echo ~/repo/gamma_bash/coregister_slave_SLC.bash $proj_dir/$proc_file $slave $ifm_rlks $ifm_alks >> $co_slc
+	    fi
+	    chmod +x $co_slc
+#	    qsub $co_slc | tee add_co_slc_job_id
+	else	
+	    :
+	fi
+    done < $add_slave_list
+    # PBS job for checking slave coregistration          ###### modify times etc with 1st check coregistration
+    co_slc_jobid=`sed s/.r-man2// add_co_slc_job_id`
+    check_slc=check_add_slc_coreg
+    echo \#\!/bin/bash > $check_slc
+    echo \#\PBS -lother=gdata1 >> $check_slc
+    echo \#\PBS -l walltime=$coreg_walltime >> $check_slc
+    echo \#\PBS -l mem=$coreg_mem >> $check_slc
+    echo \#\PBS -l ncpus=$coreg_ncpus >> $check_slc
+    echo \#\PBS -l wd >> $check_slc
+    echo \#\PBS -q normal >> $check_slc
+    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $check_slc
+    echo ~/repo/gamma_bash/check_slave_coregistration.bash $proj_dir/$proc_file 2 >> $check_slc
+    chmod +x $check_slc
+#    qsub $check_slc | tee check_add_slc_job_id
 else
     :
 fi

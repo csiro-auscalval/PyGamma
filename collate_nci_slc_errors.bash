@@ -8,7 +8,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       01/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       05/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: collate_nci_slc_errors.bash [proc_file]"
     }
