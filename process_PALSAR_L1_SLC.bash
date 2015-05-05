@@ -15,7 +15,7 @@ display_usage() {
     echo "*         [rlks]       MLI range looks                                        *"
     echo "*         [alks]       MLI azimuth looks                                      *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       09/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       05/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_PALSAR_L1_SLC.bash [proc_file] [scene] [rlks] [alks]"
     }
@@ -51,7 +51,8 @@ slc_alks=$4
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    raw_dir=$proj_dir/raw_data/$track_dir
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     raw_dir=$raw_dir_ga
@@ -119,23 +120,42 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     while read frame_num; do
 	if [ ! -z $frame_num ]; then
 	    frame=`echo $frame_num | awk '{print $1}'`
-	    ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >& hh_temp
-	    ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >& hv_temp
-	    temp="ls: cannot access"
-	    temp1=`awk '{print $1" "$2" "$3}' hh_temp`
-	    if [ "$temp1" == "$temp" ]; then
-		:
+	    if [ $platform == GA ]; then
+		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >& hh_temp
+		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >& hv_temp
+		temp="ls: cannot access"
+		temp1=`awk '{print $1" "$2" "$3}' hh_temp`
+		if [ "$temp1" == "$temp" ]; then
+		    :
+		else
+		    basename $raw_dir/F$frame/$scene/IMG-HH* >> $pol_list 
+		fi
+		temp2=`awk '{print $1" "$2" "$3}' hv_temp`
+		if [ "$temp2"  == "$temp" ]; then
+		    :
+		else
+		    basename $raw_dir/F$frame/$scene/IMG-HV* >> $pol_list
+		fi
+		rm -rf hh_temp hv_temp
 	    else
-		basename $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >> $pol_list 
-	    fi
-	    temp2=`awk '{print $1" "$2" "$3}' hv_temp`
-	    if [ "$temp2"  == "$temp" ]; then
-		:
-	    else
-		basename $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >> $pol_list
+		ls $raw_dir/F$frame/$scene/IMG-HH* >& hh_temp
+		ls $raw_dir/F$frame/$scene/IMG-HV* >& hv_temp
+		temp="ls: cannot access"
+		temp1=`awk '{print $1" "$2" "$3}' hh_temp`
+		if [ "$temp1" == "$temp" ]; then
+		    :
+		else
+		    basename $raw_dir/F$frame/$scene/IMG-HH* >> $pol_list 
+		fi
+		temp2=`awk '{print $1" "$2" "$3}' hv_temp`
+		if [ "$temp2"  == "$temp" ]; then
+		    :
+		else
+		    basename $raw_dir/F$frame/$scene/IMG-HV* >> $pol_list
+		fi
+		rm -rf hh_temp hv_temp
 	    fi
 	fi
-	rm -rf hh_temp hv_temp
     done < $proj_dir/$track_dir/$frame_list
 
     num_hv=`grep -co "HV" $pol_list`
@@ -155,9 +175,14 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     while read frame_num; do
 	if [ ! -z $frame_num ]; then
 	    frame=`echo $frame_num | awk '{print $1}'`
-	    LED=$raw_dir/F$frame/date_dirs/$scene/LED-*
-    	    IMG=$raw_dir/F$frame/date_dirs/$scene/IMG-$polar*$beam*
-            par_EORC_PALSAR $LED $slc_par $IMG $slc
+	    if [ $platform == GA ]; then
+		LED=$raw_dir/F$frame/date_dirs/$scene/LED-*
+    		IMG=$raw_dir/F$frame/date_dirs/$scene/IMG-$polar*$beam*
+	    else
+		LED=$raw_dir/F$frame/$scene/LED-*
+    		IMG=$raw_dir/F$frame/$scene/IMG-$polar*$beam*
+	    fi
+	    par_EORC_PALSAR $LED $slc_par $IMG $slc
 
 ## Concatenate two SLC files into one SLC - details from SLC_cat ref manual. can only concatenate 2 slcs at a time
 

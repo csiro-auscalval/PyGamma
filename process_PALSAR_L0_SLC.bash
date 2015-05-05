@@ -127,23 +127,42 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     while read frame_num; do
 	if [ ! -z $frame_num ]; then
 	    frame=`echo $frame_num | awk '{print $1}'`
-	    ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >& hh_temp
-	    ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >& hv_temp
-	    temp="ls: cannot access"
-	    temp1=`awk '{print $1" "$2" "$3}' hh_temp`
-	    if [ "$temp1" == "$temp" ]; then
-		:
+	    if [ $platform == GA ]; then
+		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >& hh_temp
+		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >& hv_temp
+		temp="ls: cannot access"
+		temp1=`awk '{print $1" "$2" "$3}' hh_temp`
+		if [ "$temp1" == "$temp" ]; then
+		    :
+		else
+		    basename $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >> $pol_list 
+		fi
+		temp2=`awk '{print $1" "$2" "$3}' hv_temp`
+		if [ "$temp2"  == "$temp" ]; then
+		    :
+		else
+		    basename $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >> $pol_list
+		fi
+		rm -rf hh_temp hv_temp
 	    else
-		basename $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >> $pol_list 
-	    fi
-	    temp2=`awk '{print $1" "$2" "$3}' hv_temp`
-	    if [ "$temp2"  == "$temp" ]; then
-		:
-	    else
-		basename $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >> $pol_list
+		ls $raw_dir/F$frame/$scene/IMG-HH* >& hh_temp
+		ls $raw_dir/F$frame/$scene/IMG-HV* >& hv_temp
+		temp="ls: cannot access"
+		temp1=`awk '{print $1" "$2" "$3}' hh_temp`
+		if [ "$temp1" == "$temp" ]; then
+		    :
+		else
+		    basename $raw_dir/F$frame/$scene/IMG-HH* >> $pol_list 
+		fi
+		temp2=`awk '{print $1" "$2" "$3}' hv_temp`
+		if [ "$temp2"  == "$temp" ]; then
+		    :
+		else
+		    basename $raw_dir/F$frame/$scene/IMG-HV* >> $pol_list
+		fi
+		rm -rf hh_temp hv_temp
 	    fi
 	fi
-	rm -rf hh_temp hv_temp
     done < $proj_dir/$track_dir/$frame_list
 
     num_hv=`grep -co "HV" $pol_list`
@@ -163,23 +182,39 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     while read frame_num; do
 	if [ ! -z $frame_num ]; then
 	    frame=`echo $frame_num | awk '{print $1}'`
-	    ls $raw_dir/F$frame/date_dirs/$scene/LED-ALP* >& temp
-	    LED=`awk '{print $1}' temp`
-	    rm -f temp
-            # Check polarisation
-	    if [ $polar == HH ]; then
-		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >& temp
-		IMG=`awk '{print $1}' temp`
+	    if [ $platform == GA ]; then
+		ls $raw_dir/F$frame/date_dirs/$scene/LED-ALP* >& temp
+		LED=`awk '{print $1}' temp`
 		rm -f temp
-	    else 
-		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >& temp
-		IMG=`awk '{print $1}' temp`
+                # Check polarisation
+		if [ $polar == HH ]; then
+		    ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >& temp
+		    IMG=`awk '{print $1}' temp`
+		    rm -f temp
+		else 
+		    ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >& temp
+		    IMG=`awk '{print $1}' temp`
+		    rm -f temp
+		fi
+	    else
+		ls $raw_dir/F$frame/$scene/LED-ALP* >& temp
+		LED=`awk '{print $1}' temp`
 		rm -f temp
+                # Check polarisation
+		if [ $polar == HH ]; then
+		    ls $raw_dir/F$frame/$scene/IMG-HH* >& temp
+		    IMG=`awk '{print $1}' temp`
+		    rm -f temp
+		else 
+		    ls $raw_dir/F$frame/$scene/IMG-HV* >& temp
+		    IMG=`awk '{print $1}' temp`
+		    rm -f temp
+		fi
 	    fi
 	    sensor_fm_par="PALSAR_sensor_"$frame"_"$polar.par
 	    msp_fm_par="p"$scene"_"$frame"_"$polar.slc.par
 	    raw_fm_file=$scene"_"$frame"_"$polar.raw
-
+	    
             # Set polarisation (0 = H, 1 = V)
 	    tx_pol=`echo $polar | awk '{print substr($1,1,1)}'`
 	    rx_pol=`echo $polar | awk '{print substr($1,2,1)}'`

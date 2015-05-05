@@ -69,9 +69,7 @@ co_slc_ncpus=`grep coreg_ncpus= $proc_file | cut -d "=" -f 2`
 ifm_walltime=`grep ifm_walltime= $proc_file | cut -d "=" -f 2`
 ifm_mem=`grep ifm_mem= $proc_file | cut -d "=" -f 2`
 ifm_ncpus=`grep ifm_ncpus= $proc_file | cut -d "=" -f 2`
-geo_walltime=`grep geo_walltime= $proc_file | cut -d "=" -f 2`
-geo_mem=`grep geo_mem= $proc_file | cut -d "=" -f 2`
-geo_ncpus=`grep geo_ncpus= $proc_file | cut -d "=" -f 2`
+
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -356,41 +354,815 @@ elif [ $do_slc == no -a $platform == GA ]; then
 elif [ $do_slc == yes -a $platform == NCI ]; then
     cd $proj_dir/$track_dir/batch_scripts
     # set up and submit PBS job script for each SLC
-   while read scene; do
-       if [ ! -z $scene ]; then
-	   raw_jobid=`sed s/.r-man2// raw_job_id`
-	   slc_script=slc_$scene
-	   rm -rf $slc_script
-	   echo \#\!/bin/bash > $slc_script
-	   echo \#\PBS -lother=gdata1 >> $slc_script
-	   echo \#\PBS -l walltime=$slc_walltime >> $slc_script
-	   echo \#\PBS -l mem=$slc_mem >> $slc_script
-	   echo \#\PBS -l ncpus=$slc_ncpus >> $slc_script
-	   echo \#\PBS -l wd >> $slc_script
-	   echo \#\PBS -q normal >> $slc_script
-	   if [ $do_raw == yes -a $platform == NCI ]; then # needs raw data extracted first if it hasn't already
-	       echo \#\PBS -W depend=afterok:$raw_jobid >> $slc_script
-	   else
-	       :
-	   fi
-	   echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene >> $slc_script
-	   chmod +x $slc_script
-#           qsub $slc_script | tee slc_job_id
-       fi
-   done < $scene_list
-   slc_jobid=`sed s/.r-man2// slc_job_id`
-   slc_errors=slc_err_check
-   echo \#\!/bin/bash > $slc_errors
-   echo \#\PBS -lother=gdata1 >> $slc_errors
-   echo \#\PBS -l walltime=00:15:00 >> $slc_errors
-   echo \#\PBS -l mem=500MB >> $slc_errors
-   echo \#\PBS -l ncpus=1 >> $slc_errors
-   echo \#\PBS -l wd >> $slc_errors
-   echo \#\PBS -q normal >> $slc_errors
-   echo \#\PBS -W depend=afterok:$slc_jobid >> $slc_errors
-   echo ~/repo/gamma_bash/collate_nci_slc_errors.bash $proj_dir/$proc_file >> $slc_errors
-   chmod +x $slc_errors
-#   qsub $slc_errors | tee slc_errors_job_id
+    while read scene; do
+	if [ ! -z $scene ]; then
+	    raw_jobid=`sed s/.r-man2// raw_job_id`
+	    slc_script=slc_$scene
+	    echo \#\!/bin/bash > $slc_script
+	    echo \#\PBS -lother=gdata1 >> $slc_script
+	    echo \#\PBS -l walltime=$slc_walltime >> $slc_script
+	    echo \#\PBS -l mem=$slc_mem >> $slc_script
+	    echo \#\PBS -l ncpus=$slc_ncpus >> $slc_script
+	    echo \#\PBS -l wd >> $slc_script
+	    echo \#\PBS -q normal >> $slc_script
+	    if [ $do_raw == yes -a $platform == NCI ]; then # needs raw data extracted first if it hasn't already
+		echo \#\PBS -W depend=afterok:$raw_jobid >> $slc_script
+	    else
+		:
+	    fi
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $slc_script
+	    else
+		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $slc_script
+		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $slc_script
+	    fi
+	    chmod +x $slc_script
+            qsub $slc_script | tee slc_job_id
+	fi
+    done < $scene_list
+    slc_jobid=`sed s/.r-man2// slc_job_id`
+    slc_errors=slc_err_check
+    echo \#\!/bin/bash > $slc_errors
+    echo \#\PBS -lother=gdata1 >> $slc_errors
+    echo \#\PBS -l walltime=00:10:00 >> $slc_errors
+    echo \#\PBS -l mem=50MB >> $slc_errors
+    echo \#\PBS -l ncpus=1 >> $slc_errors
+    echo \#\PBS -l wd >> $slc_errors
+    echo \#\PBS -q normal >> $slc_errors
+    echo \#\PBS -W depend=afterok:$slc_jobid >> $slc_errors
+    echo ~/repo/gamma_bash/collate_nci_slc_errors.bash $proj_dir/$proc_file >> $slc_errors
+    chmod +x $slc_errors
+    qsub $slc_errors | tee slc_errors_job_id
 else
     :
 fi
+
+
+##### COREGISTER DEM TO MASTER SCENE #####
+
+## GA ##
+if [ $coregister_dem == yes -a $platform == GA ]; then
+    cd $proj_dir
+# consolidate error log into one file
+    err_log=$err_dir/DEM_coreg_error.log
+    echo "PROJECT: "$project"_"$sensor"_"$track_dir"_Coregister_DEM_Error_Log" > $err_log
+    echo " " >> $err_log
+    echo " " >> $err_log
+    echo "Coregistering DEM to master scene..."
+    if [ $subset == yes -a $subset_done == notyet ]; then 
+       # no multi-look value - for geocoding full SLC and determining pixels for subsetting master scene
+       echo "Coregistering DEM to master scene with 1 range and 1 azimuth looks..."
+       make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 2 - - - -
+       cd $dem_dir
+       echo "Coregistering DEM to master scene with 1 range and 1 azimuth looks" >> $err_log
+       less error.log > temp
+       # remove unecessary lines from error log
+       sed '/^scene/ d' temp > temp2 
+       sed '/^USAGE/ d' temp2 >> $err_log
+       grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+       echo " " >> $err_log
+       echo " " >> $err_log
+       rm -f temp temp2
+       echo " "
+       echo "Subsetting of master scene required, run xxx.bash to determine pixel coordinates before continuing."
+       echo " "
+       exit 0 # allow for subsettting calculations
+   elif [ $subset == yes -a $subset_done == process ]; then 
+	echo " "
+	echo "Subsetting master scene..."
+	echo " "
+        # no multi-look value - for geocoding full SLC data
+	echo "Coregistering DEM to master scene with 1 range and 1 azimuth looks..."
+	make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 2 $roff $rlines $azoff $azlines
+	cd $dem_dir
+	echo "Coregistering DEM to master scene with 1 range and 1 azimuth looks" >> $err_log
+	less error.log > temp
+        # remove unecessary lines from error log
+	sed '/^scene/ d' temp > temp2 
+	sed '/^USAGE/ d' temp2 >> $err_log
+	grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	echo " " >> $err_log
+	echo " " >> $err_log
+	rm -f temp temp2
+        # SLC and ifm multi-look value (same value)
+	if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+	    echo "Coregistering DEM to master scene with "$slc_rlks" range and "$slc_alks" azimuth looks..."
+	    cd $proj_dir
+	    make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 1 $roff $rlines $azoff $azlines
+	    cd $dem_dir
+	    echo " " >> $err_log
+	    echo "Coregistering DEM to master scene with "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
+	    less error.log > temp
+            # remove unecessary lines from error log
+	    sed '/^scene/ d' temp > temp2 
+	    sed '/^USAGE/ d' temp2 >> $err_log
+	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    echo " " >> $err_log
+	    echo " " >> $err_log
+	    rm -f temp temp2
+	else
+            # SLC multi-look value
+	    echo "Coregistering DEM to master scene with SLC "$slc_rlks" range and "$slc_alks" azimuth looks..."
+	    cd $proj_dir
+	    make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 1 $roff $rlines $azoff $azlines
+	    cd $dem_dir
+	    echo " " >> $err_log
+	    echo " " >> $err_log
+	    echo "Coregistering DEM to master scene with SLC "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
+	    less error.log > temp
+            # remove unecessary lines from error log
+	    sed '/^scene/ d' temp > temp2 
+	    sed '/^USAGE/ d' temp2 >> $err_log
+	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    echo " " >> $err_log
+	    echo " " >> $err_log
+	    rm -f temp temp2
+            # ifm multi-look value
+	    echo "Coregistering DEM to master scene with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks..."
+	    cd $proj_dir
+	    make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 1 $roff $rlines $azoff $azlines
+	    cd $dem_dir
+	    echo " " >> $err_log
+	    echo " " >> $err_log
+	    echo "Coregistering DEM to master scene with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks" >> $err_log
+	    less error.log > temp
+            # remove unecessary lines from error log
+	    sed '/^scene/ d' temp > temp2 
+	    sed '/^USAGE/ d' temp2 >> $err_log
+	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    echo " " >> $err_log
+	    echo " " >> $err_log
+	    rm -f temp temp2
+	fi
+    elif [ $subset == no ]; then # no subsetting 
+        # no multi-look value - for geocoding full SLC data
+	echo "Coregistering DEM to master scene with 1 range and 1 azimuth looks..."
+	make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 2 - - - -
+	cd $dem_dir
+	echo "Coregistering DEM to master scene with 1 range and 1 azimuth looks" >> $err_log
+	less error.log > temp
+        # remove unecessary lines from error log
+	sed '/^scene/ d' temp > temp2 
+	sed '/^USAGE/ d' temp2 >> $err_log
+	grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	echo " " >> $err_log
+	echo " " >> $err_log
+	rm -f temp temp2
+        # SLC and ifm multi-look value (same value)
+	if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+	    echo "Coregistering DEM to master scene with "$slc_rlks" range and "$slc_alks" azimuth looks..."
+	    cd $proj_dir
+	    make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 1 $roff $rlines $azoff $azlines
+	    cd $dem_dir
+	    echo " " >> $err_log
+	    echo "Coregistering DEM to master scene with "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
+	    less error.log > temp
+        # remove unecessary lines from error log
+	    sed '/^scene/ d' temp > temp2 
+	    sed '/^USAGE/ d' temp2 >> $err_log
+	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    echo " " >> $err_log
+	    echo " " >> $err_log
+	    rm -f temp temp2
+	else
+            # SLC multi-look value
+	    echo "Coregistering DEM to master scene with SLC "$slc_rlks" range and "$slc_alks" azimuth looks..."
+	    cd $proj_dir
+	    make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 1 $roff $rlines $azoff $azlines
+	    cd $dem_dir
+	    echo " " >> $err_log
+	    echo " " >> $err_log
+	    echo "Coregistering DEM to master scene with SLC "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
+	    less error.log > temp
+            # remove unecessary lines from error log
+	    sed '/^scene/ d' temp > temp2 
+	    sed '/^USAGE/ d' temp2 >> $err_log
+	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    echo " " >> $err_log
+	    echo " " >> $err_log
+	    rm -f temp temp2
+            # ifm multi-look value
+	    echo "Coregistering DEM to master scene with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks..."
+	    cd $proj_dir
+	    make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 1 $roff $rlines $azoff $azlines
+	    cd $dem_dir
+	    echo " " >> $err_log
+	    echo " " >> $err_log
+	    echo "Coregistering DEM to master scene with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks" >> $err_log
+	    less error.log > temp
+        # remove unecessary lines from error log
+	    sed '/^scene/ d' temp > temp2 
+	    sed '/^USAGE/ d' temp2 >> $err_log
+	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    echo " " >> $err_log
+	    echo " " >> $err_log
+	    rm -f temp temp2
+	fi
+    else
+	:
+    fi
+    echo " "
+    echo "Coregistering DEM to master scene completed."
+    echo " "
+elif [ $coregister_dem == no -a $platform == GA ]; then
+    echo " "
+    echo "Option to coregister DEM to master scene not selected."
+    echo " "
+## NCI ##
+elif [ $coregister_dem == yes -a $platform == NCI ]; then
+    cd $proj_dir/$track_dir/batch_scripts
+    slc_jobid=`sed s/.r-man2// slc_job_id`
+    if [ $subset == yes -a $subset_done == notyet ]; then 
+        # no multi-look value - for geocoding full SLC and determining pixels for subsetting master scene
+        # set up header for PBS job
+	full_dem=coreg_full_dem
+	echo \#\!/bin/bash > $full_dem
+	echo \#\PBS -lother=gdata1 >> $full_dem
+	echo \#\PBS -l walltime=$dem_walltime >> $full_dem
+	echo \#\PBS -l mem=$dem_mem >> $full_dem
+	echo \#\PBS -l ncpus=$dem_ncpus >> $full_dem
+	echo \#\PBS -l wd >> $full_dem
+	echo \#\PBS -q normal >> $full_dem
+	if [ $do_slc == yes -a $platform == NCI ]; then
+	    echo \#\PBS -W depend=afterok:$slc_jobid >> $full_dem
+	else
+	    :
+	fi
+	echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 2 - - - - >> $full_dem
+	chmod +x $full_dem
+#	qsub $full_dem
+    elif [ $subset == yes -a $subset_done == process ]; then 
+        # set up header for PBS job
+	sub_dem=coreg_sub_dem
+	echo \#\!/bin/bash > $sub_dem
+	echo \#\PBS -lother=gdata1 >> $sub_dem
+	echo \#\PBS -l walltime=$dem_walltime >> $sub_dem
+	echo \#\PBS -l mem=$dem_mem >> $sub_dem
+	echo \#\PBS -l ncpus=$dem_ncpus >> $sub_dem
+	echo \#\PBS -l wd >> $sub_dem
+	echo \#\PBS -q normal >> $sub_dem
+	if [ $do_slc == yes -a $platform == NCI ]; then
+	    echo \#\PBS -W depend=afterok:$slc_jobid >> $sub_dem
+	else
+	    :
+	fi
+        # no multi-look value - for geocoding full subsetted SLC data
+	echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 2 $roff $rlines $azoff $azlines >> $sub_dem
+        # SLC and ifm multi-look value (same value)
+	if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 1 $roff $rlines $azoff $azlines >> $sub_dem
+	else
+            # SLC multi-look value
+	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 1 $roff $rlines $azoff $azlines >> $sub_dem
+            # ifm multi-look value
+	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 1 $roff $rlines $azoff $azlines >> $sub_dem
+	fi	  
+	chmod +x $sub_dem
+#	qsub $sub_dem | tee sub_dem_job_id
+    elif [ $subset == no ]; then # no subsetting 
+        # no multi-look value - for geocoding full SLC data
+        # set up header for PBS job
+	dem=coreg_dem
+	echo \#\!/bin/bash > $dem
+	echo \#\PBS -lother=gdata1 >> $dem
+	echo \#\PBS -l walltime=$dem_walltime >> $dem
+	echo \#\PBS -l mem=$dem_mem >> $dem
+	echo \#\PBS -l ncpus=$dem_ncpus >> $dem
+	echo \#\PBS -l wd >> $dem
+	echo \#\PBS -q normal >> $dem
+	if [ $do_slc == yes -a $platform == NCI ]; then
+	    echo \#\PBS -W depend=afterok:$slc_jobid >> $dem
+	else
+	    :
+	fi
+        # no multi-look value - for geocoding full SLC data
+	echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 2 - - - - >> $dem
+        # SLC and ifm multi-look value (same value)
+	if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 1 $roff $rlines $azoff $azlines >> $dem
+	else
+            # SLC multi-look value
+	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 1 $roff $rlines $azoff $azlines >> $dem
+            # ifm multi-look value
+	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 1 $roff $rlines $azoff $azlines >> $dem
+	fi	  
+	chmod +x $dem
+#	qsub $dem | tee dem_job_id
+    else
+	:
+    fi
+else
+    :
+fi
+
+
+##### COREGISTER SLAVE SCENES TO MASTER SCENE #####
+
+## GA ##
+if [ $coregister == yes -a $platform == GA ]; then
+    cd $proj_dir
+# consolidate error logs into one file
+    err_log=$err_dir/SLC_coreg_error.log
+    echo "PROJECT: "$project"_"$sensor"_"$track_dir"_Coregister_SLC_Error_Log" > $err_log
+    echo " " >> $err_log
+    echo "Coregistering slave scenes to master scene..."
+# SLC and ifm multi-look value (same value)
+    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+	while read date; do
+	    if [ ! -z $date ]; then
+		slave=`echo $date | awk 'BEGIN {FS=","} ; {print $1}'`
+		echo "Coregistering "$slave" to master scene with "$slc_rlks" range and "$slc_alks" azimuth looks..."
+		coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks
+		cd $slc_dir/$slave
+		echo " " >> $err_log
+		echo "Coregistering "$slave" with "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
+		less error.log >> $err_log
+	    fi
+	done < $slave_list
+    else
+	while read date; do
+	    if [ ! -z $date ]; then
+		slave=`echo $date | awk 'BEGIN {FS=","} ; {print $1}'`
+ # SLC multi-look value
+		echo "Coregistering "$slave" with SLC "$slc_rlks" range and "$slc_alks" azimuth looks..."
+		coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks
+		cd $slc_dir/$slave
+		echo " " >> $err_log
+		echo "Coregistering "$slave" with SLC "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
+		less error.log >> $err_log
+# ifm multi-look value
+		echo " "
+		echo "Coregistering "$slave" with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks..."
+		coregister_slave_SLC.bash $proj_dir/$proc_file $slave $ifm_rlks $ifm_alks
+		cd $slc_dir/$slave
+		echo " " >> $err_log
+		echo "Coregistering "$slave" with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks" >> $err_log
+		less error.log >> $err_log		
+	    fi
+	done < $slave_list
+    fi
+    echo " "
+    echo "Coregistering slave scenes to master scene completed."
+    echo "   Run 'check_slave_coregistration.bash' script to check results before continuing processing."
+    echo " "
+elif [ $coregister == no -a $platform == GA ]; then
+    echo " "
+    echo "Option to coregister slaves to master scene not selected."
+    echo " "
+## NCI ##
+elif [ $coregister == yes -a $platform == NCI ]; then
+    cd $proj_dir/$track_dir/batch_scripts
+    if [ -f sub_dem_job_id ]; then
+	dem_jobid=`sed s/.r-man2// sub_dem_job_id`
+    else
+	dem_jobid=`sed s/.r-man2// dem_job_id`
+    fi
+    # set up header for PBS jobs for slave coregistration
+    while read slave; do
+	if [ ! -z $slave ]; then
+	    co_slc=co_slc_$slave
+	    echo \#\!/bin/bash > $co_slc
+	    echo \#\PBS -lother=gdata1 >> $co_slc
+	    echo \#\PBS -l walltime=$coreg_walltime >> $co_slc
+	    echo \#\PBS -l mem=$coreg_mem >> $co_slc
+	    echo \#\PBS -l ncpus=$coreg_ncpus >> $co_slc
+	    echo \#\PBS -l wd >> $co_slc
+	    echo \#\PBS -q normal >> $co_slc
+	    if [ $coregister_dem == yes -a $platform == NCI ]; then
+		echo \#\PBS -W depend=afterok:$dem_jobid >> $co_slc
+	    else
+		:
+	    fi
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks >> $co_slc
+	    else
+		echo ~/repo/gamma_bash/coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks >> $co_slc
+		echo ~/repo/gamma_bash/coregister_slave_SLC.bash $proj_dir/$proc_file $slave $ifm_rlks $ifm_alks >> $co_slc
+	    fi
+	    chmod +x $co_slc
+#	    qsub $co_slc | tee co_slc_job_id
+	else	
+	    :
+	fi
+    done < $slave_list
+else
+    :
+fi
+
+##### PROCESS INTERFEROGRAMS AND GEOCODE UNWRAPPED FILES #####
+
+## GA ##
+if [ $do_ifms == yes -a $platform == GA ]; then
+    echo "Creating interferograms..."
+    echo " "
+    while read list; do
+	mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+	slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+	process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks
+    done < $ifm_list
+# consolidate ifm error logs into one file
+    err_log=$err_dir/ifm_error.log
+    echo "PROJECT: "$project"_"$sensor"_"$track_dir"_Interferogram_Error_Log" > $err_log
+    echo " " >> $err_log
+    echo " " >> $err_log
+    while read ifm; do
+	mas_slv_dir=$ifm_dir/$mas-$slv
+	if [ ! -z $ifm ]; then
+	    cd $mas_slv_dir
+	    echo $mas-$slv >> $err_log
+	    echo " " >> $err_log
+	    less error.log >> $err_log
+	fi
+    done < $ifm_list
+    echo " "
+    echo "Processing interferograms complete."
+    echo " "
+
+# final baseline script
+# plot_baseline_gamma.csh
+
+elif [ $do_ifms == no -a $platform == GA ]; then
+    echo " "
+    echo "Option to create interferograms not selected."
+    echo " "
+## NCI ##
+elif [ $do_ifms == yes -a $platform == NCI ]; then
+    co_slc_jobid=`sed s/.r-man2// co_slc_job_id`
+    cd $proj_dir/$track_dir/batch_scripts
+    # set up header for PBS jobs for ifm creation
+    if [ -e $ifm_list ]; then ## 190 or less ifms
+	while read ifm_pair; do
+	    if [ ! -z $ifm_pair ]; then
+		mas=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $1}'`
+		slv=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $2}'`
+		mas_name=`echo $mas | awk '{print substr($1,3,6)}'`
+		slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
+		ifm=ifm_$mas_name-$slv_name
+		echo \#\!/bin/bash > $ifm
+		echo \#\PBS -lother=gdata1 >> $ifm
+		echo \#\PBS -l walltime=$ifm_walltime >> $ifm
+		echo \#\PBS -l mem=$ifm_mem >> $ifm
+		echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
+		echo \#\PBS -l wd >> $ifm
+		echo \#\PBS -q normal >> $ifm
+		if [ $coregister == yes -a $platform == NCI ]; then
+		    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $ifm
+		else
+		    :
+		fi
+		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
+		chmod +x $ifm
+#		qsub $ifm
+	    fi
+	done < $ifm_list    	
+    else ## more than 190 ifms (ifms list split into multiple lists)
+	ifm_file_lists=$proj_dir/$track_dir/ifm_files.list
+	
+        # first list (relies on create ifm list to be run first, other lists rely of previous list to run first)
+	first_list=`awk 'NR==1 {print $1}' $ifm_file_lists`
+	while read list; do
+	    if [ ! -z $list ]; then
+		while read ifm_pair; do # create PBS jobs for each ifm in split ifm list
+		    if [ ! -z $ifm_pair ]; then
+			mas=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $1}'`
+			slv=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $2}'`
+			mas_name=`echo $mas | awk '{print substr($1,3,6)}'`
+			slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
+			ifm=ifm_$mas_name-$slv_name
+			echo \#\!/bin/bash > $ifm
+			echo \#\PBS -lother=gdata1 >> $ifm
+			echo \#\PBS -l walltime=$ifm_walltime >> $ifm
+			echo \#\PBS -l mem=$ifm_mem >> $ifm
+			echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
+			echo \#\PBS -l wd >> $ifm
+			echo \#\PBS -q normal >> $ifm
+			if [ $coregister == yes -a $platform == NCI ]; then
+			    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $ifm
+			else
+			    :
+			fi
+			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
+			chmod +x $ifm
+			paste $ifm > $first_list"_jobs_listing"
+		    fi
+		done < $list
+                # create script to qsub each PBS job
+		script=$first_list.bash 
+		echo \#\!/bin/bash > $script
+		echo "dir=$proj_dir/$track_dir/batch_scripts" >> $script
+		echo "list="$first_list"_jobs_listing" >> $script
+		echo "cd $dir" >> $script
+		echo "while read job; do" >> $script
+		echo "qsub $job" >> $script
+		echo "done < $list" >> $script
+		chmod +x $script
+		# create PBS job to run script
+		run_script=$first_list"_bulk"
+		echo \#\!/bin/bash > $run_script
+		echo \#\PBS -lother=gdata1 >> $run_script
+		echo \#\PBS -l walltime=00:30:00 >> $run_script
+		echo \#\PBS -l mem=500MB >> $run_script
+		echo \#\PBS -l ncpus=1 >> $run_script
+		echo \#\PBS -l wd >> $run_script
+		echo \#\PBS -q normal >> $run_script
+		if [ $coregister == yes -a $platform == NCI ]; then
+		    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $run_script
+		else
+		    :
+		fi
+		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
+		chmod +x $run_script
+#		qsub $run_script | tee $run_script"_job_id"
+	    fi
+	done < $first_list
+
+        # subsequent lists
+	cp $ifm_file_lists ifm_files2.list
+	tail -n +2 ifm_files2.list # remove first list
+	remainder_list=ifm_files2.list
+
+	while read list; do
+	    if [ ! -z $list ]; then
+		while read ifm_pair; do # create PBS jobs for each ifm in split ifm list
+		    if [ ! -z $ifm_pair ]; then
+			mas=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $1}'`
+			slv=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $2}'`
+			mas_name=`echo $mas | awk '{print substr($1,3,6)}'`
+			slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
+			ifm=ifm_$mas_name-$slv_name
+			echo \#\!/bin/bash > $ifm
+			echo \#\PBS -lother=gdata1 >> $ifm
+			echo \#\PBS -l walltime=$ifm_walltime >> $ifm
+			echo \#\PBS -l mem=$ifm_mem >> $ifm
+			echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
+			echo \#\PBS -l wd >> $ifm
+			echo \#\PBS -q normal >> $ifm
+			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
+			chmod +x $ifm
+			paste $ifm > $list"_jobs_listing"
+		    fi
+		done < $list
+                # create script to qsub each PBS job
+		script=$first_list.bash 
+		echo \#\!/bin/bash > $script
+		echo "dir=$proj_dir/$track_dir/batch_scripts" >> $script
+		echo "list="$first_list"_jobs_listing" >> $script
+		echo "cd $dir" >> $script
+		echo "while read job; do" >> $script
+		echo "qsub $job" >> $script
+		echo "done < $list" >> $script
+		chmod +x $script
+		# create PBS job to run script
+		run_script=$first_list"_bulk"
+		echo \#\!/bin/bash > $run_script
+		echo \#\PBS -lother=gdata1 >> $ifm
+		echo \#\PBS -l walltime=00:30:00 >> $run_script
+		echo \#\PBS -l mem=500MB >> $run_script
+		echo \#\PBS -l ncpus=1 >> $run_script
+		echo \#\PBS -l wd >> $run_script
+		echo \#\PBS -q normal >> $run_script
+		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
+		chmod +x $run_script
+#		qsub $run_script | tee $run_script"_job_id"
+	    fi
+	done < $remainder_list
+
+    fi
+else
+    :
+fi
+
+
+##### ADD NEW SLCS TO EXISTING SLC COLLECTION #####
+
+## GA ##
+if [ $add_slc == yes -a $platform == GA ]; then
+# extract raw data
+    cd $raw_dir_ga
+    echo "Extracting raw data for additional SLC data..."
+    echo " "
+    mkdir -p date_dirs
+    while read scene; do
+	tar=`echo $scene*.gz`
+	if [ ! -z $scene ]; then
+	    if [ ! -d $raw_dir_ga/date_dirs/$scene ]; then #check if data have already been extracted from tar file
+		tar -xvzf $tar
+		mv $scene date_dirs
+	    else
+		echo "Raw data already extracted for" $scene"."
+	    fi
+	else
+	    :
+	fi
+    done < $add_scene_list
+# create SLC data
+# consolidate error logs into one file
+    err_log=$err_dir/SLC_add_error.log
+    echo "PROJECT: "$project"_"$sensor"_"$track_dir"_Additional_SLC_Creation_Error_Log" > $err_log
+    echo " " >> $err_log
+    echo " "
+    echo "Creating additional SLC data..."
+    echo " "
+# SLC and ifm multi-look value (same value)
+    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+	while read scene; do
+	    if [ ! -z $scene ]; then
+		echo "Creating SLC for "$scene" with "$slc_rlks" range and "$slc_alks" azimuth looks..."
+		process_$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks
+		cd $slc_dir/$scene
+		echo " " >> $err_log
+		echo "Creating SLC for "$scene" with "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
+		less error.log >> $err_log
+	    else
+		:
+	    fi
+	done < $add_scene_list
+    else
+	while read scene; do
+	    if [ ! -z $scene ]; then
+ # SLC multi-look value
+		echo "Creating SLC for "$scene" with SLC "$slc_rlks" range and "$slc_alks" azimuth looks..."
+		process_$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks
+		cd $slc_dir/$scene
+		echo " " >> $err_log
+		echo "Creating SLC for "$scene" with SLC "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
+		less error.log >> $err_log
+# ifm multi-look value
+		echo "Creating SLC for "$scene" with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks..."
+		process_$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks
+		cd $slc_dir/$scene
+		echo " " >> $err_log
+		echo "Creating SLC for "$scene" with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks" >> $err_log
+		less error.log >> $err_log
+	    else
+		:
+	    fi
+	done < $add_scene_list
+    fi
+    echo " "
+    echo "Processing additional SLCs completed."
+    echo " "
+elif [ $do_slc == no -a $platform == GA ]; then
+    echo " "
+    echo "Option to create additional SLC data not selected."
+    echo " "
+elif [ $do_slc == yes -a $platform == NCI ]; then
+    :
+else
+    :
+fi
+
+
+##### COREGISTER ADDITIONAL SLAVE SCENES TO MASTER SCENE #####
+
+
+## GA ##
+if [ $coregister_add == yes -a $platform == GA ]; then
+    cd $proj_dir/$track_dir
+    cp add_scenes.list add_slaves.list
+    cd $proj_dir
+# consolidate error logs into one file
+    err_log=$err_dir/SLC_add_coreg_error.log
+    echo "PROJECT: "$project"_"$sensor"_"$track_dir"_Coregister_Additional_SLC_Error_Log" > $err_log
+    echo " " >> $err_log
+    echo "Coregistering additional slave scenes to master scene..."
+# SLC and ifm multi-look value (same value)
+    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+	while read date; do
+	    if [ ! -z $date ]; then
+		slave=`echo $date | awk 'BEGIN {FS=","} ; {print $1}'`
+		echo "Coregistering "$slave" to master scene with "$slc_rlks" range and "$slc_alks" azimuth looks..."
+		coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks
+		cd $slc_dir/$slave
+		echo " " >> $err_log
+		echo "Coregistering "$slave" with "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
+		less error.log >> $err_log
+	    fi
+	done < $add_slave_list
+    else
+	while read date; do
+	    if [ ! -z $date ]; then
+		slave=`echo $date | awk 'BEGIN {FS=","} ; {print $1}'`
+ # SLC multi-look value
+		echo "Coregistering "$slave" with SLC "$slc_rlks" range and "$slc_alks" azimuth looks..."
+		coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks
+		cd $slc_dir/$slave
+		echo " " >> $err_log
+		echo "Coregistering "$slave" with SLC "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
+		less error.log >> $err_log
+# ifm multi-look value
+		echo "Coregistering "$slave" with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks..."
+		coregister_slave_SLC.bash $proj_dir/$proc_file $slave $ifm_rlks $ifm_alks
+		cd $slc_dir/$slave
+		echo " " >> $err_log
+		echo "Coregistering "$slave" with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks" >> $err_log
+		less error.log >> $err_log		
+	    fi
+	done < $add_slave_list
+    fi
+    echo " "
+    echo "Coregister additional slave scenes to master scene completed."
+    echo "   Run 'check_slave_coregistration.bash' script to check results before continuing processing."
+    echo " "
+elif [ $coregister_add == no -a $platform == GA ]; then
+    echo " "
+    echo "Option to coregister additional slaves to master scene not selected."
+    echo " "
+## NCI ##
+elif [ $coregister_add == yes -a $platform == NCI ]; then
+    :
+else
+    :
+fi
+
+
+##### PROCESS ADDITIONAL INTERFEROGRAMS AND GEOCODE UNWRAPPED FILES #####
+
+## GA ##
+if [ $do_add_ifms == yes -a $platform == GA ]; then
+# create updated scenes and ifms.list file
+    echo "Creating updated scene and interferogram list files..."
+    create_ifms_list.bash $proj_dir/$proc_file
+    echo "Creating interferograms..."
+    echo " "
+    while read list; do
+	mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+	slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+	process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks
+    done < $add_ifm_list
+# consolidate ifm error logs into one file
+    err_log=$err_dir/ifm_add_error.log
+    echo "PROJECT: "$project"_"$sensor"_"$track_dir"_Additional_Interferogram_Error_Log" > $err_log
+    echo " " >> $err_log
+    echo " " >> $err_log
+    while read ifm; do
+	mas_slv_dir=$ifm_dir/$mas-$slv
+	if [ ! -z $ifm ]; then
+	    cd $mas_slv_dir
+	    echo $mas-$slv >> $err_log
+	    echo " " >> $err_log
+	    less error.log >> $err_log
+	fi
+    done < $add_ifm_list
+    echo " "
+    echo "Processing additional interferograms complete."
+    echo " "
+
+# updated final baseline script
+# plot_baseline_gamma.csh
+
+elif [ $do_add_ifms == no -a $platform == GA ]; then
+    echo " "
+    echo "Option to create additional interferograms not selected."
+    echo " "
+## NCI ##
+elif [ $do_add_ifms == yes -a $platform == NCI ]; then
+    :
+else
+    :
+fi
+
+
+##### RE-COREGISTER DEM WITH MODIFIED MULTI-LOOK VALUE #####
+
+#recoregister_dem=`grep Re-coregister_DEM= $proc_file | cut -d "=" -f 2`
+
+
+
+
+##### RE-COREGISTER SLAVE SCENES TO MASTER SCENE WITH MODIFIED MULTI-LOOK VALUE #####
+
+#recoregister_dem=`grep Re-coregister_DEM= $proc_file | cut -d "=" -f 2`
+
+
+
+
+##### RE-PROCESS INTERFEROGRAMS WITH MODIFIED MULTI-LOOK VALUE #####
+
+#recoregister_dem=`grep Re-coregister_DEM= $proc_file | cut -d "=" -f 2`
+
+
+
+
+##### CLEAN UP FILES #####
+
+
+
+
+
+
+# script end 
+####################
+
+## Copy errors to NCI error file (.e file)
+#if [ $platform == NCI ]; then
+#   cat error.log 1>&2
+#   rm temp_log
+#else
+#   :
+#fi
+
+
+
+
+

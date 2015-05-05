@@ -312,7 +312,7 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     echo \#\PBS -l ncpus=$raw_ncpus >> $raw
     echo \#\PBS -l wd >> $raw
     echo \#\PBS -q copyq >> $raw
-    if [ $do_stup == yes -a $platform == NCI ]; then # needs scene.list to be created first if it doesn't exist
+    if [ $do_setup == yes -a $platform == NCI ]; then # needs scene.list to be created first if it doesn't exist
 	echo \#\PBS -W depend=afterok:$sc_list_jobid >> $raw
     else
 	:
