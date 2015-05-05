@@ -316,7 +316,7 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     user=`echo $USER | awk '{print $1}'`
     echo $user/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file >> $raw
     chmod +x $raw
-    qsub $raw 
+#    qsub $raw 
 # extract dem from MDSS
     dem=extract_dem 
     echo \#\!/bin/bash > $dem
@@ -329,7 +329,7 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     user=`echo $USER | awk '{print $1}'`
     echo $user/repo/gamma_bash/make_GAMMA_DEM.bash $proj_dir/$proc_file >> $dem
     chmod +x $dem
-    qsub $dem
+#    qsub $dem
 else
     :
 fi
