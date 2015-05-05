@@ -1124,7 +1124,6 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
     cp add_scenes.list add_slaves.list
     cd $proj_dir/$track_dir/batch_scripts
     add_slc_jobid=`sed s/.r-man2// add_slc_errors_job_id`
-    fi
     # set up header for PBS jobs for slave coregistration
     while read slave; do
 	if [ ! -z $slave ]; then
