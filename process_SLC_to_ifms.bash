@@ -1,4 +1,4 @@
- #!/bin/bash
+#!/bin/bash
 
 display_usage() {
     echo ""
@@ -9,7 +9,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       01/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       30/04/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_SLC_to_ifms.bash [proc_file]"
     }
@@ -95,14 +95,14 @@ echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 
 ## Copy output of Gamma programs to log files
-#GM()
-#{
-#    echo $* | tee -a command.log
-#    echo
-#    $* >> output.log 2> temp_log
-#    cat temp_log >> error.log
+GM()
+{
+    echo $* | tee -a command.log
+    echo
+    $* >> output.log 2> temp_log
+    cat temp_log >> error.log
     #cat output.log (option to add output results to NCI .o file if required)
-#}
+}
 
 ## Load GAMMA based on platform
 if [ $platform == NCI ]; then
@@ -189,6 +189,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
     cd $proj_dir
     mkdir -p $track_dir # GAMMA processing directory
     mkdir -p $track_dir/batch_scripts # for PBS jobs
+    mkdir -p gamma_dem # DEM data directory
     mkdir -p raw_data # raw data directory
     mkdir -p raw_data/$track_dir
     if [ -f frame.list ]; then
@@ -252,12 +253,47 @@ fi
 
 ##### EXTRACT RAW AND DEM DATA #####
 
-## GA 
+## GA ## raw data only - DEM already in right format for processing
 if [ $do_raw == yes -a $platform == GA ]; then
-    cd $proj_dir/$track_dir
     echo "Extracting raw data..."
     echo " "
-    extract_raw_data.bash $proj_dir/$proc_file
+    if [ -f $frame_list ]; then 
+	while read frame; do
+	    if [ ! -z $frame ]; then 
+		cd $raw_dir_ga/F$frame
+		mkdir -p date_dirs
+		while read scene; do
+		    tar=`echo $scene*.gz`
+		    if [ ! -z $tar ]; then
+			if [ ! -d $raw_dir_ga/F$frame/date_dirs/$scene ]; then #check if data have already been extracted from tar file
+			    tar -xvzf $tar
+			    mv $scene date_dirs
+			else
+			    echo "Raw data already extracted for F"$frame $scene"."
+			fi
+		    fi
+		done < $scene_list
+	    fi
+	done < $frame_list
+    else
+    cd $raw_dir_ga
+    echo "Extracting raw data..."
+    echo " "
+    mkdir -p date_dirs
+    while read scene; do
+	tar=`echo $scene*.gz`
+	if [ ! -z $tar ]; then
+	    if [ ! -d $raw_dir_ga/date_dirs/$scene ]; then #check if data have already been extracted from tar file
+		tar -xvzf $tar
+		mv $scene date_dirs
+	    else
+		echo "Raw data already extracted for "$scene"."
+	    fi
+	fi
+    done < $scene_list
+    echo " "
+    echo "Raw data extracted for "$project $sensor $track_dir"."
+    fi
 elif [ $do_raw == no -a $platform == GA ]; then
     echo " "
     echo "Option to extract raw data not selected."
@@ -292,7 +328,7 @@ fi
 ##### CREATE SLC DATA #####
 
 ## GA ##
-if [ $do_slc == yes ]; then
+if [ $do_slc == yes -a $platform == GA ]; then
     if [ $palsar1_data == raw -a $sensor == PALSAR1 ]; then
 	sensor=PALSAR_L0 # PALSAR L1.0 script can process PALSAR1 raw data
     elif [ $palsar1_data == slc -a $sensor == PALSAR1 ]; then
@@ -302,8 +338,6 @@ if [ $do_slc == yes ]; then
     else
 	:
     fi
-fi
-if [ $do_slc == yes -a $platform == GA ]; then
     cd $proj_dir
 # consolidate error logs into one file
     err_log=$err_dir/SLC_error.log
@@ -655,7 +689,7 @@ elif [ $coregister == no -a $platform == GA ]; then
 elif [ $coregister == yes -a $platform == NCI ]; then
     cd $proj_dir/$track_dir/batch_scripts
     dem_jobid=`sed s/.r-man2// dem_job_id`
-    # set up header for PBS jobs for slave coregistration
+    # set up header for PBS job for slave list creation
     while read slave; do
 	if [ ! -z $slave ]; then
 	    co_slc=co_slc_$slave
@@ -686,7 +720,6 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 else
     :
 fi
-
 
 
 ##### PROCESS INTERFEROGRAMS AND GEOCODE UNWRAPPED FILES #####
@@ -729,7 +762,28 @@ elif [ $do_ifms == no -a $platform == GA ]; then
 elif [ $do_ifms == yes -a $platform == NCI ]; then
     co_slc_jobid=`sed s/.r-man2// co_slc_job_id`
     cd $proj_dir/$track_dir/batch_scripts
+    # set up header for PBS job for ifm list creation
+    if [ -e $ifm_lists ]; then 
+	rm -rf $ifm_lists
+    fi
+    ifm_lists=create_ifm_list
+    echo \#\!/bin/bash > $ifm_lists
+    echo \#\PBS -lother=gdata1 >> $ifm_lists
+    echo \#\PBS -l walltime=$ifm_list_walltime >> $ifm_lists
+    echo \#\PBS -l mem=$ifm_list_mem >> $ifm_lists
+    echo \#\PBS -l ncpus=$ifm_list_ncpus >> $ifm_lists
+    echo \#\PBS -l wd >> $ifm_lists
+    echo \#\PBS -q normal >> $ifm_lists
+    if [ $coregister == yes ]; then
+	echo \#\PBS -W depend=afterok:$co_slc_jobid >> $ifm_lists
+    fi
+    echo create_ifms_list.bash $proc_file >> $ifm_lists
+    chmod +x $ifm_lists
+    qsub $ifm_lists | tee ifm_list_job_id
+
+    ifm_list_jobid=`sed s/.r-man2// ifm_list_job_id`
     # set up header for PBS jobs for ifm creation
+    
     if [ -e $ifm_list ]; then ## 190 or less ifms
 	while read ifm_pair; do
 	    if [ ! -z $ifm_pair ]; then
@@ -745,14 +799,10 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
 		echo \#\PBS -l wd >> $ifm
 		echo \#\PBS -q normal >> $ifm
-		if [ $coregister == yes -a $platform == NCI ]; then
-		    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $ifm
-		else
-		    :
-		fi
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
+		echo \#\PBS -W depend=afterok:$ifm_list_jobid >> $ifm
+		echo /home/547/mcg547/dg9-apps/GAMMA/gamma_scripts/process_ifm.bash $proc_file $mas $slv >> $ifm
 		chmod +x $ifm
-#		qsub $ifm
+		qsub $ifm
 	    fi
 	done < $ifm_list    	
     else ## more than 190 ifms (ifms list split into multiple lists)
@@ -770,18 +820,13 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 			slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
 			ifm=ifm_$mas_name-$slv_name
 			echo \#\!/bin/bash > $ifm
-			echo \#\PBS -lother=gdata1 >> $ifm
+
 			echo \#\PBS -l walltime=$ifm_walltime >> $ifm
 			echo \#\PBS -l mem=$ifm_mem >> $ifm
 			echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
 			echo \#\PBS -l wd >> $ifm
 			echo \#\PBS -q normal >> $ifm
-			if [ $coregister == yes -a $platform == NCI ]; then
-			    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $ifm
-			else
-			    :
-			fi
-			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
+			echo /home/547/mcg547/dg9-apps/GAMMA/gamma_scripts/process_ifm.bash $proc_file $mas $slv >> $ifm
 			chmod +x $ifm
 			paste $ifm > $first_list"_jobs_listing"
 		    fi
@@ -799,20 +844,16 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		# create PBS job to run script
 		run_script=$first_list"_bulk"
 		echo \#\!/bin/bash > $run_script
-		echo \#\PBS -lother=gdata1 >> $run_script
+
 		echo \#\PBS -l walltime=00:30:00 >> $run_script
 		echo \#\PBS -l mem=500MB >> $run_script
 		echo \#\PBS -l ncpus=1 >> $run_script
 		echo \#\PBS -l wd >> $run_script
 		echo \#\PBS -q normal >> $run_script
-		if [ $coregister == yes -a $platform == NCI ]; then
-		    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $run_script
-		else
-		    :
-		fi
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
+		echo \#\PBS -W depend=afterok:$ifm_list_jobid >> $run_script
+		echo /home/547/mcg547/dg9-apps/GAMMA/gamma_scripts/process_ifm.bash $proc_file $mas $slv >> $run_script
 		chmod +x $run_script
-#		qsub $run_script | tee $run_script"_job_id"
+		qsub $run_script | tee $run_script"_job_id"
 	    fi
 	done < $first_list
 
@@ -831,13 +872,13 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 			slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
 			ifm=ifm_$mas_name-$slv_name
 			echo \#\!/bin/bash > $ifm
-			echo \#\PBS -lother=gdata1 >> $ifm
+
 			echo \#\PBS -l walltime=$ifm_walltime >> $ifm
 			echo \#\PBS -l mem=$ifm_mem >> $ifm
 			echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
 			echo \#\PBS -l wd >> $ifm
 			echo \#\PBS -q normal >> $ifm
-			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
+			echo /home/547/mcg547/dg9-apps/GAMMA/gamma_scripts/process_ifm.bash $proc_file $mas $slv >> $ifm
 			chmod +x $ifm
 			paste $ifm > $list"_jobs_listing"
 		    fi
@@ -855,19 +896,22 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		# create PBS job to run script
 		run_script=$first_list"_bulk"
 		echo \#\!/bin/bash > $run_script
-		echo \#\PBS -lother=gdata1 >> $ifm
+
 		echo \#\PBS -l walltime=00:30:00 >> $run_script
 		echo \#\PBS -l mem=500MB >> $run_script
 		echo \#\PBS -l ncpus=1 >> $run_script
 		echo \#\PBS -l wd >> $run_script
 		echo \#\PBS -q normal >> $run_script
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
+		echo \#\PBS -W depend=afterok:$_list_jobid >> $run_script
+		echo /home/547/mcg547/dg9-apps/GAMMA/gamma_scripts/process_ifm.bash $proc_file $mas $slv >> $run_script
 		chmod +x $run_script
-#		qsub $run_script | tee $run_script"_job_id"
+		qsub $run_script | tee $run_script"_job_id"
 	    fi
 	done < $remainder_list
 
     fi
+	geocode_nci.csh {$mas}-{$slv}_{$polar}_{$ifm_looks}rlks.unw $proj_dir/$proc_file - 1 -
+
 else
     :
 fi
