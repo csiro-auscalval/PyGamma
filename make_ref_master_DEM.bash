@@ -16,7 +16,7 @@ display_usage() {
     echo "*                       (1 = no, 2 = yes)                                     *"
     echo " *            xxxxxx *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       23/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] <multi-look> <roff> <rlines> <azoff> <azlines>"
     }
@@ -53,10 +53,10 @@ dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
     dem_loc_nci=`grep DEM_location_MDSS= $proc_file | cut -d "=" -f 2`
     dem_name_nci=`grep DEM_name_NCI= $proc_file | cut -d "=" -f 2`
-    dem=
+    dem=$proj_dir/gamma_dem/$dem_name_NCI
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     dem_dir_ga=`grep DEM_location_GA= $proc_file | cut -d "=" -f 2`
