@@ -141,9 +141,9 @@ raw_mem=500MB
 raw_ncpus=1
 
 # create slcs
-SLC_walltime=02:00:00
+SLC_walltime=01:00:00
 SLC_mem=2GB
-SLC_ncpus=2
+SLC_ncpus=1
 
 # coregister dem
 DEM_walltime=04:00:00

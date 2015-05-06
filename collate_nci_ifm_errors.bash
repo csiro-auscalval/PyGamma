@@ -3,14 +3,14 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* collate_nci_slc_errors: Collates errors from processing SLCs on the NCI     *"
+    echo "* collate_nci_ifm_errors: Collates errors from processing ifms on the NCI     *"
     echo "*                         into one file.                                      *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: collate_nci_slc_errors.bash [proc_file]"
+    echo -e "Usage: collate_nci_ifm_errors.bash [proc_file]"
     }
 
 if [ $# -lt 1 ]
@@ -42,14 +42,14 @@ echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 
 cd $proj_dir/$track_dir/batch_scripts
 
-error_list=$project"_"$track_dir"_slc_errors.list"
+error_list=$project"_"$track_dir"_ifm_errors.list"
 if [ -f $error_list ]; then
     rm -rf $error_list
 else
     :
 fi
 
-ls slc_*.e* > list
+ls ifm_*.e* > list
 while read error; do
     if [ ! -z $error ]; then
 	less $error > temp
