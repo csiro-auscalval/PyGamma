@@ -9,16 +9,24 @@ display_usage() {
     echo "*                   for processing with GAMMA.                                *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
+    echo "*         [flag]       0: use 'List_of_scenes' file (default)                 *"
+    echo "*                      1: use 'List_of_add_scenes' file                       *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       01/05/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: extract_raw_data.bash [proc_file]"
+    echo -e "Usage: extract_raw_data.bash [proc_file] [flag]"
     }
 
 if [ $# -lt 1 ]
 then 
     display_usage
     exit 1
+fi
+if [ $# -lt 2 ]
+then
+    flag=0
+else
+    flag=$2
 fi
 
 proc_file=$1
@@ -40,14 +48,18 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
 
-scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
 frame_list=$proj_dir/$track_dir/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 
-## Insert scene details top of NCI .e file
-echo "" 1>&2 # adds spaces at top so scene details are clear
-echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+if [ $flag == 0 ]; then
+    scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
 
+## Insert scene details top of NCI .e file
+    echo "" 1>&2 # adds spaces at top so scene details are clear
+    echo "" 1>&2
+    echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+else
+    scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
+fi
 
 if [ $platform == GA ]; then # raw data only, DEM already extracted
     if [ -f $frame_list ]; then 

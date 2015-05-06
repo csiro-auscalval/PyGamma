@@ -255,7 +255,7 @@ if [ $do_raw == yes -a $platform == GA ]; then
     cd $proj_dir/$track_dir
     echo "Extracting raw data..."
     echo " "
-    extract_raw_data.bash $proj_dir/$proc_file
+    extract_raw_data.bash $proj_dir/$proc_file 0
 elif [ $do_raw == no -a $platform == GA ]; then
     echo " "
     echo "Option to extract raw data not selected."
@@ -279,7 +279,7 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     else
 	:
     fi
-    echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file >> $raw
+    echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file 0 >> $raw
     chmod +x $raw
     qsub $raw | tee raw_job_id
 else
@@ -997,24 +997,23 @@ fi
 ## GA ##
 if [ $add_slc == yes -a $platform == GA ]; then
 # extract raw data
-    cd $raw_dir_ga
+    cd $proj_dir/$track_dir
     echo "Extracting raw data for additional SLC data..."
     echo " "
-    mkdir -p date_dirs
-    while read scene; do
-	tar=`echo $scene*.gz`
-	if [ ! -z $scene ]; then
-	    if [ ! -d $raw_dir_ga/date_dirs/$scene ]; then #check if data have already been extracted from tar file
-		tar -xvzf $tar
-		mv $scene date_dirs
-	    else
-		echo "Raw data already extracted for" $scene"."
-	    fi
-	else
-	    :
-	fi
-    done < $add_scene_list
+    extract_raw_data.bash $proj_dir/$proc_file 1
 # create SLC data
+    #if [ $do_slc == yes ]; then
+	if [ $palsar1_data == raw -a $sensor == PALSAR1 ]; then
+            sensor=PALSAR_L0 # PALSAR L1.0 script can process PALSAR1 raw data
+	elif [ $palsar1_data == slc -a $sensor == PALSAR1 ]; then
+            sensor=PALSAR_L1 # PALSAR L1.1 script can process both PALSAR1 and PALSAR2 slc level data
+	elif [ $sensor == PALSAR2 ]; then
+            sensor=PALSAR_L1
+	else
+            :
+	fi
+    #fi
+echo $sensor
 # consolidate error logs into one file
     err_log=$err_dir/SLC_add_error.log
     echo "PROJECT: "$project"_"$sensor"_"$track_dir"_Additional_SLC_Creation_Error_Log" > $err_log
@@ -1076,7 +1075,7 @@ elif [ $add_slc == yes -a $platform == NCI ]; then
     echo \#\PBS -l ncpus=$raw_ncpus >> $add_raw
     echo \#\PBS -l wd >> $add_raw
     echo \#\PBS -q copyq >> $add_raw
-    echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file >> $add_raw
+    echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file 1 >> $add_raw
     chmod +x $add_raw
     qsub $add_raw | tee add_raw_job_id
     # set up and submit PBS job script for each SLC
