@@ -9,7 +9,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       05/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_gamma.bash [proc_file]"
     }
@@ -590,7 +590,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	fi
 	echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 2 - - - - >> $full_dem
 	chmod +x $full_dem
-#	qsub $full_dem
+	qsub $full_dem
     elif [ $subset == yes -a $subset_done == process ]; then 
         # set up header for PBS job
 	sub_dem=coreg_sub_dem
@@ -601,11 +601,6 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	echo \#\PBS -l ncpus=$dem_ncpus >> $sub_dem
 	echo \#\PBS -l wd >> $sub_dem
 	echo \#\PBS -q normal >> $sub_dem
-	if [ $do_slc == yes -a $platform == NCI ]; then
-	    echo \#\PBS -W depend=afterok:$slc_jobid >> $sub_dem
-	else
-	    :
-	fi
         # no multi-look value - for geocoding full subsetted SLC data
 	echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 2 $roff $rlines $azoff $azlines >> $sub_dem
         # SLC and ifm multi-look value (same value)
@@ -618,7 +613,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 1 $roff $rlines $azoff $azlines >> $sub_dem
 	fi	  
 	chmod +x $sub_dem
-#	qsub $sub_dem | tee sub_dem_job_id
+	qsub $sub_dem | tee sub_dem_job_id
     elif [ $subset == no ]; then # no subsetting 
         # no multi-look value - for geocoding full SLC data
         # set up header for PBS job
@@ -647,7 +642,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 1 $roff $rlines $azoff $azlines >> $dem
 	fi	  
 	chmod +x $dem
-#	qsub $dem | tee dem_job_id
+	qsub $dem | tee dem_job_id
     else
 	:
     fi
@@ -852,7 +847,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 			echo \#\PBS -q normal >> $ifm
 			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
 			chmod +x $ifm
-			paste $ifm >> $first_list"_jobs_listing"
+			echo $ifm >> $first_list"_jobs_listing"
 		    fi
 		done < $list
                 # create script to qsub each PBS job
@@ -879,7 +874,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		else
 		    :
 		fi
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
+		echo $proj_dir/$track_dir/batch_scripts/$first_list.bash >> $run_script
 		chmod +x $run_script
 #		qsub $run_script | tee $first_list"_job_id"
 	    fi
@@ -906,7 +901,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 			echo \#\PBS -q normal >> $ifm
 			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
 			chmod +x $ifm
-			paste $ifm >> $second_list"_jobs_listing"
+			echo $ifm >> $second_list"_jobs_listing"
 		    fi
 		done < $list
                 # create script to qsub each PBS job
@@ -929,7 +924,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $run_script
 		echo \#\PBS -q express >> $run_script
 		echo \#\PBS -W depend=afterok:$first_list_jobid >> $run_script
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
+		echo $proj_dir/$track_dir/batch_scripts/$second_list.bash >> $run_script
 		chmod +x $run_script
 #		qsub $run_script | tee $second_list"_job_id"
 	    fi
@@ -979,7 +974,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $run_script
 		echo \#\PBS -q express >> $run_script
 		echo \#\PBS -W depend=afterok:$second_list_jobid >> $run_script
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
+		echo $proj_dir/$track_dir/batch_scripts/$third_list.bash >> $run_script
 		chmod +x $run_script
 #		qsub $run_script
 	    fi
