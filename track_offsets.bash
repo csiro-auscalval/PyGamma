@@ -9,7 +9,7 @@ display_usage() {
     echo "*         [master]     earlier scene ID (eg. 20121130)                        *"
     echo "*         [slave]      later scene ID (eg. 20121211)                          *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       20/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: track_offsets.bash [proc_file] [master] [slave]"
     }
@@ -35,7 +35,7 @@ slv=$3
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi

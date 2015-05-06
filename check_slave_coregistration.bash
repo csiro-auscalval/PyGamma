@@ -14,7 +14,7 @@ display_usage() {
     echo "*         <start>      starting line of SLC (optional, default: 1)            *"
     echo "*         <nlines>     number of lines to display (optional, default: 4000)   *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       13/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: check_slave_coregistration.bash [proc_file] [list_type] <start> <nlines>"
     }
@@ -55,7 +55,7 @@ mas=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi

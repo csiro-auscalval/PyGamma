@@ -13,7 +13,7 @@ display_usage() {
     echo "*         [loff]       offset to starting line                                *"
     echo "*         [nl]         number of lines to copy                                *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       20/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: extract_subscene.bash [proc_file] [scene] [roff] [nr] [loff] [nl]"
     }
@@ -44,7 +44,7 @@ mas=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi

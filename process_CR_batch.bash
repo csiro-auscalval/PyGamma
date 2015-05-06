@@ -14,7 +14,7 @@ display_usage() {
     echo "*         [cr_file]    full path to ASCII file of CR locations and centre of  *"
     echo "*                      clutter window                                         *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       20/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_CR.bash [proc_file] [list] [cr_file]"
     }
@@ -40,7 +40,7 @@ cr_file=$3
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi

@@ -14,7 +14,7 @@ display_usage() {
     echo "*            <south>:    southern latitude for subsetting                     *"
     echo "*            <north>:    northern latitude for subsetting                     *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       31/03/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: make_GAMMA_DEM.bash [proc_file] [ascii_file] <optional_parameters>"
     }
@@ -37,7 +37,7 @@ dem_dir_mdss=`grep DEM_location_MDSS= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi

@@ -10,7 +10,7 @@ display_usage() {
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
     echo "*         [ifm_list]    list of interferograms                                *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       20/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: extract_bperp_values.bash [proc_file] [ifm_list]"
     }
@@ -35,7 +35,7 @@ ifm_looks=`grep ifm_multi_look= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi

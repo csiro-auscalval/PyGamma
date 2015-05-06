@@ -15,7 +15,7 @@ display_usage() {
     echo "*         [win]        analysis window size in pixels                         *"
     echo "*         [cross]      analysis cross width in pixels                         *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       20/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_CR.bash [proc_file] [slc] [date] [site] [cr] [rg] [az] [win] [cross]"
     }
@@ -61,7 +61,7 @@ stub=$date"_"$site"_CR_"$cr
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi

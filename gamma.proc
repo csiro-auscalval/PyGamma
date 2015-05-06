@@ -53,7 +53,7 @@ azimuth_lines=-
     # options: yes/no
 Setup=yes
 Do_raw_data=yes
-Do_SLC=yes
+Do_SLC=no
 Coregister_DEM=no
 Coregister_slaves=no
     # only process interferograms after slave coregistration has been checked
@@ -77,9 +77,9 @@ List_of_add_ifms=add_ifms.list
 
 ##### Raw Data and DEM Directories ######
     # GA data directories
-Raw_data_GA=/nas/gemd/insar/RAW_SAR/ALOS/MERAPI/T096D
-DEM_location_GA=/nas/gemd/insar/DEM/merapi/GAMMA_DEM
-DEM_name_GA=merapi_aster.dem
+Raw_data_GA=/nas/gemd/insar/RAW_SAR/xxxxx
+DEM_location_GA=/nas/gemd/insar/DEM/xxxxx/GAMMA_DEM
+DEM_name_GA=xxxxx.dem
     # NCI MDSS data directories
 Raw_data_MDSS=insar/xxxxxxx
 DEM_location_MDSS=insar/DEM/xxxxx
@@ -130,6 +130,11 @@ ifm_end=DONE
 
 ##### NCI PBS parameters #####
 
+# scene, slave and ifm list creation
+list_walltime=00:05:00
+list_mem=50MB
+list_ncpus=1
+
 # raw data extraction
 raw_walltime=02:00:00
 raw_mem=500MB
@@ -138,15 +143,15 @@ raw_ncpus=1
 # create slcs
 SLC_walltime=02:00:00
 SLC_mem=2GB
-SLC_ncpus=1
+SLC_ncpus=2
 
 # coregister dem
-DEM_walltime=02:00:00
-DEM_mem=2GB
-DEM_ncpus=1
+DEM_walltime=04:00:00
+DEM_mem=5GB
+DEM_ncpus=2
 
 #coregister slcs
-coreg_walltime=02:00:00
+coreg_walltime=05:00:00
 coreg_mem=2GB
 coreg_ncpus=2
 
@@ -154,8 +159,3 @@ coreg_ncpus=2
 ifm_walltime=48:00:00
 ifm_mem=10GB
 ifm_ncpus=2
-
-#geocode ifms
-geo_walltime=48:00:00
-geo_mem=2GB
-geo_ncpus=2
