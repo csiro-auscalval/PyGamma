@@ -883,7 +883,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		chmod +x $run_script
 #		qsub $run_script | tee $first_list"_job_id"
 	    fi
-	done < $first_list
+	done < $proj_dir/$track_dir/$first_list
 	# second list (ifm.list_01) ifms: 191 - 381
 	second_list=`awk 'NR==2 {print $1}' $ifm_files`
 	first_list_jobid=`sed s/.r-man2// $first_list"_job_id"`
@@ -933,7 +933,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		chmod +x $run_script
 #		qsub $run_script | tee $second_list"_job_id"
 	    fi
-	done < $second_list
+	done < $proj_dir/$track_dir/$second_list
 	# third list (ifm.list_02) ifms: 382 - 570
 	third_list=`awk 'NR==3 {print $1}' $ifm_files`
 	second_list_jobid=`sed s/.r-man2// $second_list"_job_id"`
@@ -983,7 +983,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		chmod +x $run_script
 #		qsub $run_script
 	    fi
-	done < $third_list
+	done < $proj_dir/$track_dir/$third_list
     else
 	:
     fi
