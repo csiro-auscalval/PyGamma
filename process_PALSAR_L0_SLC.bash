@@ -292,9 +292,9 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     else
 	:
     fi
-    GM az_proc $sensor_par $msp_par $slc_name.rc $slc 8192 0 $cal_const 0
+    GM az_proc $sensor_par $msp_par $slc_name.rc $slc 16384 0 $cal_const 0
     GM af $sensor_par $msp_par $slc 1024 4096 - - 10 1 0 0 $slc_name.af
-    GM az_proc $sensor_par $msp_par $slc_name.rc $slc 8192 0 $cal_const 0
+    GM az_proc $sensor_par $msp_par $slc_name.rc $slc 16384 0 $cal_const 0
     GM af $sensor_par $msp_par $slc 1024 4096 - - 10 1 0 0 $slc_name.af
 
     ## REMOVE RC FILE HERE
