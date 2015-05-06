@@ -758,7 +758,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
     echo \#\PBS -W depend=afterok:$co_slc_jobid >> $check_slc
     echo ~/repo/gamma_bash/check_slave_coregistration.bash $proj_dir/$proc_file 1 >> $check_slc
     chmod +x $check_slc
-#    qsub $check_slc
+#    qsub $check_slc | tee check_co_slc_job_id
 else
     :
 fi
@@ -801,9 +801,11 @@ elif [ $do_ifms == no -a $platform == GA ]; then
     echo " "
 ## NCI ##
 elif [ $do_ifms == yes -a $platform == NCI ]; then
+    check_co_slc_jobid=`sed s/.r-man2// check_co_slc_job_id`
+    ifm_files=$proj_dir/$track_dir/ifm_files.list
     cd $proj_dir/$track_dir/batch_scripts
     # set up header for PBS jobs for ifm creation
-    if [ -e $ifm_list ]; then ## 190 or less ifms
+    if [ ! -e $ifm_files ]; then ## 190 or less ifms
 	while read ifm_pair; do
 	    if [ ! -z $ifm_pair ]; then
 		mas=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $1}'`
@@ -818,18 +820,23 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
 		echo \#\PBS -l wd >> $ifm
 		echo \#\PBS -q normal >> $ifm
+		if [ $coregister == yes -a $platform == NCI ]; then
+		    echo \#\PBS -W depend=afterok:$check_co_slc_jobid >> $ifm
+		else
+		    :
+		fi
 		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
 		chmod +x $ifm
 #		qsub $ifm
 	    fi
 	done < $ifm_list    	
-    else ## more than 190 ifms (ifms list split into multiple lists)
-	ifm_file_lists=$proj_dir/$track_dir/ifm_files.list
-	# first list (relies on create ifm list to be run first, other lists rely of previous list to run first)
-	first_list=`awk 'NR==1 {print $1}' $ifm_file_lists`
+     elif [ -e $ifm_files ]; then ## more than 190 ifms (ifms list split into multiple lists of 190 lots)
+	# first list (ifm.list_00) ifms: 1 - 190
+	first_list=`awk 'NR==1 {print $1}' $ifm_files`
+	rm -rf $first_list"_jobs_listing"
 	while read list; do
 	    if [ ! -z $list ]; then
-		while read ifm_pair; do # create PBS jobs for each ifm in split ifm list
+		while read ifm_pair; do # create PBS jobs for each ifm in first list
 		    if [ ! -z $ifm_pair ]; then
 			mas=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $1}'`
 			slv=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $2}'`
@@ -845,63 +852,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 			echo \#\PBS -q normal >> $ifm
 			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
 			chmod +x $ifm
-			paste $ifm > $first_list"_jobs_listing"
-		    fi
-		done < $first_list
-                # create script to qsub each PBS job
-		script=$first_list.bash 
-		echo \#\!/bin/bash > $script
-		echo "dir=$proj_dir/$track_dir/batch_scripts" >> $script
-		echo "list="$first_list"_jobs_listing" >> $script
-		echo "cd $dir" >> $script
-		echo "while read job; do" >> $script
-		echo "qsub $job" >> $script
-		echo "done < $list" >> $script
-		chmod +x $script
-		# create PBS job to run script
-		run_script=$first_list"_bulk"
-		echo \#\!/bin/bash > $run_script
-		echo \#\PBS -lother=gdata1 >> $run_script
-		echo \#\PBS -l walltime=00:30:00 >> $run_script
-		echo \#\PBS -l mem=500MB >> $run_script
-		echo \#\PBS -l ncpus=1 >> $run_script
-		echo \#\PBS -l wd >> $run_script
-		echo \#\PBS -q normal >> $run_script
-		if [ $coregister == yes -a $platform == NCI ]; then
-		    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $run_script
-		else
-		    :
-		fi
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
-		chmod +x $run_script
-#		qsub $run_script | tee $run_script"_job_id"
-	    fi
-	done < $first_list
-
-        # subsequent lists
-	cp $ifm_file_lists ifm_files2.list
-	tail -n +2 ifm_files2.list # remove first list
-	remainder_list=ifm_files2.list
-
-	while read list; do
-	    if [ ! -z $list ]; then
-		while read ifm_pair; do # create PBS jobs for each ifm in split ifm list
-		    if [ ! -z $ifm_pair ]; then
-			mas=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $1}'`
-			slv=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $2}'`
-			mas_name=`echo $mas | awk '{print substr($1,3,6)}'`
-			slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
-			ifm=ifm_$mas_name-$slv_name
-			echo \#\!/bin/bash > $ifm
-			echo \#\PBS -lother=gdata1 >> $ifm
-			echo \#\PBS -l walltime=$ifm_walltime >> $ifm
-			echo \#\PBS -l mem=$ifm_mem >> $ifm
-			echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
-			echo \#\PBS -l wd >> $ifm
-			echo \#\PBS -q normal >> $ifm
-			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
-			chmod +x $ifm
-			paste $ifm > $list"_jobs_listing"
+			paste $ifm >> $first_list"_jobs_listing"
 		    fi
 		done < $list
                 # create script to qsub each PBS job
@@ -917,18 +868,124 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		# create PBS job to run script
 		run_script=$first_list"_bulk"
 		echo \#\!/bin/bash > $run_script
-		echo \#\PBS -lother=gdata1 >> $ifm
-		echo \#\PBS -l walltime=00:30:00 >> $run_script
-		echo \#\PBS -l mem=500MB >> $run_script
-		echo \#\PBS -l ncpus=1 >> $run_script
+		echo \#\PBS -lother=gdata1 >> $run_script
+		echo \#\PBS -l walltime=$list_walltime >> $run_script
+		echo \#\PBS -l mem=$list_mem >> $run_script
+		echo \#\PBS -l ncpus=$list_ncpus >> $run_script
 		echo \#\PBS -l wd >> $run_script
-		echo \#\PBS -q normal >> $run_script
+		echo \#\PBS -q express >> $run_script
+		if [ $coregister == yes -a $platform == NCI ]; then
+		    echo \#\PBS -W depend=afterok:$check_co_slc_jobid >> $run_script
+		else
+		    :
+		fi
 		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
 		chmod +x $run_script
-#		qsub $run_script | tee $run_script"_job_id"
+#		qsub $run_script | tee $first_list"_job_id"
 	    fi
-	done < $remainder_list
-
+	done < $first_list
+	# second list (ifm.list_01) ifms: 191 - 381
+	second_list=`awk 'NR==2 {print $1}' $ifm_files`
+	first_list_jobid=`sed s/.r-man2// $first_list"_job_id"`
+	rm -rf $second_list"_jobs_listing"
+	while read list; do
+	    if [ ! -z $list ]; then
+		while read ifm_pair; do # create PBS jobs for each ifm in first list
+		    if [ ! -z $ifm_pair ]; then
+			mas=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $1}'`
+			slv=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $2}'`
+			mas_name=`echo $mas | awk '{print substr($1,3,6)}'`
+			slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
+			ifm=ifm_$mas_name-$slv_name
+			echo \#\!/bin/bash > $ifm
+			echo \#\PBS -lother=gdata1 >> $ifm
+			echo \#\PBS -l walltime=$ifm_walltime >> $ifm
+			echo \#\PBS -l mem=$ifm_mem >> $ifm
+			echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
+			echo \#\PBS -l wd >> $ifm
+			echo \#\PBS -q normal >> $ifm
+			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
+			chmod +x $ifm
+			paste $ifm >> $second_list"_jobs_listing"
+		    fi
+		done < $list
+                # create script to qsub each PBS job
+		script=$second_list.bash 
+		echo \#\!/bin/bash > $script
+		echo "dir=$proj_dir/$track_dir/batch_scripts" >> $script
+		echo "list="$second_list"_jobs_listing" >> $script
+		echo "cd $dir" >> $script
+		echo "while read job; do" >> $script
+		echo "qsub $job" >> $script
+		echo "done < $list" >> $script
+		chmod +x $script
+		# create PBS job to run script
+		run_script=$second_list"_bulk"
+		echo \#\!/bin/bash > $run_script
+		echo \#\PBS -lother=gdata1 >> $run_script
+		echo \#\PBS -l walltime=$list_walltime >> $run_script
+		echo \#\PBS -l mem=$list_mem >> $run_script
+		echo \#\PBS -l ncpus=$list_ncpus >> $run_script
+		echo \#\PBS -l wd >> $run_script
+		echo \#\PBS -q express >> $run_script
+		echo \#\PBS -W depend=afterok:$first_list_jobid >> $run_script
+		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
+		chmod +x $run_script
+#		qsub $run_script | tee $second_list"_job_id"
+	    fi
+	done < $second_list
+	# third list (ifm.list_02) ifms: 382 - 570
+	third_list=`awk 'NR==3 {print $1}' $ifm_files`
+	second_list_jobid=`sed s/.r-man2// $second_list"_job_id"`
+	rm -rf $third_list"_jobs_listing"
+	while read list; do
+	    if [ ! -z $list ]; then
+		while read ifm_pair; do # create PBS jobs for each ifm in first list
+		    if [ ! -z $ifm_pair ]; then
+			mas=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $1}'`
+			slv=`echo $ifm_pair | awk 'BEGIN {FS=","} ; {print $2}'`
+			mas_name=`echo $mas | awk '{print substr($1,3,6)}'`
+			slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
+			ifm=ifm_$mas_name-$slv_name
+			echo \#\!/bin/bash > $ifm
+			echo \#\PBS -lother=gdata1 >> $ifm
+			echo \#\PBS -l walltime=$ifm_walltime >> $ifm
+			echo \#\PBS -l mem=$ifm_mem >> $ifm
+			echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
+			echo \#\PBS -l wd >> $ifm
+			echo \#\PBS -q normal >> $ifm
+			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
+			chmod +x $ifm
+			paste $ifm >> $third_list"_jobs_listing"
+		    fi
+		done < $list
+                # create script to qsub each PBS job
+		script=$third_list.bash 
+		echo \#\!/bin/bash > $script
+		echo "dir=$proj_dir/$track_dir/batch_scripts" >> $script
+		echo "list="$third_list"_jobs_listing" >> $script
+		echo "cd $dir" >> $script
+		echo "while read job; do" >> $script
+		echo "qsub $job" >> $script
+		echo "done < $list" >> $script
+		chmod +x $script
+		# create PBS job to run script
+		run_script=$third_list"_bulk"
+		echo \#\!/bin/bash > $run_script
+		echo \#\PBS -lother=gdata1 >> $run_script
+		echo \#\PBS -l walltime=$list_walltime >> $run_script
+		echo \#\PBS -l mem=$list_mem >> $run_script
+		echo \#\PBS -l ncpus=$list_ncpus >> $run_script
+		echo \#\PBS -l wd >> $run_script
+		echo \#\PBS -q express >> $run_script
+		echo \#\PBS -W depend=afterok:$second_list_jobid >> $run_script
+		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $run_script
+		chmod +x $run_script
+#		qsub $run_script
+	    fi
+	done < $third_list
+    else
+	:
     fi
 else
     :

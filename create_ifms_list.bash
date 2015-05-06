@@ -8,7 +8,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       30/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: create_ifms_list.bash [proc_file]"
     }
@@ -152,12 +152,13 @@ fi
 if [ $platform == NCI ]; then
     num_ifms=`cat $ifms_list | sed '/^\s*$/d' | wc -l`
     if [ $num_ifms -le 190 ]; then
-	echo $ifm_list > ifm_files.list
+	:
     elif [ $num_ifms -gt 190 ]; then
 	split -dl 190 $ifm_list $ifm_list"_"
 	mv $ifm_list all_$ifm_list
 	echo ifm.list_* > temp
 	cat temp | tr " " "\n" > ifm_files.list
+	rm -rf temp
     else
 	:
     fi
