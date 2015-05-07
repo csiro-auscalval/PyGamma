@@ -14,7 +14,10 @@ display_usage() {
     echo "*         <multi-look>  flag for creating ref DEM with no multi-looks, used   *"
     echo "*                       for creating lookup table for geocoding full SLC data *"
     echo "*                       (1 = no, 2 = yes)                                     *"
-    echo " *            xxxxxx *"
+    echo " *         <roff>       offset to starting range sample                       *"
+    echo " *         <rlines>     number of range samples                               *"
+    echo " *         <azoff>      offset to starting line                               *"
+    echo " *         <azlines>    number of lines to copy                               *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*******************************************************************************"
@@ -72,7 +75,7 @@ cd $proj_dir/$track_dir
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+echo "PROCESSING_PROJECT: "$project $track_dir $rlks"rlks" $alks"aks" 1>&2
 
 ## Copy output of Gamma programs to log files
 GM()
@@ -260,6 +263,8 @@ fi
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
    cat error.log 1>&2
+   echo "" 1>&2
+   grep "correlation SNR:" output.log 1>&2
    rm temp_log
 else
     $dem_dir/temp_log

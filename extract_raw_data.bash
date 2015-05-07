@@ -54,9 +54,12 @@ if [ $flag == 0 ]; then
     scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
 
 ## Insert scene details top of NCI .e file
-    echo "" 1>&2 # adds spaces at top so scene details are clear
+    echo "" 1>&2 
     echo "" 1>&2
     echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+    echo "" 1>&2
+    echo "Extract Raw Data" 1>&2
+    echo "" 1>&2
 else
     scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
 fi

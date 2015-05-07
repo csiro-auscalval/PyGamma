@@ -46,6 +46,8 @@ cd $proj_dir/$track_dir
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir $scene 1>&2
+echo "" 1>&2
+echo "Extract bperp Values" 1>&2
 
 ## Copy output of Gamma programs to log files
 GM()
