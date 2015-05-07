@@ -59,6 +59,7 @@ if [ $flag == 0 ]; then
     echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
     echo "" 1>&2
     echo "Extract Raw Data" 1>&2
+    echo "" 1>&2
 else
     scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
 fi

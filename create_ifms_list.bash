@@ -48,6 +48,7 @@ echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 echo "" 1>&2
 echo "Interferogram List File Creation" 1>&2
+echo "" 1>&2
 
 ## Identify if doing initial ifm list or updated ifm list with additional scenes
 if [ $do_add_ifms == yes ]; then

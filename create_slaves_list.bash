@@ -44,6 +44,7 @@ echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 echo "" 1>&2
 echo "Slaves List File Creation" 1>&2
+echo "" 1>&2
 
     ## Create list of slave SLCs
 cd $proj_dir/$track_dir

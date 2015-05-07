@@ -184,6 +184,7 @@ elif [ $do_setup == no -a $platform == GA ]; then
     echo " "
 ## NCI ###
 elif [ $do_setup == yes -a $platform == NCI ]; then
+    echo "Creating project directory structure..." 1>&2
     cd $proj_dir
     mkdir -p $track_dir # GAMMA processing directory
     mkdir -p $track_dir/batch_scripts # for PBS jobs
@@ -204,6 +205,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	:
     fi
 # create scenes.list file
+    echo "Creating scenes list file..." 1>&2
     cd $proj_dir/$track_dir/batch_scripts
     sc_list=sc_list_gen
     echo \#\!/bin/bash > $sc_list
@@ -217,6 +219,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
     chmod +x $sc_list
     qsub $sc_list | tee sc_list_job_id
 # create slaves.list file
+    echo "Creating slaves list file..." 1>&2
     sc_list_jobid=`sed s/.r-man2// sc_list_job_id`
     slv_list=slv_list_gen
     echo \#\!/bin/bash > $slv_list
@@ -231,6 +234,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
     chmod +x $slv_list
     qsub $slv_list
 # create ifms.list file
+    echo "Creating interferogram list file..." 1>&2
     ifm_list=ifm_list_gen
     echo \#\!/bin/bash > $ifm_list
     echo \#\PBS -lother=gdata1 >> $ifm_list
@@ -260,6 +264,7 @@ if [ $do_raw == yes -a $platform == GA ]; then
     echo "Extracting raw data..."
     echo " "
     extract_raw_data.bash $proj_dir/$proc_file 0
+    echo "Raw data extracted for" $project $sensor $track_dir"."
 elif [ $do_raw == no -a $platform == GA ]; then
     echo " "
     echo "Option to extract raw data not selected."
@@ -269,6 +274,7 @@ else
 fi
 ## NCI ##
 if [ $do_raw == yes -a $platform == NCI ]; then
+    echo "Extracting raw data..." 1>&2
     cd $proj_dir/$track_dir/batch_scripts
     raw=extract_raw 
     echo \#\!/bin/bash > $raw
@@ -361,6 +367,7 @@ elif [ $do_slc == no -a $platform == GA ]; then
     echo " "
 ## NCI ##
 elif [ $do_slc == yes -a $platform == NCI ]; then
+    echo "Creating SLC data..." 1>&2
     cd $proj_dir/$track_dir/batch_scripts
     # set up and submit PBS job script for each SLC
     while read scene; do
@@ -583,6 +590,7 @@ elif [ $coregister_dem == no -a $platform == GA ]; then
     echo " "
 ## NCI ##
 elif [ $coregister_dem == yes -a $platform == NCI ]; then
+    echo "Coregistering DEM to master scene..." 1>&2
     cd $proj_dir/$track_dir/batch_scripts
     slc_jobid=`sed s/.r-man2// slc_job_id`
     if [ $subset == yes -a $subset_done == notyet ]; then 
@@ -605,6 +613,8 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	chmod +x $full_dem
 	qsub $full_dem
     elif [ $subset == yes -a $subset_done == process ]; then 
+	echo "" 1>&2
+	echo "Subsetting master scene..." 1>&2
         # set up header for PBS job
 	sub_dem=coreg_sub_dem
 	echo \#\!/bin/bash > $sub_dem
@@ -724,6 +734,7 @@ elif [ $coregister == no -a $platform == GA ]; then
     echo " "
 ## NCI ##
 elif [ $coregister == yes -a $platform == NCI ]; then
+    echo "Coregistering slave scenes to master scene..." 1>&2
     cd $proj_dir/$track_dir/batch_scripts
     if [ -f sub_dem_job_id ]; then
 	dem_jobid=`sed s/.r-man2// sub_dem_job_id`
@@ -830,6 +841,7 @@ elif [ $do_ifms == no -a $platform == GA ]; then
     echo " "
 ## NCI ##
 elif [ $do_ifms == yes -a $platform == NCI ]; then
+    echo "Creating interferograms..." 1>&2
     check_co_slc_jobid=`sed s/.r-man2// check_co_slc_job_id`
     ifm_files=$proj_dir/$track_dir/ifm_files.list
     cd $proj_dir/$track_dir/batch_scripts
