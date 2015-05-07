@@ -96,7 +96,7 @@ elif [ $do_ifms == yes -o $do_add_ifms == yes ]; then
     else
 	:
     fi
-    ls ifm_*-*.e* > list
+    ls ifm_*.e* > list
     while read error; do
 	if [ ! -z $error ]; then
 	    less $error > temp
@@ -107,5 +107,5 @@ elif [ $do_ifms == yes -o $do_add_ifms == yes ]; then
     rm -rf list
 else
     :
-if
+fi
 
