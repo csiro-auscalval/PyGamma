@@ -207,7 +207,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 # create scenes.list file
     echo "Creating scenes list file..." 1>&2
     cd $proj_dir/$track_dir/batch_scripts
-    sc_list=sc_list_gen
+    sc_list=sc.list_gen
     echo \#\!/bin/bash > $sc_list
     echo \#\PBS -lother=gdata1 >> $sc_list
     echo \#\PBS -l walltime=$list_walltime >> $sc_list
@@ -221,7 +221,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 # create slaves.list file
     echo "Creating slaves list file..." 1>&2
     sc_list_jobid=`sed s/.r-man2// sc_list_job_id`
-    slv_list=slv_list_gen
+    slv_list=slv.list_gen
     echo \#\!/bin/bash > $slv_list
     echo \#\PBS -lother=gdata1 >> $slv_list
     echo \#\PBS -l walltime=$list_walltime >> $slv_list
@@ -235,7 +235,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
     qsub $slv_list
 # create ifms.list file
     echo "Creating interferogram list file..." 1>&2
-    ifm_list=ifm_list_gen
+    ifm_list=ifm.list_gen
     echo \#\!/bin/bash > $ifm_list
     echo \#\PBS -lother=gdata1 >> $ifm_list
     echo \#\PBS -l walltime=$list_walltime >> $ifm_list
@@ -397,7 +397,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 	fi
     done < $scene_list
     slc_jobid=`sed s/.r-man2// slc_job_id`
-    slc_errors=slc_err_check
+    slc_errors=slcerr_check
     echo \#\!/bin/bash > $slc_errors
     echo \#\PBS -lother=gdata1 >> $slc_errors
     echo \#\PBS -l walltime=00:10:00 >> $slc_errors
