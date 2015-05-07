@@ -136,12 +136,12 @@ list_mem=50MB
 list_ncpus=1
 
 # raw data extraction
-raw_walltime=02:00:00
-raw_mem=500MB
+raw_walltime=01:00:00
+raw_mem=50MB
 raw_ncpus=1
 
 # create slcs
-SLC_walltime=01:00:00
+SLC_walltime=03:00:00
 SLC_mem=2GB
 SLC_ncpus=1
 
@@ -151,8 +151,8 @@ DEM_mem=5GB
 DEM_ncpus=2
 
 #coregister slcs
-coreg_walltime=05:00:00
-coreg_mem=2GB
+coreg_walltime=03:00:00
+coreg_mem=5GB
 coreg_ncpus=2
 
 #create ifms
