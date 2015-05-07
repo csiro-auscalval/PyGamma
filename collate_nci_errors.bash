@@ -46,10 +46,11 @@ fi
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
-
+echo "" 1>&2
 
 if [ $do_slc == yes -o $add_slc == yes ]; then
     cd $proj_dir/$track_dir/batch_scripts
+    echo "Collating Errors from SLC Creation" 1>&2
     error_list=$project"_"$track_dir"_slc_errors.list"
     if [ -f $error_list ]; then
 	rm -rf $error_list
@@ -67,6 +68,7 @@ if [ $do_slc == yes -o $add_slc == yes ]; then
     rm -rf list
 elif [ $coregister == yes -o $coregister_add == yes ]; then
     cd $proj_dir/$track_dir/batch_scripts
+    echo "Collating Errors from SLC Coregistration" 1>&2
     error_list=$project"_"$track_dir"_slc_coreg_errors.list"
     if [ -f $error_list ]; then
 	rm -rf $error_list
@@ -84,6 +86,7 @@ elif [ $coregister == yes -o $coregister_add == yes ]; then
     rm -rf list
 elif [ $do_ifms == yes -o $do_add_ifms == yes ]; then
     cd $proj_dir/$track_dir/batch_scripts
+    echo "Collating Errors from Interferogram Creation" 1>&2
     error_list=$project"_"$track_dir"_ifm_errors.list"
     if [ -f $error_list ]; then
 	rm -rf $error_list

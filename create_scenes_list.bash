@@ -42,6 +42,8 @@ frame_list=$proj_dir/$track_dir/`grep List_of_frames= $proc_file | cut -d "=" -f
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+echo "" 1>&2
+echo "Scenes List File Creation" 1>&2
 
 if [ $platform == GA ]; then
     if [ -f $frame_list ]; then 

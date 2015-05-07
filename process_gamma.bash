@@ -243,6 +243,10 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
     echo ~/repo/gamma_bash/create_ifms_list.bash $proj_dir/$proc_file >> $ifm_list
     chmod +x $ifm_list
     qsub $ifm_list
+elif [ $do_setup == no -a $platform == NCI ]; then
+    echo "" 1>&2
+    echo "Option to setup project directories and lists not selected." 1>&2
+    echo "" 1>&2
 else
     :
 fi
@@ -282,6 +286,11 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file 0 >> $raw
     chmod +x $raw
     qsub $raw | tee raw_job_id
+elif [ $do_raw == no -a $platform == NCI ]; then
+    echo "" 1>&2
+    echo "Option to extract raw data not selected." 1>&2
+    echo "" 1>&2
+
 else
     :
 fi
@@ -393,6 +402,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
     echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file >> $slc_errors
     chmod +x $slc_errors
     qsub $slc_errors | tee slc_errors_job_id
+elif [ $do_slc == no -a $platform == NCI ]; then
+    echo "" 1>&2
+    echo "Option to create SLC data not selected." 1>&2
+    echo "" 1>&2
 else
     :
 fi
@@ -419,7 +432,7 @@ if [ $coregister_dem == yes -a $platform == GA ]; then
        # remove unecessary lines from error log
        sed '/^scene/ d' temp > temp2 
        sed '/^USAGE/ d' temp2 >> $err_log
-       grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+       grep "correlation SNR:" output.log >> $err_log # a value will appear if SNR is below threshold
        echo " " >> $err_log
        echo " " >> $err_log
        rm -f temp temp2
@@ -440,7 +453,7 @@ if [ $coregister_dem == yes -a $platform == GA ]; then
         # remove unecessary lines from error log
 	sed '/^scene/ d' temp > temp2 
 	sed '/^USAGE/ d' temp2 >> $err_log
-	grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	grep "correlation SNR:" output.log >> $err_log # a value will appear if SNR is below threshold
 	echo " " >> $err_log
 	echo " " >> $err_log
 	rm -f temp temp2
@@ -456,7 +469,7 @@ if [ $coregister_dem == yes -a $platform == GA ]; then
             # remove unecessary lines from error log
 	    sed '/^scene/ d' temp > temp2 
 	    sed '/^USAGE/ d' temp2 >> $err_log
-	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    grep "correlation SNR:" output.log >> $err_log # a value will appear if SNR is below threshold
 	    echo " " >> $err_log
 	    echo " " >> $err_log
 	    rm -f temp temp2
@@ -473,7 +486,7 @@ if [ $coregister_dem == yes -a $platform == GA ]; then
             # remove unecessary lines from error log
 	    sed '/^scene/ d' temp > temp2 
 	    sed '/^USAGE/ d' temp2 >> $err_log
-	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    grep "correlation SNR:" output.log >> $err_log # a value will appear if SNR is below threshold
 	    echo " " >> $err_log
 	    echo " " >> $err_log
 	    rm -f temp temp2
@@ -489,7 +502,7 @@ if [ $coregister_dem == yes -a $platform == GA ]; then
             # remove unecessary lines from error log
 	    sed '/^scene/ d' temp > temp2 
 	    sed '/^USAGE/ d' temp2 >> $err_log
-	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    grep "correlation SNR:" output.log >> $err_log # a value will appear if SNR is below threshold
 	    echo " " >> $err_log
 	    echo " " >> $err_log
 	    rm -f temp temp2
@@ -504,7 +517,7 @@ if [ $coregister_dem == yes -a $platform == GA ]; then
         # remove unecessary lines from error log
 	sed '/^scene/ d' temp > temp2 
 	sed '/^USAGE/ d' temp2 >> $err_log
-	grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	grep "correlation SNR:" output.log >> $err_log # a value will appear if SNR is below threshold
 	echo " " >> $err_log
 	echo " " >> $err_log
 	rm -f temp temp2
@@ -520,7 +533,7 @@ if [ $coregister_dem == yes -a $platform == GA ]; then
         # remove unecessary lines from error log
 	    sed '/^scene/ d' temp > temp2 
 	    sed '/^USAGE/ d' temp2 >> $err_log
-	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    grep "correlation SNR:" output.log >> $err_log # a value will appear if SNR is below threshold
 	    echo " " >> $err_log
 	    echo " " >> $err_log
 	    rm -f temp temp2
@@ -537,7 +550,7 @@ if [ $coregister_dem == yes -a $platform == GA ]; then
             # remove unecessary lines from error log
 	    sed '/^scene/ d' temp > temp2 
 	    sed '/^USAGE/ d' temp2 >> $err_log
-	    grep "correlation SNR:" output.log >> $err_log # will appear if SNR is below threshold
+	    grep "correlation SNR:" output.log >> $err_log # a value will appear if SNR is below threshold
 	    echo " " >> $err_log
 	    echo " " >> $err_log
 	    rm -f temp temp2
@@ -646,6 +659,11 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
     else
 	:
     fi
+elif [ $coregister_dem == no -a $platform == NCI ]; then
+    echo "" 1>&2
+    echo "Option to coregister DEM to master scene not selected." 1>&2
+    echo "" 1>&2
+
 else
     :
 fi
@@ -766,6 +784,10 @@ elif [ $coregister == yes -a $platform == NCI ]; then
     echo ~/repo/gamma_bash/check_slave_coregistration.bash $proj_dir/$proc_file 1 >> $check_slc
     chmod +x $check_slc
     qsub $check_slc | tee check_co_slc_job_id
+elif [ $coregister == no -a $platform == NCI ]; then
+    echo "" 1>&2
+    echo "Option to coregister slaves to master scene not selected." 1>&2
+    echo "" 1>&2
 else
     :
 fi
@@ -1027,6 +1049,10 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
     else
 	:
     fi
+elif [ $do_ifms == no -a $platform == NCI ]; then
+    echo "" 1>&2
+    echo "Option to create interferograms not selected." 1>&2
+    echo "" 1>&2
 else
     :
 fi
@@ -1154,6 +1180,10 @@ elif [ $add_slc == yes -a $platform == NCI ]; then
     echo ~/repo/gamma_bash/collate_nci_slc_errors.bash $proj_dir/$proc_file >> $slc_errors
     chmod +x $slc_errors
     qsub $slc_errors | tee add_slc_errors_job_id
+elif [ $add_slc == no -a $platform == NCI ]; then
+    echo "" 1>&2
+    echo "Option to create additional SLC data not selected." 1>&2
+    echo "" 1>&2
 else
     :
 fi
@@ -1262,6 +1292,10 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
     echo ~/repo/gamma_bash/check_slave_coregistration.bash $proj_dir/$proc_file 2 >> $check_slc
     chmod +x $check_slc
 #    qsub $check_slc | tee check_add_slc_job_id
+elif [ $coregister_add == no -a $platform == NCI ]; then
+    echo "" 1>&2
+    echo "Option to coregister additional slaves to master scene not selected." 1>&2
+    echo "" 1>&2
 else
     :
 fi
@@ -1309,6 +1343,10 @@ elif [ $do_add_ifms == no -a $platform == GA ]; then
 ## NCI ##
 elif [ $do_add_ifms == yes -a $platform == NCI ]; then
     :
+elif [ $do_add_ifms == no -a $platform == NCI ]; then
+    echo "" 1>&2
+    echo "Option to create additional interferograms not selected." 1>&2
+    echo "" 1>&2
 else
     :
 fi

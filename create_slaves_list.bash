@@ -8,7 +8,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       30/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       07/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: create_slaves_list.bash [proc_file]"
     }
@@ -42,6 +42,8 @@ slave_list=$proj_dir/$track_dir/`grep List_of_slaves= $proc_file | cut -d "=" -f
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+echo "" 1>&2
+echo "Slaves List File Creation" 1>&2
 
     ## Create list of slave SLCs
 cd $proj_dir/$track_dir
