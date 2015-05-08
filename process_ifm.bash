@@ -43,11 +43,14 @@ polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 expon=`grep Exponent= $proc_file | cut -d "=" -f 2`
-fftwin=`grep Filtering_window= $proc_file | cut -d "=" -f 2`
+filtwin=`grep Filtering_window= $proc_file | cut -d "=" -f 2`
 ccwin=`grep Coherence_window= $proc_file | cut -d "=" -f 2`
 coh_thres=`grep Coherence_threshold= $proc_file | cut -d "=" -f 2`
 patch_r=`grep Patches_range= $proc_file | cut -d "=" -f 2`
 patch_az=`grep Patches_azimuth= $proc_file | cut -d "=" -f 2`
+refrg=`grep Ref_point_range= $proc_file | cut -d "=" -f 2`
+refaz=`grep Ref_point_azimuth= $proc_file | cut -d "=" -f 2`
+refphs=`grep Ref_phase= $proc_file | cut -d "=" -f 2`
 begin=`grep ifm_begin= $proc_file | cut -d "=" -f 2`
 finish=`grep ifm_end= $proc_file | cut -d "=" -f 2`
 tif_flag=`grep create_geotif= $proc_file | cut -d "=" -f 2`
@@ -182,6 +185,7 @@ int_flat0=$int_dir/$mas_slv_name"_flat0.int"
 int_flat1=$int_dir/$mas_slv_name"_flat1.int"
 int_flat10=$int_dir/$mas_slv_name"_flat10.int"
 int_filt=$int_dir/$mas_slv_name"_filt.int"
+#int_filt_mask=$int_dir/$mas_slv_name"_filt_mask.int"
 cc=$int_dir/$mas_slv_name"_flat.cc"
 cc0=$int_dir/$mas_slv_name"_flat0.cc"
 cc0_mask=$int_dir/$mas_slv_name"_flat0_cc_mask.ras"
@@ -189,8 +193,10 @@ cc10=$int_dir/$mas_slv_name"_flat10.cc"
 cc10_mask=$int_dir/$mas_slv_name"_flat10_cc_mask.ras"
 smcc=$int_dir/$mas_slv_name"_filt.cc"
 mask=$int_dir/$mas_slv_name"_mask.ras"
+mask1=$int_dir/$mas_slv_name"_mask1.ras"
 mask_thin=$int_dir/$mas_slv_name"_mask_thin.ras"
 int_unw=$int_dir/$mas_slv_name.unw
+int_unw_mask=$int_dir/$mas_slv_name"_mask.unw"
 int_unw_thin=$int_dir/$mas_slv_name"_thin.unw"
 int_unw_model=$int_dir/$mas_slv_name"_model.unw"
 base=$int_dir/$mas_slv_name"_base.par"
@@ -353,10 +359,10 @@ cd $int_dir
 
 ## calculate coherence of flattened interferogram
 # WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
-GM cc_wave $int_flat - - $cc $int_width $ccwin $ccwin 1
+GM cc_wave $int_flat $mas_mli $slv_mli $cc $int_width $ccwin $ccwin 1
 
 ## Smooth the phase by Goldstein-Werner filter
-GM adf $int_flat $int_filt $smcc $int_width 0.5 32 $ccwin - 0 - -
+GM adf $int_flat $int_filt $smcc $int_width $expon $filtwin $ccwin - 0 - -
 
 if [ $end == "UNW" ]; then
     echo "Done FILT commands, finished working before UNW."
@@ -422,7 +428,17 @@ GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $p
 GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
 
 ## Use model to unwrap filtered interferogram
-GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz 0.0
+if [ $refrg == - -a $refaz == - ]; then
+    GM unw_model $int_filt $int_unw_model $int_unw $int_width
+else
+    GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
+fi
+
+## Produce coherence mask for masking of unwrapped interferogram
+#GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask1
+
+## apply mask to filtered interferogram here
+#GM mask_data $int_unw $int_width $int_unw_mask $mask1 0
 
 ## Convert LOS signal to vertical
 #GM dispmap $int_unw $rdc_dem $mas_slc_par $off $disp 1
@@ -444,7 +460,8 @@ echo " "
 
 width_in=`grep range_samp_1: $dem_dir/"diff_"$master"_"$polar"_"$ifm_rlks"rlks.par" | awk '{print $2}'`
 width_out=`grep width: $dem_par | awk '{print $2}'`
-GM geocode_back $int_unw $width_in $gc_map $geocode_out $width_out - 0 0 - -
+## Use bicubic spline interpolation for geocoded interferogram
+GM geocode_back $int_unw $width_in $gc_map $geocode_out $width_out - 1 0 - -
 echo " "
 echo "Geocoded interferogram."
 echo " "
