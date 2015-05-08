@@ -393,7 +393,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $slc_script
 	    fi
 	    chmod +x $slc_script
-            qsub $slc_script | tee slc_job_id
+#            qsub $slc_script | tee slc_job_id
 	fi
     done < $scene_list
     slc_jobid=`sed s/.r-man2// slc_job_id`
@@ -408,7 +408,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
     echo \#\PBS -W depend=afterok:$slc_jobid >> $slc_errors
     echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file >> $slc_errors
     chmod +x $slc_errors
-    qsub $slc_errors | tee slc_errors_job_id
+#    qsub $slc_errors | tee slc_errors_job_id
 elif [ $do_slc == no -a $platform == NCI ]; then
     echo "" 1>&2
     echo "Option to create SLC data not selected." 1>&2
@@ -770,7 +770,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	fi
     done < $slave_list
     co_slc_jobid=`sed s/.r-man2// co_slc_job_id`
-    slc_errors=co_slc_err_check
+    slc_errors=co_slcerr_check
     echo \#\!/bin/bash > $slc_errors
     echo \#\PBS -lother=gdata1 >> $slc_errors
     echo \#\PBS -l walltime=00:10:00 >> $slc_errors

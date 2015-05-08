@@ -213,7 +213,7 @@ rm -f temp*
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
    cat error.log 1>&2
-   rm temp_log
+#   rm temp_log
 else
     $slave_dir/temp_log
 fi
