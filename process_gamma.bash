@@ -304,18 +304,21 @@ fi
 
 ##### CREATE SLC DATA #####
 
-## GA ##
-if [ $do_slc == yes ]; then
-    if [ $palsar1_data == raw -a $sensor == PALSAR1 ]; then
+if [ $do_slc == yes -a $sensor == PALSAR1 ]; then
+    if [ $palsar1_data == raw ]; then
 	sensor=PALSAR_L0 # PALSAR L1.0 script can process PALSAR1 raw data
-    elif [ $palsar1_data == slc -a $sensor == PALSAR1 ]; then
+    elif [ $palsar1_data == slc ]; then
 	sensor=PALSAR_L1 # PALSAR L1.1 script can process both PALSAR1 and PALSAR2 slc level data
-    elif [ $sensor == PALSAR2 ]; then
-        sensor=PALSAR_L1
     else
 	:
     fi
+elif [ $do_slc == yes -a $sensor == PALSAR2 ]; then
+    sensor=PALSAR_L1
+else
+    :
 fi
+
+## GA ##
 if [ $do_slc == yes -a $platform == GA ]; then
     cd $proj_dir
 # consolidate error logs into one file
@@ -393,7 +396,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $slc_script
 	    fi
 	    chmod +x $slc_script
-#            qsub $slc_script | tee slc_job_id
+            qsub $slc_script | tee slc_job_id
 	fi
     done < $scene_list
     slc_jobid=`sed s/.r-man2// slc_job_id`
@@ -408,7 +411,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
     echo \#\PBS -W depend=afterok:$slc_jobid >> $slc_errors
     echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file >> $slc_errors
     chmod +x $slc_errors
-#    qsub $slc_errors | tee slc_errors_job_id
+    qsub $slc_errors | tee slc_errors_job_id
 elif [ $do_slc == no -a $platform == NCI ]; then
     echo "" 1>&2
     echo "Option to create SLC data not selected." 1>&2

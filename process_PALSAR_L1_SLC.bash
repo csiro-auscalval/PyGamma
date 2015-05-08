@@ -96,8 +96,8 @@ cd $slc_dir
 mkdir -p $scene
 cd $scene_dir
 
-#raw_file_list=raw_file_list
-#rm -f $scene_dir/$raw_file_list 
+raw_file_list=raw_file_list
+rm -f $scene_dir/$raw_file_list 
 
 ## File names
 slc_name=$scene"_"$polar
@@ -175,6 +175,9 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     while read frame_num; do
 	if [ ! -z $frame_num ]; then
 	    frame=`echo $frame_num | awk '{print $1}'`
+	    fr_slc_name=$scene"_"$polar"_F"$frame
+	    fr_slc=$fr_slc_name.slc
+	    fr_slc_par=$fr_slc.par
 	    if [ $platform == GA ]; then
 		LED=$raw_dir/F$frame/date_dirs/$scene/LED-*
     		IMG=$raw_dir/F$frame/date_dirs/$scene/IMG-$polar*$beam*
@@ -182,44 +185,41 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 		LED=$raw_dir/F$frame/$scene/LED-*
     		IMG=$raw_dir/F$frame/$scene/IMG-$polar*$beam*
 	    fi
-	    par_EORC_PALSAR $LED $slc_par $IMG $slc
-
-## Concatenate two SLC files into one SLC - details from SLC_cat ref manual. can only concatenate 2 slcs at a time
-
-#create_offset      slc1_par slc2_par *.off 
-#init_offset_orbit  slc1_par slc2_par *.off - - 0
-#init_offset        slc1 slc2 slc1_par slc2_par *.off 1 1 - - 0 0 - 512 512 1
-#offset_pwr         slc1 slc2 slc1_par slc2_par *.off offs snr
-#offset_fit         offs snr *.off coffs coffsets 
-#SLC_cat            slc1 slc2 slc1_par slc2_par *.off new_slc new_slc_par
-
-
-        ## Generate the processing parameter files and raw data in GAMMA format
-#	GM PALSAR_proc $LED $sensor_fm_par $msp_fm_par $IMG $raw_fm_file $tx_pol1 $rx_pol1
-
-        ## Copy raw data file details to text file to check if concatenation of scenes along track is required
-#	echo $raw_fm_file $sensor_fm_par $msp_fm_par >> $raw_file_list
+	    GM par_EORC_PALSAR $LED $fr_slc_par $IMG $fr_slc
+            ## Copy data file details to text file to check if concatenation of scenes along track is required
+	    echo $fr_slc $fr_slc_par >> $raw_file_list
 	fi
     done < $proj_dir/$track_dir/$frame_list
 
 ## Check if scene concatenation is required (i.e. a scene has more than one frame)
-#lines=`awk 'END{print NR}' $raw_file_list`
-#if [ $lines -eq 1 ]; then
+lines=`awk 'END{print NR}' $raw_file_list`
+if [ $lines -eq 1 ]; then
     ## rename files to enable further processing (remove reference to 'frame' in file names)
-#    mv $sensor_fm_par $sensor_par
-#    mv $msp_fm_par $msp_par
-#    mv $raw_fm_file $raw
-#    rm -f $raw_file_list
-#else
-
-
-    ## Concatenate scenes into one output data file
-#    GM cat_raw $raw_file_list $sensor_par $msp_par $raw 1 0 - 
-#    rm -f p$scene"_"*"_"$polar.slc.par
-#    rm -f "PALSAR_sensor_"*"_"$polar.par
-#    rm -f $scene"_"*"_"$polar.raw
-#    rm -f $raw_file_list
-#fi
+    mv $fr_slc $slc
+    mv $fr_slc_par $slc_par
+    rm -f $raw_file_list
+else
+    ## Concatenate scenes into one output data file (works for 2 frames only)
+    awk 'NR==1 {print $1,$2}' $raw_file_list > slc_tab1
+    awk 'NR==2 {print $1,$2}' $raw_file_list > slc_tab2
+    # create temp directory for processing files under scene directory
+    mkdir -p temp
+    # create offset parameter file
+    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 0
+    # measure initial range and azimuth offsets using orbit information
+    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 1
+    # concatenate 
+    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 4
+    # rename files and move files
+    rm -rf *.slc *.slc.par # remove frame slcs
+    cd temp
+    mv *.slc $slc
+    mv *.slc.par $slc_par
+    mv $slc $slc_par $scene_dir
+    mv *.off *.log $scene_dir
+    cd $scene_dir
+    rm -rf temp $raw_file_list slc_tab* cat_slc.list
+fi
 
     ## FBD to FBS Conversion
     if [ $polar == HH -a $mode == FBD ]; then

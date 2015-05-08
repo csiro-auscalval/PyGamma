@@ -49,6 +49,7 @@ slc_alks=$4
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
     proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    raw_dir=$proj_dir/raw_data/$track_dir
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     raw_dir=$raw_dir_ga
@@ -102,8 +103,13 @@ mli_par=$mli.par
 tiff=$mli_name.tif
 ras_out=$mli_name.ras
 
-xml=`ls $raw_dir/date_dirs/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/*.xml`
-cosar=`ls $raw_dir/date_dirs/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/IMAGEDATA/IMAGE*.cos`
+if [ $platform == GA ]; then
+    xml=$raw_dir/date_dirs/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/*.xml
+    cosar=$raw_dir/date_dirs/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/IMAGEDATA/IMAGE*.cos
+else
+    xml=$raw_dir/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/*.xml
+    cosar=$raw_dir/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/IMAGEDATA/IMAGE*.cos
+fi
 
 if [ ! -e $slc_dir/$scene/$slc ]; then
 ## Read TSX data and produce slc and parameter files in GAMMA format
