@@ -131,14 +131,39 @@ while read list; do
 	list=$master"_initial_ifm_list"
 	while read ifm; do
 	    if [ ! -z $ifm ]; then
-		echo $ifm >> $ifm_list
+		echo $ifm >> temp_ifm.list
 	    fi
 	done < $list
     fi
 done < dates.list
 
+## Identify which interferograms fall within the temporal baseline threshold (based on sensor)
+if [ $sensor == TSX -o $sensor == CSK ]; then # X band
+    thes=121
+elif [ $sensor == ASAR -o $sensor = ERS -o $sensor == RSAT1 -o $sensor == RSAT2 ]; then # C band
+    thres=xx
+elif [ $sensor == JERS1 ]; then
+    thres=xx
+elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 -o $sensor == S1 ]; then # L band
+    thres=548 # 1.5 years
+else
+    :
+fi
+while read list; do
+    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+    let diff=(`date +%s -d $slv`-`date +%s -d $mas`)/86400
+    if [ $diff -le $thres ]; then
+	echo $list >> $ifm_list
+    else
+	:
+    fi
+done < temp_ifm.list
+
+
+
 ## File clean up
-rm -rf *_master *_master_keep_list *_initial_ifm_list dates.list master.list initial_ifm.list
+rm -rf *_master *_master_keep_list *_initial_ifm_list dates.list master.list initial_ifm.list temp_ifm.list
 
 
 ## Identify new interferograms (not in original ifm list)

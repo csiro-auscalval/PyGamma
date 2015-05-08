@@ -781,20 +781,20 @@ elif [ $coregister == yes -a $platform == NCI ]; then
     echo \#\PBS -W depend=afterok:$co_slc_jobid >> $slc_errors
     echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file >> $slc_errors
     chmod +x $slc_errors
-    qsub $slc_errors
-    # PBS job for checking slave coregistration
-    check_slc=check_slc_coreg
-    echo \#\!/bin/bash > $check_slc
-    echo \#\PBS -lother=gdata1 >> $check_slc
-    echo \#\PBS -l walltime=00:10:00 >> $check_slc
-    echo \#\PBS -l mem=50MB >> $check_slc
-    echo \#\PBS -l ncpus=1 >> $check_slc
-    echo \#\PBS -l wd >> $check_slc
-    echo \#\PBS -q normal >> $check_slc
-    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $check_slc
-    echo ~/repo/gamma_bash/check_slave_coregistration.bash $proj_dir/$proc_file 1 >> $check_slc
-    chmod +x $check_slc
-    qsub $check_slc | tee check_co_slc_job_id
+    qsub $slc_errors 
+    # PBS job for checking slave coregistration  - doesn't work, won't display window
+#    check_slc=check_slc_coreg
+#    echo \#\!/bin/bash > $check_slc
+#    echo \#\PBS -lother=gdata1 >> $check_slc
+#    echo \#\PBS -l walltime=00:10:00 >> $check_slc
+#    echo \#\PBS -l mem=50MB >> $check_slc
+#    echo \#\PBS -l ncpus=1 >> $check_slc
+#    echo \#\PBS -l wd >> $check_slc
+#    echo \#\PBS -q normal >> $check_slc
+#    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $check_slc
+#    echo ~/repo/gamma_bash/check_slave_coregistration.bash $proj_dir/$proc_file 1 >> $check_slc
+#    chmod +x $check_slc
+#    qsub $check_slc | tee check_co_slc_job_id
 elif [ $coregister == no -a $platform == NCI ]; then
     echo "" 1>&2
     echo "Option to coregister slaves to master scene not selected." 1>&2
@@ -862,7 +862,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $ifm
 		echo \#\PBS -q normal >> $ifm
 		if [ $coregister == yes -a $platform == NCI ]; then
-		    echo \#\PBS -W depend=afterok:$check_co_slc_jobid >> $ifm
+		    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $ifm
 		else
 		    :
 		fi
@@ -929,7 +929,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	echo \#\PBS -l wd >> $run_script
 	echo \#\PBS -q express >> $run_script
 	if [ $coregister == yes -a $platform == NCI ]; then
-	    echo \#\PBS -W depend=afterok:$check_co_slc_jobid >> $run_script
+	    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $run_script
 	else
 	    :
 	fi

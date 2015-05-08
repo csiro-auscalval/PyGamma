@@ -136,7 +136,7 @@ list_mem=50MB
 list_ncpus=1
 
 # raw data extraction
-raw_walltime=01:00:00
+raw_walltime=02:00:00
 raw_mem=50MB
 raw_ncpus=1
 
