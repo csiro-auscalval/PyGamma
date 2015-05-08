@@ -140,13 +140,15 @@ done < dates.list
 
 ## Identify which interferograms fall within the temporal baseline threshold 
 while read list; do
-    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-    let diff=(`date +%s -d $slv`-`date +%s -d $mas`)/86400
-    if [ $diff -le $thres ]; then
-	echo $list >> $ifm_list
-    else
-	:
+    if [ ! -z $list ]; then
+	mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+	slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+	let diff=(`date +%s -d $slv`-`date +%s -d $mas`)/86400
+	if [ $diff -le $thres ]; then
+	    echo $list >> $ifm_list
+	else
+	    :
+	fi
     fi
 done < temp_ifm.list
 
@@ -167,12 +169,12 @@ fi
 ## number of interferograms, split list if greater than 190 records (for NCI processing)
 
 if [ $platform == NCI ]; then
-    num_ifms=`cat $ifms_list | sed '/^\s*$/d' | wc -l`
+    num_ifms=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
     if [ $num_ifms -le 190 ]; then
 	:
     elif [ $num_ifms -gt 190 ]; then
 	split -dl 190 $ifm_list $ifm_list"_"
-	mv $ifm_list all_$ifm_list
+	mv $ifm_list $ifm_list"_all"
 	echo ifm.list_* > temp
 	cat temp | tr " " "\n" > ifm_files.list
 	rm -rf temp
