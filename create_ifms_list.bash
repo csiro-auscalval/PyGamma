@@ -27,6 +27,7 @@ project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
+thres=`grep Threshold= $proc_file | cut -d "=" -f 2`
 do_add_ifms=`grep Process_add_ifms= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
@@ -137,18 +138,7 @@ while read list; do
     fi
 done < dates.list
 
-## Identify which interferograms fall within the temporal baseline threshold (based on sensor)
-if [ $sensor == TSX -o $sensor == CSK ]; then # X band
-    thes=121
-elif [ $sensor == ASAR -o $sensor = ERS -o $sensor == RSAT1 -o $sensor == RSAT2 ]; then # C band
-    thres=xx
-elif [ $sensor == JERS1 ]; then
-    thres=xx
-elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 -o $sensor == S1 ]; then # L band
-    thres=548 # 1.5 years
-else
-    :
-fi
+## Identify which interferograms fall within the temporal baseline threshold 
 while read list; do
     mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
     slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
@@ -159,7 +149,6 @@ while read list; do
 	:
     fi
 done < temp_ifm.list
-
 
 
 ## File clean up

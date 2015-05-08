@@ -34,7 +34,8 @@ Orientation=ascending
 Polarisation=HH
     # Beam to process for Wide-Swath data (PALSAR2 only, otherwise leave blank)
 Beam=
-
+    # Temporal baseline threshold in days (to refine number of interferograms, eg. TSX 121)
+Threshold=121
 
 ##### Reference Master Scene Details #####
 Master_scene=20081104
