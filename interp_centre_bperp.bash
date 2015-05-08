@@ -24,7 +24,7 @@ file=$1
 # extract line numbers of useful data
 flen=`cat $file | wc -l`
 len1=`echo $flen - 5 | bc -l`
-len2=`echo $len1 - 12 | bc -l`
+len2=`echo $len1 - 15 | bc -l`
 
 # extract data from bperp file
 awk '{print $1, $2, $8}' $file | head -$len1 | tail -$len2 > xyz
