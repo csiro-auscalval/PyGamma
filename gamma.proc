@@ -74,6 +74,8 @@ List_of_ifms=ifms.list
 List_of_add_scenes=add_scenes.list
 List_of_add_slaves=add_slaves.list
 List_of_add_ifms=add_ifms.list
+   # list for removing scene/s from lists (ie. for slc that don't work)
+List_of_remove_scenes=remove_scenes.list
 
 
 ##### Raw Data and DEM Directories ######
@@ -127,17 +129,17 @@ Ref_phase=0.0
     # options: yes/no
 create_geotif=yes
 
-## interferogram begin options: INT/FLAT/FILT/UNW
+## interferogram begin options: INT/FLAT/FILT/UNW/GEOCODE
 ifm_begin=INT
 
-## interferogram end options: FLAT/FILT/UNW/DONE
+## interferogram end options: FLAT/FILT/UNW/GEOCODE/DONE
 ifm_end=DONE
 
 
 ##### NCI PBS parameters #####
 
 # scene, slave and ifm list creation
-list_walltime=00:05:00
+list_walltime=00:15:00
 list_mem=50MB
 list_ncpus=1
 
@@ -162,6 +164,6 @@ coreg_mem=5GB
 coreg_ncpus=2
 
 #create ifms
-ifm_walltime=48:00:00
-ifm_mem=10GB
+ifm_walltime=05:00:00
+ifm_mem=5GB
 ifm_ncpus=2

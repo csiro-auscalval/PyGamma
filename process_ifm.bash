@@ -12,7 +12,7 @@ display_usage() {
     echo "*         [rlks]       range multi-look value                                 *"
     echo "*         [alks]       azimuth multi-look value                               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       17/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       11/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_ifm.bash [proc_file] [master] [slave] [rlks] [alks]"
     }
@@ -211,300 +211,349 @@ geotif=$geocode_out.tif
 # disp=$int_dir/$mas_slv_name.displ_vert
 
 
-function jumpto # no 'goto' equivalent in bash, this function is an alternative
+### Each processing step is a 'function'. The if statement which controls start and stop is below the functions
+INT()
 {
-    label=$1
-    cmd=$(sed -n "/$label:/{:a;n;p;ba};" $0 | grep -v ':$')
-    eval "$cmd"
-    exit
+    echo " "
+    echo "Processing INT..."
+    echo " "
+    
+    mkdir -p $int_dir
+    cd $int_dir
+    
+    ## Calculate and refine offset between interferometric SLC pair
+    ## Also done in offset tracking so test if this has been run
+    if [ ! -e $off ]; then
+	GM create_offset $mas_slc_par $slv_slc_par $off 1 $ifm_rlks $ifm_alks 0
+	GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off offs snr 64 64 - 2 64 256 7.0
+	GM offset_fit offs snr $off coffs coffsets
+    else
+	:
+    fi
+    ## Calculate initial interferogram from coregistered SLCs
+    GM SLC_intf $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $int $ifm_rlks $ifm_alks - - 1 1
+    
+    ## Estimate initial baseline using orbit state vectors, offsets, and interferogram phase
+    GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 2
+    #GM look_vector $mas_slc_par $off $utm_dem_par $utm_dem $lv_theta $lv_phi
 }
-start=${begin:-"start"}
-end=${finish:-"end"}
-jumpto $start
 
-# INT function
-INT:
-echo " "
-echo "Processing INT..."
-echo " "
+FLAT()
+{
+    if [ ! -e $int ]; then
+	echo "ERROR: Cannot locate initial interferogram (*.int). Please re-run this script from INT"
+	exit 1
+    else
+	:
+    fi
+    cd $int_dir
 
-mkdir -p $int_dir
-cd $int_dir
+    ## Simulate the phase from the DEM and linear baseline model. linear baseline model may be inadequate for longer scenes, in which case use phase_sim_orb
+    GM phase_sim $mas_slc_par $off $base_init $rdc_dem $sim_unw0 0 0 - - 1 - 0
 
-## Calculate and refine offset between interferometric SLC pair
-## Also done in offset tracking so test if this has been run
-#if [ ! -e $off ]; then
-    GM create_offset $mas_slc_par $slv_slc_par $off 1 $ifm_rlks $ifm_alks 0
-    GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off offs snr 64 64 - 2 64 256 7.0
-    GM offset_fit offs snr $off coffs coffsets
-#else
-#    :
-#fi
-## Calculate initial interferogram from coregistered SLCs
-GM SLC_intf $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $int $ifm_rlks $ifm_alks - - 1 1
+    ## Create differential interferogram parameter file
+    create_diff_par $off - $diff_par 0 0
 
-## Estimate initial baseline using orbit state vectors, offsets, and interferogram phase
-GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 2
-#GM look_vector $mas_slc_par $off $utm_dem_par $utm_dem $lv_theta $lv_phi
+    ## Subtract simulated phase
+    GM sub_phase $int $sim_unw0 $diff_par $int_flat0 1 0
 
-if [ $end == "FLAT" ]; then
-    echo "Done INT commands, finished working before FLAT."
-    exit 0
-else
-    jumpto FLAT
-fi
+    ## Estimate residual baseline using fringe rate of differential interferogram
+    GM base_init $mas_slc_par $slv_slc_par $off $int_flat0 $base_res 4
 
+    ## Add residual baseline estimate to initial estimate
+    GM base_add $base_init $base_res $base 1
 
-# FLAT function
-FLAT:
-echo " "
-echo "Processing FLAT..."
-echo " "
+    ## Simulate the phase from the DEM and refined baseline model
+    GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw1 0 0 - - 1 - 0
 
-if [ ! -e $int ]; then
-    echo "ERROR: Cannot locate initial interferogram (*.int). Please re-run this script from INT"
-    exit 1
-else
-    :
-fi
-cd $int_dir
+    ## Subtract topographic phase
+    GM sub_phase $int $sim_unw1 $diff_par $int_flat1 1 0
 
-## Simulate the phase from the DEM and linear baseline model. linear baseline model may be inadequate for longer scenes, in which case use phase_sim_orb
-GM phase_sim $mas_slc_par $off $base_init $rdc_dem $sim_unw0 0 0 - - 1 - 0
 
-## Create differential interferogram parameter file
-create_diff_par $off - $diff_par 0 0
+    #######################################
+    # Perform refinement of baseline model
 
-## Subtract simulated phase
-GM sub_phase $int $sim_unw0 $diff_par $int_flat0 1 0
+    ## multi-look the flattened interferogram 10 times
+    GM multi_cpx $int_flat1 $off $int_flat10 $off10 10 10 0 0
 
-## Estimate residual baseline using fringe rate of differential interferogram
-GM base_init $mas_slc_par $slv_slc_par $off $int_flat0 $base_res 4
+    width10=`grep interferogram_width: $off10 | awk '{print $2}'`
 
-## Add residual baseline estimate to initial estimate
-GM base_add $base_init $base_res $base 1
-
-## Simulate the phase from the DEM and refined baseline model
-GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw1 0 0 - - 1 - 0
-
-## Subtract topographic phase
-GM sub_phase $int $sim_unw1 $diff_par $int_flat1 1 0
-
-
-#######################################
-# Perform refinement of baseline model
-
-## multi-look the flattened interferogram 10 times
-GM multi_cpx $int_flat1 $off $int_flat10 $off10 10 10 0 0
-
-width10=`grep interferogram_width: $off10 | awk '{print $2}'`
+    ## Generate coherence image
+    GM cc_wave $int_flat10 - - $cc10 $width10 7 7 1
 
-## Generate coherence image
-GM cc_wave $int_flat10 - - $cc10 $width10 7 7 1
+    ## Generate validity mask with high coherence threshold
+    GM rascc_mask $cc10 - $width10 1 1 0 1 1 0.7 0 - - - - 1 $cc10_mask
 
-## Generate validity mask with high coherence threshold
-GM rascc_mask $cc10 - $width10 1 1 0 1 1 0.7 0 - - - - 1 $cc10_mask
+    ## Perform unwrapping
+    GM mcf $int_flat10 $cc10 $cc10_mask $int_flat10.unw $width10 1 0 0 - - 1 1
 
-## Perform unwrapping
-GM mcf $int_flat10 $cc10 $cc10_mask $int_flat10.unw $width10 1 0 0 - - 1 1
+    ## Oversample unwrapped interferogram to original resolution
+    GM multi_real $int_flat10.unw $off10 $int_flat1.unw $off -10 -10 0 0
 
-## Oversample unwrapped interferogram to original resolution
-GM multi_real $int_flat10.unw $off10 $int_flat1.unw $off -10 -10 0 0
+    ## Add full-res unwrapped phase to simulated phase
+    GM sub_phase $int_flat1.unw $sim_unw1 $diff_par $int_flat"1.unw" 0 1
 
-## Add full-res unwrapped phase to simulated phase
-GM sub_phase $int_flat1.unw $sim_unw1 $diff_par $int_flat"1.unw" 0 1
+    ## calculate coherence of original flattened interferogram
+    # WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
+    GM cc_wave $int_flat1 - - $cc0 $int_width $ccwin $ccwin 1
 
-## calculate coherence of original flattened interferogram
-# WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
-GM cc_wave $int_flat1 - - $cc0 $int_width $ccwin $ccwin 1
+    ## generate valifity mask for GCP selection
+    GM rascc_mask $cc0 - $int_width 1 1 0 1 1 0.4 0 - - - - 1 $cc0_mask
 
-## generate valifity mask for GCP selection
-GM rascc_mask $cc0 - $int_width 1 1 0 1 1 0.4 0 - - - - 1 $cc0_mask
-
-## select GCPs from high coherence areas
-GM extract_gcp $rdc_dem $off gcp 100 100 $cc0_mask
-
-## extract phase at GCPs
-GM gcp_phase $int_flat"1.unw" $off gcp gcp_ph 3
-
-## Calculate precision baseline from GCP phase data
-#cp -f $base $base"1"
-GM base_ls $mas_slc_par $off gcp_ph $base 0 1 1 1 1 1.0
-
-## Calculate perpendicular baselines
-GM base_perp $base $mas_slc_par $off
-base_perp $base $mas_slc_par $off > $bperp
-
-## Simulate the phase from the DEM and precision baseline model.
-GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw 0 1
-
-## subtract simulated phase
-GM sub_phase $int $sim_unw $diff_par $int_flat 1 0
-
-
-if [ $end == "FILT" ]; then
-    echo "Done FLAT commands, finished working before FILT."
-    exit 0
-else 
-    jumpto FILT
-fi
-
-
-# FILT function
-FILT:
-echo " "
-echo "Processing FILT..."
-echo " "
-if [ ! -e $int_flat ]; then 
-    echo "ERROR: Cannot locate flattened interferogram (*.flat). Please re-run this script from FLAT"
-    exit 1
-else
-    :
-fi
-cd $int_dir
-
-## calculate coherence of flattened interferogram
-# WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
-GM cc_wave $int_flat $mas_mli $slv_mli $cc $int_width $ccwin $ccwin 1
-
-## Smooth the phase by Goldstein-Werner filter
-GM adf $int_flat $int_filt $smcc $int_width $expon $filtwin $ccwin - 0 - -
-
-if [ $end == "UNW" ]; then
-    echo "Done FILT commands, finished working before UNW."
-    exit 0
-else 
-    jumpto UNW
-fi
-
-
-# UNW function
-UNW:
-echo " "
-echo "Processing UNW..."
-echo " "
-if [ ! -e $int_filt ]; then
-    echo "ERROR: Cannot locate filtered interferogram (*.filt). Please re-run this script from FILT"
-    exit 1
-else
-    :
-fi
-cd $int_dir
-
-#look=5
-
-## multi-look the flattened interferogram 10 times
-#GM multi_cpx $int_filt $off $int_filt$look $off$look $look $look 0 0
-
-#width=`grep interferogram_width: $off$look | awk '{print $2}'`
-
-## Generate coherence image
-#GM cc_wave $int_filt$look - - $smcc$look $width 7 7 1
-
-## Generate validity mask with low coherence threshold to unwrap more area
-#GM rascc_mask $smcc$look - $width 1 1 0 1 1 0.1
-
-## Perform unwrapping
-#GM mcf $int_filt$look $smcc$look $smcc$look"_mask.ras" $int_filt$look.unw $width 1 0 0 - - 1 1 - 32 45 1
-
-## Oversample unwrapped interferogram to original resolution
-#GM multi_real $int_filt$look.unw $off$look $int_filt"1.unw" $off -$look -$look 0 0
-
-#GM unw_model $int_filt $int_filt"1.unw" $int_unw $int_width
-
-## Produce unwrapping validity mask based on smoothed coherence (for Minimum Cost Flow unwrapping method)
-GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask
-
-## use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser networh which can be interpoolated and then used as a model for unwrapping the full interferogram
-thres_1=`echo $coh_thres + 0.2 | bc`
-thres_max=`echo $thres_1 + 0.2 | bc`
-#if [ $thres_max -gt 1 ]; then
-#    echo " "
-#    echo "MASK THINNING MAXIMUM THRESHOLD GREATER THAN ONE. Modify coherence threshold in proc file."
-#    echo " "
-#    exit 1
-#else
-#    :
-#fi
-GM rascc_mask_thinning $mask $smcc $int_width $mask_thin 3 $coh_thres $thres_1 $thres_max
-
-## Minimum cost flow unwrapping with validity mask
-#GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - 1 1 - $refrg $refaz 1
-GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $patch_az
-
-## interpolate sparse unwrapped points to give unwrapping model
-GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
-
-## Use model to unwrap filtered interferogram
-if [ $refrg == - -a $refaz == - ]; then
-    GM unw_model $int_filt $int_unw_model $int_unw $int_width
-else
-    GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
-fi
-
-## Produce coherence mask for masking of unwrapped interferogram
-#GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask1
-
-## apply mask to filtered interferogram here
-#GM mask_data $int_unw $int_width $int_unw_mask $mask1 0
-
-## Convert LOS signal to vertical
-#GM dispmap $int_unw $rdc_dem $mas_slc_par $off $disp 1
-
-if [ $end == "GEOCODE" ]; then
-    echo "Done UNW commands, finished working before GEOCODE."
-    exit 0
-else 
-    jumpto GEOCODE
-fi
-
-
-# GEOCODE function
-GEOCODE:
-echo " "
-echo "Geocoding interferogram..."
-echo " "
-
-
-width_in=`grep range_samp_1: $dem_dir/"diff_"$master"_"$polar"_"$ifm_rlks"rlks.par" | awk '{print $2}'`
-width_out=`grep width: $dem_par | awk '{print $2}'`
-## Use bicubic spline interpolation for geocoded interferogram
-GM geocode_back $int_unw $width_in $gc_map $geocode_out $width_out - 1 0 - -
-echo " "
-echo "Geocoded interferogram."
-echo " "
-
-# Create geotiff
-#if [ $tif_flag == yes ]; then
-#    echo " "
-#    echo "Creating geotiffed interferogram..."
-#    echo " "
-#    real=$int_dir/$mas_slv_name"_utm_unw.flt"
-#    cp $int_unw $real
-#    GM data2geotiff $dem_par $real 2 $geotif 0.0
-#    rm -f $real
-#    echo " "
-#    echo "Created geotiffed interferogram."
-#    echo " "
-#else
-#    :
-#fi
-
-jumpto DONE
-
-DONE:
+    ## select GCPs from high coherence areas
+    GM extract_gcp $rdc_dem $off gcp 100 100 $cc0_mask
+
+    ## extract phase at GCPs
+    GM gcp_phase $int_flat"1.unw" $off gcp gcp_ph 3
+
+    ## Calculate precision baseline from GCP phase data
+    #cp -f $base $base"1"
+    GM base_ls $mas_slc_par $off gcp_ph $base 0 1 1 1 1 1.0
+
+    ## Calculate perpendicular baselines
+    GM base_perp $base $mas_slc_par $off
+    base_perp $base $mas_slc_par $off > $bperp
+
+    ## Simulate the phase from the DEM and precision baseline model.
+    GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw 0 1
+
+    ## subtract simulated phase
+    GM sub_phase $int $sim_unw $diff_par $int_flat 1 0
+}
+
+FILT()
+{
+    if [ ! -e $int_flat ]; then 
+	echo "ERROR: Cannot locate flattened interferogram (*.flat). Please re-run this script from FLAT"
+	exit 1
+    else
+	:
+    fi
+    cd $int_dir
+
+    ## calculate coherence of flattened interferogram
+    # WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
+    GM cc_wave $int_flat $mas_mli $slv_mli $cc $int_width $ccwin $ccwin 1
+
+    ## Smooth the phase by Goldstein-Werner filter
+    GM adf $int_flat $int_filt $smcc $int_width $expon $filtwin $ccwin - 0 - -
+}
+
+UNW()
+{
+    if [ ! -e $int_filt ]; then
+	echo "ERROR: Cannot locate filtered interferogram (*.filt). Please re-run this script from FILT"
+	exit 1
+    else
+	:
+    fi
+    cd $int_dir
+
+    #look=5
+
+    ## multi-look the flattened interferogram 10 times
+    #GM multi_cpx $int_filt $off $int_filt$look $off$look $look $look 0 0
+
+    #width=`grep interferogram_width: $off$look | awk '{print $2}'`
+
+    ## Generate coherence image
+    #GM cc_wave $int_filt$look - - $smcc$look $width 7 7 1
+
+    ## Generate validity mask with low coherence threshold to unwrap more area
+    #GM rascc_mask $smcc$look - $width 1 1 0 1 1 0.1
+
+    ## Perform unwrapping
+    #GM mcf $int_filt$look $smcc$look $smcc$look"_mask.ras" $int_filt$look.unw $width 1 0 0 - - 1 1 - 32 45 1
+
+    ## Oversample unwrapped interferogram to original resolution
+    #GM multi_real $int_filt$look.unw $off$look $int_filt"1.unw" $off -$look -$look 0 0
+
+    #GM unw_model $int_filt $int_filt"1.unw" $int_unw $int_width
+
+    ## Produce unwrapping validity mask based on smoothed coherence (for Minimum Cost Flow unwrapping method)
+    GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask
+
+    ## use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser networh which can be interpoolated and then used as a model for unwrapping the full interferogram
+    thres_1=`echo $coh_thres + 0.2 | bc`
+    thres_max=`echo $thres_1 + 0.2 | bc`
+    #if [ $thres_max -gt 1 ]; then
+    #    echo " "
+    #    echo "MASK THINNING MAXIMUM THRESHOLD GREATER THAN ONE. Modify coherence threshold in proc file."
+    #    echo " "
+    #    exit 1
+    #else
+    #    :
+    #fi
+    GM rascc_mask_thinning $mask $smcc $int_width $mask_thin 3 $coh_thres $thres_1 $thres_max
+
+    ## Minimum cost flow unwrapping with validity mask
+    #GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - 1 1 - $refrg $refaz 1
+    GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $patch_az
+
+    ## interpolate sparse unwrapped points to give unwrapping model
+    GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
+
+    ## Use model to unwrap filtered interferogram
+    if [ $refrg == - -a $refaz == - ]; then
+	GM unw_model $int_filt $int_unw_model $int_unw $int_width
+    else
+	GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
+    fi
+
+    ## Produce coherence mask for masking of unwrapped interferogram
+    #GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask1
+
+    ## apply mask to filtered interferogram here
+    #GM mask_data $int_unw $int_width $int_unw_mask $mask1 0
+
+    ## Convert LOS signal to vertical
+    #GM dispmap $int_unw $rdc_dem $mas_slc_par $off $disp 1
+}
+
+GEOCODE()
+{
+    width_in=`grep range_samp_1: $dem_dir/"diff_"$master"_"$polar"_"$ifm_rlks"rlks.par" | awk '{print $2}'`
+    width_out=`grep width: $dem_par | awk '{print $2}'`
+    ## Use bicubic spline interpolation for geocoded interferogram
+    GM geocode_back $int_unw $width_in $gc_map $geocode_out $width_out - 1 0 - -
+    echo " "
+    echo "Geocoded interferogram."
+    echo " "
+
+    #Create geotiff
+    if [ $tif_flag == yes ]; then
+	echo " "
+	echo "Creating geotiffed interferogram..."
+	echo " "
+	real=$int_dir/$mas_slv_name"_utm_unw.flt"
+	cp $int_unw $real
+	GM data2geotiff $dem_par $real 2 $geotif 0.0
+	rm -f $real
+	echo " "
+	echo "Created geotiffed interferogram."
+	echo " "
+    else
+	:
+    fi
+    echo "Geocoding interferogram..."
+}
+
+DONE()
+{
 echo " "
 echo "Processing Completed for Interferogram "$mas-$slv"."
 echo " "
+}
+
+
+## If statement controlling start and stop functions
+if [ $begin == INT ]; then
+    INT
+    if [ $finish == FLAT ]; then
+	echo "Done INT commands, finished working before FLAT."
+	exit 0
+    else
+	FLAT
+    fi
+    if [ $finish == FILT ]; then
+	echo "Done FLAT commands, finished working before FILT."
+	exit 0
+    else
+	FILT
+    fi
+    if [ $finish == UNW ]; then
+	echo "Done FILT commands, finished working before UNW."
+	exit 0
+    else
+	UNW
+    fi
+    if [ $finish == GEOCODE ]; then
+	echo "Done UNW commands, finished working before GEOCODE."
+	exit 0
+    else
+	GEOCODE
+    fi
+    if [ $finish == DONE ]; then
+	DONE
+    else
+	:
+    fi
+elif [ $begin == FLAT ]; then
+    FLAT
+    if [ $finish == FILT ]; then
+	echo "Done FLAT commands, finished working before FILT."
+	exit 0
+    else
+	FILT
+    fi
+    if [ $finish == UNW ]; then
+	echo "Done FILT commands, finished working before UNW."
+	exit 0
+    else
+	UNW
+    fi
+    if [ $finish == GEOCODE ]; then
+	echo "Done UNW commands, finished working before GEOCODE."
+	exit 0
+    else
+	GEOCODE
+    fi
+    if [ $finish == DONE ]; then
+	DONE
+    else
+	:
+    fi
+elif [ $begin == FILT ]; then
+    FILT
+    if [ $finish == UNW ]; then
+	echo "Done FILT commands, finished working before UNW."
+	exit 0
+    else
+	UNW
+    fi
+    if [ $finish == GEOCODE ]; then
+	echo "Done UNW commands, finished working before GEOCODE."
+	exit 0
+    else
+	GEOCODE
+    fi
+    if [ $finish == DONE ]; then
+	DONE
+    else
+	:
+    fi
+elif [ $begin == UNW ]; then
+    UNW
+    if [ $finish == GEOCODE ]; then
+	echo "Done UNW commands, finished working before GEOCODE."
+	exit 0
+    else
+	GEOCODE
+    fi
+    if [ $finish == DONE ]; then
+	DONE
+    else
+	:
+    fi
+elif [ $begin == GEOCODE ]; then
+    GEOCODE
+    if [ $finish == DONE ]; then
+	DONE
+    else
+	:
+    fi
+else
+    :
+fi
 
 
 # script end 
 ####################
 
 ## Copy errors to NCI error file (.e file)
-#if [ $platform == NCI ]; then
-#   cat error.log 1>&2
-#   rm temp_log
-#else
-#   rm $int_dir/temp_log
-#fi
+if [ $platform == NCI ]; then
+   cat error.log 1>&2
+   rm temp_log
+else
+   rm $int_dir/temp_log
+fi
