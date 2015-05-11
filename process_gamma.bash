@@ -122,7 +122,7 @@ add_scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -
 add_slave_list=$proj_dir/$track_dir/`grep List_of_add_slaves= $proc_file | cut -d "=" -f 2`
 add_ifm_list=$proj_dir/$track_dir/`grep List_of_add_ifms= $proc_file | cut -d "=" -f 2`
 
-## Determine range and azimuth looks
+## Determine range and azimuth looks for 'square' pixels
 if [ $sensor == ASAR -o $sensor = ERS ]; then
     slc_rlks=$slc_looks 
     slc_alks=`echo $slc_looks | awk '{print $1*5}'` 
@@ -138,13 +138,18 @@ elif [ $sensor == RSAT1 ]; then
     slc_alks=`echo $slc_looks | awk '{print $1*4}'` 
     ifm_rlks=$ifm_looks 
     ifm_alks=`echo $ifm_looks | awk '{print $1*4}'` 
+elif [ $sensor == S1 ]; then
+    slc_alks=$slc_looks 
+    slc_rlks=`echo $slc_looks | awk '{print $1*5}'` 
+    ifm_alks=$ifm_looks 
+    ifm_rlks=`echo $ifm_looks | awk '{print $1*5}'` 
 elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
     slc_rlks=$slc_looks 
     slc_alks=`echo $slc_looks | awk '{print $1*2}'` 
     ifm_rlks=$ifm_looks 
     ifm_alks=`echo $ifm_looks | awk '{print $1*2}'`
 else
-    # CSK, RSAT2, S1, TSX
+    # CSK, RSAT2, TSX
     slc_rlks=$slc_looks
     slc_alks=$slc_looks
     ifm_rlks=$ifm_looks
