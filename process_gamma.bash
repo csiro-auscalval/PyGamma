@@ -20,6 +20,7 @@ then
     exit 1
 fi
 
+
 proc_file=$1
 
 ## Variables from parameter file (*.proc)

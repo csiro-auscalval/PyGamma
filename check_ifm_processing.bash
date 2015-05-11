@@ -12,7 +12,7 @@ display_usage() {
     echo "*         <start>      starting line of SLC (optional, default: 1)            *"
     echo "*         <nlines>     number of lines to display (optional, default: 4000)   *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       11/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: check_ifm_processing.bash [proc_file] [list_type] <start> <nlines>"
     }
@@ -82,9 +82,9 @@ fi
 cd $proj_dir/$track_dir
 
 ## Set viewing width for interferograms
-width_file=$dem_dir/"diff"*$ifm_looks.par
-width=`grep range_samp_1: $width_file | awk '{print $2}'`
-lines=`grep az_samp_1: $width_file | awk '{print $2}'`
+width_file=$dem_dir/*$ifm_looks"rlks_utm.dem.par"
+width=`grep width: $width_file | awk '{print $2}'`
+lines=`grep nlines: $width_file | awk '{print $2}'`
 if [ $# -lt 4 ]; then
     if [ $lines -gt 4000 ]; then
 	echo  " "
@@ -102,7 +102,7 @@ while read list; do
 	mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
 	slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	int_dir=$ifm_dir/$mas-$slv
-	mas_slv_name=$mas-$slv"_"$polar"_"$ifm_rlks"rlks"
+	mas_slv_name=$mas-$slv"_"$polar"_"$ifm_looks"rlks"
 	geocoded_ifm=$int_dir/$mas_slv_name"_utm.unw"
 	cd $int_dir
 	disrmg $geocoded_ifm - $width $start - $nlines - - - -
