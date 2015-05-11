@@ -240,6 +240,9 @@ INT()
 
 FLAT()
 {
+    echo " "
+    echo "Processing FLAT..."
+    echo " "
     if [ ! -e $int ]; then
 	echo "ERROR: Cannot locate initial interferogram (*.int). Please re-run this script from INT"
 	exit 1
@@ -323,6 +326,9 @@ FLAT()
 
 FILT()
 {
+    echo " "
+    echo "Processing FILT..."
+    echo " "
     if [ ! -e $int_flat ]; then 
 	echo "ERROR: Cannot locate flattened interferogram (*.flat). Please re-run this script from FLAT"
 	exit 1
@@ -341,6 +347,9 @@ FILT()
 
 UNW()
 {
+    echo " "
+    echo "Processing UNW..."
+    echo " "
     if [ ! -e $int_filt ]; then
 	echo "ERROR: Cannot locate filtered interferogram (*.filt). Please re-run this script from FILT"
 	exit 1
@@ -394,7 +403,7 @@ UNW()
     GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
 
     ## Use model to unwrap filtered interferogram
-    if [ $refrg == - -a $refaz == - ]; then
+    if [ $refrg = "-" -a $refaz = "-" ]; then
 	GM unw_model $int_filt $int_unw_model $int_unw $int_width
     else
 	GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
@@ -412,6 +421,9 @@ UNW()
 
 GEOCODE()
 {
+    echo " "
+    echo "Geocoding interferogram..."
+    echo " "
     width_in=`grep range_samp_1: $dem_dir/"diff_"$master"_"$polar"_"$ifm_rlks"rlks.par" | awk '{print $2}'`
     width_out=`grep width: $dem_par | awk '{print $2}'`
     ## Use bicubic spline interpolation for geocoded interferogram
@@ -435,7 +447,6 @@ GEOCODE()
     else
 	:
     fi
-    echo "Geocoding interferogram..."
 }
 
 DONE()
