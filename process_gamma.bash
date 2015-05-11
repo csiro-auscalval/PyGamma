@@ -871,7 +871,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		fi
 		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
 		chmod +x $ifm
-#		qsub $ifm | ifm_job_id
+		qsub $ifm | tee ifm_job_id
 	    fi
 	done < $ifm_list
 	ifm_jobid=`sed s/.r-man2// ifm_job_id`
@@ -886,7 +886,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	echo \#\PBS -W depend=afterok:$ifm_jobid >> $ifm_errors
 	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file >> $ifm_errors
 	chmod +x $ifm_errors
-#	qsub $ifm_errors
+	qsub $ifm_errors
      elif [ -e $ifm_files ]; then ## more than 190 ifms (ifms list split into multiple lists of 190 lots)
 	# first list (ifm.list_00) ifms: 1 - 190
 	first_list=`awk 'NR==1 {print $1}' $ifm_files`
@@ -1045,21 +1045,19 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
     else
 	dem_jobid=`sed s/.r-man2// dem_job_id`
     fi
-
-
-	ifm_jobid=`sed s/.r-man2// ifm_job_id`
-	ifm_errors=ifm_err_check
-	echo \#\!/bin/bash > $ifm_errors
-	echo \#\PBS -lother=gdata1 >> $ifm_errors
-	echo \#\PBS -l walltime=00:10:00 >> $ifm_errors
-	echo \#\PBS -l mem=50MB >> $ifm_errors
-	echo \#\PBS -l ncpus=1 >> $ifm_errors
-	echo \#\PBS -l wd >> $ifm_errors
-	echo \#\PBS -q normal >> $ifm_errors
-	echo \#\PBS -W depend=afterok:$ifm_jobid >> $ifm_errors
-	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file >> $ifm_errors
-	chmod +x $ifm_errors
-#	qsub $ifm_errors
+    ifm_jobid=`sed s/.r-man2// ifm_job_id`
+    ifm_errors=ifm_err_check
+    echo \#\!/bin/bash > $ifm_errors
+    echo \#\PBS -lother=gdata1 >> $ifm_errors
+    echo \#\PBS -l walltime=00:10:00 >> $ifm_errors
+    echo \#\PBS -l mem=50MB >> $ifm_errors
+    echo \#\PBS -l ncpus=1 >> $ifm_errors
+    echo \#\PBS -l wd >> $ifm_errors
+    echo \#\PBS -q normal >> $ifm_errors
+    echo \#\PBS -W depend=afterok:$ifm_jobid >> $ifm_errors
+    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file >> $ifm_errors
+    chmod +x $ifm_errors
+#    qsub $ifm_errors
 
     else
 	:
