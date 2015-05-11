@@ -3,15 +3,14 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* extract_bperp_values:  Extract the perpendicular baseline value for an      *"
-    echo "*                        interferogram. Uses 'interp_centre_bperp.bash' to    *"
-    echo "*                        extract the bperp value.                             *"
+    echo "* extract_baseline_values:  Extract the perpendicular and temporal baseline   *"
+    echo "*                           values for an interferogram.                      *"
     echo "*                                                                             *"
-    echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
+    echo "* input:  [proc_file]       name of GAMMA proc file (eg. gamma.proc)          *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Matt Garthwaite @ GA       11/05/2015, v1.1                         *"
     echo "*******************************************************************************"
-    echo -e "Usage: extract_bperp_values.bash [proc_file]"
+    echo -e "Usage: extract_baseline_values.bash [proc_file]"
     }
 
 if [ $# -lt 1 ]
@@ -79,7 +78,7 @@ if [ -e $results ]; then
     rm -f $results 
 fi
 
-echo "mas-slv unwrapped_ifm file_size bperp" > $results
+echo "mas-slv unwrapped_ifm file_size bperp btemp" > $results
 
 while read file; do
     mas=`echo $file | awk 'BEGIN {FS=","} ; {print $1}'`
@@ -87,11 +86,19 @@ while read file; do
     dir=$int_dir/$mas-$slv
     mas_slv_name=$mas-$slv"_"$polar"_"$ifm_looks"rlks"
     int_unw=$dir/$mas_slv_name.unw
-    bperp=$dir/$mas_slv_name"_bperp.par"
+
+    ## calculate temporal baseline in days
+    let btemp=(`date +%s -d $slv`-`date +%s -d $mas`)/86400
+
+    ## find file size of unwrapped ifm    
     fsize=`ls -ltrh $int_unw | awk '{print $5}'`
-    bpval=`interp_centre_bperp.bash $bperp` # > temp5 # bperp value
-    echo $mas-$slv $mas_slv_name.unw $fsize $bpval
-    echo $mas-$slv $mas_slv_name.unw $fsize $bpval >> $results
+
+    ## estimate the scene centre perpendicular baseline
+    bperp=$dir/$mas_slv_name"_bperp.par"
+    bpval=`interp_centre_bperp.bash $bperp`
+
+    echo $mas-$slv $mas_slv_name.unw $fsize $bpval $btemp
+    echo $mas-$slv $mas_slv_name.unw $fsize $bpval $btemp >> $results
 done < $ifm_list
 
 
