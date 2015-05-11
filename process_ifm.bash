@@ -233,11 +233,13 @@ cd $int_dir
 
 ## Calculate and refine offset between interferometric SLC pair
 ## Also done in offset tracking so test if this has been run
-if [ ! -e $off ]; then
+#if [ ! -e $off ]; then
     GM create_offset $mas_slc_par $slv_slc_par $off 1 $ifm_rlks $ifm_alks 0
     GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off offs snr 64 64 - 2 64 256 7.0
     GM offset_fit offs snr $off coffs coffsets
-fi
+#else
+#    :
+#fi
 ## Calculate initial interferogram from coregistered SLCs
 GM SLC_intf $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $int $ifm_rlks $ifm_alks - - 1 1
 
@@ -262,6 +264,8 @@ echo " "
 if [ ! -e $int ]; then
     echo "ERROR: Cannot locate initial interferogram (*.int). Please re-run this script from INT"
     exit 1
+else
+    :
 fi
 cd $int_dir
 
@@ -354,6 +358,8 @@ echo " "
 if [ ! -e $int_flat ]; then 
     echo "ERROR: Cannot locate flattened interferogram (*.flat). Please re-run this script from FLAT"
     exit 1
+else
+    :
 fi
 cd $int_dir
 
@@ -380,6 +386,8 @@ echo " "
 if [ ! -e $int_filt ]; then
     echo "ERROR: Cannot locate filtered interferogram (*.filt). Please re-run this script from FILT"
     exit 1
+else
+    :
 fi
 cd $int_dir
 
@@ -467,20 +475,20 @@ echo "Geocoded interferogram."
 echo " "
 
 # Create geotiff
-if [ $tif_flag == yes ]; then
-    echo " "
-    echo "Creating geotiffed interferogram..."
-    echo " "
-    real=$int_dir/$mas_slv_name"_utm_unw.flt"
-    cp $int_unw $real
-    GM data2geotiff $dem_par $real 2 $geotif 0.0
-    rm -f $real
-    echo " "
-    echo "Created geotiffed interferogram."
-    echo " "
-else
-    :
-fi
+#if [ $tif_flag == yes ]; then
+#    echo " "
+#    echo "Creating geotiffed interferogram..."
+#    echo " "
+#    real=$int_dir/$mas_slv_name"_utm_unw.flt"
+#    cp $int_unw $real
+#    GM data2geotiff $dem_par $real 2 $geotif 0.0
+#    rm -f $real
+#    echo " "
+#    echo "Created geotiffed interferogram."
+#    echo " "
+#else
+#    :
+#fi
 
 jumpto DONE
 
@@ -494,9 +502,9 @@ echo " "
 ####################
 
 ## Copy errors to NCI error file (.e file)
-if [ $platform == NCI ]; then
-   cat error.log 1>&2
-   rm temp_log
-else
-   rm $int_dir/temp_log
-fi
+#if [ $platform == NCI ]; then
+#   cat error.log 1>&2
+#   rm temp_log
+#else
+#   rm $int_dir/temp_log
+#fi
