@@ -12,7 +12,7 @@ display_usage() {
     echo "*         <start>      starting line of SLC (optional, default: 1)            *"
     echo "*         <nlines>     number of lines to display (optional, default: 4000)   *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       11/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: check_ifm_processing.bash [proc_file] [list_type] <start> <nlines>"
     }
