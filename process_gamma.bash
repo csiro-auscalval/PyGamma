@@ -9,7 +9,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       11/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_gamma.bash [proc_file]"
     }
@@ -845,7 +845,7 @@ elif [ $do_ifms == no -a $platform == GA ]; then
 ## NCI ##
 elif [ $do_ifms == yes -a $platform == NCI ]; then
     echo "Creating interferograms..." 1>&2
-    check_co_slc_jobid=`sed s/.r-man2// check_co_slc_job_id`
+    co_slc_jobid=`sed s/.r-man2// co_slc_job_id`
     ifm_files=$proj_dir/$track_dir/ifm_files.list
     cd $proj_dir/$track_dir/batch_scripts
     # set up header for PBS jobs for ifm creation
@@ -878,7 +878,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	ifm_errors=ifm_err_check
 	echo \#\!/bin/bash > $ifm_errors
 	echo \#\PBS -lother=gdata1 >> $ifm_errors
-	echo \#\PBS -l walltime=00:10:00 >> $ifm_errors
+	echo \#\PBS -l walltime=00:15:00 >> $ifm_errors
 	echo \#\PBS -l mem=50MB >> $ifm_errors
 	echo \#\PBS -l ncpus=1 >> $ifm_errors
 	echo \#\PBS -l wd >> $ifm_errors
@@ -905,6 +905,11 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $ifm
 		echo \#\PBS -l wd >> $ifm
 		echo \#\PBS -q normal >> $ifm
+		if [ $coregister == yes -a $platform == NCI ]; then
+		    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $ifm
+		else
+		    :
+		fi
 		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $ifm
 		chmod +x $ifm
 		echo $ifm >> $first_list"_jobs_listing"
@@ -918,7 +923,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	printf %s "cd $""dir" >> $script
 	printf '%s\n' "" >> $script
 	printf '%s\n' "while read job; do" >> $script
-	printf %s "qsub $""job | ifm_job_id" >> $script
+	printf %s "qsub $""job | tee ifm1_job_id" >> $script
 	printf '%s\n' "" >> $script
 	printf %s "done < $""list" >> $script
 	chmod +x $script
@@ -940,6 +945,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	chmod +x $run_script
 #	qsub $run_script | tee $first_list"_job_id"
 	# second list (ifm.list_01) ifms: 191 - 381
+	ifm1_jobid=`sed s/.r-man2// ifm1_job_id`
 	second_list=`awk 'NR==2 {print $1}' $ifm_files`
 	if [ -e $proj_dir/$track_dir/$second_list ]; then
 	    first_list_jobid=`sed s/.r-man2// $first_list"_job_id"`
@@ -971,7 +977,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    printf %s "cd $""dir" >> $script
 	    printf '%s\n' "" >> $script
 	    printf '%s\n' "while read job; do" >> $script
-	    printf %s "qsub $""job | ifm_job_id" >> $script
+	    printf %s "qsub $""job | tee ifm2_job_id" >> $script
 	    printf '%s\n' "" >> $script
 	    printf %s "done < $""list" >> $script
 	    chmod +x $script
@@ -984,11 +990,12 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$list_ncpus >> $run_script
 	    echo \#\PBS -l wd >> $run_script
 	    echo \#\PBS -q express >> $run_script
-	    echo \#\PBS -W depend=afterok:$first_list_jobid >> $run_script
+	    echo \#\PBS -W depend=afterok:$ifm1_jobid >> $run_script
 	    echo $proj_dir/$track_dir/batch_scripts/$second_list.bash >> $run_script
 	    chmod +x $run_script
 #	    qsub $run_script | tee $second_list"_job_id"
 	# third list (ifm.list_02) ifms: 382 - 570
+	ifm2_jobid=`sed s/.r-man2// ifm2_job_id`
 	third_list=`awk 'NR==3 {print $1}' $ifm_files`
 	elif [ -e $proj_dir/$track_dir/$third_list ]; then
 	    second_list_jobid=`sed s/.r-man2// $second_list"_job_id"`
@@ -1020,7 +1027,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    printf %s "cd $""dir" >> $script
 	    printf '%s\n' "" >> $script
 	    printf '%s\n' "while read job; do" >> $script
-	    printf %s "qsub $""job | ifm_job_id" >> $script
+	    printf %s "qsub $""job | tee ifm3_job_id" >> $script
 	    printf '%s\n' "" >> $script
 	    printf %s "done < $""list" >> $script
 	    chmod +x $script
@@ -1033,19 +1040,18 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$list_ncpus >> $run_script
 	    echo \#\PBS -l wd >> $run_script
 	    echo \#\PBS -q express >> $run_script
-	    echo \#\PBS -W depend=afterok:$second_list_jobid >> $run_script
+	    echo \#\PBS -W depend=afterok:$ifm2_jobid >> $run_script
 	    echo $proj_dir/$track_dir/batch_scripts/$third_list.bash >> $run_script
 	    chmod +x $run_script
-#	    qsub $run_script
+#	    qsub $run_script | tee $third_list"_job_id"
 	else
 	    :
 	fi
-    if [ -f sub_dem_job_id ]; then
-	dem_jobid=`sed s/.r-man2// sub_dem_job_id`
+    if [ -f ifm3_job_id ]; then
+	ifm_jobid=`sed s/.r-man2// ifm3_job_id`
     else
-	dem_jobid=`sed s/.r-man2// dem_job_id`
+	ifm_jobid=`sed s/.r-man2// ifm2_job_id`
     fi
-    ifm_jobid=`sed s/.r-man2// ifm_job_id`
     ifm_errors=ifm_err_check
     echo \#\!/bin/bash > $ifm_errors
     echo \#\PBS -lother=gdata1 >> $ifm_errors
