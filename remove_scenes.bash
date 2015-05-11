@@ -53,8 +53,8 @@ echo "Remove Scenes" 1>&2
 echo "" 1>&2
 
 cd $proj_dir/$track_dir
-cp $scene_list org_scene.list
-cp $slave_list org_slave.list
+cp $scene_list org_scenes.list
+cp $slave_list org_slaves.list
 cp $ifm_list org_ifms.list
 
 ## Remove scenes from scenes.list
@@ -76,9 +76,9 @@ while read rm_scene; do
 	else
 	    :
 	fi
-    done < $scene_list
+    done < $ifm_list
 done < $remove_list
-grep -Fvx -f temp3 $scene_list > temp4
+grep -Fvx -f temp3 $ifm_list > temp4
 mv temp4 $ifm_list
 
 rm -rf temp*
