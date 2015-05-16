@@ -197,40 +197,67 @@ if [ $lines -eq 1 ]; then
     ## rename files to enable further processing (remove reference to 'frame' in file names)
     mv $fr_slc $slc
     mv $fr_slc_par $slc_par
-    rm -f $raw_file_list
+#    rm -f $raw_file_list
 else
     ## Concatenate scenes into one output data file (works for 2 frames only)
-    awk 'NR==1 {print $1,$2}' $raw_file_list > slc_tab1
-    awk 'NR==2 {print $1,$2}' $raw_file_list > slc_tab2
-    # create temp directory for processing files under scene directory
-    mkdir -p temp
-    # create offset parameter file
-    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 0
+    slc1=`awk 'NR==1 {print$1}' $raw_file_list`
+    slc1_par=`awk 'NR==1 {print$2}' $raw_file_list`
+    slc2=`awk 'NR==2 {print$1}' $raw_file_list`
+    slc2_par=`awk 'NR==2 {print$2}' $raw_file_list`
+    # create offset parameter files for estimation of the offsets
+    GM create_offset $slc1_par $slc2_par cat.off 1 - - 0
     # measure initial range and azimuth offsets using orbit information
-    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 1
+    GM init_offset_orbit $slc1_par $slc2_par cat.off - - 1 
+    # measure initial range and azimuth offsets using the images
+    GM init_offset $slc1 $slc2 $slc1_par $slc2_par cat.off 1 1 - - 0 0 7 512 512 1
+    # estimate range and azimuth offset models using correlation of image intensities
+    GM offset_pwr $slc1 $slc2 $slc1_par $slc2_par cat.off offs snr
+    GM offset_fit offs snr cat.off coffs - - 3
+    # concatenate SLC images
+    GM SLC_cat $slc1 $slc2 $slc1_par $slc2_par cat.off $slc $slc_par 1 0 1
+
+
+
+#    awk 'NR==1 {print $1,$2}' $raw_file_list > slc_tab1
+#    awk 'NR==2 {print $1,$2}' $raw_file_list > slc_tab2
+    # create temp directory for processing files under scene directory
+#    mkdir -p temp
+    # create offset parameter file
+#    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 0
+    # measure initial range and azimuth offsets using orbit information
+#    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 1
     # concatenate 
-    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 4
+#    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 4
     # rename files and move files
-    rm -rf *.slc *.slc.par # remove frame slcs
-    cd temp
-    mv *.slc $slc
-    mv *.slc.par $slc_par
-    mv $slc $slc_par $scene_dir
-    mv *.off *.log $scene_dir
-    cd $scene_dir
-    rm -rf temp $raw_file_list slc_tab* cat_slc.list
+#    rm -rf *.slc *.slc.par # remove frame slcs
+#    cd temp
+#    mv *.slc $slc
+#    mv *.slc.par $slc_par
+#    mv $slc $slc_par $scene_dir
+#    mv *.off *.log $scene_dir
+#    cd $scene_dir
+#    rm -rf temp $raw_file_list slc_tab* cat_slc.list
 fi
 
-    ## FBD to FBS Conversion
-    if [ $polar == HH -a $mode == FBD ]; then
-	GM SLC_ovr $slc $slc_par $fbd2fbs_slc $fbd2fbs_par 2
-	rm -f $slc
-	rm -f $slc_par
-	mv $fbd2fbs_slc $slc
-	mv $fbd2fbs_par $slc_par
-    else
-	:
-    fi
+## Compute the azimuth Doppler spectrum and the Doppler centroid from SLC data
+GM az_spec_SLC $slc $slc_par $slc_name.dop - 0
+
+## update ISP file with new estimated doppler centroid frequency (az_spec_SLC should do this according to the ref manual, but doesn't)
+org_value=`grep doppler_polynomial: $slc_par | awk '{print $2}'`
+new_value=`grep "new estimated Doppler centroid frequency (Hz):" output.log | awk '{print $7}'`
+sed ' s/'"$org_value"'/'"$new_value"'/' $slc_par > temp
+mv temp $slc_par
+
+## FBD to FBS Conversion
+if [ $polar == HH -a $mode == FBD ]; then
+    GM SLC_ovr $slc $slc_par $fbd2fbs_slc $fbd2fbs_par 2
+    rm -f $slc
+    rm -f $slc_par
+    mv $fbd2fbs_slc $slc
+    mv $fbd2fbs_par $slc_par
+else
+    :
+fi
 
 else
     echo " "
