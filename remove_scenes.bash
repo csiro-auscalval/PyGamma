@@ -6,9 +6,12 @@ display_usage() {
     echo "* remove_scenes: Removes scene/s which have SLCs that don't work from SLC     *"
     echo " *               directory and from scenes.list, slaves.list and ifms.list.   *"
     echo "*                                                                             *"
+    echo "*                Requires a 'remove_scenes.list' file to be created in the    *"                                     
+    echo "*                track directory. This lists the dates to remove.             *"
+    echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       11/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       19/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: remove_scenes.bash [proc_file]"
     }
