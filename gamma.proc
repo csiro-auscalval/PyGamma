@@ -34,7 +34,7 @@ Orientation=ascending
 Polarisation=HH
     # Beam to process for Wide-Swath data (PALSAR2 only, otherwise leave blank)
 Beam=
-    # Temporal baseline threshold in days (to refine number of interferograms, eg. TSX 121)
+    # Temporal baseline threshold in days (to refine number of interferograms, eg. TSX 121, ALOS 730)
 Threshold=121
 
 ##### Reference Master Scene Details #####
@@ -151,19 +151,19 @@ raw_ncpus=1
 # create slcs
 SLC_walltime=03:00:00
 SLC_mem=2GB
-SLC_ncpus=1
+SLC_ncpus=4
 
 # coregister dem
 DEM_walltime=04:00:00
 DEM_mem=5GB
-DEM_ncpus=2
+DEM_ncpus=4
 
 #coregister slcs
 coreg_walltime=03:00:00
 coreg_mem=5GB
-coreg_ncpus=2
+coreg_ncpus=4
 
 #create ifms
 ifm_walltime=05:00:00
 ifm_mem=5GB
-ifm_ncpus=2
+ifm_ncpus=6
