@@ -222,7 +222,7 @@ fi
 ## Compute the azimuth Doppler spectrum and the Doppler centroid from SLC data
 GM az_spec_SLC $slc $slc_par $slc_name.dop - 0
 
-## update ISP file with new estimated doppler centroid frequency (az_spec_SLC should do this according to the ref manual, but doesn't)
+## update ISP file with new estimated doppler centroid frequency (must be done manually)
 org_value=`grep doppler_polynomial: $slc_par | awk '{print $2}'`
 new_value=`grep "new estimated Doppler centroid frequency (Hz):" output.log | awk '{print $7}'`
 sed ' s/'"$org_value"'/'"$new_value"'/' $slc_par > temp
