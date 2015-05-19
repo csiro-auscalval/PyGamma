@@ -125,10 +125,6 @@ Ref_point_azimuth=-
     # Phase at reference pixel
 Ref_phase=0.0
 
-## create geotif of unwrapped interferogram
-    # options: yes/no
-create_geotif=yes
-
 ## interferogram begin options: INT/FLAT/FILT/UNW/GEOCODE
 ifm_begin=INT
 
