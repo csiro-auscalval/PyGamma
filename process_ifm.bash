@@ -12,7 +12,7 @@ display_usage() {
     echo "*         [rlks]       range multi-look value                                 *"
     echo "*         [alks]       azimuth multi-look value                               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       11/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       19/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_ifm.bash [proc_file] [master] [slave] [rlks] [alks]"
     }
@@ -41,6 +41,7 @@ project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
+beam=`grep Beam= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 expon=`grep Exponent= $proc_file | cut -d "=" -f 2`
 filtwin=`grep Filtering_window= $proc_file | cut -d "=" -f 2`
@@ -53,7 +54,6 @@ refaz=`grep Ref_point_azimuth= $proc_file | cut -d "=" -f 2`
 refphs=`grep Ref_phase= $proc_file | cut -d "=" -f 2`
 begin=`grep ifm_begin= $proc_file | cut -d "=" -f 2`
 finish=`grep ifm_end= $proc_file | cut -d "=" -f 2`
-tif_flag=`grep create_geotif= $proc_file | cut -d "=" -f 2`
 
 
 if [ $begin == INT -o $begin == FLAT -o $begin == FILT -o $begin == UNW -o $begin == GEOCODE ]; then 
@@ -101,24 +101,44 @@ echo "" 1>&2
 echo "PROCESSING_SCENE: "$project $track_dir $mas-$slv $ifm_rlks"rlks" $ifm_alks"alks" 1>&2
 
 ## Copy output of Gamma programs to log files
+#if WB data, need to identify beam in file name
+if [ -z $beam ]; then # no beam
+    command_log=command.log
+    output_log=output.log
+    temp_log=temp_log
+else # beam exists
+    command_log=$beam"_command.log"
+    output_log=$beam"_output.log"
+    temp_log=$beam"_temp_log"
+fi
 GM()
 {
-    echo $* | tee -a command.log
+    echo $* | tee -a $command_log
     echo
-    $* >> output.log 2> temp_log
-    cat temp_log >> error.log
-    #cat output.log (option to add output results to NCI .o file if required)
+    $* >> $output_log 2> $temp_log
+    cat $temp_log >> $error_log
+    #cat $output_log (option to add output results to NCI .o file if required)
 }
+
 
 mas_dir=$slc_dir/$mas
 slv_dir=$slc_dir/$slv
 int_dir=$int_dir/$mas-$slv
 
-mas_slc_name=$mas"_"$polar
-mas_mli_name=$mas"_"$polar"_"$ifm_rlks"rlks"
-slv_slc_name=$slv"_"$polar
-slv_mli_name=$slv"_"$polar"_"$ifm_rlks"rlks"
-mas_slv_name=$mas-$slv"_"$polar"_"$ifm_rlks"rlks"
+#if WB data, need to identify beam in file name
+if [ -z $beam ]; then # no beam
+    mas_slc_name=$mas"_"$polar
+    mas_mli_name=$mas"_"$polar"_"$ifm_rlks"rlks"
+    slv_slc_name=$slv"_"$polar
+    slv_mli_name=$slv"_"$polar"_"$ifm_rlks"rlks"
+    mas_slv_name=$mas-$slv"_"$polar"_"$ifm_rlks"rlks"
+else # beam exists
+    mas_slc_name=$mas"_"$polar"_"$beam
+    mas_mli_name=$mas"_"$polar"_"$beam"_"$ifm_rlks"rlks"
+    slv_slc_name=$slv"_"$polar"_"$beam
+    slv_mli_name=$slv"_"$polar"_"$beam"_"$ifm_rlks"rlks"
+    mas_slv_name=$mas-$slv"_"$polar"_"$beam"_"$ifm_rlks"rlks"
+fi
 
 ## Files located in SLC directories
     # master files
@@ -167,10 +187,18 @@ echo "Interferometric product range and azimuth looks: "$ifm_rlks $ifm_alks
 int_width=`grep range_samples $mas_mli_par | awk '{print $2}'`
 
 #files located in DEM directory
-rdc_dem=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_rdc.dem"
-diff_dem=$dem_dir/"diff_"$master"_"$polar"_"$ifm_rlks"rlks.par"
-gc_map=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_fine_utm_to_rdc.lt"
-dem_par=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_utm.dem.par"
+
+if [ -z $beam ]; then #no beam
+    rdc_dem=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_rdc.dem"
+    diff_dem=$dem_dir/"diff_"$master"_"$polar"_"$ifm_rlks"rlks.par"
+    gc_map=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_fine_utm_to_rdc.lt"
+    dem_par=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_utm.dem.par"
+else # beam exists
+    rdc_dem=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_rdc.dem"
+    diff_dem=$dem_dir/"diff_"$master"_"$polar"_"$beam"_"$ifm_rlks"rlks.par"
+    gc_map=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_fine_utm_to_rdc.lt"
+    dem_par=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_utm.dem.par"
+fi
 
 # files located in INT directory
 off=$int_dir/$mas_slv_name"_off.par"
@@ -209,6 +237,13 @@ geotif=$geocode_out.tif
 #lv_theta=$int_dir/$mas_slv_name.lv_theta
 #lv_phi=$int_dir/$mas_slv_name.lv_phi
 # disp=$int_dir/$mas_slv_name.displ_vert
+offs=$int_dir/$mas_slv_name.offs
+snr=$int_dir/$mas_slv_name.snr
+coffs=$int_dir/$mas_slv_name.coffs
+coffsets=$int_dir/$mas_slv_name.coffsets
+gcp=$int_dir/$mas_slv_name.gcp
+gcp_ph=$int_dir/$mas_slv_name.gcp_ph
+real=$int_dir/$mas_slv_name.real
 
 
 ### Each processing step is a 'function'. The if statement which controls start and stop is below the functions
@@ -225,8 +260,8 @@ INT()
     ## Also done in offset tracking so test if this has been run
     if [ ! -e $off ]; then
 	GM create_offset $mas_slc_par $slv_slc_par $off 1 $ifm_rlks $ifm_alks 0
-	GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off offs snr 64 64 - 2 64 256 7.0
-	GM offset_fit offs snr $off coffs coffsets
+	GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $snr 64 64 - 2 64 256 7.0
+	GM offset_fit $offs $snr $off $coffs $coffsets
     else
 	:
     fi
@@ -272,7 +307,6 @@ FLAT()
     ## Subtract topographic phase
     GM sub_phase $int $sim_unw1 $diff_par $int_flat1 1 0
 
-
     #######################################
     # Perform refinement of baseline model
 
@@ -304,14 +338,14 @@ FLAT()
     GM rascc_mask $cc0 - $int_width 1 1 0 1 1 0.4 0 - - - - 1 $cc0_mask
 
     ## select GCPs from high coherence areas
-    GM extract_gcp $rdc_dem $off gcp 100 100 $cc0_mask
+    GM extract_gcp $rdc_dem $off $gcp 100 100 $cc0_mask
 
     ## extract phase at GCPs
-    GM gcp_phase $int_flat"1.unw" $off gcp gcp_ph 3
+    GM gcp_phase $int_flat"1.unw" $off $gcp $gcp_ph 3
 
     ## Calculate precision baseline from GCP phase data
     #cp -f $base $base"1"
-    GM base_ls $mas_slc_par $off gcp_ph $base 0 1 1 1 1 1.0
+    GM base_ls $mas_slc_par $off $gcp_ph $base 0 1 1 1 1 1.0
 
     ## Calculate perpendicular baselines
     GM base_perp $base $mas_slc_par $off
@@ -424,26 +458,23 @@ GEOCODE()
     echo " "
     echo "Geocoding interferogram..."
     echo " "
-    width_in=`grep range_samp_1: $dem_dir/"diff_"$master"_"$polar"_"$ifm_rlks"rlks.par" | awk '{print $2}'`
+    width_in=`grep range_samp_1: $diff_dem | awk '{print $2}'`
     width_out=`grep width: $dem_par | awk '{print $2}'`
     ## Use bicubic spline interpolation for geocoded interferogram
     GM geocode_back $int_unw $width_in $gc_map $geocode_out $width_out - 1 0 - -
     echo " "
     echo "Geocoded interferogram."
     echo " "
-
     #Create geotiff
-    if [ $tif_flag == yes ]; then
-	echo " "
-	echo "Creating geotiffed interferogram..."
-	echo " "
-	real=$int_dir/$mas_slv_name"_utm_unw.flt"
-	cp $int_unw $real
-	GM data2geotiff $dem_par $real 2 $geotif 0.0
-	rm -f $real
-	echo " "
-	echo "Created geotiffed interferogram."
-	echo " "
+    echo " "
+    echo "Creating geotiffed interferogram..."
+    echo " "
+    cp $int_unw $real
+    GM data2geotiff $dem_par $real 2 $geotif 0.0
+    rm -rf $real
+    echo " "
+    echo "Created geotiffed interferogram."
+    echo " "
     else
 	:
     fi
@@ -563,8 +594,8 @@ fi
 
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
-   cat error.log 1>&2
-   rm temp_log
+    cat $error_log 1>&2
+    rm $temp_log
 else
-   rm $int_dir/temp_log
+   rm $temp_log
 fi

@@ -15,7 +15,7 @@ display_usage() {
     echo "*         [rlks]       MLI range looks                                        *"
     echo "*         [alks]       MLI azimuth looks                                      *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       05/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       19/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_PALSAR_L1_SLC.bash [proc_file] [scene] [rlks] [alks]"
     }
@@ -66,14 +66,25 @@ echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir $scene $slc_rlks"rlks" $slc_alks"alks" 1>&2
 
 ## Copy output of Gamma programs to log files
+#if WB data, need to identify beam in file name
+if [ -z $beam ]; then # no beam
+    command_log=command.log
+    output_log=output.log
+    temp_log=temp_log
+else # beam exists
+    command_log=$beam"_command.log"
+    output_log=$beam"_output.log"
+    temp_log=$beam"_temp_log"
+fi
 GM()
 {
-    echo $* | tee -a command.log
+    echo $* | tee -a $command_log
     echo
-    $* >> output.log 2> temp_log
-    cat temp_log >> error.log
-    #cat output.log (option to add output results to NCI .o file if required)
+    $* >> $output_log 2> $temp_log
+    cat $temp_log >> $error_log
+    #cat $output_log (option to add output results to NCI .o file if required)
 }
+
 
 ## Load GAMMA based on platform
 if [ $platform == NCI ]; then
@@ -100,8 +111,14 @@ raw_file_list=raw_file_list
 rm -f $scene_dir/$raw_file_list 
 
 ## File names
-slc_name=$scene"_"$polar
-mli_name=$scene"_"$polar"_"$slc_rlks"rlks"
+#if WB data, need to identify beam in file name
+if [ -z $beam ]; then # no beam
+    slc_name=$scene"_"$polar
+    mli_name=$scene"_"$polar"_"$slc_rlks"rlks"
+else # beam exists
+    slc_name=$scene"_"$polar"_"$beam
+    mli_name=$scene"_"$polar"_"$beam"_"$slc_rlks"rlks"
+fi
 para=$slc_name"_SLC_parameters.txt"
 slc=$slc_name.slc
 slc_par=$slc.par
@@ -111,6 +128,7 @@ tiff=$mli_name.tif
 ras_out=$mli_name.ras
 fbd2fbs_slc=$slc_name"_FBS.slc"
 fbd2fbs_par=p$slc_name"_FBS.slc.par"
+
 
 ## Set mode based on polarisation
 pol_list=$scene_dir/pol_list
@@ -175,7 +193,11 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     while read frame_num; do
 	if [ ! -z $frame_num ]; then
 	    frame=`echo $frame_num | awk '{print $1}'`
-	    fr_slc_name=$scene"_"$polar"_F"$frame
+	    if [ -z $beam ]; then # no beam
+		fr_slc_name=$scene"_"$polar"_F"$frame
+	    else # beam exists
+		fr_slc_name=$scene"_"$polar"_"$beam"_F"$frame
+	    fi
 	    fr_slc=$fr_slc_name.slc
 	    fr_slc_par=$fr_slc.par
 	    if [ $platform == GA ]; then
@@ -204,29 +226,36 @@ else
     slc1_par=`awk 'NR==1 {print$2}' $raw_file_list`
     slc2=`awk 'NR==2 {print$1}' $raw_file_list`
     slc2_par=`awk 'NR==2 {print$2}' $raw_file_list`
+    slc1_name=`echo $slc1 | awk -F . '{print $1}'`
+    slc2_name=`echo $slc2 | awk -F . '{print $1}'`
+    cat_off=$slc1_name-$slc2_name"_cat.off"
+    offs=$slc1_name-$slc2_name.offs
+    snr=$slc1_name-$slc2_name.snr
+    coffs=$slc1_name-$slc2_name.coffs
     # create offset parameter files for estimation of the offsets
-    GM create_offset $slc1_par $slc2_par cat.off 1 - - 0
+    GM create_offset $slc1_par $slc2_par $cat_off 1 - - 0
     # measure initial range and azimuth offsets using orbit information
-    GM init_offset_orbit $slc1_par $slc2_par cat.off - - 1 
+    GM init_offset_orbit $slc1_par $slc2_par $cat_off - - 1 
     # measure initial range and azimuth offsets using the images
-    GM init_offset $slc1 $slc2 $slc1_par $slc2_par cat.off 1 1 - - 0 0 7 512 512 1
+    GM init_offset $slc1 $slc2 $slc1_par $slc2_par $cat_off 1 1 - - 0 0 7 512 512 1
     # estimate range and azimuth offset models using correlation of image intensities
-    GM offset_pwr $slc1 $slc2 $slc1_par $slc2_par cat.off offs snr
-    GM offset_fit offs snr cat.off coffs - - 3
+    GM offset_pwr $slc1 $slc2 $slc1_par $slc2_par $cat_off $offs $snr
+    GM offset_fit $offs $snr $cat_off $coffs - - 3
     # concatenate SLC images
-    GM SLC_cat $slc1 $slc2 $slc1_par $slc2_par cat.off $slc $slc_par 1 0 1
+    GM SLC_cat $slc1 $slc2 $slc1_par $slc2_par $cat_off $slc $slc_par 1 0 1
     # clean up files
     rm -rf temp $raw_file_list $slc1 $slc2 $slc1_par $slc2_par
 fi
 
 ## Compute the azimuth Doppler spectrum and the Doppler centroid from SLC data
-GM az_spec_SLC $slc $slc_par $slc_name.dop - 0
+GM az_spec_SLC $slc $slc_par $slc_name.dop - 0 > $slc_name"_temp.dop"
 
 ## update ISP file with new estimated doppler centroid frequency (must be done manually)
 org_value=`grep doppler_polynomial: $slc_par | awk '{print $2}'`
-new_value=`grep "new estimated Doppler centroid frequency (Hz):" output.log | awk '{print $7}'`
-sed ' s/'"$org_value"'/'"$new_value"'/' $slc_par > temp
-mv temp $slc_par
+new_value=`grep "new estimated Doppler centroid frequency (Hz):" $slc_name"_temp.dop" | awk '{print $7}'`
+sed ' s/'"$org_value"'/'"$new_value"'/' $slc_par > $slc_name.temp
+mv $slc_name.temp $slc_par
+rm -rf $slc_name"_temp.dop"
 
 ## FBD to FBS Conversion
 if [ $polar == HH -a $mode == FBD ]; then
@@ -272,8 +301,8 @@ GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0
 
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
-   cat error.log 1>&2
-   rm temp_log
+    cat $error_log 1>&2
+    rm $temp_log
 else
-   rm temp_log
+   rm $temp_log
 fi

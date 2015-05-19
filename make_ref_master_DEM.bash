@@ -19,7 +19,7 @@ display_usage() {
     echo " *         <azoff>      offset to starting line                               *"
     echo " *         <azlines>    number of lines to copy                               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       19/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] <multi-look> <roff> <rlines> <azoff> <azlines>"
     }
@@ -47,6 +47,7 @@ project=`grep Project= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
+beam=`grep Beam= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
 subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
@@ -78,14 +79,25 @@ echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir $rlks"rlks" $alks"aks" 1>&2
 
 ## Copy output of Gamma programs to log files
+#if WB data, need to identify beam in file name
+if [ -z $beam ]; then # no beam
+    command_log=command.log
+    output_log=output.log
+    temp_log=temp_log
+else # beam exists
+    command_log=$beam"_command.log"
+    output_log=$beam"_output.log"
+    temp_log=$beam"_temp_log"
+fi
 GM()
 {
-    echo $* | tee -a command.log
+    echo $* | tee -a $command_log
     echo
-    $* >> output.log 2> temp_log
-    cat temp_log >> error.log
-    #cat output.log (option to add output results to NCI .o file if required)
+    $* >> $output_log 2> $temp_log
+    cat $temp_log >> $error_log
+    #cat $output_log (option to add output results to NCI .o file if required)
 }
+
 
 ## Load GAMMA based on platform
 if [ $platform == NCI ]; then
@@ -101,16 +113,38 @@ cd $dem_dir
 
 dem_par=$dem.par
 master_dir=$slc_dir/$master
-slc_name=$master"_"$polar
+
+#if WB data, need to identify beam in file name
+if [ -z $beam ]; then # no beam
+    slc_name=$scene"_"$polar
+else # beam exists
+    slc_name=$scene"_"$polar"_"$beam
+fi
 
 if [ $multi_look -eq 2 -a $subset == no ]; then
-    mli_name=$master"_"$polar"_0rlks"
+    if [ -z $beam ]; then # no beam
+	mli_name=$master"_"$polar"_0rlks"
+    else # beam exists
+	mli_name=$master"_"$polar"_"$beam"_0rlks"
+    fi
 elif [ $multi_look -eq 2 -a $subset == yes -a $subset_done == notyet ]; then # preserve DEM data related to full SLC
-    mli_name=$master"_"$polar"-full_0rlks"
+    if [ -z $beam ]; then # no beam
+	mli_name=$master"_"$polar"-full_0rlks"
+    else # beam exists
+	mli_name=$master"_"$polar"_"$beam"-full_0rlks"
+    fi
 elif [ $multi_look -eq 2 -a $subset == yes -a $subset_done == process ]; then
-    mli_name=$master"_"$polar"_0rlks"
+    if [ -z $beam ]; then # no beam
+	mli_name=$master"_"$polar"_0rlks"	
+    else # beam exists
+	mli_name=$master"_"$polar"_"$beam"_0rlks"
+    fi
 else
-    mli_name=$master"_"$polar"_"$rlks"rlks"
+    if [ -z $beam ]; then # no beam
+	mli_name=$master"_"$polar"_"$rlks"rlks"
+    else # beam exists
+	mli_name=$master"_"$polar"_"$beam"_"$rlks"rlks"
+    fi
 fi
 
 ## Files located in master SLC directory
@@ -153,7 +187,11 @@ utm_sim_sar=$dem_dir/$mli_name"_utm.sim"
 rdc_sim_sar=$dem_dir/$mli_name"_rdc.sim"
 diff=$dem_dir/"diff_"$mli_name.par
 lsmap=$dem_dir/$mli_name"_utm.lsmap"
-
+offs=$mli_name.offs
+snr=$mli_name.snr
+offsets=$mli_name.offsets
+coffs=$mli_name.coffs
+coffsets=$mli_name.coffsets
 
 ## Determine oversampling factor for DEM coregistration
 dem_post=`grep post_lon $dem_par | awk '{printf "%.8f\n", $2}'`
@@ -195,7 +233,6 @@ GM gc_map $master_mli_par - $dem_par 10. $utm_dem_par $utm_dem $lt_rough $ovr $o
 # use predetermined dem_par to segment the full DEM
 GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - - - - $lsmap 8 1
 
-
 dem_width=`grep width: $utm_dem_par | awk '{print $2}'`
 master_mli_width=`grep range_samples: $master_mli_par | awk '{print $2}'`
 master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
@@ -218,10 +255,10 @@ rm -f $returns
 ## initial offset estimate
 GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks - - - - $dem_snr - 1 
 
-GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr - - offsets 1 - - -
-#GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr 512 512 offsets 1 16 16 7.0
+GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr - - $offsets 1 - - -
+#GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr 512 512 $offsets 1 16 16 7.0
 
-GM offset_fitm offs snr $diff coffs coffsets
+GM offset_fitm $offs $snr $diff $coffs $coffsets
 
 ## precision estimation of the registration polynomial
 rwin=`echo $dem_win | awk '{print $1/4}'`
@@ -229,10 +266,10 @@ azwin=`echo $dem_win | awk '{print $1/4}'`
 nr=`echo $offset_measure | awk '{print $1*4}'`
 naz=`echo $offset_measure | awk '{print $1*4}'`
 
-GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr $rwin $azwin offsets 2 $nr $naz -
-#GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr 128 128 offsets 2 64 64 7.0
+GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr $rwin $azwin $offsets 2 $nr $naz -
+#GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr 128 128 $offsets 2 64 64 7.0
 
-GM offset_fitm offs snr $diff coffs coffsets
+GM offset_fitm $offs $snr $diff $coffs $coffsets
 
 grep "final model fit std. dev." output.log
 #grep "final range offset poly. coeff.:" output.log
@@ -241,7 +278,7 @@ grep "final model fit std. dev." output.log
 ## Refinement of initial geocoding look up table
 GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 0
 
-rm -f $lt_rough offs snr offsets coffs coffsets test1.dat test2.dat
+rm -rf $lt_rough $offs $snr $offsets $coffs $coffsets test1.dat test2.dat
 
 ## Geocode map geometry DEM to radar geometry
 GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_length 1 0 - - 2 4 -
@@ -256,16 +293,13 @@ else
     :
 fi
 
-
 # script end 
 ####################
 
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
-   cat error.log 1>&2
-   echo "" 1>&2
-   grep "correlation SNR:" output.log 1>&2
-   rm temp_log
+    cat $error_log 1>&2
+    rm $temp_log
 else
-    $dem_dir/temp_log
+   rm $temp_log
 fi
