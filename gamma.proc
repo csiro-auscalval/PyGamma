@@ -32,8 +32,6 @@ PALSAR1_data=raw
     # orientation options: ascending, descending
 Orientation=ascending
 Polarisation=HH
-    # Beam to process for Wide-Swath data (PALSAR2 only, otherwise leave blank)
-Beam=
     # Temporal baseline threshold in days (to refine number of interferograms, eg. TSX 121, ALOS 730)
 Threshold=121
 
@@ -67,6 +65,7 @@ Process_add_ifms=no
 
 ##### Text File Names #####
 List_of_frames=frame.list
+List_of_beams=beam.list
 List_of_scenes=scenes.list
 List_of_slaves=slaves.list
 List_of_ifms=ifms.list
