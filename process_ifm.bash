@@ -13,7 +13,7 @@ display_usage() {
     echo "*         [alks]       azimuth multi-look value                               *"
     echo "*         <beam>       beam number (eg, F2)                                   *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       26/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: process_ifm.bash [proc_file] [master] [slave] [rlks] [alks] <beam>"
     }
@@ -465,6 +465,62 @@ GEOCODE()
     rm -rf $real
     echo " "
     echo "Created geotiffed interferogram."
+    echo " "
+    echo " "
+    echo "Creating GMT files for plotting interferogram..."
+    echo " "
+    # Create png file of unwrapped interferogram
+    cpt=/g/data/dg9/repo/gamma_bash/bcgyr.cpt
+    name=`echo $geocode_out | awk -F . '{print $1}'`
+    psfile=$name"_unw.ps"
+    # Extract coordinates from DEM for plotting par file
+    width=`grep width: $dem_par | awk '{print $2}'`
+    lines=`grep nlines: $dem_par | awk '{print $2}'`
+    lon=`grep corner_lon: $dem_par | awk '{print $2}'`
+    post_lon=`grep post_lon: $dem_par | awk '{print $2}'`
+    post_lon=`printf "%1.12f" $post_lon`
+    lat=`grep corner_lat: $dem_par | awk '{print $2}'`
+    post_lat=`grep post_lat: $dem_par | awk '{print $2}'`
+    post_lat=`printf "%1.12f" $post_lat`
+    gmt_par=ifm_unw_gmt.par
+    echo WIDTH $width > $gmt_par
+    echo FILE_LENGTH $lines >> $gmt_par
+    echo X_FIRST $lon >> $gmt_par
+    echo X_STEP $post_lon >> $gmt_par
+    echo Y_FIRST $lat >> $gmt_par
+    echo Y_STEP $post_lat >> $gmt_par
+
+    # Calculate interferogram extents
+    rwidth=`awk 'NR==1 {print $2}' $gmt_par`
+    rlength=`awk 'NR==2 {print $2}' $gmt_par`
+    rx_min=`awk 'NR==3 {print $2}' $gmt_par`
+    ry_max=`awk 'NR==5 {print $2}' $gmt_par`
+    rx_step=`awk 'NR==4 {print $2}' $gmt_par`
+    ry_step=`awk 'NR==6 {print $2}' $gmt_par`
+    ry_step=`echo "$ry_step * -1" | bc`
+    rx_max=`echo "$rx_min + $rwidth * $rx_step" | bc`
+    ry_min=`echo "$ry_max - $rlength * $ry_step" | bc`
+    range=-R$rx_min/$rx_max/$ry_min/$ry_max
+    proj=-JM8
+    inc=-I$rx_step
+    # Convert intefergram to one column ascii
+    float2ascii $ifm 1 $name.txt 0 -
+    # Convert ascii to grd
+    xyz2grd $name.txt -N0 $range -ZTLa -r $inc -G$name.grd
+    # Make colour scale
+    grdinfo $name.grd > temp
+    z_min=`grep z_min: temp | awk '{print $3}'`
+    z_max=`grep z_max: temp | awk '{print $5}'`
+    span=-T$z_min/$z_max/1
+    makecpt -C$cpt $span -Z > $name.cpt
+    # Plot ifm
+    grdimage $name.grd -C$name.cpt $proj $range -Qs -P > $psfile
+    # Export image to .png
+    ps2raster $psfile -A -E300 -Tg -P
+    # Clean up files
+    rm -f $name.txt $name.grd temp $name.cpt $psfile 
+    echo " "
+    echo "Created GMT files for plotting interferogram."
     echo " "
 }
 
