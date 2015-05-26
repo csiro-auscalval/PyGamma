@@ -14,14 +14,15 @@ display_usage() {
     echo "*         <multi-look>  flag for creating ref DEM with no multi-looks, used   *"
     echo "*                       for creating lookup table for geocoding full SLC data *"
     echo "*                       (1 = no, 2 = yes)                                     *"
-    echo " *         <roff>       offset to starting range sample                       *"
-    echo " *         <rlines>     number of range samples                               *"
-    echo " *         <azoff>      offset to starting line                               *"
-    echo " *         <azlines>    number of lines to copy                               *"
+    echo "*         <roff>        offset to starting range sample                       *"
+    echo "*         <rlines>      number of range samples                               *"
+    echo "*         <azoff>       offset to starting line                               *"
+    echo "*         <azlines>     number of lines to copy                               *"
+    echo "*         <beam>        beam number (eg, F2)                                  *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       19/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] <multi-look> <roff> <rlines> <azoff> <azlines>"
+    echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] <multi-look> <roff> <rlines> <azoff> <beam>"
     }
 
 if [ $# -lt 3 ]
@@ -38,6 +39,7 @@ roff=$5
 rlines=$6
 azoff=$7
 azlines=$8
+beam=$9
 
 proc_file=$1
 
@@ -47,7 +49,6 @@ project=`grep Project= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
-beam=`grep Beam= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
 subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
@@ -76,28 +77,17 @@ cd $proj_dir/$track_dir
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project $track_dir $rlks"rlks" $alks"aks" 1>&2
+echo "PROCESSING_PROJECT: "$project $track_dir $rlks"rlks" $alks"aks" $beam 1>&2
 
 ## Copy output of Gamma programs to log files
-#if WB data, need to identify beam in file name
-if [ -z $beam ]; then # no beam
-    command_log=command.log
-    output_log=output.log
-    temp_log=temp_log
-else # beam exists
-    command_log=$beam"_command.log"
-    output_log=$beam"_output.log"
-    temp_log=$beam"_temp_log"
-fi
 GM()
 {
-    echo $* | tee -a $command_log
+    echo $* | tee -a command.log
     echo
-    $* >> $output_log 2> $temp_log
-    cat $temp_log >> $error_log
-    #cat $output_log (option to add output results to NCI .o file if required)
+    $* >> output.log 2> temp_log
+    cat temp_log >> error.log
+    #cat output.log (option to add output results to NCI .o file if required)
 }
-
 
 ## Load GAMMA based on platform
 if [ $platform == NCI ]; then
@@ -116,9 +106,9 @@ master_dir=$slc_dir/$master
 
 #if WB data, need to identify beam in file name
 if [ -z $beam ]; then # no beam
-    slc_name=$scene"_"$polar
+    slc_name=$master"_"$polar
 else # beam exists
-    slc_name=$scene"_"$polar"_"$beam
+    slc_name=$master"_"$polar"_"$beam
 fi
 
 if [ $multi_look -eq 2 -a $subset == no ]; then
@@ -298,8 +288,29 @@ fi
 
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
-    cat $error_log 1>&2
-    rm $temp_log
+    cat error.log 1>&2
+    rm temp_log
 else
-   rm $temp_log
+   rm temp_log
+fi
+
+## Rename log files if beam exists
+if [ -z $beam ]; then # no beam
+    :    
+else # beam exists
+    if [ -f $beam"_command.log" ]; then
+	cat command.log >>$beam"_command.log"
+    else
+	mv command.log $beam"_command.log"
+    fi
+    if [ -f $beam"_output.log" ]; then
+	cat output.log >>$beam"_output.log"
+    else
+	mv output.log $beam"_output.log"
+    fi
+    if [ -f $beam"_error.log" ]; then
+	cat error.log >>$beam"_error.log"
+    else
+	mv error.log $beam"_error.log"
+    fi
 fi

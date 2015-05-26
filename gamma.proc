@@ -94,6 +94,7 @@ SLC_multi_look=1
     # interferogram multi-look value needs to be a multiple of the SLC multi-look value (eg. SLC=2 ifm=2,4,6,8,10...)
 ifm_multi_look=1
 
+
 ##### Make Reference Master DEM Parameters (for create_diff_par) ##### 
     # enter number of offset measurements in range, azimuth (default 32 32):
 offset_measure=32 32
@@ -101,6 +102,15 @@ offset_measure=32 32
 dem_win=256 256
     # minimum matching SNR (nominal: 7):
 dem_snr=7
+
+
+##### Make Slave Coregistration Parameters (for create_diff_par) ##### 
+    # enter number of offset measurements in range, azimuth (default 32 32):
+slv_offset_measure=32 32
+    # search window sizes (32, 64, 128...) (range, azimuth) (default 256 256):
+slv_win=256 256
+    # minimum matching SNR (nominal: 7):
+slv_snr=7
 
 
 ##### Interferogram Parameters #####

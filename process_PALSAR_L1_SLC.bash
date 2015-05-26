@@ -14,10 +14,11 @@ display_usage() {
     echo "*         [scene]      scene ID (eg. 20070112)                                *"
     echo "*         [rlks]       MLI range looks                                        *"
     echo "*         [alks]       MLI azimuth looks                                      *"
+    echo "*         <beam>       Beam number (eg, F2)                                   *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       19/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: process_PALSAR_L1_SLC.bash [proc_file] [scene] [rlks] [alks]"
+    echo -e "Usage: process_PALSAR_L1_SLC.bash [proc_file] [scene] [rlks] [alks] <beam>"
     }
 
 if [ $# -lt 4 ]
@@ -40,7 +41,6 @@ platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
-beam=`grep Beam= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 frame_list=`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 raw_dir_ga=`grep Raw_data_GA= $proc_file | cut -d "=" -f 2`
@@ -48,6 +48,7 @@ raw_dir_mdss=`grep Raw_data_MDSS= $proc_file | cut -d "=" -f 2`
 
 slc_rlks=$3
 slc_alks=$4
+beam=$5
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -63,26 +64,16 @@ cd $proj_dir/$track_dir
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project $track_dir $scene $slc_rlks"rlks" $slc_alks"alks" 1>&2
+echo "PROCESSING_PROJECT: "$project $track_dir $scene $slc_rlks"rlks" $slc_alks"alks" $beam 1>&2
 
 ## Copy output of Gamma programs to log files
-#if WB data, need to identify beam in file name
-if [ -z $beam ]; then # no beam
-    command_log=command.log
-    output_log=output.log
-    temp_log=temp_log
-else # beam exists
-    command_log=$beam"_command.log"
-    output_log=$beam"_output.log"
-    temp_log=$beam"_temp_log"
-fi
 GM()
 {
-    echo $* | tee -a $command_log
+    echo $* | tee -a command.log
     echo
-    $* >> $output_log 2> $temp_log
-    cat $temp_log >> $error_log
-    #cat $output_log (option to add output results to NCI .o file if required)
+    $* >> output.log 2> temp_log
+    cat temp_log >> error.log
+    #cat output.log (option to add output results to NCI .o file if required)
 }
 
 
@@ -111,7 +102,7 @@ raw_file_list=raw_file_list
 rm -f $scene_dir/$raw_file_list 
 
 ## File names
-#if WB data, need to identify beam in file name
+#if beams exist, need to identify beam in file name
 if [ -z $beam ]; then # no beam
     slc_name=$scene"_"$polar
     mli_name=$scene"_"$polar"_"$slc_rlks"rlks"
@@ -139,52 +130,56 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 	if [ ! -z $frame_num ]; then
 	    frame=`echo $frame_num | awk '{print $1}'`
 	    if [ $platform == GA ]; then
-		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >& hh_temp
-		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >& hv_temp
+		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH*$beam* >& hh_temp
+		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV*$beam* >& hv_temp
 		temp="ls: cannot access"
 		temp1=`awk '{print $1" "$2" "$3}' hh_temp`
 		if [ "$temp1" == "$temp" ]; then
 		    :
 		else
-		    basename $raw_dir/F$frame/$scene/IMG-HH* >> $pol_list 
+		    basename $raw_dir/F$frame/$scene/IMG-HH*$beam* >> $pol_list 
 		fi
 		temp2=`awk '{print $1" "$2" "$3}' hv_temp`
 		if [ "$temp2"  == "$temp" ]; then
 		    :
 		else
-		    basename $raw_dir/F$frame/$scene/IMG-HV* >> $pol_list
+		    basename $raw_dir/F$frame/$scene/IMG-HV*$beam* >> $pol_list
 		fi
 		rm -rf hh_temp hv_temp
 	    else
-		ls $raw_dir/F$frame/$scene/IMG-HH* >& hh_temp
-		ls $raw_dir/F$frame/$scene/IMG-HV* >& hv_temp
+		ls $raw_dir/F$frame/$scene/IMG-HH*$beam* >& hh_temp
+		ls $raw_dir/F$frame/$scene/IMG-HV*$beam* >& hv_temp
 		temp="ls: cannot access"
 		temp1=`awk '{print $1" "$2" "$3}' hh_temp`
 		if [ "$temp1" == "$temp" ]; then
 		    :
 		else
-		    basename $raw_dir/F$frame/$scene/IMG-HH* >> $pol_list 
+		    basename $raw_dir/F$frame/$scene/IMG-HH*$beam* >> $pol_list 
 		fi
 		temp2=`awk '{print $1" "$2" "$3}' hv_temp`
 		if [ "$temp2"  == "$temp" ]; then
 		    :
 		else
-		    basename $raw_dir/F$frame/$scene/IMG-HV* >> $pol_list
+		    basename $raw_dir/F$frame/$scene/IMG-HV*$beam* >> $pol_list
 		fi
 		rm -rf hh_temp hv_temp
 	    fi
 	fi
     done < $proj_dir/$track_dir/$frame_list
-
+  
     num_hv=`grep -co "HV" $pol_list`
-    if [ "$num_hv" -eq 0 -a "$polar" == HH ]; then 
-	mode=FBS
-    elif [ "$num_hv" -ge 1 -a "$polar" == HH ]; then 
-	mode=FBD
-    elif [ $polar == HV ]; then
-	mode=FBD
-    else
+    if [ $sensor == PALSAR2 -a -z $beam ]; then # no FBD or FBS conversion if PALSAR2 wide swath data
 	:
+    else
+	if [ "$num_hv" -eq 0 -a "$polar" == HH ]; then 
+	    mode=FBS
+	elif [ "$num_hv" -ge 1 -a "$polar" == HH ]; then 
+	    mode=FBD
+	elif [ $polar == HV ]; then
+	    mode=FBD
+	else
+	    :
+	fi
     fi
     echo "Mode:" $mode "  Polarisation:" $polar
     rm -f $pol_list
@@ -244,7 +239,7 @@ else
     # concatenate SLC images
     GM SLC_cat $slc1 $slc2 $slc1_par $slc2_par $cat_off $slc $slc_par 1 0 1
     # clean up files
-    rm -rf temp $raw_file_list $slc1 $slc2 $slc1_par $slc2_par
+    rm -rf temp $raw_file_list
 fi
 
 ## Compute the azimuth Doppler spectrum and the Doppler centroid from SLC data
@@ -301,8 +296,30 @@ GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0
 
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
-    cat $error_log 1>&2
-    rm $temp_log
+    cat error.log 1>&2
+    rm temp_log
 else
-   rm $temp_log
+   rm temp_log
 fi
+
+## Rename log files if beam exists
+if [ -z $beam ]; then # no beam
+    :    
+else # beam exists
+    if [ -f $beam"_command.log" ]; then
+	cat command.log >>$beam"_command.log"
+    else
+	mv command.log $beam"_command.log"
+    fi
+    if [ -f $beam"_output.log" ]; then
+	cat output.log >>$beam"_output.log"
+    else
+	mv output.log $beam"_output.log"
+    fi
+    if [ -f $beam"_error.log" ]; then
+	cat error.log >>$beam"_error.log"
+    else
+	mv error.log $beam"_error.log"
+    fi
+fi
+
