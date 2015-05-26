@@ -171,8 +171,8 @@ fi
 if [ $platform == NCI ]; then
     num_ifms=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
     split -dl 190 $ifm_list $ifm_list"_"
-    mv $ifm_list "all_"$ifm_list
-    ls ifm.list_* > temp
+    mv $ifm_list all_ifms.list
+    ls ifms.list_* > temp
     cat temp | tr " " "\n" > ifm_files.list
     rm -rf temp
 else
