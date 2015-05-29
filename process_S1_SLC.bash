@@ -37,6 +37,7 @@ platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
+pol=`echo $polar | tr '[:upper:]' '[:lower:]'`
 #beam=`grep Beam= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 frame_list=`grep List_of_frames= $proc_file | cut -d "=" -f 2`
@@ -177,7 +178,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 #    echo "Mode:" $mode "  Polarisation:" $polar
 #    rm -f $pol_list
 
-rm -f slc_tab
+rm -f slc_tab pslc_tab
 
     ## Produce SLC data files
     for swath in 1 2 3
@@ -193,28 +194,31 @@ rm -f slc_tab
 		#fr_slc=$fr_slc_name.slc
 		#fr_slc_par=$fr_slc.par
 		if [ $platform == GA ]; then
-		    annot=`ls $raw_dir/F$frame/date_dirs/$scene/annotation/s1a-iw$swath-slc*.xml`
-    		    data=`ls $raw_dir/F$frame/date_dirs/$scene/measurement/s1a-iw$swath-slc*.tiff`
-		    calib=`ls $raw_dir/F$frame/date_dirs/$scene/annotation/calibration/calibration-s1a-iw$swath-slc*.xml`
-		    noise=`ls $raw_dir/F$frame/date_dirs/$scene/annotation/calibration/noise-s1a-iw$swath-slc*.xml`
+		    annot=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
+    		    data=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
+		    calib=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
+		    noise=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
 		else
-		    annot=`ls $raw_dir/F$frame/$scene/annotation/s1a-iw$swath-slc*.xml`
-    		    data=`ls $raw_dir/F$frame/$scene/measurement/s1a-iw$swath-slc*.tiff`
-		    calib=`ls $raw_dir/F$frame/$scene/annotation/calibration/calibration-s1a-iw$swath-slc*.xml`
-		    noise=`ls $raw_dir/F$frame/$scene/annotation/calibration/noise-s1a-iw$swath-slc*.xml`
+		    annot=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
+    		    data=`ls $raw_dir/F$frame/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
+		    calib=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
+		    noise=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
 		fi
 		bslc="slc$swath"
 		bslc_par=${!bslc}.par
 		btops="tops_par$swath"
 		# Import S1 sub-swath SLC
 		GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops}
+		#GM par_S1_SLC $data $annot $calib $noise p$bslc_par p${!bslc} p${!btops}
 
 		## Make quick-look image
 		width=`grep range_samples: $bslc_par | awk '{print $2}'`
 		lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
-		GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.ras
+		GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
+		#GM rasSLC p${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
 
-		echo ${!bslc} $bslc_par ${!btops} >> slc_tab
+		#echo $scene_dir/p${!bslc} $scene_dir/p$bslc_par $scene_dir/p${!btops} >> pslc_tab
+		echo $scene_dir/${!bslc} $scene_dir/$bslc_par $scene_dir/${!btops} >> slc_tab
 
                 ## Copy data file details to text file to check if concatenation of scenes along track is required
 		#echo $fr_slc $fr_slc_par >> $raw_file_list
@@ -222,11 +226,16 @@ rm -f slc_tab
 	done < $proj_dir/$track_dir/$frame_list
     done
 
+## Deramp the burst SLCs and output subtracted phase ramps
+## Only needed if the SLC is to be oversampled e.g. for use with offset tracking programs
+#    GM SLC_deramp_S1_TOPS pslc_tab slc_tab 0 1
+
+## Make the SLC mosaic from individual burst SLCs
     GM SLC_mosaic_S1_TOPS slc_tab $slc $slc_par $slc_rlks $slc_alks
 
     width=`grep range_samples: $slc_par | awk '{print $2}'`
     lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
-    GM rasSLC $slc $width 1 $lines 50 10 - - 1 0 0 $slc.ras
+    GM rasSLC $slc $width 1 $lines 50 10 - - 1 0 0 $slc.bmp
 
 ## Check if scene concatenation is required (i.e. a scene has more than one frame)
 #lines=`awk 'END{print NR}' $raw_file_list`

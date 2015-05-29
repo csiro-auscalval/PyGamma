@@ -690,6 +690,12 @@ fi
 
 ##### COREGISTER SLAVE SCENES TO MASTER SCENE #####
 
+if [ $sensor == S1 ]; then
+    coreg_script=coregister_S1_slave_SLC.bash
+else
+    coreg_script=coregister_slave_SLC.bash
+fi
+
 ## GA ##
 if [ $coregister == yes -a $platform == GA ]; then
     cd $proj_dir
@@ -704,7 +710,7 @@ if [ $coregister == yes -a $platform == GA ]; then
 	    if [ ! -z $date ]; then
 		slave=`echo $date | awk 'BEGIN {FS=","} ; {print $1}'`
 		echo "Coregistering "$slave" to master scene with "$slc_rlks" range and "$slc_alks" azimuth looks..."
-		coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks
+		$coreg_script $proj_dir/$proc_file $slave $slc_rlks $slc_alks
 		cd $slc_dir/$slave
 		echo " " >> $err_log
 		echo "Coregistering "$slave" with "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
@@ -717,7 +723,7 @@ if [ $coregister == yes -a $platform == GA ]; then
 		slave=`echo $date | awk 'BEGIN {FS=","} ; {print $1}'`
  # SLC multi-look value
 		echo "Coregistering "$slave" with SLC "$slc_rlks" range and "$slc_alks" azimuth looks..."
-		coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks
+		$coreg_script $proj_dir/$proc_file $slave $slc_rlks $slc_alks
 		cd $slc_dir/$slave
 		echo " " >> $err_log
 		echo "Coregistering "$slave" with SLC "$slc_rlks" range and "$slc_alks" azimuth looks" >> $err_log
@@ -725,7 +731,7 @@ if [ $coregister == yes -a $platform == GA ]; then
 # ifm multi-look value
 		echo " "
 		echo "Coregistering "$slave" with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks..."
-		coregister_slave_SLC.bash $proj_dir/$proc_file $slave $ifm_rlks $ifm_alks
+		$coreg_script $proj_dir/$proc_file $slave $ifm_rlks $ifm_alks
 		cd $slc_dir/$slave
 		echo " " >> $err_log
 		echo "Coregistering "$slave" with ifm "$ifm_rlks" range and "$ifm_alks" azimuth looks" >> $err_log
@@ -767,10 +773,10 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		:
 	    fi
 	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		echo ~/repo/gamma_bash/coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks >> $co_slc
+		echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $slave $slc_rlks $slc_alks >> $co_slc
 	    else
-		echo ~/repo/gamma_bash/coregister_slave_SLC.bash $proj_dir/$proc_file $slave $slc_rlks $slc_alks >> $co_slc
-		echo ~/repo/gamma_bash/coregister_slave_SLC.bash $proj_dir/$proc_file $slave $ifm_rlks $ifm_alks >> $co_slc
+		echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $slave $slc_rlks $slc_alks >> $co_slc
+		echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $slave $ifm_rlks $ifm_alks >> $co_slc
 	    fi
 	    chmod +x $co_slc
 	    qsub $co_slc | tee co_slc_job_id

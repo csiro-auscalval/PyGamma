@@ -212,6 +212,13 @@ echo $offset_measure >> $returns
 echo $dem_win >> $returns 
 echo $dem_snr >> $returns 
 
+## The high accuracy of Sentinel-1 orbits requires only an offset fit term rather than higher order polynomial terms
+if [ $sensor == S1 ]; then
+    npoly=1
+else
+    npoly=4
+fi
+
 GM create_diff_par $master_mli_par - $diff 1 < $returns
 rm -f $returns
 
@@ -221,7 +228,7 @@ GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks - - - - $dem_snr - 1
 GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr - - offsets 1 - - -
 #GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr 512 512 offsets 1 16 16 7.0
 
-GM offset_fitm offs snr $diff coffs coffsets
+GM offset_fitm offs snr $diff coffs coffsets - $npoly
 
 ## precision estimation of the registration polynomial
 rwin=`echo $dem_win | awk '{print $1/4}'`
@@ -232,14 +239,14 @@ naz=`echo $offset_measure | awk '{print $1*4}'`
 GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr $rwin $azwin offsets 2 $nr $naz -
 #GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr 128 128 offsets 2 64 64 7.0
 
-GM offset_fitm offs snr $diff coffs coffsets
+GM offset_fitm offs snr $diff coffs coffsets - $npoly
 
 grep "final model fit std. dev." output.log
 #grep "final range offset poly. coeff.:" output.log
 #grep "final azimuth offset poly. coeff.:" output.log
 
 ## Refinement of initial geocoding look up table
-GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 0
+GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 1
 
 rm -f $lt_rough offs snr offsets coffs coffsets test1.dat test2.dat
 

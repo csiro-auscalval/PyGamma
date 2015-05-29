@@ -3,7 +3,8 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* coregister_slave_SLC: Coregisters SLC to chosen master SLC geometry.        *"
+    echo "* coregister_S1_slave_SLC: Coregisters Sentinel-1 IWS SLC to chosen master    *"
+    echo "*                          SLC geometry                                       *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*         [slave]      slave scene ID (eg. 20120520)                          *"
@@ -12,11 +13,9 @@ display_usage() {
     echo "*         [alks]       azimuth multi-look value (for SLCs: from *.mli.par     *"
     echo "*                      file or for ifms: from proc file)                      *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
-    echo "*         Matt Garthwaite         20/05/2015, v1.1                            *"
-    echo "*               added iterable loop to achieve required offset accuracy       *"
+    echo "* author: Matt Garthwaite @ GA       12/05/2015, v1.0                         *"
     echo "*******************************************************************************"
-    echo -e "Usage: coregister_slave_SLC.bash [proc_file] [slave] [rlks] [alks]"
+    echo -e "Usage: coregister_S1_slave_SLC.bash [proc_file] [slave] [rlks] [alks]"
     }
 
 if [ $# -lt 4 ]
@@ -94,16 +93,29 @@ master_mli=$master_dir/r$master_mli_name.mli
 master_mli_par=$master_mli.par
 master_slc=$master_dir/r$master_slc_name.slc
 master_slc_par=$master_slc.par
+master_slc_tab=$master_dir/slc_tab
 
 slave_mli=$slave_dir/$slave_mli_name.mli
 slave_mli_par=$slave_mli.par
 slave_slc=$slave_dir/$slave_slc_name.slc
 slave_slc_par=$slave_slc.par
+slave_slc_tab=$slave_dir/slc_tab
+
+slc1=r$slave_slc_name"_IW1.slc"
+slc1_par=$slc1.par
+tops_par1=$slc1.TOPS_par
+slc2=r$slave_slc_name"_IW2.slc"
+slc2_par=$slc2.par
+tops_par2=$slc2.TOPS_par
+slc3=r$slave_slc_name"_IW3.slc"
+slc3_par=$slc3.par
+tops_par3=$slc3.TOPS_par
 
 rslc=$slave_dir/r$slave_slc_name.slc 
 rslc_par=$rslc.par
 rmli=$slave_dir/r$slave_mli_name.mli 
 rmli_par=$rmli.par
+rslc_tab=$slave_dir/rslc_tab
 
 lt=$slave_dir/$master-$slave_mli_name.lt
 off=$slave_dir/$master-$slave_mli_name.off
@@ -158,8 +170,17 @@ GM offset_fitm offs0 snr0 diff.par coffs0 - 7.0 1
 ## Refinement of initial geocoding look up table
 GM gc_map_fine lt0 $master_mli_width diff.par $lt
 
-## Resample slave SLC into geometry of master SLC using lookup table
-GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par - $rslc $rslc_par
+## Create table for resampled burst SLCs
+rm -f $rslc_tab
+for swath in 1 2 3; do
+    bslc="slc$swath"
+    bslc_par=${!bslc}.par
+    btops="tops_par$swath"
+    echo $slave_dir/${!bslc} $slave_dir/$bslc_par $slave_dir/${!btops} >> $rslc_tab
+done
+
+## Resample slave SLC into geometry of master SLC using lookup table and generate mosaic SLC    
+GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par - $rslc_tab $rslc $rslc_par
 
 #------------------------
 
@@ -174,10 +195,11 @@ while [ $i -le $niter ]; do
 ## Measure offsets for refinement of lookup table using initially resampled slave SLC
     GM create_offset $master_slc_par $rslc_par $ioff 1 $rlks $alks 0
 
-    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff offs snr $win $win offsets $ovr $nwin $nwin $snr
+## No SLC oversampling for S1 due to strong Doppler centroid variation in azimuth
+    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff offs snr 256 64 offsets $ovr $nwin $nwin $snr 
 
-## Fit polynomial model to offsets
-    GM offset_fit offs snr $ioff - coffsets $snr $npoly 0
+## Fit constant offset term only for S1 due to short length orbital baselines
+    GM offset_fit offs snr $ioff - coffsets 10.0 $npoly 0
 
 ## Create blank offset file for first iteration and calculate the total estimated offset
     if [ $i == 1 ]; then
@@ -189,21 +211,29 @@ while [ $i -le $niter ]; do
 	GM offset_add $off $ioff $off
     fi
 
-## if estimated offsets are less than 0.2 of a pixel then break iterable loop
-    azoff=`grep "final azimuth offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'` 
-    rgoff=`grep "final range offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'` 
-    test1=`echo $azoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
+## if azimuth offset is less than 0.02 and range offset is less than 0.2 then break iterable loop. Precision azimuth coregistration is essential for S1 IWS mode interferometry
+    azoff=`grep "final azimuth offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'`
+    rgoff=`grep "final range offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'`  
+    test1=`echo $azoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*100}'`
     test2=`echo $rgoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
     echo "Iteration "$i": azimuth offset is "$azoff", range offset is "$rgoff
 
-## Perform resampling of slave SLC using lookup table and offset model
-    GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par $off $rslc $rslc_par
+## Perform resampling of slave SLC using lookup table and offset model, and generate mosaic SLC
+    GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par $off $rslc_tab $rslc $rslc_par
 
     if [ $test1 -lt 2 -a $test2 -lt 2 ]; then
 	break
     fi
     i=$(($i+1))
 done
+
+#-------------------------
+
+## Determine a refinement to the azimuth offset estimation in the burst overlap regions
+GM S1_coreg_overlap $master_slc_tab $rslc_tab $master-$slave $off $off".corrected" 0.8 100
+
+## Perform fourth resampling of slave SLC using lookup table and corrected offset information
+GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par $off".corrected" $rslc_tab $rslc $rslc_par
 
 #-------------------------
 
