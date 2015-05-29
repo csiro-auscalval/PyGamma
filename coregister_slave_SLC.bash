@@ -13,7 +13,11 @@ display_usage() {
     echo "*                      file or for ifms: from proc file)                      *"
     echo "*         <beam>       beam number (eg, F2)                                   *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       22/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       22/05/2015, v1.1                            *"
+    echo "*               added functionality for wide swath beam processing            *"
+    echo "*         Matt Garthwaite         29/05/2015, v1.2                            *"
+    echo "*               added iterable loop to achieve required offset accuracy       *"
     echo "*******************************************************************************"
     echo -e "Usage: coregister_slave_SLC.bash [proc_file] [slave] [rlks] [alks] <beam>"
     }
@@ -39,10 +43,17 @@ master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
 subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
+## MLI registration params
 offset_measure=`grep slv_offset_measure= $proc_file | cut -d "=" -f 2`
 slv_win=`grep slv_win= $proc_file | cut -d "=" -f 2`
 slv_snr=`grep slv_snr= $proc_file | cut -d "=" -f 2`
-
+## SLC registration params
+snr=`grep coreg_snr_thresh= $proc_file | cut -d "=" -f 2`
+npoly=`grep coreg_model_params= $proc_file | cut -d "=" -f 2`
+win=`grep coreg_window_size= $proc_file | cut -d "=" -f 2`
+nwin=`grep coreg_num_windows= $proc_file | cut -d "=" -f 2`
+ovr=`grep coreg_oversampling= $proc_file | cut -d "=" -f 2`
+niter=`grep coreg_num_iterations= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -113,27 +124,14 @@ rslc_par=$rslc.par
 rmli=$slave_dir/r$slave_mli_name.mli 
 rmli_par=$rmli.par
 
-tslc=$slave_dir/t$slave_slc_name.slc 
-tslc_par=$tslc.par
-tmli=$slave_dir/t$slave_mli_name.mli 
-tmli_par=$tmli.par
-
 lt=$slave_dir/$master_mli_name-$slave_mli_name.lt
-off1=$slave_dir/$master_mli_name-$slave_mli_name"_1.off"
-off2=$slave_dir/$master_mli_name-$slave_mli_name"_2.off"
-#off3=$slave_dir/$master_mli_name-$slave_mli_name"_3.off"
-#off=$slave_dir/$master_mli_name-$slave_mli_name.off
-lt0=$slave_dir/$master_mli_name-$slave_mli_name.lt0
-diff_par=$slave_dir/$master_mli_name-$slave_mli_name_"diff.par"
-offs0=$slave_dir/$master_mli_name-$slave_mli_name.offs0
-snr0=$slave_dir/$master_mli_name-$slave_mli_name.snr0
-coffs0=$slave_dir/$master_mli_name-$slave_mli_name.coffs0
-offs1=$slave_dir/$master_mli_name-$slave_mli_name.offs1
-snr1=$slave_dir/$master_mli_name-$slave_mli_name.snr1
-offsets1=$slave_dir/$master_mli_name-$slave_mli_name.offsets1
-offs2=$slave_dir/$master_mli_name-$slave_mli_name.offs2
-snr2=$slave_dir/$master_mli_name-$slave_mli_name.snr2
-offsets2=$slave_dir/$master_mli_name-$slave_mli_name.offsets2
+off=$slave_dir/$master-$slave_mli_name.off
+diff_par=$slave_dir/$master-$slave_mli_name_"diff.par"
+snr=$slave_dir/$master_mli_name-$slave_mli_name.snr
+coffs=$slave_dir/$master_mli_name-$slave_mli_name.coffs
+offs=$slave_dir/$master_mli_name-$slave_mli_name.offs
+offsets=$slave_dir/$master_mli_name-$slave_mli_name.offsets
+coffsets=$slave_dir/$master_mli_name-$slave_mli_name.coffsets
 
 ## Set up coregistration results file
 #check_file=$slave_dir/slave_coregistration_results"_"$rlks"_rlks_"$alks"_alks.txt"
@@ -164,13 +162,13 @@ echo " "
 rdc_dem=$dem_dir/$master_mli_name"_rdc.dem"
 
 ##Generate initial lookup table between master and slave MLI considering terrain heights from DEM coregistered to master
-GM rdc_trans $master_mli_par $rdc_dem $slave_mli_par $lt0
+GM rdc_trans $master_mli_par $rdc_dem $slave_mli_par $lt"0"
 
 slave_mli_width=`awk 'NR==11 {print $2}' $slave_mli_par`
 master_mli_width=`awk 'NR==11 {print $2}' $master_mli_par`
 slave_mli_length=`awk 'NR==12 {print $2}' $slave_mli_par`
 
-GM geocode $lt0 $master_mli $master_mli_width $tmli $slave_mli_width $slave_mli_length 2 0
+GM geocode $lt"0" $master_mli $master_mli_width $tmli $slave_mli_width $slave_mli_length 2 0
 
 ## Measure offset and estimate offset polynomials between slave MLI and resampled slave MLI
 returns=$slave_dir/returns
@@ -183,53 +181,69 @@ echo $slv_snr >> $returns
 GM create_diff_par $slave_mli_par $slave_mli_par $diff_par 1 < $returns
 rm -f $returns
 
-GM init_offsetm $tmli $slave_mli $diff_par 1 1 - - - - $slv_snr - 1
+## Measure offset between slave MLI and resampled slave MLI
+GM init_offsetm $rmli $slave_mli $diff_par 1 1 - - - - $slv_snr - 1
 
-GM offset_pwrm $tmli $slave_mli $diff_par $offs0 $snr0 - - - 2
+GM offset_pwrm $rmli $slave_mli $diff_par $off"s0" $snr"0" - - - 2
 
-GM offset_fitm $offs0 $snr0 $diff_par $coffs0 - - 4
+## Fit the offset only
+GM offset_fitm $off"s0" $snr"0" $diff_par $coffs"0" - $slv_snr 1
 
 ## Refinement of initial geocoding look up table
-GM gc_map_fine $lt0 $master_mli_width $diff_par $lt
+GM gc_map_fine $lt"0" $master_mli_width $diff_par $lt
 
 ## Resample slave SLC into geometry of master SLC using lookup table
-GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par - $tslc $tslc_par
+GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par - $rslc $rslc_par
 
 #------------------------
 
-## Measure offsets for second refinement of lookup table using initially resampled slave SLC
+## set up iterable loop
+i=1
+while [ $i -le $niter ]; do
 
-GM create_offset $master_slc_par $tslc_par $off1 1 - - 0
+    ioff=$off$i
+    rm -f $offs $snr $offsets $coffsets
+    echo "Starting Iteration "$i
 
-GM offset_pwr $master_slc $tslc $master_slc_par $tslc_par $off1 $offs1 $snr1 - - $offsets1 2 
+## Measure offsets for refinement of lookup table using initially resampled slave SLC
+    GM create_offset $master_slc_par $rslc_par $ioff 1 $rlks $alks 0
 
-GM offset_fit $offs1 $snr1 $off1 - $coffsets1
+    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff $offs $snr $win $win $offsets $ovr $nwin $nwin $snr
+
+## Fit polynomial model to offsets
+    GM offset_fit $offs $snr $ioff - $coffsets $snr $npoly 0
+
+## Create blank offset file for first iteration and calculate the total estimated offset
+    if [ $i == 1 ]; then
+	GM create_offset $master_slc_par $rslc_par $off"0" 1 $rlks $alks 0
+
+	GM offset_add $off"0" $ioff $off
+    else
+## Calculate the cumulative total estimated offset
+	GM offset_add $off $ioff $off
+    fi
+
+## if estimated offsets are less than 0.2 of a pixel then break iterable loop
+    azoff=`grep "final azimuth offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'` 
+    rgoff=`grep "final range offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'` 
+    test1=`echo $azoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
+    test2=`echo $rgoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
+    echo "Iteration "$i": azimuth offset is "$azoff", range offset is "$rgoff
+
+## Perform resampling of slave SLC using lookup table and offset model
+    GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par $off $rslc $rslc_par
+
+    if [ $test1 -lt 2 -a $test2 -lt 2 ]; then
+	break
+    fi
+    i=$(($i+1))
+done
 
 #-------------------------
-
-##Perform second resampling of slave SLC using lookup table and offset information
-
-GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par $off1 $rslc $rslc_par
 
 GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
 
-#-------------------------
-
-## Compute final residual offsets
-GM create_offset $master_slc_par $rslc_par $off2 1 - - 0
-
-GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $off2 $offs2 $snr2 - - $offsets2 2 
-
-GM offset_fit $offs2 $snr2 $off2 - $coffsets2
-
-#grep "final model fit std. dev." output.log > temp1
-#tail -1 temp1 > temp2
-#grep "final range offset poly. coeff.:" output.log > temp3
-#tail -1 temp3 > temp4
-#grep "final azimuth offset poly. coeff.:" output.log > temp5
-#tail -1 temp5 > temp6
-
-rm -f $offs $snr0 $coffs $coffsets $off1 $off2 $tslc $tslc_par $tmli $lt0
+rm -f $off"s0" $snr"0" $coffs"0" $offs $snr $coffs $coffsets $lt"0"
 
 ## Extract final model fit values to check coregistration
 #echo $master > temp1_$rlks
