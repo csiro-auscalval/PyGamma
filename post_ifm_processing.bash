@@ -3,32 +3,28 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* check_ifm_processing:  Check processing result of unwrapped and geocoded    *"
-    echo "*                        interferograms.                                      *"
+    echo "* post_ifm_processing:  Copy files from each interferogram directory to a     *"
+    echo "*                       central location to check processing results and for  *"
+    echo "*                       Pyrate processing.                                    *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
-    echo "*         [list_type]  ifm list type (1 = ifms.list, 2 = add_ifms.list,       *"
-    echo "*                      default is 1)                                          *"
+    echo "*         [list_type]  ifm list type (1 = ifms.list, 2 = add_ifms.list)       *"
     echo "*         <beam>       Beam number (eg, F2)                                   *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       26/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       29/05/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: check_ifm_processing.bash [proc_file] [list_type] <beam>"
+    echo -e "Usage: post_ifm_processing.bash [proc_file] [list_type] <beam>"
     }
 
-if [ $# -lt 1 ]
+if [ $# -lt 2 ]
 then 
     display_usage
     exit 1
 fi
 
-if [ $# -eq 2 ]; then
-    list_type=$2
-else
-    list_type=1
-fi
 
 proc_file=$1
+list_type=$2
 beam=$3
 
 ## Variables from parameter file (*.proc)
@@ -38,7 +34,7 @@ track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 ifm_looks=`grep ifm_multi_look= $proc_file | cut -d "=" -f 2`
-mas=`grep Master_scene= $proc_file | cut -d "=" -f 2`
+master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -65,23 +61,39 @@ if [ $list_type -eq 1 ]; then
     echo " "
     echo "Creating plots for unwrapped interferograms..."
 else
-    : # work out later
-    #ifm_list=`grep List_of_add_ifms= $proc_file | cut -d "=" -f 2`
-    #echo " "
-    #echo "Creating plots for additional unwrapped interferograms..."
+    ifm_list=`grep List_of_add_ifms= $proc_file | cut -d "=" -f 2`
+    all_ifm_list=$proj_dir/$track_dir/"all_"$ifm_list
+    echo " "
+    echo "Creating plots for additional unwrapped interferograms..."
 fi
 
-## Copy unwrapped interferogram png files to central directory
 cd $proj_dir/$track_dir
-mkdir -p unw_ifm_images
+mkdir -p png_images
+png_dir=$proj_dir/$track_dir/png_images
+mkdir -p pyrate_files
+pyrate_dir=$proj_dir/$track_dir/pyrate_files
+mkdir -p $pyrate_dir/unw_files
+mkdir -p $pyrate_dir/dem_files
+mkdir -p $pyrate_dir/cc_files
+
+## Copy files to central directories
 if [ -z $beam ]; then #no beam
     while read list; do
 	if [ ! -z $list ]; then
 	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
-	    ifm_png=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm_unw.png"
-	    cp $ifm_dir/$ifm_png $proj_dir/$track_dir/unw_ifm_images
+	    png=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm_unw.png"
+	    unw=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm.unw"
+	    cc=$mas-$slv"_"$polar"_"$ifm_looks"rlks_filt.cc"
+	    dem=$master"_"$polar"_"$ifm_looks"rlks_utm.dem"
+	    dem_par=$dem.par
+	    cp $ifm_dir/$png $png_dir
+	    cp $ifm_dir/unw_gmt.par $png_dir
+	    cp $ifm_dir/$unw $pyrate_files/unw_files
+	    cp $ifm_dir/$cc $pyrate_files/cc_files
+	    cp $dem_dir/$dem $pyrate_files/dem_files
+	    cp $dem_dir/$dem_par $pyrate_files/dem_files
 	fi
     done < $all_ifm_list
 else #beam exists
@@ -90,133 +102,111 @@ else #beam exists
 	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
-	    ifm_png=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm_unw.png"
-	    cp $ifm_dir/$ifm_png $proj_dir/$track_dir/unw_ifm_images
+	    png=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm_unw.png"
+	    unw=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.unw"
+	    cc=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_filt.cc"
+	    dem=$master"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.dem"
+	    dem_par=$dem.par
+	    cp $ifm_dir/$png $png_dir
+	    cp $ifm_dir/unw_gmt.par $png_dir
+	    cp $ifm_dir/$unw $pyrate_files/unw_files
+	    cp $ifm_dir/$cc $pyrate_files/cc_files
+	    cp $dem_dir/$dem $pyrate_files/dem_files
+	    cp $dem_dir/$dem_par $pyrate_files/dem_files
 	fi
     done < $all_ifm_list
 fi
 
-## Copy unwrapped geotiffs to central directory
-cd $proj_dir/$track_dir
-mkdir -p unw_ifm_geotiffs
-if [ -z $beam ]; then #no beam
-    while read list; do
-	if [ ! -z $list ]; then
-	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifm_dir=$int_dir/$mas-$slv
-	    ifm_tif=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm.unw.tif"
-	    cp $ifm_dir/$ifm_tif $proj_dir/$track_dir/unw_ifm_geotiffs
-	fi
-    done < $all_ifm_list
-else #beam exists
-    while read list; do
-	if [ ! -z $list ]; then
-	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifm_dir=$int_dir/$mas-$slv
-	    ifm_tif=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.unw.tif"
-	    cp $ifm_dir/$ifm_tif $proj_dir/$track_dir/unw_ifm_geotiffs
-	fi
-    done < $all_ifm_list
-fi
-
-## Create par file for Pirate
-     # maybe create within process_ifm.bash, like plotting par file
-     # put in geotiff dir
-
-
-
-### Plot unwrapped interferograms with png files
-cd $proj_dir/$track_dir/unw_ifm_images
-ls *.png > image_files
+## Plot unwrapped interferograms with png files
+cd $png_dir
+ls *.png > png_files
 
 # Split image_files into 36 ifm chunks
 num_ifms=`cat image_files | sed '/^\s*$/d' | wc -l`
-split -dl 36 image_files image_files_
-mv image_files all_image_files
-echo image_files_* > temp
-cat temp | tr " " "\n" > image_files.list
+split -dl 36 png_files png_files_
+mv png_files all_png_files
+echo png_files_* > temp
+cat temp | tr " " "\n" > png_files.list
 rm -rf temp
 
 # Plot png files
-image_files=$proj_dir/$track_dir/unw_ifm_images/image_files.list
+image_files=$png_dir/png_files.list
 while read list; do
     for ((i=1;; i++)); do
 	read "d$i" || break;
     done < $list
     png1=$d1
-    name1=`echo $png1 | awk -F . '{print $1}'`
+    name1=`echo $png1 | awk -F "_" '{print $1}'`
     png2=$d2
-    name2=`echo $png2 | awk -F . '{print $1}'`
+    name2=`echo $png2 | awk -F "_" '{print $1}'`
     png3=$d3
-    name3=`echo $png3 | awk -F . '{print $1}'`
+    name3=`echo $png3 | awk -F "_" '{print $1}'`
     png4=$d4
-    name4=`echo $png4 | awk -F . '{print $1}'`
+    name4=`echo $png4 | awk -F "_" '{print $1}'`
     png5=$d5
-    name5=`echo $png5 | awk -F . '{print $1}'`
+    name5=`echo $png5 | awk -F "_" '{print $1}'`
     png6=$d6
-    name6=`echo $png6 | awk -F . '{print $1}'`
+    name6=`echo $png6 | awk -F "_" '{print $1}'`
     png7=$d7
-    name7=`echo $png7 | awk -F . '{print $1}'`
+    name7=`echo $png7 | awk -F "_" '{print $1}'`
     png8=$d8
-    name8=`echo $png8 | awk -F . '{print $1}'`
+    name8=`echo $png8 | awk -F "_" '{print $1}'`
     png9=$d9
-    name9=`echo $png9 | awk -F . '{print $1}'`
+    name9=`echo $png9 | awk -F "_" '{print $1}'`
     png10=$d10
-    name10=`echo $png10 | awk -F . '{print $1}'`
+    name10=`echo $png10 | awk -F "_" '{print $1}'`
     png11=$d11
-    name11=`echo $png11 | awk -F . '{print $1}'`
+    name11=`echo $png11 | awk -F "_" '{print $1}'`
     png12=$d12
-    name12=`echo $png12 | awk -F . '{print $1}'`
+    name12=`echo $png12 | awk -F "_" '{print $1}'`
     png13=$d13
-    name13=`echo $png13 | awk -F . '{print $1}'`
+    name13=`echo $png13 | awk -F "_" '{print $1}'`
     png14=$d14
-    name14=`echo $png14 | awk -F . '{print $1}'`
+    name14=`echo $png14 | awk -F "_" '{print $1}'`
     png15=$d15
-    name15=`echo $png15 | awk -F . '{print $1}'`
+    name15=`echo $png15 | awk -F "_" '{print $1}'`
     png16=$d16
-    name16=`echo $png16 | awk -F . '{print $1}'`
+    name16=`echo $png16 | awk -F "_" '{print $1}'`
     png17=$d17
-    name17=`echo $png17 | awk -F . '{print $1}'`
+    name17=`echo $png17 | awk -F "_" '{print $1}'`
     png18=$d18
-    name18=`echo $png18 | awk -F . '{print $1}'`
+    name18=`echo $png18 | awk -F "_" '{print $1}'`
     png19=$d19
-    name19=`echo $png19 | awk -F . '{print $1}'`
+    name19=`echo $png19 | awk -F "_" '{print $1}'`
     png20=$d20
-    name20=`echo $png20 | awk -F . '{print $1}'`
+    name20=`echo $png20 | awk -F "_" '{print $1}'`
     png21=$d21
-    name21=`echo $png21 | awk -F . '{print $1}'`
+    name21=`echo $png21 | awk -F "_" '{print $1}'`
     png22=$d22
-    name22=`echo $png22 | awk -F . '{print $1}'`
+    name22=`echo $png22 | awk -F "_" '{print $1}'`
     png23=$d23
-    name23=`echo $png23 | awk -F . '{print $1}'`
+    name23=`echo $png23 | awk -F "_" '{print $1}'`
     png24=$d24
-    name24=`echo $png24 | awk -F . '{print $1}'`
+    name24=`echo $png24 | awk -F "_" '{print $1}'`
     png25=$d25
-    name25=`echo $png25 | awk -F . '{print $1}'`
+    name25=`echo $png25 | awk -F "_" '{print $1}'`
     png26=$d26
-    name26=`echo $png26 | awk -F . '{print $1}'`
+    name26=`echo $png26 | awk -F "_" '{print $1}'`
     png27=$d27
-    name27=`echo $png27 | awk -F . '{print $1}'`
+    name27=`echo $png27 | awk -F "_" '{print $1}'`
     png28=$d28
-    name28=`echo $png28 | awk -F . '{print $1}'`
+    name28=`echo $png28 | awk -F "_" '{print $1}'`
     png29=$d29
-    name29=`echo $png29 | awk -F . '{print $1}'`
+    name29=`echo $png29 | awk -F "_" '{print $1}'`
     png30=$d30
-    name30=`echo $png30 | awk -F . '{print $1}'`
+    name30=`echo $png30 | awk -F "_" '{print $1}'`
     png31=$d31
-    name31=`echo $png31 | awk -F . '{print $1}'`
+    name31=`echo $png31 | awk -F "_" '{print $1}'`
     png32=$d32
-    name32=`echo $png32 | awk -F . '{print $1}'`
+    name32=`echo $png32 | awk -F "_" '{print $1}'`
     png33=$d33
-    name33=`echo $png33 | awk -F . '{print $1}'`
+    name33=`echo $png33 | awk -F "_" '{print $1}'`
     png34=$d34
-    name34=`echo $png34 | awk -F . '{print $1}'`
+    name34=`echo $png34 | awk -F "_" '{print $1}'`
     png35=$d35
-    name35=`echo $png35 | awk -F . '{print $1}'`
+    name35=`echo $png35 | awk -F "_" '{print $1}'`
     png36=$d36
-    name36=`echo $png36 | awk -F . '{print $1}'`
+    name36=`echo $png36 | awk -F "_" '{print $1}'`
 
     gmtset PS_MEDIA A4
     outline="-JX21c/29.7c"
@@ -229,7 +219,7 @@ while read list; do
 psbasemap $outline $range -X0c -Y-1c -Bnesw -P -K > $psfile
 
 pstext $outline $range -F+cTC+f15p -O -P -K <<EOF >> $psfile
-$project $sensor $track_dir $polar $ifm_looks rlks Unwrapped Interferograms
+$project $sensor $track_dir $polar $ifm_looks"rlks" Unwrapped Interferograms
 EOF
 
 # 1st row
@@ -391,7 +381,7 @@ EOF
 done < $image_files
 
 # Combine all psfiles into one PDF
-pdf=$project"_"$sensor"_"$track_dir"_"$polar"_"$ifm_looks"_Interferograms"
+pdf=$project"_"$sensor"_"$track_dir"_"$polar"_"$ifm_looks"rlks_Interferograms"
 ps2raster -TF -F$pdf *.ps
 
 echo " "
