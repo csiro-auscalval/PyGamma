@@ -32,8 +32,6 @@ PALSAR1_data=raw
     # orientation options: ascending, descending
 Orientation=ascending
 Polarisation=HH
-    # Beam to process for Wide-Swath data (PALSAR2 only, otherwise leave blank)
-Beam=
     # Temporal baseline threshold in days (to refine number of interferograms, eg. TSX 121, ALOS 730)
 Threshold=121
 
@@ -67,6 +65,7 @@ Process_add_ifms=no
 
 ##### Text File Names #####
 List_of_frames=frame.list
+List_of_beams=beam.list
 List_of_scenes=scenes.list
 List_of_slaves=slaves.list
 List_of_ifms=ifms.list
@@ -95,6 +94,7 @@ SLC_multi_look=1
     # interferogram multi-look value needs to be a multiple of the SLC multi-look value (eg. SLC=2 ifm=2,4,6,8,10...)
 ifm_multi_look=1
 
+
 ##### Make Reference Master DEM Parameters (for create_diff_par) ##### 
     # enter number of offset measurements in range, azimuth (default 32 32):
 offset_measure=32 32
@@ -117,6 +117,15 @@ coreg_oversampling=2
     # maximum number of offset estimation iterations (default = 5)
 coreg_num_iterations=5
 
+##### Make Slave Coregistration Parameters (for create_diff_par) ##### 
+    # enter number of offset measurements in range, azimuth (default 32 32):
+slv_offset_measure=32 32
+    # search window sizes (32, 64, 128...) (range, azimuth) (default 256 256):
+slv_win=256 256
+    # minimum matching SNR (nominal: 7):
+slv_snr=7
+
+
 ##### Interferogram Parameters #####
 ## adaptive spectral filtering (adf) parameters
     # exponent for non-linear filtering
@@ -137,10 +146,6 @@ Ref_point_range=-
 Ref_point_azimuth=-
     # Phase at reference pixel
 Ref_phase=0.0
-
-## create geotif of unwrapped interferogram
-    # options: yes/no
-create_geotif=yes
 
 ## interferogram begin options: INT/FLAT/FILT/UNW/GEOCODE
 ifm_begin=INT

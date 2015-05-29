@@ -7,7 +7,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       30/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       20054/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: create_scenes_list.bash [proc_file]"
     }
@@ -85,8 +85,12 @@ else
     if [ -f $frame_list ]; then # if frames exist
 	while read frame; do
 	    if [ ! -z $frame ]; then 
-		mdss ls $raw_dir_mdss/F$frame < /dev/null > tar.list # /dev/null allows mdss command to work properly in loop
+		mdss ls $raw_dir_mdss/F$frame/ < /dev/null > tar.list # /dev/null allows mdss command to work properly in loop
 		echo >> tar.list # adds carriage return to last line of file (required for loop to work)
+		# remove any non date data from tar.list (eg. other directory names within frame dir)
+		grep ^1 tar.list > temp
+		grep ^2 tar.list >> temp
+		mv temp tar.list
 		if [ -f date.list ]; then # remove old file, just adding to it not creating a new one
 		    rm -rf date.list
 		fi
@@ -102,6 +106,10 @@ else
 	done < $frame_list
     else
 	mdss ls $raw_dir_mdss < /dev/null > tar.list # /dev/null allows mdss command to work properly in loop
+		# remove any non date data from tar.list (eg. other directory names within track dir)
+		grep ^1 tar.list > temp
+		grep ^2 tar.list >> temp
+		mv temp tar.list
 	if [ -f date.list ]; then # remove old file, just adding to it not creating a new one
 	    rm -rf date.list
 	fi

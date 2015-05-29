@@ -18,10 +18,13 @@ display_usage() {
     echo " *         <rlines>     number of range samples                               *"
     echo " *         <azoff>      offset to starting line                               *"
     echo " *         <azlines>    number of lines to copy                               *"
+    echo "*         <beam>        beam number (eg, F2)                                  *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       20/05/2015, v1.1                            *"
+    echo "*              Add beam processing capability for wide swath data             *"
     echo "*******************************************************************************"
-    echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] <multi-look> <roff> <rlines> <azoff> <azlines>"
+    echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] <multi-look> <roff> <rlines> <azoff> <azlines> <beam>"
     }
 
 if [ $# -lt 3 ]
@@ -38,6 +41,7 @@ roff=$5
 rlines=$6
 azoff=$7
 azlines=$8
+beam=$9
 
 proc_file=$1
 
@@ -75,7 +79,7 @@ cd $proj_dir/$track_dir
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project $track_dir $rlks"rlks" $alks"aks" 1>&2
+echo "PROCESSING_PROJECT: "$project $track_dir $rlks"rlks" $alks"aks" $beam 1>&2
 
 ## Copy output of Gamma programs to log files
 GM()
@@ -101,16 +105,38 @@ cd $dem_dir
 
 dem_par=$dem.par
 master_dir=$slc_dir/$master
-slc_name=$master"_"$polar
+
+# if WB data, need to identify beam in file name
+if [ -z $beam ]; then # no beam
+    slc_name=$master"_"$polar
+else # beam exists
+    slc_name=$master"_"$polar"_"$beam
+fi
 
 if [ $multi_look -eq 2 -a $subset == no ]; then
-    mli_name=$master"_"$polar"_0rlks"
+    if [ -z $beam ]; then # no beam
+        mli_name=$master"_"$polar"_0rlks"
+    else # beam exists
+        mli_name=$master"_"$polar"_"$beam"_0rlks"
+    fi
 elif [ $multi_look -eq 2 -a $subset == yes -a $subset_done == notyet ]; then # preserve DEM data related to full SLC
-    mli_name=$master"_"$polar"-full_0rlks"
+    if [ -z $beam ]; then # no beam
+	mli_name=$master"_"$polar"-full_0rlks"
+    else # beam exists
+	mli_name=$master"_"$polar"_"$beam"-full_0rlks"
+    fi
 elif [ $multi_look -eq 2 -a $subset == yes -a $subset_done == process ]; then
-    mli_name=$master"_"$polar"_0rlks"
+    if [ -z $beam ]; then # no beam
+	mli_name=$master"_"$polar"_0rlks"	
+    else # beam exists
+	mli_name=$master"_"$polar"_"$beam"_0rlks"
+    fi
 else
-    mli_name=$master"_"$polar"_"$rlks"rlks"
+    if [ -z $beam ]; then # no beam
+	mli_name=$master"_"$polar"_"$rlks"rlks"
+    else # beam exists
+	mli_name=$master"_"$polar"_"$beam"_"$rlks"rlks"
+    fi
 fi
 
 ## Files located in master SLC directory
@@ -263,16 +289,34 @@ else
     :
 fi
 
-
 # script end 
 ####################
 
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
-   cat error.log 1>&2
-   echo "" 1>&2
-   grep "correlation SNR:" output.log 1>&2
-   rm temp_log
+    cat error.log 1>&2
+    rm temp_log
 else
-    $dem_dir/temp_log
+    rm temp_log
+fi
+
+## Rename log files if beam exists
+if [ -z $beam ]; then # no beam
+    :    
+else # beam exists
+    if [ -f $beam"_command.log" ]; then
+	cat command.log >>$beam"_command.log"
+    else
+	mv command.log $beam"_command.log"
+    fi
+    if [ -f $beam"_output.log" ]; then
+	cat output.log >>$beam"_output.log"
+    else
+	mv output.log $beam"_output.log"
+    fi
+    if [ -f $beam"_error.log" ]; then
+	cat error.log >>$beam"_error.log"
+    else
+	mv error.log $beam"_error.log"
+    fi
 fi

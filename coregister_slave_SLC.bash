@@ -11,12 +11,15 @@ display_usage() {
     echo "*                      or for ifms: from proc file)                           *"
     echo "*         [alks]       azimuth multi-look value (for SLCs: from *.mli.par     *"
     echo "*                      file or for ifms: from proc file)                      *"
+    echo "*         <beam>       beam number (eg, F2)                                   *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
-    echo "*         Matt Garthwaite         20/05/2015, v1.1                            *"
+    echo "*         Sarah Lawrie @ GA       22/05/2015, v1.1                            *"
+    echo "*               added functionality for wide swath beam processing            *"
+    echo "*         Matt Garthwaite         29/05/2015, v1.2                            *"
     echo "*               added iterable loop to achieve required offset accuracy       *"
     echo "*******************************************************************************"
-    echo -e "Usage: coregister_slave_SLC.bash [proc_file] [slave] [rlks] [alks]"
+    echo -e "Usage: coregister_slave_SLC.bash [proc_file] [slave] [rlks] [alks] <beam>"
     }
 
 if [ $# -lt 4 ]
@@ -29,6 +32,7 @@ proc_file=$1
 slave=$2
 rlks=$3
 alks=$4
+beam=$5
 
 ## Variables from parameter file (*.proc)
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
@@ -39,6 +43,11 @@ master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
 subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
+## MLI registration params
+offset_measure=`grep slv_offset_measure= $proc_file | cut -d "=" -f 2`
+slv_win=`grep slv_win= $proc_file | cut -d "=" -f 2`
+slv_snr=`grep slv_snr= $proc_file | cut -d "=" -f 2`
+## SLC registration params
 snr=`grep coreg_snr_thresh= $proc_file | cut -d "=" -f 2`
 npoly=`grep coreg_model_params= $proc_file | cut -d "=" -f 2`
 win=`grep coreg_window_size= $proc_file | cut -d "=" -f 2`
@@ -61,7 +70,7 @@ cd $proj_dir
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
-echo "PROCESSING_SCENE: "$project $track_dir $slave $rlks"rlks" $alks"alks" 1>&2
+echo "PROCESSING_SCENE: "$project $track_dir $slave $rlks"rlks" $alks"alks" $beam 1>&2
 
 ## Copy output of Gamma programs to log files
 GM()
@@ -84,10 +93,19 @@ fi
 
 master_dir=$slc_dir/$master
 slave_dir=$slc_dir/$slave
-master_slc_name=$master"_"$polar
-slave_slc_name=$slave"_"$polar
-master_mli_name=$master"_"$polar"_"$rlks"rlks"
-slave_mli_name=$slave"_"$polar"_"$rlks"rlks"
+
+#if WB data, need to identify beam in file name
+if [ -z $beam ]; then # no beam
+    master_slc_name=$master"_"$polar
+    slave_slc_name=$slave"_"$polar
+    master_mli_name=$master"_"$polar"_"$rlks"rlks"
+    slave_mli_name=$slave"_"$polar"_"$rlks"rlks"
+else # beam exists
+    master_slc_name=$master"_"$polar"_"$beam
+    slave_slc_name=$slave"_"$polar"_"$beam
+    master_mli_name=$master"_"$polar"_"$beam"_"$rlks"rlks"
+    slave_mli_name=$slave"_"$polar"_"$beam"_"$rlks"rlks"
+fi
 
 ## files located in SLC directories
 master_mli=$master_dir/r$master_mli_name.mli
@@ -107,22 +125,23 @@ rmli_par=$rmli.par
 
 lt=$slave_dir/$master-$slave_mli_name.lt
 off=$slave_dir/$master-$slave_mli_name.off
+diff_par=$slave_dir/$master-$slave_mli_name_"diff.par"
 
 ## Set up coregistration results file
-check_file=$slave_dir/slave_coregistration_results"_"$rlks"_rlks_"$alks"_alks.txt"
+#check_file=$slave_dir/slave_coregistration_results"_"$rlks"_rlks_"$alks"_alks.txt"
 #if [ -f $check_file ]; then
 #    rm -f $check_file 
 #else
 #    :
 #fi
-echo "Slave_Coregistration_Results_"$rlks"_rlks_"$alks"_alks" > $check_file
-echo "final model fit std. dev. (samples)" >> $check_file
-echo "Ref Master" > temp1_$rlks
-echo "Slave" > temp2_$rlks
-echo "Range" > temp3_$rlks
-echo "Azimuth" > temp4_$rlks
-paste temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks >> $check_file
-rm -f temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks
+#echo "Slave_Coregistration_Results_"$rlks"_rlks_"$alks"_alks" > $check_file
+#echo "final model fit std. dev. (samples)" >> $check_file
+#echo "Ref Master" > temp1_$rlks
+#echo "Slave" > temp2_$rlks
+#echo "Range" > temp3_$rlks
+#echo "Azimuth" > temp4_$rlks
+#paste temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks >> $check_file
+#rm -f temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks
 
 cd $slave_dir
 
@@ -145,18 +164,27 @@ slave_mli_length=`awk 'NR==12 {print $2}' $slave_mli_par`
 
 GM geocode lt0 $master_mli $master_mli_width $rmli $slave_mli_width $slave_mli_length 2 0
 
-GM create_diff_par $slave_mli_par $slave_mli_par diff.par 1 0
+returns=$slave_dir/returns
+echo "" > $returns 
+echo "" >> $returns 
+echo $offset_measure >> $returns
+echo $slv_win >> $returns 
+echo $slv_snr >> $returns 
+
+
+GM create_diff_par $slave_mli_par $slave_mli_par $diff_par 1 < $returns
+rm -f $returns
 
 ## Measure offset between slave MLI and resampled slave MLI
-GM init_offsetm $rmli $slave_mli diff.par 1 1
+GM init_offsetm $rmli $slave_mli diff.par 1 1 - - - - $slv_snr - 1
 
-GM offset_pwrm $rmli $slave_mli diff.par offs0 snr0 - - - 2
+GM offset_pwrm $rmli $slave_mli $diff_par offs0 snr0 - - - 2
 
 ## Fit the offset only
-GM offset_fitm offs0 snr0 diff.par coffs0 - 7.0 1
+GM offset_fitm offs0 snr0 diff.par coffs0 - $slv_snr 1
 
 ## Refinement of initial geocoding look up table
-GM gc_map_fine lt0 $master_mli_width diff.par $lt
+GM gc_map_fine lt0 $master_mli_width $diff_par $lt
 
 ## Resample slave SLC into geometry of master SLC using lookup table
 GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par - $rslc $rslc_par
@@ -212,13 +240,13 @@ GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
 rm -f offs0 snr0 coffs0 offs snr coffs coffsets lt0
 
 ## Extract final model fit values to check coregistration
-echo $master > temp1_$rlks
-echo $slave > temp2_$rlks
-grep "final" temp2 > temp3_$rlks
-awk '{print $8}' temp3_$rlks > temp4_$rlks
-awk '{print $10}' temp3_$rlks > temp5_$rlks
-paste temp1_$rlks temp2_$rlks temp4_$rlks temp5_$rlks >> $check_file
-rm -f temp*
+#echo $master > temp1_$rlks
+#echo $slave > temp2_$rlks
+#grep "final" temp2 > temp3_$rlks
+#awk '{print $8}' temp3_$rlks > temp4_$rlks
+#awk '{print $10}' temp3_$rlks > temp5_$rlks
+#paste temp1_$rlks temp2_$rlks temp4_$rlks temp5_$rlks >> $check_file
+#rm -f temp*
 
 
 # script end 
@@ -226,8 +254,30 @@ rm -f temp*
 
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
-   cat error.log 1>&2
-#   rm temp_log
+    cat error.log 1>&2
+    rm temp_log
 else
-    $slave_dir/temp_log
+    rm temp_log
 fi
+
+## Rename log files if beam exists
+if [ -z $beam ]; then # no beam
+    :    
+else # beam exists
+    if [ -f $beam"_command.log" ]; then
+	cat command.log >>$beam"_command.log"
+    else
+	mv command.log $beam"_command.log"
+    fi
+    if [ -f $beam"_output.log" ]; then
+	cat output.log >>$beam"_output.log"
+    else
+	mv output.log $beam"_output.log"
+    fi
+    if [ -f $beam"_error.log" ]; then
+	cat error.log >>$beam"_error.log"
+    else
+	mv error.log $beam"_error.log"
+    fi
+fi
+

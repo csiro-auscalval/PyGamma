@@ -13,10 +13,11 @@ display_usage() {
     echo "*                      default is 1)                                          *"
     echo "*         <start>      starting line of SLC (optional, default: 1)            *"
     echo "*         <nlines>     number of lines to display (optional, default: 4000)   *"
+    echo "*         <beam>       beam number (eg, F2)                                   *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: check_slave_coregistration.bash [proc_file] [list_type] <start> <nlines>"
+    echo -e "Usage: check_slave_coregistration.bash [proc_file] [list_type] <start> <nlines> <beam>"
     }
 
 if [ $# -lt 1 ]
@@ -42,6 +43,7 @@ else
 fi
 
 proc_file=$1
+beam=$5
 
 ## Variables from parameter file (*.proc)
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
@@ -88,7 +90,11 @@ echo "   Checking full SLC images..."
 echo " "
 
 mas_dir=$slc_dir/$mas
-mas_slc=$mas_dir/r$mas"_"$polar.slc
+if [ -z $beam ]; then #no beam
+    mas_slc=$mas_dir/r$mas"_"$polar.slc
+else #beam exists
+    mas_slc=$mas_dir/r$mas"_"$polar"_"$beam.slc
+fi
 mas_slc_par=$mas_slc.par
 mas_slc_width=`grep range_samples: $mas_slc_par | awk '{print $2}'`
 
@@ -116,7 +122,11 @@ if [ $slc_looks -ne $ifm_looks ]; then
     echo "   Checking SLC MLI images..."
     echo " "
     mas_dir=$slc_dir/$mas
-    mas_slc=$mas_dir/r$mas"_"$polar"_"$slc_looks"rlks.mli"
+    if [ -z $beam ]; then #no beam
+	mas_slc=$mas_dir/r$mas"_"$polar"_"$slc_looks"rlks.mli"
+    else #beam exists
+	mas_slc=$mas_dir/r$mas"_"$polar"_"$beam"_"$slc_looks"rlks.mli"
+    fi
     mas_slc_par=$mas_slc.par
     mas_slc_width=`grep range_samples: $mas_slc_par | awk '{print $2}'`
     while read slave; do
@@ -134,7 +144,11 @@ if [ $slc_looks -ne $ifm_looks ]; then
     echo "   Checking ifm MLI images..."
     echo  " "
     mas_dir=$slc_dir/$mas
-    mas_slc=$mas_dir/r$mas"_"$polar"_"$ifm_looks"rlks.mli"
+    if [ -z $beam ]; then #no beam
+	mas_slc=$mas_dir/r$mas"_"$polar"_"$ifm_looks"rlks.mli"
+    else #beam exists
+	mas_slc=$mas_dir/r$mas"_"$polar"_"$beam"_"$ifm_looks"rlks.mli"
+    fi
     mas_slc_par=$mas_slc.par
     mas_slc_width=`grep range_samples: $mas_slc_par | awk '{print $2}'`
     while read slave; do
@@ -153,7 +167,11 @@ if [ $slc_looks -ne $ifm_looks ]; then
 else #slc and ifm looks the same
     echo "   Checking SLC MLI images..."
     mas_dir=$slc_dir/$mas
-    mas_slc=$mas_dir/r$mas"_"$polar"_"$slc_looks"rlks.mli"
+    if [ -z $beam ]; then #no beam
+	mas_slc=$mas_dir/r$mas"_"$polar"_"$slc_looks"rlks.mli"
+    else #beam exists
+	mas_slc=$mas_dir/r$mas"_"$polar"_"$beam"_"$slc_looks"rlks.mli"
+    fi
     mas_slc_par=$mas_slc.par
     mas_slc_width=`grep range_samples: $mas_slc_par | awk '{print $2}'`
     while read slave; do
