@@ -52,6 +52,9 @@ frame_list=$proj_dir/$track_dir/`grep List_of_frames= $proc_file | cut -d "=" -f
 
 if [ $flag == 0 ]; then
     scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
+else
+    scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
+fi
 
 ## Insert scene details top of NCI .e file
     echo "" 1>&2 
@@ -60,9 +63,6 @@ if [ $flag == 0 ]; then
     echo "" 1>&2
     echo "Extract Raw Data" 1>&2
     echo "" 1>&2
-else
-    scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
-fi
 
 if [ $platform == GA ]; then # raw data only, DEM already extracted
     if [ -f $frame_list ]; then 
