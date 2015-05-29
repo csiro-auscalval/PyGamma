@@ -179,7 +179,11 @@ utm_sim_sar=$dem_dir/$mli_name"_utm.sim"
 rdc_sim_sar=$dem_dir/$mli_name"_rdc.sim"
 diff=$dem_dir/"diff_"$mli_name.par
 lsmap=$dem_dir/$mli_name"_utm.lsmap"
-
+offs=$mli_name.offs
+snr=$mli_name.snr
+offsets=$mli_name.offsets
+coffs=$mli_name.coffs
+coffsets=$mli_name.coffsets
 
 ## Determine oversampling factor for DEM coregistration
 dem_post=`grep post_lon $dem_par | awk '{printf "%.8f\n", $2}'`
@@ -221,7 +225,6 @@ GM gc_map $master_mli_par - $dem_par 10. $utm_dem_par $utm_dem $lt_rough $ovr $o
 # use predetermined dem_par to segment the full DEM
 GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - - - - $lsmap 8 1
 
-
 dem_width=`grep width: $utm_dem_par | awk '{print $2}'`
 master_mli_width=`grep range_samples: $master_mli_par | awk '{print $2}'`
 master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
@@ -251,10 +254,10 @@ rm -f $returns
 ## initial offset estimate
 GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks - - - - $dem_snr - 1 
 
-GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr - - offsets 1 - - -
-#GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr 512 512 offsets 1 16 16 7.0
+GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr - - $offsets 1 - - -
+#GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr 512 512 offsets 1 16 16 7.0
 
-GM offset_fitm offs snr $diff coffs coffsets - $npoly
+GM offset_fitm $offs $snr $diff $coffs $coffsets - $npoly
 
 ## precision estimation of the registration polynomial
 rwin=`echo $dem_win | awk '{print $1/4}'`
@@ -262,10 +265,10 @@ azwin=`echo $dem_win | awk '{print $1/4}'`
 nr=`echo $offset_measure | awk '{print $1*4}'`
 naz=`echo $offset_measure | awk '{print $1*4}'`
 
-GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr $rwin $azwin offsets 2 $nr $naz -
-#GM offset_pwrm $master_mli $rdc_sim_sar $diff offs snr 128 128 offsets 2 64 64 7.0
+GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr $rwin $azwin $offsets 2 $nr $naz -
+#GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr 128 128 $offsets 2 64 64 7.0
 
-GM offset_fitm offs snr $diff coffs coffsets - $npoly
+GM offset_fitm $offs $snr $diff $coffs $coffsets - $npoly
 
 grep "final model fit std. dev." output.log
 #grep "final range offset poly. coeff.:" output.log
@@ -274,7 +277,7 @@ grep "final model fit std. dev." output.log
 ## Refinement of initial geocoding look up table
 GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 1
 
-rm -f $lt_rough offs snr offsets coffs coffsets test1.dat test2.dat
+rm -f $lt_rough $offs $snr $offsets $coffs $coffsets test1.dat test2.dat
 
 ## Geocode map geometry DEM to radar geometry
 GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_length 1 0 - - 2 4 -
