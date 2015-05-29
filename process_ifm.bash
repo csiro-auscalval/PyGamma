@@ -53,6 +53,7 @@ patch_az=`grep Patches_azimuth= $proc_file | cut -d "=" -f 2`
 refrg=`grep Ref_point_range= $proc_file | cut -d "=" -f 2`
 refaz=`grep Ref_point_azimuth= $proc_file | cut -d "=" -f 2`
 refphs=`grep Ref_phase= $proc_file | cut -d "=" -f 2`
+geotiff=`grep create_geotif= $proc_file | cut -d "=" -f 2`
 begin=`grep ifm_begin= $proc_file | cut -d "=" -f 2`
 finish=`grep ifm_end= $proc_file | cut -d "=" -f 2`
 
@@ -456,16 +457,19 @@ GEOCODE()
     echo " "
     echo "Geocoded interferogram."
     echo " "
-    ## Create geotiff
-    echo " "
-    echo "Creating geotiffed interferogram..."
-    echo " "
-    cp $int_unw $real
-    GM data2geotiff $dem_par $real 2 $geotif 0.0
-    rm -rf $real
-    echo " "
-    echo "Created geotiffed interferogram."
-    echo " "
+    ## Create geotiff (optional)
+
+    if [ $geotiff == yes ]; then
+	echo " "
+	echo "Creating geotiffed interferogram..."
+	echo " "
+	cp $int_unw $real
+	GM data2geotiff $dem_par $real 2 $geotif 0.0
+	rm -rf $real
+	echo " "
+	echo "Created geotiffed interferogram."
+	echo " "
+    fi
     echo " "
     echo "Creating GMT files for plotting interferogram..."
     echo " "
@@ -482,7 +486,7 @@ GEOCODE()
     lat=`grep corner_lat: $dem_par | awk '{print $2}'`
     post_lat=`grep post_lat: $dem_par | awk '{print $2}'`
     post_lat=`printf "%1.12f" $post_lat`
-    gmt_par=ifm_unw_gmt.par
+    gmt_par=unw_gmt.par
     echo WIDTH $width > $gmt_par
     echo FILE_LENGTH $lines >> $gmt_par
     echo X_FIRST $lon >> $gmt_par
@@ -504,11 +508,11 @@ GEOCODE()
     proj=-JM8
     inc=-I$rx_step
     # Convert intefergram to one column ascii
-    float2ascii $ifm 1 $name.txt 0 -
+    float2ascii $geocode_out 1 $name.txt 0 -
     # Convert ascii to grd
     xyz2grd $name.txt -N0 $range -ZTLa -r $inc -G$name.grd
     # Make colour scale
-    grdinfo $name.grd > temp
+    grdinfo $name.grd | tee temp
     z_min=`grep z_min: temp | awk '{print $3}'`
     z_max=`grep z_max: temp | awk '{print $5}'`
     span=-T$z_min/$z_max/1
@@ -623,13 +627,8 @@ elif [ $begin == UNW ]; then
     fi
 elif [ $begin == GEOCODE ]; then
     GEOCODE
-    if [ $finish == DONE ]; then
-	DONE
-    else
-	:
-    fi
 else
-    :
+    echo "Begin code not recognised, check proc file."
 fi
 
 
@@ -638,10 +637,10 @@ fi
 
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
-    cat error.log 1>&2
     rm temp_log
+    cat error.log 1>&2
 else
-   rm temp_log
+    rm temp_log
 fi
 
 ## Rename log files if beam exists

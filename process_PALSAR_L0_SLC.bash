@@ -108,14 +108,11 @@ sensor_antpat=$MSP_HOME/sensors/palsar_ant_20061024.dat
 msp_antpat="PALSAR_antpat_MSP_"$polar.dat
 sensor_par="PALSAR_sensor_"$polar.par
 msp_par=p$slc_name.slc.par
-para=$slc_name"_SLC_parameters.txt"
 raw=$slc_name.raw
 slc=$slc_name.slc
 slc_par=$slc.par
 mli=$mli_name.mli
 mli_par=$mli.par
-tiff=$mli_name.tif
-ras_out=$mli_name.ras
 fbd2fbs_slc=$slc_name"_FBS.slc"
 fbd2fbs_par=p$slc_name"_FBS.slc.par"
 
@@ -258,12 +255,12 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     ## Determine the Doppler Ambiguity
     ## Use dop_mlcc instead of dop_ambig when number of raw echoes greater than 8192
     GM dop_mlcc $sensor_par $msp_par $raw $slc_name.mlcc
-    plot_mlcc.bash $slc_name.mlcc
+#    plot_mlcc.bash $slc_name.mlcc
 
     ## Estimate the doppler centroid with cross correlation method
     ## If result of 'doppler' shows that linear model is not good enough use 'azsp_IQ' to determine constant value
     GM doppler $sensor_par $msp_par $raw $slc_name.dop
-    plot_dop.bash $slc_name.dop
+#    plot_dop.bash $slc_name.dop
 
     ## Estimate the range power spectrum
     ## Look for potential radio frequency interference (RFI) to the SAR signal
@@ -314,67 +311,6 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 	:
     fi
 
-## Add details from ISP parameter file to MSP parameter file
-#temp1=`awk 'NR==4 {print $2}' $slc_par`
-#sed -i "4i sensor:                 $temp1" $msp_par 
-#temp2=`grep Track= $proc_file | cut -d "=" -f 2`
-#sed -i "6i track:                  $temp2" $msp_par 
-
-              #### sort frame information for later - need to incorporate concatenation
-#temp3=`echo $raw_dir | cut -d "_" -f7`
-#temp3=9999
-#sed -i "7i frame:                  $temp3" $msp_par 
-              #### no orbit information
-#temp4=`grep Orbit: $raw_report | awk '{print $4}'`
-#temp4=-
-#sed -i "8i orbit:                  $temp4" $msp_par 
-#temp5=`grep Orientation= $proc_file | cut -d "=" -f 2`
-#sed -i "9i orientation:            $temp5" $msp_par 
-#temp6=`ls -ltrh $slc | awk '{print $5}'`
-#sed -i "10i slc_size:               $temp6" $msp_par 
-#temp7=`grep start_time: $slc_par | awk '{print $2}'`
-#sed -i "12i start_time:             $temp7" $msp_par 
-#temp8=`grep center_time: $slc_par | awk '{print $2}'`
-#sed -i "13i center_time:            $temp8" $msp_par 
-#temp9=`grep end_time: $slc_par | awk '{print $2}'`
-#sed -i "14i end_time:               $temp9" $msp_par 
-#temp10=`grep incidence_angle: $slc_par | awk '{print $2}'`
-#sed -i "16i incidence_angle:        $temp10" $msp_par 
-#temp11=`grep radar_frequency: $slc_par | awk '{print $2}'`
-#sed -i "17i radar_frequency:        $temp11" $msp_par 
-#temp12=L
-#sed -i "18i sar_band:               $temp12" $msp_par 
-#temp13=`grep sar_to_earth_center: $slc_par | awk '{print $2}'`
-#sed -i "21i sar_to_earth_center:          $temp13" $msp_par 
-#temp14=`grep earth_radius_below_sensor: $slc_par | awk '{print $2}'`
-#sed -i "22i earth_radius_below_sensor:    $temp14" $msp_par 
-#temp15=`grep first_slant_range_polynomial: $slc_par | awk '{print $2}'`
-#sed -i "42i first_slant_range_polynomial:      $temp15" $msp_par 
-#temp16=`grep center_slant_range_polynomial: $slc_par | awk '{print $2}'`
-#sed -i "43i center_slant_range_polynomial:          $temp16" $msp_par 
-#temp17=`grep last_slant_range_polynomial: $slc_par | awk '{print $2}'`
-#sed -i "44i last_slant_range_polynomial:   $temp17" $msp_par 
-#temp18=`grep azimuth_line_time: $slc_par | awk '{print $2}'`
-#sed -i "75i azimuth_line_time:                $temp18" $msp_par 
-#temp19=`grep azimuth_angle: $slc_par | awk '{print $2}'`
-#sed -i "76i azimuth_angle:                  $temp19" $msp_par 
-#temp20=`grep azimuth_scale_factor: $slc_par | awk '{print $2}'`
-#sed -i "77i azimuth_scale_factor:             $temp20" $msp_par 
-#temp21=`grep range_scale_factor: $slc_par | awk '{print $2}'`
-#sed -i "78i range_scale_factor:               $temp21" $msp_par 
-#temp22=`grep line_header_size: $slc_par | awk '{print $2}'`
-#sed -i "81i line_header_size:                 $temp22" $msp_par 
-#temp23=`grep adc_sampling_rate: $slc_par | awk '{print $2}'`
-#sed -i "82i adc_sampling_rate:                 $temp23" $msp_par 
-#temp24=`grep chirp_bandwidth: $slc_par | awk '{print $2}'`
-#sed -i "83i chirp_bandwidth:                  $temp24" $msp_par 
-#temp25=`grep image_geometry: $slc_par | awk '{print $2}'`
-#sed -i "85i image_geometry:                   $temp25" $msp_par 
-
-## Create copy of MSP parameter file to create generic SLC parameter file
-#cp $msp_par $para
-#sed -i "1s/.*/SLC_Parameter_File/" $para
-
 else
     echo " "
     echo "Full SLC already created."
@@ -383,24 +319,6 @@ fi
 
 ## Multi-look SLC
 GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0
-
-
-## Create low-res preview tiff
-#mli_width=`grep range_samples: $mli_par | awk '{print $2}'`
-#GM data2tiff $mli $mli_width 2 $tiff
-
-## Create low-res ras image (for location plot)
-#GM raspwr $mli $mli_width 1 0 1 1 1 0.35 1 $ras_out 0 0
-
-## corner coordinates given in SLC MSP parameter file
-#grep map_coordinate_4 $msp_par | awk '{print $2, $3}' > slc_coords
-#grep map_coordinate_2 $msp_par | awk '{print $2, $3}' >> slc_coords
-#grep map_coordinate_1 $msp_par | awk '{print $2, $3}' >> slc_coords
-#grep map_coordinate_3 $msp_par | awk '{print $2, $3}' >> slc_coords
-#grep map_coordinate_5 $msp_par | awk '{print $2, $3}' >> slc_coords
-
-## Make SLC location plot
-#plot_SLC_loc.bash $proc_file $scene $msp_par $sensor $ras_out
 
 
 

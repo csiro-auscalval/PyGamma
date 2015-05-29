@@ -7,19 +7,22 @@ display_usage() {
     echo "*                   from the scenes list.                                     *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
+    echo "*         [type]       list type to create (eg. 1=ifms.list or                *"
+    echo "*                      2=add_ifms.list)                                       *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       25/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       29/05/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: create_ifms_list.bash [proc_file]"
+    echo -e "Usage: create_ifms_list.bash [proc_file] [type]"
     }
 
-if [ $# -lt 1 ]
+if [ $# -lt 2 ]
 then 
     display_usage
     exit 1
 fi
 
 proc_file=$1
+type=$2
 
 ## Variables from parameter file (*.proc)
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
@@ -28,7 +31,6 @@ track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 thres=`grep Threshold= $proc_file | cut -d "=" -f 2`
-do_add_ifms=`grep Process_add_ifms= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -40,6 +42,9 @@ fi
 scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
 slave_list=$proj_dir/$track_dir/`grep List_of_slaves= $proc_file | cut -d "=" -f 2`
 ifm_list=$proj_dir/$track_dir/`grep List_of_ifms= $proc_file | cut -d "=" -f 2`  
+add_scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
+add_slave_list=$proj_dir/$track_dir/`grep List_of_add_slaves= $proc_file | cut -d "=" -f 2`
+add_ifm_list=$proj_dir/$track_dir/`grep List_of_add_ifms= $proc_file | cut -d "=" -f 2`
 
 cd $proj_dir/$track_dir
 
@@ -51,23 +56,27 @@ echo "" 1>&2
 echo "Interferogram List File Creation" 1>&2
 echo "" 1>&2
 
-## Identify if doing initial ifm list or updated ifm list with additional scenes
-if [ $do_add_ifms == yes ]; then
-    add_scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
-    add_slave_list=$proj_dir/$track_dir/`grep List_of_add_slaves= $proc_file | cut -d "=" -f 2`
-    cp $ifm_list org_ifms.list
-# update scenes and slave lists
-    cp $scene_list org_scenes1.list
+## File preparation for making ifm list
+if [ $type -eq 2 ]; then # if making additional ifm list
+    # rename original ifm lists
+    mv all_ifms.list org_all_ifms.list
+    mv ifm_files.list org_ifm_files.list
+    while read list; do
+	mv $list org_$list
+    done < org_ifm_files.list
+    # add additional scene dates to original scene and slave lists
+    cp $scene_list org_scenes.list
+    cp org_scenes.list org_scenes
     cat $add_scene_list >> org_scenes1.list
     sed '/^$/d' org_scenes1.list > org_scenes.list # removes any blank lines
     awk ''!'x[$0]++' org_scenes.list > $scene_list # removes any duplicate scene dates
-    rm -rf org_scenes1.list org_scenes.list
+    rm -rf org_scenes1.list
     cp $slave_list org_slaves1.list
     cat $add_slave_list >> org_slaves1.list
     sed '/^$/d' org_slaves1.list > org_slaves.list # removes any blank lines
     awk ''!'x[$0]++' org_slaves.list > $slave_list # removes any duplicate scene dates
-    rm -rf org_slaves1.list org_slaves.list
-else
+    rm -rf org_slaves1.list
+else # do nothing if creating ifm list
     :
 fi
 
@@ -152,32 +161,37 @@ while read list; do
     fi
 done < temp_ifm.list
 
-
 ## File clean up
 rm -rf *_master *_master_keep_list *_initial_ifm_list dates.list master.list initial_ifm.list temp_ifm.list
 
 
-## Identify new interferograms (not in original ifm list)
-if [ $do_add_ifms == yes ]; then
-    add_ifm_list=$proj_dir/$track_dir/`grep List_of_add_ifms= $proc_file | cut -d "=" -f 2`
+if [ $type -eq 2 ]; then # Identify new interferograms (not in original ifm list)
     comm -13 org_ifms.list $ifm_list > $add_ifm_list
-    rm -rf org_ifms.list
+    # number of interferograms, split list if greater than 190 records (for NCI processing)
+    if [ $platform == NCI ]; then
+	num_ifms=`cat $add_ifm_list | sed '/^\s*$/d' | wc -l`
+	split -dl 190 $add_ifm_list $add_ifm_list"_"
+	mv $add_ifm_list all_add_ifms.list
+	ls add_ifms.list_* > temp
+	cat temp | tr " " "\n" > add_ifm_files.list
+	rm -rf temp
+    else
+	:
+    fi
 else
-    :
+    # number of interferograms, split list if greater than 190 records (for NCI processing)
+    if [ $platform == NCI ]; then
+	num_ifms=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
+	split -dl 190 $ifm_list $ifm_list"_"
+	mv $ifm_list all_ifms.list
+	ls ifms.list_* > temp
+	cat temp | tr " " "\n" > ifm_files.list
+	rm -rf temp
+    else
+	:
+    fi
 fi
 
-## number of interferograms, split list if greater than 190 records (for NCI processing)
-
-if [ $platform == NCI ]; then
-    num_ifms=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
-    split -dl 190 $ifm_list $ifm_list"_"
-    mv $ifm_list all_ifms.list
-    ls ifms.list_* > temp
-    cat temp | tr " " "\n" > ifm_files.list
-    rm -rf temp
-else
-    :
-fi
 
 # script end 
 ####################

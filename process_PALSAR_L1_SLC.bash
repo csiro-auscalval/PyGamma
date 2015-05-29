@@ -61,6 +61,8 @@ fi
 
 cd $proj_dir/$track_dir
 
+beam_list=$proj_dir/$track_dir/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
+
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
@@ -168,7 +170,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     done < $proj_dir/$track_dir/$frame_list
   
     num_hv=`grep -co "HV" $pol_list`
-    if [ $sensor == PALSAR2 -a -z $beam ]; then # no FBD or FBS conversion if PALSAR2 wide swath data
+    if [ -f $beam_list -a $sensor == PALSAR2 ]; then # no FBD or FBS conversion if PALSAR2 wide swath data
 	:
     else
 	if [ "$num_hv" -eq 0 -a "$polar" == HH ]; then 

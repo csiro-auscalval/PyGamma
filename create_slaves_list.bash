@@ -7,19 +7,22 @@ display_usage() {
     echo "*                     list and master scene date.                             *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
+    echo "*         [type]       list type to create (eg. 1=slaves.list or              *"
+    echo "*                      2=add_slaves.list)                                     *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       07/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       29/05/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: create_slaves_list.bash [proc_file]"
+    echo -e "Usage: create_slaves_list.bash [proc_file] [type]"
     }
 
-if [ $# -lt 1 ]
+if [ $# -lt 2 ]
 then 
     display_usage
     exit 1
 fi
 
 proc_file=$1
+type=$2
 
 ## Variables from parameter file (*.proc)
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
@@ -37,18 +40,29 @@ fi
 
 scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
 slave_list=$proj_dir/$track_dir/`grep List_of_slaves= $proc_file | cut -d "=" -f 2`
+add_scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
+add_slave_list=$proj_dir/$track_dir/`grep List_of_add_slaves= $proc_file | cut -d "=" -f 2`
+
 
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 echo "" 1>&2
-echo "Slaves List File Creation" 1>&2
-echo "" 1>&2
 
+
+if [ $type -eq 1 ]; then
+    echo "Slaves List File Creation" 1>&2
+    echo "" 1>&2
     ## Create list of slave SLCs
-cd $proj_dir/$track_dir
-sed "/$master/d" $scene_list > $slave_list
+    cd $proj_dir/$track_dir
+    sed "/$master/d" $scene_list > $slave_list
+else
+    echo "Additional Slaves List File Creation" 1>&2
+    echo "" 1>&2
+    cp $add_scene_list $add_slave_list
+fi
+
 
 
 # script end 
