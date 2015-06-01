@@ -34,6 +34,14 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
 
+## Insert scene details top of NCI .e file
+echo "" 1>&2 # adds spaces at top so scene details are clear
+echo "" 1>&2
+echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+echo "" 1>&2
+echo "Setup Directory Structure" 1>&2
+echo "" 1>&2
+
 cd $proj_dir
 
 # Move lists if they exist to track directory

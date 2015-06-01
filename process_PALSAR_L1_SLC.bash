@@ -255,14 +255,18 @@ mv $slc_name.temp $slc_par
 rm -rf $slc_name"_temp.dop"
 
 ## FBD to FBS Conversion
-if [ $polar == HH -a $mode == FBD ]; then
-    GM SLC_ovr $slc $slc_par $fbd2fbs_slc $fbd2fbs_par 2
-    rm -f $slc
-    rm -f $slc_par
-    mv $fbd2fbs_slc $slc
-    mv $fbd2fbs_par $slc_par
-else
+if [ -f $beam_list -a $sensor == PALSAR2 ]; then
     :
+else
+    if [ $polar == HH -a $mode == FBD ]; then
+	GM SLC_ovr $slc $slc_par $fbd2fbs_slc $fbd2fbs_par 2
+	rm -f $slc
+	rm -f $slc_par
+	mv $fbd2fbs_slc $slc
+	mv $fbd2fbs_par $slc_par
+    else
+	:
+    fi
 fi
 
 else

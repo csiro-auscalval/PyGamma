@@ -33,7 +33,6 @@ project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 
-beam_list=$proj_dir/$track_dir/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -41,6 +40,8 @@ if [ $platform == NCI ]; then
 else
     :
 fi
+
+beam_list=$proj_dir/$track_dir/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
 
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
@@ -57,23 +58,25 @@ if [ $type -eq 1 ]; then
     echo "" 1>&2
     if [ -f $beam_list ]; then
 	while read beam_num; do
-	    error_list=$dir/$project"_"$track_dir"_"$beam_num"_slc_errors.list"
-	    if [ -f $error_list ]; then
-		rm -rf $error_list
-	    else
-		:
-	    fi
-	    cd $beam_num
-	    ls *.e* > list
-	    while read error; do
-		if [ ! -z $error ]; then
-		    less $error > temp
-		    paste temp >> $error_list
-		    rm -rf temp
+	    if [ ! -z $beam_num ]; then
+		error_list=$dir/$project"_"$track_dir"_"$beam_num"_slc_errors.list"
+		if [ -f $error_list ]; then
+		    rm -rf $error_list
+		else
+		    :
 		fi
-	    done < list
-	    rm -rf list
-	    cd $dir
+		cd $beam_num
+		ls *.e* > list
+		while read error; do
+		    if [ ! -z $error ]; then
+			less $error > temp
+			paste temp >> $error_list
+			rm -rf temp
+		    fi
+		done < list
+		rm -rf list
+		cd $dir
+	    fi
 	done < $beam_list
     else
 	error_list=$dir/$project"_"$track_dir"_slc_errors.list"
@@ -99,23 +102,25 @@ elif [ $type -eq 2 ]; then
     echo "" 1>&2
     if [ -f $beam_list ]; then
 	while read beam_num; do
-	    error_list=$dir/$project"_"$track_dir"_"$beam_num"_dem_errors.list"
-	    if [ -f $error_list ]; then
-		rm -rf $error_list
-	    else
-		:
-	    fi
-	    cd $beam_num
-	    ls *.e* > list
-	    while read error; do
-		if [ ! -z $error ]; then
-		    less $error > temp
-		    paste temp >> $error_list
-		    rm -rf temp
+	    if [ ! -z $beam_num ]; then
+		error_list=$dir/$project"_"$track_dir"_"$beam_num"_dem_errors.list"
+		if [ -f $error_list ]; then
+		    rm -rf $error_list
+		else
+		    :
 		fi
-	    done < list
-	    rm -rf list
-	    cd $dir
+		cd $beam_num
+		ls *.e* > list
+		while read error; do
+		    if [ ! -z $error ]; then
+			less $error > temp
+			paste temp >> $error_list
+			rm -rf temp
+		    fi
+		done < list
+		rm -rf list
+		cd $dir
+	    fi
 	done < $beam_list
     else
 	error_list=$dir/$project"_"$track_dir"_dem_errors.list"
@@ -141,23 +146,25 @@ elif [ $type -eq 3 ]; then
     echo "" 1>&2
     if [ -f $beam_list ]; then
 	while read beam_num; do
-	    error_list=$dir/$project"_"$track_dir"_"$beam_num"_slc_coreg_errors.list"
-	    if [ -f $error_list ]; then
-		rm -rf $error_list
-	    else
-		:
-	    fi
-	    cd $beam_num
-	    ls *.e* > list
-	    while read error; do
-		if [ ! -z $error ]; then
-		    less $error > temp
-		    paste temp >> $error_list
-		    rm -rf temp
+	    if [ ! -z $beam_num ]; then
+		error_list=$dir/$project"_"$track_dir"_"$beam_num"_slc_coreg_errors.list"
+		if [ -f $error_list ]; then
+		    rm -rf $error_list
+		else
+		    :
 		fi
-	    done < list
-	    rm -rf list
-	    cd $dir
+		cd $beam_num
+		ls *.e* > list
+		while read error; do
+		    if [ ! -z $error ]; then
+			less $error > temp
+			paste temp >> $error_list
+			rm -rf temp
+		    fi
+		done < list
+		rm -rf list
+		cd $dir
+	    fi
 	done < $beam_list
     else
 	error_list=$dir/$project"_"$track_dir"_slc_coreg_errors.list"
@@ -185,40 +192,42 @@ elif [ $type -eq 4 ]; then
     echo "" 1>&2
     if [ -f $beam_list ]; then
 	while read beam_num; do
-	    error_list=$dir/$project"_"$track_dir"_"$beam_num"_ifm_errors.list"
-	    if [ -f $error_list ]; then
-		rm -rf $error_list
-	    else
-		:
-	    fi
-	    cd $beam_num
-	    while read list; do
-		if [ ! -z $list ]; then
-		    for i in $proj_dir/$track_dir/$list # eg. ifms.list_00
-		    do
-			array1=`echo $i | awk 'BEGIN {FS="."} ; {print $2}'`
-			array_dir=$dir/$beam_num/$array1
-			cd $array_dir
- 			ls *.e* > _org_list
-			while read err; do # remove unnecessary lines created from float2ascii - creates hundreds of output lines, not errors)
-			    cp $err temp1
-			    sed '/^line:/ d ' < temp1 > temp2
-			    mv temp2 $err
-			    rm -rf temp1
-			done < org_list
-			ls *.e* > list
-			while read error; do
-			    if [ ! -z $error ]; then
-				less $error > temp
-				paste temp >> $error_list
-				rm -rf temp
-			    fi
-			done < list
-			rm -rf list
-			cd $dir
-		    done
+	    if [ ! -z $beam_num ]; then
+		error_list=$dir/$project"_"$track_dir"_"$beam_num"_ifm_errors.list"
+		if [ -f $error_list ]; then
+		    rm -rf $error_list
+		else
+		    :
 		fi
-	    done < $ifm_files
+		cd $beam_num
+		while read list; do
+		    if [ ! -z $list ]; then
+			for i in $proj_dir/$track_dir/$list # eg. ifms.list_00
+			do
+			    array1=`echo $i | awk 'BEGIN {FS="."} ; {print $2}'`
+			    array_dir=$dir/$beam_num/$array1
+			    cd $array_dir
+ 			    ls *.e* > _org_list
+			    while read err; do # remove unnecessary lines created from float2ascii - creates hundreds of output lines, not errors)
+				cp $err temp1
+				sed '/^line:/ d ' < temp1 > temp2
+				mv temp2 $err
+				rm -rf temp1
+			    done < org_list
+			    ls *.e* > list
+			    while read error; do
+				if [ ! -z $error ]; then
+				    less $error > temp
+				    paste temp >> $error_list
+				    rm -rf temp
+				fi
+			    done < list
+			    rm -rf list
+			    cd $dir
+			done
+		    fi
+		done < $ifm_files
+	    fi
 	done < $beam_list
     else
 	error_list=$dir/$project"_"$track_dir"_ifm_errors.list"
@@ -256,23 +265,25 @@ elif [ $type -eq 5 ]; then
     echo "" 1>&2
     if [ -f $beam_list ]; then
 	while read beam_num; do
-	    error_list=$dir2/$project"_"$track_dir"_"$beam_num"_add_slc_errors.list"
-	    if [ -f $error_list ]; then
-		rm -rf $error_list
-	    else
-		:
-	    fi
-	    cd $beam_num
-	    ls *.e* > list
-	    while read error; do
-		if [ ! -z $error ]; then
-		    less $error > temp
-		    paste temp >> $error_list
-		    rm -rf temp
+	    if [ ! -z $beam_num ]; then
+		error_list=$dir2/$project"_"$track_dir"_"$beam_num"_add_slc_errors.list"
+		if [ -f $error_list ]; then
+		    rm -rf $error_list
+		else
+		    :
 		fi
-	    done < list
-	    rm -rf list
-	    cd $dir
+		cd $beam_num
+		ls *.e* > list
+		while read error; do
+		    if [ ! -z $error ]; then
+			less $error > temp
+			paste temp >> $error_list
+			rm -rf temp
+		    fi
+		done < list
+		rm -rf list
+		cd $dir
+	    fi
 	done < $beam_list
     else
 	error_list=$dir2/$project"_"$track_dir"_add_slc_errors.list"
@@ -299,23 +310,25 @@ elif [ $type -eq 6 ]; then
     echo "" 1>&2
     if [ -f $beam_list ]; then
 	while read beam_num; do
-	    error_list=$dir2/$project"_"$track_dir"_"$beam_num"_add_slc_coreg_errors.list"
-	    if [ -f $error_list ]; then
-		rm -rf $error_list
-	    else
-		:
-	    fi
-	    cd $beam_num
-	    ls *.e* > list
-	    while read error; do
-		if [ ! -z $error ]; then
-		    less $error > temp
-		    paste temp >> $error_list
-		    rm -rf temp
+	    if [ ! -z $beam_num ]; then
+		error_list=$dir2/$project"_"$track_dir"_"$beam_num"_add_slc_coreg_errors.list"
+		if [ -f $error_list ]; then
+		    rm -rf $error_list
+		else
+		    :
 		fi
-	    done < list
-	    rm -rf list
-	    cd $dir
+		cd $beam_num
+		ls *.e* > list
+		while read error; do
+		    if [ ! -z $error ]; then
+			less $error > temp
+			paste temp >> $error_list
+			rm -rf temp
+		    fi
+		done < list
+		rm -rf list
+		cd $dir
+	    fi
 	done < $beam_list
     else
 	error_list=$dir2/$project"_"$track_dir"_add_slc_coreg_errors.list"
@@ -343,40 +356,42 @@ elif [ $type -eq 7 ]; then
     echo "" 1>&2
     if [ -f $beam_list ]; then
 	while read beam_num; do
-	    error_list=$dir/$project"_"$track_dir"_"$beam_num"_add_ifm_errors.list"
-	    if [ -f $error_list ]; then
-		rm -rf $error_list
-	    else
-		:
-	    fi
-	    cd $beam_num
-	    while read list; do
-		if [ ! -z $list ]; then
-		    for i in $proj_dir/$track_dir/$list # eg. ifms.list_00
-		    do
-			array1=`echo $i | awk 'BEGIN {FS="."} ; {print $2}'`
-			array_dir=$dir/$beam_num/$array1
-			cd $array_dir
- 			ls *.e* > _org_list
-			while read err; do # remove unnecessary lines created from float2ascii - creates hundreds of output lines, not errors)
-			    cp $err temp1
-			    sed '/^line:/ d ' < temp1 > temp2
-			    mv temp2 $err
-			    rm -rf temp1
-			done < org_list
-			ls *.e* > list
-			while read error; do
-			    if [ ! -z $error ]; then
-				less $error > temp
-				paste temp >> $error_list
-				rm -rf temp
-			    fi
-			done < list
-			rm -rf list
-			cd $dir
-		    done
+	    if [ ! -z $beam_num ]; then
+		error_list=$dir/$project"_"$track_dir"_"$beam_num"_add_ifm_errors.list"
+		if [ -f $error_list ]; then
+		    rm -rf $error_list
+		else
+		    :
 		fi
-	    done < $ifm_files
+		cd $beam_num
+		while read list; do
+		    if [ ! -z $list ]; then
+			for i in $proj_dir/$track_dir/$list # eg. ifms.list_00
+			do
+			    array1=`echo $i | awk 'BEGIN {FS="."} ; {print $2}'`
+			    array_dir=$dir/$beam_num/$array1
+			    cd $array_dir
+ 			    ls *.e* > _org_list
+			    while read err; do # remove unnecessary lines created from float2ascii - creates hundreds of output lines, not errors)
+				cp $err temp1
+				sed '/^line:/ d ' < temp1 > temp2
+				mv temp2 $err
+				rm -rf temp1
+			    done < org_list
+			    ls *.e* > list
+			    while read error; do
+				if [ ! -z $error ]; then
+				    less $error > temp
+				    paste temp >> $error_list
+				    rm -rf temp
+				fi
+			    done < list
+			    rm -rf list
+			    cd $dir
+			done
+		    fi
+		done < $ifm_files
+	    fi
 	done < $beam_list
     else
 	error_list=$dir/$project"_"$track_dir"_add_ifm_errors.list"

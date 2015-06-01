@@ -7,7 +7,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       20054/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: create_scenes_list.bash [proc_file]"
     }
