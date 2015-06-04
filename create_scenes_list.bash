@@ -8,6 +8,8 @@ display_usage() {
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       04/06/2015, v1.1                            *"
+    echo "*             - split scenes.list into lists of 5 for job arrays             *"
     echo "*******************************************************************************"
     echo -e "Usage: create_scenes_list.bash [proc_file]"
     }
@@ -123,6 +125,20 @@ else
 	rm -rf tar.list date.list
     fi
 fi
+
+# number of scenes, split list into 10 lots for job arrays (for NCI processing)
+if [ $platform == NCI ]; then
+    tot_scenes=`cat $scene_list | sed '/^\s*$/d' | wc -l`
+    split=`expr "$tot_scenes" / 10`
+    split -dl $split $scene_list $scene_list"_"
+    mv $scene_list all_scenes.list
+    ls scenes.list_* > temp
+    cat temp | tr " " "\n" > scene_files.list
+    rm -rf temp
+else
+    :
+fi
+
 
 # script end 
 ####################
