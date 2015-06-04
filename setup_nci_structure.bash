@@ -72,13 +72,12 @@ if [ -f $beam_list ]; then # if beams exist
 	mkdir -p $track_dir/batch_scripts/slc_coreg_jobs/$beam
 	mkdir -p $track_dir/batch_scripts/ifm_jobs/$beam
 	mkdir -p $track_dir/batch_scripts/slc_jobs/$beam/manual_jobs
-	mkdir -p $track_dir/batch_scripts/dem_jobs/$beam/manual_jobs
 	mkdir -p $track_dir/batch_scripts/slc_coreg_jobs/$beam/manual_jobs
 	mkdir -p $track_dir/batch_scripts/ifm_jobs/$beam/manual_jobs
     done < $beam_list
 else # no beam
     mkdir -p $track_dir/batch_scripts/slc_jobs/manual_jobs
-    mkdir -p $track_dir/batch_scripts/dem_jobs/manual_jobs
+    mkdir -p $track_dir/batch_scripts/dem_jobs
     mkdir -p $track_dir/batch_scripts/slc_coreg_jobs/manual_jobs
     mkdir -p $track_dir/batch_scripts/ifm_jobs/manual_jobs
 fi
