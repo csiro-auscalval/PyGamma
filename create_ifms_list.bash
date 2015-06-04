@@ -11,6 +11,8 @@ display_usage() {
     echo "*                      2=add_ifms.list)                                       *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       29/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       04/06/2015, v1.1                            *"
+    echo "*             - split ifms.list into lists of 10 for job arrays               *"
     echo "*******************************************************************************"
     echo -e "Usage: create_ifms_list.bash [proc_file] [type]"
     }
@@ -39,8 +41,8 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
 
-scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
-slave_list=$proj_dir/$track_dir/`grep List_of_slaves= $proc_file | cut -d "=" -f 2`
+scene_list=$proj_dir/$track_dir/all_scenes.list
+slave_list=$proj_dir/$track_dir/all_slaves.list
 ifm_list=$proj_dir/$track_dir/`grep List_of_ifms= $proc_file | cut -d "=" -f 2`  
 add_scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
 add_slave_list=$proj_dir/$track_dir/`grep List_of_add_slaves= $proc_file | cut -d "=" -f 2`
@@ -107,7 +109,7 @@ done < master.list
 
 
 ## Remove last date master file because it's the youngest date so it can't be a master to any other dates
-last_date=`awk 'END{print}' $scene_list`
+last_date=`awk 'END{print}' all_scenes.list`
 rm -rf $last_date"_master"
 # Revised dates list
 ls *_master > dates.list
@@ -179,10 +181,11 @@ if [ $type -eq 2 ]; then # Identify new interferograms (not in original ifm list
 	:
     fi
 else
-    # number of interferograms, split list if greater than 190 records (for NCI processing)
+    # number of interferograms, split list into 10 lots for job arrays (for NCI processing)
     if [ $platform == NCI ]; then
-	num_ifms=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
-	split -dl 190 $ifm_list $ifm_list"_"
+	tot_ifms=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
+	split=`expr "$tot_ifms" / 10`
+	split -dl $split $ifm_list $ifm_list"_"
 	mv $ifm_list all_ifms.list
 	ls ifms.list_* > temp
 	cat temp | tr " " "\n" > ifm_files.list

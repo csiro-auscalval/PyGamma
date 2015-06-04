@@ -11,6 +11,8 @@ display_usage() {
     echo "*                      2=add_slaves.list)                                     *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       29/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       04/06/2015, v1.1                            *"
+    echo "*             - split slaves.list into lists of 5 for job arrays             *"
     echo "*******************************************************************************"
     echo -e "Usage: create_slaves_list.bash [proc_file] [type]"
     }
@@ -56,12 +58,32 @@ if [ $type -eq 1 ]; then
     echo "" 1>&2
     ## Create list of slave SLCs
     cd $proj_dir/$track_dir
-    sed "/$master/d" $scene_list > $slave_list
+    sed "/$master/d" all_scenes.list > $slave_list
 else
     echo "Additional Slaves List File Creation" 1>&2
     echo "" 1>&2
     cp $add_scene_list $add_slave_list
 fi
+
+# number of slaves, split list into 10 lots for job arrays (for NCI processing)
+if [ $platform == NCI ]; then
+    tot_slaves=`cat $slave_list | sed '/^\s*$/d' | wc -l`
+    split=`expr "$tot_slaves" / 10`
+    split -dl $split $slave_list $slave_list"_"
+    mv $slave_list all_slaves.list
+    ls slaves.list_* > temp
+    cat temp | tr " " "\n" > slave_files.list
+    rm -rf temp
+else
+    :
+fi
+
+
+
+
+
+
+
 
 
 
