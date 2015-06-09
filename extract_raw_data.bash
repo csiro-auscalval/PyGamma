@@ -51,7 +51,7 @@ fi
 frame_list=$proj_dir/$track_dir/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 
 if [ $flag == 0 ]; then
-    scene_list=$proj_dir/$track_dir/all_scenes.list
+    scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
 else
     scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
 fi
