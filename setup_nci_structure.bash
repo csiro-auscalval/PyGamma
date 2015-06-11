@@ -26,6 +26,9 @@ platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
+frame_list=`grep List_of_frames= $proc_file | cut -d "=" -f 2`
+beam_list=`grep List_of_beams= $proc_file | cut -d "=" -f 2`
+subset_file=`grep Subset_file= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -45,16 +48,23 @@ echo "" 1>&2
 cd $proj_dir
 
 # Move lists if they exist to track directory
-if [ -f frame.list ]; then
-    mv frame.list $track_dir
+if [ -f $frame_list ]; then
+    mv $frame_list $track_dir
 else
     :
 fi
-if [ -f beam.list ]; then
-    mv beam.list $track_dir
+if [ -f $beam_list ]; then
+    mv $beam_list $track_dir
 else
     :
 fi
+
+if [ -f $subset_file ]; then
+    mv $subset_file $track_dir
+else
+    :
+fi
+
 
 frame_list=$proj_dir/$track_dir/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 beam_list=$proj_dir/$track_dir/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
@@ -77,7 +87,6 @@ if [ -f $beam_list ]; then # if beams exist
     done < $beam_list
 else # no beam
     mkdir -p $track_dir/batch_scripts/slc_jobs/manual_jobs
-    mkdir -p $track_dir/batch_scripts/dem_jobs
     mkdir -p $track_dir/batch_scripts/slc_coreg_jobs/manual_jobs
     mkdir -p $track_dir/batch_scripts/ifm_jobs/manual_jobs
 fi
