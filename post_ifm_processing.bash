@@ -57,12 +57,10 @@ int_dir=$proj_dir/$track_dir/`grep INT_dir= $proc_file | cut -d "=" -f 2`
 
 if [ $list_type -eq 1 ]; then
     ifm_list=`grep List_of_ifms= $proc_file | cut -d "=" -f 2`
-    all_ifm_list=$proj_dir/$track_dir/"all_"$ifm_list
     echo " "
     echo "Creating plots for unwrapped interferograms..."
 else
     ifm_list=`grep List_of_add_ifms= $proc_file | cut -d "=" -f 2`
-    all_ifm_list=$proj_dir/$track_dir/"all_"$ifm_list
     echo " "
     echo "Creating plots for additional unwrapped interferograms..."
 fi
@@ -95,7 +93,7 @@ if [ -z $beam ]; then #no beam
 	    cp $dem_dir/$dem $pyrate_files/dem_files
 	    cp $dem_dir/$dem_par $pyrate_files/dem_files
 	fi
-    done < $all_ifm_list
+    done < $ifm_list
 else #beam exists
     while read list; do
 	if [ ! -z $list ]; then
@@ -114,7 +112,7 @@ else #beam exists
 	    cp $dem_dir/$dem $pyrate_files/dem_files
 	    cp $dem_dir/$dem_par $pyrate_files/dem_files
 	fi
-    done < $all_ifm_list
+    done < $ifm_list
 fi
 
 ## Plot unwrapped interferograms with png files
