@@ -132,21 +132,12 @@ offs=$slave_dir/$master_mli_name-$slave_mli_name.offs
 offsets=$slave_dir/$master_mli_name-$slave_mli_name.offsets
 coffsets=$slave_dir/$master_mli_name-$slave_mli_name.coffsets
 
-## Set up coregistration results file
-#check_file=$slave_dir/slave_coregistration_results"_"$rlks"_rlks_"$alks"_alks.txt"
-#if [ -f $check_file ]; then
-#    rm -f $check_file 
-#else
-#    :
-#fi
-#echo "Slave_Coregistration_Results_"$rlks"_rlks_"$alks"_alks" > $check_file
-#echo "final model fit std. dev. (samples)" >> $check_file
-#echo "Ref Master" > temp1_$rlks
-#echo "Slave" > temp2_$rlks
-#echo "Range" > temp3_$rlks
-#echo "Azimuth" > temp4_$rlks
-#paste temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks >> $check_file
-#rm -f temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks
+## Coregistration results file
+if [ -z $beam ]; then
+    check_file=$proj_dir/$track_dir/slave_coreg_results"_"$rlks"rlks_"$alks"alks.txt"
+else
+    check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam"_"$rlks"rlks_"$alks"alks.txt"
+fi
 
 cd $slave_dir
 
@@ -245,13 +236,13 @@ GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
 rm -f $off"s0" $snr"0" $coffs"0" $offs $snr $coffs $coffsets $lt"0"
 
 ## Extract final model fit values to check coregistration
-#echo $master > temp1_$rlks
-#echo $slave > temp2_$rlks
-#grep "final" temp2 > temp3_$rlks
-#awk '{print $8}' temp3_$rlks > temp4_$rlks
-#awk '{print $10}' temp3_$rlks > temp5_$rlks
-#paste temp1_$rlks temp2_$rlks temp4_$rlks temp5_$rlks >> $check_file
-#rm -f temp*
+echo $master > temp1_$rlks
+echo $slave > temp2_$rlks
+grep "final model fit" output.log > temp3_$rlks
+awk '{print $8}' temp3_$rlks > temp4_$rlks
+awk '{print $10}' temp3_$rlks > temp5_$rlks
+paste temp1_$rlks temp2_$rlks temp4_$rlks temp5_$rlks >> $check_file
+rm -f temp*
 
 
 # script end 
