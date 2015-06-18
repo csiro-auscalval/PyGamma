@@ -8,6 +8,8 @@ display_usage() {
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       18/06/2015, v1.1                            *"
+    echo "*             - streamline auto processing and modify directory structure     *"
     echo "*******************************************************************************"
     echo -e "Usage: create_scenes_list.bash [proc_file]"
     }
@@ -35,8 +37,8 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
 
-scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
-frame_list=$proj_dir/$track_dir/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
+scene_list=$proj_dir/$track_dir/lists/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
+frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear

@@ -13,6 +13,8 @@ display_usage() {
     echo "*                      1: use 'List_of_add_scenes' file                       *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       01/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       18/06/2015, v1.1                            *"
+    echo "*             - streamline auto processing and modify directory structure     *"
     echo "*******************************************************************************"
     echo -e "Usage: extract_raw_data.bash [proc_file] [flag]"
     }
@@ -48,12 +50,12 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
 
-frame_list=$proj_dir/$track_dir/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
+frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 
 if [ $flag == 0 ]; then
-    scene_list=$proj_dir/$track_dir/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
+    scene_list=$proj_dir/$track_dir/lists/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
 else
-    scene_list=$proj_dir/$track_dir/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
+    scene_list=$proj_dir/$track_dir/lists/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
 fi
 
 ## Insert scene details top of NCI .e file

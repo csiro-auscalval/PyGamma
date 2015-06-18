@@ -17,6 +17,8 @@ display_usage() {
     echo "*         [alks]         MLI azimuth looks                                    *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       01/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       18/06/2015, v1.1                            *"
+    echo "*             - streamline auto processing and modify directory structure     *"
     echo "*******************************************************************************"
     echo -e "Usage: process_PALSAR_L0_SLC.bash [proc_file] [scene] [rlks] [alks]"
     }
@@ -43,7 +45,6 @@ track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
-frame_list=`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 raw_dir_ga=`grep Raw_data_GA= $proc_file | cut -d "=" -f 2`
 raw_dir_mdss=`grep Raw_data_MDSS= $proc_file | cut -d "=" -f 2`
 
@@ -59,6 +60,8 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     raw_dir=$raw_dir_ga
 fi
+
+frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 
 cd $proj_dir/$track_dir
 
@@ -160,7 +163,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 		rm -rf hh_temp hv_temp
 	    fi
 	fi
-    done < $proj_dir/$track_dir/$frame_list
+    done < $frame_list
 
     num_hv=`grep -co "HV" $pol_list`
     if [ "$num_hv" -eq 0 -a "$polar" == HH ]; then 
@@ -230,7 +233,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
             ## Copy raw data file details to text file to check if concatenation of scenes along track is required
 	    echo $raw_fm_file $sensor_fm_par $msp_fm_par >> $raw_file_list
 	fi
-    done < $proj_dir/$track_dir/$frame_list
+    done < $frame_list
 
     ## Check if scene concatenation is required (i.e. a scene has more than one frame)
     lines=`awk 'END{print NR}' $raw_file_list`

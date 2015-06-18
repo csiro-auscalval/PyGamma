@@ -9,6 +9,8 @@ display_usage() {
     echo "* input:  [proc_file]       name of GAMMA proc file (eg. gamma.proc)          *"
     echo "*                                                                             *"
     echo "* author: Matt Garthwaite @ GA       11/05/2015, v1.1                         *"
+    echo "*         Sarah Lawrie @ GA          18/06/2015, v1.1                         *"
+    echo "*             - streamline auto processing and modify directory structure     *"
     echo "*******************************************************************************"
     echo -e "Usage: extract_baseline_values.bash [proc_file]"
     }
@@ -38,7 +40,7 @@ fi
 
 cd $proj_dir/$track_dir
 proc_file=$proj_dir/$1
-ifm_list=$proj_dir/$track_dir/`grep List_of_ifms= $proc_file | cut -d "=" -f 2`
+ifm_list=$proj_dir/$track_dir/lists/`grep List_of_ifms= $proc_file | cut -d "=" -f 2`
 
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear

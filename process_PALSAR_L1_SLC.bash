@@ -17,6 +17,8 @@ display_usage() {
     echo "*         <beam>       Beam number (eg, F2)                                   *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       18/06/2015, v1.1                            *"
+    echo "*             - streamline auto processing and modify directory structure     *"
     echo "*******************************************************************************"
     echo -e "Usage: process_PALSAR_L1_SLC.bash [proc_file] [scene] [rlks] [alks] <beam>"
     }
@@ -42,7 +44,6 @@ project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
-frame_list=`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 raw_dir_ga=`grep Raw_data_GA= $proc_file | cut -d "=" -f 2`
 raw_dir_mdss=`grep Raw_data_MDSS= $proc_file | cut -d "=" -f 2`
 
@@ -61,7 +62,8 @@ fi
 
 cd $proj_dir/$track_dir
 
-beam_list=$proj_dir/$track_dir/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
+beam_list=$proj_dir/$track_dir/lists/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
+frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear

@@ -56,11 +56,11 @@ dem_dir=$proj_dir/$track_dir/`grep DEM_dir= $proc_file | cut -d "=" -f 2`
 int_dir=$proj_dir/$track_dir/`grep INT_dir= $proc_file | cut -d "=" -f 2`
 
 if [ $list_type -eq 1 ]; then
-    ifm_list=`grep List_of_ifms= $proc_file | cut -d "=" -f 2`
+    ifm_list=$proj_dir/$track_dir/lists/`grep List_of_ifms= $proc_file | cut -d "=" -f 2`
     echo " "
     echo "Creating plots for unwrapped interferograms..."
 else
-    ifm_list=`grep List_of_add_ifms= $proc_file | cut -d "=" -f 2`
+    ifm_list=$proj_dir/$track_dir/lists/`grep List_of_add_ifms= $proc_file | cut -d "=" -f 2`
     echo " "
     echo "Creating plots for additional unwrapped interferograms..."
 fi

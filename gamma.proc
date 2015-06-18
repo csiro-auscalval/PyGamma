@@ -159,32 +159,48 @@ ifm_end=DONE
 
 ##### NCI PBS parameters #####
 
-# scene, slave and ifm list creation
+#error collation
+error_walltime=00:10:00
+error_mem=50MB
+error_ncpus=1
+
+#scene, slave and ifm list creation
 list_walltime=00:20:00
 list_mem=50MB
 list_ncpus=1
 
-# raw data extraction
+#raw data extraction
 raw_walltime=02:00:00
 raw_mem=50MB
 raw_ncpus=1
 
-# create slcs
-SLC_walltime=03:00:00
-SLC_mem=8GB
+#create slcs
+SLC_walltime=02:00:00
+SLC_mem=4GB
 SLC_ncpus=4
 
-# coregister dem
-DEM_walltime=04:00:00
-DEM_mem=5GB
+#coregister dem
+DEM_walltime=05:00:00
+DEM_mem=6GB
 DEM_ncpus=4
 
 #coregister slcs
-coreg_walltime=03:00:00
-coreg_mem=8GB
+coreg_walltime=02:00:00
+coreg_mem=4GB
 coreg_ncpus=4
 
 #create ifms
-ifm_walltime=02:00:00
-ifm_mem=8GB
-ifm_ncpus=6
+ifm_walltime=00:30:00
+ifm_mem=6GB
+ifm_ncpus=1
+
+#mosaic ifms
+mosaic_walltime=02:00:00
+mosaic_mem=8GB
+mosaic_ncpus=1
+
+#post ifm processing
+post_walltime=01:00:00
+post_mem=500MB
+post_ncpus=1
+
