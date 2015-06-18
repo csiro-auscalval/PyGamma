@@ -120,22 +120,6 @@ rslc_tab=$slave_dir/rslc_tab
 lt=$slave_dir/$master-$slave_mli_name.lt
 off=$slave_dir/$master-$slave_mli_name.off
 
-## Set up coregistration results file
-check_file=$slave_dir/slave_coregistration_results"_"$rlks"_rlks_"$alks"_alks.txt"
-#if [ -f $check_file ]; then
-#    rm -f $check_file 
-#else
-#    :
-#fi
-echo "Slave_Coregistration_Results_"$rlks"_rlks_"$alks"_alks" > $check_file
-echo "final model fit std. dev. (samples)" >> $check_file
-echo "Ref Master" > temp1_$rlks
-echo "Slave" > temp2_$rlks
-echo "Range" > temp3_$rlks
-echo "Azimuth" > temp4_$rlks
-paste temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks >> $check_file
-rm -f temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks
-
 cd $slave_dir
 
 ## Determine range and azimuth looks in MLI
@@ -244,7 +228,7 @@ rm -f offs0 snr0 coffs0 offs snr coffs coffsets lt0
 ## Extract final model fit values to check coregistration
 echo $master > temp1_$rlks
 echo $slave > temp2_$rlks
-grep "final" temp2 > temp3_$rlks
+grep "final model fit" output.log > temp3_$rlks
 awk '{print $8}' temp3_$rlks > temp4_$rlks
 awk '{print $10}' temp3_$rlks > temp5_$rlks
 paste temp1_$rlks temp2_$rlks temp4_$rlks temp5_$rlks >> $check_file
