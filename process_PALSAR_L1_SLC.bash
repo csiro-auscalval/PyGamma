@@ -169,7 +169,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 		rm -rf hh_temp hv_temp
 	    fi
 	fi
-    done < $proj_dir/$track_dir/$frame_list
+    done < $frame_list
   
     num_hv=`grep -co "HV" $pol_list`
     if [ -f $beam_list -a $sensor == PALSAR2 ]; then # no FBD or FBS conversion if PALSAR2 wide swath data
@@ -210,7 +210,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
             ## Copy data file details to text file to check if concatenation of scenes along track is required
 	    echo $fr_slc $fr_slc_par >> $raw_file_list
 	fi
-    done < $proj_dir/$track_dir/$frame_list
+    done < $frame_list
 
 ## Check if scene concatenation is required (i.e. a scene has more than one frame)
 lines=`awk 'END{print NR}' $raw_file_list`
