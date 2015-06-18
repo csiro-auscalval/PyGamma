@@ -6,28 +6,30 @@ display_usage() {
     echo "* make_ref_master_DEM: Generate DEM coregistered to chosen master SLC in      *"
     echo "*                      radar geometry.                                        *"
     echo "*                                                                             *"
-    echo "* input:  [proc_file]    name of GAMMA proc file (eg. gamma.proc)             *"
+    echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
     echo "*         [rlks]        range multi-look value (for SLCs: from *.mli.par file *"
     echo "*                       or for ifms: from proc file)                          *"
     echo "*         [alks]        azimuth multi-look value (for SLCs: from *.mli.par    *"
     echo "*                       file or for ifms: from proc file)                     *"
-    echo "*         <multi-look>  flag for creating ref DEM with no multi-looks, used   *"
-    echo "*                       for creating lookup table for geocoding full SLC data *"
-    echo "*                       (1 = no, 2 = yes)                                     *"
-    echo " *         <roff>       offset to starting range sample                       *"
-    echo " *         <rlines>     number of range samples                               *"
-    echo " *         <azoff>      offset to starting line                               *"
-    echo " *         <azlines>    number of lines to copy                               *"
+    echo "*         [multi-look]  flag for multi-looking (no multi-looks = 1,           *"
+    echo "*                       multi-looks = 2)                                      *"
+    echo "*         [subset]      subset scene (no = 1, yes = 2)                        *"
+    echo "*         <roff>        offset to starting range sample                       *"
+    echo "*         <rlines>      number of range samples                               *"
+    echo "*         <azoff>       offset to starting line                               *"
+    echo "*         <azlines>     number of lines to copy                               *"
     echo "*         <beam>        beam number (eg, F2)                                  *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       20/05/2015, v1.1                            *"
     echo "*              Add beam processing capability for wide swath data             *"
+    echo "*         Sarah Lawrie @ GA       18/06/2015, v1.2                            *"
+    echo "*              Refine flags to enable auto calculation of subset values       *"
     echo "*******************************************************************************"
-    echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] <multi-look> <roff> <rlines> <azoff> <azlines> <beam>"
+    echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] [multi-look] [subset] <roff> <rlines> <azoff> <azlines> <beam>"
     }
 
-if [ $# -lt 3 ]
+if [ $# -lt 5 ]
 then 
     display_usage
     exit 1
@@ -37,11 +39,12 @@ fi
 rlks=$2
 alks=$3
 multi_look=$4
-roff=$5
-rlines=$6
-azoff=$7
-azlines=$8
-beam=$9
+subset=$5
+roff=$6
+rlines=$7
+azoff=$8
+azlines=$9
+beam=${10} # need curly bracket to get 10th variable to be recognised
 
 proc_file=$1
 
@@ -52,8 +55,6 @@ sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
-subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
-subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
 offset_measure=`grep offset_measure= $proc_file | cut -d "=" -f 2`
 dem_win=`grep dem_win= $proc_file | cut -d "=" -f 2`
 dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
@@ -61,7 +62,6 @@ dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
     proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
-    dem_loc_nci=`grep DEM_location_MDSS= $proc_file | cut -d "=" -f 2`
     dem_name_nci=`grep DEM_name_NCI= $proc_file | cut -d "=" -f 2`
     dem=$proj_dir/gamma_dem/$dem_name_nci
 else
@@ -113,25 +113,25 @@ else # beam exists
     slc_name=$master"_"$polar"_"$beam
 fi
 
-if [ $multi_look -eq 2 -a $subset == no ]; then
+if [ $multi_look -eq 1 -a $subset -eq 1 ]; then # full res DEM for calculating subset values or geocoding full slc
     if [ -z $beam ]; then # no beam
         mli_name=$master"_"$polar"_0rlks"
     else # beam exists
         mli_name=$master"_"$polar"_"$beam"_0rlks"
     fi
-elif [ $multi_look -eq 2 -a $subset == yes -a $subset_done == notyet ]; then # preserve DEM data related to full SLC
+elif [ $multi_look -eq 1 -a $subset -eq 2 ]; then # full res DEM of subset
     if [ -z $beam ]; then # no beam
-	mli_name=$master"_"$polar"-full_0rlks"
+	mli_name=$master"_"$polar"-subset_0rlks"
     else # beam exists
-	mli_name=$master"_"$polar"_"$beam"-full_0rlks"
+	mli_name=$master"_"$polar"_"$beam"-subset_0rlks"
     fi
-elif [ $multi_look -eq 2 -a $subset == yes -a $subset_done == process ]; then
+elif [ $multi_look -eq 2 -a $subset -eq 2 ]; then # multi-look dem and subset
     if [ -z $beam ]; then # no beam
-	mli_name=$master"_"$polar"_0rlks"	
+	mli_name=$master"_"$polar"_"$rlks"rlks"	
     else # beam exists
-	mli_name=$master"_"$polar"_"$beam"_0rlks"
+	mli_name=$master"_"$polar"_"$beam"_"$rlks"rlks"
     fi
-else
+else # multi-look dem and no subset
     if [ -z $beam ]; then # no beam
 	mli_name=$master"_"$polar"_"$rlks"rlks"
     else # beam exists

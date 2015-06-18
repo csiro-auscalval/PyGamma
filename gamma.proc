@@ -39,9 +39,7 @@ Threshold=121
 Master_scene=20081104
     # options: yes/no
 Subsetting=no
-    # options: notyet,process,yes
-Subsetting_done=notyet
-    # Subsetting of master SLC
+    # Subsetting of master SLC (leave as - if not subsetting, if subsetting, values will be auto filled)
 range_offset=-
 range_lines=-
 azimuth_offset=-
@@ -66,6 +64,7 @@ Process_add_ifms=no
 ##### Text File Names #####
 List_of_frames=frame.list
 List_of_beams=beam.list
+Subset_file=subset.txt
 List_of_scenes=scenes.list
 List_of_slaves=slaves.list
 List_of_ifms=ifms.list
