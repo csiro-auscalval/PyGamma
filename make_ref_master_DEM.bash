@@ -285,12 +285,6 @@ GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_l
 ## Geocode simulated SAR intensity image to radar geometry
 GM geocode $lt_fine $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
 
-## clean up files created for no multi-look
-if [ $multi_look -eq 2 ]; then
-    rm -f $master_mli $master_mli_par
-else
-    :
-fi
 
 # script end 
 ####################
