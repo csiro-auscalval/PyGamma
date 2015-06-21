@@ -12,6 +12,8 @@ display_usage() {
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       26/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       20/06/2015, v1.1                            *"
+    echo "*             - streamline auto processing and modify directory structure     *"
     echo "*******************************************************************************"
     echo -e "Usage: remove_scenes.bash [proc_file]"
     }
@@ -55,7 +57,7 @@ echo "" 1>&2
 echo "Remove Scenes" 1>&2
 echo "" 1>&2
 
-cd $proj_dir/$track_dir
+cd $proj_dir/$track_dir/lists
 cp $scene_list org_scenes.list
 cp $slave_list org_slaves.list
 if [ -f all_ifms.list ]; then # for NCI processing
@@ -91,23 +93,6 @@ grep -Fvx -f temp3 $ifm_list > temp4
 mv temp4 $ifm_list
 
 rm -rf temp*
-
-## Recreate ifms list for NCI
-if [ $platform == NCI ]; then
-    num_ifms=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
-    split -dl 190 $ifm_list $ifm_list"_"
-    mv $ifm_list all_ifms.list
-    ls ifms.list_* > temp
-    cat temp | tr " " "\n" > ifm_files.list
-    rm -rf temp
-else
-    :
-fi
-
-
-
-
-
 
 ## Remove scenes from SLC directory
 cd $slc_dir
