@@ -1541,6 +1541,19 @@ elif [ $coregister == yes -a $platform == NCI ]; then
     if [ -f $beam_list ]; then # if beam list exists
 	while read beam_num; do
 	    if [ ! -z $beam_num ]; then
+
+                # Set up coregistration results file
+		cd $proj_dir/$track_dir
+		check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$rlks"rlks_"$alks"alks.txt"
+		echo "Slave Coregistration Results "$beam_num" "$rlks"rlks "$alks"alks" > $check_file
+		echo "final model fit std. dev. (samples)" >> $check_file
+		echo "Ref Master" > temp1_$beam_num
+		echo "Slave" > temp2_$beam_num
+		echo "Range" > temp3_$beam_num
+		echo "Azimuth" > temp4_$beam_num
+		paste temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num >> $check_file
+		rm -f temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num
+
 		cd $co_slc_batch_dir/$beam_num
 
 		function create_jobs {
@@ -1680,6 +1693,19 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	    fi
 	done < $beam_list
     else # no beams
+
+        # Set up coregistration results file
+	cd $proj_dir/$track_dir
+	check_file=$proj_dir/$track_dir/slave_coreg_results"_"$rlks"rlks_"$alks"alks.txt"
+	echo "Slave Coregistration Results "$rlks"rlks "$alks"alks" > $check_file
+	echo "final model fit std. dev. (samples)" >> $check_file
+	echo "Ref Master" > temp1
+	echo "Slave" > temp2
+	echo "Range" > temp3
+	echo "Azimuth" > temp4
+	paste temp1 temp2 temp3 temp4 >> $check_file
+	rm -f temp1 temp2 temp3 temp4
+
 	cd $co_slc_batch_dir
 
 	function create_jobs {

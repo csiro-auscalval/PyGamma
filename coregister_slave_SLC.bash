@@ -132,6 +132,7 @@ offs=$slave_dir/$master_mli_name-$slave_mli_name.offs
 offsets=$slave_dir/$master_mli_name-$slave_mli_name.offsets
 coffsets=$slave_dir/$master_mli_name-$slave_mli_name.coffsets
 
+
 ## Coregistration results file
 if [ -z $beam ]; then
     check_file=$proj_dir/$track_dir/slave_coreg_results"_"$rlks"rlks_"$alks"alks.txt"
