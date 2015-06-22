@@ -120,6 +120,9 @@ rslc_tab=$slave_dir/rslc_tab
 lt=$slave_dir/$master-$slave_mli_name.lt
 off=$slave_dir/$master-$slave_mli_name.off
 
+## Coregistration results file
+check_file=$proj_dir/$track_dir/slave_coreg_results"_"$rlks"rlks_"$alks"alks.txt"
+
 cd $slave_dir
 
 ## Determine range and azimuth looks in MLI
