@@ -524,7 +524,7 @@ GEOCODE()
     # Export image to .png
     ps2raster $psfile -A -E300 -Tg -P
     # Clean up files
-    #rm -f $name.txt $name.grd temp $name.cpt $psfile 
+    rm -f $name.txt $name.grd temp $name.cpt $psfile 
     echo " "
     echo "Created GMT files for plotting interferogram."
     echo " "

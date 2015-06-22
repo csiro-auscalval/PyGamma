@@ -5,21 +5,53 @@ display_usage() {
     echo "*******************************************************************************"
     echo "* interp_centre_bperp:  Extract the perpendicular baseline value.             *"
     echo "*                                                                             *"
-    echo "* input:  [bperp_file]  bperp file produced during interferogram              *"
+    echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
+    echo "*         [bperp_file]  bperp file produced during interferogram              *"
     echo "*                       processing (*._bperp.par).                            *"
+    echo "*         <beam>       Beam number (eg, F2)                                   *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       20/04/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       22/06/2015, v1.1                            *"
+    echo "*           - update to enable incorporation into post ifm processing         *"
     echo "*******************************************************************************"
-    echo -e "Usage: interp_centre_bperp.bash [bperp_file]"
+    echo -e "Usage: interp_centre_bperp.bash [proc_file] [bperp_file] <beam>"
     }
 
-if [ $# -lt 1 ]
+if [ $# -lt 2 ]
 then
     display_usage
     exit 1
 fi
 
-file=$1
+proc_file=$1
+file=$2
+beam=$3
+
+## Variables from parameter file (*.proc)
+platform=`grep Platform= $proc_file | cut -d "=" -f 2`
+project=`grep Project= $proc_file | cut -d "=" -f 2`
+track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
+polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
+sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
+ifm_looks=`grep ifm_multi_look= $proc_file | cut -d "=" -f 2`
+master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
+
+## Identify project directory based on platform
+if [ $platform == NCI ]; then
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+else
+    proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
+fi
+
+## Load GAMMA based on platform
+if [ $platform == NCI ]; then
+    GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
+    source $GAMMA
+else
+    GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
+    source $GAMMA
+fi
+
 
 # extract line numbers of useful data
 flen=`cat $file | wc -l`
@@ -30,8 +62,8 @@ len2=`echo $len1 - 15 | bc -l`
 awk '{print $1, $2, $8}' $file | head -$len1 | tail -$len2 > xyz
 
 # calculate centre pixel
-ctry=`awk 'NR==4 {printf "%.0f", $3/2}' $1`
-ctrx=`awk 'NR==4 {printf "%.0f", $6/2}' $1`
+ctry=`awk 'NR==4 {printf "%.0f", $3/2}' $file`
+ctrx=`awk 'NR==4 {printf "%.0f", $6/2}' $file`
 
 # calculate max extents of input
 maxx=`awk '{print $2}' xyz | sort -n | tail -1`
@@ -54,6 +86,16 @@ grd2xyz out.grd | awk '{print $1, $2, $3}' > xyz2
 # find centre baseline value
 bperp=`grep "$ctrx $ctry" xyz2 | awk '{print $3}'`
 
-rm -f xyz xyz2 out.grd
+# export bperp value to file
+if [ -z $beam ]; then
+    results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$rlks"rlks_"$alks"alks.txt"
+else
+    results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$beam"_"$rlks"rlks_"$alks"alks.txt"
+fi
 
-echo $bperp
+ifm=`echo $file | awk -F_ '{print $1}'`
+echo $ifm > temp1
+echo $bperp > temp2
+paste temp1 temp2 >> $results_file
+
+rm -f xyz xyz2 out.grd temp1 temp2

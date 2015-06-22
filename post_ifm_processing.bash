@@ -12,6 +12,8 @@ display_usage() {
     echo "*         <beam>       Beam number (eg, F2)                                   *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       16/06/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       22/06/2015, v1.1                            *"
+    echo "*           - add capture of bperp value from ifm processing                  *"
     echo "*******************************************************************************"
     echo -e "Usage: post_ifm_processing.bash [proc_file] [list_type] <beam>"
     }
@@ -67,12 +69,15 @@ fi
 
 cd $proj_dir/$track_dir
 mkdir -p png_images
+mkdir -p bperp_files
 png_dir=$proj_dir/$track_dir/png_images
+bperp_dir=$proj_dir/$track_dir/bperp_files
 mkdir -p pyrate_files
 pyrate_dir=$proj_dir/$track_dir/pyrate_files
 mkdir -p $pyrate_dir/unw_files
 mkdir -p $pyrate_dir/dem_files
 mkdir -p $pyrate_dir/cc_files
+
 
 ## Copy files to central directories
 if [ -z $beam ]; then #no beam
@@ -82,16 +87,19 @@ if [ -z $beam ]; then #no beam
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
 	    png=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm_unw.png"
+	    bperp=$mas-$slv"_"$polar"_"$ifm_rlks"rlks_bperp.par"
 	    unw=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm.unw"
 	    cc=$mas-$slv"_"$polar"_"$ifm_looks"rlks_filt.cc"
 	    dem=$master"_"$polar"_"$ifm_looks"rlks_utm.dem"
 	    dem_par=$dem.par
 	    cp $ifm_dir/$png $png_dir
 	    cp $ifm_dir/unw_gmt.par $png_dir
+	    cp $ifm_dir/$bperp $bperp_dir
 	    cp $ifm_dir/$unw $pyrate_dir/unw_files
 	    cp $ifm_dir/$cc $pyrate_dir/cc_files
 	    cp $dem_dir/$dem $pyrate_dir/dem_files
 	    cp $dem_dir/$dem_par $pyrate_dir/dem_files
+
 	fi
     done < $ifm_list
 else #beam exists
@@ -101,12 +109,14 @@ else #beam exists
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
 	    png=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm_unw.png"
+	    bperp=$mas-$slv"_"$polar"_"$beam"_"$ifm_rlks"rlks_bperp.par"
 	    unw=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.unw"
 	    cc=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_filt.cc"
 	    dem=$master"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.dem"
 	    dem_par=$dem.par
 	    cp $ifm_dir/$png $png_dir
 	    cp $ifm_dir/unw_gmt.par $png_dir
+	    cp $ifm_dir/$bperp $bperp_dir
 	    cp $ifm_dir/$unw $pyrate_dir/unw_files
 	    cp $ifm_dir/$cc $pyrate_dir/cc_files
 	    cp $dem_dir/$dem $pyrate_dir/dem_files
@@ -536,7 +546,12 @@ ps2raster -Tf $psfile
 done < $image_files
 
 # Combine all PDFs into one PDF
-pdf=$project"_"$sensor"_"$track_dir"_"$polar"_"$ifm_looks"rlks_Interferograms"
+if [ -z $beam ]; then
+    pdf=$project"_"$sensor"_"$track_dir"_"$polar"_"$ifm_looks"rlks_Interferograms"
+else
+    pdf=$project"_"$sensor"_"$track_dir"_"$polar"_"$beam"_"$ifm_looks"rlks_Interferograms"
+fi
+
 ps2raster -TF -F$pdf *.pdf
 
 mv $pdf.pdf $proj_dir/$track_dir
@@ -545,8 +560,22 @@ echo " "
 echo "Plots created for unwrapped geocoded interferograms."
 echo " "
 
+
+## Create bperp plot
+echo " "
+echo "Capturing bperp values..."
+cd $proj_dir/$track_dir/bperp_files
+
+ls *.bperp.par > bperp_files
+
+while read file; do
+    ~/repo/gamma_bash/interp_centre_bperp.bash $proj_dir/$proc_file $file $beam
+done < bperp_files
+
 # Clean up files
 rm -rf *.ps *.pdf
 
-
+echo " "
+echo "bperp values captured."
+echo " "
 

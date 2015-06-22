@@ -1931,6 +1931,16 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
     if [ -f $beam_list ]; then # if beam list exists
 	while read beam_num; do
 	    if [ ! -z $beam_num ]; then
+
+                # Set up bperp results file
+		cd $proj_dir/$track_dir
+		results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$beam_num"_"$rlks"rlks_"$alks"alks.txt"
+		echo "Interferogram bperp Results "$beam_num" "$rlks"rlks "$alks"alks" > $results_file
+		echo "Interferogram_Pair" > temp1
+		echo "bperp_Value" > temp2
+		paste temp1 temp2 >> $results_file
+		rm -f temp1 temp2
+
 		cd $ifm_batch_dir/$beam_num
 
 		function create_jobs {
@@ -2130,8 +2140,18 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    :
 	fi
     else # no beam list
+
+        # Set up bperp results file
+	cd $proj_dir/$track_dir
+	results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$rlks"rlks_"$alks"alks.txt"
+	echo "Interferogram bperp Results "$rlks"rlks "$alks"alks" > $results_file
+	echo "Interferogram_Pair" > temp1
+	echo "bperp_Value" > temp2
+	paste temp1 temp2 >> $results_file
+	rm -f temp1 temp2
+
 	cd $ifm_batch_dir
-	
+
 	function create_jobs {
 	    
 	    local njobs=$1
