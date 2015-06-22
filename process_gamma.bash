@@ -1544,15 +1544,37 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 
                 # Set up coregistration results file
 		cd $proj_dir/$track_dir
-		check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$rlks"rlks_"$alks"alks.txt"
-		echo "Slave Coregistration Results "$beam_num" "$rlks"rlks "$alks"alks" > $check_file
-		echo "final model fit std. dev. (samples)" >> $check_file
-		echo "Ref Master" > temp1_$beam_num
-		echo "Slave" > temp2_$beam_num
-		echo "Range" > temp3_$beam_num
-		echo "Azimuth" > temp4_$beam_num
-		paste temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num >> $check_file
-		rm -f temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
+		    echo "Slave Coregistration Results "$beam_num" "$slc_rlks"rlks "$slc_alks"alks" > $check_file
+		    echo "final model fit std. dev. (samples)" >> $check_file
+		    echo "Ref Master" > temp1_$beam_num
+		    echo "Slave" > temp2_$beam_num
+		    echo "Range" > temp3_$beam_num
+		    echo "Azimuth" > temp4_$beam_num
+		    paste temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num >> $check_file
+		    rm -f temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num
+		else
+		    slc_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
+		    echo "Slave Coregistration Results "$beam_num" "$slc_rlks"rlks "$slc_alks"alks" > $slc_check_file
+		    echo "final model fit std. dev. (samples)" >> $slc_check_file
+		    echo "Ref Master" > temp1_$beam_num
+		    echo "Slave" > temp2_$beam_num
+		    echo "Range" > temp3_$beam_num
+		    echo "Azimuth" > temp4_$beam_num
+		    paste temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num >> $slc_check_file
+		    rm -f temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num
+		    
+		    ifm_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+		    echo "Slave Coregistration Results "$beam_num" "$ifm_rlks"rlks "$ifm_alks"alks" > $ifm_check_file
+		    echo "final model fit std. dev. (samples)" >> $ifm_check_file
+		    echo "Ref Master" > temp5_$beam_num
+		    echo "Slave" > temp6_$beam_num
+		    echo "Range" > temp7_$beam_num
+		    echo "Azimuth" > temp8_$beam_num
+		    paste temp5_$beam_num temp6_$beam_num temp7_$beam_num temp8_$beam_num >> $ifm_check_file
+		    rm -f temp5_$beam_num temp6_$beam_num temp7_$beam_num temp8_$beam_num
+		fi
 
 		cd $co_slc_batch_dir/$beam_num
 
@@ -1696,15 +1718,37 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 
         # Set up coregistration results file
 	cd $proj_dir/$track_dir
-	check_file=$proj_dir/$track_dir/slave_coreg_results"_"$rlks"rlks_"$alks"alks.txt"
-	echo "Slave Coregistration Results "$rlks"rlks "$alks"alks" > $check_file
-	echo "final model fit std. dev. (samples)" >> $check_file
-	echo "Ref Master" > temp1
-	echo "Slave" > temp2
-	echo "Range" > temp3
-	echo "Azimuth" > temp4
-	paste temp1 temp2 temp3 temp4 >> $check_file
-	rm -f temp1 temp2 temp3 temp4
+	if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+	    check_file=$proj_dir/$track_dir/slave_coreg_results"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
+	    echo "Slave Coregistration Results "$slc_rlks"rlks "$slc_alks"alks" > $check_file
+	    echo "final model fit std. dev. (samples)" >> $check_file
+	    echo "Ref Master" > temp1
+	    echo "Slave" > temp2
+	    echo "Range" > temp3
+	    echo "Azimuth" > temp4
+	    paste temp1 temp2 temp3 temp4 >> $check_file
+	    rm -f temp1 temp2 temp3 temp4
+	else
+	    slc_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
+	    echo "Slave Coregistration Results "$slc_rlks"rlks "$slc_alks"alks" > $slc_check_file
+	    echo "final model fit std. dev. (samples)" >> $slc_check_file
+	    echo "Ref Master" > temp1
+	    echo "Slave" > temp2
+	    echo "Range" > temp3
+	    echo "Azimuth" > temp4
+	    paste temp1 temp2 temp3 temp4 >> $slc_check_file
+	    rm -f temp1 temp2 temp3 temp4
+	    
+	    ifm_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+	    echo "Slave Coregistration Results "$ifm_rlks"rlks "$ifm_alks"alks" > $ifm_check_file
+	    echo "final model fit std. dev. (samples)" >> $ifm_check_file
+	    echo "Ref Master" > temp5
+	    echo "Slave" > temp6
+	    echo "Range" > temp7
+	    echo "Azimuth" > temp8
+	    paste temp5 temp6 temp7 temp8 >> $ifm_check_file
+	    rm -f temp5 temp6 temp7 temp8
+	fi
 
 	cd $co_slc_batch_dir
 
@@ -1934,8 +1978,8 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 
                 # Set up bperp results file
 		cd $proj_dir/$track_dir
-		results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$beam_num"_"$rlks"rlks_"$alks"alks.txt"
-		echo "Interferogram bperp Results "$beam_num" "$rlks"rlks "$alks"alks" > $results_file
+		results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$beam_num"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+		echo "Interferogram bperp Results "$beam_num" "$ifm_rlks"rlks "$ifm_alks"alks" > $results_file
 		echo "Interferogram_Pair" > temp1
 		echo "bperp_Value" > temp2
 		paste temp1 temp2 >> $results_file
@@ -2143,8 +2187,8 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 
         # Set up bperp results file
 	cd $proj_dir/$track_dir
-	results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$rlks"rlks_"$alks"alks.txt"
-	echo "Interferogram bperp Results "$rlks"rlks "$alks"alks" > $results_file
+	results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+	echo "Interferogram bperp Results "$ifm_rlks"rlks "$ifm_alks"alks" > $results_file
 	echo "Interferogram_Pair" > temp1
 	echo "bperp_Value" > temp2
 	paste temp1 temp2 >> $results_file
