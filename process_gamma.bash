@@ -85,7 +85,6 @@ post_walltime=`grep post_walltime= $proc_file | cut -d "=" -f 2`
 post_mem=`grep post_mem= $proc_file | cut -d "=" -f 2`
 post_ncpus=`grep post_ncpus= $proc_file | cut -d "=" -f 2`
 
-
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
     proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
@@ -205,6 +204,7 @@ elif [ $do_setup == no -a $platform == GA ]; then
 
 elif [ $do_setup == yes -a $platform == NCI ]; then
 
+    cd $proj_dir 
 # make directories
     echo "Creating directories..." 1>&2
     mkdir -p $track_dir
@@ -215,24 +215,18 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
     frame_list=`grep List_of_frames= $proc_file | cut -d "=" -f 2`
     beam_list=`grep List_of_beams= $proc_file | cut -d "=" -f 2`
 
-    if [ -e $frame_list ]; then
+    if [ -f $frame_list ]; then
 	mv $frame_list $track_dir/lists/$frame_list
+	frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
     else
-	:
+	echo "no frame list found" 1>&2
     fi
-    if [ -e $beam_list ]; then
+    if [ -f $beam_list ]; then
 	mv $beam_list $track_dir/lists/$beam_list
+	beam_list=$proj_dir/$track_dir/lists/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
     else
-	:
+	echo "no beam list found" 1>&2
     fi
-    if [ -e $subset_file ]; then
-	mv $subset_file $track_dir/lists/$subset_file
-    else
-	:
-    fi
-
-    frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
-    beam_list=$proj_dir/$track_dir/lists/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
 
     if [ -f $beam_list ]; then # if beams exist
 	while read beam_num; do
@@ -284,68 +278,72 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
     batch_dir=$proj_dir/$track_dir/batch_jobs
     cd $batch_dir
 
-# create scenes.list file
-    echo "Creating scenes list file..." 1>&2
-    job1=scene_list_gen
-    echo \#\!/bin/bash > $job1
-    echo \#\PBS -lother=gdata1 >> $job1
-    echo \#\PBS -l walltime=$list_walltime >> $job1
-    echo \#\PBS -l mem=$list_mem >> $job1
-    echo \#\PBS -l ncpus=$list_ncpus >> $job1
-    echo \#\PBS -l wd >> $job1
-    echo \#\PBS -q copyq >> $job1
-    echo ~/repo/gamma_bash/create_scenes_list.bash $proj_dir/$proc_file >> $job1
-    chmod +x $job1
-    qsub $job1 | tee scene_list_job_id
-
-# create slaves.list file
-    echo "Creating slaves list file..." 1>&2
-    scene_list_jobid=`sed s/.r-man2// scene_list_job_id`
-    job2=slave_list_gen
-    echo \#\!/bin/bash > $job2
-    echo \#\PBS -lother=gdata1 >> $job2
-    echo \#\PBS -l walltime=$list_walltime >> $job2
-    echo \#\PBS -l mem=$list_mem >> $job2
-    echo \#\PBS -l ncpus=$list_ncpus >> $job2
-    echo \#\PBS -l wd >> $job2
-    echo \#\PBS -q normal >> $job2
-    echo \#\PBS -W depend=afterok:$scene_list_jobid >> $job2
-    echo ~/repo/gamma_bash/create_slaves_list.bash $proj_dir/$proc_file 1 >> $job2
-    chmod +x $job2
-    qsub $job2 | tee slave_list_job_id
-
-# create ifms.list file
-    echo "Creating interferogram list file..." 1>&2
-    job3=ifm_list_gen
-    echo \#\!/bin/bash > $job3
-    echo \#\PBS -lother=gdata1 >> $job3
-    echo \#\PBS -l walltime=$list_walltime >> $job3
-    echo \#\PBS -l mem=$list_mem >> $job3
-    echo \#\PBS -l ncpus=$list_ncpus >> $job3
-    echo \#\PBS -l wd >> $job3
-    echo \#\PBS -q normal >> $job3
-    echo \#\PBS -W depend=afterok:$scene_list_jobid >> $job3
-    echo ~/repo/gamma_bash/create_ifms_list.bash $proj_dir/$proc_file 1 >> $job3
-    chmod +x $job3
-    qsub $job3 | tee ifm_list_job_id
-
-# run setup error check
-    cd $batch_dir
-    slave_list_jobid=`sed s/.r-man2// slave_list_job_id`
-    ifm_list_jobid=`sed s/.r-man2// ifm_list_job_id`
-    job=setup_err_check
-    echo \#\!/bin/bash > $job
-    echo \#\PBS -lother=gdata1 >> $job
-    echo \#\PBS -l walltime=$error_walltime >> $job
-    echo \#\PBS -l mem=$error_mem >> $job
-    echo \#\PBS -l ncpus=$error_ncpus >> $job
-    echo \#\PBS -l wd >> $job
-    echo \#\PBS -q normal >> $job
-    echo \#\PBS -W depend=afterany:$scene_list_jobid:$slave_list_jobid:$ifm_list_jobid >> $job
-    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 1 >> $job
-    chmod +x $job
-    qsub $job
-
+    scene_list2=$proj_dir/$track_dir/lists/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
+    if [ ! -f $scene_list2 ]; then # if scene list doesn't exist
+        # create scenes.list file
+	echo "Creating scenes list file..." 1>&2
+	job1=scene_list_gen
+	echo \#\!/bin/bash > $job1
+	echo \#\PBS -lother=gdata1 >> $job1
+	echo \#\PBS -l walltime=$list_walltime >> $job1
+	echo \#\PBS -l mem=$list_mem >> $job1
+	echo \#\PBS -l ncpus=$list_ncpus >> $job1
+	echo \#\PBS -l wd >> $job1
+	echo \#\PBS -q copyq >> $job1
+	echo ~/repo/gamma_bash/create_scenes_list.bash $proj_dir/$proc_file >> $job1
+	chmod +x $job1
+	qsub $job1 | tee scene_list_job_id
+	
+        # create slaves.list file
+	echo "Creating slaves list file..." 1>&2
+	scene_list_jobid=`sed s/.r-man2// scene_list_job_id`
+	job2=slave_list_gen
+	echo \#\!/bin/bash > $job2
+	echo \#\PBS -lother=gdata1 >> $job2
+	echo \#\PBS -l walltime=$list_walltime >> $job2
+	echo \#\PBS -l mem=$list_mem >> $job2
+	echo \#\PBS -l ncpus=$list_ncpus >> $job2
+	echo \#\PBS -l wd >> $job2
+	echo \#\PBS -q normal >> $job2
+	echo \#\PBS -W depend=afterok:$scene_list_jobid >> $job2
+	echo ~/repo/gamma_bash/create_slaves_list.bash $proj_dir/$proc_file 1 >> $job2
+	chmod +x $job2
+	qsub $job2 | tee slave_list_job_id
+	
+        # create ifms.list file
+	echo "Creating interferogram list file..." 1>&2
+	job3=ifm_list_gen
+	echo \#\!/bin/bash > $job3
+	echo \#\PBS -lother=gdata1 >> $job3
+	echo \#\PBS -l walltime=$list_walltime >> $job3
+	echo \#\PBS -l mem=$list_mem >> $job3
+	echo \#\PBS -l ncpus=$list_ncpus >> $job3
+	echo \#\PBS -l wd >> $job3
+	echo \#\PBS -q normal >> $job3
+	echo \#\PBS -W depend=afterok:$scene_list_jobid >> $job3
+	echo ~/repo/gamma_bash/create_ifms_list.bash $proj_dir/$proc_file 1 >> $job3
+	chmod +x $job3
+	qsub $job3 | tee ifm_list_job_id
+	
+        # run setup error check
+	cd $batch_dir
+	slave_list_jobid=`sed s/.r-man2// slave_list_job_id`
+	ifm_list_jobid=`sed s/.r-man2// ifm_list_job_id`
+	job=setup_err_check
+	echo \#\!/bin/bash > $job
+	echo \#\PBS -lother=gdata1 >> $job
+	echo \#\PBS -l walltime=$error_walltime >> $job
+	echo \#\PBS -l mem=$error_mem >> $job
+	echo \#\PBS -l ncpus=$error_ncpus >> $job
+	echo \#\PBS -l wd >> $job
+	echo \#\PBS -q normal >> $job
+	echo \#\PBS -W depend=afterany:$scene_list_jobid:$slave_list_jobid:$ifm_list_jobid >> $job
+	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 1 >> $job
+	chmod +x $job
+	qsub $job
+    else # scene list exists
+	:
+    fi
 elif [ $do_setup == no -a $platform == NCI ]; then
     echo "" 1>&2
     echo "Option to setup project directories and lists not selected." 1>&2
@@ -393,43 +391,48 @@ fi
 
 if [ $do_raw == yes -a $platform == NCI ]; then
 
-    echo "Extracting raw data..." 1>&2
     cd $batch_dir
-    job=extract_raw_data 
-    echo \#\!/bin/bash > $job
-    echo \#\PBS -lother=gdata1 >> $job
-    echo \#\PBS -l walltime=$raw_walltime >> $job
-    echo \#\PBS -l mem=$raw_mem >> $job
-    echo \#\PBS -l ncpus=$raw_ncpus >> $job
-    echo \#\PBS -l wd >> $job
-    echo \#\PBS -q copyq >> $job
-    if [ $do_setup == yes -a $platform == NCI ]; then 
-	scene_list_jobid=`sed s/.r-man2// scene_list_job_id`
-	slave_list_jobid=`sed s/.r-man2// slave_list_job_id`
-	ifm_list_jobid=`sed s/.r-man2// ifm_list_job_id`
-	echo \#\PBS -W depend=afterok:$scene_list_jobid:$slave_list_jobid:$ifm_list_jobid >> $job
-    else
+    if [ -f extract_raw_dat.e* ]; then # if raw already been run
 	:
-    fi
-    echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file 0 >> $job
-    chmod +x $job
-    qsub $job | tee raw_job_id
+    else
+	echo "Extracting raw data..." 1>&2
+	cd $batch_dir
+	job=extract_raw_data 
+	echo \#\!/bin/bash > $job
+	echo \#\PBS -lother=gdata1 >> $job
+	echo \#\PBS -l walltime=$raw_walltime >> $job
+	echo \#\PBS -l mem=$raw_mem >> $job
+	echo \#\PBS -l ncpus=$raw_ncpus >> $job
+	echo \#\PBS -l wd >> $job
+	echo \#\PBS -q copyq >> $job
+	if [ $do_setup == yes -a $platform == NCI ]; then 
+	    scene_list_jobid=`sed s/.r-man2// scene_list_job_id`
+	    slave_list_jobid=`sed s/.r-man2// slave_list_job_id`
+	    ifm_list_jobid=`sed s/.r-man2// ifm_list_job_id`
+	    echo \#\PBS -W depend=afterok:$scene_list_jobid:$slave_list_jobid:$ifm_list_jobid >> $job
+	else
+	    :
+	fi
+	echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file 0 >> $job
+	chmod +x $job
+	qsub $job | tee raw_job_id
 
 # run raw extraction error check
-    cd $batch_dir
-    raw_jobid=`sed s/.r-man2// raw_job_id`
-    job=raw_err_check
-    echo \#\!/bin/bash > $job
-    echo \#\PBS -lother=gdata1 >> $job
-    echo \#\PBS -l walltime=$error_walltime >> $job
-    echo \#\PBS -l mem=$error_mem >> $job
-    echo \#\PBS -l ncpus=$error_ncpus >> $job
-    echo \#\PBS -l wd >> $job
-    echo \#\PBS -q normal >> $job
-    echo \#\PBS -W depend=afterany:$raw_jobid >> $job
-    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 2 >> $job
-    chmod +x $job
-    qsub $job | tee raw_err_job_id
+	cd $batch_dir
+	raw_jobid=`sed s/.r-man2// raw_job_id`
+	job=raw_err_check
+	echo \#\!/bin/bash > $job
+	echo \#\PBS -lother=gdata1 >> $job
+	echo \#\PBS -l walltime=$error_walltime >> $job
+	echo \#\PBS -l mem=$error_mem >> $job
+	echo \#\PBS -l ncpus=$error_ncpus >> $job
+	echo \#\PBS -l wd >> $job
+	echo \#\PBS -q normal >> $job
+	echo \#\PBS -W depend=afterany:$raw_jobid >> $job
+	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 2 >> $job
+	chmod +x $job
+	qsub $job | tee raw_err_job_id
+    fi
 
 elif [ $do_raw == no -a $platform == NCI ]; then
     echo "" 1>&2
@@ -536,8 +539,298 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 	while read beam_num; do
 	    if [ ! -z $beam_num ]; then
 		cd $slc_batch_dir/$beam_num
-
-		function create_jobs {
+		if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		    if [ ! -e $scene_list ]; then # if scene list doesn't exist
+		        # rerun process_gamma.bash once do setup and do raw are finished
+			raw_jobid=`sed s/.r-man2// $batch_dir/raw_job_id`
+			job=rerun_process_gamma
+			echo \#\!/bin/bash > $job
+			echo \#\PBS -lother=gdata1 >> $job
+			echo \#\PBS -l walltime=$list_walltime >> $job
+			echo \#\PBS -l mem=$list_mem >> $job
+			echo \#\PBS -l ncpus=$list_ncpus >> $job
+			echo \#\PBS -l wd >> $job
+			echo \#\PBS -q normal >> $job
+			echo \#\PBS -W depend=afterok:$raw_jobid >> $job
+			echo ~/repo/gamma_bash/process_gamma.bash $proj_dir/$proc_file >> $job
+			chmod +x $job
+			qsub $job
+		    else # scene list exists
+			function create_jobs {
+			    local njobs=$1
+			    local nsteps=$2
+			    local i=$3
+			    local wt=$(( wt1*nsteps ))
+			    local hh=$(( wt/60 ))
+			    local mm=$(( wt%60 ))
+			    local m=0
+			    local n=0
+			    
+			    for(( m=0; m<njobs; m++ )); do
+				i=$(( i+=1 ))
+				jobdir=$job_dir_prefix$i
+				mkdir -p $jobdir
+				cd $jobdir
+				job=$pbs_job_prefix$i
+				
+				echo Doing job $i in $jobdir with $job
+				
+				echo \#\!/bin/bash > $job 
+				echo \#\PBS -l other=gdata1 >> $job
+				echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
+				echo \#\PBS -l mem=$slc_mem >> $job
+				echo \#\PBS -l ncpus=$slc_ncpus >> $job
+				echo \#\PBS -l wd >> $job
+				echo \#\PBS -q normal >> $job
+				echo -e "\n" >> $job
+				
+				for(( n=0; n<nsteps; n++ )); do
+				    read scene
+				    echo $scene
+				    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+					echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				    else
+					echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+					echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+				    fi
+        			done
+				chmod +x $job
+				qsub $job | tee $slc_batch_dir/$beam_num/"slc_"$beam_num"_"$i"_job_id"
+				cd ..
+			    done
+			}
+			
+                        # Work starts here
+			cd $slc_batch_dir/$beam_num
+			nlines=`cat $scene_list | sed '/^\s*$/d' | wc -l`
+			echo Need to process $nlines files
+			
+                        # Need to run kjobs with k steps and ljobs with l steps. 
+			if [ $nlines -le $maxjobs ]; then
+			    kjobs=$nlines
+			    k=1
+			    ljobs=0
+			    l=0
+			else
+			    l=$((nlines/maxjobs))
+			    k=$((nlines%maxjobs))
+			    kjobs=$k
+			    k=$((l+1))
+			    ljobs=$((maxjobs-kjobs))
+			fi
+			echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
+			j=0
+			{
+			    create_jobs kjobs k j 
+			    create_jobs ljobs l kjobs 
+			} < $scene_list
+			
+         	        # create dependency list (make sure all slcs are finished before error consolidation)
+			cd $slc_batch_dir/$beam_num
+			ls "slc_"$beam_num"_"*"_job_id" > list1
+			if [ -f list2 ]; then
+			    rm -rf list2
+			else
+			    :
+			fi
+			while read id; do
+			    less $id >> list2 
+			done < list1
+			sed s/.r-man2// list2 > list3 # leave just job numbers
+			sort -n list3 > list4 # sort numbers
+			tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
+			sed s'/.$//' list5 > "all_slc_"$beam_num"_job_id" # remove last :
+			dep=`awk '{print $1}' "all_slc_"$beam_num"_job_id"`
+			rm -rf list* "slc_"$beam_num"_"*"_job_id"
+			
+                        # in case future manual processing is required, create manual PBS jobs for each scene
+			cd $slc_manual_dir/$beam_num
+			while read list; do
+			    scene=`echo $list | awk '{print $1}'`
+			    job="slc_"$beam_num"_"$scene
+			    echo \#\!/bin/bash > $job
+			    echo \#\PBS -lother=gdata1 >> $job
+			    echo \#\PBS -l walltime=$slc_walltime >> $job
+			    echo \#\PBS -l mem=$slc_mem >> $job
+			    echo \#\PBS -l ncpus=$slc_ncpus >> $job
+			    echo \#\PBS -l wd >> $job
+			    echo \#\PBS -q normal >> $job
+			    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+			    else
+				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+			    fi
+			    chmod +x $job
+			done < $scene_list		
+			
+                        # run slc error check
+			cd $slc_batch_dir/$beam_num
+			job="slc_err_check"$beam_num
+			echo \#\!/bin/bash > $job
+			echo \#\PBS -lother=gdata1 >> $job
+			echo \#\PBS -l walltime=$error_walltime >> $job
+			echo \#\PBS -l mem=$error_mem >> $job
+			echo \#\PBS -l ncpus=$error_ncpus >> $job
+			echo \#\PBS -l wd >> $job
+			echo \#\PBS -q normal >> $job
+			echo \#\PBS -W depend=afterany:$dep >> $job
+			echo ~/repo/gamma_bash/collate_nci_errors.bash $proc_file 3 $beam_num >> $job
+			chmod +x $job
+			qsub $job 
+		    fi
+		else # process as normal
+		    function create_jobs {
+			local njobs=$1
+			local nsteps=$2
+			local i=$3
+			local wt=$(( wt1*nsteps ))
+			local hh=$(( wt/60 ))
+			local mm=$(( wt%60 ))
+			local m=0
+			local n=0
+			
+			for(( m=0; m<njobs; m++ )); do
+			    i=$(( i+=1 ))
+			    jobdir=$job_dir_prefix$i
+			    mkdir -p $jobdir
+			    cd $jobdir
+			    job=$pbs_job_prefix$i
+			    
+			    echo Doing job $i in $jobdir with $job
+			    
+			    echo \#\!/bin/bash > $job 
+			    echo \#\PBS -l other=gdata1 >> $job
+			    echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
+			    echo \#\PBS -l mem=$slc_mem >> $job
+			    echo \#\PBS -l ncpus=$slc_ncpus >> $job
+			    echo \#\PBS -l wd >> $job
+			    echo \#\PBS -q normal >> $job
+			    echo -e "\n" >> $job
+			    if [ $do_raw == yes -a $platform == NCI ]; then
+				raw_jobid=`sed s/.r-man2// $batch_dir/raw_job_id`
+				echo \#\PBS -W depend=afterok:$raw_jobid >> $job
+			    else
+				:
+			    fi
+			    
+			    for(( n=0; n<nsteps; n++ )); do
+				read scene
+				echo $scene
+				if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+				    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				else
+				    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+				fi
+        		    done
+			    chmod +x $job
+			    qsub $job | tee $slc_batch_dir/$beam_num/"slc_"$beam_num"_"$i"_job_id"
+			    cd ..
+			done
+		    }
+		    
+                    # Work starts here
+		    cd $slc_batch_dir/$beam_num
+		    nlines=`cat $scene_list | sed '/^\s*$/d' | wc -l`
+		    echo Need to process $nlines files
+		    
+                    # Need to run kjobs with k steps and ljobs with l steps. 
+		    if [ $nlines -le $maxjobs ]; then
+			kjobs=$nlines
+			k=1
+			ljobs=0
+			l=0
+		    else
+			l=$((nlines/maxjobs))
+			k=$((nlines%maxjobs))
+			kjobs=$k
+			k=$((l+1))
+			ljobs=$((maxjobs-kjobs))
+		    fi
+		    echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
+		    j=0
+		    {
+			create_jobs kjobs k j 
+			create_jobs ljobs l kjobs 
+		    } < $scene_list
+		    
+	            # create dependency list (make sure all slcs are finished before error consolidation)
+		    cd $slc_batch_dir/$beam_num
+		    ls "slc_"$beam_num"_"*"_job_id" > list1
+		    if [ -f list2 ]; then
+			rm -rf list2
+		    else
+			:
+		    fi
+		    while read id; do
+			less $id >> list2 
+		    done < list1
+		    sed s/.r-man2// list2 > list3 # leave just job numbers
+		    sort -n list3 > list4 # sort numbers
+		    tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
+		    sed s'/.$//' list5 > "all_slc_"$beam_num"_job_id" # remove last :
+		    dep=`awk '{print $1}' "all_slc_"$beam_num"_job_id"`
+		    rm -rf list* "slc_"$beam_num"_"*"_job_id"
+		    
+                    # in case future manual processing is required, create manual PBS jobs for each scene
+		    cd $slc_manual_dir/$beam_num
+		    while read list; do
+			scene=`echo $list | awk '{print $1}'`
+			job="slc_"$beam_num"_"$scene
+			echo \#\!/bin/bash > $job
+			echo \#\PBS -lother=gdata1 >> $job
+			echo \#\PBS -l walltime=$slc_walltime >> $job
+			echo \#\PBS -l mem=$slc_mem >> $job
+			echo \#\PBS -l ncpus=$slc_ncpus >> $job
+			echo \#\PBS -l wd >> $job
+			echo \#\PBS -q normal >> $job
+			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+			else
+			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+			fi
+			chmod +x $job
+		    done < $scene_list		
+		    
+                    # run slc error check
+		    cd $slc_batch_dir/$beam_num
+		    job="slc_err_check"$beam_num
+		    echo \#\!/bin/bash > $job
+		    echo \#\PBS -lother=gdata1 >> $job
+		    echo \#\PBS -l walltime=$error_walltime >> $job
+		    echo \#\PBS -l mem=$error_mem >> $job
+		    echo \#\PBS -l ncpus=$error_ncpus >> $job
+		    echo \#\PBS -l wd >> $job
+		    echo \#\PBS -q normal >> $job
+		    echo \#\PBS -W depend=afterany:$dep >> $job
+		    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 3 $beam_num >> $job
+		    chmod +x $job
+		    qsub $job 
+		fi
+	    fi
+	done < $beam_list
+    else # no beams
+	cd $slc_batch_dir
+	if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+	    if [ ! -e $scene_list ]; then # if scene list doesn't exist
+		# rerun process_gamma.bash once do setup and do raw are finished
+		raw_jobid=`sed s/.r-man2// $batch_dir/raw_job_id`
+		job=rerun_process_gamma
+		echo \#\!/bin/bash > $job
+		echo \#\PBS -lother=gdata1 >> $job
+		echo \#\PBS -l walltime=$list_walltime >> $job
+		echo \#\PBS -l mem=$list_mem >> $job
+		echo \#\PBS -l ncpus=$list_ncpus >> $job
+		echo \#\PBS -l wd >> $job
+		echo \#\PBS -q normal >> $job
+		echo \#\PBS -W depend=afterok:$raw_jobid >> $job
+		echo ~/repo/gamma_bash/process_gamma.bash $proj_dir/$proc_file >> $job
+		chmod +x $job
+		qsub $job
+	    else # scene list exists
+	       	function create_jobs {
 		    local njobs=$1
 		    local nsteps=$2
 		    local i=$3
@@ -546,16 +839,14 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		    local mm=$(( wt%60 ))
 		    local m=0
 		    local n=0
-
+		    
 		    for(( m=0; m<njobs; m++ )); do
-			i=$(( i+=1 ))
-			jobdir=$job_dir_prefix$i
-			mkdir -p $jobdir
-			cd $jobdir
-			job=$pbs_job_prefix$i
-
+        		i=$(( i+=1 ))
+        		jobdir=$job_dir_prefix$i
+        		mkdir -p $jobdir
+        		cd $jobdir
+        		job=$pbs_job_prefix$i
 			echo Doing job $i in $jobdir with $job
-
 			echo \#\!/bin/bash > $job 
 			echo \#\PBS -l other=gdata1 >> $job
 			echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
@@ -564,34 +855,27 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			echo \#\PBS -l wd >> $job
 			echo \#\PBS -q normal >> $job
 			echo -e "\n" >> $job
-			if [ $do_raw == yes -a $platform == NCI ]; then
-			    raw_jobid=`sed s/.r-man2// $batch_dir/raw_job_id`
-			    echo \#\PBS -W depend=afterok:$raw_jobid >> $job
-			else
-			    :
-			fi
 
 			for(( n=0; n<nsteps; n++ )); do
 			    read scene
 			    echo $scene
 			    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
 			    else
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
+				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $ifm_rlks $ifm_alks >> $job
 			    fi
         		done
 			chmod +x $job
-			qsub $job | tee $slc_batch_dir/$beam_num/"slc_"$beam_num"_"$i"_job_id"
+			qsub $job | tee $slc_batch_dir/"slc_"$i"_job_id"		
 			cd ..
 		    done
 		}
-
                 # Work starts here
-		cd $slc_batch_dir/$beam_num
+		cd $slc_batch_dir
 		nlines=`cat $scene_list | sed '/^\s*$/d' | wc -l`
 		echo Need to process $nlines files
-
+		
                 # Need to run kjobs with k steps and ljobs with l steps. 
 		if [ $nlines -le $maxjobs ]; then
 		    kjobs=$nlines
@@ -611,10 +895,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		    create_jobs kjobs k j 
 		    create_jobs ljobs l kjobs 
 		} < $scene_list
-
+		
 	        # create dependency list (make sure all slcs are finished before error consolidation)
-		cd $slc_batch_dir/$beam_num
-		ls "slc_"$beam_num"_"*"_job_id" > list1
+		cd $slc_batch_dir
+		ls "slc_"*"_job_id" > list1
 		if [ -f list2 ]; then
 		    rm -rf list2
 		else
@@ -626,15 +910,15 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		sed s/.r-man2// list2 > list3 # leave just job numbers
 		sort -n list3 > list4 # sort numbers
 		tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
-		sed s'/.$//' list5 > "all_slc_"$beam_num"_job_id" # remove last :
-		dep=`awk '{print $1}' "all_slc_"$beam_num"_job_id"`
-		rm -rf list* "slc_"$beam_num"_"*"_job_id"
+		sed s'/.$//' list5 > all_slc_job_id # remove last :
+		dep=`awk '{print $1}' all_slc_job_id`
+		rm -rf list* "slc_"*"_job_id"
 		
                 # in case future manual processing is required, create manual PBS jobs for each scene
-		cd $slc_manual_dir/$beam_num
+		cd $slc_manual_dir
 		while read list; do
 		    scene=`echo $list | awk '{print $1}'`
-		    job="slc_"$beam_num"_"$scene
+		    job="slc_"$scene
 		    echo \#\!/bin/bash > $job
 		    echo \#\PBS -lother=gdata1 >> $job
 		    echo \#\PBS -l walltime=$slc_walltime >> $job
@@ -643,17 +927,17 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		    echo \#\PBS -l wd >> $job
 		    echo \#\PBS -q normal >> $job
 		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		    else
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		    fi
 		    chmod +x $job
-		done < $scene_list		
-
+		done < $scene_list
+		
                 # run slc error check
-		cd $slc_batch_dir/$beam_num
-		job="slc_err_check"$beam_num
+		cd $slc_batch_dir
+		job=slc_err_check
 		echo \#\!/bin/bash > $job
 		echo \#\PBS -lother=gdata1 >> $job
 		echo \#\PBS -l walltime=$error_walltime >> $job
@@ -662,141 +946,138 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		echo \#\PBS -W depend=afterany:$dep >> $job
-		echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 3 $beam_num >> $job
+		echo ~/repo/gamma_bash/collate_nci_errors.bash $proc_file 3 >> $job
 		chmod +x $job
-		qsub $job 
+		qsub $job
 	    fi
-	done < $beam_list
-    else # no beams
-	cd $slc_batch_dir
-
-	function create_jobs {
-	    local njobs=$1
-	    local nsteps=$2
-	    local i=$3
-	    local wt=$(( wt1*nsteps ))
-	    local hh=$(( wt/60 ))
-	    local mm=$(( wt%60 ))
-	    local m=0
-	    local n=0
-
-	    for(( m=0; m<njobs; m++ )); do
-        	i=$(( i+=1 ))
-        	jobdir=$job_dir_prefix$i
-        	mkdir -p $jobdir
-        	cd $jobdir
-        	job=$pbs_job_prefix$i
-		echo Doing job $i in $jobdir with $job
-		echo \#\!/bin/bash > $job 
-		echo \#\PBS -l other=gdata1 >> $job
-		echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
+	else # process as normal
+	    function create_jobs {
+		local njobs=$1
+		local nsteps=$2
+		local i=$3
+		local wt=$(( wt1*nsteps ))
+		local hh=$(( wt/60 ))
+		local mm=$(( wt%60 ))
+		local m=0
+		local n=0
+		
+		for(( m=0; m<njobs; m++ )); do
+        	    i=$(( i+=1 ))
+        	    jobdir=$job_dir_prefix$i
+        	    mkdir -p $jobdir
+        	    cd $jobdir
+        	    job=$pbs_job_prefix$i
+		    echo Doing job $i in $jobdir with $job
+		    echo \#\!/bin/bash > $job 
+		    echo \#\PBS -l other=gdata1 >> $job
+		    echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
+		    echo \#\PBS -l mem=$slc_mem >> $job
+		    echo \#\PBS -l ncpus=$slc_ncpus >> $job
+		    echo \#\PBS -l wd >> $job
+		    echo \#\PBS -q normal >> $job
+		    echo -e "\n" >> $job
+		    if [ $do_raw == yes -a $platform == NCI ]; then
+			raw_jobid=`sed s/.r-man2// $batch_dir/raw_job_id`
+			echo \#\PBS -W depend=afterok:$raw_jobid >> $job
+		    else
+			:
+		    fi
+		    
+		    for(( n=0; n<nsteps; n++ )); do
+			read scene
+			echo $scene
+			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			else
+			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+			fi
+        	    done
+		    chmod +x $job
+		    qsub $job | tee $slc_batch_dir/"slc_"$i"_job_id"		
+		    cd ..
+		done
+	    }
+            # Work starts here
+	    cd $slc_batch_dir
+	    nlines=`cat $scene_list | sed '/^\s*$/d' | wc -l`
+	    echo Need to process $nlines files
+	    
+            # Need to run kjobs with k steps and ljobs with l steps. 
+	    if [ $nlines -le $maxjobs ]; then
+		kjobs=$nlines
+		k=1
+		ljobs=0
+		l=0
+	    else
+		l=$((nlines/maxjobs))
+		k=$((nlines%maxjobs))
+		kjobs=$k
+		k=$((l+1))
+		ljobs=$((maxjobs-kjobs))
+	    fi
+	    echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
+	    j=0
+	    {
+		create_jobs kjobs k j 
+		create_jobs ljobs l kjobs 
+	    } < $scene_list
+	    
+	    # create dependency list (make sure all slcs are finished before error consolidation)
+	    cd $slc_batch_dir
+	    ls "slc_"*"_job_id" > list1
+	    if [ -f list2 ]; then
+		rm -rf list2
+	    else
+		:
+	    fi
+	    while read id; do
+		less $id >> list2 
+	    done < list1
+	    sed s/.r-man2// list2 > list3 # leave just job numbers
+	    sort -n list3 > list4 # sort numbers
+	    tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
+	    sed s'/.$//' list5 > all_slc_job_id # remove last :
+	    dep=`awk '{print $1}' all_slc_job_id`
+	    rm -rf list* "slc_"*"_job_id"
+	    
+            # in case future manual processing is required, create manual PBS jobs for each scene
+	    cd $slc_manual_dir
+	    while read list; do
+		scene=`echo $list | awk '{print $1}'`
+		job="slc_"$scene
+		echo \#\!/bin/bash > $job
+		echo \#\PBS -lother=gdata1 >> $job
+		echo \#\PBS -l walltime=$slc_walltime >> $job
 		echo \#\PBS -l mem=$slc_mem >> $job
 		echo \#\PBS -l ncpus=$slc_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
-		echo -e "\n" >> $job
-		if [ $do_raw == yes -a $platform == NCI ]; then
-		    raw_jobid=`sed s/.r-man2// $batch_dir/raw_job_id`
-		    echo \#\PBS -W depend=afterok:$raw_jobid >> $job
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		else
-		    :
+		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		fi
-
-		for(( n=0; n<nsteps; n++ )); do
-                    read scene
-                    echo $scene
-		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		    else
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
-		    fi
-        	done
 		chmod +x $job
-		qsub $job | tee $slc_batch_dir/"slc_"$i"_job_id"		
-		cd ..
-	    done
-	}
-        # Work starts here
-	cd $slc_batch_dir
-	nlines=`cat $scene_list | sed '/^\s*$/d' | wc -l`
-	echo Need to process $nlines files
+	    done < $scene_list
 	
-        # Need to run kjobs with k steps and ljobs with l steps. 
-	if [ $nlines -le $maxjobs ]; then
-	    kjobs=$nlines
-	    k=1
-	    ljobs=0
-	    l=0
-	else
-	    l=$((nlines/maxjobs))
-	    k=$((nlines%maxjobs))
-	    kjobs=$k
-	    k=$((l+1))
-	    ljobs=$((maxjobs-kjobs))
-	fi
-	echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
-	j=0
-	{
-	    create_jobs kjobs k j 
-	    create_jobs ljobs l kjobs 
-	} < $scene_list
-	
-	# create dependency list (make sure all slcs are finished before error consolidation)
-	cd $slc_batch_dir
-	ls "slc_"*"_job_id" > list1
-	if [ -f list2 ]; then
-	    rm -rf list2
-	else
-	    :
-	fi
-	while read id; do
-	    less $id >> list2 
-	done < list1
-	sed s/.r-man2// list2 > list3 # leave just job numbers
-	sort -n list3 > list4 # sort numbers
-	tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
-	sed s'/.$//' list5 > all_slc_job_id # remove last :
-	dep=`awk '{print $1}' all_slc_job_id`
-	rm -rf list* "slc_"*"_job_id"
-
-        # in case future manual processing is required, create manual PBS jobs for each scene
-	cd $slc_manual_dir
-	while read list; do
-	    scene=`echo $list | awk '{print $1}'`
-	    job="slc_"$scene
+            # run slc error check
+	    cd $slc_batch_dir
+	    job=slc_err_check
 	    echo \#\!/bin/bash > $job
 	    echo \#\PBS -lother=gdata1 >> $job
-	    echo \#\PBS -l walltime=$slc_walltime >> $job
-	    echo \#\PBS -l mem=$slc_mem >> $job
-	    echo \#\PBS -l ncpus=$slc_ncpus >> $job
+	    echo \#\PBS -l walltime=$error_walltime >> $job
+	    echo \#\PBS -l mem=$error_mem >> $job
+	    echo \#\PBS -l ncpus=$error_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-	    else
-		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
-	    fi
+	    echo \#\PBS -W depend=afterany:$dep >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 3 >> $job
 	    chmod +x $job
-	done < $scene_list
-	
-        # run slc error check
-	cd $slc_batch_dir
-	job=slc_err_check
-	echo \#\!/bin/bash > $job
-	echo \#\PBS -lother=gdata1 >> $job
-	echo \#\PBS -l walltime=$error_walltime >> $job
-	echo \#\PBS -l mem=$error_mem >> $job
-	echo \#\PBS -l ncpus=$error_ncpus >> $job
-	echo \#\PBS -l wd >> $job
-	echo \#\PBS -q normal >> $job
-	echo \#\PBS -W depend=afterany:$dep >> $job
-	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 3 >> $job
-	chmod +x $job
-	qsub $job
+	    qsub $job
+	fi
     fi
-
 elif [ $do_slc == no -a $platform == NCI ]; then
     echo "" 1>&2
     echo "Option to create SLC data not selected." 1>&2
