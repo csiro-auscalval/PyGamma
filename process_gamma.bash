@@ -1442,7 +1442,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 			:
 		    fi
                     # no multi-look value - for geocoding full SLC data
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
+		    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
                     # SLC and ifm multi-look value (same value)
 		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
@@ -1466,7 +1466,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		    echo \#\PBS -l wd >> $job
 		    echo \#\PBS -q normal >> $job
                     # no multi-look value - for geocoding full SLC data
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
+		    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
                     # SLC and ifm multi-look value (same value)
 		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
@@ -1670,7 +1670,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		:
 	    fi
             # no multi-look value - for geocoding full SLC data
-	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
+	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
             # SLC and ifm multi-look value (same value)
 	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - >> $job
@@ -1694,7 +1694,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
             # no multi-look value - for geocoding full SLC data
-	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
+	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
             # SLC and ifm multi-look value (same value)
 	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - >> $job
