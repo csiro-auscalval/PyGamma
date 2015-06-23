@@ -50,9 +50,9 @@ azimuth_lines=-
     # options: yes/no
 Setup=yes
 Do_raw_data=yes
-Do_SLC=no
-Coregister_DEM=no
-Coregister_slaves=no
+Do_SLC=yes
+Coregister_DEM=yes
+Coregister_slaves=yes
     # only process interferograms after slave coregistration has been checked
 Process_ifms=no
     # options for adding new SLCs to already processed dataset
@@ -95,6 +95,8 @@ ifm_multi_look=4
 
 
 ##### Make Reference Master DEM Parameters (for create_diff_par) ##### 
+    # range, azimuth offsets of image2 relative to image1 (samples) (default 0 0): - for full DEM only, auto calculated for mli 
+offset=0 0
     # enter number of offset measurements in range, azimuth (default 32 32):
 offset_measure=32 32
     # search window sizes (32, 64, 128...) (range, azimuth) (default 256 256):

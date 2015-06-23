@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# set enivronment variable specific to script
+export OMP_NUM_THREADS=4
+    
 display_usage() {
     echo ""
     echo "*******************************************************************************"
@@ -55,6 +58,7 @@ sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
+noffset=`grep offset= $proc_file | cut -d "=" -f 2`
 offset_measure=`grep offset_measure= $proc_file | cut -d "=" -f 2`
 dem_win=`grep dem_win= $proc_file | cut -d "=" -f 2`
 dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
@@ -208,7 +212,6 @@ echo " "
 ## Derivation of initial geocoding look-up table and simulated SAR intensity image
 # note: gc_map can produce looking vector grids and shadow and layover maps
 # pre-determine segmented DEM_par by inputting constant height (necessary to avoid a bug in using gc_map)
-
 if [ -e $utm_dem_par ]; then
     echo " "
     echo  $utm_dem_par" exists, removing file."
@@ -233,13 +236,36 @@ master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
 GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
 
 ## Fine coregistration of master MLI and simulated SAR image
-# Make file to input user-defined values from proc file
-returns=$dem_dir/returns
-echo "" > $returns 
-echo "" >> $returns 
-echo $offset_measure >> $returns
-echo $dem_win >> $returns 
-echo $dem_snr >> $returns 
+# Make file to input user-defined values from proc file #
+#for full dem:
+if [ $rlks -eq 1 -a $alks -eq 1]; then
+    returns=$dem_dir/returns
+    echo "" > $returns #default scene title
+    echo $noffset >> $returns
+    echo $offset_measure >> $returns
+    echo $dem_win >> $returns 
+    echo $dem_snr >> $returns 
+#for mli
+else
+    noffset1=`echo $noffset | awk '{print $1}'`
+    if [ $noffset1 -eq 0 ]; then
+	noff1=0
+    else
+	noff1=`echo $noffset1 | awk '{print $1/$rlks}'`
+    fi
+    noffset2=`echo $noffset | awk '{print $2}'`
+    if [ $noffset2 -eq 0 ]; then
+	noff2=0
+    else
+	noff2=`echo $noffset2 | awk '{print $1/$alks}'`
+    fi
+    returns=$dem_dir/returns
+    echo "" > $returns #default scene title
+    echo $noff1 $noff2 >> $returns
+    echo $offset_measure >> $returns
+    echo $dem_win >> $returns 
+    echo $dem_snr >> $returns 
+fi
 
 ## The high accuracy of Sentinel-1 orbits requires only an offset fit term rather than higher order polynomial terms
 if [ $sensor == S1 ]; then
