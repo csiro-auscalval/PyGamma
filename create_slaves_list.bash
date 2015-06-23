@@ -48,20 +48,20 @@ add_slave_list=$proj_dir/$track_dir/lists/`grep List_of_add_slaves= $proc_file |
 
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
-echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
-echo "" 1>&2
 
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING PROJECT: "$project $track_dir
+echo ""
 
 if [ $type -eq 1 ]; then
     echo "Slaves List File Creation" 1>&2
-    echo "" 1>&2
     ## Create list of slave SLCs
     cd $proj_dir/$track_dir
     sed "/$master/d" $scene_list > $slave_list
 else
     echo "Additional Slaves List File Creation" 1>&2
-    echo "" 1>&2
     cp $add_scene_list $add_slave_list
 fi
 

@@ -59,12 +59,18 @@ else
 fi
 
 ## Insert scene details top of NCI .e file
-    echo "" 1>&2 
-    echo "" 1>&2
-    echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
-    echo "" 1>&2
-    echo "Extract Raw Data" 1>&2
-    echo "" 1>&2
+echo "" 1>&2 
+echo "" 1>&2
+echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+echo "" 1>&2
+echo "Extract Raw Data" 1>&2
+echo "" 1>&2
+
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING PROJECT: "$project $track_dir
+echo ""
 
 if [ $platform == GA ]; then # raw data only, DEM already extracted
     if [ -f $frame_list ]; then 

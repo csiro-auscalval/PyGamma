@@ -49,6 +49,13 @@ echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 echo "" 1>&2
 echo "Calculate Subscene" 1>&2
 
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING_PROJECT: "$project $track_dir
+echo ""
+echo "Calculate Subscene"
+
 ## Copy output of Gamma programs to log files
 GM()
 {

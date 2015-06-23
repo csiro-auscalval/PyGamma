@@ -104,7 +104,14 @@ fi
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
+echo "PROCESSING PROJECT: "$project $track_dir 1>&2
+echo "" 1>&2
+
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING PROJECT: "$project $track_dir
+echo ""
 
 
 ## Load GAMMA based on platform
@@ -206,7 +213,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 
     cd $proj_dir 
 # make directories
-    echo "Creating directories..." 1>&2
+    echo "Creating directories..."
     mkdir -p $track_dir
     mkdir -p $track_dir/error_results
     mkdir -p $track_dir/lists
@@ -219,13 +226,14 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	mv $frame_list $track_dir/lists/$frame_list
 	frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
     else
-	echo "no frame list found" 1>&2
+	echo "No frame list found, assume dataset has no frames." 1>&2
     fi
     if [ -f $beam_list ]; then
 	mv $beam_list $track_dir/lists/$beam_list
 	beam_list=$proj_dir/$track_dir/lists/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
     else
-	echo "no beam list found" 1>&2
+	echo "No beam list found, assume dataset has no beams." 1>&2
+
     fi
 
     if [ -f $beam_list ]; then # if beams exist
@@ -281,7 +289,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
     scene_list2=$proj_dir/$track_dir/lists/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
     if [ ! -f $scene_list2 ]; then # if scene list doesn't exist
         # create scenes.list file
-	echo "Creating scenes list file..." 1>&2
+	echo "Creating scenes list file..."
 	job1=scene_list_gen
 	echo \#\!/bin/bash > $job1
 	echo \#\PBS -lother=gdata1 >> $job1
@@ -295,7 +303,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	qsub $job1 | tee scene_list_job_id
 	
         # create slaves.list file
-	echo "Creating slaves list file..." 1>&2
+	echo "Creating slaves list file..."
 	scene_list_jobid=`sed s/.r-man2// scene_list_job_id`
 	job2=slave_list_gen
 	echo \#\!/bin/bash > $job2
@@ -311,7 +319,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	qsub $job2 | tee slave_list_job_id
 	
         # create ifms.list file
-	echo "Creating interferogram list file..." 1>&2
+	echo "Creating interferogram list file..."
 	job3=ifm_list_gen
 	echo \#\!/bin/bash > $job3
 	echo \#\PBS -lother=gdata1 >> $job3
@@ -326,6 +334,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	qsub $job3 | tee ifm_list_job_id
 	
         # run setup error check
+	echo "Preparing error collation for 'do_setup'..."
 	cd $batch_dir
 	slave_list_jobid=`sed s/.r-man2// slave_list_job_id`
 	ifm_list_jobid=`sed s/.r-man2// ifm_list_job_id`
@@ -345,9 +354,9 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	:
     fi
 elif [ $do_setup == no -a $platform == NCI ]; then
-    echo "" 1>&2
-    echo "Option to setup project directories and lists not selected." 1>&2
-    echo "" 1>&2
+    echo ""
+    echo "Option to setup project directories and lists not selected."
+    echo ""
 else
     :
 fi
@@ -395,7 +404,8 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     if [ -f extract_raw_dat.e* ]; then # if raw already been run
 	:
     else
-	echo "Extracting raw data..." 1>&2
+	echo ""
+	echo "Extracting raw data..."
 	cd $batch_dir
 	job=extract_raw_data 
 	echo \#\!/bin/bash > $job
@@ -419,6 +429,7 @@ if [ $do_raw == yes -a $platform == NCI ]; then
 
 # run raw extraction error check
 	cd $batch_dir
+	echo "Preparing error collation for 'do_raw'..."
 	raw_jobid=`sed s/.r-man2// raw_job_id`
 	job=raw_err_check
 	echo \#\!/bin/bash > $job
@@ -435,9 +446,9 @@ if [ $do_raw == yes -a $platform == NCI ]; then
     fi
 
 elif [ $do_raw == no -a $platform == NCI ]; then
-    echo "" 1>&2
-    echo "Option to extract raw data not selected." 1>&2
-    echo "" 1>&2
+    echo ""
+    echo "Option to extract raw data not selected."
+    echo ""
 
 else
     :
@@ -520,8 +531,8 @@ elif [ $do_slc == no -a $platform == GA ]; then
 #### NCI ####
 
 elif [ $do_slc == yes -a $platform == NCI ]; then
-
-    echo "Creating SLC data..." 1>&2
+    echo ""
+    echo "Creating SLC data..."
     slc_batch_dir=$batch_dir/slc_jobs
     slc_manual_dir=$manual_dir/slc_jobs
 
@@ -665,6 +676,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			done < $scene_list		
 			
                         # run slc error check
+			echo "Preparing error collation for 'do_slc'..."
 			cd $slc_batch_dir/$beam_num
 			job="slc_err_check"$beam_num
 			echo \#\!/bin/bash > $job
@@ -795,6 +807,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		    done < $scene_list		
 		    
                     # run slc error check
+		    echo "Preparing error collation for 'do_slc'..."
 		    cd $slc_batch_dir/$beam_num
 		    job="slc_err_check"$beam_num
 		    echo \#\!/bin/bash > $job
@@ -936,6 +949,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		done < $scene_list
 		
                 # run slc error check
+		echo "Preparing error collation for 'do_slc'..."
 		cd $slc_batch_dir
 		job=slc_err_check
 		echo \#\!/bin/bash > $job
@@ -1063,6 +1077,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 	    done < $scene_list
 	
             # run slc error check
+	    echo "Preparing error collation for 'do_slc'..."
 	    cd $slc_batch_dir
 	    job=slc_err_check
 	    echo \#\!/bin/bash > $job
@@ -1079,9 +1094,9 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 	fi
     fi
 elif [ $do_slc == no -a $platform == NCI ]; then
-    echo "" 1>&2
-    echo "Option to create SLC data not selected." 1>&2
-    echo "" 1>&2
+    echo ""
+    echo "Option to create SLC data not selected."
+    echo ""
 else
     :
 fi
@@ -1265,8 +1280,8 @@ elif [ $coregister_dem == no -a $platform == GA ]; then
 
 #### NCI ####
 elif [ $coregister_dem == yes -a $platform == NCI ]; then
-
-    echo "Coregistering DEM to master scene..." 1>&2
+    echo ""
+    echo "Coregistering DEM to reference master scene..."
     dem_batch_dir=$batch_dir/dem_jobs
     dem_manual_dir=$manual_dir/dem_jobs
     if [ -f $beam_list ]; then # if beam list exists
@@ -1278,6 +1293,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		    if [ $roff == "-" -a $rlines == "-" -a $azoff == "-" -a $azlines == "-" ]; then
                         # no multi-look value - for geocoding full SLC and determining pixels for subsetting master scene
                         # set up header for PBS job
+			echo "Coregistering full resolution DEM in preparation for subsetting..."
 			job="coreg_full_dem_"$beam_num
 			echo \#\!/bin/bash > $job
 			echo \#\PBS -lother=gdata1 >> $job
@@ -1298,6 +1314,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 
                         # determine subset pixels and update proc file with values
                         # set up header for PBS job
+			echo "Calculating pixel values for subsetting..."
 			full_dem_jobid=`sed s/.r-man2// "full_dem_"$beam_num"_job_id"`
 			job="calc_subset_dem_"$beam_num
 			echo \#\!/bin/bash > $job
@@ -1313,6 +1330,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 			qsub $job | tee "calc_subset_dem_"$beam_num"_job_id"
 
 		        #rerun process_gamma.bash once calc_subset has run to include subset values in coreg_sub_dem PBS job
+			echo "Preparing job to rerun 'process_gamma.bash' to coregister subsetted DEM to subsetted reference master scene..."
 			subset_jobid=`sed s/.r-man2// "calc_subset_dem_"$beam_num"_job_id"`
 			job=rerun_process_gamma
 			echo \#\!/bin/bash > $job
@@ -1356,6 +1374,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 			if [ -f rerun_process_g.e* ]; then
 			    # subset dem
                             # set up header for PBS job
+			    echo "Coregistering subsetted DEM to subsetted reference  master scene..."
 			    job="coreg_sub_dem_"$beam_num
 			    echo \#\!/bin/bash > $job
 			    echo \#\PBS -lother=gdata1 >> $job
@@ -1402,6 +1421,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 			    chmod +x $job
 
                             # run dem error check
+			    echo "Preparing error collation for 'coregister_dem'..."
 			    cd $dem_batch_dir/$beam_num
 			    dem_jobid=`sed s/.r-man2// "subset_dem_"$beam_num"_job_id"`
 			    job="dem_err_check_"$beam_num
@@ -1420,13 +1440,14 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 			    :
 			fi
 		    else
-			echo ""
+			echo ""  1>&2
 			echo "Subsetting values in proc file are not - . Update proc file before subsetting can occur."  1>&2
-			echo ""
+			echo ""  1>&2
 		    fi
 		elif [ $subset == no ]; then # no subsetting 
                     # no multi-look value - for geocoding full SLC data
                     # set up header for PBS job
+		    echo "Coregistering DEM to reference master scene..."
 		    job="coreg_dem_"$beam_num
 		    echo \#\!/bin/bash > $job
 		    echo \#\PBS -lother=gdata1 >> $job
@@ -1479,6 +1500,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		    chmod +x $job
 
                     # run dem error check
+		    echo "Preparing error collation for 'coregister_dem'..."
 		    cd $dem_batch_dir/$beam_num
 		    dem_jobid=`sed s/.r-man2// "dem_"$beam_num"_job_id"`
 		    job="dem_err_check_"$beam_num
@@ -1504,6 +1526,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    if [ $roff == "-" -a $rlines == "-" -a $azoff == "-" -a $azlines == "-" ]; then
                 # no multi-look value - for geocoding full SLC and determining pixels for subsetting master scene
                 # set up header for PBS job
+		echo "Coregsitering full resolution DEM in preparation for subsetting..."
 		job=coreg_full_dem
 		echo \#\!/bin/bash > $job
 		echo \#\PBS -lother=gdata1 >> $job
@@ -1524,6 +1547,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 
                 # determine subset pixels and update proc file with values
                 # set up header for PBS job
+		echo "Calculating pixel values for subsetting..."
 		full_dem_jobid=`sed s/.r-man2// full_dem_job_id`
 		job=calc_subset_dem
 		echo \#\!/bin/bash > $job
@@ -1539,6 +1563,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		qsub $job | tee calc_subset_dem_job_id
 			
 		#rerun process_gamma.bash once calc_subset has run to include subset values in coreg_sub_dem PBS job
+		echo "Preparing job to rerun 'process_gamma.bash' to coregister subsetted DEM to subsetted reference master scene..."
 		subset_jobid=`sed s/.r-man2// calc_subset_dem_job_id`
 		job=rerun_process_gamma
 		echo \#\!/bin/bash > $job
@@ -1582,7 +1607,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		if [ -f rerun_process_g.e* ]; then
 	            # subset dem
                     # set up header for PBS job
-		    subset_jobid=`sed s/.r-man2// calc_subset_dem_job_id`
+		    echo "Coregistering subsetted DEM to subsetted reference  master scene..."
 		    job=coreg_sub_dem
 		    echo \#\!/bin/bash > $job
 		    echo \#\PBS -lother=gdata1 >> $job
@@ -1629,6 +1654,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		    chmod +x $job
 
                     # run dem error check
+		    echo "Preparing error collation for 'coregister_dem'..."
 		    cd $dem_batch_dir
 		    dem_jobid=`sed s/.r-man2// subset_dem_job_id`
 		    job=dem_err_check
@@ -1655,6 +1681,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	elif [ $subset == no ]; then # no subsetting 
             # no multi-look value - for geocoding full SLC data
             # set up header for PBS job
+	    echo "Coregistering DEM to reference master scene..."
 	    job=coreg_dem
 	    echo \#\!/bin/bash > $job
 	    echo \#\PBS -lother=gdata1 >> $job
@@ -1707,6 +1734,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    chmod +x $job
 
             # run dem error check
+	    echo "Preparing error collation for 'coregister_dem'..."
 	    cd $dem_batch_dir
 	    dem_jobid=`sed s/.r-man2// dem_job_id`
 	    job=dem_err_check
@@ -1727,9 +1755,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
     fi
 
 elif [ $coregister_dem == no -a $platform == NCI ]; then
-    echo "" 1>&2
-    echo "Option to coregister DEM to master scene not selected." 1>&2
-    echo "" 1>&2
+    echo ""
+    echo "Option to coregister DEM to reference master scene not selected."
+    echo ""
 
 else
     :
@@ -1804,8 +1832,8 @@ elif [ $coregister == no -a $platform == GA ]; then
 #### NCI ####
 
 elif [ $coregister == yes -a $platform == NCI ]; then
-
-    echo "Coregistering slave scenes to master scene..." 1>&2
+    echo ""
+    echo "Coregistering slave scenes to master scene..."
     co_slc_batch_dir=$batch_dir/slc_coreg_jobs
     co_slc_manual_dir=$manual_dir/slc_coreg_jobs
 
@@ -1980,6 +2008,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		done < $slave_list
 
                 # run coreg slc error check
+		echo "Preparing error collation for 'coregister_slaves'..."
 		cd $co_slc_batch_dir/$beam_num
 		job="co_slc_err_check_"$beam_num
 		echo \#\!/bin/bash > $job
@@ -2154,6 +2183,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	done < $slave_list
 
         # run coreg slc error check
+	echo "Preparing error collation for 'coregister_slaves'..."
 	cd $co_slc_batch_dir
 	job=co_slc_err_check
 	echo \#\!/bin/bash > $job
@@ -2185,9 +2215,9 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 #    qsub $job
 
 elif [ $coregister == no -a $platform == NCI ]; then
-    echo "" 1>&2
-    echo "Option to coregister slaves to master scene not selected." 1>&2
-    echo "" 1>&2
+    echo ""
+    echo "Option to coregister slaves to master scene not selected."
+    echo ""
 else
     :
 fi
@@ -2238,8 +2268,8 @@ elif [ $do_ifms == no -a $platform == GA ]; then
 #### NCI ####
 
 elif [ $do_ifms == yes -a $platform == NCI ]; then
-
-    echo "Creating interferograms..." 1>&2
+    echo ""
+    echo "Creating interferograms..."
     ifm_batch_dir=$batch_dir/ifm_jobs
     ifm_manual_dir=$manual_dir/ifm_jobs
 
@@ -2380,6 +2410,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		done < $ifm_list
 
                 # run ifm error check
+		echo "Preparing error collation for 'create_ifms'..."
 		cd $ifm_batch_dir/$beam_num
 		job="ifm_err_check_"$beam_num
 		echo \#\!/bin/bash > $job
@@ -2395,6 +2426,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		qsub $job 
 
    	        # run post ifm processing
+		echo "Running post interferogram processing..."
 		cd $ifm_batch_dir/$beam_num
 		ifm_post="post_ifm_"$beam_num"_processing"
 		echo \#\!/bin/bash > $ifm_post
@@ -2589,6 +2621,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	done < $ifm_list
 	
         # run ifm error check
+	echo "Preparing error collation for 'create_ifms'..."
 	cd $ifm_batch_dir
 	job=ifm_err_check
 	echo \#\!/bin/bash > $job
@@ -2604,6 +2637,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	qsub $job
 
    	# run post ifm processing
+	echo "Running post interferogram processing..."
 	cd $ifm_batch_dir
 	ifm_post=post_ifm_processing
 	echo \#\!/bin/bash > $ifm_post
@@ -2620,9 +2654,9 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
     fi	
 
 elif [ $do_ifms == no -a $platform == NCI ]; then
-    echo "" 1>&2
-    echo "Option to create interferograms not selected." 1>&2
-    echo "" 1>&2
+    echo ""
+    echo "Option to create interferograms not selected."
+    echo ""
 else
     :
 fi
@@ -2749,7 +2783,7 @@ rm -rf add_* #remove any 'add' directories that may exist from previous 'add add
     fi
 
 # extract raw data
-    echo "Extracting additional raw data..." 1>&2
+    echo "Extracting additional raw data..."
     cd $batch_dir
     job=extract_add_raw 
     echo \#\!/bin/bash > $job
@@ -2764,7 +2798,7 @@ rm -rf add_* #remove any 'add' directories that may exist from previous 'add add
     qsub $job | tee add_raw_job_id
 
 # create add_slaves.list file
-    echo "Creating slaves list file..." 1>&2
+    echo "Creating slaves list file..."
     job2=add_slave_list_gen
     echo \#\!/bin/bash > $job2
     echo \#\PBS -lother=gdata1 >> $job2
@@ -2778,7 +2812,7 @@ rm -rf add_* #remove any 'add' directories that may exist from previous 'add add
     qsub $job2 | tee add_slave_list_job_id
 
 # create add_ifms.list file
-    echo "Creating interferogram list file..." 1>&2
+    echo "Creating interferogram list file..."
     job3=add_ifm_list_gen
     echo \#\!/bin/bash > $job3
     echo \#\PBS -lother=gdata1 >> $job3
@@ -2793,7 +2827,7 @@ rm -rf add_* #remove any 'add' directories that may exist from previous 'add add
 
 
 # create additional SLCs
-    echo "Creating additional SLC data..." 1>&2
+    echo "Creating additional SLC data..."
     slc_batch_dir=$batch_dir/add_slc_jobs
     slc_manual_dir=$manual_dir/slc_jobs
 
@@ -3075,9 +3109,9 @@ rm -rf add_* #remove any 'add' directories that may exist from previous 'add add
 	qsub $job | tee add_slc_err_job_id
     fi
 elif [ $add_slc == no -a $platform == NCI ]; then
-    echo "" 1>&2
-    echo "Option to create additional SLC data not selected." 1>&2
-    echo "" 1>&2
+    echo ""
+    echo "Option to create additional SLC data not selected."
+    echo ""
 else
     :
 fi
@@ -3154,7 +3188,7 @@ elif [ $coregister_add == no -a $platform == GA ]; then
 #### NCI ####
 
 elif [ $coregister_add == yes -a $platform == NCI ]; then
-    echo "Coregistering additional slave scenes to master scene..." 1>&2
+    echo "Coregistering additional slave scenes to master scene..."
     co_slc_batch_dir=$batch_dir/add_slc_coreg_jobs
     co_slc_manual_dir=$manual_dir/slc_coreg_jobs
 
@@ -3455,9 +3489,9 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 #    chmod +x $job
 #    qsub $job
 elif [ $coregister_add == no -a $platform == NCI ]; then
-    echo "" 1>&2
-    echo "Option to coregister additional slaves to master scene not selected." 1>&2
-    echo "" 1>&2
+    echo ""
+    echo "Option to coregister additional slaves to master scene not selected."
+    echo ""
 else
     :
 fi
@@ -3511,7 +3545,7 @@ elif [ $do_add_ifms == no -a $platform == GA ]; then
 #### NCI ####
 
 elif [ $do_add_ifms == yes -a $platform == NCI ]; then
-    echo "Creating additional interferograms..." 1>&2
+    echo "Creating additional interferograms..."
     ifm_batch_dir=$batch_dir/add_ifm_jobs
     ifm_manual_dir=$manual_dir/ifm_jobs
 
@@ -3872,9 +3906,9 @@ elif [ $do_add_ifms == yes -a $platform == NCI ]; then
 	qsub $ifm_post 
     fi	
 elif [ $do_add_ifms == no -a $platform == NCI ]; then
-    echo "" 1>&2
-    echo "Option to create additional interferograms not selected." 1>&2
-    echo "" 1>&2
+    echo ""
+    echo "Option to create additional interferograms not selected."
+    echo ""
 else
     :
 fi

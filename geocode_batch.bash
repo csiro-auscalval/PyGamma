@@ -57,6 +57,13 @@ echo "PROCESSING_SCENE: "$project $track_dir $scene 1>&2
 echo "" 1>&2
 echo "Batch Geocoding" 1>&2
 
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING_SCENE: "$project $track_dir $scene
+echo ""
+echo "Batch Geocoding"
+
 ## Copy output of Gamma programs to log files
 GM()
 {

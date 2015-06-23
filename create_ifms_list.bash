@@ -52,11 +52,13 @@ cd $proj_dir/$track_dir
 
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
-echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
-echo "" 1>&2
 echo "Interferogram List File Creation" 1>&2
-echo "" 1>&2
+
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING PROJECT: "$project $track_dir
+echo ""
 
 ## File preparation for making ifm list
 if [ $type -eq 2 ]; then # if making additional ifm list

@@ -57,6 +57,14 @@ echo "" 1>&2
 echo "Remove Scenes" 1>&2
 echo "" 1>&2
 
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING_PROJECT: "$project $track_dir
+echo "" 
+echo "Remove Scenes"
+echo "" 
+
 cd $proj_dir/$track_dir/lists
 cp $scene_list org_scenes.list
 cp $slave_list org_slaves.list

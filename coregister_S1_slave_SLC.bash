@@ -61,6 +61,13 @@ cd $proj_dir
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
 echo "PROCESSING_SCENE: "$project $track_dir $slave $rlks"rlks" $alks"alks" 1>&2
+echo "" 1>&2
+
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING_SCENE: "$project $track_dir $slave $rlks"rlks" $alks"alks"
+echo ""
 
 ## Copy output of Gamma programs to log files
 GM()

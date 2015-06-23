@@ -55,13 +55,19 @@ echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 echo "" 1>&2
 
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING PROJECT: "$project $track_dir
+echo ""
+
 batch_dir=$proj_dir/$track_dir/batch_jobs
 error_dir=$proj_dir/$track_dir/error_results
 
 
 ## Setup Errors
 if [ $type -eq 1 ]; then
-    echo "Collating Errors from Setup..." 1>&2
+    echo "Collating Errors from Setup..."
     echo "" 1>&2
     
 # lists creation
@@ -74,7 +80,7 @@ if [ $type -eq 1 ]; then
     cd $batch_dir
     ls scene_list*.e* > list
     ls slave_list*.e* >> list
-    ls ifm_list*.* >> list
+    ls ifm_list*.e* >> list
     while read error; do
 	if [ ! -z $error ]; then
 	    less $error > temp
@@ -87,7 +93,7 @@ if [ $type -eq 1 ]; then
 
 ## Raw Data Extraction Errors
 elif [ $type -eq 2 ]; then
-    echo "Collating Errors from Raw Data Extraction..." 1>&2
+    echo "Collating Errors from Raw Data Extraction..."
     echo "" 1>&2
     error_list=$error_dir/extract_raw_errors
     if [ -f $error_list ]; then
@@ -109,8 +115,8 @@ elif [ $type -eq 2 ]; then
 
 ## SLC Creation Errors
 elif [ $type -eq 3 ]; then
-    echo "Collating Errors from SLC Creation" 1>&2
-    echo "" 1>&2
+    echo "Collating Errors from SLC Creation..."
+    echo ""
     dir=$batch_dir/slc_jobs
     cd $dir
     if [ ! -z $beam ]; then
@@ -168,8 +174,8 @@ elif [ $type -eq 3 ]; then
 
 ## Ref DEM Creation Errors
 elif [ $type -eq 4 ]; then
-    echo "Collating Errors from Make Reference Master DEM" 1>&2
-    echo "" 1>&2
+    echo "Collating Errors from Make Reference Master DEM..."
+    echo ""
     dir=$batch_dir/dem_jobs
     cd $dir
     if [ ! -z $beam ]; then
@@ -209,8 +215,8 @@ elif [ $type -eq 4 ]; then
 
 ## Coregister SLC Errors
 elif [ $type -eq 5 ]; then
-    echo "Collating Errors from SLC Coregistration" 1>&2
-    echo "" 1>&2
+    echo "Collating Errors from SLC Coregistration..."
+    echo ""
     dir=$batch_dir/slc_coreg_jobs
     cd $dir
     if [ ! -z $beam ]; then
@@ -266,8 +272,8 @@ elif [ $type -eq 5 ]; then
 
 ## Interferogram Errors
 elif [ $type -eq 6 ]; then
-    echo "Collating Errors from Interferogram Creation" 1>&2
-    echo "" 1>&2
+    echo "Collating Errors from Interferogram Creation..."
+    echo ""
     dir=$batch_dir/ifm_jobs
     cd $dir
     if [ ! -z $beam ]; then
@@ -341,8 +347,8 @@ elif [ $type -eq 6 ]; then
 
 ## Mosaic Beam Interferograms
 elif [ $type -eq 7 ]; then
-    echo "Collating Errors from Mosaicing Beam Interferograms..." 1>&2
-    echo "" 1>&2
+    echo "Collating Errors from Mosaicing Beam Interferograms..."
+    echo ""
     dir=$batch_dir/ifm_jobs
     cd $dir
     error_list=$error_dir/mosaic_beam_errors
@@ -365,8 +371,8 @@ elif [ $type -eq 7 ]; then
 
 ## Additional SLC Errors
 elif [ $type -eq 8 ]; then
-    echo "Collating Errors from Creating Additional SLCs..." 1>&2
-    echo "" 1>&2
+    echo "Collating Errors from Creating Additional SLCs..."
+    echo ""
     error_list=$error_dir/add_slcs_errors
     if [ -f $error_list ]; then
 	rm -rf $error_list
@@ -387,7 +393,7 @@ elif [ $type -eq 8 ]; then
 # lists creation and raw data extraction
     cd $batch_dir
     ls add_slave_list*.e* > list
-    ls add_ifm_list*.* >> list
+    ls add_ifm_list*.e* >> list
     ls extract_add_raw*.e* >> list
     while read error; do
 	if [ ! -z $error ]; then
@@ -443,8 +449,8 @@ elif [ $type -eq 8 ]; then
 
 ## Coregister Additional SLC Errors
 elif [ $type -eq 9 ]; then
-    echo "Collating Errors from Additional SLC Coregistration" 1>&2
-    echo "" 1>&2
+    echo "Collating Errors from Additional SLC Coregistration..."
+    echo ""
     dir=$batch_dir/add_slc_coreg_jobs
     cd $dir
     if [ ! -z $beam ]; then
@@ -500,8 +506,8 @@ elif [ $type -eq 9 ]; then
 
 ## Additional Interferogram Errors
 elif [ $type -eq 10 ]; then
-    echo "Collating Errors from Additional Interferogram Creation" 1>&2
-    echo "" 1>&2
+    echo "Collating Errors from Additional Interferogram Creation..."
+    echo ""
     dir=$batch_dir/add_ifm_jobs
     cd $dir
     if [ ! -z $beam ]; then
@@ -575,8 +581,8 @@ elif [ $type -eq 10 ]; then
 
 ## Additional Mosaic Errors
 elif [ $type -eq 11 ]; then
-    echo "Collating Errors from Additional Mosaicing Beam Interferograms..." 1>&2
-    echo "" 1>&2
+    echo "Collating Errors from Additional Mosaicing Beam Interferograms..."
+    echo ""
     dir=$batch_dir/add_ifm_jobs
     cd $dir
     error_list=$error_dir/add_mosaic_beam_errors

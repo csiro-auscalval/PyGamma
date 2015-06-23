@@ -66,6 +66,18 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
 
+## Insert scene details top of NCI .e file
+echo "" 1>&2 # adds spaces at top so scene details are clear
+echo "" 1>&2
+echo "PROCESSING PROJECT: "$project $track_dir 1>&2
+echo "" 1>&2
+
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING PROJECT: "$project $track_dir
+echo ""
+
 ## Load GAMMA based on platform
 if [ $platform == NCI ]; then
     GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
