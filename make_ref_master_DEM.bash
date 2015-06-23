@@ -238,7 +238,7 @@ GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $mas
 ## Fine coregistration of master MLI and simulated SAR image
 # Make file to input user-defined values from proc file #
 #for full dem:
-if [ $rlks -eq 1 -a $alks -eq 1]; then
+if [ $rlks == 1 -a $alks == 1]; then
     returns=$dem_dir/returns
     echo "" > $returns #default scene title
     echo $noffset >> $returns
@@ -248,13 +248,13 @@ if [ $rlks -eq 1 -a $alks -eq 1]; then
 #for mli
 else
     noffset1=`echo $noffset | awk '{print $1}'`
-    if [ $noffset1 -eq 0 ]; then
+    if [ $noffset1 == 0 ]; then
 	noff1=0
     else
 	noff1=`echo $noffset1 | awk '{print $1/$rlks}'`
     fi
     noffset2=`echo $noffset | awk '{print $2}'`
-    if [ $noffset2 -eq 0 ]; then
+    if [ $noffset2 == 0 ]; then
 	noff2=0
     else
 	noff2=`echo $noffset2 | awk '{print $1/$alks}'`
