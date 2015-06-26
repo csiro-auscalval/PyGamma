@@ -85,6 +85,7 @@ DEM_name_GA=xxxxx.dem
 Raw_data_MDSS=insar/xxxxxxx
 DEM_location_MDSS=insar/DEM/xxxxx
 DEM_name_NCI=xxxxx.dem
+Landsat_image=surat_landsat_pano.tif
 
 
 ##### Multi-looking Values #####
