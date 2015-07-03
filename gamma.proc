@@ -87,7 +87,6 @@ DEM_location_MDSS=insar/DEM/xxxxx
 DEM_name_NCI=xxxxx.dem
 Landsat_image=surat_landsat_pano.tif
 
-
 ##### Multi-looking Values #####
     # multi-look value for SLCs. This is used for coregistration purposes.
 SLC_multi_look=4

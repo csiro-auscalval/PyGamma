@@ -248,12 +248,12 @@ GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $
 ## Prepare Landsat image
 if [ -f $image ]; then
     # strip header from tif
-    gdal_translate -of ENVI $image $lsat
+    gdal_translate -ot Float32 -of EHdr $image $lsat
     # create parameter file
     create_dem_par $lsat_dem_par
-    # transform image to geocoding map projection ???
+    # transform image to geocoding map projection
     map_trans $lsat_dem_par $lsat $utm_dem_par $lsat_trans 1 1 0 3 0
-    # convert format
+    # convert format ??? - not sure if needed now
     uchar2float $lsat_trans $lsat_float
 else
     :
