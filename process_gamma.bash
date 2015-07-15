@@ -16,6 +16,8 @@ display_usage() {
     echo  "*            - add auto calculation of subset values if subsetting scene     *"
     echo "*         Sarah Lawrie @ GA       18/06/2015, v1.3                            *"
     echo "*             - streamline auto processing and modify directory structure     *"
+    echo "*         Sarah Lawrie @ GA       15/07/2015, v1.4                            *"
+    echo "*             - streamline auto processing                                    *"
     echo "*******************************************************************************"
     echo -e "Usage: process_gamma.bash [proc_file]"
     }
@@ -531,8 +533,6 @@ elif [ $do_slc == no -a $platform == GA ]; then
 #### NCI ####
 
 elif [ $do_slc == yes -a $platform == NCI ]; then
-    echo ""
-    echo "Creating SLC data..."
     slc_batch_dir=$batch_dir/slc_jobs
     slc_manual_dir=$manual_dir/slc_jobs
 
@@ -552,6 +552,8 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		cd $slc_batch_dir/$beam_num
 		if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
 		    if [ ! -e $scene_list ]; then # if scene list doesn't exist
+			echo ""
+			echo "Scene list doesn't exist yet, preparing to rerun process_gamma.bash after list is created to create SLCs..."
 		        # rerun process_gamma.bash once do setup and do raw are finished
 			raw_jobid=`sed s/.r-man2// $batch_dir/raw_job_id`
 			job=rerun_process_gamma
@@ -567,6 +569,8 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			chmod +x $job
 			qsub $job
 		    else # scene list exists
+			echo ""
+			echo "Creating SLC data..."
 			function create_jobs {
 			    local njobs=$1
 			    local nsteps=$2
@@ -692,6 +696,8 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			qsub $job 
 		    fi
 		else # process as normal
+		    echo ""
+		    echo "Creating SLC data..."
 		    function create_jobs {
 			local njobs=$1
 			local nsteps=$2
@@ -828,6 +834,8 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 	cd $slc_batch_dir
 	if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
 	    if [ ! -e $scene_list ]; then # if scene list doesn't exist
+		echo ""
+		echo "Scene list doesn't exist yet, preparing to rerun process_gamma.bash after list is created to create SLCs..."
 		# rerun process_gamma.bash once do setup and do raw are finished
 		raw_jobid=`sed s/.r-man2// $batch_dir/raw_job_id`
 		job=rerun_process_gamma
@@ -843,6 +851,8 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		chmod +x $job
 		qsub $job
 	    else # scene list exists
+		echo ""
+		echo "Creating SLC data..."
 	       	function create_jobs {
 		    local njobs=$1
 		    local nsteps=$2
@@ -965,6 +975,8 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		qsub $job
 	    fi
 	else # process as normal
+	    echo ""
+	    echo "Creating SLC data..."
 	    function create_jobs {
 		local njobs=$1
 		local nsteps=$2
@@ -1280,408 +1292,480 @@ elif [ $coregister_dem == no -a $platform == GA ]; then
 
 #### NCI ####
 elif [ $coregister_dem == yes -a $platform == NCI ]; then
-    echo ""
-    echo "Coregistering DEM to reference master scene..."
     dem_batch_dir=$batch_dir/dem_jobs
     dem_manual_dir=$manual_dir/dem_jobs
+    cd $dem_batch_dir
+
     if [ -f $beam_list ]; then # if beam list exists
+
+	## Functions
+	SUBSET_BEAM_DEM_INITIAL()
+	{
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		proc=$proc_file
+	    else
+		proc=$proj_dir/$proc_file
+	    fi
+            # no multi-look value - for geocoding full SLC and determining pixels for subsetting master scene
+            # set up header for PBS job
+	    echo "Coregistering full resolution DEM in preparation for subsetting..."
+	    job="coreg_full_dem_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    if [ $do_slc == yes -a $platform == NCI ]; then
+		slc_jobid=`awk '{print $1}' $batch_dir/slc_jobs/$beam_num/"all_slc_"$beam_num"_job_id"`
+		echo \#\PBS -W depend=afterok:$slc_jobid >> $job
+	    else
+		:
+	    fi
+	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc 1 1 1 1 - - - - $beam_num >> $job
+	    chmod +x $job
+	    qsub $job | tee "full_dem_"$beam_num"_job_id"
+	    
+            # determine subset pixels and update proc file with values
+            # set up header for PBS job
+	    echo "Calculating pixel values for subsetting..."
+	    full_dem_jobid=`sed s/.r-man2// "full_dem_"$beam_num"_job_id"`
+	    job="calc_subset_dem_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$list_walltime >> $job
+	    echo \#\PBS -l mem=$list_mem >> $job
+	    echo \#\PBS -l ncpus=$list_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo \#\PBS -W depend=afterok:$full_dem_jobid >> $job
+	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proc $subset_file $beam_num >> $job
+	    chmod +x $job
+	    qsub $job | tee "calc_subset_dem_"$beam_num"_job_id"
+	    
+            #rerun process_gamma.bash once calc_subset has run to include subset values in coreg_sub_dem PBS job
+	    echo "Preparing job to rerun 'process_gamma.bash' to coregister subsetted DEM to subsetted reference master scene..."
+	    subset_jobid=`sed s/.r-man2// "calc_subset_dem_"$beam_num"_job_id"`
+	    job=rerun_process_gamma
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$list_walltime >> $job
+	    echo \#\PBS -l mem=$list_mem >> $job
+	    echo \#\PBS -l ncpus=$list_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo \#\PBS -W depend=afterok:$subset_jobid >> $job
+	    echo ~/repo/gamma_bash/process_gamma.bash $proc >> $job
+	    chmod +x $job
+	    qsub $job
+	    
+            # in case future manual processing is required, create manual PBS jobs
+	    cd $dem_manual_dir/$beam_num
+	    job="coreg_full_dem_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
+	    chmod +x $job
+	    
+	    job="calc_subset_dem_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$list_walltime >> $job
+	    echo \#\PBS -l mem=$list_mem >> $job
+	    echo \#\PBS -l ncpus=$list_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proc $subset_file $beam_num >> $job
+	    chmod +x $job
+	}
+
+	SUBSET_BEAM_DEM()
+	{
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		proc=$proc_file
+	    else
+		proc=$proj_dir/$proc_file
+	    fi
+            # set up header for PBS job
+	    echo "Coregistering subsetted DEM to subsetted reference  master scene..."
+	    job="coreg_sub_dem_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+            # no multi-look value - for geocoding full subsetted SLC data
+	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines $beam_num >> $job
+            # SLC and ifm multi-look value (same value)
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+	    else
+            # SLC multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+            # ifm multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+	    fi	  
+	    chmod +x $job
+	    qsub $job | tee "subset_dem_"$beam_num"_job_id"
+				    
+            # in case future manual processing is required, create manual PBS jobs
+	    cd $dem_manual_dir/$beam_num
+	    job="coreg_sub_dem_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+            # no multi-look value - for geocoding full subsetted SLC data
+	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines $beam_num >> $job
+            # SLC and ifm multi-look value (same value)
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+	    else
+            # SLC multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+            # ifm multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+	    fi
+	    chmod +x $job
+				    
+            # run dem error check
+	    echo "Preparing error collation for 'coregister_dem'..."
+	    cd $dem_batch_dir/$beam_num
+	    dem_jobid=`sed s/.r-man2// "subset_dem_"$beam_num"_job_id"`
+	    job="dem_err_check_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$error_walltime >> $job
+	    echo \#\PBS -l mem=$error_mem >> $job
+	    echo \#\PBS -l ncpus=$error_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc 4 $beam_num >> $job
+	    chmod +x $job
+	    qsub $job 
+	}
+
+	NO_SUBSET_BEAM_DEM()
+	{
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		proc=$proc_file
+	    else
+		proc=$proj_dir/$proc_file
+	    fi
+            # no multi-look value - for geocoding full SLC data
+            # set up header for PBS job
+	    echo ""
+	    echo "Coregistering DEM to reference master scene..."
+	    job="coreg_dem_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    if [ $do_slc == yes -a $platform == NCI ]; then
+		slc_jobid=`awk '{print $1}' $batch_dir/slc_jobs/$beam_num/"all_slc_"$beam_num"_job_id"`
+		echo \#\PBS -W depend=afterok:$slc_jobid >> $job
+	    else
+		:
+	    fi
+            # no multi-look value - for geocoding full SLC data
+	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
+            # SLC and ifm multi-look value (same value)
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
+	    else
+            # SLC multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
+            # ifm multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $ifm_rlks $ifm_alks 2 1 - - - - $beam_num >> $job
+	    fi	  
+	    chmod +x $job
+	    qsub $job | tee "dem_"$beam_num"_job_id"
+	    
+            # in case future manual processing is required, create manual PBS jobs
+	    cd $dem_manual_dir/$beam_num
+	    job="coreg_dem_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+            # no multi-look value - for geocoding full SLC data
+	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
+            # SLC and ifm multi-look value (same value)
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
+	    else
+            # SLC multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
+            # ifm multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 - - - - $beam_num >> $job
+	    fi
+	    chmod +x $job
+	    
+            # run dem error check
+	    echo "Preparing error collation for 'coregister_dem'..."
+	    cd $dem_batch_dir/$beam_num
+	    dem_jobid=`sed s/.r-man2// "dem_"$beam_num"_job_id"`
+	    job="dem_err_check_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$error_walltime >> $job
+	    echo \#\PBS -l mem=$error_mem >> $job
+	    echo \#\PBS -l ncpus=$error_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc 4 $beam_num >> $job
+	    chmod +x $job
+	    qsub $job
+	}
+
         # set up and submit PBS job script for each beam
 	while read beam_num; do
 	    if [ ! -z $beam_num ]; then
 		cd $dem_batch_dir/$beam_num
 		if [ $subset == yes ]; then 
+		    # check if subset values have been calculated (ie. they are integers not - )
+		    roff1=`[[ $roff =~ ^-?[0-9]+$ ]] && echo integer`
+		    rlines1=`[[ $rlines =~ ^-?[0-9]+$ ]] && echo integer`
+		    azoff1=`[[ $azoff =~ ^-?[0-9]+$ ]] && echo integer`
+		    azlines1=`[[ $azlines =~ ^-?[0-9]+$ ]] && echo integer`
+
 		    if [ $roff == "-" -a $rlines == "-" -a $azoff == "-" -a $azlines == "-" ]; then
-                        # no multi-look value - for geocoding full SLC and determining pixels for subsetting master scene
-                        # set up header for PBS job
-			echo "Coregistering full resolution DEM in preparation for subsetting..."
-			job="coreg_full_dem_"$beam_num
-			echo \#\!/bin/bash > $job
-			echo \#\PBS -lother=gdata1 >> $job
-			echo \#\PBS -l walltime=$dem_walltime >> $job
-			echo \#\PBS -l mem=$dem_mem >> $job
-			echo \#\PBS -l ncpus=$dem_ncpus >> $job
-			echo \#\PBS -l wd >> $job
-			echo \#\PBS -q normal >> $job
-			if [ $do_slc == yes -a $platform == NCI ]; then
-			    slc_jobid=`awk '{print $1}' $batch_dir/slc_jobs/$beam_num/"all_slc_"$beam_num"_job_id"`
-			    echo \#\PBS -W depend=afterok:$slc_jobid >> $job
-			else
-			    :
-			fi
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
-			chmod +x $job
-			qsub $job | tee "full_dem_"$beam_num"_job_id"
-
-                        # determine subset pixels and update proc file with values
-                        # set up header for PBS job
-			echo "Calculating pixel values for subsetting..."
-			full_dem_jobid=`sed s/.r-man2// "full_dem_"$beam_num"_job_id"`
-			job="calc_subset_dem_"$beam_num
-			echo \#\!/bin/bash > $job
-			echo \#\PBS -lother=gdata1 >> $job
-			echo \#\PBS -l walltime=$list_walltime >> $job
-			echo \#\PBS -l mem=$list_mem >> $job
-			echo \#\PBS -l ncpus=$list_ncpus >> $job
-			echo \#\PBS -l wd >> $job
-			echo \#\PBS -q normal >> $job
-			echo \#\PBS -W depend=afterok:$full_dem_jobid >> $job
-			echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file $beam_num >> $job
-			chmod +x $job
-			qsub $job | tee "calc_subset_dem_"$beam_num"_job_id"
-
-		        #rerun process_gamma.bash once calc_subset has run to include subset values in coreg_sub_dem PBS job
-			echo "Preparing job to rerun 'process_gamma.bash' to coregister subsetted DEM to subsetted reference master scene..."
-			subset_jobid=`sed s/.r-man2// "calc_subset_dem_"$beam_num"_job_id"`
-			job=rerun_process_gamma
-			echo \#\!/bin/bash > $job
-			echo \#\PBS -lother=gdata1 >> $job
-			echo \#\PBS -l walltime=$list_walltime >> $job
-			echo \#\PBS -l mem=$list_mem >> $job
-			echo \#\PBS -l ncpus=$list_ncpus >> $job
-			echo \#\PBS -l wd >> $job
-			echo \#\PBS -q normal >> $job
-			echo \#\PBS -W depend=afterok:$subset_jobid >> $job
-			echo ~/repo/gamma_bash/process_gamma.bash $proj_dir/$proc_file >> $job
-			chmod +x $job
-			qsub $job
-
-                        # in case future manual processing is required, create manual PBS jobs
-			cd $dem_manual_dir/$beam_num
-			job="coreg_full_dem_"$beam_num
-			echo \#\!/bin/bash > $job
-			echo \#\PBS -lother=gdata1 >> $job
-			echo \#\PBS -l walltime=$dem_walltime >> $job
-			echo \#\PBS -l mem=$dem_mem >> $job
-			echo \#\PBS -l ncpus=$dem_ncpus >> $job
-			echo \#\PBS -l wd >> $job
-			echo \#\PBS -q normal >> $job
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
-			chmod +x $job
-
-			job="calc_subset_dem_"$beam_num
-			echo \#\!/bin/bash > $job
-			echo \#\PBS -lother=gdata1 >> $job
-			echo \#\PBS -l walltime=$list_walltime >> $job
-			echo \#\PBS -l mem=$list_mem >> $job
-			echo \#\PBS -l ncpus=$list_ncpus >> $job
-			echo \#\PBS -l wd >> $job
-			echo \#\PBS -q normal >> $job
-			echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file $beam_num >> $job
-			chmod +x $job
-			
-		    elif [ $roff != "-" -a $rlines != "-" -a $azoff != "-" -a $azlines != "-" ]; then
-			cd $dem_batch_dir/$beam_num
-			if [ -f rerun_process_g.e* ]; then
-			    # subset dem
-                            # set up header for PBS job
-			    echo "Coregistering subsetted DEM to subsetted reference  master scene..."
-			    job="coreg_sub_dem_"$beam_num
-			    echo \#\!/bin/bash > $job
-			    echo \#\PBS -lother=gdata1 >> $job
-			    echo \#\PBS -l walltime=$dem_walltime >> $job
-			    echo \#\PBS -l mem=$dem_mem >> $job
-			    echo \#\PBS -l ncpus=$dem_ncpus >> $job
-			    echo \#\PBS -l wd >> $job
-			    echo \#\PBS -q normal >> $job
-                            # no multi-look value - for geocoding full subsetted SLC data
-			    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines $beam_num >> $job
-                            # SLC and ifm multi-look value (same value)
-			    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-				echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
-			    else
-                                # SLC multi-look value
-				echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
-                                # ifm multi-look value
-				echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
-			    fi	  
-			    chmod +x $job
-			    qsub $job | tee "subset_dem_"$beam_num"_job_id"
-			    
-                            # in case future manual processing is required, create manual PBS jobs
-			    cd $dem_manual_dir/$beam_num
-			    job="coreg_sub_dem_"$beam_num
-			    echo \#\!/bin/bash > $job
-			    echo \#\PBS -lother=gdata1 >> $job
-			    echo \#\PBS -l walltime=$dem_walltime >> $job
-			    echo \#\PBS -l mem=$dem_mem >> $job
-			    echo \#\PBS -l ncpus=$dem_ncpus >> $job
-			    echo \#\PBS -l wd >> $job
-			    echo \#\PBS -q normal >> $job
-                            # no multi-look value - for geocoding full subsetted SLC data
-			    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines $beam_num >> $job
-                            # SLC and ifm multi-look value (same value)
-			    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-				echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
-			    else
-                                # SLC multi-look value
-				echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
-                                # ifm multi-look value
-				echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+			if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+			    if [ ! -e $scene_list ]; then # if scene list doesn't exist
+				echo ""
+				echo "Scene list doesn't exist yet, waiting for list to be created before coregistering DEM to reference master scene."
+			    else # scene list exists
+				SUBSET_BEAM_DEM_INITIAL 
 			    fi
-			    chmod +x $job
-
-                            # run dem error check
-			    echo "Preparing error collation for 'coregister_dem'..."
-			    cd $dem_batch_dir/$beam_num
-			    dem_jobid=`sed s/.r-man2// "subset_dem_"$beam_num"_job_id"`
-			    job="dem_err_check_"$beam_num
-			    echo \#\!/bin/bash > $job
-			    echo \#\PBS -lother=gdata1 >> $job
-			    echo \#\PBS -l walltime=$error_walltime >> $job
-			    echo \#\PBS -l mem=$error_mem >> $job
-			    echo \#\PBS -l ncpus=$error_ncpus >> $job
-			    echo \#\PBS -l wd >> $job
-			    echo \#\PBS -q normal >> $job
-			    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-			    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 $beam_num >> $job
-			    chmod +x $job
-			    qsub $job 
-			else
-			    :
+			else # process as normal
+			    SUBSET_BEAM_DEM_INITIAL 			    
 			fi
+		    elif [ $roff1 == "integer" -a $rlines1 == "integer" -a $azoff1 == "integer" -a $azlines1 == "integer" ]; then
+			cd $dem_batch_dir/$beam_num
+			SUBSET_BEAM_DEM 
 		    else
 			echo ""  1>&2
 			echo "Subsetting values in proc file are not - . Update proc file before subsetting can occur."  1>&2
 			echo ""  1>&2
 		    fi
 		elif [ $subset == no ]; then # no subsetting 
-                    # no multi-look value - for geocoding full SLC data
-                    # set up header for PBS job
-		    echo "Coregistering DEM to reference master scene..."
-		    job="coreg_dem_"$beam_num
-		    echo \#\!/bin/bash > $job
-		    echo \#\PBS -lother=gdata1 >> $job
-		    echo \#\PBS -l walltime=$dem_walltime >> $job
-		    echo \#\PBS -l mem=$dem_mem >> $job
-		    echo \#\PBS -l ncpus=$dem_ncpus >> $job
-		    echo \#\PBS -l wd >> $job
-		    echo \#\PBS -q normal >> $job
-		    if [ $do_slc == yes -a $platform == NCI ]; then
-			slc_jobid=`awk '{print $1}' $batch_dir/slc_jobs/$beam_num/"all_slc_"$beam_num"_job_id"`
-			echo \#\PBS -W depend=afterok:$slc_jobid >> $job
-		    else
-			:
-		    fi
-                    # no multi-look value - for geocoding full SLC data
-		    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
-                    # SLC and ifm multi-look value (same value)
-		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
-		    else
-                        # SLC multi-look value
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
-                        # ifm multi-look value
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 - - - - $beam_num >> $job
-		    fi	  
-		    chmod +x $job
-		    qsub $job | tee "dem_"$beam_num"_job_id"
-
-                    # in case future manual processing is required, create manual PBS jobs
-		    cd $dem_manual_dir/$beam_num
-		    job="coreg_dem_"$beam_num
-		    echo \#\!/bin/bash > $job
-		    echo \#\PBS -lother=gdata1 >> $job
-		    echo \#\PBS -l walltime=$dem_walltime >> $job
-		    echo \#\PBS -l mem=$dem_mem >> $job
-		    echo \#\PBS -l ncpus=$dem_ncpus >> $job
-		    echo \#\PBS -l wd >> $job
-		    echo \#\PBS -q normal >> $job
-                    # no multi-look value - for geocoding full SLC data
-		    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
-                    # SLC and ifm multi-look value (same value)
-		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
-		    else
-                        # SLC multi-look value
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
-                        # ifm multi-look value
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 - - - - $beam_num >> $job
-		    fi
-		    chmod +x $job
-
-                    # run dem error check
-		    echo "Preparing error collation for 'coregister_dem'..."
-		    cd $dem_batch_dir/$beam_num
-		    dem_jobid=`sed s/.r-man2// "dem_"$beam_num"_job_id"`
-		    job="dem_err_check_"$beam_num
-		    echo \#\!/bin/bash > $job
-		    echo \#\PBS -lother=gdata1 >> $job
-		    echo \#\PBS -l walltime=$error_walltime >> $job
-		    echo \#\PBS -l mem=$error_mem >> $job
-		    echo \#\PBS -l ncpus=$error_ncpus >> $job
-		    echo \#\PBS -l wd >> $job
-		    echo \#\PBS -q normal >> $job
-		    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-		    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 $beam_num >> $job
-		    chmod +x $job
-		    qsub $job 
-		else
-		    :
+		    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+			if [ ! -e $scene_list ]; then # if scene list doesn't exist
+			    echo ""
+			    echo "Scene list doesn't exist yet, waiting for list to be created before coregistering DEM to reference master scene."
+			else # scene list exists
+			    NO_SUBSET_BEAM_DEM
+			fi
+		    else # process as normal
+			NO_SUBSET_BEAM_DEM
+  		    fi
+   		else
+	    	    :
 		fi
  	    fi
 	done < $beam_list
     else # no beams
-	cd $dem_batch_dir
-	if [ $subset == yes ]; then 
-	    if [ $roff == "-" -a $rlines == "-" -a $azoff == "-" -a $azlines == "-" ]; then
-                # no multi-look value - for geocoding full SLC and determining pixels for subsetting master scene
-                # set up header for PBS job
-		echo "Coregsitering full resolution DEM in preparation for subsetting..."
-		job=coreg_full_dem
-		echo \#\!/bin/bash > $job
-		echo \#\PBS -lother=gdata1 >> $job
-		echo \#\PBS -l walltime=$dem_walltime >> $job
-		echo \#\PBS -l mem=$dem_mem >> $job
-		echo \#\PBS -l ncpus=$dem_ncpus >> $job
-		echo \#\PBS -l wd >> $job
-		echo \#\PBS -q normal >> $job
-		if [ $do_slc == yes -a $platform == NCI ]; then
-		    slc_jobid=`awk '{print $1}' $batch_dir/slc_jobs/all_slc_job_id`
-		    echo \#\PBS -W depend=afterok:$slc_jobid >> $job
-		else
-		    :
-		fi
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
-		chmod +x $job
-		qsub $job | tee full_dem_job_id
 
-                # determine subset pixels and update proc file with values
-                # set up header for PBS job
-		echo "Calculating pixel values for subsetting..."
-		full_dem_jobid=`sed s/.r-man2// full_dem_job_id`
-		job=calc_subset_dem
-		echo \#\!/bin/bash > $job
-		echo \#\PBS -lother=gdata1 >> $job
-		echo \#\PBS -l walltime=$list_walltime >> $job
-		echo \#\PBS -l mem=$list_mem >> $job
-		echo \#\PBS -l ncpus=$list_ncpus >> $job
-		echo \#\PBS -l wd >> $job
-		echo \#\PBS -q normal >> $job
-		echo \#\PBS -W depend=afterok:$full_dem_jobid >> $job
-		echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file >> $job
-		chmod +x $job
-		qsub $job | tee calc_subset_dem_job_id
-			
-		#rerun process_gamma.bash once calc_subset has run to include subset values in coreg_sub_dem PBS job
-		echo "Preparing job to rerun 'process_gamma.bash' to coregister subsetted DEM to subsetted reference master scene..."
-		subset_jobid=`sed s/.r-man2// calc_subset_dem_job_id`
-		job=rerun_process_gamma
-		echo \#\!/bin/bash > $job
-		echo \#\PBS -lother=gdata1 >> $job
-		echo \#\PBS -l walltime=$list_walltime >> $job
-		echo \#\PBS -l mem=$list_mem >> $job
-		echo \#\PBS -l ncpus=$list_ncpus >> $job
-		echo \#\PBS -l wd >> $job
-		echo \#\PBS -q normal >> $job
-		echo \#\PBS -W depend=afterok:$subset_jobid >> $job
-		echo ~/repo/gamma_bash/process_gamma.bash $proj_dir/$proc_file >> $job
-		chmod +x $job
-		qsub $job
-		
-                # in case future manual processing is required, create manual PBS jobs
-		cd $dem_manual_dir
-		job=coreg_full_dem
-		echo \#\!/bin/bash > $job
-		echo \#\PBS -lother=gdata1 >> $job
-		echo \#\PBS -l walltime=$dem_walltime >> $job
-		echo \#\PBS -l mem=$dem_mem >> $job
-		echo \#\PBS -l ncpus=$dem_ncpus >> $job
-		echo \#\PBS -l wd >> $job
-		echo \#\PBS -q normal >> $job
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
-		chmod +x $job
-
-		job=calc_subset_dem
-		echo \#\!/bin/bash > $job
-		echo \#\PBS -lother=gdata1 >> $job
-		echo \#\PBS -l walltime=$list_walltime >> $job
-		echo \#\PBS -l mem=$list_mem >> $job
-		echo \#\PBS -l ncpus=$list_ncpus >> $job
-		echo \#\PBS -l wd >> $job
-		echo \#\PBS -q normal >> $job
-		echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file >> $job
-		chmod +x $job
-
-	    elif [ $roff != "-" -a $rlines != "-" -a $azoff != "-" -a $azlines != "-" ]; then
-		cd $dem_batch_dir
-		if [ -f rerun_process_g.e* ]; then
-	            # subset dem
-                    # set up header for PBS job
-		    echo "Coregistering subsetted DEM to subsetted reference  master scene..."
-		    job=coreg_sub_dem
-		    echo \#\!/bin/bash > $job
-		    echo \#\PBS -lother=gdata1 >> $job
-		    echo \#\PBS -l walltime=$dem_walltime >> $job
-		    echo \#\PBS -l mem=$dem_mem >> $job
-		    echo \#\PBS -l ncpus=$dem_ncpus >> $job
-		    echo \#\PBS -l wd >> $job
-		    echo \#\PBS -q normal >> $job
-                    # no multi-look value - for geocoding full subsetted SLC data
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines >> $job
-                    # SLC and ifm multi-look value (same value)
-		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
-		    else
-                        # SLC multi-look value
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
-                        # ifm multi-look value
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines >> $job
-		    fi	  
-		    chmod +x $job
-		    qsub $job | tee subset_dem_job_id
-
-                    # in case future manual processing is required, create manual PBS jobs
-		    cd $dem_manual_dir
-		    job=coreg_sub_dem
-		    echo \#\!/bin/bash > $job
-		    echo \#\PBS -lother=gdata1 >> $job
-		    echo \#\PBS -l walltime=$dem_walltime >> $job
-		    echo \#\PBS -l mem=$dem_mem >> $job
-		    echo \#\PBS -l ncpus=$dem_ncpus >> $job
-		    echo \#\PBS -l wd >> $job
-		    echo \#\PBS -q normal >> $job
-                    # no multi-look value - for geocoding full subsetted SLC data
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines >> $job
-                    # SLC and ifm multi-look value (same value)
-		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
-		    else
-                        # SLC multi-look value
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
-                        # ifm multi-look value
-			echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines >> $job
-		    fi
-		    chmod +x $job
-
-                    # run dem error check
-		    echo "Preparing error collation for 'coregister_dem'..."
-		    cd $dem_batch_dir
-		    dem_jobid=`sed s/.r-man2// subset_dem_job_id`
-		    job=dem_err_check
-		    echo \#\!/bin/bash > $job
-		    echo \#\PBS -lother=gdata1 >> $job
-		    echo \#\PBS -l walltime=$error_walltime >> $job
-		    echo \#\PBS -l mem=$error_mem >> $job
-		    echo \#\PBS -l ncpus=$error_ncpus >> $job
-		    echo \#\PBS -l wd >> $job
-		    echo \#\PBS -q normal >> $job
-		    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-		    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
-		    chmod +x $job
-		    qsub $job 
-		else
-		    :
-		fi
+	## Functions
+	SUBSET_DEM_INITIAL()
+	{
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		proc=$proc_file
 	    else
-		echo ""
-		echo "Subsetting values in proc file are not - . Update proc file before subsetting can occur."  1>&2
-		echo ""
+		proc=$proj_dir/$proc_file
 	    fi
-
-	elif [ $subset == no ]; then # no subsetting 
-            # no multi-look value - for geocoding full SLC data
+            # no multi-look value - for geocoding full SLC and determining pixels for subsetting master scene
             # set up header for PBS job
+	    echo "Coregistering full resolution DEM in preparation for subsetting..."
+	    job=coreg_full_dem
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    if [ $do_slc == yes -a $platform == NCI ]; then
+		slc_jobid=`awk '{print $1}' $batch_dir/slc_jobs/all_slc_job_id`
+		echo \#\PBS -W depend=afterok:$slc_jobid >> $job
+	    else
+		:
+	    fi
+	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc 1 1 1 1 - - - - >> $job
+	    chmod +x $job
+	    qsub $job | tee full_dem_job_id
+			
+            # determine subset pixels and update proc file with values
+            # set up header for PBS job
+	    echo "Calculating pixel values for subsetting..."
+	    full_dem_jobid=`sed s/.r-man2// full_dem_job_id`
+	    job=calc_subset_dem
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$list_walltime >> $job
+	    echo \#\PBS -l mem=$list_mem >> $job
+	    echo \#\PBS -l ncpus=$list_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo \#\PBS -W depend=afterok:$full_dem_jobid >> $job
+	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proc $subset_file >> $job
+	    chmod +x $job
+	    qsub $job | tee calc_subset_dem_job_id
+	    
+	    #rerun process_gamma.bash once calc_subset has run to include subset values in coreg_sub_dem PBS job
+	    echo "Preparing job to rerun 'process_gamma.bash' to coregister subsetted DEM to subsetted reference master scene..."
+	    subset_jobid=`sed s/.r-man2// calc_subset_dem_job_id`
+	    job=rerun_process_gamma
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$list_walltime >> $job
+	    echo \#\PBS -l mem=$list_mem >> $job
+	    echo \#\PBS -l ncpus=$list_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo \#\PBS -W depend=afterok:$subset_jobid >> $job
+	    echo ~/repo/gamma_bash/process_gamma.bash $proc >> $job
+	    chmod +x $job
+	    qsub $job
+	    
+            # in case future manual processing is required, create manual PBS jobs
+	    cd $dem_manual_dir
+	    job=coreg_full_dem
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
+	    chmod +x $job
+	    
+	    job=calc_subset_dem
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$list_walltime >> $job
+	    echo \#\PBS -l mem=$list_mem >> $job
+	    echo \#\PBS -l ncpus=$list_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proc $subset_file >> $job
+	    chmod +x $job
+	}
+	
+	SUBSET_DEM()
+	{
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		proc=$proc_file
+	    else
+		proc=$proj_dir/$proc_file
+	    fi
+            # set up header for PBS job
+	    echo "Coregistering subsetted DEM to subsetted reference  master scene..."
+	    job=coreg_sub_dem
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+            # no multi-look value - for geocoding full subsetted SLC data
+	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines >> $job
+            # SLC and ifm multi-look value (same value)
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
+	    else
+            # SLC multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
+            # ifm multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines >> $job
+	    fi	  
+	    chmod +x $job
+	    qsub $job | tee subset_dem_job_id
+			    
+            # in case future manual processing is required, create manual PBS jobs
+	    cd $dem_manual_dir
+	    job=coreg_sub_dem
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+            # no multi-look value - for geocoding full subsetted SLC data
+	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines >> $job
+            # SLC and ifm multi-look value (same value)
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
+	    else
+            # SLC multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
+            # ifm multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines >> $job
+	    fi
+	    chmod +x $job
+			    
+            # run dem error check
+	    echo "Preparing error collation for 'coregister_dem'..."
+	    cd $dem_batch_dir
+	    dem_jobid=`sed s/.r-man2// subset_dem_job_id`
+	    job=dem_err_check
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$error_walltime >> $job
+	    echo \#\PBS -l mem=$error_mem >> $job
+	    echo \#\PBS -l ncpus=$error_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc 4 >> $job
+	    chmod +x $job
+	    qsub $job 
+	}
+
+	NO_SUBSET_DEM()
+	{
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		proc=$proc_file
+	    else
+		proc=$proj_dir/$proc_file
+	    fi
+            # set up header for PBS job
+	    echo ""
 	    echo "Coregistering DEM to reference master scene..."
+
+            # Set up coregistration results file
+	    check_file=$proj_dir/$track_dir/dem_coreg_results.txt
+	    echo "DEM Coregistration Results" > $check_file
+	    echo "final offset poly. coeff." >> $check_file
+	    echo "Azimuth" > temp1
+	    echo "Range" > temp2
+	    paste temp1 temp2 >> $check_file
+	    rm -f temp1 temp2
+
+	    cd $dem_batch_dir
+
 	    job=coreg_dem
 	    echo \#\!/bin/bash > $job
 	    echo \#\PBS -lother=gdata1 >> $job
@@ -1697,19 +1781,19 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		:
 	    fi
             # no multi-look value - for geocoding full SLC data
-	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
+            #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
             # SLC and ifm multi-look value (same value)
 	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - >> $job
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $slc_rlks $slc_alks 2 1 - - - - >> $job
 	    else
-                # SLC multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - >> $job
-                # ifm multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 - - - - >> $job
+            # SLC multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $slc_rlks $slc_alks 2 1 - - - - >> $job
+            # ifm multi-look value
+		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc $ifm_rlks $ifm_alks 2 1 - - - - >> $job
 	    fi	  
 	    chmod +x $job
 	    qsub $job | tee dem_job_id
-
+	    
             # in case future manual processing is required, create manual PBS jobs
 	    cd $dem_manual_dir
 	    job=coreg_dem
@@ -1726,13 +1810,13 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - >> $job
 	    else
-                # SLC multi-look value
+            # SLC multi-look value
 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - >> $job
-                # ifm multi-look value
+            # ifm multi-look value
 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 - - - - >> $job
 	    fi	  
 	    chmod +x $job
-
+	    
             # run dem error check
 	    echo "Preparing error collation for 'coregister_dem'..."
 	    cd $dem_batch_dir
@@ -1746,10 +1830,50 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc 4 >> $job
 	    chmod +x $job
 	    qsub $job 
-	else
+	}
+
+	if [ $subset == yes ]; then 
+	    cd $dem_batch_dir
+	    # check if subset values have been calculated (ie. they are integers not - )
+	    roff1=`[[ $roff =~ ^-?[0-9]+$ ]] && echo integer`
+	    rlines1=`[[ $rlines =~ ^-?[0-9]+$ ]] && echo integer`
+	    azoff1=`[[ $azoff =~ ^-?[0-9]+$ ]] && echo integer`
+	    azlines1=`[[ $azlines =~ ^-?[0-9]+$ ]] && echo integer`
+	    
+	    if [ $roff == "-" -a $rlines == "-" -a $azoff == "-" -a $azlines == "-" ]; then
+		if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		    if [ ! -e $scene_list ]; then # if scene list doesn't exist
+			echo ""
+			echo "Scene list doesn't exist yet, waiting for list to be created before coregistering DEM to reference master scene."
+		    else # scene list exists
+			SUBSET_DEM_INITIAL 
+		    fi
+		else # process as normal
+		    SUBSET_DEM_INITIAL 			    
+		fi
+	    elif [ $roff1 == "integer" -a $rlines1 == "integer" -a $azoff1 == "integer" -a $azlines1 == "integer" ]; then
+		cd $dem_batch_dir
+		SUBSET_DEM 
+	    else
+		echo ""  1>&2
+		echo "Subsetting values in proc file are not - . Update proc file before subsetting can occur."  1>&2
+		echo ""  1>&2
+	    fi
+	elif [ $subset == no ]; then # no subsetting 
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		if [ ! -e $scene_list ]; then # if scene list doesn't exist
+		    echo ""
+		    echo "Scene list doesn't exist yet, waiting for list to be created before coregistering DEM to reference master scene."
+		else # scene list exists
+		    NO_SUBSET_DEM
+		fi
+	    else # process as normal
+		NO_SUBSET_DEM
+  	    fi
+   	else
 	    :
 	fi
     fi
@@ -1832,10 +1956,9 @@ elif [ $coregister == no -a $platform == GA ]; then
 #### NCI ####
 
 elif [ $coregister == yes -a $platform == NCI ]; then
-    echo ""
-    echo "Coregistering slave scenes to master scene..."
     co_slc_batch_dir=$batch_dir/slc_coreg_jobs
     co_slc_manual_dir=$manual_dir/slc_coreg_jobs
+    cd $co_slc_batch_dir
 
     # Maximum number of jobs to be run (maximum number is 50)
     maxjobs=50
@@ -1848,355 +1971,401 @@ elif [ $coregister == yes -a $platform == NCI ]; then
     pbs_job_prefix=co_slc_
 
     if [ -f $beam_list ]; then # if beam list exists
-	while read beam_num; do
-	    if [ ! -z $beam_num ]; then
 
-                # Set up coregistration results file
-		cd $proj_dir/$track_dir
-		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
-		    echo "Slave Coregistration Results "$beam_num" "$slc_rlks"rlks "$slc_alks"alks" > $check_file
-		    echo "final model fit std. dev. (samples)" >> $check_file
-		    echo "Ref Master" > temp1_$beam_num
-		    echo "Slave" > temp2_$beam_num
-		    echo "Range" > temp3_$beam_num
-		    echo "Azimuth" > temp4_$beam_num
-		    paste temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num >> $check_file
-		    rm -f temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num
-		else
-		    slc_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
-		    echo "Slave Coregistration Results "$beam_num" "$slc_rlks"rlks "$slc_alks"alks" > $slc_check_file
-		    echo "final model fit std. dev. (samples)" >> $slc_check_file
-		    echo "Ref Master" > temp1_$beam_num
-		    echo "Slave" > temp2_$beam_num
-		    echo "Range" > temp3_$beam_num
-		    echo "Azimuth" > temp4_$beam_num
-		    paste temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num >> $slc_check_file
-		    rm -f temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num
-		    
-		    ifm_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
-		    echo "Slave Coregistration Results "$beam_num" "$ifm_rlks"rlks "$ifm_alks"alks" > $ifm_check_file
-		    echo "final model fit std. dev. (samples)" >> $ifm_check_file
-		    echo "Ref Master" > temp5_$beam_num
-		    echo "Slave" > temp6_$beam_num
-		    echo "Range" > temp7_$beam_num
-		    echo "Azimuth" > temp8_$beam_num
-		    paste temp5_$beam_num temp6_$beam_num temp7_$beam_num temp8_$beam_num >> $ifm_check_file
-		    rm -f temp5_$beam_num temp6_$beam_num temp7_$beam_num temp8_$beam_num
-		fi
-
-		cd $co_slc_batch_dir/$beam_num
-
-		function create_jobs {
-		    
-		    local njobs=$1
-		    local nsteps=$2
-		    local i=$3
-		    local wt=$(( wt1*nsteps ))
-		    local hh=$(( wt/60 ))
-		    local mm=$(( wt%60 ))
-		    local m=0
-		    local n=0
-		    
-		    for(( m=0; m<njobs; m++ )); do
-        		i=$(( i+=1 ))
-        		jobdir=$job_dir_prefix$i
-        		mkdir -p $jobdir
-        		cd $jobdir
-        		job=$pbs_job_prefix$i
-			
-			echo Doing job $i in $jobdir with $job
-			
-			echo \#\!/bin/bash > $job 
-			echo \#\PBS -l other=gdata1 >> $job
-			echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
-			echo \#\PBS -l mem=$co_slc_mem >> $job
-			echo \#\PBS -l ncpus=$co_slc_ncpus >> $job
-			echo \#\PBS -l wd >> $job
-			echo \#\PBS -q normal >> $job
-			echo -e "\n" >> $job
-			if [ $coregister_dem == yes -a $platform == NCI ]; then 
-			    if [ -f $batch_dir/dem_jobs/$beam_num/"subset_dem_"$beam_num"_job_id" ]; then
-				dem_jobid=`sed s/.r-man2// $batch_dir/dem_jobs/$beam_num/"subset_dem_"$beam_num"_job_id"`
-			    else
-				dem_jobid=`sed s/.r-man2// $batch_dir/dem_jobs/$beam_num/"dem_"$beam_num"_job_id"`
-			    fi
-			    echo \#\PBS -W depend=afterok:$dem_jobid >> $job
-			else
-			    :
-			fi			
-        		for(( n=0; n<nsteps; n++ )); do
-                	    read scene
-                	    echo $scene
-			    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-				echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-			    else
-				echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-				echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
-			    fi
-			done
-			chmod +x $job
-			qsub $job | tee $co_slc_batch_dir/$beam_num/"co_slc_"$beam_num"_"$i"_job_id"
-			cd ..
-		    done
-		}
-                # Work starts here
-		cd $co_slc_batch_dir/$beam_num
-		nlines=`cat $slave_list | sed '/^\s*$/d' | wc -l`
-		echo Need to process $nlines files
-
-                 # Need to run kjobs with k steps and ljobs with l steps. 
-		if [ $nlines -le $maxjobs ]; then
-		    kjobs=$nlines
-		    k=1
-		    ljobs=0
-		    l=0
-		else
-		    l=$((nlines/maxjobs))
-		    k=$((nlines%maxjobs))
-		    kjobs=$k
-		    k=$((l+1))
-		    ljobs=$((maxjobs-kjobs))
-		fi
-
-		echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
+	## Functions
+	COREG_BEAM_SLAVE()
+	{
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		proc=$proc_file
+	    else
+		proc=$proj_dir/$proc_file
+	    fi
+	    echo ""
+	    echo "Coregistering slave scenes to reference master scene..."
+            # Set up coregistration results file
+	    cd $proj_dir/$track_dir
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
+		echo "Slave Coregistration Results "$beam_num" "$slc_rlks"rlks "$slc_alks"alks" > $check_file
+		echo "final model fit std. dev. (samples)" >> $check_file
+		echo "Ref Master" > temp1_$beam_num
+		echo "Slave" > temp2_$beam_num
+		echo "Range" > temp3_$beam_num
+		echo "Azimuth" > temp4_$beam_num
+		paste temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num >> $check_file
+		rm -f temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num
+	    else
+		slc_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
+		echo "Slave Coregistration Results "$beam_num" "$slc_rlks"rlks "$slc_alks"alks" > $slc_check_file
+		echo "final model fit std. dev. (samples)" >> $slc_check_file
+		echo "Ref Master" > temp1_$beam_num
+		echo "Slave" > temp2_$beam_num
+		echo "Range" > temp3_$beam_num
+		echo "Azimuth" > temp4_$beam_num
+		paste temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num >> $slc_check_file
+		rm -f temp1_$beam_num temp2_$beam_num temp3_$beam_num temp4_$beam_num
 		
-		j=0
-		{
-		    create_jobs kjobs k j 
-		    create_jobs ljobs l kjobs 
+		ifm_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam_num"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+		echo "Slave Coregistration Results "$beam_num" "$ifm_rlks"rlks "$ifm_alks"alks" > $ifm_check_file
+		echo "final model fit std. dev. (samples)" >> $ifm_check_file
+		echo "Ref Master" > temp5_$beam_num
+		echo "Slave" > temp6_$beam_num
+		echo "Range" > temp7_$beam_num
+		echo "Azimuth" > temp8_$beam_num
+		paste temp5_$beam_num temp6_$beam_num temp7_$beam_num temp8_$beam_num >> $ifm_check_file
+		rm -f temp5_$beam_num temp6_$beam_num temp7_$beam_num temp8_$beam_num
+	    fi
+	    
+	    cd $co_slc_batch_dir/$beam_num
+	    
+	    function create_jobs {
+		
+		local njobs=$1
+		local nsteps=$2
+		local i=$3
+		local wt=$(( wt1*nsteps ))
+		local hh=$(( wt/60 ))
+		local mm=$(( wt%60 ))
+		local m=0
+		local n=0
+		
+		for(( m=0; m<njobs; m++ )); do
+        	    i=$(( i+=1 ))
+        	    jobdir=$job_dir_prefix$i
+        	    mkdir -p $jobdir
+        	    cd $jobdir
+        	    job=$pbs_job_prefix$i
 		    
-		} < $slave_list
-
-	        # create dependency list (make sure all coreg slcs are finished before error consolidation)
-		cd $co_slc_batch_dir/$beam_num
-		ls "co_slc_"$beam_num"_"*"_job_id" > list1
-		if [ -f list2 ]; then
-		    rm -rf list2
-		else
-		    :
-		fi
-		while read id; do
-		    less $id >> list2 
-		done < list1
-		sed s/.r-man2// list2 > list3 # leave just job numbers
-		sort -n list3 > list4 # sort numbers
-		tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
-		sed s'/.$//' list5 > "all_co_slc_"$beam_num"_job_id" # remove last :
-		dep=`awk '{print $1}' "all_co_slc_"$beam_num"_job_id"`
-		rm -rf list* "co_slc_"$beam_num"_"*"_job_id"
-
-                # in case future manual processing is required, create manual PBS jobs for each slave
-		cd $co_slc_manual_dir/$beam_num
-		while read list; do
-		    scene=`echo $list | awk '{print $1}'`
-		    job="co_slc_"$beam_num"_"$scene
-		    echo \#\!/bin/bash > $job
-		    echo \#\PBS -lother=gdata1 >> $job
-		    echo \#\PBS -l walltime=$co_slc_walltime >> $job
+		    echo Doing job $i in $jobdir with $job
+		    
+		    echo \#\!/bin/bash > $job 
+		    echo \#\PBS -l other=gdata1 >> $job
+		    echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
 		    echo \#\PBS -l mem=$co_slc_mem >> $job
 		    echo \#\PBS -l ncpus=$co_slc_ncpus >> $job
 		    echo \#\PBS -l wd >> $job
 		    echo \#\PBS -q normal >> $job
-		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+		    echo -e "\n" >> $job
+		    if [ $coregister_dem == yes -a $platform == NCI ]; then 
+			if [ -f $batch_dir/dem_jobs/$beam_num/"subset_dem_"$beam_num"_job_id" ]; then
+			    dem_jobid=`sed s/.r-man2// $batch_dir/dem_jobs/$beam_num/"subset_dem_"$beam_num"_job_id"`
+			else
+			    dem_jobid=`sed s/.r-man2// $batch_dir/dem_jobs/$beam_num/"dem_"$beam_num"_job_id"`
+			fi
+			echo \#\PBS -W depend=afterok:$dem_jobid >> $job
 		    else
-			echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-			echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
-		    fi
+			:
+		    fi			
+        	    for(( n=0; n<nsteps; n++ )); do
+                	read scene
+                	echo $scene
+			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+			    echo ~/repo/gamma_bash/$coreg_script $proc $scene $slc_rlks $slc_alks $beam_num >> $job
+			else
+			    echo ~/repo/gamma_bash/$coreg_script $proc $scene $slc_rlks $slc_alks $beam_num >> $job
+			    echo ~/repo/gamma_bash/$coreg_script $proc $scene $ifm_rlks $ifm_alks $beam_num >> $job
+			fi
+		    done
 		    chmod +x $job
-		done < $slave_list
-
-                # run coreg slc error check
-		echo "Preparing error collation for 'coregister_slaves'..."
-		cd $co_slc_batch_dir/$beam_num
-		job="co_slc_err_check_"$beam_num
+		    qsub $job | tee $co_slc_batch_dir/$beam_num/"co_slc_"$beam_num"_"$i"_job_id"
+		    cd ..
+		done
+	    }
+            # Work starts here
+	    cd $co_slc_batch_dir/$beam_num
+	    nlines=`cat $slave_list | sed '/^\s*$/d' | wc -l`
+	    echo Need to process $nlines files
+	    
+            # Need to run kjobs with k steps and ljobs with l steps. 
+	    if [ $nlines -le $maxjobs ]; then
+		kjobs=$nlines
+		k=1
+		ljobs=0
+		l=0
+	    else
+		l=$((nlines/maxjobs))
+		k=$((nlines%maxjobs))
+		kjobs=$k
+		k=$((l+1))
+		ljobs=$((maxjobs-kjobs))
+	    fi
+	    
+	    echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
+	    
+	    j=0
+	    {
+		create_jobs kjobs k j 
+		create_jobs ljobs l kjobs 
+		
+	    } < $slave_list
+	    
+	    # create dependency list (make sure all coreg slcs are finished before error consolidation)
+	    cd $co_slc_batch_dir/$beam_num
+	    ls "co_slc_"$beam_num"_"*"_job_id" > list1
+	    if [ -f list2 ]; then
+		rm -rf list2
+	    else
+		:
+	    fi
+	    while read id; do
+		less $id >> list2 
+	    done < list1
+	    sed s/.r-man2// list2 > list3 # leave just job numbers
+	    sort -n list3 > list4 # sort numbers
+	    tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
+	    sed s'/.$//' list5 > "all_co_slc_"$beam_num"_job_id" # remove last :
+	    dep=`awk '{print $1}' "all_co_slc_"$beam_num"_job_id"`
+	    rm -rf list* "co_slc_"$beam_num"_"*"_job_id"
+	    
+            # in case future manual processing is required, create manual PBS jobs for each slave
+	    cd $co_slc_manual_dir/$beam_num
+	    while read list; do
+		scene=`echo $list | awk '{print $1}'`
+		job="co_slc_"$beam_num"_"$scene
 		echo \#\!/bin/bash > $job
 		echo \#\PBS -lother=gdata1 >> $job
-		echo \#\PBS -l walltime=$error_walltime >> $job
-		echo \#\PBS -l mem=$error_mem >> $job
-		echo \#\PBS -l ncpus=$error_ncpus >> $job
-		echo \#\PBS -l wd >> $job
-		echo \#\PBS -q normal >> $job
-		echo \#\PBS -W depend=afterany:$dep >> $job
-		echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 5 $beam_num >> $job
-		chmod +x $job
-		qsub $job 
-	    fi
-	done < $beam_list
-    else # no beams
-
-        # Set up coregistration results file
-	cd $proj_dir/$track_dir
-	if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-	    check_file=$proj_dir/$track_dir/slave_coreg_results"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
-	    echo "Slave Coregistration Results "$slc_rlks"rlks "$slc_alks"alks" > $check_file
-	    echo "final model fit std. dev. (samples)" >> $check_file
-	    echo "Ref Master" > temp1
-	    echo "Slave" > temp2
-	    echo "Range" > temp3
-	    echo "Azimuth" > temp4
-	    paste temp1 temp2 temp3 temp4 >> $check_file
-	    rm -f temp1 temp2 temp3 temp4
-	else
-	    slc_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
-	    echo "Slave Coregistration Results "$slc_rlks"rlks "$slc_alks"alks" > $slc_check_file
-	    echo "final model fit std. dev. (samples)" >> $slc_check_file
-	    echo "Ref Master" > temp1
-	    echo "Slave" > temp2
-	    echo "Range" > temp3
-	    echo "Azimuth" > temp4
-	    paste temp1 temp2 temp3 temp4 >> $slc_check_file
-	    rm -f temp1 temp2 temp3 temp4
-	    
-	    ifm_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
-	    echo "Slave Coregistration Results "$ifm_rlks"rlks "$ifm_alks"alks" > $ifm_check_file
-	    echo "final model fit std. dev. (samples)" >> $ifm_check_file
-	    echo "Ref Master" > temp5
-	    echo "Slave" > temp6
-	    echo "Range" > temp7
-	    echo "Azimuth" > temp8
-	    paste temp5 temp6 temp7 temp8 >> $ifm_check_file
-	    rm -f temp5 temp6 temp7 temp8
-	fi
-
-	cd $co_slc_batch_dir
-
-	function create_jobs {
-	    
-	    local njobs=$1
-	    local nsteps=$2
-	    local i=$3
-	    local wt=$(( wt1*nsteps ))
-	    local hh=$(( wt/60 ))
-	    local mm=$(( wt%60 ))
-	    local m=0
-	    local n=0
-	    
-	    for(( m=0; m<njobs; m++ )); do
-        	i=$(( i+=1 ))
-        	jobdir=$job_dir_prefix$i
-        	mkdir -p $jobdir
-        	cd $jobdir
-        	job=$pbs_job_prefix$i
-		
-		echo Doing job $i in $jobdir with $job
-		
-		echo \#\!/bin/bash > $job 
-		echo \#\PBS -l other=gdata1 >> $job
-		echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
+		echo \#\PBS -l walltime=$co_slc_walltime >> $job
 		echo \#\PBS -l mem=$co_slc_mem >> $job
 		echo \#\PBS -l ncpus=$co_slc_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
-		echo -e "\n" >> $job
-		if [ $coregister_dem == yes -a $platform == NCI ]; then 
-		    if [ -f $batch_dir/dem_jobs/all_dem_job_id ]; then
-			dem_jobid=`sed s/.r-man2// $batch_dir/dem_jobs/subset_dem_job_id`
-		    else
-			dem_jobid=`sed s/.r-man2// $batch_dir/dem_jobs/dem_job_id`
-		    fi
-		    echo \#\PBS -W depend=afterok:$dem_jobid >> $job
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 		else
-		    :
+		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 		fi
-		for(( n=0; n<nsteps; n++ )); do
-                    read scene
-                    echo $scene
-		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		    else
-			echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-			echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
-		    fi
-        	done
 		chmod +x $job
-		qsub $job | tee $co_slc_batch_dir/"co_slc_"$i"_job_id" 		
-		cd ..
-	    done
-	}
-        # Work starts here
-	cd $co_slc_batch_dir
-	nlines=`cat $slave_list | sed '/^\s*$/d' | wc -l`
-	echo Need to process $nlines files
-	
-        # Need to run kjobs with k steps and ljobs with l steps. 
-	if [ $nlines -le $maxjobs ]; then
-	    kjobs=$nlines
-	    k=1
-	    ljobs=0
-	    l=0
-	else
-	    l=$((nlines/maxjobs))
-	    k=$((nlines%maxjobs))
-	    kjobs=$k
-	    k=$((l+1))
-	    ljobs=$((maxjobs-kjobs))
-	fi
-	
-	echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
-	
-	j=0
-	{
-	    create_jobs kjobs k j 
-	    create_jobs ljobs l kjobs 
+	    done < $slave_list
 	    
-	} < $slave_list
-	
-        # create dependency list (make sure all coreg slcs are finished before error consolidation)
-	cd $co_slc_batch_dir
-	ls "co_slc_"*"_job_id" > list1
-	if [ -f list2 ]; then
-	    rm -rf list2
-	else
-	    :
-	fi
-	while read id; do
-	    less $id >> list2 
-	done < list1
-	sed s/.r-man2// list2 > list3 # leave just job numbers
-	sort -n list3 > list4 # sort numbers
-	tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
-	sed s'/.$//' list5 > all_co_slc_job_id # remove last :
-	dep=`awk '{print $1}' all_co_slc_job_id`
-	rm -rf list* "co_slc_"*"_job_id"
-
-        # in case future manual processing is required, create manual PBS jobs for each scene
-	cd $co_slc_manual_dir
-	while read list; do
-	    scene=`echo $list | awk '{print $1}'`
-	    job="co_slc_"$scene
+            # run coreg slc error check
+	    echo "Preparing error collation for 'coregister_slaves'..."
+	    cd $co_slc_batch_dir/$beam_num
+	    job="co_slc_err_check_"$beam_num
 	    echo \#\!/bin/bash > $job
 	    echo \#\PBS -lother=gdata1 >> $job
-	    echo \#\PBS -l walltime=$co_slc_walltime >> $job
-	    echo \#\PBS -l mem=$co_slc_mem >> $job
-	    echo \#\PBS -l ncpus=$co_slc_ncpus >> $job
+	    echo \#\PBS -l walltime=$error_walltime >> $job
+	    echo \#\PBS -l mem=$error_mem >> $job
+	    echo \#\PBS -l ncpus=$error_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-	    else
-		echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
-	    fi
+	    echo \#\PBS -W depend=afterany:$dep >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc 5 $beam_num >> $job
 	    chmod +x $job
-	done < $slave_list
+	    qsub $job 
+	}
 
-        # run coreg slc error check
-	echo "Preparing error collation for 'coregister_slaves'..."
-	cd $co_slc_batch_dir
-	job=co_slc_err_check
-	echo \#\!/bin/bash > $job
-	echo \#\PBS -lother=gdata1 >> $job
-	echo \#\PBS -l walltime=$error_walltime >> $job
-	echo \#\PBS -l mem=$error_mem >> $job
-	echo \#\PBS -l ncpus=$error_ncpus >> $job
-	echo \#\PBS -l wd >> $job
-	echo \#\PBS -q normal >> $job
-	echo \#\PBS -W depend=afterany:$dep >> $job
-	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
-	chmod +x $job
-	qsub $job
+	while read beam_num; do
+	    if [ ! -z $beam_num ]; then
+		if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes -a $coregister_dem == yes -a $coregister == yes ]; then
+		    if [ ! -e $slave_list ]; then # if slave list doesn't exist
+			echo ""
+			echo "Slave list doesn't exist yet, waiting for process_gamma.bash to be rerun once list is created."
+			:
+		    else # slave list exists
+			COREG_BEAM_SLAVE
+		    fi
+		else # process as normal
+		    COREG_BEAM_SLAVE
+		fi
+	    fi
+	done < $beam_list
+    else # no beams
+
+	## Functions
+	COREG_SLAVE()
+	{
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		proc=$proc_file
+	    else
+		proc=$proj_dir/$proc_file
+	    fi
+	    echo ""
+	    echo "Coregistering slave scenes to reference master scene..."
+            # Set up coregistration results file
+	    cd $proj_dir/$track_dir
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		check_file=$proj_dir/$track_dir/slave_coreg_results"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
+		echo "Slave Coregistration Results "$slc_rlks"rlks "$slc_alks"alks" > $check_file
+		echo "final model fit std. dev. (samples)" >> $check_file
+		echo "Ref Master" > temp1
+		echo "Slave" > temp2
+		echo "Range" > temp3
+		echo "Azimuth" > temp4
+		paste temp1 temp2 temp3 temp4 >> $check_file
+		rm -f temp1 temp2 temp3 temp4
+	    else
+		slc_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
+		echo "Slave Coregistration Results "$slc_rlks"rlks "$slc_alks"alks" > $slc_check_file
+		echo "final model fit std. dev. (samples)" >> $slc_check_file
+		echo "Ref Master" > temp1
+		echo "Slave" > temp2
+		echo "Range" > temp3
+		echo "Azimuth" > temp4
+		paste temp1 temp2 temp3 temp4 >> $slc_check_file
+		rm -f temp1 temp2 temp3 temp4
+		
+		ifm_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+		echo "Slave Coregistration Results "$ifm_rlks"rlks "$ifm_alks"alks" > $ifm_check_file
+		echo "final model fit std. dev. (samples)" >> $ifm_check_file
+		echo "Ref Master" > temp5
+		echo "Slave" > temp6
+		echo "Range" > temp7
+		echo "Azimuth" > temp8
+		paste temp5 temp6 temp7 temp8 >> $ifm_check_file
+		rm -f temp5 temp6 temp7 temp8
+	    fi
+	    
+	    cd $co_slc_batch_dir
+	    
+	    function create_jobs {
+		
+		local njobs=$1
+		local nsteps=$2
+		local i=$3
+		local wt=$(( wt1*nsteps ))
+		local hh=$(( wt/60 ))
+		local mm=$(( wt%60 ))
+		local m=0
+		local n=0
+		
+		for(( m=0; m<njobs; m++ )); do
+        	    i=$(( i+=1 ))
+        	    jobdir=$job_dir_prefix$i
+        	    mkdir -p $jobdir
+        	    cd $jobdir
+        	    job=$pbs_job_prefix$i
+		    
+		    echo Doing job $i in $jobdir with $job
+		    
+		    echo \#\!/bin/bash > $job 
+		    echo \#\PBS -l other=gdata1 >> $job
+		    echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
+		    echo \#\PBS -l mem=$co_slc_mem >> $job
+		    echo \#\PBS -l ncpus=$co_slc_ncpus >> $job
+		    echo \#\PBS -l wd >> $job
+		    echo \#\PBS -q normal >> $job
+		    echo -e "\n" >> $job
+		    if [ $coregister_dem == yes -a $platform == NCI ]; then 
+			if [ -f $batch_dir/dem_jobs/all_dem_job_id ]; then
+			    dem_jobid=`sed s/.r-man2// $batch_dir/dem_jobs/subset_dem_job_id`
+			else
+			    dem_jobid=`sed s/.r-man2// $batch_dir/dem_jobs/dem_job_id`
+			fi
+			echo \#\PBS -W depend=afterok:$dem_jobid >> $job
+		    else
+			:
+		    fi
+		    for(( n=0; n<nsteps; n++ )); do
+			read scene
+			echo $scene
+			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+			    echo ~/repo/gamma_bash/$coreg_script $proc $scene $slc_rlks $slc_alks >> $job
+			else
+			    echo ~/repo/gamma_bash/$coreg_script $proc $scene $slc_rlks $slc_alks >> $job
+			    echo ~/repo/gamma_bash/$coreg_script $proc $scene $ifm_rlks $ifm_alks >> $job
+			fi
+        	    done
+		    chmod +x $job
+		    qsub $job | tee $co_slc_batch_dir/"co_slc_"$i"_job_id" 		
+		    cd ..
+		done
+	    }
+            # Work starts here
+	    cd $co_slc_batch_dir
+	    nlines=`cat $slave_list | sed '/^\s*$/d' | wc -l`
+	    echo Need to process $nlines files
+	    
+            # Need to run kjobs with k steps and ljobs with l steps. 
+	    if [ $nlines -le $maxjobs ]; then
+		kjobs=$nlines
+		k=1
+		ljobs=0
+		l=0
+	    else
+		l=$((nlines/maxjobs))
+		k=$((nlines%maxjobs))
+		kjobs=$k
+		k=$((l+1))
+		ljobs=$((maxjobs-kjobs))
+	    fi
+	    
+	    echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
+	    
+	    j=0
+	    {
+		create_jobs kjobs k j 
+		create_jobs ljobs l kjobs 
+		
+	    } < $slave_list
+	    
+            # create dependency list (make sure all coreg slcs are finished before error consolidation)
+	    cd $co_slc_batch_dir
+	    ls "co_slc_"*"_job_id" > list1
+	    if [ -f list2 ]; then
+		rm -rf list2
+	    else
+		:
+	    fi
+	    while read id; do
+		less $id >> list2 
+	    done < list1
+	    sed s/.r-man2// list2 > list3 # leave just job numbers
+	    sort -n list3 > list4 # sort numbers
+	    tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
+	    sed s'/.$//' list5 > all_co_slc_job_id # remove last :
+	    dep=`awk '{print $1}' all_co_slc_job_id`
+	    rm -rf list* "co_slc_"*"_job_id"
+	    
+            # in case future manual processing is required, create manual PBS jobs for each scene
+	    cd $co_slc_manual_dir
+	    while read list; do
+		scene=`echo $list | awk '{print $1}'`
+		job="co_slc_"$scene
+		echo \#\!/bin/bash > $job
+		echo \#\PBS -lother=gdata1 >> $job
+		echo \#\PBS -l walltime=$co_slc_walltime >> $job
+		echo \#\PBS -l mem=$co_slc_mem >> $job
+		echo \#\PBS -l ncpus=$co_slc_ncpus >> $job
+		echo \#\PBS -l wd >> $job
+		echo \#\PBS -q normal >> $job
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		else
+		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+		fi
+		chmod +x $job
+	    done < $slave_list
+	    
+            # run coreg slc error check
+	    echo "Preparing error collation for 'coregister_slaves'..."
+	    cd $co_slc_batch_dir
+	    job=co_slc_err_check
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$error_walltime >> $job
+	    echo \#\PBS -l mem=$error_mem >> $job
+	    echo \#\PBS -l ncpus=$error_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo \#\PBS -W depend=afterany:$dep >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc 5 >> $job
+	    chmod +x $job
+	    qsub $job
+	}
+
+	if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes -a $coregister_dem == yes -a $coregister == yes ]; then
+	    if [ ! -e $slave_list ]; then # if slave list doesn't exist
+		echo ""
+		echo "Slave list doesn't exist yet, waiting for process_gamma.bash to be rerun once list is created."
+		:
+	    else # slave list exists
+		COREG_SLAVE
+	    fi
+	else # process as normal
+	    COREG_SLAVE
+	fi
     fi
 
     # PBS job for checking slave coregistration  - doesn't work, won't display window
@@ -2268,8 +2437,6 @@ elif [ $do_ifms == no -a $platform == GA ]; then
 #### NCI ####
 
 elif [ $do_ifms == yes -a $platform == NCI ]; then
-    echo ""
-    echo "Creating interferograms..."
     ifm_batch_dir=$batch_dir/ifm_jobs
     ifm_manual_dir=$manual_dir/ifm_jobs
 
@@ -2284,162 +2451,184 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
     pbs_job_prefix=ifm_
 
     if [ -f $beam_list ]; then # if beam list exists
-	while read beam_num; do
-	    if [ ! -z $beam_num ]; then
 
-                # Set up bperp results file
-		cd $proj_dir/$track_dir
-		results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$beam_num"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
-		echo "Interferogram bperp Results "$beam_num" "$ifm_rlks"rlks "$ifm_alks"alks" > $results_file
-		echo "Interferogram_Pair" > temp1
-		echo "bperp_Value" > temp2
-		paste temp1 temp2 >> $results_file
-		rm -f temp1 temp2
-
-		cd $ifm_batch_dir/$beam_num
-
-		function create_jobs {
-		    
-		    local njobs=$1
-		    local nsteps=$2
-		    local i=$3
-		    local wt=$(( wt1*nsteps ))
-		    local hh=$(( wt/60 ))
-		    local mm=$(( wt%60 ))
-		    local m=0
-		    local n=0
-		    
-		    for(( m=0; m<njobs; m++ )); do
-        		i=$(( i+=1 ))
-        		jobdir=$job_dir_prefix$i
-        		mkdir -p $jobdir
-        		cd $jobdir
-        		job=$pbs_job_prefix$i
-			
-			echo Doing job $i in $jobdir with $job
-			
-			echo \#\!/bin/bash > $job 
-			echo \#\PBS -l other=gdata1 >> $job
-			echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
-			echo \#\PBS -l mem=$ifm_mem >> $job
-			echo \#\PBS -l ncpus=$ifm_ncpus >> $job
-			echo \#\PBS -l wd >> $job
-			echo \#\PBS -q normal >> $job
-			echo -e "\n" >> $job
-			if [ $coregister == yes -a $platform == NCI ]; then
-			    co_slc_jobid=`awk '{print $1}' $batch_dir/slc_coreg_jobs/$beam_num/"all_co_slc_"$beam_num"_job_id"`
-			    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $job
-			else
-			    :
-			fi
-			for(( n=0; n<nsteps; n++ )); do
-                            read line
-                            echo $line
-                            mas=`echo $line | awk 'BEGIN {FS=","} ; {print $1}'`
-                            slv=`echo $line | awk 'BEGIN {FS=","} ; {print $2}'`
-			    echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
- 			done
-			chmod +x $job
-			qsub $job | tee $ifm_batch_dir/$beam_num/"ifm_"$beam_num"_"$i"_job_id"
-			cd ..
-		    done
-		}
-                # Work starts here
-		cd $ifm_batch_dir/$beam_num
-		nlines=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
-		echo Need to process $nlines files
-
-                 # Need to run kjobs with k steps and ljobs with l steps. 
-		if [ $nlines -le $maxjobs ]; then
-		    kjobs=$nlines
-		    k=1
-		    ljobs=0
-		    l=0
-		else
-		    l=$((nlines/maxjobs))
-		    k=$((nlines%maxjobs))
-		    kjobs=$k
-		    k=$((l+1))
-		    ljobs=$((maxjobs-kjobs))
-		fi
-
-		echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
+	CREATE_BEAM_IFMS()
+	{
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		proc=$proc_file
+	    else
+		proc=$proj_dir/$proc_file
+	    fi
+	    echo ""
+	    echo "Creating interferograms..."
+            # Set up bperp results file
+	    cd $proj_dir/$track_dir
+	    results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$beam_num"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+	    echo "Interferogram bperp Results "$beam_num" "$ifm_rlks"rlks "$ifm_alks"alks" > $results_file
+	    echo "Interferogram_Pair" > temp1
+	    echo "bperp_Value" > temp2
+	    paste temp1 temp2 >> $results_file
+	    rm -f temp1 temp2
+	    
+	    cd $ifm_batch_dir/$beam_num
+	    
+	    function create_jobs {
 		
-		j=0
-		{
-		    create_jobs kjobs k j 
-		    create_jobs ljobs l kjobs 
+		local njobs=$1
+		local nsteps=$2
+		local i=$3
+		local wt=$(( wt1*nsteps ))
+		local hh=$(( wt/60 ))
+		local mm=$(( wt%60 ))
+		local m=0
+		local n=0
+		
+		for(( m=0; m<njobs; m++ )); do
+        	    i=$(( i+=1 ))
+        	    jobdir=$job_dir_prefix$i
+        	    mkdir -p $jobdir
+        	    cd $jobdir
+        	    job=$pbs_job_prefix$i
 		    
-		} < $ifm_list
-
-	        # create dependency list (make sure all ifms are finished before error consolidation)
-		cd $ifm_batch_dir/$beam_num
-		ls "ifm_"$beam_num"_"*"_job_id" > list1
-		if [ -f list2 ]; then
-		    rm -rf list2
-		else
-		    :
-		fi
-		while read id; do
-		    less $id >> list2 
-		done < list1
-		sed s/.r-man2// list2 > list3 # leave just job numbers
-		sort -n list3 > list4 # sort numbers
-		tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
-		sed s'/.$//' list5 > "all_ifm_"$beam_num"_job_id" # remove last :
-		dep=`awk '{print $1}' "all_ifm_"$beam_num"_job_id"`
-		rm -rf list* "ifm_"$beam_num"_"*"_job_id"
-
-                # in case future manual processing is required, create manual PBS jobs for each ifm
-		cd $ifm_manual_dir/$beam_num
-		while read list; do
-		    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-		    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-		    mas_name=`echo $mas | awk '{print substr($1,3,6)}'`
-		    slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
-		    job="ifm_"$beam_num"_"$mas_name-$slv_name
-		    echo \#\!/bin/bash > $job
-		    echo \#\PBS -lother=gdata1 >> $job
-		    echo \#\PBS -l walltime=$ifm_walltime >> $job
+		    echo Doing job $i in $jobdir with $job
+		    
+		    echo \#\!/bin/bash > $job 
+		    echo \#\PBS -l other=gdata1 >> $job
+		    echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
 		    echo \#\PBS -l mem=$ifm_mem >> $job
 		    echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		    echo \#\PBS -l wd >> $job
 		    echo \#\PBS -q normal >> $job
-		    echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
+		    echo -e "\n" >> $job
+		    if [ $coregister == yes -a $platform == NCI ]; then
+			co_slc_jobid=`awk '{print $1}' $batch_dir/slc_coreg_jobs/$beam_num/"all_co_slc_"$beam_num"_job_id"`
+			echo \#\PBS -W depend=afterok:$co_slc_jobid >> $job
+		    else
+			:
+		    fi
+		    for(( n=0; n<nsteps; n++ )); do
+			read line
+			echo $line
+			mas=`echo $line | awk 'BEGIN {FS=","} ; {print $1}'`
+			slv=`echo $line | awk 'BEGIN {FS=","} ; {print $2}'`
+			echo ~/repo/gamma_bash/process_ifm.bash $proc $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
+ 		    done
 		    chmod +x $job
-		done < $ifm_list
-
-                # run ifm error check
-		echo "Preparing error collation for 'create_ifms'..."
-		cd $ifm_batch_dir/$beam_num
-		job="ifm_err_check_"$beam_num
+		    qsub $job | tee $ifm_batch_dir/$beam_num/"ifm_"$beam_num"_"$i"_job_id"
+		    cd ..
+		done
+	    }
+            # Work starts here
+	    cd $ifm_batch_dir/$beam_num
+	    nlines=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
+	    echo Need to process $nlines files
+	    
+            # Need to run kjobs with k steps and ljobs with l steps. 
+	    if [ $nlines -le $maxjobs ]; then
+		kjobs=$nlines
+		k=1
+		ljobs=0
+		l=0
+	    else
+		l=$((nlines/maxjobs))
+		k=$((nlines%maxjobs))
+		kjobs=$k
+		k=$((l+1))
+		ljobs=$((maxjobs-kjobs))
+	    fi
+	    
+	    echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
+	    
+	    j=0
+	    {
+		create_jobs kjobs k j 
+		create_jobs ljobs l kjobs 
+		
+	    } < $ifm_list
+	    
+	    # create dependency list (make sure all ifms are finished before error consolidation)
+	    cd $ifm_batch_dir/$beam_num
+	    ls "ifm_"$beam_num"_"*"_job_id" > list1
+	    if [ -f list2 ]; then
+		rm -rf list2
+	    else
+		:
+	    fi
+	    while read id; do
+		less $id >> list2 
+	    done < list1
+	    sed s/.r-man2// list2 > list3 # leave just job numbers
+	    sort -n list3 > list4 # sort numbers
+	    tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
+	    sed s'/.$//' list5 > "all_ifm_"$beam_num"_job_id" # remove last :
+	    dep=`awk '{print $1}' "all_ifm_"$beam_num"_job_id"`
+	    rm -rf list* "ifm_"$beam_num"_"*"_job_id"
+	    
+            # in case future manual processing is required, create manual PBS jobs for each ifm
+	    cd $ifm_manual_dir/$beam_num
+	    while read list; do
+		mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+		slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+		mas_name=`echo $mas | awk '{print substr($1,3,6)}'`
+		slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
+		job="ifm_"$beam_num"_"$mas_name-$slv_name
 		echo \#\!/bin/bash > $job
 		echo \#\PBS -lother=gdata1 >> $job
-		echo \#\PBS -l walltime=$error_walltime >> $job
-		echo \#\PBS -l mem=$error_mem >> $job
-		echo \#\PBS -l ncpus=$error_ncpus >> $job
+		echo \#\PBS -l walltime=$ifm_walltime >> $job
+		echo \#\PBS -l mem=$ifm_mem >> $job
+		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
-		echo \#\PBS -W depend=afterany:$dep >> $job
-		echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 6 $beam_num >> $job
+		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
 		chmod +x $job
-		qsub $job 
+	    done < $ifm_list
+	    
+            # run ifm error check
+	    echo "Preparing error collation for 'create_ifms'..."
+	    cd $ifm_batch_dir/$beam_num
+	    job="ifm_err_check_"$beam_num
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$error_walltime >> $job
+	    echo \#\PBS -l mem=$error_mem >> $job
+	    echo \#\PBS -l ncpus=$error_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo \#\PBS -W depend=afterany:$dep >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc 6 $beam_num >> $job
+	    chmod +x $job
+	    qsub $job 
+			
+   	    # run post ifm processing
+	    echo "Running post interferogram processing..."
+	    cd $ifm_batch_dir/$beam_num
+	    ifm_post="post_ifm_"$beam_num"_processing"
+	    echo \#\!/bin/bash > $ifm_post
+	    echo \#\PBS -lother=gdata1 >> $ifm_post
+	    echo \#\PBS -l walltime=$post_walltime >> $ifm_post
+	    echo \#\PBS -l mem=$post_mem >> $ifm_post
+	    echo \#\PBS -l ncpus=$post_ncpus >> $ifm_post
+	    echo \#\PBS -l wd >> $ifm_post
+	    echo \#\PBS -q normal >> $ifm_post
+	    echo \#\PBS -W depend=afterok:$dep >> $ifm_post
+	    echo ~/repo/gamma_bash/post_ifm_processing.bash $proc 1 $beam_num >> $ifm_post
+	    chmod +x $ifm_post
+	    qsub $ifm_post
+	}
 
-   	        # run post ifm processing
-		echo "Running post interferogram processing..."
-		cd $ifm_batch_dir/$beam_num
-		ifm_post="post_ifm_"$beam_num"_processing"
-		echo \#\!/bin/bash > $ifm_post
-		echo \#\PBS -lother=gdata1 >> $ifm_post
-		echo \#\PBS -l walltime=$post_walltime >> $ifm_post
-		echo \#\PBS -l mem=$post_mem >> $ifm_post
-		echo \#\PBS -l ncpus=$post_ncpus >> $ifm_post
-		echo \#\PBS -l wd >> $ifm_post
-		echo \#\PBS -q normal >> $ifm_post
-		echo \#\PBS -W depend=afterok:$dep >> $ifm_post
-		echo ~/repo/gamma_bash/post_ifm_processing.bash $proj_dir/$proc_file 1 $beam_num >> $ifm_post
-		chmod +x $ifm_post
-		qsub $ifm_post
+	while read beam_num; do
+	    if [ ! -z $beam_num ]; then
+		if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes -a $coregister_dem == yes -a $coregister == yes -a $do_ifms == yes ]; then
+		    if [ ! -e $ifm_list ]; then # if ifm list doesn't exist
+			echo ""
+			echo "Interferogram list doesn't exist yet, waiting for process_gamma.bash to be rerun once list is created."
+			:
+		    else # ifm list exists
+			CREATE_BEAM_IFMS
+		    fi
+		else # process as normal
+		    CREATE_BEAM_IFMS
+		fi
 	    fi
 	done < $beam_list
 
@@ -2498,161 +2687,183 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	fi
     else # no beam list
 
-        # Set up bperp results file
-	cd $proj_dir/$track_dir
-	results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
-	echo "Interferogram bperp Results "$ifm_rlks"rlks "$ifm_alks"alks" > $results_file
-	echo "Interferogram_Pair" > temp1
-	echo "bperp_Value" > temp2
-	paste temp1 temp2 >> $results_file
-	rm -f temp1 temp2
-
-	cd $ifm_batch_dir
-
-	function create_jobs {
+	## Functions
+	CREATE_IFMS()
+	{
+	    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+		proc=$proc_file
+	    else
+		proc=$proj_dir/$proc_file
+	    fi
+	    echo ""
+	    echo "Creating interferograms..."
+            # Set up bperp results file
+	    cd $proj_dir/$track_dir
+	    results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+	    echo "Interferogram bperp Results "$ifm_rlks"rlks "$ifm_alks"alks" > $results_file
+	    echo "Interferogram_Pair" > temp1
+	    echo "bperp_Value" > temp2
+	    paste temp1 temp2 >> $results_file
+	    rm -f temp1 temp2
 	    
-	    local njobs=$1
-	    local nsteps=$2
-	    local i=$3
-	    local wt=$(( wt1*nsteps ))
-	    local hh=$(( wt/60 ))
-	    local mm=$(( wt%60 ))
-	    local m=0
-	    local n=0
+	    cd $ifm_batch_dir
 	    
-	    for(( m=0; m<njobs; m++ )); do
-        	i=$(( i+=1 ))
-        	jobdir=$job_dir_prefix$i
-        	mkdir -p $jobdir
-        	cd $jobdir
-        	job=$pbs_job_prefix$i
+	    function create_jobs {
 		
-		echo Doing job $i in $jobdir with $job
+		local njobs=$1
+		local nsteps=$2
+		local i=$3
+		local wt=$(( wt1*nsteps ))
+		local hh=$(( wt/60 ))
+		local mm=$(( wt%60 ))
+		local m=0
+		local n=0
 		
-		echo \#\!/bin/bash > $job 
-		echo \#\PBS -l other=gdata1 >> $job
-		echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
+		for(( m=0; m<njobs; m++ )); do
+        	    i=$(( i+=1 ))
+        	    jobdir=$job_dir_prefix$i
+        	    mkdir -p $jobdir
+        	    cd $jobdir
+        	    job=$pbs_job_prefix$i
+		    
+		    echo Doing job $i in $jobdir with $job
+		    
+		    echo \#\!/bin/bash > $job 
+		    echo \#\PBS -l other=gdata1 >> $job
+		    echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
+		    echo \#\PBS -l mem=$ifm_mem >> $job
+		    echo \#\PBS -l ncpus=$ifm_ncpus >> $job
+		    echo \#\PBS -l wd >> $job
+		    echo \#\PBS -q normal >> $job
+		    echo -e "\n" >> $job
+		    if [ $coregister == yes -a $platform == NCI ]; then
+			co_slc_jobid=`awk '{print $1}' $batch_dir/slc_coreg_jobs/all_co_slc_job_id`
+			echo \#\PBS -W depend=afterok:$co_slc_jobid >> $job
+		    else
+			:
+		    fi
+		    for(( n=0; n<nsteps; n++ )); do
+			read line
+			echo $line
+			mas=`echo $line | awk 'BEGIN {FS=","} ; {print $1}'`
+			slv=`echo $line | awk 'BEGIN {FS=","} ; {print $2}'`
+			echo ~/repo/gamma_bash/process_ifm.bash $proc $mas $slv $ifm_rlks $ifm_alks >> $job
+ 		    done
+		    chmod +x $job
+		    qsub $job | tee $ifm_batch_dir/"ifm_"$i"_job_id"
+		    cd ..
+		done
+	    }
+            # Work starts here
+	    cd $ifm_batch_dir
+	    nlines=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
+	    echo Need to process $nlines files
+		
+            # Need to run kjobs with k steps and ljobs with l steps. 
+	    if [ $nlines -le $maxjobs ]; then
+		kjobs=$nlines
+		k=1
+		ljobs=0
+		l=0
+	    else
+		l=$((nlines/maxjobs))
+		k=$((nlines%maxjobs))
+		kjobs=$k
+		k=$((l+1))
+		ljobs=$((maxjobs-kjobs))
+	    fi
+	    
+	    echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
+		
+	    j=0
+	    {
+		create_jobs kjobs k j 
+		create_jobs ljobs l kjobs 
+		
+	    } < $ifm_list
+	    
+            # create dependency list (make sure all ifms are finished before error consolidation)
+	    cd $ifm_batch_dir
+	    ls "ifm_"*"_job_id" > list1
+	    if [ -f list2 ]; then
+		rm -rf list2
+	    else
+		:
+	    fi
+	    while read id; do
+		less $id >> list2 
+	    done < list1
+	    sed s/.r-man2// list2 > list3 # leave just job numbers
+	    sort -n list3 > list4 # sort numbers
+	    tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
+	    sed s'/.$//' list5 > all_ifm_job_id # remove last :
+	    dep=`awk '{print $1}' all_ifm_job_id`
+	    rm -rf list* "ifm_"*"_job_id"
+	    
+            # in case future manual processing is required, create manual PBS jobs for each ifm
+	    cd $ifm_manual_dir
+	    while read list; do
+		mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+		slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+		mas_name=`echo $mas | awk '{print substr($1,3,6)}'`
+		slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
+		job="ifm_"$mas_name-$slv_name
+		echo \#\!/bin/bash > $job
+		echo \#\PBS -lother=gdata1 >> $job
+		echo \#\PBS -l walltime=$ifm_walltime >> $job
 		echo \#\PBS -l mem=$ifm_mem >> $job
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
-		echo -e "\n" >> $job
-		if [ $coregister == yes -a $platform == NCI ]; then
-		    co_slc_jobid=`awk '{print $1}' $batch_dir/slc_coreg_jobs/all_co_slc_job_id`
-		    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $job
-		else
-		    :
-		fi
-		for(( n=0; n<nsteps; n++ )); do
-                    read line
-                    echo $line
-                    mas=`echo $line | awk 'BEGIN {FS=","} ; {print $1}'`
-                    slv=`echo $line | awk 'BEGIN {FS=","} ; {print $2}'`
-		    echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
- 		done
+		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
 		chmod +x $job
-		qsub $job | tee $ifm_batch_dir/"ifm_"$i"_job_id"
-		cd ..
-	    done
-	}
-        # Work starts here
-	cd $ifm_batch_dir
-	nlines=`cat $ifm_list | sed '/^\s*$/d' | wc -l`
-	echo Need to process $nlines files
-	
-        # Need to run kjobs with k steps and ljobs with l steps. 
-	if [ $nlines -le $maxjobs ]; then
-	    kjobs=$nlines
-	    k=1
-	    ljobs=0
-	    l=0
-	else
-	    l=$((nlines/maxjobs))
-	    k=$((nlines%maxjobs))
-	    kjobs=$k
-	    k=$((l+1))
-	    ljobs=$((maxjobs-kjobs))
-	fi
-	
-	echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
-	
-	j=0
-	{
-	    create_jobs kjobs k j 
-	    create_jobs ljobs l kjobs 
+	    done < $ifm_list
 	    
-	} < $ifm_list
-	
-        # create dependency list (make sure all ifms are finished before error consolidation)
-	cd $ifm_batch_dir
-	ls "ifm_"*"_job_id" > list1
-	if [ -f list2 ]; then
-	    rm -rf list2
-	else
-	    :
-	fi
-	while read id; do
-	    less $id >> list2 
-	done < list1
-	sed s/.r-man2// list2 > list3 # leave just job numbers
-	sort -n list3 > list4 # sort numbers
-	tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
-	sed s'/.$//' list5 > all_ifm_job_id # remove last :
-	dep=`awk '{print $1}' all_ifm_job_id`
-	rm -rf list* "ifm_"*"_job_id"
-	
-        # in case future manual processing is required, create manual PBS jobs for each ifm
-	cd $ifm_manual_dir
-	while read list; do
-	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    mas_name=`echo $mas | awk '{print substr($1,3,6)}'`
-	    slv_name=`echo $slv | awk '{print substr($1,3,6)}'`
-	    job="ifm_"$mas_name-$slv_name
+            # run ifm error check
+	    echo "Preparing error collation for 'create_ifms'..."
+	    cd $ifm_batch_dir
+	    job=ifm_err_check
 	    echo \#\!/bin/bash > $job
 	    echo \#\PBS -lother=gdata1 >> $job
-	    echo \#\PBS -l walltime=$ifm_walltime >> $job
-	    echo \#\PBS -l mem=$ifm_mem >> $job
-	    echo \#\PBS -l ncpus=$ifm_ncpus >> $job
+	    echo \#\PBS -l walltime=$error_walltime >> $job
+	    echo \#\PBS -l mem=$error_mem >> $job
+	    echo \#\PBS -l ncpus=$error_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-	    echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
+	    echo \#\PBS -W depend=afterany:$dep >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc 6 >> $job
 	    chmod +x $job
-	done < $ifm_list
-	
-        # run ifm error check
-	echo "Preparing error collation for 'create_ifms'..."
-	cd $ifm_batch_dir
-	job=ifm_err_check
-	echo \#\!/bin/bash > $job
-	echo \#\PBS -lother=gdata1 >> $job
-	echo \#\PBS -l walltime=$error_walltime >> $job
-	echo \#\PBS -l mem=$error_mem >> $job
-	echo \#\PBS -l ncpus=$error_ncpus >> $job
-	echo \#\PBS -l wd >> $job
-	echo \#\PBS -q normal >> $job
-	echo \#\PBS -W depend=afterany:$dep >> $job
-	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 6 >> $job
-	chmod +x $job
-	qsub $job
+	    qsub $job
 
-   	# run post ifm processing
-	echo "Running post interferogram processing..."
-	cd $ifm_batch_dir
-	ifm_post=post_ifm_processing
-	echo \#\!/bin/bash > $ifm_post
-	echo \#\PBS -lother=gdata1 >> $ifm_post
-	echo \#\PBS -l walltime=$post_walltime >> $ifm_post
-	echo \#\PBS -l mem=$post_mem >> $ifm_post
-	echo \#\PBS -l ncpus=$post_ncpus >> $ifm_post
-	echo \#\PBS -l wd >> $ifm_post
-	echo \#\PBS -q normal >> $ifm_post
-	echo \#\PBS -W depend=afterok:$dep >> $ifm_post
-	echo ~/repo/gamma_bash/post_ifm_processing.bash $proj_dir/$proc_file 1 >> $ifm_post
-	chmod +x $ifm_post
-	qsub $ifm_post 
+            # run post ifm processing
+	    echo "Running post interferogram processing..."
+	    cd $ifm_batch_dir
+	    ifm_post=post_ifm_processing
+	    echo \#\!/bin/bash > $ifm_post
+	    echo \#\PBS -lother=gdata1 >> $ifm_post
+	    echo \#\PBS -l walltime=$post_walltime >> $ifm_post
+	    echo \#\PBS -l mem=$post_mem >> $ifm_post
+	    echo \#\PBS -l ncpus=$post_ncpus >> $ifm_post
+	    echo \#\PBS -l wd >> $ifm_post
+	    echo \#\PBS -q normal >> $ifm_post
+	    echo \#\PBS -W depend=afterok:$dep >> $ifm_post
+	    echo ~/repo/gamma_bash/post_ifm_processing.bash $proc 1 >> $ifm_post
+	    chmod +x $ifm_post
+	    qsub $ifm_post 
+	}
+
+	if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes -a $coregister_dem == yes -a $coregister == yes -a $do_ifms == yes ]; then
+	    if [ ! -e $ifm_list ]; then # if ifm list doesn't exist
+		echo ""
+		echo "Interferogram list doesn't exist yet, waiting for process_gamma.bash to be rerun once list is created."
+		:
+	    else # ifm list exists
+		CREATE_IFMS
+	    fi
+	else # process as normal
+	    CREATE_IFMS
+	fi
     fi	
-
 elif [ $do_ifms == no -a $platform == NCI ]; then
     echo ""
     echo "Option to create interferograms not selected."
