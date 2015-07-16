@@ -87,48 +87,48 @@ slc_dir=$proj_dir/$track_dir/`grep SLC_dir= $proc_file | cut -d "=" -f 2`
 scene_dir=$slc_dir/$scene
 
 if [ $list_type -eq 1 ]; then
-    list=`grep List_of_slaves= $proc_file | cut -d "=" -f 2`
+    list=$proj_dir/$track_dir/lists/`grep List_of_slaves= $proc_file | cut -d "=" -f 2`
 echo " "
 echo "Checking coregistration of slaves with master scene..."
 else
-    list=`grep List_of_add_slaves= $proc_file | cut -d "=" -f 2`
+    list=$proj_dir/$track_dir/lists/`grep List_of_add_slaves= $proc_file | cut -d "=" -f 2`
 echo " "
 echo "Checking coregistration of additional slaves with master scene..."
 fi
 
 cd $proj_dir/$track_dir
 
-echo "   Checking full SLC images..."
-echo " "
+#echo "   Checking full SLC images..."
+#echo " "
 
-mas_dir=$slc_dir/$mas
-if [ -z $beam ]; then #no beam
-    mas_slc=$mas_dir/r$mas"_"$polar.slc
-else #beam exists
-    mas_slc=$mas_dir/r$mas"_"$polar"_"$beam.slc
-fi
-mas_slc_par=$mas_slc.par
-mas_slc_width=`grep range_samples: $mas_slc_par | awk '{print $2}'`
+#mas_dir=$slc_dir/$mas
+#if [ -z $beam ]; then #no beam
+#    mas_slc=$mas_dir/r$mas"_"$polar.slc
+#else #beam exists
+#    mas_slc=$mas_dir/r$mas"_"$polar"_"$beam.slc
+#fi
+#mas_slc_par=$mas_slc.par
+#mas_slc_width=`grep range_samples: $mas_slc_par | awk '{print $2}'`
 
-while read slave; do
-    if [ ! -z $slave ]; then
-	slv=`echo $slave | awk '{print $1}'`
-	slv_dir=$slc_dir/$slv
-	slv_slc=$slv_dir/r$slv"_"$polar.slc
-	slv_slc_par=$slv_slc.par
-	slv_slc_width=`grep range_samples: $slv_slc_par | awk '{print $2}'`
-	format=`grep image_format: $slv_slc_par | awk '{print $2}'`    
-	if [ $format == SCOMPLEX ]; then
-	    fflag=1
-	else # format = FCOMPLEX
-            fflag=0
-	fi
-	dis2SLC $mas_slc $slv_slc $mas_slc_width $slv_slc_width $start $nlines - - 1 0.5 $fflag
-    fi
-done < $list
+#while read slave; do
+#    if [ ! -z $slave ]; then
+#	slv=`echo $slave | awk '{print $1}'`
+#	slv_dir=$slc_dir/$slv
+#	slv_slc=$slv_dir/r$slv"_"$polar.slc
+#	slv_slc_par=$slv_slc.par
+#	slv_slc_width=`grep range_samples: $slv_slc_par | awk '{print $2}'`
+#	format=`grep image_format: $slv_slc_par | awk '{print $2}'`    
+#	if [ $format == SCOMPLEX ]; then
+#	    fflag=1
+#	else # format = FCOMPLEX
+#            fflag=0
+#	fi
+#	dis2SLC $mas_slc $slv_slc $mas_slc_width $slv_slc_width $start $nlines - - 1 0.5 $fflag
+#    fi
+#done < $list
 
-echo " "
-echo "Checked full SLC images."
+#echo " "
+#echo "Checked full SLC images."
 
 if [ $slc_looks -ne $ifm_looks ]; then
     echo "   Checking SLC MLI images..."
