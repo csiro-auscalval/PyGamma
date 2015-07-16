@@ -954,10 +954,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		    echo \#\PBS -l wd >> $job
 		    echo \#\PBS -q normal >> $job
 		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
 		    else
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
+			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $ifm_rlks $ifm_alks >> $job
 		    fi
 		    chmod +x $job
 		done < $scene_list
@@ -1084,10 +1084,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
 		else
-		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $ifm_rlks $ifm_alks >> $job
 		fi
 		chmod +x $job
 	    done < $scene_list
@@ -1891,24 +1891,24 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - >> $job
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - >> $job
 		fi
 	    else
                 # no multi-look value - for geocoding full SLC data
 		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - >> $job
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - >> $job
 		fi
 	    fi	  
 	    chmod +x $job
@@ -2226,10 +2226,10 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+		    echo ~/repo/gamma_bash/$coreg_script $proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 		else
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+		    echo ~/repo/gamma_bash/$coreg_script $proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+		    echo ~/repo/gamma_bash/$coreg_script $proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 		fi
 		chmod +x $job
 	    done < $slave_list
@@ -2426,10 +2426,10 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_bash/$coreg_script $proc_file $scene $slc_rlks $slc_alks >> $job
 		else
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+		    echo ~/repo/gamma_bash/$coreg_script $proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_bash/$coreg_script $proc_file $scene $ifm_rlks $ifm_alks >> $job
 		fi
 		chmod +x $job
 	    done < $slave_list
@@ -2675,7 +2675,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
+		echo ~/repo/gamma_bash/process_ifm.bash $proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
 		chmod +x $job
 	    done < $ifm_list
 	    
@@ -2911,7 +2911,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
+		echo ~/repo/gamma_bash/process_ifm.bash $proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
 		chmod +x $job
 	    done < $ifm_list
 	    
