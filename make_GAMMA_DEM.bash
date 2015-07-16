@@ -6,17 +6,20 @@ display_usage() {
     echo "* make_GAMMA_DEM: Script takes an ASCII file created in ArcGIS and creates    *"
     echo "*                 a DEM for use with GAMMA.                                   *"
     echo "*                                                                             *"
-    echo "* input:  [proc_file]    name of GAMMA proc file (eg. gamma.proc)             *"
-    echo "*         [ascii_file]   name of ascii DEM file (eg. surat.txt)               *"
+    echo "* input:  [proc_file]       name of GAMMA proc file (eg. gamma.proc)          *"
+    echo "*         [dem_ascii_file]  name of DEM ascii file (eg. surat_srtm_1as.txt)   *"
     echo "*         optional:                                                           *"
-    echo "*            <west>:     western longitude for subsetting                     *"
-    echo "*            <east>:     eastern longitude for subsetting                     *"
-    echo "*            <south>:    southern latitude for subsetting                     *"
-    echo "*            <north>:    northern latitude for subsetting                     *"
+    echo "*           <lsat_ascii>:  name of Landsat ascii file (eg. surat_landsat.txt) *"
+    echo "*           <west>:        western longitude for subsetting                   *"
+    echo "*           <east>:        eastern longitude for subsetting                   *"
+    echo "*           <south>:       southern latitude for subsetting                   *"
+    echo "*           <north>:       northern latitude for subsetting                   *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       09/07/2015, v1.1                            *"
+    echo "*              Add option to format Landsat image for dem coregistration      *"
     echo "*******************************************************************************"
-    echo -e "Usage: make_GAMMA_DEM.bash [proc_file] [ascii_file] <optional_parameters>"
+    echo -e "Usage: make_GAMMA_DEM.bash [proc_file] [dem_ascii_file] <lsat_ascii> <west> <east> <south> <north>"
     }
 
 if [ $# -lt 2 ]
@@ -25,7 +28,8 @@ then
     exit 1
 fi
 
-ascii_file=$2
+dem_ascii_file=$2
+lsat_ascii_file=$3
 proc_file=$1
 
 ## Variables from parameter file (*.proc)
@@ -67,11 +71,11 @@ else
 fi
 
 ## Subset DEM
-if [ $# -gt 2 -a $# -lt 6 ]; then
+if [ $# -gt 3 -a $# -lt 7 ]; then
     echo "ERROR: enter west, east, south and north parameters for subsetting, in that order"
-elif [ $# -eq 6 ]; then
+elif [ $# -eq 7 ]; then
     cut=1
-    subset=-R$2/$3/$4/$5
+    subset=-R$4/$5/$6/$7
 else
     :
 fi
@@ -95,23 +99,28 @@ if [ $platform == NCI ]; then
     name=`echo $file | sed 's/\.[^.]*$//'`
 else 
     cd $dem_dir_ga
-    name=`echo $ascii_file | sed 's/\.[^.]*$//'`
+    dem_name=`echo $dem_ascii_file | sed 's/\.[^.]*$//'`
+    lsat_name=`echo $lsat_ascii_file | sed 's/\.[^.]*$//'`
 fi
 
+
+### DEM Processing
+
+
 ## Convert ArcGIS ascii text file to grd format
-xyz2grd $name.txt -G$name"_org.grd" -E -V
+xyz2grd $dem_name.txt -G$dem_name"_org.grd" -E -V
 
 # Optionally subset the DEM
 #if [ $cut -eq 1 ]; then
-#    mv $name"_org.grd" temp.grd
-#    grdcut temp.grd -G$name"_org.grd" $subset 
+#    mv $dem_name"_org.grd" temp.grd
+#    grdcut temp.grd -G$dem_name"_org.grd" $subset 
 #    rm -f temp.grd
 #else
 #    :
 #if
 
 ## Extract grd information for inclusion into DEM parameter file
-grdinfo $name"_org.grd" > temp1
+grdinfo $dem_name"_org.grd" > temp1
 offset=`awk 'NR==9 {print $5}' temp1` #add_offset
 scale=`awk 'NR==9 {print $3}' temp1` #scale_factor
 width=`awk 'NR==6 {print $11}' temp1` #nx
@@ -122,16 +131,16 @@ lat=`awk 'NR==7 {print $5}' temp1` #y_max
 lon=`awk 'NR==6 {print $3}' temp1` #x_min
 
 ## Convert grd format to GAMMA format (4 byte floating point)
-grdreformat $name"_org.grd" $name"_org.dem"=bf -N -V
+grdreformat $dem_name"_org.grd" $dem_name"_org.dem"=bf -N -V
 
 ## Change to big endian
-swap_bytes $name"_org.dem" $name.dem 4
+swap_bytes $dem_name"_org.dem" $dem_name.dem 4
 
 ## Create parameter file
 echo "EQA" > temp2
 echo "WGS84" >> temp2
 echo "1" >> temp2
-echo $name.dem >> temp2
+echo $dem_name.dem >> temp2
 echo "REAL*4" >> temp2
 echo $offset >> temp2
 echo $scale >> temp2
@@ -139,15 +148,25 @@ echo $width >> temp2
 echo $length >> temp2
 echo $lat_post $lon_post >> temp2
 echo $lat $lon >> temp2
-create_dem_par $name.dem.par < temp2
+create_dem_par $dem_name.dem.par < temp2
 
 ## Correct missing values in DEM
-replace_values $name.dem 0 0.0001 temp_dem $width 0 2
+replace_values $dem_name.dem 0 0.0001 temp_dem $width 0 2
 replace_values temp_dem -32768 0 temp_dem2 $width 0 2
-interp_ad temp_dem2 $name.dem $width 9 40 81 2 2 1 
+interp_ad temp_dem2 $dem_name.dem $width 9 40 81 2 2 1 
+
+### Landsat Processing
+lsat_width=`grep ncols $lsat_name.txt | awk '{print $2}'`
+ascii2float $lsat_name.txt $lsat_width $lsat_name.flt - - - -
+
+
+## Create MDSS files
+mkdir -p gamma_dem
+mv $dem_name.txt $dem_name.dem $dem_name.dem.par $lsat_name.txt $lsat_name.flt gamma_dem
+tar -cvzf $dem_name.tar.gz gamma_dem
 
 ## TEMP FILE CLEANUP
-rm temp1 temp2 $name"_org.grd" $name"_org.dem" temp_dem temp_dem2
+rm temp1 temp2 $dem_name"_org.grd" $dem_name"_org.dem" temp_dem temp_dem2
 
 
 # script end 

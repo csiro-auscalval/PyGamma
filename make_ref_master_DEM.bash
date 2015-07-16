@@ -17,6 +17,7 @@ display_usage() {
     echo "*         [multi-look]  flag for multi-looking (no multi-looks = 1,           *"
     echo "*                       multi-looks = 2)                                      *"
     echo "*         [subset]      subset scene (no = 1, yes = 2)                        *"
+    echo "*         [image]       external reference image (no = 1, yes = 2)            *"
     echo "*         <roff>        offset to starting range sample                       *"
     echo "*         <rlines>      number of range samples                               *"
     echo "*         <azoff>       offset to starting line                               *"
@@ -26,13 +27,13 @@ display_usage() {
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       20/05/2015, v1.1                            *"
     echo "*              Add beam processing capability for wide swath data             *"
-    echo "*         Sarah Lawrie @ GA       18/06/2015, v1.2                            *"
-    echo "*              Refine flags to enable auto calculation of subset values       *"
+    echo "*         Sarah Lawrie @ GA       15/07/2015, v1.2                            *"
+    echo "*              Add external reference image option                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] [multi-look] [subset] <roff> <rlines> <azoff> <azlines> <beam>"
+    echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] [multi-look] [subset] [image] <roff> <rlines> <azoff> <azlines> <beam>"
     }
 
-if [ $# -lt 5 ]
+if [ $# -lt 6 ]
 then 
     display_usage
     exit 1
@@ -43,11 +44,12 @@ rlks=$2
 alks=$3
 multi_look=$4
 subset=$5
-roff=$6
-rlines=$7
-azoff=$8
-azlines=$9
-beam=${10} # need curly bracket to get 10th variable to be recognised
+ext_image=$6
+roff=$7
+rlines=$8
+azoff=$9
+azlines={$10}
+beam=${11} # need curly bracket to get 10th variable onwards to be recognised
 
 proc_file=$1
 
@@ -58,16 +60,26 @@ sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
-noffset=`grep offset= $proc_file | cut -d "=" -f 2`
-offset_measure=`grep offset_measure= $proc_file | cut -d "=" -f 2`
+noffset=`grep dem_offset= $proc_file | cut -d "=" -f 2`
+offset_measure=`grep dem_offset_measure= $proc_file | cut -d "=" -f 2`
+dem_patch_win=`grep dem_patch_window= $proc_file | cut -d "=" -f 2`
 dem_win=`grep dem_win= $proc_file | cut -d "=" -f 2`
 dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
+
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
     proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
     dem_name_nci=`grep DEM_name_NCI= $proc_file | cut -d "=" -f 2`
     dem=$proj_dir/gamma_dem/$dem_name_nci
+    dem_par=$proj_dir/gamma_dem/$dem_name_nci.par
+    dem_par2=$dem.par
+    if [ $ext_image -eq 2 ]; then
+	image1=`grep Landsat_image= $proc_file | cut -d "=" -f 2`
+	image=$proj_dir/gamma_dem/$image1
+    else
+	:
+    fi
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     dem_dir_ga=`grep DEM_location_GA= $proc_file | cut -d "=" -f 2`
@@ -83,13 +95,13 @@ cd $proj_dir/$track_dir
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project $track_dir $rlks"rlks" $alks"aks" $beam 1>&2
+echo "PROCESSING_PROJECT: "$project $track_dir $rlks"rlks" $alks"alks" $beam 1>&2
 echo "" 1>&2
 
 ## Insert scene details top of NCI .o file
 echo ""
 echo ""
-echo "PROCESSING PROJECT: "$project $track_dir $rlks"rlks" $alks"aks" $beam
+echo "PROCESSING PROJECT: "$project $track_dir $rlks"rlks" $alks"alks" $beam
 echo ""
 
 ## Copy output of Gamma programs to log files
@@ -114,7 +126,6 @@ fi
 mkdir -p $dem_dir
 cd $dem_dir
 
-dem_par=$dem.par
 master_dir=$slc_dir/$master
 
 # if WB data, need to identify beam in file name
@@ -190,11 +201,24 @@ utm_sim_sar=$dem_dir/$mli_name"_utm.sim"
 rdc_sim_sar=$dem_dir/$mli_name"_rdc.sim"
 diff=$dem_dir/"diff_"$mli_name.par
 lsmap=$dem_dir/$mli_name"_utm.lsmap"
-offs=$mli_name.offs
-snr=$mli_name.snr
-offsets=$mli_name.offsets
-coffs=$mli_name.coffs
-coffsets=$mli_name.coffsets
+off=$dem_dir/$mli_name.off
+offs=$dem_dir/$mli_name.offs
+snr=$dem_dir/$mli_name.snr
+offsets=$dem_dir/$mli_name.offsets
+coffs=$dem_dir/$mli_name.coffs
+coffsets=$dem_dir/$mli_name.coffsets
+lsat_flt=$dem_dir/$mli_name"_lsat_sar.flt" 
+lsat_init_sar=$dem_dir/$mli_name"_lsat_init.sar" 
+lsat_sar=$dem_dir/$mli_name"_lsat.sar"
+
+
+## Coregistration results file
+if [ -z $beam ]; then
+    check_file=$proj_dir/$track_dir/dem_coreg_results"_"$rlks"rlks_"$alks"alks.txt"
+else
+    check_file=$proj_dir/$track_dir/dem_coreg_results"_"$beam"_"$rlks"rlks_"$alks"alks.txt"
+fi
+
 
 ## Determine oversampling factor for DEM coregistration
 dem_post=`grep post_lon $dem_par | awk '{printf "%.8f\n", $2}'`
@@ -231,9 +255,19 @@ if [ -e $utm_dem ]; then
     echo " "
     rm -f $utm_dem
 fi
+
+
 GM gc_map $master_mli_par - $dem_par 10. $utm_dem_par $utm_dem $lt_rough $ovr $ovr - - - - - - - 8 1
 # use predetermined dem_par to segment the full DEM
 GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - - - - $lsmap 8 1
+
+
+## Convert landsat float file to same coordinates as DEM
+if [ -f $image ]; then
+    GM map_trans $dem_par $image $utm_dem_par $lsat_flt 1 1 1 0 -
+else
+    :
+fi
 
 dem_width=`grep width: $utm_dem_par | awk '{print $2}'`
 master_mli_width=`grep range_samples: $master_mli_par | awk '{print $2}'`
@@ -241,11 +275,18 @@ master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
 
 ## Transform simulated SAR intensity image to radar geometry
 GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+if [ -f $image ]; then
+## Transform landsat image to radar geometry
+    GM geocode $lt_rough $lsat_flt $dem_width $lsat_init_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+else
+    :
+fi
+
 
 ## Fine coregistration of master MLI and simulated SAR image
 # Make file to input user-defined values from proc file #
 #for full dem:
-if [ $rlks == 1 -a $alks == 1]; then
+if [ $rlks -eq 1 -a $alks -eq 1 ]; then
     returns=$dem_dir/returns
     echo "" > $returns #default scene title
     echo $noffset >> $returns
@@ -255,13 +296,13 @@ if [ $rlks == 1 -a $alks == 1]; then
 #for mli
 else
     noffset1=`echo $noffset | awk '{print $1}'`
-    if [ $noffset1 == 0 ]; then
+    if [ $noffset1 -eq 0 ]; then
 	noff1=0
     else
 	noff1=`echo $noffset1 | awk '{print $1/$rlks}'`
     fi
     noffset2=`echo $noffset | awk '{print $2}'`
-    if [ $noffset2 == 0 ]; then
+    if [ $noffset2 -eq 0 ]; then
 	noff2=0
     else
 	noff2=`echo $noffset2 | awk '{print $1/$alks}'`
@@ -274,6 +315,7 @@ else
     echo $dem_snr >> $returns 
 fi
 
+
 ## The high accuracy of Sentinel-1 orbits requires only an offset fit term rather than higher order polynomial terms
 if [ $sensor == S1 ]; then
     npoly=1
@@ -284,11 +326,17 @@ fi
 GM create_diff_par $master_mli_par - $diff 1 < $returns
 rm -f $returns
 
-## initial offset estimate
-GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks - - - - $dem_snr - 1 
 
-GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr - - $offsets 1 - - -
-#GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr 512 512 offsets 1 16 16 7.0
+## initial offset estimate
+if [ ! -f $image ]; then
+    GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks - - - - $dem_snr $dem_patch_win 1 
+    GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr - - $offsets 1 - - -
+else
+    GM init_offsetm $master_mli $lsat_init_sar $diff $rlks $alks - - - - $dem_snr $dem_patch_win 1
+    GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $snr - - $offsets 1 - - - 
+fi
+# if image patch extends beyond input MLI-1 (init_offsetm), an error is generated but not automatically put into error.log file
+grep "ERROR" output.log  1>&2
 
 GM offset_fitm $offs $snr $diff $coffs $coffsets - $npoly
 
@@ -298,17 +346,27 @@ azwin=`echo $dem_win | awk '{print $1/4}'`
 nr=`echo $offset_measure | awk '{print $1*4}'`
 naz=`echo $offset_measure | awk '{print $1*4}'`
 
-GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr $rwin $azwin $offsets 2 $nr $naz -
-#GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr 128 128 $offsets 2 64 64 7.0
+## offset tracking
+if [ ! -f $image ]; then
+    GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr $rwin $azwin $offsets 2 $nr $naz -
+else
+    GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $snr $rwin $azwin $offsets 2 $nr $naz - 
+fi
 
+## range and azimuth offset polynomial estimation 
 GM offset_fitm $offs $snr $diff $coffs $coffsets - $npoly
 
 grep "final model fit std. dev." output.log
 #grep "final range offset poly. coeff.:" output.log
 #grep "final azimuth offset poly. coeff.:" output.log
 
+
 ## Refinement of initial geocoding look up table
-GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 1
+if [ ! -f $image ]; then
+    GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 1
+else
+    GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 0
+fi
 
 rm -f $lt_rough $offs $snr $offsets $coffs $coffsets test1.dat test2.dat
 
@@ -317,6 +375,20 @@ GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_l
 
 ## Geocode simulated SAR intensity image to radar geometry
 GM geocode $lt_fine $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+
+## Geocode landsat image to radar geometry
+if [ -f $image ]; then
+    GM geocode $lt_fine $lsat_flt $dem_width $lsat_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+else
+    :
+fi
+
+## Extract final model fit values to check coregistration
+grep "final model fit std. dev. (samples)" output.log > temp1
+awk '{print $8}' temp1 > temp2
+awk '{print $10}' temp1 > temp3
+paste temp2 temp3 >> $check_file
+rm -f temp1 temp2 temp3
 
 
 # script end 
@@ -350,3 +422,4 @@ else # beam exists
 	mv error.log $beam"_error.log"
     fi
 fi
+

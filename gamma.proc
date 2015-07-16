@@ -54,7 +54,7 @@ Do_SLC=yes
 Coregister_DEM=yes
 Coregister_slaves=yes
     # only process interferograms after slave coregistration has been checked
-Process_ifms=no
+Process_ifms=yes
     # options for adding new SLCs to already processed dataset
 Add_new_SLC=no
 Coregister_add_slaves=no
@@ -85,7 +85,8 @@ DEM_name_GA=xxxxx.dem
 Raw_data_MDSS=insar/xxxxxxx
 DEM_location_MDSS=insar/DEM/xxxxx
 DEM_name_NCI=xxxxx.dem
-Landsat_image=surat_landsat_pano.tif
+Landsat_image=xxxx.flt
+
 
 ##### Multi-looking Values #####
     # multi-look value for SLCs. This is used for coregistration purposes.
@@ -94,18 +95,23 @@ SLC_multi_look=4
 ifm_multi_look=4
 
 
-##### Make Reference Master DEM Parameters (for create_diff_par) ##### 
+##### Make Reference Master DEM Parameters #####
+# for init_offsetm:
+    # correlation patch size (default 1024, options: 128, 256, 512, 1024)
+dem_patch_window=1024
+# for create_diff_par:
     # range, azimuth offsets of image2 relative to image1 (samples) (default 0 0): - for full DEM only, auto calculated for mli 
-offset=0 0
+dem_offset=0 0
     # enter number of offset measurements in range, azimuth (default 32 32):
-offset_measure=32 32
+dem_offset_measure=32 32
     # search window sizes (32, 64, 128...) (range, azimuth) (default 256 256):
 dem_win=256 256
     # minimum matching SNR (nominal: 7):
 dem_snr=7
 
 
-##### Slave coregistration parameters
+
+##### Slave coregistration parameters #####
     # SNR Threshold for offset rejection (default = 7.0)
 coreg_snr_thresh=7.0
     # Number of polynomial model parameters (1, 3, 4 or 6; only 1 required for Sentinel-1)
@@ -176,7 +182,7 @@ raw_walltime=02:00:00
 raw_mem=50MB
 raw_ncpus=1
 
-#create slcs
+#create slcs (parameters for one slc only)
 SLC_walltime=02:00:00
 SLC_mem=4GB
 SLC_ncpus=4
@@ -186,12 +192,12 @@ DEM_walltime=05:00:00
 DEM_mem=6GB
 DEM_ncpus=4
 
-#coregister slcs
+#coregister slcs (parameters for one slave coregistration only)
 coreg_walltime=02:00:00
 coreg_mem=4GB
 coreg_ncpus=4
 
-#create ifms
+#create ifms (parameters for one ifm only)
 ifm_walltime=00:30:00
 ifm_mem=6GB
 ifm_ncpus=1

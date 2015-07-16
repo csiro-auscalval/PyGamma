@@ -42,6 +42,7 @@ raw_dir_ga=`grep Raw_data_GA= $proc_file | cut -d "=" -f 2`
 raw_dir_mdss=`grep Raw_data_MDSS= $proc_file | cut -d "=" -f 2`
 dem_loc_nci=`grep DEM_location_MDSS= $proc_file | cut -d "=" -f 2`
 dem_name_nci=`grep DEM_name_NCI= $proc_file | cut -d "=" -f 2`
+ext_image=`grep Landsat_image= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -154,13 +155,17 @@ elif [ $platform == NCI ]; then
    cd $proj_dir
    if [ ! -e $dem_dir/$dem_name_nci ]; then
        dem=`echo $dem_name_nci | cut -d'.' -f1` 
+       image=`echo $ext_image | cut -d'.' -f1` 
        tar=$dem.tar.gz
        mdss get $dem_loc_nci/$tar < /dev/null $proj_dir # /dev/null allows mdss command to work properly in loop
        tar -xvzf $tar
        rm -rf $tar
        cd $dem_dir
        if [ -f $dem.txt ]; then # if acsii file of DEM exists in tar file
-	   rm -rf $dem.txt
+	   rm -f $dem.txt
+       fi
+       if [ -f $image.txt ]; then # if ascii file of Landsat image exists in tar file
+	   rm -f $image.txt
        fi
    else
        :
