@@ -263,7 +263,7 @@ GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $
 
 
 ## Convert landsat float file to same coordinates as DEM
-if [ -f $image ]; then
+if [ $ext_image -eq 2 ]; then
     GM map_trans $dem_par $image $utm_dem_par $lsat_flt 1 1 1 0 -
 else
     :
@@ -275,7 +275,7 @@ master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
 
 ## Transform simulated SAR intensity image to radar geometry
 GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
-if [ -f $image ]; then
+if [ $ext_image -eq 2 ]; then
 ## Transform landsat image to radar geometry
     GM geocode $lt_rough $lsat_flt $dem_width $lsat_init_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
 else
@@ -328,7 +328,7 @@ rm -f $returns
 
 
 ## initial offset estimate
-if [ ! -f $image ]; then
+if [ $ext_image -eq 1 ]; then
     GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks - - - - $dem_snr $dem_patch_win 1 
     GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr - - $offsets 1 - - -
 else
@@ -347,7 +347,7 @@ nr=`echo $offset_measure | awk '{print $1*4}'`
 naz=`echo $offset_measure | awk '{print $1*4}'`
 
 ## offset tracking
-if [ ! -f $image ]; then
+if [ $ext_image -eq 1 ]; then
     GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr $rwin $azwin $offsets 2 $nr $naz -
 else
     GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $snr $rwin $azwin $offsets 2 $nr $naz - 
@@ -362,7 +362,7 @@ grep "final model fit std. dev." output.log
 
 
 ## Refinement of initial geocoding look up table
-if [ ! -f $image ]; then
+if [ $ext_image -eq 1 ]; then
     GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 1
 else
     GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 0
@@ -377,7 +377,7 @@ GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_l
 GM geocode $lt_fine $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
 
 ## Geocode landsat image to radar geometry
-if [ -f $image ]; then
+if [ $ext_image -eq 2 ]; then
     GM geocode $lt_fine $lsat_flt $dem_width $lsat_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
 else
     :
