@@ -222,8 +222,8 @@ while [ $i -le $niter ]; do
     fi
 
 ## if estimated offsets are less than 0.2 of a pixel then break iterable loop
-    azoff=`grep "final azimuth offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'` 
-    rgoff=`grep "final range offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'` 
+    azoff=`grep "final azimuth offset poly. coeff.:" output.log | tail -2 | head -1 | awk '{print $6}'` 
+    rgoff=`grep "final range offset poly. coeff.:" output.log | tail -2 | head -1 | awk '{print $6}'` 
     test1=`echo $azoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
     test2=`echo $rgoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
     echo "Iteration "$i": azimuth offset is "$azoff", range offset is "$rgoff
@@ -243,13 +243,12 @@ GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
 
 rm -f $off"s0" $snr"0" $coffs"0" $offs $snr $coffs $coffsets $lt"0"
 
-## Extract final model fit values to check coregistration
+## Extract final offset values to check coregistration
 echo $master > temp1_$rlks
 echo $slave > temp2_$rlks
-grep "final model fit" output.log > temp3_$rlks
-awk '{print $8}' temp3_$rlks > temp4_$rlks
-awk '{print $10}' temp3_$rlks > temp5_$rlks
-paste temp1_$rlks temp2_$rlks temp4_$rlks temp5_$rlks >> $check_file
+grep "final range offset poly. coeff.:" output.log | tail -1 | awk '{print $6}' > temp3_$rlks
+grep "final azimuth offset poly. coeff.:" output.log | tail -1 | awk '{print $6}' > temp4_$rlks
+paste temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks >> $check_file
 rm -f temp*
 
 

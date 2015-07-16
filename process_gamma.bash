@@ -2283,7 +2283,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		check_file=$proj_dir/$track_dir/slave_coreg_results"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
 		echo "Slave Coregistration Results "$slc_rlks"rlks "$slc_alks"alks" > $check_file
-		echo "final model fit std. dev. (samples)" >> $check_file
+		echo "final offset poly. coeff." >> $check_file
 		echo "Ref Master" > temp1
 		echo "Slave" > temp2
 		echo "Range" > temp3
@@ -2293,7 +2293,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	    else
 		slc_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$slc_rlks"rlks_"$slc_alks"alks.txt"
 		echo "Slave Coregistration Results "$slc_rlks"rlks "$slc_alks"alks" > $slc_check_file
-		echo "final model fit std. dev. (samples)" >> $slc_check_file
+		echo "final offset poly. coeff." >> $slc_check_file
 		echo "Ref Master" > temp1
 		echo "Slave" > temp2
 		echo "Range" > temp3
@@ -2303,7 +2303,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		
 		ifm_check_file=$proj_dir/$track_dir/slave_coreg_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
 		echo "Slave Coregistration Results "$ifm_rlks"rlks "$ifm_alks"alks" > $ifm_check_file
-		echo "final model fit std. dev. (samples)" >> $ifm_check_file
+		echo "final offset poly. coeff." >> $ifm_check_file
 		echo "Ref Master" > temp5
 		echo "Slave" > temp6
 		echo "Range" > temp7
