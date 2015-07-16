@@ -47,14 +47,14 @@ echo "" 1>&2 # adds spaces at top so scene details are clear
 echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir $scene 1>&2
 echo "" 1>&2
-echo "Extract bperp Values" 1>&2
+echo "Extract Baseline Values" 1>&2
 
 ## Insert scene details top of NCI .o file
 echo "" 
 echo ""
 echo "PROCESSING_PROJECT: "$project $track_dir $scene
 echo ""
-echo "Extract bperp Values" 
+echo "Extract Baseline Values" 
 
 ## Copy output of Gamma programs to log files
 GM()
@@ -104,7 +104,7 @@ while read file; do
 
     ## estimate the scene centre perpendicular baseline
     bperp=$dir/$mas_slv_name"_bperp.par"
-    bpval=`interp_centre_bperp.bash $bperp`
+    bpval=`interp_centre_bperp.bash $proc_file $bperp`
 
     echo $mas-$slv $mas_slv_name.unw $fsize $bpval $btemp
     echo $mas-$slv $mas_slv_name.unw $fsize $bpval $btemp >> $results

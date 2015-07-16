@@ -98,4 +98,6 @@ echo $ifm > temp1
 echo $bperp > temp2
 paste temp1 temp2 >> $results_file
 
+echo $bperp
+
 rm -f xyz xyz2 out.grd temp1 temp2
