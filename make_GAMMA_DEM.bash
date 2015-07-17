@@ -157,8 +157,7 @@ interp_ad temp_dem2 $dem_name.dem $width 9 40 81 2 2 1
 
 ### Landsat Processing
 lsat_width=`grep ncols $lsat_name.txt | awk '{print $2}'`
-ascii2float $lsat_name.txt $lsat_width $lsat_name.flt - - - -
-
+ascii2float $lsat_name.txt $lsat_width $lsat_name.flt 6 - - -
 
 ## Create MDSS files
 mkdir -p gamma_dem
