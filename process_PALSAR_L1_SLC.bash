@@ -46,8 +46,8 @@ polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 raw_dir_ga=`grep Raw_data_GA= $proc_file | cut -d "=" -f 2`
 raw_dir_mdss=`grep Raw_data_MDSS= $proc_file | cut -d "=" -f 2`
-cat_snr=`grep cat_snr= $proc_file | cut -d "=" -f 2`
-cat_win=`grep cat_win= $proc_file | cut -d "=" -f 2`
+#cat_snr=`grep cat_snr= $proc_file | cut -d "=" -f 2`
+#cat_win=`grep cat_win= $proc_file | cut -d "=" -f 2`
 
 slc_rlks=$3
 slc_alks=$4
