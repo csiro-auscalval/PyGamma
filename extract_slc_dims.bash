@@ -1,11 +1,12 @@
 #!/bin/bash
 
-track=T366A
+project=XXXX
+track=TxxxA/D
 polar=HH
-frame_list=/g/data1/dg9/INSAR_ANALYSIS/SURAT/PALSAR1/GAMMA/$track/lists/frame.list
-scene_list=/g/data1/dg9/INSAR_ANALYSIS/SURAT/PALSAR1/GAMMA/$track/lists/scenes.list
+frame_list=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA/$track/lists/frame.list
+scene_list=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA/$track/lists/scenes.list
 
-file=/g/data1/dg9/INSAR_ANALYSIS/SURAT/PALSAR1/GAMMA/$track/SLC/slc_dimensions_$track.txt
+file=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA/$track/SLC/slc_dimensions_$track.txt
 echo "SLC Dimensions "$track > $file
 echo "" >> $file
 
