@@ -40,14 +40,17 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
 
-scene_list=$proj_dir/$track_dir/lists/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
-slave_list=$proj_dir/$track_dir/lists/`grep List_of_slaves= $proc_file | cut -d "=" -f 2`
-add_scene_list=$proj_dir/$track_dir/lists/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
-add_slave_list=$proj_dir/$track_dir/lists/`grep List_of_add_slaves= $proc_file | cut -d "=" -f 2`
+scene_list=`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
+slave_list=`grep List_of_slaves= $proc_file | cut -d "=" -f 2`
+add_scene_list=`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
+add_slave_list=`grep List_of_add_slaves= $proc_file | cut -d "=" -f 2`
 
 
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
+echo "" 1>&2
+echo "PROCESSING PROJECT: "$project $track_dir 1>&2
+echo "" 1>&2
 
 ## Insert scene details top of NCI .o file
 echo ""
@@ -55,10 +58,11 @@ echo ""
 echo "PROCESSING PROJECT: "$project $track_dir
 echo ""
 
+cd $proj_dir/$track_dir/lists
+
 if [ $type -eq 1 ]; then
     echo "Slaves List File Creation" 1>&2
     ## Create list of slave SLCs
-    cd $proj_dir/$track_dir
     sed "/$master/d" $scene_list > $slave_list
 else
     echo "Additional Slaves List File Creation" 1>&2
