@@ -887,10 +887,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			    read scene
 			    echo $scene
 			    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
+				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 			    else
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $ifm_rlks $ifm_alks >> $job
+				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 			    fi
         		done
 			chmod +x $job
@@ -954,10 +954,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		    echo \#\PBS -l wd >> $job
 		    echo \#\PBS -q normal >> $job
 		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
+			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		    else
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $ifm_rlks $ifm_alks >> $job
+			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		    fi
 		    chmod +x $job
 		done < $scene_list
@@ -1084,10 +1084,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		else
-		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $slc_rlks $slc_alks >> $job
-		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proc_file $scene $ifm_rlks $ifm_alks >> $job
+		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		fi
 		chmod +x $job
 	    done < $scene_list

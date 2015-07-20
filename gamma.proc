@@ -88,6 +88,13 @@ DEM_name_NCI=xxxxx.dem
 Landsat_image=xxxx.flt
 
 
+##### Scene Concatenation Parameters (for PALSAR level 1 data only) #####
+    # cross-correlation SNR threshold (default 7)
+cat_snr=7
+    # range and azimuth window size (default 512)
+cat_win=512
+
+
 ##### Multi-looking Values #####
     # multi-look value for SLCs. This is used for coregistration purposes.
 SLC_multi_look=4
