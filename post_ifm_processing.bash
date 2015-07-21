@@ -49,6 +49,19 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
 
+## Insert scene details top of NCI .e file
+echo "" 1>&2 # adds spaces at top so scene details are clear
+echo "" 1>&2
+echo "PROCESSING PROJECT: "$project $track_dir 1>&2
+echo "" 1>&2
+
+## Insert scene details top of NCI .o file
+echo ""
+echo ""
+echo "PROCESSING PROJECT: "$project $track_dir
+echo ""
+
+
 ## Load GAMMA based on platform
 if [ $platform == NCI ]; then
     GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
@@ -565,7 +578,7 @@ echo "Plots created for unwrapped geocoded interferograms."
 echo " "
 
 
-## Create bperp plot
+## Create bperp & btemp plot
 
 # capture spatial and temporal baseline information
 echo " "
@@ -573,22 +586,26 @@ echo "Capturing bperp values..."
 cd $proj_dir/$track_dir/bperp_files
 ls *_bperp.par > bperp_files
 
+if [ -z $beam ]; then
+    results=$proj_dir/$track_dir/ifm_bperp_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+else
+    results=$proj_dir/$track_dir/ifm_bperp_results"_"$beam"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+fi
+
 while read file; do
-    # calculate temporal baseline in days
+    # ifm pair
     mas=`echo $file | awk 'BEGIN {FS="_"} ; {print $1}' | awk 'BEGIN {FS="-"} ; {print $1}'`
     slv=`echo $file | awk 'BEGIN {FS="_"} ; {print $1}' | awk 'BEGIN {FS="-"} ; {print $2}'`
+
+    # calculate temporal baseline in days
     let btemp=(`date +%s -d $slv`-`date +%s -d $mas`)/86400
 
-    # estimate the scene centre perpendicular baseline
-    bpval=`~/repo/gamma_bash/interp_centre_bperp.bash $proc_file $file`
+    # estimate the scene centre perpendicular baseline (script below will put results in bperp_file)
+    bperp=`~/repo/gamma_bash/interp_centre_bperp.bash $proc_file $file`
 
     # export values to file
-    if [ -z $beam ]; then
-	results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
-    else
-	results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$beam"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
-    fi
-    echo $mas-$slv $bpval $btemp >> $results
+    echo $mas-$slv $bperp $btemp >> $results
+
 done < bperp_files
 
 # plot
