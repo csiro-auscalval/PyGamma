@@ -9,16 +9,18 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*         [list_type]  ifm list type (1 = ifms.list, 2 = add_ifms.list)       *"
+    echo "*         [rlks]       range multi-look value                                 *"
+    echo "*         [alks]       azimuth multi-look value                               *"
     echo "*         <beam>       Beam number (eg, F2)                                   *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       16/06/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       22/06/2015, v1.1                            *"
     echo "*           - add capture of bperp value from ifm processing                  *"
     echo "*******************************************************************************"
-    echo -e "Usage: post_ifm_processing.bash [proc_file] [list_type] <beam>"
+    echo -e "Usage: post_ifm_processing.bash [proc_file] [list_type] [rlks] [alks] <beam>"
     }
 
-if [ $# -lt 2 ]
+if [ $# -lt 4 ]
 then 
     display_usage
     exit 1
@@ -27,7 +29,9 @@ fi
 
 proc_file=$1
 list_type=$2
-beam=$3
+ifm_rlks=$3
+ifm_alks=$4
+beam=$5
 
 ## Variables from parameter file (*.proc)
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
@@ -87,7 +91,7 @@ if [ -z $beam ]; then #no beam
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
 	    png=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm_unw.png"
-	    bperp=$mas-$slv"_"$polar"_"$ifm_rlks"rlks_bperp.par"
+	    bperp=$mas-$slv"_"$polar"_"$ifm_looks"rlks_bperp.par"
 	    unw=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm.unw"
 	    cc=$mas-$slv"_"$polar"_"$ifm_looks"rlks_filt.cc"
 	    dem=$master"_"$polar"_"$ifm_looks"rlks_utm.dem"
@@ -109,7 +113,7 @@ else #beam exists
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
 	    png=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm_unw.png"
-	    bperp=$mas-$slv"_"$polar"_"$beam"_"$ifm_rlks"rlks_bperp.par"
+	    bperp=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_bperp.par"
 	    unw=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.unw"
 	    cc=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_filt.cc"
 	    dem=$master"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.dem"
@@ -562,15 +566,37 @@ echo " "
 
 
 ## Create bperp plot
+
+# capture spatial and temporal baseline information
 echo " "
 echo "Capturing bperp values..."
 cd $proj_dir/$track_dir/bperp_files
-
-ls *.bperp.par > bperp_files
+ls *_bperp.par > bperp_files
 
 while read file; do
-    ~/repo/gamma_bash/interp_centre_bperp.bash $proj_dir/$proc_file $file $beam
+    # calculate temporal baseline in days
+    mas=`echo $file | awk 'BEGIN {FS="_"} ; {print $1}' | awk 'BEGIN {FS="-"} ; {print $1}'`
+    slv=`echo $file | awk 'BEGIN {FS="_"} ; {print $1}' | awk 'BEGIN {FS="-"} ; {print $2}'`
+    let btemp=(`date +%s -d $slv`-`date +%s -d $mas`)/86400
+
+    # estimate the scene centre perpendicular baseline
+    bpval=`~/repo/gamma_bash/interp_centre_bperp.bash $proc_file $file`
+
+    # export values to file
+    if [ -z $beam ]; then
+	results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+    else
+	results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$beam"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
+    fi
+    echo $mas-$slv $bpval $btemp >> $results
 done < bperp_files
+
+# plot
+echo " "
+echo "Plotting bperp values..."
+
+#plot_baseline_gamma.bash
+
 
 # Clean up files
 rm -rf *.ps *.pdf
