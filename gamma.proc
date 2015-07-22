@@ -114,7 +114,7 @@ dem_snr=7
     # SNR Threshold for offset rejection (default = 7.0)
 coreg_snr_thresh=7.0
     # Number of polynomial model parameters (1, 3, 4 or 6; only 1 required for Sentinel-1)
-coreg_model_params=1
+coreg_model_params=4
     # Size of window for intensity cross-correlation (default = 128)
 coreg_window_size=128
     # Number of search windows in range and azimuth directions (default = 64)
