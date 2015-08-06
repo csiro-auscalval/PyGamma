@@ -11,15 +11,18 @@ display_usage() {
     echo "*         [type]       type of error checking to be done (eg. 1=setup dirs,   *"
     echo "*                      2=raw data extraction, 3=slc creation, 4=dem creation, *"
     echo "*                      5=coregister slcs, 6=interferogram creation,           *"
-    echo "*                      7=mosaic beam ifms, 8=additional slc creation,         *"
-    echo "*                      9=additional slc coregistration, 10=additional         *"
-    echo "*                      interferogram creation, 11=additional mosaic ifms)     *"
+    echo "*                      7=ifm plots, 8=mosaic beam ifms, 9=additional slc      *"
+    echo "*                      creation, 10=additional slc coregistration,            *"
+    echo "*                      11=additional interferogram creation, 12=additional    *"
+    echo "*                      mosaic ifms)                                           *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       27/05/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       09/06/2015, v1.1                            *"
     echo "*             - incorporate error collection from auto splitting jobs         *"
     echo "*         Sarah Lawrie @ GA       18/06/2015, v1.2                            *"
     echo "*             - add additional error collation                                *"
+    echo "*         Sarah Lawrie @ GA       06/08/2015, v1.3                            *"
+    echo "*             - add additional error collation for ifm plots                  *"
     echo "*******************************************************************************"
     echo -e "Usage: collate_nci_errors.bash [proc_file] [type]"
     }
@@ -344,9 +347,51 @@ elif [ $type -eq 6 ]; then
 	rm -rf dir_list
     fi
 
+## Interferogram Plotting Errors
+elif [ $type -eq 7 ]; then
+    echo "Collating Errors from Interferogram Plots..."
+    echo ""
+    dir=$batch_dir/ifm_jobs
+    cd $dir
+    if [ ! -z $beam ]; then
+	error_list=$error_dir/$beam"_ifm_plots.list"
+	if [ -f $error_list ]; then
+	    rm -rf $error_list
+	else
+	    :
+	fi
+	cd $beam
+	ls plot*.e* > list
+	while read error; do
+	    if [ ! -z $error ]; then
+		less $error > temp
+		paste temp >> $error_list
+		rm -rf temp
+	    fi
+	done < list
+	rm -rf list
+    else
+	error_list=$error_dir/ifm_plot_errors
+	if [ -f $error_list ]; then
+	    rm -rf $error_list
+	else
+	    :
+	fi
+	ls plot*.e* > list
+	while read error; do
+	    if [ ! -z $error ]; then
+		less $error > temp
+		paste temp >> $error_list
+		rm -rf temp
+	    fi
+	done < list
+	rm -rf list
+    fi
+
+
 
 ## Mosaic Beam Interferograms
-elif [ $type -eq 7 ]; then
+elif [ $type -eq 8 ]; then
     echo "Collating Errors from Mosaicing Beam Interferograms..."
     echo ""
     dir=$batch_dir/ifm_jobs
@@ -370,7 +415,7 @@ elif [ $type -eq 7 ]; then
 
 
 ## Additional SLC Errors
-elif [ $type -eq 8 ]; then
+elif [ $type -eq 9 ]; then
     echo "Collating Errors from Creating Additional SLCs..."
     echo ""
     error_list=$error_dir/add_slcs_errors
@@ -448,7 +493,7 @@ elif [ $type -eq 8 ]; then
     fi
 
 ## Coregister Additional SLC Errors
-elif [ $type -eq 9 ]; then
+elif [ $type -eq 10 ]; then
     echo "Collating Errors from Additional SLC Coregistration..."
     echo ""
     dir=$batch_dir/add_slc_coreg_jobs
@@ -505,7 +550,7 @@ elif [ $type -eq 9 ]; then
     fi
 
 ## Additional Interferogram Errors
-elif [ $type -eq 10 ]; then
+elif [ $type -eq 11 ]; then
     echo "Collating Errors from Additional Interferogram Creation..."
     echo ""
     dir=$batch_dir/add_ifm_jobs
@@ -580,7 +625,7 @@ elif [ $type -eq 10 ]; then
 
 
 ## Additional Mosaic Errors
-elif [ $type -eq 11 ]; then
+elif [ $type -eq 12 ]; then
     echo "Collating Errors from Additional Mosaicing Beam Interferograms..."
     echo ""
     dir=$batch_dir/add_ifm_jobs

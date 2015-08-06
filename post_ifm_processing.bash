@@ -16,6 +16,9 @@ display_usage() {
     echo "* author: Sarah Lawrie @ GA       16/06/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       22/06/2015, v1.1                            *"
     echo "*           - add capture of bperp value from ifm processing                  *"
+    echo "*         Sarah Lawrie @ GA       06/08/2015, v1.2                            *"
+    echo "*           - add plotting of cc and filt ifms and split up plot creation     *"
+    echo "*             to separate scripts.                                            *"
     echo "*******************************************************************************"
     echo -e "Usage: post_ifm_processing.bash [proc_file] [list_type] [rlks] [alks] <beam>"
     }
@@ -25,7 +28,6 @@ then
     display_usage
     exit 1
 fi
-
 
 proc_file=$1
 list_type=$2
@@ -41,6 +43,13 @@ polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 ifm_looks=`grep ifm_multi_look= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
+plot_walltime=`grep plot_walltime= $proc_file | cut -d "=" -f 2`
+plot_mem=`grep plot_mem= $proc_file | cut -d "=" -f 2`
+plot_ncpus=`grep plot_ncpus= $proc_file | cut -d "=" -f 2`
+error_walltime=`grep error_walltime= $proc_file | cut -d "=" -f 2`
+error_mem=`grep error_mem= $proc_file | cut -d "=" -f 2`
+error_ncpus=`grep error_ncpus= $proc_file | cut -d "=" -f 2`
+
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -77,548 +86,245 @@ int_dir=$proj_dir/$track_dir/`grep INT_dir= $proc_file | cut -d "=" -f 2`
 if [ $list_type -eq 1 ]; then
     ifm_list=$proj_dir/$track_dir/lists/`grep List_of_ifms= $proc_file | cut -d "=" -f 2`
     echo " "
-    echo "Creating plots for unwrapped interferograms..."
+    echo "Copying files for Pyrate and creating plots..."
 else
     ifm_list=$proj_dir/$track_dir/lists/`grep List_of_add_ifms= $proc_file | cut -d "=" -f 2`
     echo " "
-    echo "Creating plots for additional unwrapped interferograms..."
+    echo "Copying files for Pyrate and creating plots..."
 fi
 
 cd $proj_dir/$track_dir
+
+
+# Create directories
 mkdir -p png_images
-mkdir -p bperp_files
 png_dir=$proj_dir/$track_dir/png_images
+mkdir -p $png_dir/png_unw_ifms
+mkdir -p $png_dir/png_filt_ifms
+mkdir -p $png_dir/png_filt_cc_files
+mkdir -p $png_dir/png_flat_cc_files
+
+
+mkdir -p bperp_files
 bperp_dir=$proj_dir/$track_dir/bperp_files
+
 mkdir -p pyrate_files
 pyrate_dir=$proj_dir/$track_dir/pyrate_files
-mkdir -p $pyrate_dir/unw_files
+mkdir -p $pyrate_dir/unw_ifms
 mkdir -p $pyrate_dir/dem_files
-mkdir -p $pyrate_dir/cc_files
+mkdir -p $pyrate_dir/filt_ifms
+mkdir -p $pyrate_dir/filt_cc_files
+mkdir -p $pyrate_dir/flat_cc_files
 
-
-## Copy files to central directories
+## Copy dem and bperp files to central directories
 if [ -z $beam ]; then #no beam
     while read list; do
 	if [ ! -z $list ]; then
 	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
-	    png=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm_unw.png"
 	    bperp=$mas-$slv"_"$polar"_"$ifm_looks"rlks_bperp.par"
-	    unw=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm.unw"
-	    cc=$mas-$slv"_"$polar"_"$ifm_looks"rlks_filt.cc"
-	    dem=$master"_"$polar"_"$ifm_looks"rlks_utm.dem"
-	    dem_par=$dem.par
-	    cp $ifm_dir/$png $png_dir
-	    cp $ifm_dir/unw_gmt.par $png_dir
 	    cp $ifm_dir/$bperp $bperp_dir
-	    cp $ifm_dir/$unw $pyrate_dir/unw_files
-	    cp $ifm_dir/$cc $pyrate_dir/cc_files
-	    cp $dem_dir/$dem $pyrate_dir/dem_files
-	    cp $dem_dir/$dem_par $pyrate_dir/dem_files
-
 	fi
     done < $ifm_list
+    dem=$master"_"$polar"_"$ifm_looks"rlks_utm.dem"
+    dem_par=$dem.par
+    cp $dem_dir/$dem $pyrate_dir/dem_files
+    cp $dem_dir/$dem_par $pyrate_dir/dem_files
+    cd $pyrate_dir/dem_files
+    ls *.dem > dem_list
+    ls *.par >> dem_list
 else #beam exists
     while read list; do
 	if [ ! -z $list ]; then
 	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
-	    png=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm_unw.png"
 	    bperp=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_bperp.par"
-	    unw=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.unw"
-	    cc=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_filt.cc"
-	    dem=$master"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.dem"
-	    dem_par=$dem.par
-	    cp $ifm_dir/$png $png_dir
-	    cp $ifm_dir/unw_gmt.par $png_dir
 	    cp $ifm_dir/$bperp $bperp_dir
-	    cp $ifm_dir/$unw $pyrate_dir/unw_files
-	    cp $ifm_dir/$cc $pyrate_dir/cc_files
-	    cp $dem_dir/$dem $pyrate_dir/dem_files
-	    cp $dem_dir/$dem_par $pyrate_dir/dem_files
 	fi
     done < $ifm_list
+    dem=$master"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.dem"
+    dem_par=$dem.par
+    cp $dem_dir/$dem $pyrate_dir/dem_files
+    cp $dem_dir/$dem_par $pyrate_dir/dem_files
+    cd $pyrate_dir/dem_files
+    ls *.dem > dem_list
+    ls *.par >> dem_list
 fi
 
-## Plot unwrapped interferograms with png files
-cd $png_dir
-ls *.png > png_files
+# Run PBS jobs for plot creation
+ifm_batch_dir=$proj_dir/$track_dir/batch_jobs/ifm_jobs
 
-# remove any existing ps and pdf files
-rm -rf *.pdf *.ps
+if [ -z $beam ]; then #no beam
+    # run unw ifm plotting
+    echo "Running unw ifm plotting..."
+    cd $ifm_batch_dir
+    plot=plot_unw_ifms
+    echo \#\!/bin/bash > $plot
+    echo \#\PBS -lother=gdata1 >> $plot
+    echo \#\PBS -l walltime=$plot_walltime >> $plot
+    echo \#\PBS -l mem=$plot_mem >> $plot
+    echo \#\PBS -l ncpus=$plot_ncpus >> $plot
+    echo \#\PBS -l wd >> $plot
+    echo \#\PBS -q normal >> $plot
+    echo ~/repo/gamma_bash/plot_unw_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
+    chmod +x $plot
+    qsub $plot | tee unw_ifm_job_id
 
-# Split image_files into 36 ifm chunks
-num_ifms=`cat png_files | sed '/^\s*$/d' | wc -l`
-split -dl 36 png_files png_files_
-mv png_files all_png_files
-echo png_files_* > temp
-cat temp | tr " " "\n" > png_files.list
-rm -rf temp
+    # run filt ifm plotting
+    echo "Running filt ifm plotting..."
+    cd $ifm_batch_dir
+    plot=plot_filt_ifms
+    echo \#\!/bin/bash > $plot
+    echo \#\PBS -lother=gdata1 >> $plot
+    echo \#\PBS -l walltime=$plot_walltime >> $plot
+    echo \#\PBS -l mem=$plot_mem >> $plot
+    echo \#\PBS -l ncpus=$plot_ncpus >> $plot
+    echo \#\PBS -l wd >> $plot
+    echo \#\PBS -q normal >> $plot
+    echo ~/repo/gamma_bash/plot_filt_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
+    chmod +x $plot 
+    qsub $plot | tee filt_ifm_job_id
 
-# Plot png files
-image_files=$png_dir/png_files.list
-while read list; do
-    if [ ! -z $list ]; then
-	old_IFS=$IFS
-	IFS=$'\n'
-	lines=($(cat $list))
-	IFS=$old_IFS
-	
-    png1=`echo ${lines[0]}`
-    name1=`echo $png1 | awk -F "_" '{print $1}'`
-    png2=`echo ${lines[1]}`
-    name2=`echo $png2 | awk -F "_" '{print $1}'`
-    png3=`echo ${lines[2]}`
-    name3=`echo $png3 | awk -F "_" '{print $1}'`
-    png4=`echo ${lines[3]}`
-    name4=`echo $png4 | awk -F "_" '{print $1}'`
-    png5=`echo ${lines[4]}`
-    name5=`echo $png5 | awk -F "_" '{print $1}'`
-    png6=`echo ${lines[5]}`
-    name6=`echo $png6 | awk -F "_" '{print $1}'`
-    png7=`echo ${lines[6]}`
-    name7=`echo $png7 | awk -F "_" '{print $1}'`
-    png8=`echo ${lines[7]}`
-    name8=`echo $png8 | awk -F "_" '{print $1}'`
-    png9=`echo ${lines[8]}`
-    name9=`echo $png9 | awk -F "_" '{print $1}'`
-    png10=`echo ${lines[9]}`
-    name10=`echo $png10 | awk -F "_" '{print $1}'`
-    png11=`echo ${lines[10]}`
-    name11=`echo $png11 | awk -F "_" '{print $1}'`
-    png12=`echo ${lines[11]}`
-    name12=`echo $png12 | awk -F "_" '{print $1}'`
-    png13=`echo ${lines[12]}`
-    name13=`echo $png13 | awk -F "_" '{print $1}'`
-    png14=`echo ${lines[13]}`
-    name14=`echo $png14 | awk -F "_" '{print $1}'`
-    png15=`echo ${lines[14]}`
-    name15=`echo $png15 | awk -F "_" '{print $1}'`
-    png16=`echo ${lines[15]}`
-    name16=`echo $png16 | awk -F "_" '{print $1}'`
-    png17=`echo ${lines[16]}`
-    name17=`echo $png17 | awk -F "_" '{print $1}'`
-    png18=`echo ${lines[17]}`
-    name18=`echo $png18 | awk -F "_" '{print $1}'`
-    png19=`echo ${lines[18]}`
-    name19=`echo $png19 | awk -F "_" '{print $1}'`
-    png20=`echo ${lines[19]}`
-    name20=`echo $png20 | awk -F "_" '{print $1}'`
-    png21=`echo ${lines[20]}`
-    name21=`echo $png21 | awk -F "_" '{print $1}'`
-    png22=`echo ${lines[21]}`
-    name22=`echo $png22 | awk -F "_" '{print $1}'`
-    png23=`echo ${lines[22]}`
-    name23=`echo $png23 | awk -F "_" '{print $1}'`
-    png24=`echo ${lines[23]}`
-    name24=`echo $png24 | awk -F "_" '{print $1}'`
-    png25=`echo ${lines[24]}`
-    name25=`echo $png25 | awk -F "_" '{print $1}'`
-    png26=`echo ${lines[25]}`
-    name26=`echo $png26 | awk -F "_" '{print $1}'`
-    png27=`echo ${lines[26]}`
-    name27=`echo $png27 | awk -F "_" '{print $1}'`
-    png28=`echo ${lines[27]}`
-    name28=`echo $png28 | awk -F "_" '{print $1}'`
-    png29=`echo ${lines[28]}`
-    name29=`echo $png29 | awk -F "_" '{print $1}'`
-    png30=`echo ${lines[29]}`
-    name30=`echo $png30 | awk -F "_" '{print $1}'`
-    png31=`echo ${lines[30]}`
-    name31=`echo $png31 | awk -F "_" '{print $1}'`
-    png32=`echo ${lines[31]}`
-    name32=`echo $png32 | awk -F "_" '{print $1}'`
-    png33=`echo ${lines[32]}`
-    name33=`echo $png33 | awk -F "_" '{print $1}'`
-    png34=`echo ${lines[33]}`
-    name34=`echo $png34 | awk -F "_" '{print $1}'`
-    png35=`echo ${lines[34]}`
-    name35=`echo $png35 | awk -F "_" '{print $1}'`
-    png36=`echo ${lines[35]}`
-    name36=`echo $png36 | awk -F "_" '{print $1}'`
+    # run filt cc file plotting
+    echo "Running filtered cc file plotting..."
+    cd $ifm_batch_dir
+    plot=plot_filt_cc_files
+    echo \#\!/bin/bash > $plot
+    echo \#\PBS -lother=gdata1 >> $plot
+    echo \#\PBS -l walltime=$plot_walltime >> $plot
+    echo \#\PBS -l mem=$plot_mem >> $plot
+    echo \#\PBS -l ncpus=$plot_ncpus >> $plot
+    echo \#\PBS -l wd >> $plot
+    echo \#\PBS -q normal >> $plot
+    echo ~/repo/gamma_bash/plot_filt_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
+    chmod +x $plot
+    qsub $plot | tee filt_cc_job_id
 
-    gmtset PS_MEDIA A4
-    outline="-JX21c/29.7c"
-    range="-R0/100/0/10"
-    box="-W3c/4c -Fthin"
-    font="-F+f8p"
+    # run flat cc file plotting
+    echo "Running flattened cc file plotting..."
+    cd $ifm_batch_dir
+    plot=plot_flat_cc_files
+    echo \#\!/bin/bash > $plot
+    echo \#\PBS -lother=gdata1 >> $plot
+    echo \#\PBS -l walltime=$plot_walltime >> $plot
+    echo \#\PBS -l mem=$plot_mem >> $plot
+    echo \#\PBS -l ncpus=$plot_ncpus >> $plot
+    echo \#\PBS -l wd >> $plot
+    echo \#\PBS -q normal >> $plot
+    echo ~/repo/gamma_bash/plot_flat_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
+    chmod +x $plot
+    qsub $plot | tee flat_cc_job_id
 
-    psfile=$list.ps
+    # Check plot errors
+    echo "Preparing error collation for ifm plots..."
+    cd $ifm_batch_dir
+    unw_ifm_jobid=`sed s/.r-man2// unw_ifm_job_id`
+    filt_ifm_jobid=`sed s/.r-man2// filt_ifm_job_id`
+    filt_cc_jobid=`sed s/.r-man2// filt_cc_job_id`
+    flat_cc_jobid=`sed s/.r-man2// flat_cc_job_id`
+    job=plot_err_check
+    echo \#\!/bin/bash > $job
+    echo \#\PBS -lother=gdata1 >> $job
+    echo \#\PBS -l walltime=$error_walltime >> $job
+    echo \#\PBS -l mem=$error_mem >> $job
+    echo \#\PBS -l ncpus=$error_ncpus >> $job
+    echo \#\PBS -l wd >> $job
+    echo \#\PBS -q normal >> $job
+    echo \#\PBS -W depend=afterany:$unw_ifm_jobid:$filt_ifm_jobid:$filt_cc_jobid:$flat_cc_jobid >> $job
+    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc_file 7 >> $job
+    chmod +x $job
+    qsub $job
+    
+else #beam exists
+    # run unw ifm plotting
+    echo "Running unw ifm plotting..."
+    cd $ifm_batch_dir/$beam
+    plot="plot_unw_ifms_"$beam
+    echo \#\!/bin/bash > $plot
+    echo \#\PBS -lother=gdata1 >> $plot
+    echo \#\PBS -l walltime=$plot_walltime >> $plot
+    echo \#\PBS -l mem=$plot_mem >> $plot
+    echo \#\PBS -l ncpus=$plot_ncpus >> $plot
+    echo \#\PBS -l wd >> $plot
+    echo \#\PBS -q normal >> $plot
+    echo ~/repo/gamma_bash/plot_unw_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
+    chmod +x $plot
+    qsub $plot | tee unw_ifm_job_id
 
-psbasemap $outline $range -X0c -Y-1c -Bnesw -P -K > $psfile
+    # run filt ifm plotting
+    echo "Running filt ifm plotting..."
+    cd $ifm_batch_dir/$beam
+    plot="plot_filt_ifms_"$beam
+    echo \#\!/bin/bash > $plot
+    echo \#\PBS -lother=gdata1 >> $plot
+    echo \#\PBS -l walltime=$plot_walltime >> $plot
+    echo \#\PBS -l mem=$plot_mem >> $plot
+    echo \#\PBS -l ncpus=$plot_ncpus >> $plot
+    echo \#\PBS -l wd >> $plot
+    echo \#\PBS -q normal >> $plot
+    echo ~/repo/gamma_bash/plot_filt_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
+    chmod +x $plot
+    qsub $plot | tee filt_ifm_job_id
 
-pstext $outline $range -F+cTC+f15p -O -P -K <<EOF >> $psfile
-$project $sensor $track_dir $polar $ifm_looks rlks Unwrapped Interferograms
-EOF
+    # run filt cc file plotting
+    echo "Running filtered cc file plotting..."
+    cd $ifm_batch_dir/$beam
+    plot="plot_filt_cc_files_"$beam
+    echo \#\!/bin/bash > $plot
+    echo \#\PBS -lother=gdata1 >> $plot
+    echo \#\PBS -l walltime=$plot_walltime >> $plot
+    echo \#\PBS -l mem=$plot_mem >> $plot
+    echo \#\PBS -l ncpus=$plot_ncpus >> $plot
+    echo \#\PBS -l wd >> $plot
+    echo \#\PBS -q normal >> $plot
+    echo ~/repo/gamma_bash/plot_filt_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
+    chmod +x $plot
+    qsub $plot | tee filt_cc_job_id
 
-# 1st row
-psimage $png1 $box -C0.5c/24.1c -O -P -K >> $psfile # top left left corner
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-9.5 9.515 $name1 
-EOF
-if [ -z $png2 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png2 $box -C3.9c/24.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-25.85 9.515 $name2
-EOF
-fi
-if [ -z $png3 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png3 $box -C7.3c/24.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-41.95 9.515 $name3
-EOF
-fi
-if [ -z $png4 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png4 $box -C10.7c/24.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-58.1 9.515 $name4
-EOF
-fi
-if [ -z $png5 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png5 $box -C14.1c/24.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-74.4 9.515 $name5
-EOF
-fi
-if [ -z $png6 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png6 $box -C17.5c/24.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-90.3 9.515 $name6
-EOF
-fi
+    # run flat cc file plotting
+    echo "Running flattened cc file plotting..."
+    cd $ifm_batch_dir/$beam
+    plot="plot_flat_cc_files_"$beam
+    echo \#\!/bin/bash > $plot
+    echo \#\PBS -lother=gdata1 >> $plot
+    echo \#\PBS -l walltime=$plot_walltime >> $plot
+    echo \#\PBS -l mem=$plot_mem >> $plot
+    echo \#\PBS -l ncpus=$plot_ncpus >> $plot
+    echo \#\PBS -l wd >> $plot
+    echo \#\PBS -q normal >> $plot
+    echo ~/repo/gamma_bash/plot_flat_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
+    chmod +x $plot
+    qsub $plot | tee flat_cc_job_id
 
-# 2nd row
-if [ -z $png7 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png7 $box -C0.5c/19.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-9.5 8 $name7
-EOF
-fi
-if [ -z $png8 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png8 $box -C3.9c/19.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-25.85 8 $name8
-EOF
-fi
-if [ -z $png9 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png9 $box -C7.3c/19.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-41.95 8 $name9
-EOF
-fi
-if [ -z $png10 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png10 $box -C10.7c/19.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-58.1 8 $name10
-EOF
-fi
-if [ -z $png11 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png11 $box -C14.1c/19.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-74.4 8 $name11
-EOF
-fi
-if [ -z $png12 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png12 $box -C17.5c/19.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-90.3 8 $name12
-EOF
+    # Check plot errors
+    echo "Preparing error collation for ifm plots..."
+    cd $ifm_batch_dir/$beam
+    unw_ifm_jobid=`sed s/.r-man2// unw_ifm_job_id`
+    filt_ifm_jobid=`sed s/.r-man2// filt_ifm_job_id`
+    filt_cc_jobid=`sed s/.r-man2// filt_cc_job_id`
+    flat_cc_jobid=`sed s/.r-man2// flat_cc_job_id`
+    job="plot_err_check_"$beam
+    echo \#\!/bin/bash > $job
+    echo \#\PBS -lother=gdata1 >> $job
+    echo \#\PBS -l walltime=$error_walltime >> $job
+    echo \#\PBS -l mem=$error_mem >> $job
+    echo \#\PBS -l ncpus=$error_ncpus >> $job
+    echo \#\PBS -l wd >> $job
+    echo \#\PBS -q normal >> $job
+    echo \#\PBS -W depend=afterany:$unw_ifm_jobid:$filt_ifm_jobid:$filt_cc_jobid:$flat_cc_jobid >> $job
+    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc_file 7 $beam >> $job
+    chmod +x $job
+    qsub $job
+
 fi
 
-# 3rd row
-if [ -z $png13 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png13 $box -C0.5c/15.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-9.5 6.485 $name13
-EOF
-fi
-if [ -z $png14 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png14 $box -C3.9c/15.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-25.85 6.485 $name14
-EOF
-fi
-if [ -z $png15 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png15 $box -C7.3c/15.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-41.95 6.485 $name15
-EOF
-fi
-if [ -z $png16 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png16 $box -C10.7c/15.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-58.1 6.485 $name16
-EOF
-fi
-if [ -z $png17 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png17 $box -C14.1c/15.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-74.4 6.485 $name17
-EOF
-fi
-if [ -z $png18 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png18 $box -C17.5c/15.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-90.3 6.485 $name18
-EOF
-fi
 
-# 4th row
-if [ -z $png19 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png19 $box -C0.5c/10.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-9.5 4.97 $name19
-EOF
-fi
-if [ -z $png20 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png20 $box -C3.9c/10.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-25.85 4.97 $name20
-EOF
-fi
-if [ -z $png21 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png21 $box -C7.3c/10.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-41.95 4.97 $name21
-EOF
-fi
-if [ -z $png22 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png22 $box -C10.7c/10.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-58.1 4.97 $name22
-EOF
-fi
-if [ -z $png23 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png23 $box -C14.1c/10.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-74.4 4.97 $name23
-EOF
-fi
-if [ -z $png24 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png24 $box -C17.5c/10.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-90.3 4.97 $name24
-EOF
-fi
+# Plot bperp values
+#plot_bperp.bash
 
-# 5th row
-if [ -z $png25 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png25 $box -C0.5c/6.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-9.5 3.455 $name25
-EOF
-fi
-if [ -z $png26 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png26 $box -C3.9c/6.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-25.85 3.455 $name26
-EOF
-fi
-if [ -z $png27 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png27 $box -C7.3c/6.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-41.95 3.455 $name27
-EOF
-fi
-if [ -z $png28 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png28 $box -C10.7c/6.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-58.1 3.455 $name28
-EOF
-fi
-if [ -z $png29 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png29 $box -C14.1c/6.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-74.4 3.455 $name29
-EOF
-fi
-if [ -z $png30 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png30 $box -C17.5c/6.1c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-90.3 3.455 $name30
-EOF
-fi
-
-# 6th row
-if [ -z $png31 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png31 $box -C0.5c/1.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-9.5 1.94 $name31
-EOF
-fi
-if [ -z $png32 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png32 $box -C3.9c/1.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-25.85 1.94 $name32
-EOF
-fi
-if [ -z $png33 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png33 $box -C7.3c/1.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-41.95 1.94 $name33
-EOF
-fi
-if [ -z $png34 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png34 $box -C10.7c/1.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-58.1 1.94 $name34
-EOF
-fi
-if [ -z $png35 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png35 $box -C14.1c/1.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-74.4 1.94 $name35
-EOF
-fi
-if [ -z $png36 ]; then
-     : #do nothing if variable is empty
-else
-psimage $png36 $box -C17.5c/1.6c/BL -O -P -K >> $psfile
-pstext $outline $range $font -O -P -K <<EOF >> $psfile
-90.3 1.94 $name36
-EOF
-fi
-
-# add page number
-num=`echo $list | awk -F "_" '{print $3}' | bc`
-num=`echo $num + 1 | bc`
-pstext $outline $range $font -O -P <<EOF >> $psfile
-50.025 0.5 $num
-EOF
-
-# create PDF
-ps2raster -Tf $psfile
-
-    fi
-done < $image_files
-
-# Combine all PDFs into one PDF
-if [ -z $beam ]; then
-    pdf=$project"_"$sensor"_"$track_dir"_"$polar"_"$ifm_looks"rlks_Interferograms"
-else
-    pdf=$project"_"$sensor"_"$track_dir"_"$polar"_"$beam"_"$ifm_looks"rlks_Interferograms"
-fi
-
-ps2raster -TF -F$pdf *.pdf
-
-mv $pdf.pdf $proj_dir/$track_dir
 
 echo " "
-echo "Plots created for unwrapped geocoded interferograms."
+echo "Files copied and plots created."
 echo " "
-
-
-## Create bperp & btemp plot
-
-# capture spatial and temporal baseline information
-echo " "
-echo "Capturing bperp values..."
-cd $proj_dir/$track_dir/bperp_files
-ls *_bperp.par > bperp_files
-
-if [ -z $beam ]; then
-    results=$proj_dir/$track_dir/ifm_bperp_results"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
-else
-    results=$proj_dir/$track_dir/ifm_bperp_results"_"$beam"_"$ifm_rlks"rlks_"$ifm_alks"alks.txt"
-fi
-
-while read file; do
-    # ifm pair
-    mas=`echo $file | awk 'BEGIN {FS="_"} ; {print $1}' | awk 'BEGIN {FS="-"} ; {print $1}'`
-    slv=`echo $file | awk 'BEGIN {FS="_"} ; {print $1}' | awk 'BEGIN {FS="-"} ; {print $2}'`
-
-    # calculate temporal baseline in days
-    let btemp=(`date +%s -d $slv`-`date +%s -d $mas`)/86400
-
-    # estimate the scene centre perpendicular baseline (script below will put results in bperp_file)
-    bperp=`~/repo/gamma_bash/interp_centre_bperp.bash $proc_file $file`
-
-    # export values to file
-    echo $mas-$slv $bperp $btemp >> $results
-
-done < bperp_files
-
-# plot
-echo " "
-echo "Plotting bperp values..."
-
-#plot_baseline_gamma.bash
-
-
-# Clean up files
-rm -rf *.ps *.pdf
-
-echo " "
-echo "bperp values captured."
-echo " "
-

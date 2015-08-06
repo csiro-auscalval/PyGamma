@@ -207,7 +207,11 @@ mosaic_mem=8GB
 mosaic_ncpus=1
 
 #post ifm processing
-post_walltime=01:00:00
+post_walltime=00:30:00
 post_mem=500MB
 post_ncpus=1
 
+#ifm plots
+plot_walltime=02:00:00
+plot_mem=1GB
+plot_ncpus=1
