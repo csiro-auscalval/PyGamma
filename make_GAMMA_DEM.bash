@@ -108,7 +108,7 @@ fi
 
 
 ## Convert ArcGIS ascii text file to grd format
-xyz2grd $dem_name.txt -G$dem_name"_org.grd" -E -V
+xyz2grd $dem_name.txt -G$dem_name.grd -E -V
 
 # Optionally subset the DEM
 #if [ $cut -eq 1 ]; then
@@ -120,7 +120,7 @@ xyz2grd $dem_name.txt -G$dem_name"_org.grd" -E -V
 #if
 
 ## Extract grd information for inclusion into DEM parameter file
-grdinfo $dem_name"_org.grd" > temp1
+grdinfo $dem_name.grd > temp1
 offset=`awk 'NR==9 {print $5}' temp1` #add_offset
 scale=`awk 'NR==9 {print $3}' temp1` #scale_factor
 width=`awk 'NR==6 {print $11}' temp1` #nx
@@ -131,7 +131,7 @@ lat=`awk 'NR==7 {print $5}' temp1` #y_max
 lon=`awk 'NR==6 {print $3}' temp1` #x_min
 
 ## Convert grd format to GAMMA format (4 byte floating point)
-grdreformat $dem_name"_org.grd" $dem_name"_org.dem"=bf -N -V
+grdreformat $dem_name.grd $dem_name"_org.dem"=bf -N -V
 
 ## Change to big endian
 swap_bytes $dem_name"_org.dem" $dem_name.dem 4
@@ -161,11 +161,11 @@ ascii2float $lsat_name.txt $lsat_width $lsat_name.flt 6 - - -
 
 ## Create MDSS files
 mkdir -p gamma_dem
-mv $dem_name.txt $dem_name.dem $dem_name.dem.par $lsat_name.txt $lsat_name.flt gamma_dem
+mv $dem_name.grd $dem_name.txt $dem_name.dem $dem_name.dem.par $lsat_name.txt $lsat_name.flt gamma_dem
 tar -cvzf $dem_name.tar.gz gamma_dem
 
 ## TEMP FILE CLEANUP
-rm temp1 temp2 $dem_name"_org.grd" $dem_name"_org.dem" temp_dem temp_dem2
+rm temp1 temp2 $dem_name"_org.dem" temp_dem temp_dem2
 
 
 # script end 

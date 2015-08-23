@@ -160,13 +160,6 @@ elif [ $platform == NCI ]; then
        mdss get $dem_loc_nci/$tar < /dev/null $proj_dir # /dev/null allows mdss command to work properly in loop
        tar -xvzf $tar
        rm -rf $tar
-       cd $dem_dir
-       if [ -f $dem.txt ]; then # if acsii file of DEM exists in tar file
-	   rm -f $dem.txt
-       fi
-       if [ -f $image.txt ]; then # if ascii file of Landsat image exists in tar file
-	   rm -f $image.txt
-       fi
    else
        :
    fi
