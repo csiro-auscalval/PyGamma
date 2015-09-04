@@ -38,11 +38,6 @@ else
     pir_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/PIRATE
 fi
 
-## Insert scene details top of NCI .e file
-echo "" 1>&2 # adds spaces at top so scene details are clear
-echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project 1>&2
-
 ## Load GAMMA based on platform
 if [ $platform == NCI ]; then
     GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
@@ -77,21 +72,22 @@ gmt_set_framenext() {
 
 ## Create master map
 az=315
-width=20c
-height=13.6c
+tif_width=20c
+tif_height=13.6c
 dpi=300
 n_frames=29
 name=surat_csg_wells_anim
-ps=${name}.ps
+ps=$name.ps
 gmtset MAP_FRAME_TYPE plain
 gmtset MAP_FRAME_PEN thin
-gmtset MAP_TICK_LENGTH_PRIMARY 2p/1.6p
+gmtset MAP_TICK_LENGTH_PRIMARY 2.2p/1.6p
 gmtset PROJ_LENGTH_UNIT c
 gmtset FORMAT_GEO_MAP ddd:mm
 gmtset FONT_ANNOT_PRIMARY 4.5p
 proj=-JM8
 plotrange=-R145.85/152.41/-28.72/-24.35
 
+# Plot basemap
 psbasemap $proj $plotrange -Ba1f0.5/a1f0.5WSen -K -P -V > $name.map.ps
 
 # Resize, filter and create intensity grid for dem 
@@ -133,8 +129,8 @@ pstext surat_place_names7.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj
 pstext surat_place_names7.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.55/-0.2c -N -O -P -V >> $name.ps  
 
 # Convert to tif
-ps2raster $name.ps -A+s20/13.6 -E$dpi -Tt -V
-mv -f $name.tif $name/${file}.tif
+ps2raster $name.ps -A+s$tif_width/$tif_height -E$dpi -Tt -V
+mv -f $name.tif $name/$file.tif
 echo "Frame ${file} completed"
 frame=`gmt_set_framenext ${frame}`
 
@@ -145,7 +141,6 @@ while read list; do
     if [ $frame -le $n_frames ]; then
 	file=`gmt_set_framename ${name} ${frame}`
 	cp -f $name.map.ps $name.ps
-
 
         # Plot year with white background
 	psxy $proj $plotrange -Gwhite -W0.25,black -K -O -P <<EOF >> $name.ps
@@ -158,7 +153,6 @@ EOF
 	pstext $proj $plotrange -F+f8p,Helvetica-Bold,+j -K -O -P <<EOF >> $name.ps
 145.99 -24.50 TL $year
 EOF
-
         # Plot csg wells 
 	psxy $list $proj $plotrange -Sc0.08c -G0/169/230 -W0.2p,black -K -O -P >> $name.ps
 
@@ -180,8 +174,8 @@ EOF
 	pstext surat_place_names7.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.55/-0.2c -N -O -P >> $name.ps  
 
         # Convert to tif
-	ps2raster $name.ps -A+s20/13.6 -E$dpi -Tt -V
-	mv -f $name.tif $name/${file}.tif
+	ps2raster $name.ps -A+s$tif_width/$tif_height -E$dpi -Tt -V
+	mv -f $name.tif $name/$file.tif
 	echo "Frame ${file} completed"
 	frame=`gmt_set_framenext ${frame}`
     else
