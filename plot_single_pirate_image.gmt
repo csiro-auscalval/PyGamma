@@ -97,11 +97,6 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
 
-## Insert scene details top of NCI .e file
-echo "" 1>&2 # adds spaces at top so scene details are clear
-echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project 1>&2
-
 ## Load GAMMA based on platform
 if [ $platform == NCI ]; then
     GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
@@ -140,15 +135,14 @@ proj=-JM8
 
 
 ## Image coordinates (from matlab)
-tr -d '\b\r' < $image_hdr > output.txt # remove dos characters due to creation in matlab
-lon_min3=`grep x_min: output.txt | awk '{print $2}'`
-lon_max3=`grep x_max: output.txt | awk '{print $2}'`
-lat_min3=`grep y_min: output.txt | awk '{print $2}'`
-lat_max3=`grep y_max: output.txt | awk '{print $2}'`
+lon_min3=`grep x_min: $image_hdr | awk '{print $2}'`
+lon_max3=`grep x_max: $image_hdr | awk '{print $2}'`
+lat_min3=`grep y_min: $image_hdr | awk '{print $2}'`
+lat_max3=`grep y_max: $image_hdr | awk '{print $2}'`
 
 # force dem intensity image to be the same size as the input image by using row and column values, not increment
-width=`grep width: output.txt | awk '{print $2}'`
-length=`grep length: output.txt | awk '{print $2}'`
+width=`grep width: $image_hdr | awk '{print $2}'`
+length=`grep length: $image_hdr | awk '{print $2}'`
 img_inc=-I$width+/$length+
 
 #flip lat min and max if negative
@@ -307,13 +301,8 @@ $t7 $t8 BL LOS
 EOF
 fi
 
-# Create PDF
-#ps2raster $psfile -P -A -Tf -V
-
-#evince *.pdf
-
-# Export to .png
-ps2raster $psfile -A -E250 -Tg -V
+# Export to .tif
+ps2raster $psfile -A -E300 -Tf -V
 
 # Clean up files
 rm *.ps dem.cpt dem.grd dem_int.grd img_dem.grd img_int.grd output.txt temp.grd phs.grd phs.cpt 
@@ -322,9 +311,3 @@ rm *.ps dem.cpt dem.grd dem_int.grd img_dem.grd img_int.grd output.txt temp.grd 
 # script end 
 ####################
 
-## Copy errors to NCI error file (.e file)
-if [ $platform == NCI ]; then
-   cat error.log 1>&2
-else
-   :
-fi
