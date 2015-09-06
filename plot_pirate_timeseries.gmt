@@ -11,7 +11,6 @@ display_usage() {
     echo "*        to be transferred from GA to NCI                                     *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]    name of GAMMA proc file (eg. gamma.proc)             *"
-    echo "*         [scale]        max scale bar value (eg. 100)                        *"
     echo "*         [inc]          scale bar increment (eg. 10)                         *"
     echo "*         <scale_title>  LOS or vertical (default LOS)                        *"
     echo "*         <az>           azimuth illumination for DEM (default 315)           *"
@@ -21,44 +20,43 @@ display_usage() {
     echo "*         <bot_pad>      bottom padding (default 0.2)                         *"
     echo "*         <side_pad>     side padding (default 0.05)                          *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       02/09/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       07/09/2015, v1.0                            *"
     echo "*******************************************************************************"
-    echo -e "Usage: plot_pirate_timeseries.bash [proc_file] [scale] [inc] <scale_title> <az> <top_pad> <bot_pad> <side_pad>"
+    echo -e "Usage: plot_pirate_timeseries.bash [proc_file] [inc] <scale_title> <az> <top_pad> <bot_pad> <side_pad>"
     }
 
-if [ $# -lt 3 ]
+if [ $# -lt 2 ]
 then 
     display_usage
     exit 1
 fi
 
 proc_file=$1
-scale=$2
-int=$3
+int=$2
 
 
-if [ $# -gt 3 ]; then
-    title_type=$4
+if [ $# -gt 2 ]; then
+    title_type=$3
 else
     title_type=LOS
 fi
-if [ $# -gt 4 ]; then
-    az=$5
+if [ $# -gt 3 ]; then
+    az=$4
 else
     az=315
 fi
-if [ $# -gt 5 ]; then
-    top_pad=$6
+if [ $# -gt 4 ]; then
+    top_pad=$5
 else
     top_pad=0.1
 fi
-if [ $# -gt 6 ]; then
-    bot_pad=$7
+if [ $# -gt 5 ]; then
+    bot_pad=$6
 else
     bot_pad=0.2
 fi
-if [ $# -gt 7 ]; then
-    side_pad=$8
+if [ $# -gt 6 ]; then
+    side_pad=$7
 else
     side_pad=0.05
 fi
@@ -129,16 +127,16 @@ gmt_set_framenext() {
 image_hdr=*_header.txt
 
 ## Image coordinates (from matlab)
-tr -d '\b\r' < $image_hdr > output.txt # remove dos characters due to creation in matlab
-lon_min3=`grep x_min: output.txt | awk '{print $2}'`
-lon_max3=`grep x_max: output.txt | awk '{print $2}'`
-lat_min3=`grep y_min: output.txt | awk '{print $2}'`
-lat_max3=`grep y_max: output.txt | awk '{print $2}'`
+lon_min3=`grep x_min: $image_hdr | awk '{print $2}'`
+lon_max3=`grep x_max: $image_hdr | awk '{print $2}'`
+lat_min3=`grep y_min: $image_hdr | awk '{print $2}'`
+lat_max3=`grep y_max: $image_hdr | awk '{print $2}'`
 
 # force dem intensity image to be the same size as the input image by using row and column values, not increment
-width=`grep width: output.txt | awk '{print $2}'`
-length=`grep length: output.txt | awk '{print $2}'`
+width=`grep width: $image_hdr | awk '{print $2}'`
+length=`grep length: $image_hdr | awk '{print $2}'`
 img_inc=-I$width+/$length+
+
 
 #flip lat min and max if negative
 if (( $(bc <<< "$lat_min3 < 0") == 1 )); then
@@ -196,21 +194,14 @@ gmtset FORMAT_GEO_MAP ddd:mm
 gmtset FONT_ANNOT_PRIMARY 8.5p
 proj=-JM8
 
-
-## Create scale bar (need to manually modify the last value so positive values appear blue)
-makecpt -C$cpt -T-$scale.01/0.01/1.01 -I -N -Z -V > phs.cpt
-head -n -1 phs.cpt > head.cpt
-tail -n1 phs.cpt > tail.cpt
-tail1=`awk 'NR ==1 {print $3}' tail.cpt`
-if (( $(bc <<< "$tail1 < 0") == 1 )); then
-    tail2=`echo $tail1 | sed 's/-//g'`
-    sed -i -e "s/$tail1/$tail2/g" tail.cpt
-    cat tail.cpt >> head.cpt
-    mv -f head.cpt phs.cpt
-else
-    rm -f head.cpt tail.cpt
-fi
-
+## Determine minimum and maximum scale from last timeseries file to create scale bar
+ls *.dat | sort -n -t _ -k 3 > file_list
+last_file=`tail -n1 <file_list`
+xyz2grd $last_file -N0 $range -ZTLf $img_inc -Gimage.grd -V
+grdinfo image.grd > grd_info
+z_min=`grep z_min: grd_info | awk '{print $3}'`
+z_max=`grep z_max: grd_info | awk '{print $5}'`
+makecpt -C$cpt -T$z_min/$z_max/1 -I -N -Z -V > phs.cpt
 
 ## Resize, filter and create intensity grid for dem 
 grdcut $dem -Gtemp.grd $plotrange -V
