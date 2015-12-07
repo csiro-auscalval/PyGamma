@@ -74,6 +74,7 @@ if [ $platform == NCI ]; then
     dem=$proj_dir/gamma_dem/$dem_name_nci
     dem_par=$proj_dir/gamma_dem/$dem_name_nci.par
     dem_par2=$dem.par
+
     if [ $ext_image -eq 2 ]; then
 	image1=`grep Landsat_image= $proc_file | cut -d "=" -f 2`
 	image=$proj_dir/gamma_dem/$image1
