@@ -1332,7 +1332,11 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    else
 		:
 	    fi
-	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
+  	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
+                echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 1 - - - - $beam_num >> $job
+	    else
+ 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 2 - - - - $beam_num >> $job
+	    fi
 	    chmod +x $job
 	    qsub $job | tee "full_dem_"$beam_num"_job_id"
 	    
@@ -1379,7 +1383,11 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
+  	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
+                echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 1 - - - - $beam_num >> $job
+	    else
+ 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 2 - - - - $beam_num >> $job
+	    fi
 	    chmod +x $job
 	    
 	    job="calc_subset_dem_"$beam_num
@@ -1406,17 +1414,27 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-            # no multi-look value - for geocoding full subsetted SLC data
-	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines $beam_num >> $job
-            # SLC and ifm multi-look value (same value)
-	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+  	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
+                # SLC and ifm multi-look value (same value)
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+		else
+                # SLC multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+                # ifm multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+		fi
 	    else
-            # SLC multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
-            # ifm multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
-	    fi	  
+                # SLC and ifm multi-look value (same value)
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+		else
+                # SLC multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+                # ifm multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+		fi
+	    fi
 	    chmod +x $job
 	    qsub $job | tee "subset_dem_"$beam_num"_job_id"
 				    
@@ -1430,16 +1448,26 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-            # no multi-look value - for geocoding full subsetted SLC data
-	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines $beam_num >> $job
-            # SLC and ifm multi-look value (same value)
-	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+  	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
+                # SLC and ifm multi-look value (same value)
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+		else
+                # SLC multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+                # ifm multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+		fi
 	    else
-            # SLC multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
-            # ifm multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+                # SLC and ifm multi-look value (same value)
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+		else
+                # SLC multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+                # ifm multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+		fi
 	    fi
 	    chmod +x $job
 				    
@@ -1512,7 +1540,6 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    else
 		:
 	    fi
-
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # no multi-look value - for geocoding full SLC data
 		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - $beam_num >> $job
@@ -1551,16 +1578,30 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-            # no multi-look value - for geocoding full SLC data
-	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - $beam_num >> $job
-            # SLC and ifm multi-look value (same value)
-	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
+  	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
+                # no multi-look value - for geocoding full SLC data
+		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - $beam_num >> $job
+                # SLC and ifm multi-look value (same value)
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - $beam_num >> $job
+		else
+                # SLC multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - $beam_num >> $job
+                # ifm multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - $beam_num >> $job
+		fi
 	    else
-            # SLC multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 - - - - $beam_num >> $job
-            # ifm multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 - - - - $beam_num >> $job
+	        # no multi-look value - for geocoding full SLC data
+		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - $beam_num >> $job
+                # SLC and ifm multi-look value (same value)
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - $beam_num >> $job
+		else
+                # SLC multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - $beam_num >> $job
+                # ifm multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - $beam_num >> $job
+		fi
 	    fi
 	    chmod +x $job
 	    
@@ -1650,43 +1691,14 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    else
 		:
 	    fi
-	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
+  	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
+                echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
+	    else
+ 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
+	    fi
 	    chmod +x $job
 	    qsub $job | tee full_dem_job_id
-			
-            # determine subset pixels and update proc file with values
-            # set up header for PBS job
-	    echo "Calculating pixel values for subsetting..."
-	    full_dem_jobid=`sed s/.r-man2// full_dem_job_id`
-	    job=calc_subset_dem
-	    echo \#\!/bin/bash > $job
-	    echo \#\PBS -lother=gdata1 >> $job
-	    echo \#\PBS -l walltime=$list_walltime >> $job
-	    echo \#\PBS -l mem=$list_mem >> $job
-	    echo \#\PBS -l ncpus=$list_ncpus >> $job
-	    echo \#\PBS -l wd >> $job
-	    echo \#\PBS -q normal >> $job
-	    echo \#\PBS -W depend=afterok:$full_dem_jobid >> $job
-	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file >> $job
-	    chmod +x $job
-	    qsub $job | tee calc_subset_dem_job_id
-	    
-	    #rerun process_gamma.bash once calc_subset has run to include subset values in coreg_sub_dem PBS job
-	    echo "Preparing job to rerun 'process_gamma.bash' to coregister subsetted DEM to subsetted reference master scene..."
-	    subset_jobid=`sed s/.r-man2// calc_subset_dem_job_id`
-	    job=rerun_process_gamma
-	    echo \#\!/bin/bash > $job
-	    echo \#\PBS -lother=gdata1 >> $job
-	    echo \#\PBS -l walltime=$list_walltime >> $job
-	    echo \#\PBS -l mem=$list_mem >> $job
-	    echo \#\PBS -l ncpus=$list_ncpus >> $job
-	    echo \#\PBS -l wd >> $job
-	    echo \#\PBS -q normal >> $job
-	    echo \#\PBS -W depend=afterok:$subset_jobid >> $job
-	    echo ~/repo/gamma_bash/process_gamma.bash $proj_dir/$proc_file >> $job
-	    chmod +x $job
-	    qsub $job
-	    
+
             # in case future manual processing is required, create manual PBS jobs
 	    cd $dem_manual_dir
 	    job=coreg_full_dem
@@ -1697,9 +1709,52 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-	    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 - - - - >> $job
+  	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
+                echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
+	    else
+ 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
+	    fi
 	    chmod +x $job
+
+            # run dem error check
+	    echo "Preparing error collation for initial dem coregistration..."
+	    echo "*** Manually calculate subset scene extent before resuming processing ***"
+	    cd $dem_batch_dir
+	    dem_jobid=`sed s/.r-man2// full_dem_job_id`
+	    job=dem_err_check
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$error_walltime >> $job
+	    echo \#\PBS -l mem=$error_mem >> $job
+	    echo \#\PBS -l ncpus=$error_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
+	    chmod +x $job
+	    qsub $job 
+  	}
+
+
+	SUBSET_PIXELS()
+	{
+            # determine subset pixels and update proc file with values
+            # set up header for PBS job
+	    echo "Calculating pixel values for subsetting..."
+	    cd $dem_batch_dir
+	    job=calc_subset_dem
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$list_walltime >> $job
+	    echo \#\PBS -l mem=$list_mem >> $job
+	    echo \#\PBS -l ncpus=$list_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file >> $job
+	    chmod +x $job
+	    qsub $job | tee calc_subset_dem_job_id
 	    
+            # in case future manual processing is required, create manual PBS jobs
 	    job=calc_subset_dem
 	    echo \#\!/bin/bash > $job
 	    echo \#\PBS -lother=gdata1 >> $job
@@ -1711,11 +1766,12 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file >> $job
 	    chmod +x $job
 	}
-	
+
 	SUBSET_DEM()
 	{
             # set up header for PBS job
-	    echo "Coregistering subsetted DEM to subsetted reference  master scene..."
+	    echo "Coregistering subsetted DEM to subsetted reference master scene..."
+	    dem_jobid=`sed s/.r-man2// calc_subset_dem_job_id`
 	    job=coreg_sub_dem
 	    echo \#\!/bin/bash > $job
 	    echo \#\PBS -lother=gdata1 >> $job
@@ -1724,17 +1780,36 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-            # no multi-look value - for geocoding full subsetted SLC data
-	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines >> $job
-            # SLC and ifm multi-look value (same value)
-	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
+	    roff1=`[[ $roff =~ ^-?[0-9]+$ ]] && echo integer`
+	    rlines1=`[[ $rlines =~ ^-?[0-9]+$ ]] && echo integer`
+	    azoff1=`[[ $azoff =~ ^-?[0-9]+$ ]] && echo integer`
+	    azlines1=`[[ $azlines =~ ^-?[0-9]+$ ]] && echo integer`
+	    if [ $roff1 == "integer" -a $rlines1 == "integer" -a $azoff1 == "integer" -a $azlines1 == "integer" ]; then
+		:
 	    else
-            # SLC multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
-            # ifm multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines >> $job
-	    fi	  
+		echo \#\PBS -W depend=afterok:$dem_jobid >> $job
+	    fi
+  	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
+                # SLC and ifm multi-look value (same value)
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+		else
+                # SLC multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+                # ifm multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+		fi
+	    else
+                # SLC and ifm multi-look value (same value)
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+		else
+                # SLC multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+                # ifm multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+		fi
+	    fi
 	    chmod +x $job
 	    qsub $job | tee subset_dem_job_id
 			    
@@ -1748,16 +1823,26 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-            # no multi-look value - for geocoding full subsetted SLC data
-	    #echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 $roff $rlines $azoff $azlines >> $job
-            # SLC and ifm multi-look value (same value)
-	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
+  	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
+                # SLC and ifm multi-look value (same value)
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+		else
+                # SLC multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+                # ifm multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+		fi
 	    else
-            # SLC multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 $roff $rlines $azoff $azlines >> $job
-            # ifm multi-look value
-		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 $roff $rlines $azoff $azlines >> $job
+                # SLC and ifm multi-look value (same value)
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+		else
+                # SLC multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+                # ifm multi-look value
+		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+		fi
 	    fi
 	    chmod +x $job
 			    
@@ -1925,15 +2010,20 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    azlines1=`[[ $azlines =~ ^-?[0-9]+$ ]] && echo integer`
 	    
 	    if [ $roff == "-" -a $rlines == "-" -a $azoff == "-" -a $azlines == "-" ]; then
-		if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
-		    if [ ! -e $scene_list ]; then # if scene list doesn't exist
-			echo ""
-			echo "Scene list doesn't exist yet, waiting for process_gamma.bash to be rerun once list is created."
-		    else # scene list exists
-			SUBSET_DEM_INITIAL 
+		if [ ! -e $subset_file ]; then
+		    if [ $do_setup == yes -a $do_raw == yes -a $do_slc == yes ]; then
+			if [ ! -e $scene_list ]; then # if scene list doesn't exist
+			    echo ""
+			    echo "Scene list doesn't exist yet, waiting for process_gamma.bash to be rerun once list is created."
+			else # scene list exists
+			    SUBSET_DEM_INITIAL 
+			fi
+		    else # process as normal
+			SUBSET_DEM_INITIAL 			    
 		    fi
-		else # process as normal
-		    SUBSET_DEM_INITIAL 			    
+		else
+		    SUBSET_PIXELS
+		    SUBSET_DEM
 		fi
 	    elif [ $roff1 == "integer" -a $rlines1 == "integer" -a $azoff1 == "integer" -a $azlines1 == "integer" ]; then
 		cd $dem_batch_dir
