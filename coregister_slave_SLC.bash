@@ -18,6 +18,9 @@ display_usage() {
     echo "*               added functionality for wide swath beam processing            *"
     echo "*         Matt Garthwaite         29/05/2015, v1.2                            *"
     echo "*               added iterable loop to achieve required offset accuracy       *"
+    echo "*         Sarah Lawrie @ GA       23/12/2015, v1.3                            *"
+    echo "*               Change snr to cross correlation parameters (process changed   *"
+    echo "*               in GAMMA version Dec 2015)                                    *"
     echo "*******************************************************************************"
     echo -e "Usage: coregister_slave_SLC.bash [proc_file] [slave] [rlks] [alks] <beam>"
     }
@@ -48,7 +51,7 @@ offset_measure=`grep slv_offset_measure= $proc_file | cut -d "=" -f 2`
 slv_win=`grep slv_win= $proc_file | cut -d "=" -f 2`
 slv_snr=`grep slv_snr= $proc_file | cut -d "=" -f 2`
 ## SLC registration params
-snr=`grep coreg_snr_thresh= $proc_file | cut -d "=" -f 2`
+ccp=`grep coreg_snr_thresh= $proc_file | cut -d "=" -f 2`
 npoly=`grep coreg_model_params= $proc_file | cut -d "=" -f 2`
 win=`grep coreg_window_size= $proc_file | cut -d "=" -f 2`
 nwin=`grep coreg_num_windows= $proc_file | cut -d "=" -f 2`
@@ -133,7 +136,7 @@ rmli_par=$rmli.par
 lt=$slave_dir/$master-$slave_mli_name.lt
 off=$slave_dir/$master-$slave_mli_name.off
 diff_par=$slave_dir/$master-$slave_mli_name_"diff.par"
-snr=$slave_dir/$master_mli_name-$slave_mli_name.snr
+ccp=$slave_dir/$master_mli_name-$slave_mli_name.ccp
 coffs=$slave_dir/$master_mli_name-$slave_mli_name.coffs
 offs=$slave_dir/$master_mli_name-$slave_mli_name.offs
 offsets=$slave_dir/$master_mli_name-$slave_mli_name.offsets
@@ -182,10 +185,10 @@ rm -f $returns
 ## Measure offset between slave MLI and resampled slave MLI
 GM init_offsetm $rmli $slave_mli $diff_par 1 1 - - - - $slv_snr - 1
 
-GM offset_pwrm $rmli $slave_mli $diff_par $off"s0" $snr"0" - - - 2
+GM offset_pwrm $rmli $slave_mli $diff_par $off"s0" $ccp"0" - - - 2
 
 ## Fit the offset only
-GM offset_fitm $off"s0" $snr"0" $diff_par $coffs"0" - $slv_snr 1
+GM offset_fitm $off"s0" $ccp"0" $diff_par $coffs"0" - $slv_snr 1
 
 ## Refinement of initial geocoding look up table
 GM gc_map_fine $lt"0" $master_mli_width $diff_par $lt
@@ -200,16 +203,16 @@ i=1
 while [ $i -le $niter ]; do
 
     ioff=$off$i
-    rm -f $offs $snr $offsets $coffsets
+    rm -f $offs $ccp $offsets $coffsets
     echo "Starting Iteration "$i
 
 ## Measure offsets for refinement of lookup table using initially resampled slave SLC
     GM create_offset $master_slc_par $rslc_par $ioff 1 $rlks $alks 0
 
-    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff $offs $snr $win $win $offsets $ovr $nwin $nwin $snr
+    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff $offs $ccp $win $win $offsets $ovr $nwin $nwin $ccp
 
 ## Fit polynomial model to offsets
-    GM offset_fit $offs $snr $ioff - $coffsets $snr $npoly 0
+    GM offset_fit $offs $ccp $ioff - $coffsets $ccp $npoly 0
 
 ## Create blank offset file for first iteration and calculate the total estimated offset
     if [ $i == 1 ]; then
@@ -241,7 +244,7 @@ done
 
 GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
 
-rm -f $off"s0" $snr"0" $coffs"0" $offs $snr $coffs $coffsets $lt"0"
+rm -f $off"s0" $ccp"0" $coffs"0" $offs $ccp $coffs $coffsets $lt"0"
 
 ## Extract final offset values to check coregistration
 echo $master > temp1_$rlks
@@ -258,9 +261,9 @@ rm -f temp*
 ## Copy errors to NCI error file (.e file)
 if [ $platform == NCI ]; then
     cat error.log 1>&2
-    rm temp_log
-else
-    rm temp_log
+#    rm temp_log
+#else
+#    rm temp_log
 fi
 
 ## Rename log files if beam exists

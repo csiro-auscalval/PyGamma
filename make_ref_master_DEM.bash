@@ -29,6 +29,9 @@ display_usage() {
     echo "*              Add beam processing capability for wide swath data             *"
     echo "*         Sarah Lawrie @ GA       15/07/2015, v1.2                            *"
     echo "*              Add external reference image option                            *"
+    echo "*         Sarah Lawrie @ GA       23/12/2015, v1.3                            *"
+    echo "*              Change snr to cross correlation parameters (process changed    *"
+    echo "*              in GAMMA version Dec 2015)                                     *"
     echo "*******************************************************************************"
     echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] [multi-look] [subset] [image] <roff> <rlines> <azoff> <azlines> <beam>"
     }
@@ -204,7 +207,7 @@ diff=$dem_dir/"diff_"$mli_name.par
 lsmap=$dem_dir/$mli_name"_utm.lsmap"
 off=$dem_dir/$mli_name.off
 offs=$dem_dir/$mli_name.offs
-snr=$dem_dir/$mli_name.snr
+ccp=$dem_dir/$mli_name.ccp
 offsets=$dem_dir/$mli_name.offsets
 coffs=$dem_dir/$mli_name.coffs
 coffsets=$dem_dir/$mli_name.coffsets
@@ -331,15 +334,15 @@ rm -f $returns
 ## initial offset estimate
 if [ $ext_image -eq 1 ]; then
     GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks - - - - $dem_snr $dem_patch_win 1 
-    GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr - - $offsets 1 - - -
+    GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp - - $offsets 1 - - -
 else
     GM init_offsetm $master_mli $lsat_init_sar $diff $rlks $alks - - - - $dem_snr $dem_patch_win 1
-    GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $snr - - $offsets 1 - - - 
+    GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp - - $offsets 1 - - - 
 fi
 # if image patch extends beyond input MLI-1 (init_offsetm), an error is generated but not automatically put into error.log file
 grep "ERROR" output.log  1>&2
 
-GM offset_fitm $offs $snr $diff $coffs $coffsets - $npoly
+GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
 
 ## precision estimation of the registration polynomial
 rwin=`echo $dem_win | awk '{print $1/4}'`
@@ -349,13 +352,13 @@ naz=`echo $offset_measure | awk '{print $1*4}'`
 
 ## offset tracking
 if [ $ext_image -eq 1 ]; then
-    GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $snr $rwin $azwin $offsets 2 $nr $naz -
+    GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz -
 else
-    GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $snr $rwin $azwin $offsets 2 $nr $naz - 
+    GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz - 
 fi
 
 ## range and azimuth offset polynomial estimation 
-GM offset_fitm $offs $snr $diff $coffs $coffsets - $npoly
+GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
 
 grep "final model fit std. dev." output.log
 #grep "final range offset poly. coeff.:" output.log
