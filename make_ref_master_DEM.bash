@@ -51,7 +51,7 @@ ext_image=$6
 roff=$7
 rlines=$8
 azoff=$9
-azlines={$10}
+azlines=${10}
 beam=${11} # need curly bracket to get 10th variable onwards to be recognised
 
 proc_file=$1
