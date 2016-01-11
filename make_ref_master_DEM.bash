@@ -214,6 +214,8 @@ coffsets=$dem_dir/$mli_name.coffsets
 lsat_flt=$dem_dir/$mli_name"_lsat_sar.flt" 
 lsat_init_sar=$dem_dir/$mli_name"_lsat_init.sar" 
 lsat_sar=$dem_dir/$mli_name"_lsat.sar"
+lv_theta=$dem_dir/$mli_name"_utm.lv_theta"
+lv_phi=$dem_dir/$mli_name"_utm.lv_phi"
 
 
 ## Coregistration results file
@@ -393,6 +395,11 @@ awk '{print $8}' temp1 > temp2
 awk '{print $10}' temp1 > temp3
 paste temp2 temp3 >> $check_file
 rm -f temp1 temp2 temp3
+
+
+## Create look vector files
+GM look_vector $master_slc_par - $utm_dem_par $utm_dem $lv_theta $lv_phi
+
 
 
 # script end 
