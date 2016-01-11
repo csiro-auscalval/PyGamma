@@ -138,6 +138,8 @@ if [ -z $beam ]; then #no beam
     cd $pyrate_dir/dem_files
     ls *.dem > dem_list
     ls *.par >> dem_list
+    ls *.lv_theta >> dem_list
+    ls *.lv_phi >> dem_list
 else #beam exists
     while read list; do
 	if [ ! -z $list ]; then
@@ -159,6 +161,8 @@ else #beam exists
     cd $pyrate_dir/dem_files
     ls *.dem > dem_list
     ls *.par >> dem_list
+    ls *.lv_theta >> dem_list
+    ls *.lv_phi >> dem_list
 fi
 
 # Run PBS jobs for plot creation
