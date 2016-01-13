@@ -125,6 +125,8 @@ if [ -z $beam ]; then #no beam
 	    ifm_dir=$int_dir/$mas-$slv
 	    bperp=$mas-$slv"_"$polar"_"$ifm_looks"rlks_bperp.par"
 	    cp $ifm_dir/$bperp $bperp_dir
+	    cd $bperp_dir
+	    ls *.par > bperp_list
 	fi
     done < $ifm_list
     dem=$master"_"$polar"_"$ifm_looks"rlks_utm.dem"
@@ -148,6 +150,8 @@ else #beam exists
 	    ifm_dir=$int_dir/$mas-$slv
 	    bperp=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_bperp.par"
 	    cp $ifm_dir/$bperp $bperp_dir
+	    cd $bperp_dir
+	    ls *.par > bperp_list
 	fi
     done < $ifm_list
     dem=$master"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.dem"
