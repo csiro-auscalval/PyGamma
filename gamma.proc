@@ -106,8 +106,8 @@ dem_offset=0 0
 dem_offset_measure=32 32
     # search window sizes (32, 64, 128...) (range, azimuth) (default 256 256):
 dem_win=256 256
-    # minimum matching SNR (nominal: 7):
-dem_snr=7
+    # correlation SNR threshold (nominal: 0.3):
+dem_snr=0.3
 
 
 ##### Slave coregistration parameters #####
@@ -128,8 +128,8 @@ coreg_num_iterations=5
 slv_offset_measure=32 32
     # search window sizes (32, 64, 128...) (range, azimuth) (default 256 256):
 slv_win=256 256
-    # minimum matching SNR (nominal: 7):
-slv_snr=7
+    # correlation SNR threshold (nominal: 0.3):
+slv_snr=0.3
 
 
 ##### Interferogram Parameters #####
@@ -142,6 +142,13 @@ Filtering_window=32
 Coherence_window=3
 
 ## phase unwrapping parameters
+    # unwrapping type (branch = branch-cut method, mcf = minimum cost flow method)
+unwrap_type=mcf
+    # pixel starting point for unwrapping - branch-cut method only (default is -)
+start_x=-
+start_y=-
+    # use bridges (yes/no) - for branch-cut method only
+bridge=no
     # coherence threshold for masking
 Coherence_threshold=0.3
     # number of patches (for mcf, default is 1)

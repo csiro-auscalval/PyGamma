@@ -16,6 +16,10 @@ display_usage() {
     echo "* author: Sarah Lawrie @ GA       26/05/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       06/08/2015, v1.1                            *"
     echo "*           - add geocoding of cc and filt ifms for plotting.                 *"
+    echo "*         Sarah Lawrie @ GA       23/12/2015, v1.2                            *"
+    echo "*           - change snr to cross correlation parameters (process changed     *"
+    echo "*             in GAMMA version Dec 2015)                                      *"
+    echo "*           - add branch-cut unwrapping method as an option                   *"
     echo "*******************************************************************************"
     echo -e "Usage: process_ifm.bash [proc_file] [master] [slave] [rlks] [alks] <beam>"
     }
@@ -46,6 +50,10 @@ track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
+unwrap_type=`grep unwrap_type= $proc_file | cut -d "=" -f 2`
+start_x=`grep start_x= $proc_file | cut -d "=" -f 2`
+start_y=`grep start_y= $proc_file | cut -d "=" -f 2`
+bridge_flag=`grep bridge= $proc_file | cut -d "=" -f 2`
 expon=`grep Exponent= $proc_file | cut -d "=" -f 2`
 filtwin=`grep Filtering_window= $proc_file | cut -d "=" -f 2`
 ccwin=`grep Coherence_window= $proc_file | cut -d "=" -f 2`
@@ -92,6 +100,7 @@ else
     GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
     source $GAMMA
 fi
+
 
 slc_dir=$proj_dir/$track_dir/`grep SLC_dir= $proc_file | cut -d "=" -f 2`
 dem_dir=$proj_dir/$track_dir/`grep DEM_dir= $proc_file | cut -d "=" -f 2`
@@ -222,10 +231,13 @@ cc0_mask=$int_dir/$mas_slv_name"_flat0_cc_mask.ras"
 cc10=$int_dir/$mas_slv_name"_flat10.cc"
 cc10_mask=$int_dir/$mas_slv_name"_flat10_cc_mask.ras"
 smcc=$int_dir/$mas_slv_name"_filt.cc"
+cc_flag=$int_dir/$mas_slv_name"_filt_cc.flag"
+bridge=$int_dir/$mas_slv_name.bridges
 mask=$int_dir/$mas_slv_name"_mask.ras"
 mask1=$int_dir/$mas_slv_name"_mask1.ras"
 mask_thin=$int_dir/$mas_slv_name"_mask_thin.ras"
 int_unw=$int_dir/$mas_slv_name.unw
+int_unw_org=$int_dir/$mas_slv_name"_bef_bridge.unw"
 int_unw_mask=$int_dir/$mas_slv_name"_mask.unw"
 int_unw_thin=$int_dir/$mas_slv_name"_thin.unw"
 int_unw_model=$int_dir/$mas_slv_name"_model.unw"
@@ -243,7 +255,7 @@ geotif=$unw_geocode_out.tif
 #lv_phi=$int_dir/$mas_slv_name.lv_phi
 # disp=$int_dir/$mas_slv_name.displ_vert
 offs=$int_dir/$mas_slv_name.offs
-snr=$int_dir/$mas_slv_name.snr
+ccp=$int_dir/$mas_slv_name.ccp
 coffs=$int_dir/$mas_slv_name.coffs
 coffsets=$int_dir/$mas_slv_name.coffsets
 gcp=$int_dir/$mas_slv_name.gcp
@@ -265,8 +277,8 @@ INT()
     ## Also done in offset tracking so test if this has been run
     if [ ! -e $off ]; then
 	GM create_offset $mas_slc_par $slv_slc_par $off 1 $ifm_rlks $ifm_alks 0
-	GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $snr 64 64 - 2 64 256 7.0
-	GM offset_fit $offs $snr $off $coffs $coffsets
+	GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $ccp 64 64 - 2 64 256 -
+	GM offset_fit $offs $ccp $off $coffs $coffsets
     else
 	:
     fi
@@ -295,7 +307,7 @@ FLAT()
     GM phase_sim $mas_slc_par $off $base_init $rdc_dem $sim_unw0 0 0 - - 1 - 0
 
     ## Create differential interferogram parameter file
-    create_diff_par $off - $diff_par 0 0
+    GM create_diff_par $off - $diff_par 0 0
 
     ## Subtract simulated phase
     GM sub_phase $int $sim_unw0 $diff_par $int_flat0 1 0
@@ -397,65 +409,117 @@ UNW()
     fi
     cd $int_dir
 
-    #look=5
+    if [ $unwrap_type == mcf ]; then
 
-    ## multi-look the flattened interferogram 10 times
-    #GM multi_cpx $int_filt $off $int_filt$look $off$look $look $look 0 0
+        #look=5
 
-    #width=`grep interferogram_width: $off$look | awk '{print $2}'`
+        ## multi-look the flattened interferogram 10 times
+        #GM multi_cpx $int_filt $off $int_filt$look $off$look $look $look 0 0
 
-    ## Generate coherence image
-    #GM cc_wave $int_filt$look - - $smcc$look $width 7 7 1
+        #width=`grep interferogram_width: $off$look | awk '{print $2}'`
 
-    ## Generate validity mask with low coherence threshold to unwrap more area
-    #GM rascc_mask $smcc$look - $width 1 1 0 1 1 0.1
+        ## Generate coherence image
+        #GM cc_wave $int_filt$look - - $smcc$look $width 7 7 1
 
-    ## Perform unwrapping
-    #GM mcf $int_filt$look $smcc$look $smcc$look"_mask.ras" $int_filt$look.unw $width 1 0 0 - - 1 1 - 32 45 1
+        ## Generate validity mask with low coherence threshold to unwrap more area
+        #GM rascc_mask $smcc$look - $width 1 1 0 1 1 0.1
 
-    ## Oversample unwrapped interferogram to original resolution
-    #GM multi_real $int_filt$look.unw $off$look $int_filt"1.unw" $off -$look -$look 0 0
+        ## Perform unwrapping
+        #GM mcf $int_filt$look $smcc$look $smcc$look"_mask.ras" $int_filt$look.unw $width 1 0 0 - - 1 1 - 32 45 1
 
-    #GM unw_model $int_filt $int_filt"1.unw" $int_unw $int_width
+        ## Oversample unwrapped interferogram to original resolution
+        #GM multi_real $int_filt$look.unw $off$look $int_filt"1.unw" $off -$look -$look 0 0
 
-    ## Produce unwrapping validity mask based on smoothed coherence (for Minimum Cost Flow unwrapping method)
-    GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask
+        #GM unw_model $int_filt $int_filt"1.unw" $int_unw $int_width
 
-    ## use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser networh which can be interpoolated and then used as a model for unwrapping the full interferogram
-    thres_1=`echo $coh_thres + 0.2 | bc`
-    thres_max=`echo $thres_1 + 0.2 | bc`
-    #if [ $thres_max -gt 1 ]; then
-    #    echo " "
-    #    echo "MASK THINNING MAXIMUM THRESHOLD GREATER THAN ONE. Modify coherence threshold in proc file."
-    #    echo " "
-    #    exit 1
-    #else
-    #    :
-    #fi
-    GM rascc_mask_thinning $mask $smcc $int_width $mask_thin 3 $coh_thres $thres_1 $thres_max
+        ## Produce unwrapping validity mask based on smoothed coherence
+        GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask
 
-    ## Minimum cost flow unwrapping with validity mask
-    #GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - 1 1 - $refrg $refaz 1
-    GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $patch_az
+        ## Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser network which can be interpoolated and then used as a model for unwrapping the full interferogram
+	thres_1=`echo $coh_thres + 0.2 | bc`
+	thres_max=`echo $thres_1 + 0.2 | bc`
+        #if [ $thres_max -gt 1 ]; then
+        #    echo " "
+        #    echo "MASK THINNING MAXIMUM THRESHOLD GREATER THAN ONE. Modify coherence threshold in proc file."
+        #    echo " "
+        #    exit 1
+        #else
+        #    :
+        #fi
+	GM rascc_mask_thinning $mask $smcc $int_width $mask_thin 3 $coh_thres $thres_1 $thres_max
 
-    ## interpolate sparse unwrapped points to give unwrapping model
-    GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
+        ## Unwrapping with validity mask
+        #GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - 1 1 - $refrg $refaz 1
+	GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $patch_az
 
-    ## Use model to unwrap filtered interferogram
-    if [ $refrg = "-" -a $refaz = "-" ]; then
-	GM unw_model $int_filt $int_unw_model $int_unw $int_width
+        ## Interpolate sparse unwrapped points to give unwrapping model
+	GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
+
+        ## Use model to unwrap filtered interferogram
+	if [ $refrg = "-" -a $refaz = "-" ]; then
+	    GM unw_model $int_filt $int_unw_model $int_unw $int_width
+	else
+	    GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
+	fi
+
+        ## Produce coherence mask for masking of unwrapped interferogram
+        #GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask1
+
+        ## apply mask to filtered interferogram here
+        #GM mask_data $int_unw $int_width $int_unw_mask $mask1 0
+
+        ## Convert LOS signal to vertical
+        #GM dispmap $int_unw $rdc_dem $mas_slc_par $off $disp 1
+
+    elif [ $unwrap_type == branch ]; then    ####### SCRIPT STILL IN DRAFT FORM, USING NEUTRON NOT WORKING PROPERLY YET
+
+	## Mask low correlation areas
+	# create correlation file
+	GM cc_wave $int_filt - - $smcc $int_width $ccwin $ccwin 1
+	# create flagfile
+	GM corr_flag $smcc $cc_flag $int_width $coh_thres
+
+
+	### without neutron:
+
+	## Determination of residues
+	GM residue_cc $int_filt $cc_flag $int_width
+
+	## Connection of residues through neutral trees (uses marked low correlation areas and residues)
+	GM tree_cc $cc_flag $int_width 32
+
+
+	### with neutron:
+
+	## Generation of neutrons (using master scene's intensity image)
+	#GM neutron $mas_mli $cc_flag $int_width 6
+
+	## Determination of residues
+	#GM residue $int_filt $cc_flag $int_width 
+
+	## Connection of residues through neutral trees (uses marked low correlation areas, neutrons and residues)
+	#GM tree_gzw $cc_flag $int_width 32
+
+
+	## Unwrapping of interferometric phase
+	GM grasses $int_filt $cc_flag $int_unw $int_width - - - - $start_x $start_y 1
+
+        # phase unwrapping of disconnected areas using user defined bridges (done after initial unwrapping with 'grasses')
+	if [ $bridge_flag == yes ]; then 
+	    if [ ! -e $int_unw ]; then
+		echo "ERROR: Cannot locate unwrapped interferogram (*.unw). Please run this script from with bridge flag set to 'no' and then re-run with flag set to 'yes'"
+		exit 1
+	    else
+		cp -f $int_unw $int_unw_org #save original unw ifg
+		GM bridge $int_filt $cc_flag $int_unw $bridge $int_width
+	    fi
+	else
+	    :
+	fi
     else
-	GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
+	echo "Unwrapping method not a valid type, must be branch-cut or minimum cost flow"
+	exit 1
     fi
-
-    ## Produce coherence mask for masking of unwrapped interferogram
-    #GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask1
-
-    ## apply mask to filtered interferogram here
-    #GM mask_data $int_unw $int_width $int_unw_mask $mask1 0
-
-    ## Convert LOS signal to vertical
-    #GM dispmap $int_unw $rdc_dem $mas_slc_par $off $disp 1
 }
 
 GEOCODE()
