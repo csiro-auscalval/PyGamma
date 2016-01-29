@@ -20,6 +20,8 @@ display_usage() {
     echo "*             - streamline auto processing                                    *"
     echo "*         Sarah Lawrie @ GA       16/07/2015, v1.5                            *"
     echo "*             - modify coregister DEM to include external ref image           *"
+    echo "*         Sarah Lawrie @ GA       29/01/2016, v1.6                            *"
+    echo "*             - add ability to extract S1 data from the RDSI                  *"
     echo "*******************************************************************************"
     echo -e "Usage: process_gamma.bash [proc_file]"
     }
@@ -50,6 +52,7 @@ do_add_ifms=`grep Process_add_ifms= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 frame_list=`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 beam_list=`grep List_of_beams= $proc_file | cut -d "=" -f 2`
+s1_list=`grep S1_rdsi_files= $proc_file | cut -d "=" -f 2`
 ext_image=`grep Landsat_image= $proc_file | cut -d "=" -f 2`
 mas=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 slc_looks=`grep SLC_multi_look= $proc_file | cut -d "=" -f 2`
@@ -235,17 +238,26 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 
 	if [ -f $frame_list ]; then
 	    mv $frame_list $track_dir/lists/$frame_list
+	    dos2unix -q $frame_list $frame_list # remove any DOS characters if list created in Windows
 	    frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 	else
 	    echo "No frame list found, assume dataset has no frames." 1>&2
 	fi
 	if [ -f $beam_list ]; then
 	    mv $beam_list $track_dir/lists/$beam_list
+	    dos2unix -q $beam_list $beam_list # remove any DOS characters if list created in Windows
 	    beam_list=$proj_dir/$track_dir/lists/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
 	else
 	    echo "No beam list found, assume dataset has no beams." 1>&2
-	    
 	fi
+	if [ -f $s1_list ]; then
+	    mv $s1_list $track_dir/lists/$s1_list
+	    dos2unix -q $s1_list $s1_list # remove any DOS characters if list created in Windows
+	    s1_list=$proj_dir/$track_dir/lists/`grep S1_rdsi_files= $proc_file | cut -d "=" -f 2`
+	else
+	    echo "No Sentinel-1 file list found, assume dataset is not Sentinel-1." 1>&2
+	fi
+
 	
 	if [ -f $beam_list ]; then # if beams exist
 	    while read beam_num; do
@@ -428,7 +440,11 @@ if [ $do_raw == yes -a $platform == NCI ]; then
 	echo \#\PBS -l mem=$raw_mem >> $job
 	echo \#\PBS -l ncpus=$raw_ncpus >> $job
 	echo \#\PBS -l wd >> $job
-	echo \#\PBS -q copyq >> $job
+	if [ $sensor == 'S1 ']; then
+	    echo \#\PBS -q normal >> $job
+	else
+	    echo \#\PBS -q copyq >> $job
+	fi
 	if [ $do_setup == yes -a $platform == NCI ]; then 
 	    scene_list_jobid=`sed s/.r-man2// scene_list_job_id`
 	    slave_list_jobid=`sed s/.r-man2// slave_list_job_id`

@@ -64,6 +64,7 @@ Process_add_ifms=no
 ##### Text File Names #####
 List_of_frames=frame.list
 List_of_beams=beam.list
+S1_rdsi_files=s1_rdsi_files.txt
 Subset_file=subset.txt
 List_of_scenes=scenes.list
 List_of_slaves=slaves.list
@@ -183,7 +184,7 @@ list_walltime=00:20:00
 list_mem=50MB
 list_ncpus=1
 
-#raw data extraction
+#raw data extraction (increase parameters if getting Sentinel-1 data from RDSI)
 raw_walltime=02:00:00
 raw_mem=50MB
 raw_ncpus=1
