@@ -440,11 +440,7 @@ if [ $do_raw == yes -a $platform == NCI ]; then
 	echo \#\PBS -l mem=$raw_mem >> $job
 	echo \#\PBS -l ncpus=$raw_ncpus >> $job
 	echo \#\PBS -l wd >> $job
-	if [ $sensor == 'S1 ']; then
-	    echo \#\PBS -q normal >> $job
-	else
-	    echo \#\PBS -q copyq >> $job
-	fi
+	echo \#\PBS -q copyq >> $job
 	if [ $do_setup == yes -a $platform == NCI ]; then 
 	    scene_list_jobid=`sed s/.r-man2// scene_list_job_id`
 	    slave_list_jobid=`sed s/.r-man2// slave_list_job_id`
