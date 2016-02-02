@@ -166,36 +166,46 @@ elif [ $platform == NCI ]; then
 	    fi
 	done < $frame_list
     else # no frames exist
-	while read scene; do
-	    tar=$scene"_"$sensor"_"$track_dir.tar.gz
-	    if [ ! -z $tar ]; then
-		if [ ! -d $raw_dir/$track_dir/$scene ]; then #check if data have already been extracted from tar file
-		    if [ $sensor == 'S1' ]; then #data on RDSI
-			if [ -f $s1_list ]; then
-                            # Loop over file list to create directories and copy data
-			    while read zip; do
-                                # create scene directories
-				cd $raw_dir/$track_dir
-				mkdir -p $scene
-				cd $scene
-				# copy zip file
-				year=`echo $scene | awk '{print substr($1,1,4)}'`
-				month=`echo $scene | awk '{print substr($1,5,2)}'`
-				cp $rdsi_dir/$year-$month/$zip $zip
-                                # unzip file
-				unzip $zip
-				rm -f $zip
-                                # repackage data into required format
-				cd $raw_dir/$track_dir
-				tar -cvzf $tar $scene
-				mkdir -p $raw_dir/$track_dir/tar_files
-				mv $tar $raw_dir/$track_dir/tar_files
-				cd $proj_dir
-			    done < $s1_list
-			else
-			    echo "No Sentinel-1 data list exists, create list and re-run script"
-			fi
-		    else #data on MDSS
+	if [ $sensor == 'S1' ]; then #data on RDSI
+	    if [ -f $s1_list ]; then
+                # Loop over file list to create directories and copy data
+		while read zip; do
+		    scene=`echo $zip | awk '{print substr($1,18,8)}'`
+                    # create scene directories
+		    cd $raw_dir/$track_dir
+		    mkdir -p $scene
+		    cd $scene
+		    unzip_dir=*.SAFE
+		    tar=$scene"_"$sensor"_"$track_dir.tar.gz
+		    if [ ! -d $raw_dir/$track_dir/$scene/$unzip_dir ]; then
+		        # copy zip file
+			year=`echo $scene | awk '{print substr($1,1,4)}'`
+			month=`echo $scene | awk '{print substr($1,5,2)}'`
+			cp $rdsi_dir/$year-$month/$zip $zip
+                        # unzip file
+			unzip $zip
+			rm -f $zip
+                        # repackage data into required format (don't use, don't need tar files for now)
+			#cd $raw_dir/$track_dir
+			#tar -cvzf $tar $scene
+			#mkdir -p $raw_dir/$track_dir/tar_files
+			#mv $tar $raw_dir/$track_dir/tar_files
+			#cd $proj_dir
+			cd $raw_dir/$track_dir
+		    else
+			:
+		    fi
+		done < $s1_list
+	    else
+		echo "No Sentinel-1 data list exists, create list and re-run script"
+	    fi
+	else # data on MDSS
+	    while read scene; do
+		tar=$scene"_"$sensor"_"$track_dir.tar.gz
+		if [ ! -z $tar ]; then
+		    if [ ! -d $raw_dir/$track_dir/$scene ]; then #check if data have already been extracted from tar file
+			:
+		    else 
 			mdss get $raw_dir_mdss/$tar < /dev/null $raw_dir/$track_dir # /dev/null allows mdss command to work properly in loop
 			cd $raw_dir/$track_dir
 			tar -xvzf $tar
@@ -204,10 +214,8 @@ elif [ $platform == NCI ]; then
 		else
 		    :
 		fi
-	    else
-		:
-	    fi
-	done < $scene_list
+	    done < $scene_list
+	fi
     fi
    dem_dir=$proj_dir/gamma_dem # extract DEM
    cd $proj_dir
