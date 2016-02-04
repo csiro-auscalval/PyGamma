@@ -110,11 +110,11 @@ tiff=$mli_name.tif
 ras_out=$mli_name.ras
 
 if [ $platform == GA ]; then
-    xml=$raw_dir/date_dirs/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/*.xml
-    cosar=$raw_dir/date_dirs/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/IMAGEDATA/IMAGE*.cos
+    xml=$raw_dir/date_dirs/$scene/*X1_SAR_*$scene*/*.xml
+    cosar=$raw_dir/date_dirs/$scene/*X1_SAR_*$scene*/IMAGEDATA/IMAGE*.cos
 else
-    xml=$raw_dir/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/*.xml
-    cosar=$raw_dir/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/IMAGEDATA/IMAGE*.cos
+    xml=$raw_dir/$scene/*X1_SAR_*$scene*/*.xml
+    cosar=$raw_dir/$scene/*X1_SAR_*$scene*/IMAGEDATA/IMAGE*.cos
 fi
 
 if [ ! -e $slc_dir/$scene/$slc ]; then

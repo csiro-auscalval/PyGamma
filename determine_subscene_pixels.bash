@@ -91,17 +91,18 @@ fi
 
 cd $proj_dir/$track_dir
 
+
 # remove any carriage returns in text file
 cat $text_file | tr -d '\r' > temp1
 # remove header
 tail -n +2 temp1 > temp2
 # X coordinates
-awk '{print $5}' temp2 > temp3
+awk -F "," '{print $5}' temp2 > temp3
 # Y coordinates
-awk '{print $4}' temp2 > temp4
+awk -F "," '{print $6}' temp2 > temp4
 # height
-awk '{print $6}' temp2 > temp5
-paste temp3 temp4 temp5 > temp6
+awk -F "," '{print $7}' temp2 > temp5
+paste temp4 temp3 temp5 > temp6
 
 if [ -e range -o azimuth ]; then
     rm -rf range azimuth

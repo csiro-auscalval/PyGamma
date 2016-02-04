@@ -8,13 +8,15 @@ display_usage() {
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
     echo "*         [bperp_file]  bperp file produced during interferogram              *"
     echo "*                       processing (*._bperp.par).                            *"
+    echo "*         [rlks]       range multi-look value                                 *"
+    echo "*         [alks]       azimuth multi-look value                               *"
     echo "*         <beam>       Beam number (eg, F2)                                   *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       20/04/2015, v1.0                            *"
     echo "* author: Sarah Lawrie @ GA       22/06/2015, v1.1                            *"
     echo "*           - update to enable incorporation into post ifm processing         *"
     echo "*******************************************************************************"
-    echo -e "Usage: interp_centre_bperp.bash [proc_file] [bperp_file] <beam>"
+    echo -e "Usage: interp_centre_bperp.bash [proc_file] [bperp_file]"
     }
 
 if [ $# -lt 2 ]
@@ -25,7 +27,6 @@ fi
 
 proc_file=$1
 file=$2
-beam=$3
 
 ## Variables from parameter file (*.proc)
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
@@ -33,7 +34,6 @@ project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
-ifm_looks=`grep ifm_multi_look= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
@@ -86,17 +86,7 @@ grd2xyz out.grd | awk '{print $1, $2, $3}' > xyz2
 # find centre baseline value
 bperp=`grep "$ctrx $ctry" xyz2 | awk '{print $3}'`
 
-# export bperp value to file
-if [ -z $beam ]; then
-    results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$rlks"rlks_"$alks"alks.txt"
-else
-    results_file=$proj_dir/$track_dir/ifm_bperp_results"_"$beam"_"$rlks"rlks_"$alks"alks.txt"
-fi
-
-ifm=`echo $file | awk -F_ '{print $1}'`
-echo $ifm > temp1
-echo $bperp > temp2
-paste temp1 temp2 >> $results_file
+echo $bperp
 
 echo $bperp
 

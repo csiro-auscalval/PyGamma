@@ -46,6 +46,8 @@ polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 raw_dir_ga=`grep Raw_data_GA= $proc_file | cut -d "=" -f 2`
 raw_dir_mdss=`grep Raw_data_MDSS= $proc_file | cut -d "=" -f 2`
+#cat_snr=`grep cat_snr= $proc_file | cut -d "=" -f 2`
+#cat_win=`grep cat_win= $proc_file | cut -d "=" -f 2`
 
 slc_rlks=$3
 slc_alks=$4
@@ -227,30 +229,62 @@ if [ $lines -eq 1 ]; then
     rm -f $raw_file_list
 else
     ## Concatenate scenes into one output data file (works for 2 frames only)
-    slc1=`awk 'NR==1 {print$1}' $raw_file_list`
-    slc1_par=`awk 'NR==1 {print$2}' $raw_file_list`
-    slc2=`awk 'NR==2 {print$1}' $raw_file_list`
-    slc2_par=`awk 'NR==2 {print$2}' $raw_file_list`
+    slc1=./`awk 'NR==1 {print $1}' $raw_file_list`
+    slc1_par=./`awk 'NR==1 {print $2}' $raw_file_list`
+    echo $slc1 $slc1_par > tab1
+    slc2=./`awk 'NR==2 {print $1}' $raw_file_list`
+    slc2_par=./`awk 'NR==2 {print $2}' $raw_file_list`
+    echo $slc2 $slc2_par > tab2
     slc1_name=`echo $slc1 | awk -F . '{print $1}'`
     slc2_name=`echo $slc2 | awk -F . '{print $1}'`
     cat_off=$slc1_name-$slc2_name"_cat.off"
     offs=$slc1_name-$slc2_name.offs
     snr=$slc1_name-$slc2_name.snr
     coffs=$slc1_name-$slc2_name.coffs
+
+    mkdir cat_slc
+
+# create offset parameter files for estimation of the offsets
+    SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 0
+
+# measure initial range and azimuth offsets using orbit information
+    SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 1
+
+# estimate range and azimuth offset models using correlation of image intensities
+    SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 3
+
+# concatenate SLC images using offset polynomials determined above
+    SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 4
+
+# clean up files
+    cd cat_slc
+    cat_slc=*.slc
+    cat_slc_par=*.slc.par
+    mv $cat_slc $slc
+    mv $cat_slc_par $slc_par
+    mv * ../
+    cd ../
+    rm -rf cat_slc $raw_file_list cat_slc_tab tab1 tab2 test1.dat test2.dat 
+
+### MANUAL PROCESS THAT WASN'T WORKING PROPERLY
     # create offset parameter files for estimation of the offsets
-    GM create_offset $slc1_par $slc2_par $cat_off 1 - - 0
+#    GM create_offset $slc1_par $slc2_par $cat_off 1 - - 0
     # measure initial range and azimuth offsets using orbit information
-    GM init_offset_orbit $slc1_par $slc2_par $cat_off - - 1 
+#    GM init_offset_orbit $slc1_par $slc2_par $cat_off - - 1 
     # measure initial range and azimuth offsets using the images
-    GM init_offset $slc1 $slc2 $slc1_par $slc2_par $cat_off 1 1 - - 0 0 7 512 512 1
+#    GM init_offset $slc1 $slc2 $slc1_par $slc2_par $cat_off 1 1 - - 0 0 $cat_snr $cat_win $cat_win 1
     # estimate range and azimuth offset models using correlation of image intensities
-    GM offset_pwr $slc1 $slc2 $slc1_par $slc2_par $cat_off $offs $snr
-    GM offset_fit $offs $snr $cat_off $coffs - - 3
+#    GM offset_pwr $slc1 $slc2 $slc1_par $slc2_par $cat_off $offs $snr
+#    GM offset_fit $offs $snr $cat_off $coffs - - 3
     # concatenate SLC images
-    GM SLC_cat $slc1 $slc2 $slc1_par $slc2_par $cat_off $slc $slc_par 1 0 1
+#    GM SLC_cat $slc1 $slc2 $slc1_par $slc2_par $cat_off $slc $slc_par 1 0 1
     # clean up files
-    rm -rf temp $raw_file_list
+    # if correlation is below threshold, warning not automatically appearing in error log
+#    grep "WARNING:" output.log  1>&2 
+#    grep "ERROR:" output.log  1>&2 
+#    rm -rf temp $raw_file_list
 fi
+
 
 ## Compute the azimuth Doppler spectrum and the Doppler centroid from SLC data
 GM az_spec_SLC $slc $slc_par $slc_name.dop - 0 > $slc_name"_temp.dop"

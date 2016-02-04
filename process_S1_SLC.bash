@@ -192,44 +192,75 @@ rm -f slc_tab pslc_tab
 	echo " "
 	echo "Processing SLC for sub-swath "$swath
 	echo " "
-	while read frame_num; do
+	if [ -f $proj_dir/$track_dir/$frame_list ]; then # ifframes exist
+	    while read frame_num; do
+		if [ ! -z $frame_num ]; then
+		    frame=`echo $frame_num | awk '{print $1}'`
+		    #fr_slc_name=$scene"_"$polar"_F"$frame
+		    #fr_slc=$fr_slc_name.slc
+		    #fr_slc_par=$fr_slc.par
+		    if [ $platform == GA ]; then
+			annot=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
+    			data=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
+			calib=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
+			noise=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
+		    else
+			annot=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
+    			data=`ls $raw_dir/F$frame/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
+			calib=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
+			noise=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
+		    fi
+		    bslc="slc$swath"
+		    bslc_par=${!bslc}.par
+		    btops="tops_par$swath"
+		    # Import S1 sub-swath SLC
+		    GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops}
+		    #GM par_S1_SLC $data $annot $calib $noise p$bslc_par p${!bslc} p${!btops}
 
-	    if [ ! -z $frame_num ]; then
-		frame=`echo $frame_num | awk '{print $1}'`
-		#fr_slc_name=$scene"_"$polar"_F"$frame
-		#fr_slc=$fr_slc_name.slc
-		#fr_slc_par=$fr_slc.par
-		if [ $platform == GA ]; then
-		    annot=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
-    		    data=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
-		    calib=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
-		    noise=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
-		else
-		    annot=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
-    		    data=`ls $raw_dir/F$frame/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
-		    calib=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
-		    noise=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
+		    ## Make quick-look image
+		    width=`grep range_samples: $bslc_par | awk '{print $2}'`
+		    lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
+		    GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
+		    #GM rasSLC p${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
+
+   		    #echo $scene_dir/p${!bslc} $scene_dir/p$bslc_par $scene_dir/p${!btops} >> pslc_tab
+		    echo $scene_dir/${!bslc} $scene_dir/$bslc_par $scene_dir/${!btops} >> slc_tab
+
+                    ## Copy data file details to text file to check if concatenation of scenes along track is required
+		    #echo $fr_slc $fr_slc_par >> $raw_file_list
 		fi
-		bslc="slc$swath"
-		bslc_par=${!bslc}.par
-		btops="tops_par$swath"
-		# Import S1 sub-swath SLC
-		GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops}
-		#GM par_S1_SLC $data $annot $calib $noise p$bslc_par p${!bslc} p${!btops}
-
-		## Make quick-look image
-		width=`grep range_samples: $bslc_par | awk '{print $2}'`
-		lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
-		GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
-		#GM rasSLC p${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
-
-		#echo $scene_dir/p${!bslc} $scene_dir/p$bslc_par $scene_dir/p${!btops} >> pslc_tab
-		echo $scene_dir/${!bslc} $scene_dir/$bslc_par $scene_dir/${!btops} >> slc_tab
-
-                ## Copy data file details to text file to check if concatenation of scenes along track is required
-		#echo $fr_slc $fr_slc_par >> $raw_file_list
+	    done < $proj_dir/$track_dir/$frame_list
+	else # no frames
+	    if [ $platform == GA ]; then
+		annot=`ls $raw_dir/$track_dir/date_dirs/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
+    		data=`ls $raw_dir/$track_dir/date_dirs/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
+		calib=`ls $raw_dir/$track_dir/date_dirs/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
+		noise=`ls $raw_dir/$track_dir/date_dirs/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
+	    else
+		annot=`ls $raw_dir/$track_dir/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
+    		data=`ls $raw_dir/$track_dir/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
+		calib=`ls $raw_dir/$track_dir/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
+		noise=`ls $raw_dir/$track_dir/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
 	    fi
-	done < $proj_dir/$track_dir/$frame_list
+	    bslc="slc$swath"
+	    bslc_par=${!bslc}.par
+	    btops="tops_par$swath"
+	    # Import S1 sub-swath SLC
+	    GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops}
+	    #GM par_S1_SLC $data $annot $calib $noise p$bslc_par p${!bslc} p${!btops}
+
+	    ## Make quick-look image
+	    width=`grep range_samples: $bslc_par | awk '{print $2}'`
+	    lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
+	    GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
+	    #GM rasSLC p${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
+
+   	    #echo $scene_dir/p${!bslc} $scene_dir/p$bslc_par $scene_dir/p${!btops} >> pslc_tab
+	    echo $scene_dir/${!bslc} $scene_dir/$bslc_par $scene_dir/${!btops} >> slc_tab
+
+            ## Copy data file details to text file to check if concatenation of scenes along track is required
+	    #echo $fr_slc $fr_slc_par >> $raw_file_list  
+	fi
     done
 
 ## Deramp the burst SLCs and output subtracted phase ramps

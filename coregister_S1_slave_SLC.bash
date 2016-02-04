@@ -14,6 +14,9 @@ display_usage() {
     echo "*                      file or for ifms: from proc file)                      *"
     echo "*                                                                             *"
     echo "* author: Matt Garthwaite @ GA       12/05/2015, v1.0                         *"
+    echo "*         Sarah Lawrie @ GA          23/12/2015, v1.1                         *"
+    echo "*               Change snr to cross correlation parameters (process changed   *"
+    echo "*               in GAMMA version Dec 2015)                                    *"
     echo "*******************************************************************************"
     echo -e "Usage: coregister_S1_slave_SLC.bash [proc_file] [slave] [rlks] [alks]"
     }
@@ -38,7 +41,7 @@ master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
 subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
-snr=`grep coreg_snr_thresh= $proc_file | cut -d "=" -f 2`
+ccp=`grep coreg_snr_thresh= $proc_file | cut -d "=" -f 2`
 npoly=`grep coreg_model_params= $proc_file | cut -d "=" -f 2`
 win=`grep coreg_window_size= $proc_file | cut -d "=" -f 2`
 nwin=`grep coreg_num_windows= $proc_file | cut -d "=" -f 2`
@@ -156,10 +159,10 @@ GM create_diff_par $slave_mli_par $slave_mli_par diff.par 1 0
 ## Measure offset between slave MLI and resampled slave MLI
 GM init_offsetm $rmli $slave_mli diff.par 1 1
 
-GM offset_pwrm $rmli $slave_mli diff.par offs0 snr0 - - - 2
+GM offset_pwrm $rmli $slave_mli diff.par offs0 ccp0 - - - 2
 
 ## Fit the offset only
-GM offset_fitm offs0 snr0 diff.par coffs0 - 7.0 1
+GM offset_fitm offs0 ccp0 diff.par coffs0 - - 1
 
 ## Refinement of initial geocoding look up table
 GM gc_map_fine lt0 $master_mli_width diff.par $lt
@@ -183,17 +186,17 @@ i=1
 while [ $i -le $niter ]; do
 
     ioff=$off$i
-    rm -f offs snr offsets coffsets
+    rm -f offs ccp offsets coffsets
     echo "Starting Iteration "$i
 
 ## Measure offsets for refinement of lookup table using initially resampled slave SLC
     GM create_offset $master_slc_par $rslc_par $ioff 1 $rlks $alks 0
 
 ## No SLC oversampling for S1 due to strong Doppler centroid variation in azimuth
-    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff offs snr 256 64 offsets $ovr $nwin $nwin $snr 
+    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff offs ccp 256 64 offsets $ovr $nwin $nwin $ccp 
 
 ## Fit constant offset term only for S1 due to short length orbital baselines
-    GM offset_fit offs snr $ioff - coffsets 10.0 $npoly 0
+    GM offset_fit offs ccp $ioff - coffsets 10.0 $npoly 0
 
 ## Create blank offset file for first iteration and calculate the total estimated offset
     if [ $i == 1 ]; then
@@ -233,7 +236,7 @@ GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_s
 
 GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
 
-rm -f offs0 snr0 coffs0 offs snr coffs coffsets lt0
+rm -f offs0 ccp0 coffs0 offs ccp coffs coffsets lt0
 
 ## Extract final model fit values to check coregistration
 echo $master > temp1_$rlks
