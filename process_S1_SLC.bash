@@ -237,10 +237,10 @@ rm -f slc_tab pslc_tab
 		calib=`ls $raw_dir/$track_dir/date_dirs/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
 		noise=`ls $raw_dir/$track_dir/date_dirs/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
 	    else
-		annot=`ls $raw_dir/$track_dir/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
-    		data=`ls $raw_dir/$track_dir/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
-		calib=`ls $raw_dir/$track_dir/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
-		noise=`ls $raw_dir/$track_dir/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
+		annot=`ls $raw_dir/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
+    		data=`ls $raw_dir/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
+		calib=`ls $raw_dir/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
+		noise=`ls $raw_dir/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
 	    fi
 	    bslc="slc$swath"
 	    bslc_par=${!bslc}.par
