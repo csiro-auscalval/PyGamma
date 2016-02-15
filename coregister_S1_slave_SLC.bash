@@ -41,7 +41,7 @@ master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
 subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
-ccp=`grep coreg_snr_thresh= $proc_file | cut -d "=" -f 2`
+ccp=`grep slv_snr= $proc_file | cut -d "=" -f 2`
 npoly=`grep coreg_model_params= $proc_file | cut -d "=" -f 2`
 win=`grep coreg_window_size= $proc_file | cut -d "=" -f 2`
 nwin=`grep coreg_num_windows= $proc_file | cut -d "=" -f 2`
