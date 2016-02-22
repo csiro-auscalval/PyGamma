@@ -236,7 +236,7 @@ GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_s
 
 GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
 
-rm -f offs0 ccp0 coffs0 offs ccp coffs coffsets lt0
+rm -rf offs0 ccp ccp0 coffs0 coffsets lt0 offs offs0 offsets tmp -
 
 ## Extract final model fit values to check coregistration
 echo $master > temp1_$rlks
