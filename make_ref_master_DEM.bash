@@ -203,6 +203,7 @@ lt_rough=$dem_dir/$mli_name"_rough_utm_to_rdc.lt"
 lt_fine=$dem_dir/$mli_name"_fine_utm_to_rdc.lt"
 utm_sim_sar=$dem_dir/$mli_name"_utm.sim"
 rdc_sim_sar=$dem_dir/$mli_name"_rdc.sim"
+loc_inc=$dem_dir/$mli_name"_local_inc.ang"
 diff=$dem_dir/"diff_"$mli_name.par
 lsmap=$dem_dir/$mli_name"_utm.lsmap"
 off=$dem_dir/$mli_name.off
@@ -265,7 +266,7 @@ fi
 
 GM gc_map $master_mli_par - $dem_par 10. $utm_dem_par $utm_dem $lt_rough $ovr $ovr - - - - - - - 8 1
 # use predetermined dem_par to segment the full DEM
-GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - - - - $lsmap 8 1
+GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - $loc_inc - - $lsmap 8 1
 
 
 ## Convert landsat float file to same coordinates as DEM
