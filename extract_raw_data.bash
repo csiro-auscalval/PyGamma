@@ -203,8 +203,8 @@ elif [ $platform == NCI ]; then
 	    while read scene; do
 		tar=$scene"_"$sensor"_"$track_dir.tar.gz
 		if [ ! -z $tar ]; then
-		    if [ ! -d $raw_dir/$track_dir/$scene ]; then #check if data have already been extracted from tar file
-			:
+		    if [ -d $raw_dir/$track_dir/$scene ]; then #check if data have already been extracted from tar file
+	   		:
 		    else 
 			mdss get $raw_dir_mdss/$tar < /dev/null $raw_dir/$track_dir # /dev/null allows mdss command to work properly in loop
 			cd $raw_dir/$track_dir
