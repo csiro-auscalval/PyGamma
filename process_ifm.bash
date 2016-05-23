@@ -266,9 +266,9 @@ real=$int_dir/$mas_slv_name.real
 ### Each processing step is a 'function'. The if statement which controls start and stop is below the functions
 INT()
 {
-    echo " "
-    echo "Processing INT..."
-    echo " "
+   echo " "
+   echo "Processing INT..."
+   echo " "
     
     mkdir -p $int_dir
     cd $int_dir
@@ -277,7 +277,7 @@ INT()
     ## Also done in offset tracking so test if this has been run
     if [ ! -e $off ]; then
 	GM create_offset $mas_slc_par $slv_slc_par $off 1 $ifm_rlks $ifm_alks 0
-	GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $ccp 64 64 - 2 64 256 -
+	GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $ccp 64 64 - 2 64 256 0.1
 	GM offset_fit $offs $ccp $off $coffs $coffsets
     else
 	:
@@ -301,6 +301,7 @@ FLAT()
     else
 	:
     fi
+
     cd $int_dir
 
     ## Simulate the phase from the DEM and linear baseline model. linear baseline model may be inadequate for longer scenes, in which case use phase_sim_orb
@@ -381,10 +382,10 @@ FILT()
     echo "Processing FILT..."
     echo " "
     if [ ! -e $int_flat ]; then 
-	echo "ERROR: Cannot locate flattened interferogram (*.flat). Please re-run this script from FLAT"
-	exit 1
+       echo "ERROR: Cannot locate flattened interferogram (*.flat). Please re-run this script from FLAT"
+       exit 1
     else
-	:
+       :
     fi
     cd $int_dir
 
@@ -398,18 +399,18 @@ FILT()
 
 UNW()
 {
-    echo " "
-    echo "Processing UNW..."
-    echo " "
-    if [ ! -e $int_filt ]; then
+      echo " "
+      echo "Processing UNW..."
+      echo " "
+      if [ ! -e $int_filt ]; then
 	echo "ERROR: Cannot locate filtered interferogram (*.filt). Please re-run this script from FILT"
 	exit 1
-    else
+      else
 	:
-    fi
-    cd $int_dir
+      fi
+      cd $int_dir
 
-    if [ $unwrap_type == mcf ]; then
+      if [ $unwrap_type == mcf ]; then
 
         #look=5
 
@@ -450,16 +451,16 @@ UNW()
 
         ## Unwrapping with validity mask
         #GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - 1 1 - $refrg $refaz 1
-	GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $patch_az
+	GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $patch_az - $refrg $refaz 0
 
         ## Interpolate sparse unwrapped points to give unwrapping model
 	GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
 
         ## Use model to unwrap filtered interferogram
 	if [ $refrg = "-" -a $refaz = "-" ]; then
-	    GM unw_model $int_filt $int_unw_model $int_unw $int_width
+	   GM unw_model $int_filt $int_unw_model $int_unw $int_width
 	else
-	    GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
+	   GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
 	fi
 
         ## Produce coherence mask for masking of unwrapped interferogram
@@ -506,13 +507,13 @@ UNW()
 
         # phase unwrapping of disconnected areas using user defined bridges (done after initial unwrapping with 'grasses')
 	if [ $bridge_flag == yes ]; then 
-	    if [ ! -e $int_unw ]; then
+	   if [ ! -e $int_unw ]; then
 		echo "ERROR: Cannot locate unwrapped interferogram (*.unw). Please run this script from with bridge flag set to 'no' and then re-run with flag set to 'yes'"
 		exit 1
-	    else
+	   else
 		cp -f $int_unw $int_unw_org #save original unw ifg
 		GM bridge $int_filt $cc_flag $int_unw $bridge $int_width
-	    fi
+           fi
 	else
 	    :
 	fi
