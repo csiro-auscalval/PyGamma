@@ -13,6 +13,9 @@ display_usage() {
     echo "*         [alks]       MLI azimuth looks                                      *"
     echo "*                                                                             *"
     echo "* author: Matt Garthwaite @ GA       11/05/2015, v1.0                         *"
+    echo "*         Negin Moghaddam @ GA       13.05.2016, v1.1                         *"
+    echo "*         Add the phase_shif function to apply on IW1 of the image before     *"
+    echo "*         mid-March 2015                                                      *"
     echo "*******************************************************************************"
     echo -e "Usage: process_S1_SLC.bash [proc_file] [scene] [rlks] [alks]"
     }
@@ -112,6 +115,9 @@ slc_par=$slc.par
 slc1=$slc_name"_IW1.slc"
 slc1_par=$slc1.par
 tops_par1=$slc1.TOPS_par
+slc1s=$slc_name"_IW1_s.slc"
+slc1s_par=$slc1s.par
+tops_par1s=$slc1s.TOPS_par
 slc2=$slc_name"_IW2.slc"
 slc2_par=$slc2.par
 tops_par2=$slc2.TOPS_par
@@ -128,6 +134,7 @@ ras_out=$mli_name.ras
 ## Set mode based on polarisation
 #pol_list=$scene_dir/pol_list
 #rm -f $pol_list
+
 
 if [ ! -e $slc_dir/$scene/$slc ]; then
 #    while read frame_num; do
@@ -199,6 +206,7 @@ rm -f slc_tab pslc_tab
 		    #fr_slc_name=$scene"_"$polar"_F"$frame
 		    #fr_slc=$fr_slc_name.slc
 		    #fr_slc_par=$fr_slc.par
+
 		    if [ $platform == GA ]; then
 			annot=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
     			data=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
@@ -210,6 +218,7 @@ rm -f slc_tab pslc_tab
 			calib=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
 			noise=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
 		    fi
+
 		    bslc="slc$swath"
 		    bslc_par=${!bslc}.par
 		    btops="tops_par$swath"
@@ -218,9 +227,9 @@ rm -f slc_tab pslc_tab
 		    #GM par_S1_SLC $data $annot $calib $noise p$bslc_par p${!bslc} p${!btops}
 
 		    ## Make quick-look image
-		    width=`grep range_samples: $bslc_par | awk '{print $2}'`
-		    lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
-		    GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
+		    ##width=`grep range_samples: $bslc_par | awk '{print $2}'`
+		    ##lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
+		   ## GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
 		    #GM rasSLC p${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
 
    		    #echo $scene_dir/p${!bslc} $scene_dir/p$bslc_par $scene_dir/p${!btops} >> pslc_tab
@@ -242,6 +251,7 @@ rm -f slc_tab pslc_tab
 		calib=`ls $raw_dir/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
 		noise=`ls $raw_dir/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
 	    fi
+
 	    bslc="slc$swath"
 	    bslc_par=${!bslc}.par
 	    btops="tops_par$swath"
@@ -257,18 +267,33 @@ rm -f slc_tab pslc_tab
 
    	    #echo $scene_dir/p${!bslc} $scene_dir/p$bslc_par $scene_dir/p${!btops} >> pslc_tab
 	    echo $scene_dir/${!bslc} $scene_dir/$bslc_par $scene_dir/${!btops} >> slc_tab
+	   
 
             ## Copy data file details to text file to check if concatenation of scenes along track is required
 	    #echo $fr_slc $fr_slc_par >> $raw_file_list  
+
 	fi
-    done
+    done       
+
 
 ## Deramp the burst SLCs and output subtracted phase ramps
 ## Only needed if the SLC is to be oversampled e.g. for use with offset tracking programs
 #    GM SLC_deramp_S1_TOPS pslc_tab slc_tab 0 1
 
+## Phase shift for IW1 of the image before 15th of March 2015
+   if [ $scene -lt 20150310 ]; then 
+      GM SLC_phase_shift $slc1 $slc1_par $slc1s $slc1s_par -1.25
+      cp  $tops_par1 $tops_par1s
+      sed 's/IW1/IW1_s/g' slc_tab > slc_tab_s
+      GM SLC_mosaic_S1_TOPS slc_tab_s $slc $slc_par $slc_rlks $slc_alks
+   
+   else
+
+      scene=$2
+
 ## Make the SLC mosaic from individual burst SLCs
-    GM SLC_mosaic_S1_TOPS slc_tab $slc $slc_par $slc_rlks $slc_alks
+      GM SLC_mosaic_S1_TOPS slc_tab $slc $slc_par $slc_rlks $slc_alks
+   fi     
 
     width=`grep range_samples: $slc_par | awk '{print $2}'`
     lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`

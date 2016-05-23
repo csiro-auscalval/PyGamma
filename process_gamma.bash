@@ -122,7 +122,6 @@ echo ""
 echo "PROCESSING PROJECT: "$project $track_dir
 echo ""
 
-
 ## Load GAMMA based on platform
 if [ $platform == NCI ]; then
     GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
