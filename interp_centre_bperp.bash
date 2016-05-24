@@ -88,4 +88,6 @@ bperp=`grep "$ctrx $ctry" xyz2 | awk '{print $3}'`
 
 echo $bperp
 
+echo $bperp
+
 rm -f xyz xyz2 out.grd temp1 temp2
