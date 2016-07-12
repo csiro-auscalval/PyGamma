@@ -45,6 +45,22 @@ if [ $# -eq 2 ]; then
     file2=$2
 fi
 
+# determine project directory
+cur_path=`pwd`
+cur_dir=$(basename "$cur_path")
+if [ $cur_dir == 'DEM' ]; then
+    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
+else
+    path=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
+    dir=$(basename "$path")
+    if [ $dir == 'SLC' ]; then
+	proj_dir=`echo $path | sed 's,/*[^/]\+/*$,,'`
+    elif [ $dir == 'INT' ]; then
+	proj_dir=`echo $path | sed 's,/*[^/]\+/*$,,'`
+    fi
+fi
+
+
 # Identify file extension
 file1_ext=`echo $file1 | awk -F . '{if (NF>1) {print $NF}}'`
 file2_ext=`echo $file2 | awk -F . '{if (NF>1) {print $NF}}'`
@@ -153,7 +169,7 @@ fi
 
 # Display SLC (*.slc)
 if [ $file1_ext == slc ]; then
-    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
+    #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     slc_type=`echo $file_name1 | sed 's#.*_##'`
@@ -268,7 +284,7 @@ fi
 
 # Display DEM files (*.dem, *rdc.dem, *utm.dem, *.lt, *.sim)
 if [ $file1_ext == dem ]; then
-    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
+    #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     dem_type=`echo $file_name1 | sed 's#.*_##'`
@@ -357,7 +373,7 @@ else
     :
 fi
 if [ $file1_ext == lt ]; then
-    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
+    #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     dem_type=`echo $file_name1 | sed 's#.*_##'`
@@ -412,7 +428,7 @@ else
     :
 fi
 if [ $file1_ext == sim ]; then
-    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
+    #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     dem_type=`echo $file_name1 | sed 's#.*_##'`
@@ -519,7 +535,7 @@ fi
 
 # Display landsat float files (from dem coregistration)
 if [ $file1_ext == flt ]; then
-    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
+    #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     dem_type=`echo $file_name1 | sed 's#.*_##'`
@@ -586,7 +602,7 @@ fi
 
 
 if [ $file1_ext == sar ]; then
-    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
+    #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     dem_type=`echo $file_name1 | sed 's#.*_##'`
@@ -694,7 +710,7 @@ fi
 
 # Display coherence file (*.cc)
 if [ $file1_ext == cc ]; then
-    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
+    #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     cc_type=`echo $file_name1 | sed 's#.*_##'`
@@ -799,7 +815,7 @@ fi
 
 # Display flag file (*.flag, *_utm.flag)
 if [ $file1_ext == flag ]; then
-    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
+    #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     flag_type=`echo $file_name1 | sed 's#.*_##'`
@@ -944,7 +960,7 @@ fi
 
 # Display interferogram (*.int)
 if [ $file1_ext == int ]; then
-    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
+    #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     int_type=`echo $file_name1 | sed 's#.*_##'`
@@ -1049,7 +1065,7 @@ fi
 
 # Display unwrapped interferograms (*.unw)
 if [ $file1_ext == unw ]; then
-    proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
+    #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     unw_type=`echo $file_name1 | sed 's#.*_##'`

@@ -17,6 +17,13 @@ display_usage() {
     echo "*         Sarah Lawrie @ GA          23/12/2015, v1.1                         *"
     echo "*               Change snr to cross correlation parameters (process changed   *"
     echo "*               in GAMMA version Dec 2015)                                    *"
+    echo "*         Negin Moghaddam @ GA       16/05/2016, v1.2                         *"
+    echo "*               Updating the code for Sentinel-1 slave coregistration         *"
+    echo "*               Refinement to the azimuth offset estimation                   *"
+    echo "*               Intial interferogram generation at each stage of the azimuth  *"
+    echo "*               offset refinement                                             *"
+    echo "*               In case of LAT package availability, S1_Coreg_TOPS is         *"
+    echo "*               suggested.                                                    *"
     echo "*******************************************************************************"
     echo -e "Usage: coregister_S1_slave_SLC.bash [proc_file] [slave] [rlks] [alks]"
     }
@@ -26,6 +33,7 @@ then
     display_usage
     exit 1
 fi
+
 
 proc_file=$1
 slave=$2
@@ -41,7 +49,7 @@ master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
 subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
-ccp=`grep coreg_snr_thresh= $proc_file | cut -d "=" -f 2`
+ccp=`grep slv_snr= $proc_file | cut -d "=" -f 2`
 npoly=`grep coreg_model_params= $proc_file | cut -d "=" -f 2`
 win=`grep coreg_window_size= $proc_file | cut -d "=" -f 2`
 nwin=`grep coreg_num_windows= $proc_file | cut -d "=" -f 2`
@@ -93,6 +101,8 @@ fi
 
 master_dir=$slc_dir/$master
 slave_dir=$slc_dir/$slave
+
+
 master_slc_name=$master"_"$polar
 slave_slc_name=$slave"_"$polar
 master_mli_name=$master"_"$polar"_"$rlks"rlks"
@@ -103,7 +113,8 @@ master_mli=$master_dir/r$master_mli_name.mli
 master_mli_par=$master_mli.par
 master_slc=$master_dir/r$master_slc_name.slc
 master_slc_par=$master_slc.par
-master_slc_tab=$master_dir/slc_tab
+master_o_slc=$master_dir/$master_slc_name.slc
+master_o_slc_par=$master_o_slc.par
 
 slave_mli=$slave_dir/$slave_mli_name.mli
 slave_mli_par=$slave_mli.par
@@ -129,6 +140,9 @@ rslc_tab=$slave_dir/rslc_tab
 
 lt=$slave_dir/$master-$slave_mli_name.lt
 off=$slave_dir/$master-$slave_mli_name.off
+#lt2=$slave_dir/$slave.mli.lt
+#offt=$slave_dir/$master-$slave.off
+#poly=$master_dir/$master.poly
 
 ## Coregistration results file
 check_file=$proj_dir/$track_dir/slave_coreg_results"_"$rlks"rlks_"$alks"alks.txt"
@@ -142,9 +156,18 @@ echo " "
 
 #-------------------------
 
+if [ $master -lt 20150310 ]; then 
+    
+    master_slc_tab=$master_dir/slc_tab_s
+else
+    
+    master_slc_tab=$master_dir/slc_tab
+fi
+
 ## files located in DEM directory
 rdc_dem=$dem_dir/$master_mli_name"_rdc.dem"
 
+## From this point, For S1 with  S1_coreg_TOPS command processing can be eliminated.
 ## Generate initial lookup table between master and slave MLI considering terrain heights from DEM coregistered to master
 GM rdc_trans $master_mli_par $rdc_dem $slave_mli_par lt0
 
@@ -170,10 +193,10 @@ GM gc_map_fine lt0 $master_mli_width diff.par $lt
 ## Create table for resampled burst SLCs
 rm -f $rslc_tab
 for swath in 1 2 3; do
-    bslc="slc$swath"
-    bslc_par=${!bslc}.par
-    btops="tops_par$swath"
-    echo $slave_dir/${!bslc} $slave_dir/$bslc_par $slave_dir/${!btops} >> $rslc_tab
+   bslc="slc$swath"
+   bslc_par=${!bslc}.par
+   btops="tops_par$swath"
+   echo $slave_dir/${!bslc} $slave_dir/$bslc_par $slave_dir/${!btops} >> $rslc_tab
 done
 
 ## Resample slave SLC into geometry of master SLC using lookup table and generate mosaic SLC    
@@ -185,58 +208,94 @@ GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_s
 i=1
 while [ $i -le $niter ]; do
 
-    ioff=$off$i
-    rm -f offs ccp offsets coffsets
-    echo "Starting Iteration "$i
+   ioff=$off$i
+   rm -f offs ccp offsets coffsets
+   echo "Starting Iteration "$i
 
 ## Measure offsets for refinement of lookup table using initially resampled slave SLC
-    GM create_offset $master_slc_par $rslc_par $ioff 1 $rlks $alks 0
+   GM create_offset $master_slc_par $rslc_par $ioff 1 $rlks $alks 0
 
 ## No SLC oversampling for S1 due to strong Doppler centroid variation in azimuth
-    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff offs ccp 256 64 offsets $ovr $nwin $nwin $ccp 
+   GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff offs ccp 256 64 offsets $ovr $nwin $nwin $ccp 
+
+##In the S1_coreg_TOPS, this command was replaced by "offset_pwr_trackingm" that uses the master and slave mli and other parameters"
 
 ## Fit constant offset term only for S1 due to short length orbital baselines
-    GM offset_fit offs ccp $ioff - coffsets 10.0 $npoly 0
+   GM offset_fit offs ccp $ioff - coffsets 10.0 $npoly 0
 
 ## Create blank offset file for first iteration and calculate the total estimated offset
-    if [ $i == 1 ]; then
-	GM create_offset $master_slc_par $rslc_par $off"0" 1 $rlks $alks 0
+   if [ $i == 1 ]; then
+      GM create_offset $master_slc_par $rslc_par $off"0" 1 $rlks $alks 0
 
-	GM offset_add $off"0" $ioff $off
-    else
+      GM offset_add $off"0" $ioff $off
+   else
 ## Calculate the cumulative total estimated offset
-	GM offset_add $off $ioff $off
-    fi
+      GM offset_add $off $ioff $off
+   fi
 
 ## if azimuth offset is less than 0.02 and range offset is less than 0.2 then break iterable loop. Precision azimuth coregistration is essential for S1 IWS mode interferometry
-    azoff=`grep "final azimuth offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'`
-    rgoff=`grep "final range offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'`  
-    test1=`echo $azoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*100}'`
-    test2=`echo $rgoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
-    echo "Iteration "$i": azimuth offset is "$azoff", range offset is "$rgoff
+   azoff=`grep "final azimuth offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'`
+   rgoff=`grep "final range offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'`  
+   test1=`echo $azoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*100}'`
+   test2=`echo $rgoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
+   echo "Iteration "$i": azimuth offset is "$azoff", range offset is "$rgoff
+   azcorr=`grep "azimuth_pixel_offset." output.log | tail -2 |head -1 | awk'{print$6}'`
+   test3=`echo $azcorr | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*1000}'`
 
 ## Perform resampling of slave SLC using lookup table and offset model, and generate mosaic SLC
-    GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par $off $rslc_tab $rslc $rslc_par
+  GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par $off $rslc_tab $rslc $rslc_par
 
-    if [ $test1 -lt 2 -a $test2 -lt 2 ]; then
+  if [ $test1 -lt 2 -a $test2 -lt 2 ]; then
 	break
-    fi
-    i=$(($i+1))
+  fi
+  i=$(($i+1))
 done
 
 #-------------------------
-
-## Determine a refinement to the azimuth offset estimation in the burst overlap regions
-GM S1_coreg_overlap $master_slc_tab $rslc_tab $master-$slave $off $off".corrected" 0.8 100
-
-## Perform fourth resampling of slave SLC using lookup table and corrected offset information
-GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par $off".corrected" $rslc_tab $rslc $rslc_par
-
-#-------------------------
+#Multilooking should be done before azimuth offset etimation 
 
 GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
 
-rm -f offs0 ccp0 coffs0 offs ccp coffs coffsets lt0
+
+##Preparing initial simulated topographic phase
+
+GM phase_sim_orb $master_slc_par $rslc_par $off $rdc_dem $master-$slave".sim0_unw" $master_slc_par - - 1 1 
+
+##preparing initial interferogram 
+GM SLC_diff_intf $master_o_slc $rslc $master_o_slc_par $rslc_par $off $master-$slave".sim0_unw" $master-$slave.diff.test0 10 2 0 0 0.2 1 1
+
+#-------------------------
+## Determine a refinement to the azimuth offset estimation in the burst overlap regions at first stage to get the quality result output(@negin)
+GM S1_coreg_overlap $master_slc_tab $rslc_tab $master-$slave $off $off".corrected" 0.8 0.01 0.8 1 
+
+GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par $off".corrected" $rslc_tab $rslc $rslc_par
+
+##Preparing initial simulated topographic phase
+GM phase_sim_orb $master_slc_par $rslc_par $off".corrected" $rdc_dem $master-$slave".sim1_unw" $master_slc_par - - 1 1 
+
+##preparing initial interferogram 
+GM SLC_diff_intf $master_o_slc $rslc $master_o_slc_par $rslc_par $off".corrected" $master-$slave".sim1_unw" $master-$slave.diff.test1 10 2 0 0 0.2 1 1 
+
+## Automating code(GAMMA suggestion)(in case of LAT package )(Note: There is no need to use the above "S1_coreg_overlap" and "SLC_interp_lt_S1_TOPS")
+
+#GM S1_coreg_TOPS $master_slc_tab $master $slave_slc_tab $slave $rslc_tab $rdc_dem 10 2 - - 0.6 0.02 0.8 1 0
+
+## Determine a refinement to the azimuth offset estimation in the burst overlap regions in case that there is a jump(@negin) 
+GM S1_coreg_overlap $master_slc_tab $rslc_tab $master-$slave $off".corrected" $off".corrected2" 0.8 100
+
+##Perform fifth resampling of slave SLC using lookup table and corrected offset information
+##   GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par  $icorrected $rslc_tab $rslc $rslc_par
+GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par $off".corrected2" $rslc_tab $rslc $rslc_par
+
+##Preparing initial simulated topographic phase
+GM phase_sim_orb $master_slc_par $rslc_par $off".corrected2" $rdc_dem $master-$slave".sim2_unw" $master_slc_par - - 1 1 
+
+##preparing initial interferogram 
+GM SLC_diff_intf $master_o_slc $rslc $master_o_slc_par $rslc_par $off".corrected2" $master-$slave".sim2_unw" $master-$slave.diff.test2 10 2 0 0 0.2 1 1 
+
+#-------------------------
+
+rm -rf offs0 ccp ccp0 coffs0 coffsets lt0 offs offs0 offsets tmp -
 
 ## Extract final model fit values to check coregistration
 echo $master > temp1_$rlks

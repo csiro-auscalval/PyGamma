@@ -13,6 +13,11 @@ display_usage() {
     echo "*         [alks]       MLI azimuth looks                                      *"
     echo "*                                                                             *"
     echo "* author: Matt Garthwaite @ GA       11/05/2015, v1.0                         *"
+    echo "*         Negin Moghaddam @ GA       13/05/2016, v1.1                         *"
+    echo "*         Add the phase_shift function to apply on IW1 of the image before    *"
+    echo "*         mid-March 2015                                                      *"
+    echo "*         Sarah Lawrie @ GA          25/05/2016, v1.2                         *"
+    echo "*         Add concatenation of consecutive burst SLCs (join two frames)       *"
     echo "*******************************************************************************"
     echo -e "Usage: process_S1_SLC.bash [proc_file] [scene] [rlks] [alks]"
     }
@@ -38,7 +43,6 @@ project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 pol=`echo $polar | tr '[:upper:]' '[:lower:]'`
-#beam=`grep Beam= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 frame_list=`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 raw_dir_ga=`grep Raw_data_GA= $proc_file | cut -d "=" -f 2`
@@ -55,6 +59,8 @@ else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     raw_dir=$raw_dir_ga
 fi
+
+frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 
 cd $proj_dir/$track_dir
 
@@ -100,9 +106,6 @@ cd $slc_dir
 mkdir -p $scene
 cd $scene_dir
 
-raw_file_list=raw_file_list
-rm -f $scene_dir/$raw_file_list 
-
 ## File names
 slc_name=$scene"_"$polar
 mli_name=$scene"_"$polar"_"$slc_rlks"rlks"
@@ -112,6 +115,9 @@ slc_par=$slc.par
 slc1=$slc_name"_IW1.slc"
 slc1_par=$slc1.par
 tops_par1=$slc1.TOPS_par
+slc1s=$slc_name"_IW1_s.slc"
+slc1s_par=$slc1s.par
+tops_par1s=$slc1s.TOPS_par
 slc2=$slc_name"_IW2.slc"
 slc2_par=$slc2.par
 tops_par2=$slc2.TOPS_par
@@ -122,188 +128,157 @@ mli=$mli_name.mli
 mli_par=$mli.par
 tiff=$mli_name.tif
 ras_out=$mli_name.ras
-#fbd2fbs_slc=$slc_name"_FBS.slc"
-#fbd2fbs_par=p$slc_name"_FBS.slc.par"
-
-## Set mode based on polarisation
-#pol_list=$scene_dir/pol_list
-#rm -f $pol_list
 
 if [ ! -e $slc_dir/$scene/$slc ]; then
-#    while read frame_num; do
-#	if [ ! -z $frame_num ]; then
-#	    frame=`echo $frame_num | awk '{print $1}'`
-#	    if [ $platform == GA ]; then
-#		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HH* >& hh_temp
-#		ls $raw_dir/F$frame/date_dirs/$scene/IMG-HV* >& hv_temp
-#		temp="ls: cannot access"
-#		temp1=`awk '{print $1" "$2" "$3}' hh_temp`
-#		if [ "$temp1" == "$temp" ]; then
-#		    :
-#		else
-#		    basename $raw_dir/F$frame/$scene/IMG-HH* >> $pol_list 
-#		fi
-#		temp2=`awk '{print $1" "$2" "$3}' hv_temp`
-#		if [ "$temp2"  == "$temp" ]; then
-#		    :
-#		else
-#		    basename $raw_dir/F$frame/$scene/IMG-HV* >> $pol_list
-#		fi
-#		rm -rf hh_temp hv_temp
-#	    else
-#		ls $raw_dir/F$frame/$scene/IMG-HH* >& hh_temp
-#		ls $raw_dir/F$frame/$scene/IMG-HV* >& hv_temp
-#		temp="ls: cannot access"
-#		temp1=`awk '{print $1" "$2" "$3}' hh_temp`
-#		if [ "$temp1" == "$temp" ]; then
-#		    :
-#		else
-#		    basename $raw_dir/F$frame/$scene/IMG-HH* >> $pol_list 
-#		fi
-#		temp2=`awk '{print $1" "$2" "$3}' hv_temp`
-#		if [ "$temp2"  == "$temp" ]; then
-#		    :
-#		else
-#		    basename $raw_dir/F$frame/$scene/IMG-HV* >> $pol_list
-#		fi
-#		rm -rf hh_temp hv_temp
-#	    fi
-#	fi
-#    done < $proj_dir/$track_dir/$frame_list
-#
-#    num_hv=`grep -co "HV" $pol_list`
-#    if [ "$num_hv" -eq 0 -a "$polar" == HH ]; then 
-#	mode=FBS
-#    elif [ "$num_hv" -ge 1 -a "$polar" == HH ]; then 
-#	mode=FBD
-#    elif [ $polar == HV ]; then
-#	mode=FBD
-#    else
-#	:
-#    fi
-#    echo "Mode:" $mode "  Polarisation:" $polar
-#    rm -f $pol_list
-
-rm -f slc_tab pslc_tab
+    rm -f slc_tab slc_tab_s pslc_tab fr_tab1 fr_tab2 
 
     ## Produce SLC data files
-    for swath in 1 2 3
-    do
-	echo " "
-	echo "Processing SLC for sub-swath "$swath
-	echo " "
-	if [ -f $proj_dir/$track_dir/$frame_list ]; then # ifframes exist
-	    while read frame_num; do
-		if [ ! -z $frame_num ]; then
+    if [ -f $frame_list ]; then # if frames exist
+
+	# get list of IW SLCs for concatnation
+	echo $slc1 $slc1_par $tops_par1 > slc_tab
+	echo $slc2 $slc2_par $tops_par2 >> slc_tab
+	echo $slc3 $slc3_par $tops_par3 >> slc_tab
+
+	while read frame_num; do
+	    if [ ! -z $frame_num ]; then
+		if [ $platform == GA ]; then
+		    : # do later
+		else 
 		    frame=`echo $frame_num | awk '{print $1}'`
-		    #fr_slc_name=$scene"_"$polar"_F"$frame
-		    #fr_slc=$fr_slc_name.slc
-		    #fr_slc_par=$fr_slc.par
-		    if [ $platform == GA ]; then
-			annot=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
-    			data=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
-			calib=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
-			noise=`ls $raw_dir/F$frame/date_dirs/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
-		    else
+		    fr_slc_name=$scene"_"$polar"_F"$frame
+		    fr_slc1=$fr_slc_name"_IW1.slc"
+		    fr_slc1_par=$fr_slc1.par
+		    fr_tops_par1=$fr_slc1.TOPS_par
+		    fr_slc2=$fr_slc_name"_IW2.slc"
+		    fr_slc2_par=$fr_slc2.par
+		    fr_tops_par2=$fr_slc2.TOPS_par
+		    fr_slc3=$fr_slc_name"_IW3.slc"
+		    fr_slc3_par=$fr_slc3.par
+		    fr_tops_par3=$fr_slc3.TOPS_par
+
+		    for swath in 1 2 3; do
+			echo " "
+			echo "Processing frame "$frame"'s sub-swath "$swath
+			echo " "
 			annot=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
-    			data=`ls $raw_dir/F$frame/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
+			data=`ls $raw_dir/F$frame/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
 			calib=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
 			noise=`ls $raw_dir/F$frame/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
-		    fi
-		    bslc="slc$swath"
-		    bslc_par=${!bslc}.par
-		    btops="tops_par$swath"
-		    # Import S1 sub-swath SLC
-		    GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops}
-		    #GM par_S1_SLC $data $annot $calib $noise p$bslc_par p${!bslc} p${!btops}
 
-		    ## Make quick-look image
-		    width=`grep range_samples: $bslc_par | awk '{print $2}'`
-		    lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
-		    GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
-		    #GM rasSLC p${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
+			bslc="fr_slc$swath"
+			bslc_par=${!bslc}.par
+			btops="fr_tops_par$swath"
 
-   		    #echo $scene_dir/p${!bslc} $scene_dir/p$bslc_par $scene_dir/p${!btops} >> pslc_tab
-		    echo $scene_dir/${!bslc} $scene_dir/$bslc_par $scene_dir/${!btops} >> slc_tab
+                        # Import S1 sub-swath SLC
+			GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops}
+			
+			# Make quick-look image
+			width=`grep range_samples: $bslc_par | awk '{print $2}'`
+			lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
+			GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
 
-                    ## Copy data file details to text file to check if concatenation of scenes along track is required
-		    #echo $fr_slc $fr_slc_par >> $raw_file_list
+			# lists for concatenation
+			echo ${!bslc} >> slc_list
+			echo $bslc_par >> par_list
+			echo ${!btops} >> tops_list	
+		    done     
 		fi
-	    done < $proj_dir/$track_dir/$frame_list
-	else # no frames
+	    fi
+	done < $frame_list
+	echo " "
+	echo "Concatenate frames to produce SLC bursts ..."
+	echo " "
+
+	## Concatenate consecutive burst SLCs (only works with two frames)
+	paste slc_list par_list tops_list > lists
+	head -n 3 lists > fr_tab1
+	tail -3 lists > fr_tab2
+	rm -f slc_list par_list tops_list lists
+
+	GM SLC_cat_S1_TOPS fr_tab1 fr_tab2 slc_tab
+	
+	## Deramp the burst SLCs and output subtracted phase ramps
+        ## Only needed if the SLC is to be oversampled e.g. for use with offset tracking programs
+	#sed 's/'"$scene"'/p'"$scene"'/g' slc_tab > pslc_tab
+	#GM SLC_deramp_S1_TOPS pslc_tab slc_tab 0 1
+
+	echo " "
+	echo "Mosaic SLC bursts ..."
+	echo " "
+
+        ## Phase shift for IW1 of the image before 15th of March 2015
+	if [ $scene -lt 20150310 ]; then 
+	    GM SLC_phase_shift $slc1 $slc1_par $slc1s $slc1s_par -1.25
+	    cp  $tops_par1 $tops_par1s
+	    sed 's/IW1/IW1_s/g' slc_tab > slc_tab_s
+	    # Make the SLC mosaic from individual burst SLCs
+	    GM SLC_mosaic_S1_TOPS slc_tab_s $slc $slc_par $slc_rlks $slc_alks
+        else
+            # Make the SLC mosaic from individual burst SLCs
+	    GM SLC_mosaic_S1_TOPS slc_tab $slc $slc_par $slc_rlks $slc_alks
+	fi     
+
+	width=`grep range_samples: $slc_par | awk '{print $2}'`
+	lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
+	GM rasSLC $slc $width 1 $lines 50 10 - - 1 0 0 $slc.bmp
+
+    else # no frames
+	for swath in 1 2 3
+	do
+	    echo " "
+	    echo "Processing SLC for sub-swath "$swath
+	    echo " "
 	    if [ $platform == GA ]; then
 		annot=`ls $raw_dir/$track_dir/date_dirs/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
     		data=`ls $raw_dir/$track_dir/date_dirs/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
 		calib=`ls $raw_dir/$track_dir/date_dirs/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
 		noise=`ls $raw_dir/$track_dir/date_dirs/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
 	    else
-		annot=`ls $raw_dir/$track_dir/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
-    		data=`ls $raw_dir/$track_dir/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
-		calib=`ls $raw_dir/$track_dir/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
-		noise=`ls $raw_dir/$track_dir/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
+		annot=`ls $raw_dir/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
+    		data=`ls $raw_dir/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
+		calib=`ls $raw_dir/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
+		noise=`ls $raw_dir/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
 	    fi
+	    
 	    bslc="slc$swath"
 	    bslc_par=${!bslc}.par
 	    btops="tops_par$swath"
+
 	    # Import S1 sub-swath SLC
 	    GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops}
-	    #GM par_S1_SLC $data $annot $calib $noise p$bslc_par p${!bslc} p${!btops}
+	    ##GM par_S1_SLC $data $annot $calib $noise p$bslc_par p${!bslc} p${!btops}
 
 	    ## Make quick-look image
-	    width=`grep range_samples: $bslc_par | awk '{print $2}'`
-	    lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
-	    GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
-	    #GM rasSLC p${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
+	    #width=`grep range_samples: $bslc_par | awk '{print $2}'`
+	    #lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
+	    #GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
+	    ##GM rasSLC p${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bslc}.bmp
 
    	    #echo $scene_dir/p${!bslc} $scene_dir/p$bslc_par $scene_dir/p${!btops} >> pslc_tab
 	    echo $scene_dir/${!bslc} $scene_dir/$bslc_par $scene_dir/${!btops} >> slc_tab
 
-            ## Copy data file details to text file to check if concatenation of scenes along track is required
-	    #echo $fr_slc $fr_slc_par >> $raw_file_list  
-	fi
-    done
+	done
 
-## Deramp the burst SLCs and output subtracted phase ramps
-## Only needed if the SLC is to be oversampled e.g. for use with offset tracking programs
-#    GM SLC_deramp_S1_TOPS pslc_tab slc_tab 0 1
+        ## Deramp the burst SLCs and output subtracted phase ramps
+        ## Only needed if the SLC is to be oversampled e.g. for use with offset tracking programs
+        #GM SLC_deramp_S1_TOPS pslc_tab slc_tab 0 1
 
-## Make the SLC mosaic from individual burst SLCs
-    GM SLC_mosaic_S1_TOPS slc_tab $slc $slc_par $slc_rlks $slc_alks
+        ## Phase shift for IW1 of the image before 15th of March 2015
+	if [ $scene -lt 20150310 ]; then 
+	    GM SLC_phase_shift $slc1 $slc1_par $slc1s $slc1s_par -1.25
+	    cp  $tops_par1 $tops_par1s
+	    sed 's/IW1/IW1_s/g' slc_tab > slc_tab_s
+	    GM SLC_mosaic_S1_TOPS slc_tab_s $slc $slc_par $slc_rlks $slc_alks
+	else
+            ## Make the SLC mosaic from individual burst SLCs
+	    GM SLC_mosaic_S1_TOPS slc_tab $slc $slc_par $slc_rlks $slc_alks
+	fi     
 
-    width=`grep range_samples: $slc_par | awk '{print $2}'`
-    lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
-    GM rasSLC $slc $width 1 $lines 50 10 - - 1 0 0 $slc.bmp
-
-## Check if scene concatenation is required (i.e. a scene has more than one frame)
-#lines=`awk 'END{print NR}' $raw_file_list`
-#if [ $lines -eq 1 ]; then
-#    ## rename files to enable further processing (remove reference to 'frame' in file names)
-#    mv $fr_slc $slc
-#    mv $fr_slc_par $slc_par
-#    rm -f $raw_file_list
-#else
-#    ## Concatenate scenes into one output data file (works for 2 frames only)
-#    awk 'NR==1 {print $1,$2}' $raw_file_list > slc_tab1
-#    awk 'NR==2 {print $1,$2}' $raw_file_list > slc_tab2
-#    # create temp directory for processing files under scene directory
-#    mkdir -p temp
-#    # create offset parameter file
-#    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 0
-#    # measure initial range and azimuth offsets using orbit information
-#    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 1
-#    # concatenate 
-#    GM SLC_cat_all slc_tab1 slc_tab2 $scene_dir/temp cat_slc.list 4
-#    # rename files and move files
-#    rm -rf *.slc *.slc.par # remove frame slcs
-#    cd temp
-#    mv *.slc $slc
-#    mv *.slc.par $slc_par
-#    mv $slc $slc_par $scene_dir
-#    mv *.off *.log $scene_dir
-#    cd $scene_dir
-#    rm -rf temp $raw_file_list slc_tab* cat_slc.list
-#fi
-   
+	width=`grep range_samples: $slc_par | awk '{print $2}'`
+	lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
+	GM rasSLC $slc $width 1 $lines 50 10 - - 1 0 0 $slc.bmp
+    fi    
 else
     echo " "
     echo "Full SLC already created."

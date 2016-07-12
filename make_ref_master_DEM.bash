@@ -32,6 +32,8 @@ display_usage() {
     echo "*         Sarah Lawrie @ GA       23/12/2015, v1.3                            *"
     echo "*              Change snr to cross correlation parameters (process changed    *"
     echo "*              in GAMMA version Dec 2015)                                     *"
+    echo "*         Negin Moghaddam @ GA    29.04.2016, v1.4                            *"
+    echo "*              Not using latsat image for Sentinel-1 Master-DEM coreg.        *"
     echo "*******************************************************************************"
     echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] [multi-look] [subset] [image] <roff> <rlines> <azoff> <azlines> <beam>"
     }
@@ -68,7 +70,8 @@ offset_measure=`grep dem_offset_measure= $proc_file | cut -d "=" -f 2`
 dem_patch_win=`grep dem_patch_window= $proc_file | cut -d "=" -f 2`
 dem_win=`grep dem_win= $proc_file | cut -d "=" -f 2`
 dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
-
+rpos=`grep rpos= $proc_file | cut -d "=" -f 2`
+azpos=`grep azpos= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -203,6 +206,7 @@ lt_rough=$dem_dir/$mli_name"_rough_utm_to_rdc.lt"
 lt_fine=$dem_dir/$mli_name"_fine_utm_to_rdc.lt"
 utm_sim_sar=$dem_dir/$mli_name"_utm.sim"
 rdc_sim_sar=$dem_dir/$mli_name"_rdc.sim"
+loc_inc=$dem_dir/$mli_name"_local_inc.ang"
 diff=$dem_dir/"diff_"$mli_name.par
 lsmap=$dem_dir/$mli_name"_utm.lsmap"
 off=$dem_dir/$mli_name.off
@@ -211,9 +215,9 @@ ccp=$dem_dir/$mli_name.ccp
 offsets=$dem_dir/$mli_name.offsets
 coffs=$dem_dir/$mli_name.coffs
 coffsets=$dem_dir/$mli_name.coffsets
-lsat_flt=$dem_dir/$mli_name"_lsat_sar.flt" 
-lsat_init_sar=$dem_dir/$mli_name"_lsat_init.sar" 
-lsat_sar=$dem_dir/$mli_name"_lsat.sar"
+##lsat_flt=$dem_dir/$mli_name"_lsat_sar.flt" 
+##lsat_init_sar=$dem_dir/$mli_name"_lsat_init.sar" 
+##lsat_sar=$dem_dir/$mli_name"_lsat.sar"
 lv_theta=$dem_dir/$mli_name"_utm.lv_theta"
 lv_phi=$dem_dir/$mli_name"_utm.lv_phi"
 
@@ -265,15 +269,15 @@ fi
 
 GM gc_map $master_mli_par - $dem_par 10. $utm_dem_par $utm_dem $lt_rough $ovr $ovr - - - - - - - 8 1
 # use predetermined dem_par to segment the full DEM
-GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - - - - $lsmap 8 1
+GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - $loc_inc - - $lsmap 8 1
 
 
 ## Convert landsat float file to same coordinates as DEM
-if [ $ext_image -eq 2 ]; then
-    GM map_trans $dem_par $image $utm_dem_par $lsat_flt 1 1 1 0 -
-else
-    :
-fi
+##if [ $ext_image -eq 2 ]; then
+  ##  GM map_trans $dem_par $image $utm_dem_par $lsat_flt 1 1 1 0 -
+##else
+  ##  :
+##fi
 
 dem_width=`grep width: $utm_dem_par | awk '{print $2}'`
 master_mli_width=`grep range_samples: $master_mli_par | awk '{print $2}'`
@@ -281,13 +285,12 @@ master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
 
 ## Transform simulated SAR intensity image to radar geometry
 GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
-if [ $ext_image -eq 2 ]; then
-## Transform landsat image to radar geometry
-    GM geocode $lt_rough $lsat_flt $dem_width $lsat_init_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
-else
-    :
-fi
-
+##if [ $ext_image -eq 2 ]; then
+## Transform landsat image to radar geometr
+  ##  GM geocode $lt_rough $lsat_flt $dem_width $lsat_init_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+##else
+  ##  :
+##fi
 
 ## Fine coregistration of master MLI and simulated SAR image
 # Make file to input user-defined values from proc file #
@@ -334,13 +337,13 @@ rm -f $returns
 
 
 ## initial offset estimate
-if [ $ext_image -eq 1 ]; then
-    GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks - - - - $dem_snr $dem_patch_win 1 
-    GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp - - $offsets 1 - - -
-else
-    GM init_offsetm $master_mli $lsat_init_sar $diff $rlks $alks - - - - $dem_snr $dem_patch_win 1
-    GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp - - $offsets 1 - - - 
-fi
+##if [ $ext_image -eq 1 ]; then
+ GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks $rpos $azpos - - $dem_snr $dem_patch_win 1 
+ GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp - - $offsets 1 - - -
+##else
+ ##GM init_offsetm $master_mli $lsat_init_sar $diff $rlks $alks $rpos $azpos - - $dem_snr $dem_patch_win 1
+ ##GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp - - $offsets 1 - - - 
+##fi
 # if image patch extends beyond input MLI-1 (init_offsetm), an error is generated but not automatically put into error.log file
 grep "ERROR" output.log  1>&2
 
@@ -353,11 +356,11 @@ nr=`echo $offset_measure | awk '{print $1*4}'`
 naz=`echo $offset_measure | awk '{print $1*4}'`
 
 ## offset tracking
-if [ $ext_image -eq 1 ]; then
+##if [ $ext_image -eq 1 ]; then
     GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz -
-else
-    GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz - 
-fi
+##else
+  ##  GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz - 
+##fi
 
 ## range and azimuth offset polynomial estimation 
 GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
@@ -383,11 +386,11 @@ GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_l
 GM geocode $lt_fine $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
 
 ## Geocode landsat image to radar geometry
-if [ $ext_image -eq 2 ]; then
-    GM geocode $lt_fine $lsat_flt $dem_width $lsat_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
-else
-    :
-fi
+##if [ $ext_image -eq 2 ]; then
+ ##  GM geocode $lt_fine $lsat_flt $dem_width $lsat_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+##else 
+  ##   :
+##fi
 
 ## Extract final model fit values to check coregistration
 grep "final model fit std. dev. (samples)" output.log > temp1
