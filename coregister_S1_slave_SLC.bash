@@ -34,7 +34,6 @@ then
     exit 1
 fi
 
-
 proc_file=$1
 slave=$2
 rlks=$3
@@ -102,7 +101,6 @@ fi
 master_dir=$slc_dir/$master
 slave_dir=$slc_dir/$slave
 
-
 master_slc_name=$master"_"$polar
 slave_slc_name=$slave"_"$polar
 master_mli_name=$master"_"$polar"_"$rlks"rlks"
@@ -157,10 +155,8 @@ echo " "
 #-------------------------
 
 if [ $master -lt 20150310 ]; then 
-    
     master_slc_tab=$master_dir/slc_tab_s
 else
-    
     master_slc_tab=$master_dir/slc_tab
 fi
 
@@ -193,10 +189,10 @@ GM gc_map_fine lt0 $master_mli_width diff.par $lt
 ## Create table for resampled burst SLCs
 rm -f $rslc_tab
 for swath in 1 2 3; do
-   bslc="slc$swath"
-   bslc_par=${!bslc}.par
-   btops="tops_par$swath"
-   echo $slave_dir/${!bslc} $slave_dir/$bslc_par $slave_dir/${!btops} >> $rslc_tab
+    bslc="slc$swath"
+    bslc_par=${!bslc}.par
+    btops="tops_par$swath"
+    echo $slave_dir/${!bslc} $slave_dir/$bslc_par $slave_dir/${!btops} >> $rslc_tab
 done
 
 ## Resample slave SLC into geometry of master SLC using lookup table and generate mosaic SLC    
@@ -208,57 +204,54 @@ GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_s
 i=1
 while [ $i -le $niter ]; do
 
-   ioff=$off$i
-   rm -f offs ccp offsets coffsets
-   echo "Starting Iteration "$i
+    ioff=$off$i
+    rm -f offs ccp offsets coffsets
+    echo "Starting Iteration "$i
 
 ## Measure offsets for refinement of lookup table using initially resampled slave SLC
-   GM create_offset $master_slc_par $rslc_par $ioff 1 $rlks $alks 0
+    GM create_offset $master_slc_par $rslc_par $ioff 1 $rlks $alks 0
 
 ## No SLC oversampling for S1 due to strong Doppler centroid variation in azimuth
-   GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff offs ccp 256 64 offsets $ovr $nwin $nwin $ccp 
+    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff offs ccp 256 64 offsets $ovr $nwin $nwin $ccp 
 
 ##In the S1_coreg_TOPS, this command was replaced by "offset_pwr_trackingm" that uses the master and slave mli and other parameters"
 
 ## Fit constant offset term only for S1 due to short length orbital baselines
-   GM offset_fit offs ccp $ioff - coffsets 10.0 $npoly 0
+    GM offset_fit offs ccp $ioff - coffsets 10.0 $npoly 0
 
 ## Create blank offset file for first iteration and calculate the total estimated offset
-   if [ $i == 1 ]; then
-      GM create_offset $master_slc_par $rslc_par $off"0" 1 $rlks $alks 0
+    if [ $i == 1 ]; then
+	GM create_offset $master_slc_par $rslc_par $off"0" 1 $rlks $alks 0
 
-      GM offset_add $off"0" $ioff $off
-   else
+	GM offset_add $off"0" $ioff $off
+    else
 ## Calculate the cumulative total estimated offset
-      GM offset_add $off $ioff $off
-   fi
+	GM offset_add $off $ioff $off
+    fi
 
 ## if azimuth offset is less than 0.02 and range offset is less than 0.2 then break iterable loop. Precision azimuth coregistration is essential for S1 IWS mode interferometry
-   azoff=`grep "final azimuth offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'`
-   rgoff=`grep "final range offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'`  
-   test1=`echo $azoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*100}'`
-   test2=`echo $rgoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
-   echo "Iteration "$i": azimuth offset is "$azoff", range offset is "$rgoff
-   azcorr=`grep "azimuth_pixel_offset." output.log | tail -2 |head -1 | awk'{print$6}'`
-   test3=`echo $azcorr | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*1000}'`
+    azoff=`grep "final azimuth offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'`
+    rgoff=`grep "final range offset poly. coeff." output.log | tail -2 | head -1 | awk '{print $6}'`  
+    test1=`echo $azoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*100}'`
+    test2=`echo $rgoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
+    echo "Iteration "$i": azimuth offset is "$azoff", range offset is "$rgoff
+    azcorr=`grep "azimuth_pixel_offset." output.log | tail -2 |head -1 | awk '{print $6}'`
+    test3=`echo $azcorr | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*1000}'`
 
 ## Perform resampling of slave SLC using lookup table and offset model, and generate mosaic SLC
-  GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par $off $rslc_tab $rslc $rslc_par
+    GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par $off $rslc_tab $rslc $rslc_par
 
-  if [ $test1 -lt 2 -a $test2 -lt 2 ]; then
+    if [ $test1 -lt 2 -a $test2 -lt 2 ]; then
 	break
-  fi
-  i=$(($i+1))
+    fi
+    i=$(($i+1))
 done
 
 #-------------------------
-#Multilooking should be done before azimuth offset etimation 
-
+#Multilooking should be done before azimuth offset estimation 
 GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
 
-
 ##Preparing initial simulated topographic phase
-
 GM phase_sim_orb $master_slc_par $rslc_par $off $rdc_dem $master-$slave".sim0_unw" $master_slc_par - - 1 1 
 
 ##preparing initial interferogram 
@@ -267,7 +260,6 @@ GM SLC_diff_intf $master_o_slc $rslc $master_o_slc_par $rslc_par $off $master-$s
 #-------------------------
 ## Determine a refinement to the azimuth offset estimation in the burst overlap regions at first stage to get the quality result output(@negin)
 GM S1_coreg_overlap $master_slc_tab $rslc_tab $master-$slave $off $off".corrected" 0.8 0.01 0.8 1 
-
 GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $master_slc_par $lt $master_mli_par $slave_mli_par $off".corrected" $rslc_tab $rslc $rslc_par
 
 ##Preparing initial simulated topographic phase
@@ -277,7 +269,6 @@ GM phase_sim_orb $master_slc_par $rslc_par $off".corrected" $rdc_dem $master-$sl
 GM SLC_diff_intf $master_o_slc $rslc $master_o_slc_par $rslc_par $off".corrected" $master-$slave".sim1_unw" $master-$slave.diff.test1 10 2 0 0 0.2 1 1 
 
 ## Automating code(GAMMA suggestion)(in case of LAT package )(Note: There is no need to use the above "S1_coreg_overlap" and "SLC_interp_lt_S1_TOPS")
-
 #GM S1_coreg_TOPS $master_slc_tab $master $slave_slc_tab $slave $rslc_tab $rdc_dem 10 2 - - 0.6 0.02 0.8 1 0
 
 ## Determine a refinement to the azimuth offset estimation in the burst overlap regions in case that there is a jump(@negin) 
