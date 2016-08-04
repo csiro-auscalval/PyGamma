@@ -135,7 +135,7 @@ rmli_par=$rmli.par
 
 lt=$slave_dir/$master-$slave_mli_name.lt
 off=$slave_dir/$master-$slave_mli_name.off
-diff_par=$slave_dir/$master-$slave_mli_name_"diff.par"
+diff_par=$slave_dir/$master-$slave_mli_name"_diff.par"
 ccp=$slave_dir/$master_mli_name-$slave_mli_name.ccp
 coffs=$slave_dir/$master_mli_name-$slave_mli_name.coffs
 offs=$slave_dir/$master_mli_name-$slave_mli_name.offs
@@ -233,7 +233,6 @@ while [ $i -le $niter ]; do
 
 ## Perform resampling of slave SLC using lookup table and offset model
     GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par $off $rslc $rslc_par
-
     if [ $test1 -lt 2 -a $test2 -lt 2 ]; then
 	break
     fi
