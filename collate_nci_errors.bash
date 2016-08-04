@@ -23,6 +23,8 @@ display_usage() {
     echo "*             - add additional error collation                                *"
     echo "*         Sarah Lawrie @ GA       06/08/2015, v1.3                            *"
     echo "*             - add additional error collation for ifm plots                  *"
+    echo "*         Sarah Lawrie @ GA       28/07/2016, v1.4                            *"
+    echo "*             - add error collation for subsetting S1 SLCs                    *"
     echo "*******************************************************************************"
     echo -e "Usage: collate_nci_errors.bash [proc_file] [type]"
     }
@@ -175,8 +177,40 @@ elif [ $type -eq 3 ]; then
     fi
 
 
-## Ref DEM Creation Errors
+## Subset Sentinel-1 SLC Errors
 elif [ $type -eq 4 ]; then
+    echo "Collating Errors from Sentinel-1 subset SLCs..."
+    echo ""
+    dir=$batch_dir/sub_slc_jobs
+    cd $dir
+
+    error_list=$error_dir/subset_slc_creation_errors
+    if [ -f $error_list ]; then
+	rm -rf $error_list
+    else
+	:
+    fi
+    ls -d job_* > dir_list
+    while read list; do
+	if [ ! -z $list ]; then
+	    cd $dir/$list
+	    ls *.e* > list
+	    while read error; do
+		if [ ! -z $error ]; then
+		    less $error > temp
+		    paste temp >> $error_list
+		    rm -rf temp
+		fi
+	    done < list
+	    rm -rf list
+	    cd $dir
+	fi
+    done < dir_list
+    rm -rf dir_list
+
+
+## Ref DEM Creation Errors
+elif [ $type -eq 5 ]; then
     echo "Collating Errors from Make Reference Master DEM..."
     echo ""
     dir=$batch_dir/dem_jobs
@@ -217,7 +251,7 @@ elif [ $type -eq 4 ]; then
     fi
 
 ## Coregister SLC Errors
-elif [ $type -eq 5 ]; then
+elif [ $type -eq 6 ]; then
     echo "Collating Errors from SLC Coregistration..."
     echo ""
     dir=$batch_dir/slc_coreg_jobs
@@ -274,7 +308,7 @@ elif [ $type -eq 5 ]; then
     fi
 
 ## Interferogram Errors
-elif [ $type -eq 6 ]; then
+elif [ $type -eq 7 ]; then
     echo "Collating Errors from Interferogram Creation..."
     echo ""
     dir=$batch_dir/ifm_jobs
