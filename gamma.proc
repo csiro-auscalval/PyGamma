@@ -51,6 +51,9 @@ azimuth_lines=-
 Setup=yes
 Do_raw_data=yes
 Do_SLC=yes
+    # for Sentinel-1 only
+Do_SLC_subset=yes
+
 Coregister_DEM=yes
 Coregister_slaves=yes
     # only process interferograms after slave coregistration has been checked
@@ -64,6 +67,7 @@ Process_add_ifms=no
 ##### Text File Names #####
 List_of_frames=frame.list
 List_of_beams=beam.list
+List_of_s1_bursts=burst.list
 S1_rdsi_files=s1_rdsi_files.txt
 Subset_file=subset.txt
 List_of_scenes=scenes.list
