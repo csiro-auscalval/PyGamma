@@ -22,6 +22,9 @@ display_usage() {
     echo "*             - modify coregister DEM to include external ref image           *"
     echo "*         Sarah Lawrie @ GA       29/01/2016, v1.6                            *"
     echo "*             - add ability to extract S1 data from the RDSI                  *"
+    echo "*         Sarah Lawrie @ GA       28/07/2016, v1.7                            *"
+    echo "*             - Add option to subset Sentinel-1 SLCs                          *"  
+    echo "*             - Add use of precise orbit download for Sentinel-1              *"     
     echo "*******************************************************************************"
     echo -e "Usage: process_gamma.bash [proc_file]"
     }
@@ -42,6 +45,7 @@ sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 do_setup=`grep Setup= $proc_file | cut -d "=" -f 2`
 do_raw=`grep Do_raw_data= $proc_file | cut -d "=" -f 2` 
 do_slc=`grep Do_SLC= $proc_file | cut -d "=" -f 2`
+do_slc_subset=`grep Do_SLC_subset= $proc_file | cut -d "=" -f 2`
 coregister_dem=`grep Coregister_DEM= $proc_file | cut -d "=" -f 2`
 coregister=`grep Coregister_slaves= $proc_file | cut -d "=" -f 2`
 do_ifms=`grep Process_ifms= $proc_file | cut -d "=" -f 2`
@@ -256,7 +260,6 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	else
 	    echo "No Sentinel-1 file list found, assume dataset is not Sentinel-1." 1>&2
 	fi
-
 	
 	if [ -f $beam_list ]; then # if beams exist
 	    while read beam_num; do
@@ -291,7 +294,8 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	    mkdir -p $track_dir/manual_jobs/slc_coreg_jobs
 	    mkdir -p $track_dir/manual_jobs/ifm_jobs
 	fi
-	
+
+
 # raw data directories
 	mkdir -p raw_data
 	mkdir -p raw_data/$track_dir
@@ -1144,6 +1148,154 @@ fi
 
 
 
+##########################   SUBSET SENTINEL-1 SLCS   ##########################
+
+
+#### NCI ####
+
+if [ $do_slc_subset == yes -a $platform == NCI -a $sensor == S1 ]; then
+    mkdir -p $track_dir/batch_jobs/slc_subset_jobs
+    mkdir -p $track_dir/manual_jobs/slc_subset_jobs
+    subset_slc_batch_dir=$batch_dir/slc_subset_jobs
+    subset_slc_manual_dir=$manual_dir/slc_subset_jobs
+
+    # Maximum number of jobs to be run (no more than 50)
+    maxjobs=50
+
+    # PBS parameters
+    wt1=`echo $slc_walltime | awk -F: '{print ($1*60) + $2 + ($3/60)}'` #walltime for a single process_slc in minutes
+
+    # Parameters for a set of jobs
+    job_dir_prefix=job_
+    pbs_job_prefix=sub_slc_
+
+    cd $subset_slc_batch_dir
+
+    echo ""
+    echo "Subset Sentinel-1 SLC data..."
+    function create_jobs {
+	local njobs=$1
+	local nsteps=$2
+	local i=$3
+	local wt=$(( wt1*nsteps ))
+	local hh=$(( wt/60 ))
+	local mm=$(( wt%60 ))
+	local m=0
+	local n=0
+	
+	for(( m=0; m<njobs; m++ )); do
+            i=$(( i+=1 ))
+            jobdir=$job_dir_prefix$i
+            mkdir -p $jobdir
+            cd $jobdir
+            job=$pbs_job_prefix$i
+	    echo Doing job $i in $jobdir with $job
+	    echo \#\!/bin/bash > $job 
+	    echo \#\PBS -l other=gdata1 >> $job
+	    echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
+	    echo \#\PBS -l mem=$slc_mem >> $job
+	    echo \#\PBS -l ncpus=$slc_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    echo -e "\n" >> $job
+	    for(( n=0; n<nsteps; n++ )); do
+		read scene
+		echo $scene
+		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		    echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		else
+		    echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+		fi
+            done
+	    chmod +x $job
+	    qsub $job | tee $subset_slc_batch_dir/"sub_slc_"$i"_job_id"		
+	    cd ..
+	done
+    }
+    # Work starts here
+    cd $subset_slc_batch_dir
+    nlines=`cat $scene_list | sed '/^\s*$/d' | wc -l`
+    echo Need to process $nlines files
+    
+    # Need to run kjobs with k steps and ljobs with l steps. 
+    if [ $nlines -le $maxjobs ]; then
+	kjobs=$nlines
+	k=1
+	ljobs=0
+	l=0
+    else
+	l=$((nlines/maxjobs))
+	k=$((nlines%maxjobs))
+	kjobs=$k
+	k=$((l+1))
+	ljobs=$((maxjobs-kjobs))
+    fi
+    echo Preparing to run $kjobs jobs with $k steps and $ljobs jobs with $l steps processing $((kjobs*k+ljobs*l)) files
+    j=0
+    {
+	create_jobs kjobs k j 
+	create_jobs ljobs l kjobs 
+    } < $scene_list
+    
+    # create dependency list (make sure all slcs are finished before error consolidation)
+    cd $subset_slc_batch_dir
+    ls "sub_slc_"*"_job_id" > list1
+    if [ -f list2 ]; then
+	rm -rf list2
+    else
+	:
+    fi
+    while read id; do
+	less $id >> list2 
+    done < list1
+    sed s/.r-man2// list2 > list3 # leave just job numbers
+    sort -n list3 > list4 # sort numbers
+    tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
+    sed s'/.$//' list5 > all_sub_slc_job_id # remove last :
+    dep=`awk '{print $1}' all_sub_slc_job_id`
+    rm -rf list* "sub_slc_"*"_job_id"
+    
+    # in case future manual processing is required, create manual PBS jobs for each scene
+    cd $subset_slc_manual_dir
+    while read list; do
+	scene=`echo $list | awk '{print $1}'`
+	job="slc_"$scene
+	echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=$slc_walltime >> $job
+	    echo \#\PBS -l mem=$slc_mem >> $job
+	    echo \#\PBS -l ncpus=$slc_ncpus >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q normal >> $job
+	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
+		echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+	    else
+		echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+	    fi
+	    chmod +x $job
+	done < $scene_list
+	
+        # run subset slc error check
+	echo "Preparing error collation for 'do_subset_slc'..."
+	cd $subset_slc_batch_dir
+	job=sub_slc_err_check
+	echo \#\!/bin/bash > $job
+	echo \#\PBS -lother=gdata1 >> $job
+	echo \#\PBS -l walltime=$error_walltime >> $job
+	echo \#\PBS -l mem=$error_mem >> $job
+	echo \#\PBS -l ncpus=$error_ncpus >> $job
+	echo \#\PBS -l wd >> $job
+	echo \#\PBS -q normal >> $job
+	echo \#\PBS -W depend=afterany:$dep >> $job
+	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
+	chmod +x $job
+	qsub $job
+else 
+    :
+fi
+
 
 ##########################   COREGISTER DEM TO MASTER SCENE   ##########################
 
@@ -1633,7 +1785,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 $beam_num >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 5 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -1874,7 +2026,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
 	    chmod +x $job
 	    qsub $job 
 	}
@@ -2011,7 +2163,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
 	    chmod +x $job
 	    qsub $job 
 	}
@@ -2331,7 +2483,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 5 $beam_num >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 6 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job 
 	}
@@ -2526,7 +2678,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 6 >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -2768,7 +2920,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 6 $beam_num >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 7 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job 
 			
@@ -3001,7 +3153,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 6 >> $job
+	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 7 >> $job
 	    chmod +x $job
 	    qsub $job
 

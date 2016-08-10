@@ -19,6 +19,8 @@ display_usage() {
     echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       18/06/2015, v1.1                            *"
     echo "*             - streamline auto processing and modify directory structure     *"
+    echo "*         Sarah Lawrie @ GA       16/06/2016, v1.2                            *"
+    echo "*             - modify concatenation to allow for up to 3 frames              *"
     echo "*******************************************************************************"
     echo -e "Usage: process_PALSAR_L1_SLC.bash [proc_file] [scene] [rlks] [alks] <beam>"
     }
@@ -180,7 +182,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     done < $frame_list
   
     num_hv=`grep -co "HV" $pol_list`
-    if [ -f $beam_list -a $sensor == PALSAR2 ]; then # no FBD or FBS conversion if PALSAR2 wide swath data
+    if [ -f $sensor == PALSAR2 ]; then # no FBD or FBS conversion if PALSAR2 wide swath data
 	:
     else
 	if [ "$num_hv" -eq 0 -a "$polar" == HH ]; then 
@@ -202,69 +204,108 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 	    frame=`echo $frame_num | awk '{print $1}'`
 	    if [ -z $beam ]; then # no beam
 		fr_slc_name=$scene"_"$polar"_F"$frame
+		fr_mli_name=$scene"_"$polar"_F"$frame"_"$slc_rlks"rlks"
 	    else # beam exists
 		fr_slc_name=$scene"_"$polar"_"$beam"_F"$frame
+		fr_mli_name=$scene"_"$polar"_"$beam"_F"$frame"_"$slc_rlks"rlks"
 	    fi
 	    fr_slc=$fr_slc_name.slc
 	    fr_slc_par=$fr_slc.par
+	    fr_mli=$fr_mli_name.mli
+	    fr_mli_par=$fr_mli.par
 	    if [ $platform == GA ]; then
 		LED=$raw_dir/F$frame/date_dirs/$scene/LED-*
-    		IMG=$raw_dir/F$frame/date_dirs/$scene/IMG-$polar*$beam*
+    		IMG=$raw_dir/F$frame/date_dirs/$scene/IMG-$polar-*
 	    else
 		LED=$raw_dir/F$frame/$scene/LED-*
-    		IMG=$raw_dir/F$frame/$scene/IMG-$polar*$beam*
+    		IMG=$raw_dir/F$frame/$scene/IMG-$polar-*
 	    fi
 	    GM par_EORC_PALSAR $LED $fr_slc_par $IMG $fr_slc
-            ## Copy data file details to text file to check if concatenation of scenes along track is required
+
+            # Make quick-look image
+	    GM multi_look $fr_slc $fr_slc_par $fr_mli $fr_mli_par $slc_rlks $slc_alks 0
+	    width=`grep range_samples: $fr_mli_par | awk '{print $2}'`
+	    lines=`grep azimuth_lines: $fr_mli_par | awk '{print $2}'`
+	    GM raspwr $fr_mli $width 1 $lines 10 10 1 0.35 1 $fr_mli.bmp 0
+
+            # Copy data file details to text file to check if concatenation of scenes along track is required
 	    echo $fr_slc $fr_slc_par >> $raw_file_list
 	fi
     done < $frame_list
 
 ## Check if scene concatenation is required (i.e. a scene has more than one frame)
-lines=`awk 'END{print NR}' $raw_file_list`
-if [ $lines -eq 1 ]; then
-    ## rename files to enable further processing (remove reference to 'frame' in file names)
-    mv $fr_slc $slc
-    mv $fr_slc_par $slc_par
-    rm -f $raw_file_list
-else
-    ## Concatenate scenes into one output data file (works for 2 frames only)
-    slc1=./`awk 'NR==1 {print $1}' $raw_file_list`
-    slc1_par=./`awk 'NR==1 {print $2}' $raw_file_list`
-    echo $slc1 $slc1_par > tab1
-    slc2=./`awk 'NR==2 {print $1}' $raw_file_list`
-    slc2_par=./`awk 'NR==2 {print $2}' $raw_file_list`
-    echo $slc2 $slc2_par > tab2
-    slc1_name=`echo $slc1 | awk -F . '{print $1}'`
-    slc2_name=`echo $slc2 | awk -F . '{print $1}'`
-    cat_off=$slc1_name-$slc2_name"_cat.off"
-    offs=$slc1_name-$slc2_name.offs
-    snr=$slc1_name-$slc2_name.snr
-    coffs=$slc1_name-$slc2_name.coffs
-
-    mkdir cat_slc
-
-# create offset parameter files for estimation of the offsets
-    SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 0
-
-# measure initial range and azimuth offsets using orbit information
-    SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 1
-
-# estimate range and azimuth offset models using correlation of image intensities
-    SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 3
-
-# concatenate SLC images using offset polynomials determined above
-    SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 4
-
-# clean up files
-    cd cat_slc
-    cat_slc=*.slc
-    cat_slc_par=*.slc.par
-    mv $cat_slc $slc
-    mv $cat_slc_par $slc_par
-    mv * ../
-    cd ../
-    rm -rf cat_slc $raw_file_list cat_slc_tab tab1 tab2 test1.dat test2.dat 
+    lines=`awk 'END{print NR}' $raw_file_list`
+    if [ $lines -eq 1 ]; then
+        # rename files to enable further processing (remove reference to 'frame' in file names)
+	mv $fr_slc $slc
+	mv $fr_slc_par $slc_par
+	rm -f $raw_file_list
+    # concatenate first 2 frames (maximum 3 frames allowed for)
+    else 
+	slc1=`awk 'NR==1 {print $1}' $raw_file_list`
+	slc1_par=`awk 'NR==1 {print $2}' $raw_file_list`
+	echo $slc1 $slc1_par > tab1
+	slc2=`awk 'NR==2 {print $1}' $raw_file_list`
+	slc2_par=`awk 'NR==2 {print $2}' $raw_file_list`
+	echo $slc2 $slc2_par > tab2
+	slc1_name=`echo $slc1 | awk -F . '{print $1}'`
+	slc2_name=`echo $slc2 | awk -F . '{print $1}'`
+	cat_off=$slc1_name-$slc2_name"_cat.off"
+	offs=$slc1_name-$slc2_name.offs
+	snr=$slc1_name-$slc2_name.snr
+	coffs=$slc1_name-$slc2_name.coffs
+	mkdir cat_slc
+        # create offset parameter files for estimation of the offsets
+	GM SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 0
+        # measure initial range and azimuth offsets using orbit information
+	GM SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 1
+        # estimate range and azimuth offset models using correlation of image intensities
+	GM SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 3
+        # concatenate SLC images using offset polynomials determined above
+	GM SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 4
+        # clean up files
+	cd cat_slc
+	cat_slc=*.slc
+	cat_slc_par=*.slc.par
+	mv $cat_slc $slc
+	mv $cat_slc_par $slc_par
+	mv * ../
+	cd ../
+	rm -rf cat_slc cat_slc_tab tab1 tab2 SLC_cat_all*.log create_offset.in 
+	# concatenate 3rd frame to concatenated frames above
+	if [ $lines -eq 3 ]; then
+	    slc1=$slc_name"_F1-F2.slc"
+	    slc1_par=$slc1.par
+	    mv $slc $slc1
+	    mv $slc_par $slc1_par
+	    echo $slc1 $slc1_par > tab1
+	    slc2=`awk 'NR==3 {print $1}' $raw_file_list`
+	    slc2_par=`awk 'NR==3 {print $2}' $raw_file_list`
+	    echo $slc2 $slc2_par > tab2
+	    cat_off=$slc1_name-$slc2_name"_cat.off"
+	    offs=$slc1_name-$slc2_name.offs
+	    snr=$slc1_name-$slc2_name.snr
+	    coffs=$slc1_name-$slc2_name.coffs
+	    mkdir cat_slc
+            # create offset parameter files for estimation of the offsets
+	    GM SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 0
+            # measure initial range and azimuth offsets using orbit information
+	    GM SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 1
+            # estimate range and azimuth offset models using correlation of image intensities
+	    GM SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 3
+            # concatenate SLC images using offset polynomials determined above
+	    GM SLC_cat_all tab1 tab2 cat_slc cat_slc_tab 4
+            # clean up files
+	    cd cat_slc
+	    cat_slc=*.slc
+	    cat_slc_par=*.slc.par
+	    mv $cat_slc $slc
+	    mv $cat_slc_par $slc_par
+	    mv * ../
+	    cd ../	    
+	fi
+	rm -rf $raw_file_list cat_slc cat_slc_tab tab1 tab2 test1.dat test2.dat t1.dat SLC_cat_all*.log create_offset.in *_resamp.log *.snr *.off* *.coffs
+    fi
 
 ### MANUAL PROCESS THAT WASN'T WORKING PROPERLY
     # create offset parameter files for estimation of the offsets
@@ -287,17 +328,17 @@ fi
 
 
 ## Compute the azimuth Doppler spectrum and the Doppler centroid from SLC data
-GM az_spec_SLC $slc $slc_par $slc_name.dop - 0 > $slc_name"_temp.dop"
+GM az_spec_SLC $slc $slc_par $slc_name.dop - 0 
 
 ## update ISP file with new estimated doppler centroid frequency (must be done manually)
 org_value=`grep doppler_polynomial: $slc_par | awk '{print $2}'`
-new_value=`grep "new estimated Doppler centroid frequency (Hz):" $slc_name"_temp.dop" | awk '{print $7}'`
+new_value=`grep "new estimated Doppler centroid frequency (Hz):" output.log | awk '{print $7}'`
 sed ' s/'"$org_value"'/'"$new_value"'/' $slc_par > $slc_name.temp
-mv $slc_name.temp $slc_par
+mv -f $slc_name.temp $slc_par
 rm -rf $slc_name"_temp.dop"
 
 ## FBD to FBS Conversion
-if [ -f $beam_list -a $sensor == PALSAR2 ]; then
+if [ $sensor == PALSAR2 ]; then
     :
 else
     if [ $polar == HH -a $mode == FBD ]; then
@@ -319,6 +360,11 @@ fi
 
 ## Multi-look SLC
 GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0
+
+# Make quick-look image
+width=`grep range_samples: $mli_par | awk '{print $2}'`
+lines=`grep azimuth_lines: $mli_par | awk '{print $2}'`
+GM raspwr $mli $width 1 $lines 10 10 1 0.35 1 $mli.bmp 0
 
 ## Create low-res preview tiff
 #mli_width=`grep range_samples: $mli_par | awk '{print $2}'`

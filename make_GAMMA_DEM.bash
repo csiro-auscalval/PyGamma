@@ -8,9 +8,11 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]       name of GAMMA proc file (eg. gamma.proc)          *"
     echo "*         [dem_ascii_file]  name of DEM ascii file (eg. surat_srtm_1as.txt)   *"
+    echo "*         [type]            eqa or utm                                        *"
     echo "*         optional:                                                           *"
+    echo "*           <utm_zone>:    utm zone number, eg 52                             *"
     echo "*           <lsat_ascii>:  name of Landsat ascii file (eg. surat_landsat.txt) *"
-    echo "*           <west>:        western longitude for subsetting                   *"
+    echo "*           <west>:        western longitude for subsetting (EQA only)        *"
     echo "*           <east>:        eastern longitude for subsetting                   *"
     echo "*           <south>:       southern latitude for subsetting                   *"
     echo "*           <north>:       northern latitude for subsetting                   *"
@@ -18,19 +20,25 @@ display_usage() {
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       09/07/2015, v1.1                            *"
     echo "*              Add option to format Landsat image for dem coregistration      *"
+    echo "*         Sarah Lawrie @ GA       18/07/2016, v1.2                            *"
+    echo "*             add option to process either EQA or UTM files                   *"
     echo "*******************************************************************************"
-    echo -e "Usage: make_GAMMA_DEM.bash [proc_file] [dem_ascii_file] <lsat_ascii> <west> <east> <south> <north>"
+    echo -e "Usage: make_GAMMA_DEM.bash [proc_file] [dem_ascii_file] [type] <utm_zone> <lsat_ascii> <west> <east> <south> <north>"
     }
 
-if [ $# -lt 2 ]
+if [ $# -lt 3 ]
 then 
     display_usage
     exit 1
 fi
 
-dem_ascii_file=$2
-lsat_ascii_file=$3
+
 proc_file=$1
+dem_ascii_file=$2
+type=$3
+utm_zone=$4
+lsat_ascii_file=$5
+
 
 ## Variables from parameter file (*.proc)
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
@@ -71,7 +79,7 @@ else
 fi
 
 ## Subset DEM
-if [ $# -gt 3 -a $# -lt 7 ]; then
+if [ $type == 'eqa' -a $# -gt 3 -a $# -lt 7 ]; then
     echo "ERROR: enter west, east, south and north parameters for subsetting, in that order"
 elif [ $# -eq 7 ]; then
     cut=1
@@ -137,17 +145,37 @@ grdreformat $dem_name.grd $dem_name"_org.dem"=bf -N -V
 swap_bytes $dem_name"_org.dem" $dem_name.dem 4
 
 ## Create parameter file
-echo "EQA" > temp2
-echo "WGS84" >> temp2
-echo "1" >> temp2
-echo $dem_name.dem >> temp2
-echo "REAL*4" >> temp2
-echo $offset >> temp2
-echo $scale >> temp2
-echo $width >> temp2
-echo $length >> temp2
-echo $lat_post $lon_post >> temp2
-echo $lat $lon >> temp2
+
+if [ $type == 'eqa' ]; then
+    echo "EQA" > temp2
+    echo "WGS84" >> temp2
+    echo "1" >> temp2
+    echo $dem_name.dem >> temp2
+    echo "REAL*4" >> temp2
+    echo $offset >> temp2
+    echo $scale >> temp2
+    echo $width >> temp2
+    echo $length >> temp2
+    echo $lat_post $lon_post >> temp2
+    echo $lat $lon >> temp2
+elif [ $type == 'utm' ]; then
+    echo "UTM" > temp2
+    echo "WGS84" >> temp2
+    echo "1" >> temp2
+    echo $utm_zone >> temp2
+    echo "10000000." >> temp2
+    echo $dem_name.dem >> temp2
+    echo "REAL*4" >> temp2
+    echo $offset >> temp2
+    echo $scale >> temp2
+    echo $width >> temp2
+    echo $length >> temp2
+    echo $lat_post $lon_post >> temp2
+    echo $lat $lon >> temp2
+else
+    echo "dem type not recognised, needs to be 'eqa' or 'utm'"
+fi
+
 create_dem_par $dem_name.dem.par < temp2
 
 ## Correct missing values in DEM
