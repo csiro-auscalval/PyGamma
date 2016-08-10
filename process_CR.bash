@@ -3,21 +3,30 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* process_CR: Extract corner reflector response from coregistered SLCs.       *"
+    echo "* process_CR: Extract corner reflector response from coregistered SLC.        *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*         [slc]        full path and name of SLC                              *"
-    echo "*         [date]      scene date (e.g. 20121130)                              *"
+    echo "*         [date]       scene date (e.g. 20121130)                             *"
     echo "*         [site]       site number                                            *"
     echo "*         [cr]         CR number                                              *"
-    echo "*         [rg]         range centre coordinate of analysis window             *"
-    echo "*         [az]         azimuth centre coordinate of analysis window           *"
-    echo "*         [win]        analysis window size in pixels                         *"
+    echo "*         [rg]         range centre coordinate of target window               *"
+    echo "*         [az]         azimuth centre coordinate of target window             *"
+    echo "*         [clt_rg]     range centre coordinate of clutter window              *"
+    echo "*         [clt_az]     azimuth centre coordinate of clutter window            *"
+    echo "*         [pwin]        target window size in pixels                           *"
+    echo "*         [cwin]       clutter window size in pixels                          *"
     echo "*         [cross]      analysis cross width in pixels                         *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Matthew Garthwaite @ GA 20/01/2014, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       24/01/2014, v1.1 & 1.2                      *"
+    echo "*             - Update parameter file variables and file names                *"
+    echo "*         Matthew Garthwaite @ GA 26/02/2014, v1.3                            *"
+    echo "*             - Remove looping capability to batch script                     *"
+    echo "*         Sarah Lawrie @ GA       06/05/2015, v2.0                            *"
+    echo "*             - Converted to bash                                             *"
     echo "*******************************************************************************"
-    echo -e "Usage: process_CR.bash [proc_file] [slc] [date] [site] [cr] [rg] [az] [win] [cross]"
+    echo -e "Usage: process_CR.bash [proc_file] [slc] [date] [site] [cr] [rg] [az] [clt_rg] [clt_az] [pwin] [cwin] [cross]"
     }
 
 if [ $# -lt 3 ]
@@ -26,14 +35,13 @@ then
     exit 1
 fi
 test=`echo $3 | awk '{printf "%.0f\n", $1}'`
-if [ $test < 10000000 ]; then 
+echo $test
+if [ $test -lt 10000000 ]; then 
   echo "ERROR: Scene ID needed in YYYYMMDD format"
   exit 1
 else
   date=$3
 fi
-
-
 
 proc_file=$1
 
@@ -53,11 +61,10 @@ rg_loc=$6
 az_loc=$7
 pwin=$8
 cwin=$9
-cross_width=$10
-cr_rcs=$11
-flag=$12
+cross_width=${10}
+cr_rcs=${11}
+flag=${12}
 stub=$date"_"$site"_CR_"$cr
-#echo "stub is "$stub
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -145,6 +152,7 @@ while read line; do
 done < quad.txt
 
 sum_avg_clt=`awk '{ SUM += $1 } END {printf "%.10e\n", SUM/4}' clutter.txt`
+echo SUM_AVG_CLT = $sum_avg_clt
 rm -f blah1 blah2 blah3 blah4 clutter.txt
 
 # NEEDED for 'ptarg' but not 'ptarg_cal_SLC'
@@ -196,6 +204,7 @@ ph_err=`echo $scr $wvl | awk '{print ($2/4*atan2(0, -1))*(1/(sqrt(2*$1)))}'`
 #echo $site $cr $scr $rcs $inc $avg_clt | awk '{print $1, $2, $3, $4, sin($5*(4*atan2(1,1))/180), $6}' | awk '{print $1, $2, 10*log($6*$5)/log(10), 10*log($3*$5)/log(10), 10*log($4*$5)/log(10)}' >> $name"_CR_RCS_summary.txt"
 #echo $site $cr $scr $rcs $inc $avg_clt | awk '{print $1, $2, $3, $4, sin($5*(4*atan2(1,1))/180), $6}' | awk '{print $1, $2, 10*log($6)/log(10), 10*log($3)/log(10), 10*log($4)/log(10)}' >> $name"_CR_RCS_summary.txt"
 echo "Site CR_ID Total_Energy Avg_Clutter Total_Clutter Total_Energy_minus_Clutter SCR Phase_Error_metres CR_RCS pwin inc" >> $stub.txt
+echo $site $cr $total_E $sum_avg_clt $total_clt $total_E_minus_clt $scr $ph_err $rcs $pwin $inc
 echo $site $cr $total_E $sum_avg_clt $total_clt $total_E_minus_clt $scr $ph_err $rcs $pwin $inc | awk '{printf "%2g %2g %.10g %.10g %.10g %.10g %.10g %.10g %.10g %2g %.10g\n", $1, $2, 10*log($3)/log(10), 10*log($4)/log(10), 10*log($5)/log(10), 10*log($6)/log(10), 10*log($7)/log(10), $8, 10*log($9)/log(10), $10, 10*log($11)/log(10)}' >> $stub.txt
 #echo $site $cr $total_E $sum_avg_clt $total_clt $total_E_minus_clt $scr $rcs | awk '{printf "%2g %2g %.10g %.10g %.10g %.10g %.10g %.10g\n", $1, $2, $3, $4, $5, $6, $7, $8}' >> $name"_CR_RCS_summary.txt"
 
@@ -209,7 +218,7 @@ else
     :
 fi
 
-plot_cr_response.bash $date $site $cr $img_wid
+#plot_cr_response.bash $date $site $cr $img_wid
 
 rm -f rg_data az_data *.mph
 

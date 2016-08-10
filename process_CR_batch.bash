@@ -3,7 +3,7 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* process_CR_batch: Scripts fruns process_CR.bash as a batch process using    *"
+    echo "* process_CR_batch: Script runs process_CR.bash as a batch process using    *"
     echo "*                   a list of scenes and list of CR sites.                    *"
     echo "*                                                                             *"
     echo "*                   Format for list of scenes:                                *"
@@ -14,7 +14,13 @@ display_usage() {
     echo "*         [cr_file]    full path to ASCII file of CR locations and centre of  *"
     echo "*                      clutter window                                         *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Matt Garthwaite @ GA 21/01/2014, v1.0                               *"
+    echo "*         Sarah Lawrie @ GA    24/01/2014, v1.1                               *"
+    echo "*             - Add reference to parameter file                               *"
+    echo "*         Matt Garthwaite @ GA 26/02/2014, v1.2                               *"
+    echo "*             - Added looping over sites in addition to dates                 *"
+    echo "*         Sarah Lawrie @ GA    06/05/2015, v2.0                               *"
+    echo "*             - Converted to bash                                             *"
     echo "*******************************************************************************"
     echo -e "Usage: process_CR.bash [proc_file] [list] [cr_file]"
     }
@@ -36,7 +42,7 @@ sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 slc_looks=`grep SLC_multi_lookr= $proc_file | cut -d "=" -f 2`
 
 list=$2
-cr_file=$3
+crfile=$3
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -91,29 +97,32 @@ while read scene; do
 
     echo "Site CR_ID Total_Energy Avg_Clutter Total_Clutter Total_Energy_minus_Clutter SCR Phase_Error_metres CR_RCS pwin inc" >! $outfile
 
-    while read site; do
-        #cr=`echo $line | awk -F'\t' '{print $1}'`
-        #site=`awk '$1=="'"$line"'" {print $1}' $crfile`
-	cr=`awk '$1=="'"$site"'" {print $2}' $crfile`
+    #while read site; do
+    #echo $crfile 
+    #pwd
+    for site in `awk 'NR>1 {print $1}' $crfile`; do
+        cr=`awk '$1=="'"$site"'" {print $2}' $crfile`
 	rg_loc=`awk '$1=="'"$site"'" {print $3}' $crfile`
 	az_loc=`awk '$1=="'"$site"'" {print $4}' $crfile`
-        #clt_rg=`awk '$1=="'"$site"'" {print $5}' $crfile`
-        #clt_az=`awk '$1=="'"$site"'" {print $6}' $crfile`
+        clt_rg=`awk '$1=="'"$site"'" {print $5}' $crfile`
+        clt_az=`awk '$1=="'"$site"'" {print $6}' $crfile`
 	pwin=`awk '$1=="'"$site"'" {print $7}' $crfile`
 	cwin=`awk '$1=="'"$site"'" {print $8}' $crfile`
 	cross_width=`awk '$1=="'"$site"'" {print $9}' $crfile`
 	cr_rcs=`awk '$1=="'"$site"'" {print $10}' $crfile`
 
 	echo $slc $site $cr $rg_loc $az_loc $pwin $cwin $cross_width $cr_rcs
-	process_CR.bash $proc_file $slc $date $site $cr $rg_loc $az_loc $pwin $cwin $cross_width $cr_rcs $flag
+        echo $proc_file $slc $date $site $cr $rg_loc $az_loc $pwin $cwin $cross_width $cr_rcs $flag
+	process_CR.bash $proc_file $slc $date $site $cr $rg_loc $az_loc $clt_rg $clt_az $pwin $cwin $cross_width $cr_rcs $flag
 
 	tail -1 $scene_dir/$date"_"$site"_CR_"$cr.txt >> $outfile
 
-    done < awk 'NR>1 {print $1}' $crfile
+    #done < `awk 'NR>1 {print $1}' $crfile`
+    done
 
 done < $list
 
-
+exit
 
 
 
