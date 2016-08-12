@@ -102,8 +102,12 @@ ifm_multi_look=4
 
 ##### Make Reference Master DEM Parameters #####
 # for init_offsetm:
-    # correlation patch size (default 1024, options: 128, 256, 512, 1024)
+    # correlation patch size (default 1024, options: 128, 256, 512, 1024) 
+    # use larger window for large scenes and usage of scene centre (e.g. S1), use smaller window for windows towards edge of scene and smaller scenes (e.g. FB PALSAR)
 dem_patch_window=1024
+    #select centre of window for initial offset estimation (default:- this gives scene centre)
+rpos=-
+azpos=-
 # for create_diff_par:
     # range, azimuth offsets of image2 relative to image1 (samples) (default 0 0): - for full DEM only, auto calculated for mli 
 dem_offset=0 0
@@ -111,11 +115,8 @@ dem_offset=0 0
 dem_offset_measure=32 32
     # search window sizes (32, 64, 128...) (range, azimuth) (default 256 256):
 dem_win=256 256
-    # correlation SNR threshold (nominal: 0.3):
-dem_snr=0.3
-    #select points for initial offset estimation(default:-)
-rpos=-
-azpos=-
+    # correlation SNR threshold (nominal: 0.15):
+dem_snr=0.15
 
 ##### Slave coregistration parameters #####
     # SNR Threshold for offset rejection (default = 7.0)
