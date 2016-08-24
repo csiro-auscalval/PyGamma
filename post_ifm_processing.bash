@@ -131,8 +131,8 @@ if [ -z $beam ]; then #no beam
     done < $ifm_list
     dem=$master"_"$polar"_"$ifm_looks"rlks_utm.dem"
     dem_par=$dem.par
-    lv_theta=$master"_"$polar"_"$ifm_looks"_utm.lv_theta"
-    lv_phi=$master"_"$polar"_"$ifm_looks"_utm.lv_phi"
+    lv_theta=$master"_"$polar"_"$ifm_looks"rlks_utm.lv_theta"
+    lv_phi=$master"_"$polar"_"$ifm_looks"rlks_utm.lv_phi"
     cp $dem_dir/$dem $pyrate_dir/dem_files
     cp $dem_dir/$dem_par $pyrate_dir/dem_files
     cp $dem_dir/$lv_theta $pyrate_dir/dem_files
