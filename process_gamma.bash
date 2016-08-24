@@ -42,6 +42,7 @@ proc_file=$1
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
+mode=`grep Sensor_mode= $proc_file | cut -d "=" -f 2`
 do_setup=`grep Setup= $proc_file | cut -d "=" -f 2`
 do_raw=`grep Do_raw_data= $proc_file | cut -d "=" -f 2` 
 do_slc=`grep Do_SLC= $proc_file | cut -d "=" -f 2`
@@ -156,7 +157,7 @@ elif [ $sensor == RSAT1 ]; then
     slc_alks=`echo $slc_looks | awk '{print $1*4}'` 
     ifm_rlks=$ifm_looks 
     ifm_alks=`echo $ifm_looks | awk '{print $1*4}'` 
-elif [ $sensor == S1 ]; then
+elif [ $sensor == S1 -a $mode == IWS ]; then
     slc_alks=$slc_looks 
     slc_rlks=`echo $slc_looks | awk '{print $1*5}'` 
     ifm_alks=$ifm_looks 
@@ -167,7 +168,7 @@ elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
     ifm_rlks=$ifm_looks 
     ifm_alks=`echo $ifm_looks | awk '{print $1*2}'`
 else
-    # CSK, RSAT2, TSX
+    # CSK, RSAT2, TSX, S1_SM
     slc_rlks=$slc_looks
     slc_alks=$slc_looks
     ifm_rlks=$ifm_looks

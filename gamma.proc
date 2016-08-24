@@ -25,6 +25,8 @@ Track=TxxxxA/D
 ##### Sensor/Data Details #####
     # options: ASAR, CSK, ERS, JERS1, PALSAR1, PALSAR2, RSAT1, RSAT2, S1, TSX 
 Sensor=PALSAR1
+    # If Sentinel-1, which sensor mode: IWS/SM. Used to determine multi-look ratio
+Sensor_mode=IWS
     # if ERS sensor, specify which one (ERS1 or ERS2):
 ERS_sensor=
     # if PALSAR1 sensor, specify which raw data level (raw or slc):
