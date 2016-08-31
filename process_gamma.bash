@@ -2198,7 +2198,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		SUBSET_DEM 
 	    else
 		echo ""  1>&2
-		echo "Subsetting values in proc file are not - . Update proc file before subsetting can occur."  1>&2
+		echo "Some subsetting values in proc file are - . All values must be integers before subsetting can occur."  1>&2
 		echo ""  1>&2
 	    fi
 	elif [ $subset == no ]; then # no subsetting 
@@ -2231,7 +2231,7 @@ fi
 
 ##########################   COREGISTER SLAVE SCENES TO MASTER SCENE   ##########################
 
-if [ $sensor == S1 ]; then
+if [ $sensor == S1 -a $mode == IWS ]; then
     coreg_script=coregister_S1_slave_SLC.bash
 else
     coreg_script=coregister_slave_SLC.bash
