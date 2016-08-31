@@ -34,6 +34,8 @@ display_usage() {
     echo "*              in GAMMA version Dec 2015)                                     *"
     echo "*         Negin Moghaddam @ GA    29.04.2016, v1.4                            *"
     echo "*              Not using landsat image for Sentinel-1 Master-DEM coreg.       *"
+    echo "*         Matt Garthwaite @ GA    19.08.2016, v1.5                            *"
+    echo "*              Change order of master and rdc_dem to fix errors in coreg      *"
     echo "*******************************************************************************"
     echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] [multi-look] [subset] [image] <roff> <rlines> <azoff> <azlines> <beam>"
     }
@@ -339,11 +341,10 @@ rm -f $returns
 ## initial offset estimate
 ##if [ $ext_image -eq 1 ]; then
  # MCG: following testing, rlks and azlks refer to FURTHER multi-looking. Should be set to 1 when using a multi-looked MLI for coreg.
- # MCG: following testing with PALSAR FB data, set rdc_sim_sar as reference image for robust coreg 
- GM init_offsetm $rdc_sim_sar $master_mli $diff 1 1 $rpos $azpos - - $dem_snr $dem_patch_win 1
- #GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks $rpos $azpos - - $dem_snr $dem_patch_win 1 
- GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp - - $offsets 1 - - -
- #GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp - - $offsets 1 - - -
+ # MCG: set rdc_sim_sar as reference image for robust coreg 
+GM init_offsetm $rdc_sim_sar $master_mli $diff 1 1 $rpos $azpos - - $dem_snr $dem_patch_win 1
+
+GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp - - $offsets 1 - - -
 ##else
  ##GM init_offsetm $master_mli $lsat_init_sar $diff $rlks $alks $rpos $azpos - - $dem_snr $dem_patch_win 1
  ##GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp - - $offsets 1 - - - 
