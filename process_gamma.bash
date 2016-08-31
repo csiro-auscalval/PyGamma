@@ -152,7 +152,12 @@ elif [ $sensor == JERS1 ]; then
     slc_alks=`echo $slc_looks | awk '{print $1*3}'` 
     ifm_rlks=$ifm_looks 
     ifm_alks=`echo $ifm_looks | awk '{print $1*3}'`
-elif [ $sensor == RSAT1 -o $sensor == RSAT2 ]; then
+elif [ $sensor == RSAT1 ]; then
+    slc_rlks=$slc_looks 
+    slc_alks=`echo $slc_looks | awk '{print $1*4}'` 
+    ifm_rlks=$ifm_looks 
+    ifm_alks=`echo $ifm_looks | awk '{print $1*4}'`
+elif [ $sensor == RSAT2 -a $mode == W ]; then
     slc_rlks=$slc_looks 
     slc_alks=`echo $slc_looks | awk '{print $1*4}'` 
     ifm_rlks=$ifm_looks 
@@ -168,7 +173,7 @@ elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
     ifm_rlks=$ifm_looks 
     ifm_alks=`echo $ifm_looks | awk '{print $1*2}'`
 else
-    # CSK, TSX, S1_SM
+    # CSK, RSAT2, TSX, S1_SM
     slc_rlks=$slc_looks
     slc_alks=$slc_looks
     ifm_rlks=$ifm_looks
