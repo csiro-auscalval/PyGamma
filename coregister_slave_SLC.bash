@@ -26,7 +26,7 @@ display_usage() {
     }
 
 if [ $# -lt 4 ]
-then 
+then
     display_usage
     exit 1
 fi
@@ -49,9 +49,9 @@ subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
 ## MLI registration params
 offset_measure=`grep slv_offset_measure= $proc_file | cut -d "=" -f 2`
 slv_win=`grep slv_win= $proc_file | cut -d "=" -f 2`
-slv_snr=`grep slv_snr= $proc_file | cut -d "=" -f 2`
+slv_cct=`grep slv_cc_thresh= $proc_file | cut -d "=" -f 2`
 ## SLC registration params
-ccp=`grep coreg_snr_thresh= $proc_file | cut -d "=" -f 2`
+cct=`grep coreg_cc_thresh= $proc_file | cut -d "=" -f 2`
 npoly=`grep coreg_model_params= $proc_file | cut -d "=" -f 2`
 win=`grep coreg_window_size= $proc_file | cut -d "=" -f 2`
 nwin=`grep coreg_num_windows= $proc_file | cut -d "=" -f 2`
@@ -79,7 +79,7 @@ echo "" 1>&2
 ## Insert scene details top of NCI .0 file
 echo ""
 echo ""
-echo "PROCESSING_SCENE: "$project $track_dir $slave $rlks"rlks" $alks"alks" $beam 
+echo "PROCESSING_SCENE: "$project $track_dir $slave $rlks"rlks" $alks"alks" $beam
 echo ""
 
 ## Copy output of Gamma programs to log files
@@ -128,9 +128,9 @@ slave_mli_par=$slave_mli.par
 slave_slc=$slave_dir/$slave_slc_name.slc
 slave_slc_par=$slave_slc.par
 
-rslc=$slave_dir/r$slave_slc_name.slc 
+rslc=$slave_dir/r$slave_slc_name.slc
 rslc_par=$rslc.par
-rmli=$slave_dir/r$slave_mli_name.mli 
+rmli=$slave_dir/r$slave_mli_name.mli
 rmli_par=$rmli.par
 
 lt=$slave_dir/$master-$slave_mli_name.lt
@@ -173,22 +173,22 @@ GM geocode $lt"0" $master_mli $master_mli_width $rmli $slave_mli_width $slave_ml
 
 ## Measure offset and estimate offset polynomials between slave MLI and resampled slave MLI
 returns=$slave_dir/returns
-echo "" > $returns 
-echo "" >> $returns 
+echo "" > $returns
+echo "" >> $returns
 echo $offset_measure >> $returns
-echo $slv_win >> $returns 
-echo $slv_snr >> $returns 
+echo $slv_win >> $returns
+echo $slv_cct >> $returns
 
 GM create_diff_par $slave_mli_par $slave_mli_par $diff_par 1 < $returns
 rm -f $returns
 
 ## Measure offset between slave MLI and resampled slave MLI
-GM init_offsetm $rmli $slave_mli $diff_par 1 1 - - - - $slv_snr - 1
+GM init_offsetm $rmli $slave_mli $diff_par 1 1 - - - - $slv_cct - 1
 
 GM offset_pwrm $rmli $slave_mli $diff_par $off"s0" $ccp"0" - - - 2
 
 ## Fit the offset only
-GM offset_fitm $off"s0" $ccp"0" $diff_par $coffs"0" - $slv_snr 1
+GM offset_fitm $off"s0" $ccp"0" $diff_par $coffs"0" - $slv_cct 1
 
 ## Refinement of initial geocoding look up table
 GM gc_map_fine $lt"0" $master_mli_width $diff_par $lt
@@ -209,10 +209,10 @@ while [ $i -le $niter ]; do
 ## Measure offsets for refinement of lookup table using initially resampled slave SLC
     GM create_offset $master_slc_par $rslc_par $ioff 1 $rlks $alks 0
 
-    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff $offs $ccp $win $win $offsets $ovr $nwin $nwin $ccp
+    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff $offs $ccp $win $win $offsets $ovr $nwin $nwin $cct
 
 ## Fit polynomial model to offsets
-    GM offset_fit $offs $ccp $ioff - $coffsets $ccp $npoly 0
+    GM offset_fit $offs $ccp $ioff - $coffsets $cct $npoly 0
 
 ## Create blank offset file for first iteration and calculate the total estimated offset
     if [ $i == 1 ]; then
@@ -225,8 +225,8 @@ while [ $i -le $niter ]; do
     fi
 
 ## if estimated offsets are less than 0.2 of a pixel then break iterable loop
-    azoff=`grep "final azimuth offset poly. coeff.:" output.log | tail -2 | head -1 | awk '{print $6}'` 
-    rgoff=`grep "final range offset poly. coeff.:" output.log | tail -2 | head -1 | awk '{print $6}'` 
+    azoff=`grep "final azimuth offset poly. coeff.:" output.log | tail -2 | head -1 | awk '{print $6}'`
+    rgoff=`grep "final range offset poly. coeff.:" output.log | tail -2 | head -1 | awk '{print $6}'`
     test1=`echo $azoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
     test2=`echo $rgoff | awk '{if ($1 < 0) $1 = -$1; printf "%i\n", $1*10}'`
     echo "Iteration "$i": azimuth offset is "$azoff", range offset is "$rgoff
@@ -255,7 +255,7 @@ paste temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks >> $check_file
 rm -f temp*
 
 
-# script end 
+# script end
 ####################
 
 ## Copy errors to NCI error file (.e file)
@@ -268,7 +268,7 @@ fi
 
 ## Rename log files if beam exists
 if [ -z $beam ]; then # no beam
-    :    
+    :
 else # beam exists
     if [ -f $beam"_command.log" ]; then
 	cat command.log >>$beam"_command.log"
