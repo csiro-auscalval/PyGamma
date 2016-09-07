@@ -10,6 +10,7 @@
 #slave=xxxx
 #rlks=10
 #alks=2
+#polar=VV
 #project=`grep Project= $proc_file | cut -d "=" -f 2`
 #sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 #track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
