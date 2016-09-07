@@ -42,6 +42,7 @@ proc_file=$1
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
+mode=`grep Sensor_mode= $proc_file | cut -d "=" -f 2`
 do_setup=`grep Setup= $proc_file | cut -d "=" -f 2`
 do_raw=`grep Do_raw_data= $proc_file | cut -d "=" -f 2` 
 do_slc=`grep Do_SLC= $proc_file | cut -d "=" -f 2`
@@ -151,12 +152,17 @@ elif [ $sensor == JERS1 ]; then
     slc_alks=`echo $slc_looks | awk '{print $1*3}'` 
     ifm_rlks=$ifm_looks 
     ifm_alks=`echo $ifm_looks | awk '{print $1*3}'`
-elif [ $sensor == RSAT1 -o $sensor == RSAT2 ]; then
+elif [ $sensor == RSAT1 ]; then
+    slc_rlks=$slc_looks 
+    slc_alks=`echo $slc_looks | awk '{print $1*4}'` 
+    ifm_rlks=$ifm_looks 
+    ifm_alks=`echo $ifm_looks | awk '{print $1*4}'`
+elif [ $sensor == RSAT2 -a $mode == W ]; then
     slc_rlks=$slc_looks 
     slc_alks=`echo $slc_looks | awk '{print $1*4}'` 
     ifm_rlks=$ifm_looks 
     ifm_alks=`echo $ifm_looks | awk '{print $1*4}'` 
-elif [ $sensor == S1 ]; then
+elif [ $sensor == S1 -a $mode == IWS ]; then
     slc_alks=$slc_looks 
     slc_rlks=`echo $slc_looks | awk '{print $1*5}'` 
     ifm_alks=$ifm_looks 
@@ -167,7 +173,7 @@ elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
     ifm_rlks=$ifm_looks 
     ifm_alks=`echo $ifm_looks | awk '{print $1*2}'`
 else
-    # CSK, TSX
+    # CSK, RSAT2, TSX, S1_SM
     slc_rlks=$slc_looks
     slc_alks=$slc_looks
     ifm_rlks=$ifm_looks
@@ -1040,7 +1046,8 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			echo \#\PBS -W depend=afterok:$raw_jobid >> $job
 		    else
 			:
-		    fi	    
+		    fi
+		    
 		    for(( n=0; n<nsteps; n++ )); do
 			read scene
 			echo $scene
@@ -2196,7 +2203,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		SUBSET_DEM 
 	    else
 		echo ""  1>&2
-		echo "Subsetting values in proc file are not - . Update proc file before subsetting can occur."  1>&2
+		echo "Some subsetting values in proc file are - . All values must be integers before subsetting can occur."  1>&2
 		echo ""  1>&2
 	    fi
 	elif [ $subset == no ]; then # no subsetting 
@@ -2229,7 +2236,7 @@ fi
 
 ##########################   COREGISTER SLAVE SCENES TO MASTER SCENE   ##########################
 
-if [ $sensor == S1 ]; then
+if [ $sensor == S1 -a $mode == IWS ]; then
     coreg_script=coregister_S1_slave_SLC.bash
 else
     coreg_script=coregister_slave_SLC.bash

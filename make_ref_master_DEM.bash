@@ -33,7 +33,9 @@ display_usage() {
     echo "*              Change snr to cross correlation parameters (process changed    *"
     echo "*              in GAMMA version Dec 2015)                                     *"
     echo "*         Negin Moghaddam @ GA    29.04.2016, v1.4                            *"
-    echo "*              Not using latsat image for Sentinel-1 Master-DEM coreg.        *"
+    echo "*              Not using landsat image for Sentinel-1 Master-DEM coreg.       *"
+    echo "*         Matt Garthwaite @ GA    19.08.2016, v1.5                            *"
+    echo "*              Change order of master and rdc_dem to fix errors in coreg      *"
     echo "*******************************************************************************"
     echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] [multi-look] [subset] [image] <roff> <rlines> <azoff> <azlines> <beam>"
     }
@@ -252,7 +254,7 @@ echo " "
 
 ## Derivation of initial geocoding look-up table and simulated SAR intensity image
 # note: gc_map can produce looking vector grids and shadow and layover maps
-# pre-determine segmented DEM_par by inputting constant height (necessary to avoid a bug in using gc_map)
+
 if [ -e $utm_dem_par ]; then
     echo " "
     echo  $utm_dem_par" exists, removing file."
@@ -266,7 +268,7 @@ if [ -e $utm_dem ]; then
     rm -f $utm_dem
 fi
 
-
+# pre-determine segmented DEM_par by inputting constant height (necessary to avoid a bug in using gc_map)
 GM gc_map $master_mli_par - $dem_par 10. $utm_dem_par $utm_dem $lt_rough $ovr $ovr - - - - - - - 8 1
 # use predetermined dem_par to segment the full DEM
 GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - $loc_inc - - $lsmap 8 1
@@ -325,7 +327,7 @@ else
 fi
 
 
-## The high accuracy of Sentinel-1 orbits requires only an offset fit term rather than higher order polynomial terms
+## The high accuracy of Sentinel-1 orbits requires only a static offset fit term rather than higher order polynomial terms
 if [ $sensor == S1 ]; then
     npoly=1
 else
@@ -338,8 +340,11 @@ rm -f $returns
 
 ## initial offset estimate
 ##if [ $ext_image -eq 1 ]; then
- GM init_offsetm $master_mli $rdc_sim_sar $diff $rlks $alks $rpos $azpos - - $dem_snr $dem_patch_win 1 
- GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp - - $offsets 1 - - -
+ # MCG: following testing, rlks and azlks refer to FURTHER multi-looking. Should be set to 1 when using a multi-looked MLI for coreg.
+ # MCG: set rdc_sim_sar as reference image for robust coreg 
+GM init_offsetm $rdc_sim_sar $master_mli $diff 1 1 $rpos $azpos - - $dem_snr $dem_patch_win 1
+
+GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp - - $offsets 1 - - -
 ##else
  ##GM init_offsetm $master_mli $lsat_init_sar $diff $rlks $alks $rpos $azpos - - $dem_snr $dem_patch_win 1
  ##GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp - - $offsets 1 - - - 
@@ -355,9 +360,9 @@ azwin=`echo $dem_win | awk '{print $1/4}'`
 nr=`echo $offset_measure | awk '{print $1*4}'`
 naz=`echo $offset_measure | awk '{print $1*4}'`
 
-## offset tracking
 ##if [ $ext_image -eq 1 ]; then
-    GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz -
+    GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz -
+    #GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz -
 ##else
   ##  GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz - 
 ##fi
