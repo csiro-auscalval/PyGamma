@@ -463,12 +463,6 @@ UNW()
 	   GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
 	fi
 
-        ## Produce coherence mask for masking of unwrapped interferogram
-        #GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask1
-
-        ## apply mask to filtered interferogram here
-        #GM mask_data $int_unw $int_width $int_unw_mask $mask1 0
-
         ## Convert LOS signal to vertical
         #GM dispmap $int_unw $rdc_dem $mas_slc_par $off $disp 1
 
@@ -479,7 +473,6 @@ UNW()
 	GM cc_wave $int_filt - - $smcc $int_width $ccwin $ccwin 1
 	# create flagfile
 	GM corr_flag $smcc $cc_flag $int_width $coh_thres
-
 
 	### without neutron:
 
@@ -523,6 +516,7 @@ UNW()
     fi
 }
 
+
 GEOCODE()
 {
     echo " "
@@ -533,6 +527,10 @@ GEOCODE()
 
     ## Use bicubic spline interpolation for geocoded unwrapped interferogram
     GM geocode_back $int_unw $width_in $gc_map $unw_geocode_out $width_out - 1 0 - -
+
+    # Make quick-look image of unwrapped interferogram
+    GM rasrmg $unw_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $unw_geocode_out.bmp 
+
 
     ## Use bicubic spline interpolation for geocoded filtered interferogram
     # convert to float and extract phase
@@ -564,12 +562,6 @@ GEOCODE()
 	:
     fi
 
-    echo " "
-    echo "Creating GMT files for plotting interferogram..."
-    echo " "
-    # Create png files
-    cpt=/g/data/dg9/repo/gamma_bash/bcgyr.cpt
-
     # Extract coordinates from DEM for plotting par file
     width=`grep width: $dem_par | awk '{print $2}'`
     lines=`grep nlines: $dem_par | awk '{print $2}'`
@@ -587,103 +579,6 @@ GEOCODE()
     echo Y_FIRST $lat >> $gmt_par
     echo Y_STEP $post_lat >> $gmt_par
 
-    # Calculate interferogram extents
-    rwidth=`awk 'NR==1 {print $2}' $gmt_par`
-    rlength=`awk 'NR==2 {print $2}' $gmt_par`
-    rx_min=`awk 'NR==3 {print $2}' $gmt_par`
-    ry_max=`awk 'NR==5 {print $2}' $gmt_par`
-    rx_step=`awk 'NR==4 {print $2}' $gmt_par`
-    ry_step=`awk 'NR==6 {print $2}' $gmt_par`
-    ry_step=`echo "$ry_step * -1" | bc`
-    rx_max=`echo "$rx_min + $rwidth * $rx_step" | bc`
-    ry_min=`echo "$ry_max - $rlength * $ry_step" | bc`
-    range=-R$rx_min/$rx_max/$ry_min/$ry_max
-    proj=-JM8
-    inc=-I$rx_step
-
-    # Create png file of unwrapped interferogram
-    unw_name=`echo $unw_geocode_out | awk -F . '{print $1}'`
-    unw_psfile=$unw_name"_unw.ps"
-    # Convert file to one column ascii
-    float2ascii $unw_geocode_out 1 $unw_name.txt 0 -
-    # Convert ascii to grd
-    xyz2grd $unw_name.txt -N0 $range -ZTLa -r $inc -G$unw_name.grd
-    # Make colour scale
-    grdinfo $unw_name.grd | tee temp
-    z_min=`grep z_min: temp | awk '{print $3}'`
-    z_max=`grep z_max: temp | awk '{print $5}'`
-    span=-T$z_min/$z_max/1
-    makecpt -C$cpt $span -Z > $unw_name.cpt
-    # Plot ifm
-    grdimage $unw_name.grd -C$unw_name.cpt $proj $range -Qs -P > $unw_psfile
-    # Export image to .png
-    ps2raster $unw_psfile -A -E300 -Tg -P
-    # Clean up files
-    rm -f $unw_name.txt $unw_name.grd temp $unw_name.cpt $unw_psfile 
-
-    # Create png file of filtered interferogram
-    filt_name=`echo $filt_geocode_out | awk -F . '{print $1}'`
-    filt_psfile=$filt_name"_flt.ps"
-    # Convert file to one column ascii
-    float2ascii $filt_geocode_out 1 $filt_name.txt 0 -
-    # Convert ascii to grd
-    xyz2grd $filt_name.txt -N0 $range -ZTLa -r $inc -G$filt_name.grd
-    # Make colour scale
-    grdinfo $filt_name.grd | tee temp
-    z_min=`grep z_min: temp | awk '{print $3}'`
-    z_max=`grep z_max: temp | awk '{print $5}'`
-    span=-T$z_min/$z_max/1
-    makecpt -C$cpt $span -Z > $filt_name.cpt
-    # Plot ifm
-    grdimage $filt_name.grd -C$filt_name.cpt $proj $range -Qs -P > $filt_psfile
-    # Export image to .png
-    ps2raster $filt_psfile -A -E300 -Tg -P
-    # Clean up files
-    rm -f $filt_name.txt $filt_name.grd temp $filt_name.cpt $filt_psfile 
-
-    # Create png file of filtered coherence map
-    smcc_name=`echo $smcc_geocode_out | awk -F . '{print $1}'`
-    smcc_psfile=$smcc_name"_cc.ps"
-    # Convert file to one column ascii
-    float2ascii $smcc_geocode_out 1 $smcc_name.txt 0 -
-    # Convert ascii to grd
-    xyz2grd $smcc_name.txt -N0 $range -ZTLa -r $inc -G$smcc_name.grd
-    # Make colour scale
-    grdinfo $smcc_name.grd | tee temp
-    z_min=`grep z_min: temp | awk '{print $3}'`
-    z_max=`grep z_max: temp | awk '{print $5}'`
-    span=-T$z_min/$z_max/1
-    #makecpt -C$cpt $span -Z > $smcc_name.cpt
-    # Plot ifm
-    grdimage $smcc_name.grd -Cgray $proj $range -Qs -P > $smcc_psfile
-    # Export image to .png
-    ps2raster $smcc_psfile -A -E300 -Tg -P
-    # Clean up files
-    rm -f $smcc_name.txt $smcc_name.grd temp $smcc_name.cpt $smcc_psfile 
-
-    # Create png file of flattened coherence map
-    cc_name=`echo $cc_geocode_out | awk -F . '{print $1}'`
-    cc_psfile=$cc_name"_cc.ps"
-    # Convert file to one column ascii
-    float2ascii $cc_geocode_out 1 $cc_name.txt 0 -
-    # Convert ascii to grd
-    xyz2grd $cc_name.txt -N0 $range -ZTLa -r $inc -G$cc_name.grd
-    # Make colour scale
-    grdinfo $cc_name.grd | tee temp
-    z_min=`grep z_min: temp | awk '{print $3}'`
-    z_max=`grep z_max: temp | awk '{print $5}'`
-    span=-T$z_min/$z_max/1
-    #makecpt -C$cpt $span -Z > $cc_name.cpt
-    # Plot ifm
-    grdimage $cc_name.grd -Cgray $proj $range -Qs -P > $cc_psfile
-    # Export image to .png
-    ps2raster $cc_psfile -A -E300 -Tg -P
-    # Clean up files
-    rm -f $cc_name.txt $cc_name.grd temp $cc_name.cpt $cc_psfile 
-
-    echo " "
-    echo "Created GMT files for plotting interferogram."
-    echo " "
 }
 
 DONE()
