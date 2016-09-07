@@ -148,6 +148,7 @@ mli=$mli_name.mli
 mli_par=$mli.par
 
 
+
 ## Produce SLC data files
 if [ ! -e $slc_dir/$scene/$slc ]; then
     rm -f slc_tab slc_tab_s pslc_tab 
