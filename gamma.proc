@@ -25,7 +25,8 @@ Track=TxxxxA/D
 ##### Sensor/Data Details #####
     # options: ASAR, CSK, ERS, JERS1, PALSAR1, PALSAR2, RSAT1, RSAT2, S1, TSX 
 Sensor=PALSAR1
-    # Sensor mode Sentinel-1: IWS/SM; Radarsat-2: W/MF (Wide/Multi-look Fine). Used to determine multi-look ratio
+    # Sensor mode Sentinel-1: IWS/SM; Radarsat-2: W/MF (Wide/Multi-look Fine); PALSAR2: WD/SM (Wide-swath/Stripmap). 
+    # Used to determine multi-look ratio
 Sensor_mode=IWS
     # if ERS sensor, specify which one (ERS1 or ERS2):
 ERS_sensor=
@@ -232,3 +233,4 @@ post_ncpus=1
 plot_walltime=02:00:00
 plot_mem=1GB
 plot_ncpus=1
+

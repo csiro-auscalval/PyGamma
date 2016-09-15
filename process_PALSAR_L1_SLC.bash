@@ -205,21 +205,23 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 	    if [ -z $beam ]; then # no beam
 		fr_slc_name=$scene"_"$polar"_F"$frame
 		fr_mli_name=$scene"_"$polar"_F"$frame"_"$slc_rlks"rlks"
+                IMG=$raw_dir/F$frame/$scene/IMG-$polar-*
 	    else # beam exists
 		fr_slc_name=$scene"_"$polar"_"$beam"_F"$frame
 		fr_mli_name=$scene"_"$polar"_"$beam"_F"$frame"_"$slc_rlks"rlks"
+                IMG=$raw_dir/F$frame/$scene/IMG-$polar-*$beam
 	    fi
 	    fr_slc=$fr_slc_name.slc
 	    fr_slc_par=$fr_slc.par
 	    fr_mli=$fr_mli_name.mli
 	    fr_mli_par=$fr_mli.par
-	    if [ $platform == GA ]; then
-		LED=$raw_dir/F$frame/date_dirs/$scene/LED-*
-    		IMG=$raw_dir/F$frame/date_dirs/$scene/IMG-$polar-*
-	    else
-		LED=$raw_dir/F$frame/$scene/LED-*
-    		IMG=$raw_dir/F$frame/$scene/IMG-$polar-*
-	    fi
+	    #if [ $platform == GA ]; then
+		#LED=$raw_dir/F$frame/date_dirs/$scene/LED-*
+    		#IMG=$raw_dir/F$frame/date_dirs/$scene/IMG-$polar-*
+	    #else
+	    LED=$raw_dir/F$frame/$scene/LED-*
+    		
+	    #fi
 	    GM par_EORC_PALSAR $LED $fr_slc_par $IMG $fr_slc
 
             # Make quick-look image

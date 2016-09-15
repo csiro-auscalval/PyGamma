@@ -169,7 +169,8 @@ slave_mli_width=`awk 'NR==11 {print $2}' $slave_mli_par`
 master_mli_width=`awk 'NR==11 {print $2}' $master_mli_par`
 slave_mli_length=`awk 'NR==12 {print $2}' $slave_mli_par`
 
-GM geocode $lt"0" $master_mli $master_mli_width $rmli $slave_mli_width $slave_mli_length 2 0
+## resample master MLI in to geometry of slave
+GM geocode $lt"0" $master_mli $master_mli_width mli0 $slave_mli_width $slave_mli_length 2 0
 
 ## Measure offset and estimate offset polynomials between slave MLI and resampled slave MLI
 returns=$slave_dir/returns
@@ -179,19 +180,20 @@ echo $offset_measure >> $returns
 echo $slv_win >> $returns 
 echo $slv_snr >> $returns 
 
-GM create_diff_par $slave_mli_par $slave_mli_par $diff_par 1 < $returns
+GM create_diff_par $slave_mli_par - $diff_par"0" 1 < $returns
 rm -f $returns
 
-## Measure offset between slave MLI and resampled slave MLI
-GM init_offsetm $rmli $slave_mli $diff_par 1 1 - - - - $slv_snr - 1
+## Measure offsets between slave MLI and resampled maste MLI
+# MG: add an rpos/azpos for init_offsetm if feature is a small island?
+GM init_offsetm mli0 $slave_mli $diff_par"0" 1 1 - - - - $slv_snr - 1
 
-GM offset_pwrm $rmli $slave_mli $diff_par $off"s0" $ccp"0" - - - 2
+GM offset_pwrm mli0 $slave_mli $diff_par"0" $off"s0" $ccp"0" - - - 2
 
-## Fit the offset only
-GM offset_fitm $off"s0" $ccp"0" $diff_par $coffs"0" - $slv_snr 1
+## fit 4 parameter polynomial
+GM offset_fitm $off"s0" $ccp"0" $diff_par"0" $coffs"0" - $slv_snr 4
 
 ## Refinement of initial geocoding look up table
-GM gc_map_fine $lt"0" $master_mli_width $diff_par $lt
+GM gc_map_fine $lt"0" $master_mli_width $diff_par"0" $lt
 
 ## Resample slave SLC into geometry of master SLC using lookup table
 GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par - $rslc $rslc_par
@@ -243,7 +245,7 @@ done
 
 GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
 
-rm -f $off"s0" $ccp"0" $coffs"0" $offs $ccp $coffs $coffsets $lt"0"
+rm -f $off"s0" $ccp"0" $coffs"0" $offs $ccp $coffs $coffsets $lt"0" mli0
 
 ## Extract final offset values to check coregistration
 echo $master > temp1_$rlks
