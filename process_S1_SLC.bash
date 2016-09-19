@@ -306,14 +306,21 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 
     GM SLC_mosaic_S1_TOPS slc_tab $slc $slc_par $slc_rlks $slc_alks  
 
-
-    # Import precise orbit information
-    ls $orbit_dir/* > temp1
-    date_sub=1
-    orb_date=$(date "--date=${scene} -${date_sub} day" +%Y%m%d)
-    opod=`sed -n "/$orb_date/p" temp1`
-    GM S1_OPOD_vec $slc_par $opod 
-    rm -f temp1
+    # Import precise orbit information (if they have been downloaded)
+    if [ -n "$(ls -A $orbit_dir)" ]; then #directory contains files
+	ls $orbit_dir/* > temp1
+	date_sub=1
+	orb_date=$(date "--date=${scene} -${date_sub} day" +%Y%m%d)
+	opod=`sed -n "/$orb_date/p" temp1`
+	if [ ! -z $opod ]; then #correct orbit file exists
+	    GM S1_OPOD_vec $slc_par $opod 
+	else
+	    :
+	fi
+	rm -f temp1
+    else # orbit directory empty
+	:
+    fi
 
     # Make quick-look image of full SLC
     width=`grep range_samples: $slc_par | awk '{print $2}'`
