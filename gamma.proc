@@ -54,15 +54,17 @@ azimuth_lines=-
 Setup=yes
 Do_raw_data=yes
 Do_SLC=yes
-    # for Sentinel-1 only
+    # for Sentinel-1 only (do 'Do_SLC' first then change this to yes)
 Do_SLC_subset=yes
 
 Coregister_DEM=yes
 Coregister_slaves=yes
     # only process interferograms after slave coregistration has been checked
 Process_ifms=yes
+
     # options for adding new SLCs to already processed dataset
-Add_new_SLC=no
+Add_scenes_setup=no
+Add_SLC=no
 Coregister_add_slaves=no
 Process_add_ifms=no
 

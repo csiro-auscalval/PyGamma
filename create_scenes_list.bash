@@ -6,6 +6,8 @@ display_usage() {
     echo "* create_scenes_list: Creates a list of scene SLCs.                           *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
+    echo "*         [type]       list type to create (eg. 1=scenes.list or              *"
+    echo "*                      2=add_scenes.list)                                     *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       18/06/2015, v1.1                            *"
@@ -13,16 +15,17 @@ display_usage() {
     echo "*         Sarah Lawrie @ GA       29/01/2016, v1.2                            *"
     echo "*             - add ability to create list from S1 data on the RDSI           *"
     echo "*******************************************************************************"
-    echo -e "Usage: create_scenes_list.bash [proc_file]"
+    echo -e "Usage: create_scenes_list.bash [proc_file] [type]"
     }
 
-if [ $# -lt 1 ]
+if [ $# -lt 2 ]
 then 
     display_usage
     exit 1
 fi
 
 proc_file=$1
+type=$2
 
 ## Variables from parameter file (*.proc)
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
@@ -40,6 +43,7 @@ else
 fi
 
 scene_list=$proj_dir/$track_dir/lists/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
+add_scene_list=$proj_dir/$track_dir/lists/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
 frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 s1_list=$proj_dir/$track_dir/lists/`grep S1_rdsi_files= $proc_file | cut -d "=" -f 2`
 
@@ -56,6 +60,20 @@ echo ""
 echo "PROCESSING PROJECT: "$project $track_dir
 echo ""
 
+list_dir=$proj_dir/$track_dir/lists
+cd $list_dir
+
+# copy existing scene list to compare with additional scene list
+if [ $type -eq 2 ]; then
+    cp $scene_list temp1
+    sort temp1 > org_scenes.list
+    rm -f temp1
+else
+    :
+fi
+
+echo "Scenes List File Creation" 1>&2
+## Create list of scenes
 if [ $platform == GA ]; then
     if [ -f $frame_list ]; then 
 	while read frame; do
@@ -90,7 +108,7 @@ if [ $platform == GA ]; then
 	sort -n date.list > $scene_list
 	rm -rf tar.list date.list
     fi
-else 
+else ## NCI
     cd $proj_dir/$track_dir
     if [ -f $frame_list ]; then # if frames exist
 	while read frame; do
@@ -162,6 +180,14 @@ else
     fi
 fi
 
+# Create additional scene list
+if [ $type -eq 2 ]; then
+    cd $list_dir
+    echo "Additional Slaves List File Creation" 1>&2
+    comm -13 org_scenes.list $scene_list > $add_scene_list
+else
+    :
+fi
 
 # script end 
 ####################

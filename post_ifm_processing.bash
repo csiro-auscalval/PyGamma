@@ -249,7 +249,7 @@ if [ -z $beam ]; then #no beam
     echo \#\PBS -l wd >> $job
     echo \#\PBS -q normal >> $job
     echo \#\PBS -W depend=afterany:$unw_ifm_jobid:$filt_ifm_jobid:$filt_cc_jobid:$flat_cc_jobid >> $job
-    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc_file 7 >> $job
+    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc_file 8 >> $job
     chmod +x $job
     qsub $job
     
@@ -330,7 +330,7 @@ else #beam exists
     echo \#\PBS -l wd >> $job
     echo \#\PBS -q normal >> $job
     echo \#\PBS -W depend=afterany:$unw_ifm_jobid:$filt_ifm_jobid:$filt_cc_jobid:$flat_cc_jobid >> $job
-    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc_file 7 $beam >> $job
+    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc_file 8 $beam >> $job
     chmod +x $job
     qsub $job
 

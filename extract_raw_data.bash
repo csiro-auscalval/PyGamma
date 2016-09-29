@@ -9,8 +9,8 @@ display_usage() {
     echo "*                   for processing with GAMMA.                                *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
-    echo "*         [flag]       0: use 'List_of_scenes' file (default)                 *"
-    echo "*                      1: use 'List_of_add_scenes' file                       *"
+    echo "*         [flag]       1: use 'List_of_scenes' file (default)                 *"
+    echo "*                      2: use 'List_of_add_scenes' file                       *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       01/05/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       18/06/2015, v1.1                            *"
@@ -57,7 +57,7 @@ fi
 frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 s1_list=$proj_dir/$track_dir/lists/`grep S1_rdsi_files= $proc_file | cut -d "=" -f 2`
 
-if [ $flag == 0 ]; then
+if [ $flag == 1 ]; then
     scene_list=$proj_dir/$track_dir/lists/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
 else
     scene_list=$proj_dir/$track_dir/lists/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`

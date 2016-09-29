@@ -60,14 +60,19 @@ echo ""
 
 cd $proj_dir/$track_dir/lists
 
-if [ $type -eq 1 ]; then
-    echo "Slaves List File Creation" 1>&2
-    ## Create list of slave SLCs
-    sed "/$master/d" $scene_list > $slave_list
-else
+if [ $type -eq 2 ]; then
+    cp $slave_list $proj_dir/$track_dir/lists/org_slaves.list
     echo "Additional Slaves List File Creation" 1>&2
     cp $add_scene_list $add_slave_list
+else
+    :
 fi
+
+echo "Slaves List File Creation" 1>&2
+## Create list of slave SLCs
+sed "/$master/d" $scene_list > $slave_list
+
+
 
 
 

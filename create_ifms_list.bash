@@ -60,27 +60,15 @@ echo ""
 echo "PROCESSING PROJECT: "$project $track_dir
 echo ""
 
-## File preparation for making ifm list
-if [ $type -eq 2 ]; then # if making additional ifm list
-    # rename original ifm lists
-    mv all_ifms.list org_all_ifms.list
-    mv ifm_files.list org_ifm_files.list
-    while read list; do
-	mv $list org_$list
-    done < org_ifm_files.list
-    # add additional scene dates to original scene and slave lists
-    cp $scene_list org_scenes.list
-    cp org_scenes.list org_scenes
-    cat $add_scene_list >> org_scenes1.list
-    sed '/^$/d' org_scenes1.list > org_scenes.list # removes any blank lines
-    awk ''!'x[$0]++' org_scenes.list > $scene_list # removes any duplicate scene dates
-    rm -rf org_scenes1.list
-    cp $slave_list org_slaves1.list
-    cat $add_slave_list >> org_slaves1.list
-    sed '/^$/d' org_slaves1.list > org_slaves.list # removes any blank lines
-    awk ''!'x[$0]++' org_slaves.list > $slave_list # removes any duplicate scene dates
-    rm -rf org_slaves1.list
-else # do nothing if creating ifm list
+list_dir=$proj_dir/$track_dir/lists
+cd $list_dir
+
+## Copy existing ifms list to compare with additional ifms list
+if [ $type -eq 2 ]; then
+    cp $ifm_list temp1
+    sort temp1 > org_ifms.list
+    rm -f temp1
+else
     :
 fi
 
@@ -169,22 +157,17 @@ done < temp_ifm.list
 rm -rf *_master *_master_keep_list *_initial_ifm_list dates.list master.list initial_ifm.list temp_ifm.list
 
 
-if [ $type -eq 2 ]; then # Identify new interferograms (not in original ifm list)
+
+# Identify new interferograms (not in original ifm list)
+if [ $type -eq 2 ]; then
+    cd $list_dir
+    echo "Additional Slaves List File Creation" 1>&2
     comm -13 org_ifms.list $ifm_list > $add_ifm_list
-    # number of interferograms, split list if greater than 190 records (for NCI processing)
-    if [ $platform == NCI ]; then
-	num_ifms=`cat $add_ifm_list | sed '/^\s*$/d' | wc -l`
-	split -dl 190 $add_ifm_list $add_ifm_list"_"
-	mv $add_ifm_list all_add_ifms.list
-	ls add_ifms.list_* > temp
-	cat temp | tr " " "\n" > add_ifm_files.list
-	rm -rf temp
-    else
-	:
-    fi
 else
     :
 fi
+
+
 
 
 # script end 

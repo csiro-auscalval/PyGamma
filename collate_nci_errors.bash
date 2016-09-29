@@ -70,6 +70,7 @@ batch_dir=$proj_dir/$track_dir/batch_jobs
 error_dir=$proj_dir/$track_dir/error_results
 
 
+
 ## Setup Errors
 if [ $type -eq 1 ]; then
     echo "Collating Errors from Setup..."
@@ -382,7 +383,7 @@ elif [ $type -eq 7 ]; then
     fi
 
 ## Interferogram Plotting Errors
-elif [ $type -eq 7 ]; then
+elif [ $type -eq 8 ]; then
     echo "Collating Errors from Interferogram Plots..."
     echo ""
     dir=$batch_dir/ifm_jobs
@@ -425,7 +426,7 @@ elif [ $type -eq 7 ]; then
 
 
 ## Mosaic Beam Interferograms
-elif [ $type -eq 8 ]; then
+elif [ $type -eq 9 ]; then
     echo "Collating Errors from Mosaicing Beam Interferograms..."
     echo ""
     dir=$batch_dir/ifm_jobs
@@ -448,32 +449,23 @@ elif [ $type -eq 8 ]; then
     rm -rf list
 
 
-## Additional SLC Errors
-elif [ $type -eq 9 ]; then
-    echo "Collating Errors from Creating Additional SLCs..."
-    echo ""
-    error_list=$error_dir/add_slcs_errors
+## Additional Scene Setup Errors
+elif [ $type -eq 10 ]; then
+    echo "Collating Errors from Adding Additional Scenes..."
+    echo "" 1>&2
+    dir=$batch_dir
+    cd $dir
+# lists creation
+    error_list=$error_dir/add_scene_errors
     if [ -f $error_list ]; then
 	rm -rf $error_list
     else
 	:
     fi
-# directory creation
-    cd $proj_dir/$track_dir
-    ls *.e* > list 
-    while read error; do
-	if [ ! -z $error ]; then
-	    less $error > temp
-	    paste temp >> $error_list
-	    rm -rf temp
-	fi
-    done < list
-    rm -rf list
-# lists creation and raw data extraction
     cd $batch_dir
-    ls add_slave_list*.e* > list
+    ls add_scene_list*.e* > list
+    ls add_slave_list*.e* >> list
     ls add_ifm_list*.e* >> list
-    ls extract_add_raw*.e* >> list
     while read error; do
 	if [ ! -z $error ]; then
 	    less $error > temp
@@ -482,11 +474,40 @@ elif [ $type -eq 9 ]; then
 	fi
     done < list
     rm -rf list
-    
-# additional SLC creation
+
+    echo "Collating Errors from Extracting Addtional Raw Data..."
+    echo "" 1>&2
+    error_list=$error_dir/add_extract_raw_errors
+    if [ -f $error_list ]; then
+	rm -rf $error_list
+    else
+	:
+    fi
+    cd $batch_dir
+    ls add_extract_raw*.e* > list
+    while read error; do
+	if [ ! -z $error ]; then
+	    less $error > temp
+	    paste temp >> $error_list
+	    rm -rf temp
+	fi
+    done < list
+    rm -rf list
+
+
+## SLC Creation Errors
+elif [ $type -eq 11 ]; then
+    echo "Collating Errors from SLC Creation..."
+    echo ""
     dir=$batch_dir/add_slc_jobs
     cd $dir
     if [ ! -z $beam ]; then
+	error_list=$error_dir/"add_"$beam"_slc_errors.list"
+	if [ -f $error_list ]; then
+	    rm -rf $error_list
+	else
+	    :
+	fi
 	cd $beam
 	ls -d job_* > dir_list
 	while read list; do
@@ -507,6 +528,12 @@ elif [ $type -eq 9 ]; then
 	rm -rf dir_list
     else
 	cd $dir
+	error_list=$error_dir/add_slc_creation_errors
+	if [ -f $error_list ]; then
+	    rm -rf $error_list
+	else
+	    :
+	fi
 	ls -d job_* > dir_list
 	while read list; do
 	    if [ ! -z $list ]; then
@@ -526,14 +553,14 @@ elif [ $type -eq 9 ]; then
 	rm -rf dir_list
     fi
 
-## Coregister Additional SLC Errors
-elif [ $type -eq 10 ]; then
-    echo "Collating Errors from Additional SLC Coregistration..."
+## Coregister additional SLC Errors
+elif [ $type -eq 12 ]; then
+    echo "Collating Errors from SLC Coregistration..."
     echo ""
     dir=$batch_dir/add_slc_coreg_jobs
     cd $dir
     if [ ! -z $beam ]; then
-	error_list=$error_dir/$beam"_add_slc_coreg_errors.list"
+	error_list=$error_dir/"add_"$beam"_slc_coreg_errors.list"
 	if [ -f $error_list ]; then
 	    rm -rf $error_list
 	else
@@ -583,14 +610,14 @@ elif [ $type -eq 10 ]; then
 	rm -rf dir_list
     fi
 
-## Additional Interferogram Errors
-elif [ $type -eq 11 ]; then
-    echo "Collating Errors from Additional Interferogram Creation..."
+## Interferogram Errors
+elif [ $type -eq 13 ]; then
+    echo "Collating Errors from Addtional Interferogram Creation..."
     echo ""
     dir=$batch_dir/add_ifm_jobs
     cd $dir
     if [ ! -z $beam ]; then
-	error_list=$error_dir/$beam"_add_ifm_errors.list"
+	error_list=$error_dir/"add_"$beam"_ifm_errors.list"
 	if [ -f $error_list ]; then
 	    rm -rf $error_list
 	else
@@ -656,33 +683,6 @@ elif [ $type -eq 11 ]; then
 	done < dir_list
 	rm -rf dir_list
     fi
-
-
-## Additional Mosaic Errors
-elif [ $type -eq 12 ]; then
-    echo "Collating Errors from Additional Mosaicing Beam Interferograms..."
-    echo ""
-    dir=$batch_dir/add_ifm_jobs
-    cd $dir
-    error_list=$error_dir/add_mosaic_beam_errors
-    if [ -f $error_list ]; then
-	rm -rf $error_list
-    else
-	:
-    fi
-    cd $dir
-    ls add_mosaic_beam*.e* > list
-    while read error; do
-	if [ ! -z $error ]; then
-	    less $error > temp
-	    paste temp >> $error_list
-	    rm -rf temp
-	fi
-    done < list
-    rm -rf list
-
-
 else
     :
 fi
-
