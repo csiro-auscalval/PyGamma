@@ -4097,7 +4097,7 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 		    echo \#\PBS -q normal >> $job
 		    echo -e "\n" >> $job
 		    if [ $add_slc == yes -a $platform == NCI ]; then 
-			add_slc_jobid=`awk '{print $1}' all_add_slc_job_id`
+			add_slc_jobid=`awk '{print $1}' $batch_dir/add_slc_jobs/all_add_slc_job_id`
 			echo \#\PBS -W depend=afterok:$add_slc_jobid >> $job
 		    else
 			:
@@ -4544,7 +4544,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 		    echo \#\PBS -q normal >> $job
 		    echo -e "\n" >> $job
 		    if [ $coregister_add == yes -a $platform == NCI ]; then
-			add_co_slc_jobid=`awk '{print $1}' $batch_dir/slc_coreg_jobs/all_add_co_slc_job_id`
+			add_co_slc_jobid=`awk '{print $1}' $batch_dir/add_slc_coreg_jobs/all_add_co_slc_job_id`
 			echo \#\PBS -W depend=afterok:$add_co_slc_jobid >> $job
 		    else
 			:
