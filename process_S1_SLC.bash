@@ -169,10 +169,10 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 			    echo " "
 			    echo "Processing swath "$swath" for SLC "$scene
 			    echo " "
-			    annot=`ls $raw_dir/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
-			    data=`ls $raw_dir/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
-			    calib=`ls $raw_dir/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
-			    noise=`ls $raw_dir/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
+			    annot=`ls $raw_dir/F1/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
+			    data=`ls $raw_dir/F1/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
+			    calib=`ls $raw_dir/F1/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
+			    noise=`ls $raw_dir/F1/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
 			    bslc="slc$swath"
 			    bslc_par=${!bslc}.par
 			    btops="tops_par$swath"
