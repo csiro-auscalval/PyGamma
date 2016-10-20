@@ -17,12 +17,12 @@ display_usage() {
     }
 
 if [ $# -lt 4 ]
-then 
+then
     display_usage
     exit 1
 fi
 
-if [ $2 -lt "10000000" ]; then 
+if [ $2 -lt "10000000" ]; then
     echo "ERROR: Scene ID needed in YYYYMMDD format"
     exit 1
 else
@@ -203,11 +203,11 @@ plot_dop.bash $slc_name.dop
 GM rspec_IQ $sensor_par $msp_par $raw $slc_name.rspec
 
 ## Check range spectrum for spikes indicating RFI. If they exist can be suppresed during range compression 'pre_rc'
-plot_rspec.bash $slc_name.rspec
+plot_rspec.bash $slc_name.rspec $scene
 
 ## Range compression
 ## second to last parameter is for RFI suppression.
-GM pre_rc $sensor_par $msp_par $raw $slc_name.rc - - - - - - - - 0 -
+GM pre_rc $sensor_par $msp_par $raw $slc_name.rc
 
 ## REMOVE RAW IMAGE FILE HERE
 rm -f $raw
@@ -248,7 +248,7 @@ GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0
 
 
 
-# script end 
+# script end
 ####################
 
 ## Copy errors to NCI error file (.e file)

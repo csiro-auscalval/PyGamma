@@ -15,3 +15,8 @@ syntax: glob
 
 # back up dir of old scripts
 bak/
+
+# original version of bash scripts as downloaded on 12/07/2016
+*_orig.bash
+*_orig_wrong.bash
+.hgignore_orig
