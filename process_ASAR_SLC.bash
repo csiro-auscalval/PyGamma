@@ -12,6 +12,9 @@ display_usage() {
     echo "*         [alks]       MLI azimuth looks                                      *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Thomas Fuhrmann  @ GA   21/10/2016, v1.1                            *"
+    echo "*         - added $scene as paramater to plot_rspec.bash to enable the func.  *"
+    echo "*         -  deleted all params for pre_rc (default paraemters are used)      *"
     echo "*******************************************************************************"
     echo -e "Usage: process_ASAR_SLC.bash [proc_file] [scene] [rlks] [alks]"
     }
