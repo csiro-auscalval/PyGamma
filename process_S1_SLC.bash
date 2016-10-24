@@ -227,20 +227,22 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     echo " "
     echo "Concatenate frames to produce SLC bursts ..."
     echo " "
-
     while read frame_num; do
 	if [ ! -z "$frame_num" ]; then
 	    date=`echo $frame_num | awk '{print $1}'`
 	    if [ "$date" -eq "$scene" ]; then
 		tot_frame=`echo $frame_num | awk '{print $2}'`
-		paste slc_list par_list tops_list > lists
-		if [ $tot_frame -eq 2 ]; then # 2 frames
+		if [ $tot_frame -eq 1 ]; then # single frame, no concatenation
+		    :
+		elif [ $tot_frame -eq 2 ]; then # 2 frames
+		    paste slc_list par_list tops_list > lists
 		    head -n 3 lists > fr_tab1
 		    tail -3 lists > fr_tab2
 		    
 		    GM SLC_cat_S1_TOPS fr_tab1 fr_tab2 slc_tab
-		    
+
 		elif [ $tot_frame -eq 3 ]; then # 3 frames
+		    paste slc_list par_list tops_list > lists
 		    echo $scene_dir/$slc1_1 $scene_dir/$slc_par1_1 $scene_dir/$tops_par1_1 > slc1_tab
 		    echo $scene_dir/$slc2_1 $scene_dir/$slc_par2_1 $scene_dir/$tops_par2_1 >> slc1_tab
 		    echo $scene_dir/$slc3_1 $scene_dir/$slc_par3_1 $scene_dir/$tops_par3_1 >> slc1_tab
@@ -254,15 +256,16 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 		    echo "script can only concatenate up to 3 frames"   
 		fi
 	        # remove frame slc files
-		paste slc_list > to_remove
-		paste par_list >> to_remove
-		while read remove; do
-		    rm -f $remove
-		done < to_remove
+		if [ -e slc_list ]; then
+		    paste slc_list > to_remove
+		    paste par_list >> to_remove
+		    while read remove; do
+			rm -f $remove
+		    done < to_remove
+		fi
 	    fi
 	fi
     done < $frame_list
-
 
     rm -f to_remove slc_list par_list tops_list lists fr_tab* slc1_tab 
 
