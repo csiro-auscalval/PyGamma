@@ -12,17 +12,20 @@ display_usage() {
     echo "*         [alks]       MLI azimuth looks                                      *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Thomas Fuhrmann  @ GA   21/10/2016, v1.1                            *"
+    echo "*         - added $scene as paramater to plot_rspec.bash to enable the func.  *"
+    echo "*         -  deleted all params for pre_rc (default paraemters are used)      *"
     echo "*******************************************************************************"
     echo -e "Usage: process_ASAR_SLC.bash [proc_file] [scene] [rlks] [alks]"
     }
 
 if [ $# -lt 4 ]
-then 
+then
     display_usage
     exit 1
 fi
 
-if [ $2 -lt "10000000" ]; then 
+if [ $2 -lt "10000000" ]; then
     echo "ERROR: Scene ID needed in YYYYMMDD format"
     exit 1
 else
@@ -203,11 +206,11 @@ plot_dop.bash $slc_name.dop
 GM rspec_IQ $sensor_par $msp_par $raw $slc_name.rspec
 
 ## Check range spectrum for spikes indicating RFI. If they exist can be suppresed during range compression 'pre_rc'
-plot_rspec.bash $slc_name.rspec
+plot_rspec.bash $slc_name.rspec $scene
 
 ## Range compression
 ## second to last parameter is for RFI suppression.
-GM pre_rc $sensor_par $msp_par $raw $slc_name.rc - - - - - - - - 0 -
+GM pre_rc $sensor_par $msp_par $raw $slc_name.rc
 
 ## REMOVE RAW IMAGE FILE HERE
 rm -f $raw
@@ -248,7 +251,7 @@ GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0
 
 
 
-# script end 
+# script end
 ####################
 
 ## Copy errors to NCI error file (.e file)
