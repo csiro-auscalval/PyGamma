@@ -23,9 +23,10 @@ Track=TxxxxA/D
 
 
 ##### Sensor/Data Details #####
-    # options: ASAR, CSK, ERS, JERS1, PALSAR1, PALSAR2, RSAT1, RSAT2, S1, TSX 
+    # options: ASAR, CSK, ERS, JERS1, PALSAR1, PALSAR2, RSAT1, RSAT2, S1, TSX
 Sensor=PALSAR1
-    # Sensor mode Sentinel-1: IWS/SM; Radarsat-2: W/MF (Wide/Multi-look Fine); PALSAR2: WD/SM (Wide-swath/Stripmap). 
+    # Sensor mode Sentinel-1: IWS/SM; Radarsat-2: W/MF (Wide/Multi-look Fine); PALSAR2: WD/SM (Wide-swath/Stripmap).
+    # Sensor mode for ASAR: I4 or - (for other image modes)
     # Used to determine multi-look ratio
 Sensor_mode=IWS
     # if ERS sensor, specify which one (ERS1 or ERS2):
@@ -107,14 +108,14 @@ ifm_multi_look=4
 
 ##### Make Reference Master DEM Parameters #####
 # for init_offsetm:
-    # correlation patch size (default 1024, options: 128, 256, 512, 1024) 
+    # correlation patch size (default 1024, options: 128, 256, 512, 1024)
     # use larger window for large scenes and usage of scene centre (e.g. S1), use smaller window for windows towards edge of scene and smaller scenes (e.g. FB PALSAR)
 dem_patch_window=1024
     #select centre of window for initial offset estimation (default:- this gives scene centre)
 rpos=-
 azpos=-
 # for create_diff_par:
-    # range, azimuth offsets of image2 relative to image1 (samples) (default 0 0): - for full DEM only, auto calculated for mli 
+    # range, azimuth offsets of image2 relative to image1 (samples) (default 0 0): - for full DEM only, auto calculated for mli
 dem_offset=0 0
     # enter number of offset measurements in range, azimuth (default 32 32):
 dem_offset_measure=32 32
@@ -124,8 +125,8 @@ dem_win=256 256
 dem_snr=0.15
 
 ##### Slave coregistration parameters #####
-    # SNR Threshold for offset rejection (default = 7.0)
-coreg_snr_thresh=7.0
+    # Cross-correlation threshold for offset rejection (default = 0.1)
+coreg_cc_thresh=0.1
     # Number of polynomial model parameters (1, 3, 4 or 6; only 1 required for Sentinel-1)
 coreg_model_params=4
     # Size of window for intensity cross-correlation (default = 128)
@@ -141,9 +142,8 @@ coreg_num_iterations=5
 slv_offset_measure=32 32
     # search window sizes (32, 64, 128...) (range, azimuth) (default 256 256):
 slv_win=256 256
-    # correlation SNR threshold (nominal: 0.3):
-slv_snr=0.3
-
+    # Cross-correlation threshold (nominal: 0.15):
+slv_cc_thresh=0.15
 
 ##### Interferogram Parameters #####
 ## adaptive spectral filtering (adf) parameters
