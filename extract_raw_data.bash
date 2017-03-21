@@ -22,7 +22,7 @@ display_usage() {
     }
 
 if [ $# -lt 1 ]
-then 
+then
     display_usage
     exit 1
 fi
@@ -57,14 +57,14 @@ fi
 frame_list=$proj_dir/$track_dir/lists/`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 s1_list=$proj_dir/$track_dir/lists/`grep S1_rdsi_files= $proc_file | cut -d "=" -f 2`
 
-if [ $flag == 1 ]; then
+if [ $flag == 0 ]; then
     scene_list=$proj_dir/$track_dir/lists/`grep List_of_scenes= $proc_file | cut -d "=" -f 2`
 else
     scene_list=$proj_dir/$track_dir/lists/`grep List_of_add_scenes= $proc_file | cut -d "=" -f 2`
 fi
 
 ## Insert scene details top of NCI .e file
-echo "" 1>&2 
+echo "" 1>&2
 echo "" 1>&2
 echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
 echo "" 1>&2
@@ -78,9 +78,9 @@ echo "PROCESSING PROJECT: "$project $track_dir
 echo ""
 
 if [ $platform == GA ]; then # raw data only, DEM already extracted
-    if [ -f $frame_list ]; then 
+    if [ -f $frame_list ]; then
 	while read frame; do
-	    if [ ! -z $frame ]; then 
+	    if [ ! -z $frame ]; then
 		cd $raw_dir_ga/F$frame
 		mkdir -p date_dirs
 		while read scene; do
@@ -205,7 +205,7 @@ elif [ $platform == NCI ]; then
 		if [ ! -z $tar ]; then
 		    if [ -d $raw_dir/$track_dir/$scene ]; then #check if data have already been extracted from tar file
 	   		:
-		    else 
+		    else
 			mdss get $raw_dir_mdss/$tar < /dev/null $raw_dir/$track_dir # /dev/null allows mdss command to work properly in loop
 			cd $raw_dir/$track_dir
 			tar -xvzf $tar
@@ -220,8 +220,8 @@ elif [ $platform == NCI ]; then
    dem_dir=$proj_dir/gamma_dem # extract DEM
    cd $proj_dir
    if [ ! -e $dem_dir/$dem_name_nci ]; then
-       dem=`echo $dem_name_nci | cut -d'.' -f1` 
-       image=`echo $ext_image | cut -d'.' -f1` 
+       dem=`echo $dem_name_nci | cut -d'.' -f1`
+       image=`echo $ext_image | cut -d'.' -f1`
        tar=$dem.tar.gz
        mdss get $dem_loc_nci/$tar < /dev/null $proj_dir # /dev/null allows mdss command to work properly in loop
        tar -xvzf $tar
@@ -234,5 +234,5 @@ else
 fi
 
 
-# script end 
+# script end
 ####################
