@@ -151,9 +151,12 @@ ifm_dir=$proj_dir/$track_dir/`grep INT_dir= $proc_file | cut -d "=" -f 2`
 if [ $sensor == ASAR -o $sensor == ERS ]; then
     slc_rlks=$slc_looks
     ifm_rlks=$ifm_looks
-    if [ $mode == I4 ]; then
+    if [ $mode == I4 -o $mode == I7 ]; then
        slc_alks=`echo $slc_looks | awk '{print $1*3}'`
        ifm_alks=`echo $ifm_looks | awk '{print $1*3}'`
+    elif [ $mode == I1 ]; then
+       slc_alks=`echo $slc_looks | awk '{print $1*6}'`
+       ifm_alks=`echo $ifm_looks | awk '{print $1*6}'`
     else
        slc_alks=`echo $slc_looks | awk '{print $1*5}'`
        ifm_alks=`echo $ifm_looks | awk '{print $1*5}'`
@@ -168,11 +171,23 @@ elif [ $sensor == RSAT1 ]; then
     slc_alks=`echo $slc_looks | awk '{print $1*4}'`
     ifm_rlks=$ifm_looks
     ifm_alks=`echo $ifm_looks | awk '{print $1*4}'`
-elif [ $sensor == RSAT2 -a $mode == W ]; then
-    slc_rlks=$slc_looks
-    slc_alks=`echo $slc_looks | awk '{print $1*4}'`
-    ifm_rlks=$ifm_looks
-    ifm_alks=`echo $ifm_looks | awk '{print $1*4}'`
+elif [ $sensor == RSAT2 ]; then
+    if [ $mode == W ]; then
+       slc_rlks=$slc_looks
+       slc_alks=`echo $slc_looks | awk '{print $1*4}'`
+       ifm_rlks=$ifm_looks
+       ifm_alks=`echo $ifm_looks | awk '{print $1*4}'`
+    elif [ $mode == F -a $slc_looks -gt 1 -a $ifm_looks -gt 1 ]; then
+       slc_rlks=$slc_looks
+       slc_alks=`echo $slc_looks | awk '{print $1/2*3}'`
+       ifm_rlks=$ifm_looks
+       ifm_alks=`echo $ifm_looks | awk '{print $1/2*3}'`
+    else
+       slc_rlks=$slc_looks
+       slc_alks=$slc_looks
+       ifm_rlks=$ifm_looks
+       ifm_alks=$ifm_looks
+    fi
 elif [ $sensor == S1 -a $mode == IWS ]; then
     slc_alks=$slc_looks
     slc_rlks=`echo $slc_looks | awk '{print $1*5}'`
@@ -184,7 +199,7 @@ elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
     ifm_rlks=$ifm_looks
     ifm_alks=`echo $ifm_looks | awk '{print $1*2}'`
 else
-    # CSK, RSAT2, TSX, S1_SM
+    # CSK, TSX, S1_SM
     slc_rlks=$slc_looks
     slc_alks=$slc_looks
     ifm_rlks=$ifm_looks
