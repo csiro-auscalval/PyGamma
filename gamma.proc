@@ -154,6 +154,9 @@ Filtering_window=32
     # coherence estimation window value (must be odd numbers, default is 3)
 Coherence_window=3
 
+## baseline estimation
+iterative=no
+
 ## phase unwrapping parameters
     # unwrapping type (branch = branch-cut method, mcf = minimum cost flow method)
 unwrap_type=mcf

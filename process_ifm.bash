@@ -56,6 +56,7 @@ master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 unwrap_type=`grep unwrap_type= $proc_file | cut -d "=" -f 2`
 start_x=`grep start_x= $proc_file | cut -d "=" -f 2`
 start_y=`grep start_y= $proc_file | cut -d "=" -f 2`
+base_iter_flag=`grep iterative= $proc_file | cut -d "=" -f 2`
 bridge_flag=`grep bridge= $proc_file | cut -d "=" -f 2`
 expon=`grep Exponent= $proc_file | cut -d "=" -f 2`
 filtwin=`grep Filtering_window= $proc_file | cut -d "=" -f 2`
@@ -290,10 +291,13 @@ INT()
     ## Calculate initial interferogram from coregistered SLCs
     GM SLC_intf $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $int $ifm_rlks $ifm_alks - - 1 1
 
-    ## Estimate initial baseline using orbit state vectors, offsets, and interferogram phase
-    #GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 2
-    ## Estimate initial baseline using orbit state vectors
-    GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 0
+    if [ $base_iter_flag == yes ]; then
+      ## Estimate initial baseline using orbit state vectors
+      GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 0
+    else
+      ## Estimate initial baseline using orbit state vectors, offsets, and interferogram phase
+      GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 2
+    fi
     #GM look_vector $mas_slc_par $off $utm_dem_par $utm_dem $lv_theta $lv_phi
 }
 
@@ -332,8 +336,9 @@ FLAT()
     ## Subtract topographic phase
     GM sub_phase $int $sim_unw1 $diff_par $int_flat1 1 0
 
-# As the initial baseline estimate maybe quite wrong for longer baselines, iterations are performed here
-# Initialise variables for iterative baseline calculation (initial baseline)
+  if [ $base_iter_flag == yes ]; then
+  # As the initial baseline estimate maybe quite wrong for longer baselines, iterations are performed here
+  # Initialise variables for iterative baseline calculation (initial baseline)
     counter=0
     test=0
     baseC=`grep "initial_baseline(TCN):" $base_init | awk '{print $3}'`
@@ -343,7 +348,7 @@ FLAT()
     # $thresh defines the threshold in [m] at which the while loop is aborted
     thresh=0.15
 
- while [ $test -eq 0 -a $counter -lt 15 ]; do
+   while [ $test -eq 0 -a $counter -lt 15 ]; do
 
     let counter=counter+1
     echo "Initial baseline refinement, Iteration:" $counter
@@ -401,11 +406,16 @@ FLAT()
     cp -f $int_flat1 $int_flat_temp
     cp -f $base $base_temp
 
-  done
-  ### iteration
+   done
+   ### iteration
 
-  rm -f $base_temp
-  rm -f $int_flat_temp
+   rm -f $base_temp
+   rm -f $int_flat_temp
+
+  else
+    :
+    # use original baseline estimation without iteration
+  fi
 
     #######################################
     # Perform refinement of baseline model
