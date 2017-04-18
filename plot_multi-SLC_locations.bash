@@ -69,24 +69,54 @@ fi
 
 slc_dir=$proj_dir/$track_dir/`grep SLC_dir= $proc_file | cut -d "=" -f 2`
 
-echo > polygons.txt
-echo > labels.txt
-echo > min_max_lat.txt
-echo > min_max_lon.txt
+# info needed for calculation of subset values
+subset_info=$slc_dir/subset_info.txt
+echo "Date         Latitude    Longitude  azimuth    range  az_spacing  rg_spacing  inc_angle" > $subset_info
 
-poly=polygons.txt
-label=labels.txt
-min_max_lat=min_max_lat.txt #used to determine overall min and max coordinates for plotting
-min_max_lon=min_max_lon.txt
-echo ">" >> $poly
+if [ $sensor == RSAT2 ]; then
+# no msp_par file for RSAT2 processing
+# only centre lat/lon is output instead of an image
+  while read file; do
+    scene=$file
+    scene_dir=$slc_dir/$scene
+    slc_name=$scene"_"$polar
+    ####
+    # grep information on latitude and longitude and save into txt file to be used for offset calculations
+    slc_par=$scene_dir"/"$slc_name".slc.par"
+    lat=`grep center_latitude $slc_par | awk '{print $2}'`
+    lon=`grep center_longitude $slc_par | awk '{print $2}'`
+    az_lines=`grep azimuth_lines $slc_par | awk '{print $2}'`
+    rg_samples=`grep range_samples $slc_par | awk '{print $2}'`
+    az_spacing=`grep azimuth_pixel_spacing $slc_par | awk '{print $2}'`
+    rg_spacing=`grep range_pixel_spacing $slc_par | awk '{print $2}'`
+    inc=`grep incidence_angle $slc_par | awk '{print $2}'`
 
-psfile=SLC_Locations.ps
+    # output to file
+    printf "%8.8s  %11.6f  %11.6f  %7i  %7i  %10.6f  %10.6f  %9.4f\n" $scene $lat $lon $az_lines $rg_samples $az_spacing $rg_spacing $inc >> $subset_info
+  done < $list
 
-az_rg=$slc_dir/az_rg_pixels
-echo "Number of pixels in range and azimuth" > $az_rg
+else
+  # other sensors
 
-# Extract coordinates for polygons and labels
-while read file; do
+  echo > polygons.txt
+  echo > labels.txt
+  echo > min_max_lat.txt
+  echo > min_max_lon.txt
+
+  poly=polygons.txt
+  label=labels.txt
+  # used to determine overall min and max coordinates for plotting:
+  min_max_lat=min_max_lat.txt
+  min_max_lon=min_max_lon.txt
+  echo ">" >> $poly
+
+  psfile=SLC_Locations.ps
+
+  az_rg=$slc_dir/az_rg_pixels
+  echo "Number of pixels in range and azimuth" > $az_rg
+
+  # Extract coordinates for polygons and labels
+  while read file; do
     scene=$file
     scene_dir=$slc_dir/$scene
     slc_name=$scene"_"$polar
@@ -144,68 +174,89 @@ while read file; do
     #paste temp5 temp6 temp7 >> $label
     paste temp5 temp7 >> $label
 
-done < $list
+    ####
+    # grep information on latitude and longitude and save into txt file to be used for offset calculations
+    slc_par=$scene_dir"/"$slc_name".slc.par"
+    lat=`grep center_latitude $slc_par | awk '{print $2}'`
+    lon=`grep center_longitude $slc_par | awk '{print $2}'`
+    az_lines=`grep azimuth_lines $slc_par | awk '{print $2}'`
+    rg_samples=`grep range_samples $slc_par | awk '{print $2}'`
+    az_spacing=`grep azimuth_pixel_spacing $slc_par | awk '{print $2}'`
+    rg_spacing=`grep range_pixel_spacing $slc_par | awk '{print $2}'`
+    inc=`grep incidence_angle $slc_par | awk '{print $2}'`
 
-#remove any blank lines in files
-sed '/^$/d' $poly > polygons2.txt
-sed '/^$/d' $label > labels2.txt
-sed '/^$/d' $min_max_lat > min_max_lat2.txt
-sed '/^$/d' $min_max_lon > min_max_lon2.txt
+    # output to file
+    printf "%8.8s  %11.6f  %11.6f  %7i  %7i  %10.6f  %10.6f  %9.4f\n" $scene $lat $lon $az_lines $rg_samples $az_spacing $rg_spacing $inc >> $subset_info
+    ####
+
+  done < $list
+
+  #remove any blank lines in files
+  sed '/^$/d' $poly > polygons2.txt
+  sed '/^$/d' $label > labels2.txt
+  sed '/^$/d' $min_max_lat > min_max_lat2.txt
+  sed '/^$/d' $min_max_lon > min_max_lon2.txt
 
 
-# Extract minimum and maximum coordinate values for plot boundary
-s_org=`awk '{print $1}' min_max_lat2.txt | sort -n | head -1 | awk '{print $1}'`
-n_org=`awk '{print $1}' min_max_lat2.txt | sort -n | tail -1 | awk '{print $1}'`
-e_org=`awk '{print $1}' min_max_lon2.txt | sort -n | tail -1 | awk '{print $1}'`
-w_org=`awk '{print $1}' min_max_lon2.txt | sort -n | head -1 | awk '{print $1}'`
-val=0.2 # amount to add to create plot area
+  # Extract minimum and maximum coordinate values for plot boundary
+  s_org=`awk '{print $1}' min_max_lat2.txt | sort -n | head -1 | awk '{print $1}'`
+  n_org=`awk '{print $1}' min_max_lat2.txt | sort -n | tail -1 | awk '{print $1}'`
+  e_org=`awk '{print $1}' min_max_lon2.txt | sort -n | tail -1 | awk '{print $1}'`
+  w_org=`awk '{print $1}' min_max_lon2.txt | sort -n | head -1 | awk '{print $1}'`
+  val=0.2 # amount to add to create plot area
 
-# converts any exponential numbers to decimal
-s_temp=`printf "%f\n" $s_org`
-n_temp=`printf "%f\n" $n_org`
-e_temp=`printf "%f\n" $e_org`
-w_temp=`printf "%f\n" $w_org`
-val_temp=`printf "%f\n" $val`
+  # converts any exponential numbers to decimal
+  s_temp=`printf "%f\n" $s_org`
+  n_temp=`printf "%f\n" $n_org`
+  e_temp=`printf "%f\n" $e_org`
+  w_temp=`printf "%f\n" $w_org`
+  val_temp=`printf "%f\n" $val`
 
-s=$(expr $s_org-$val | bc)
-n=$(expr $n_org+$val | bc)
-e=$(expr $e_org+$val | bc)
-w=$(expr $w_org-$val | bc)
+  s=$(expr $s_org-$val | bc)
+  n=$(expr $n_org+$val | bc)
+  e=$(expr $e_org+$val | bc)
+  w=$(expr $w_org-$val | bc)
 
-# Create plot
-bounds=-R$w/$e/$s/$n
-proj=-JM10
-layout=-P
+  # Create plot
+  bounds=-R$w/$e/$s/$n
+  proj=-JM10
+  layout=-P
 
-# set some GMT parameters
-gmtset MAP_FRAME_TYPE plain FONT_LABEL 16p MAP_FRAME_PEN 1.5p
+  # set some GMT parameters
+  gmtset MAP_FRAME_TYPE plain FONT_LABEL 16p MAP_FRAME_PEN 1.5p
 
-# add political boundaries and coastlines to map
-pscoast $bounds $proj -Dh -Bf0.5a2neSW $layout -Gyellowgreen -Sdodgerblue -K -N1 -Ia -W > $psfile
+  # add political boundaries and coastlines to map
+  pscoast $bounds $proj -Dh -Bf0.5a2neSW $layout -Gyellowgreen -Sdodgerblue -K -N1 -Ia -W > $psfile
 
-# plot out SLC frames
-psxy polygons2.txt $bounds $proj $layout -L -W0.5p,red -L -K -O >> $psfile
+  # plot out SLC frames
+  psxy polygons2.txt $bounds $proj $layout -L -W0.5p,red -L -K -O >> $psfile
 
-# label SLC frames
-#pstext labels2.txt $bounds $proj $layout -O -K >> $psfile
-pstext labels2.txt $bounds $proj $layout -F+jLT -O >> $psfile
+  # label SLC frames
+  #pstext labels2.txt $bounds $proj $layout -O -K >> $psfile
+  pstext labels2.txt $bounds $proj $layout -F+jLT -O >> $psfile
 
-## Plot list of epoch
+  ## Plot list of epoch
 
-#awk '{print $1}' $1 > dates
+  #awk '{print $1}' $1 > dates
 
-#epoch=$output"_"$sthr"m_"$2"yr_epoch_bperp.txt"
+  #epoch=$output"_"$sthr"m_"$2"yr_epoch_bperp.txt"
 
-#awk '{print $1}' $epoch | psxy -Y-11.5c $bounds $proj -G225,225,225 -W6,black -Sc0.42c -K -O -m >> $psfile
-#awk '{print 15.5, 20-NR*0.5, "7.5 0 1 MC", NR}' $epoch |  pstext $bounds $proj -Gblack -K -O >> $psfile
-#awk '{printf "%4.0f\n", $1}' $epoch | awk '{print 16.6, 20-NR*0.5, "9 0 1 MC", $1}' |  pstext $bounds $proj -Gblack -O >> $psfile
+  #awk '{print $1}' $epoch | psxy -Y-11.5c $bounds $proj -G225,225,225 -W6,black -Sc0.42c -K -O -m >> $psfile
+  #awk '{print 15.5, 20-NR*0.5, "7.5 0 1 MC", NR}' $epoch |  pstext $bounds $proj -Gblack -K -O >> $psfile
+  #awk '{printf "%4.0f\n", $1}' $epoch | awk '{print 16.6, 20-NR*0.5, "9 0 1 MC", $1}' |  pstext $bounds $proj -Gblack -O >> $psfile
 
-ps2raster $psfile -A -Tf
+  ps2raster $psfile -A -Tf
 
-evince SLC_Locations.pdf
+  evince SLC_Locations.pdf
 
-mv -f SLC_Locations.pdf $slc_dir
+  mv -f SLC_Locations.pdf $slc_dir
 
-#cp labels2.txt labels3.txt
+  #cp labels2.txt labels3.txt
 
-rm -f $psfile temp* $poly $label $min_max_lat $min_max_lon polygons2.txt labels2.txt min_max_lat2.txt min_max_lon2.txt
+  rm -f $psfile temp* $poly $label $min_max_lat $min_max_lon polygons2.txt labels2.txt min_max_lat2.txt min_max_lon2.txt
+
+fi # RSAT2 sensor switch
+
+
+
+

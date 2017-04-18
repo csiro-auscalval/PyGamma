@@ -20,17 +20,20 @@ display_usage() {
     echo "*           - change snr to cross correlation parameters (process changed     *"
     echo "*             in GAMMA version Dec 2015)                                      *"
     echo "*           - add branch-cut unwrapping method as an option                   *"
+    echo "*         Thomas Fuhrmann @ GA       21/03/2017, v1.3                         *"
+    echo "*           - added iterative precision baseline estimation                   *"
+    echo "*             note that initial baseline estimate uses orbital state vectors  *"
     echo "*******************************************************************************"
     echo -e "Usage: process_ifm.bash [proc_file] [master] [slave] [rlks] [alks] <beam>"
     }
 
 if [ $# -lt 5 ]
-then 
+then
     display_usage
     exit 1
 fi
 
-if [ $2 -lt "10000000" -o $3 -lt "10000000" ]; then 
+if [ $2 -lt "10000000" -o $3 -lt "10000000" ]; then
     echo "ERROR: Scene ID needed in YYYYMMDD format"
     exit 1
 else
@@ -53,6 +56,7 @@ master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 unwrap_type=`grep unwrap_type= $proc_file | cut -d "=" -f 2`
 start_x=`grep start_x= $proc_file | cut -d "=" -f 2`
 start_y=`grep start_y= $proc_file | cut -d "=" -f 2`
+base_iter_flag=`grep iterative= $proc_file | cut -d "=" -f 2`
 bridge_flag=`grep bridge= $proc_file | cut -d "=" -f 2`
 expon=`grep Exponent= $proc_file | cut -d "=" -f 2`
 filtwin=`grep Filtering_window= $proc_file | cut -d "=" -f 2`
@@ -68,7 +72,7 @@ begin=`grep ifm_begin= $proc_file | cut -d "=" -f 2`
 finish=`grep ifm_end= $proc_file | cut -d "=" -f 2`
 
 
-if [ $begin == INT -o $begin == FLAT -o $begin == FILT -o $begin == UNW -o $begin == GEOCODE ]; then 
+if [ $begin == INT -o $begin == FLAT -o $begin == FILT -o $begin == UNW -o $begin == GEOCODE ]; then
     :
 else
     echo " "
@@ -76,7 +80,7 @@ else
     echo " "
     exit 1
 fi
-if [ $finish == FLAT -o $finish == FILT -o $finish == UNW -o $finish == GEOCODE -o $finish == DONE ]; then 
+if [ $finish == FLAT -o $finish == FILT -o $finish == UNW -o $finish == GEOCODE -o $finish == DONE ]; then
     :
 else
     echo " "
@@ -115,10 +119,10 @@ echo "PROCESSING_SCENE: "$project $track_dir $mas-$slv $ifm_rlks"rlks" $ifm_alks
 echo "" 1>&2
 
 ## Insert scene details top of NCI .o file
-echo "" 
+echo ""
 echo ""
 echo "PROCESSING_SCENE: "$project $track_dir $mas-$slv $ifm_rlks"rlks" $ifm_alks"alks" $beam
-echo "" 
+echo ""
 
 ## Copy output of Gamma programs to log files
 GM()
@@ -163,28 +167,28 @@ slv_mli=$slv_dir/r$slv_mli_name.mli
 slv_mli_par=$slv_mli.par
 
 
-if [ ! -f $mas_slc ]; then 
+if [ ! -f $mas_slc ]; then
     echo " "
     echo "ERROR: Cannot locate resampled master SLC. Please first run make_ref_master_DEM.bash' followed by 'coregister_slave SLC.bash' for each acquisition"
     exit 1
 else
     :
 fi
-if [ ! -f $mas_mli ]; then 
+if [ ! -f $mas_mli ]; then
     echo " "
     echo "ERROR: Cannot locate resampled master MLI. Please first run make_ref_master_DEM.bash' followed by 'coregister_slave SLC.bash' for each acquisition"
     exit 1
 else
     :
 fi
-if [ ! -f $slv_slc ]; then 
+if [ ! -f $slv_slc ]; then
     echo  " "
     echo "ERROR: Cannot locate resampled slave SLC. Please first run make_ref_master_DEM.bash' followed by 'coregister_slave SLC.bash' for each acquisition"
     exit 1
 else
     :
 fi
-if [ ! -f $slv_mli ]; then 
+if [ ! -f $slv_mli ]; then
     echo " "
     echo "ERROR: Cannot locate resampled slave MLI. Please first run make_ref_master_DEM.bash' followed by 'coregister_slave SLC.bash' for each acquisition"
     exit 1
@@ -219,6 +223,7 @@ sim_unw=$int_dir/$mas_slv_name"_sim.unw"
 sim_unw0=$int_dir/$mas_slv_name"_sim0.unw"
 sim_unw1=$int_dir/$mas_slv_name"_sim1.unw"
 int_flat=$int_dir/$mas_slv_name"_flat.int"
+int_flat_temp=$int_dir/$mas_slv_name"_flat_temp.int"
 int_flat0=$int_dir/$mas_slv_name"_flat0.int"
 int_flat1=$int_dir/$mas_slv_name"_flat1.int"
 int_flat10=$int_dir/$mas_slv_name"_flat10.int"
@@ -244,6 +249,7 @@ int_unw_model=$int_dir/$mas_slv_name"_model.unw"
 base=$int_dir/$mas_slv_name"_base.par"
 base_init=$int_dir/$mas_slv_name"_base_init.par"
 base_res=$int_dir/$mas_slv_name"_base_res.par"
+base_temp=$int_dir/$mas_slv_name"_base_temp.par"
 bperp=$int_dir/$mas_slv_name"_bperp.par"
 flag=$int_dir/$mas_slv_name.flag
 unw_geocode_out=$int_dir/$mas_slv_name"_utm.unw"
@@ -269,10 +275,10 @@ INT()
    echo " "
    echo "Processing INT..."
    echo " "
-    
+
     mkdir -p $int_dir
     cd $int_dir
-    
+
     ## Calculate and refine offset between interferometric SLC pair
     ## Also done in offset tracking so test if this has been run
     if [ ! -e $off ]; then
@@ -284,9 +290,14 @@ INT()
     fi
     ## Calculate initial interferogram from coregistered SLCs
     GM SLC_intf $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $int $ifm_rlks $ifm_alks - - 1 1
-    
-    ## Estimate initial baseline using orbit state vectors, offsets, and interferogram phase
-    GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 2
+
+    if [ $base_iter_flag == yes ]; then
+      ## Estimate initial baseline using orbit state vectors
+      GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 0
+    else
+      ## Estimate initial baseline using orbit state vectors, offsets, and interferogram phase
+      GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 2
+    fi
     #GM look_vector $mas_slc_par $off $utm_dem_par $utm_dem $lv_theta $lv_phi
 }
 
@@ -324,6 +335,87 @@ FLAT()
 
     ## Subtract topographic phase
     GM sub_phase $int $sim_unw1 $diff_par $int_flat1 1 0
+
+  if [ $base_iter_flag == yes ]; then
+  # As the initial baseline estimate maybe quite wrong for longer baselines, iterations are performed here
+  # Initialise variables for iterative baseline calculation (initial baseline)
+    counter=0
+    test=0
+    baseC=`grep "initial_baseline(TCN):" $base_init | awk '{print $3}'`
+    baseN=`grep "initial_baseline(TCN):" $base_init | awk '{print $4}'`
+    cp -f $base_init $base_temp
+    cp -f $int_flat0 $int_flat_temp
+    # $thresh defines the threshold in [m] at which the while loop is aborted
+    thresh=0.15
+
+   while [ $test -eq 0 -a $counter -lt 15 ]; do
+
+    let counter=counter+1
+    echo "Initial baseline refinement, Iteration:" $counter
+    echo
+
+    ## Estimate residual baseline using fringe rate of differential interferogram
+    GM base_init $mas_slc_par $slv_slc_par $off $int_flat_temp $base_res 4
+
+    baseC_res=`grep "initial_baseline(TCN):" $base_res | awk '{print $3}'`
+    baseN_res=`grep "initial_baseline(TCN):" $base_res | awk '{print $4}'`
+    baserateC_res=`grep "initial_baseline_rate:" $base_res | awk '{print $3}'`
+    baserateN_res=`grep "initial_baseline_rate:" $base_res | awk '{print $4}'`
+    echo "Baseline difference (C N):" $baseC_res $baseN_res
+    echo
+
+    # only add half of the residual estimate for better convergence of the iteration
+    # otherwise values may jump between two extreme values or even not converge at all
+    baseC_res_add=`echo "scale=7; ($baseC_res)/2" | bc`
+    baseN_res_add=`echo "scale=7; ($baseN_res)/2" | bc`
+    baserateC_add=`echo "scale=7; ($baserateC_res)/2" | bc`
+    baserateN_add=`echo "scale=7; ($baserateN_res)/2" | bc`
+    echo "initial_baseline(TCN):        0.0000000     "$baseC_res_add"     "$baseN_res_add"   m   m   m" > temp.txt
+    echo "initial_baseline_rate:        0.0000000     "$baserateC_add"     "$baserateN_add"   m/s m/s m/s" >> temp.txt
+    grep "precision_baseline(TCN):" $base_res >> temp.txt
+    grep "precision_baseline_rate:" $base_res >> temp.txt
+    grep "unwrap_phase_constant:" $base_res >> temp.txt
+    mv -f temp.txt $base_res
+
+    # $test equals 1 if the differences between baselines is below $thresh
+    test=`echo "${baseC_res_add#-} < $thresh && ${baseN_res_add#-} < $thresh" | bc`
+    #test=`echo "${baseC_res#-} < $thresh && ${baseN_res#-} < $thresh" | bc`
+
+    if [ $test -eq 0 -a $counter -eq 15 ]; then
+       echo "Baseline estimates did not converge after 15 iterations." >> error.log
+       echo "Initial baseline estimate using orbital state vectors is used for further processing." >> error.log
+       echo "Check baseline estimates and flattened IFG and rerun manually if necessary!" >> error.log
+       echo >> error.log
+       #cp -f $base_init $base
+       GM base_init $mas_slc_par $slv_slc_par $off $int $base 0
+    else
+    ## Add residual baseline estimate to initial estimate
+    GM base_add $base_temp $base_res $base 1
+    fi
+
+    baseC=`grep "initial_baseline(TCN):" $base | awk '{print $3}'`
+    baseN=`grep "initial_baseline(TCN):" $base | awk '{print $4}'`
+    echo "Baseline (C N):" $baseC $baseN
+
+    ## Simulate the phase from the DEM and refined baseline model
+    GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw1 0 0 - - 1 - 0
+
+    ## Subtract topographic phase
+    GM sub_phase $int $sim_unw1 $diff_par $int_flat1 1 0
+
+    cp -f $int_flat1 $int_flat_temp
+    cp -f $base $base_temp
+
+   done
+   ### iteration
+
+   rm -f $base_temp
+   rm -f $int_flat_temp
+
+  else
+    :
+    # use original baseline estimation without iteration
+  fi
 
     #######################################
     # Perform refinement of baseline model
@@ -381,7 +473,7 @@ FILT()
     echo " "
     echo "Processing FILT..."
     echo " "
-    if [ ! -e $int_flat ]; then 
+    if [ ! -e $int_flat ]; then
        echo "ERROR: Cannot locate flattened interferogram (*.flat). Please re-run this script from FLAT"
        exit 1
     else
@@ -489,7 +581,7 @@ UNW()
 	#GM neutron $mas_mli $cc_flag $int_width 6
 
 	## Determination of residues
-	#GM residue $int_filt $cc_flag $int_width 
+	#GM residue $int_filt $cc_flag $int_width
 
 	## Connection of residues through neutral trees (uses marked low correlation areas, neutrons and residues)
 	#GM tree_gzw $cc_flag $int_width 32
@@ -499,7 +591,7 @@ UNW()
 	GM grasses $int_filt $cc_flag $int_unw $int_width - - - - $start_x $start_y 1
 
         # phase unwrapping of disconnected areas using user defined bridges (done after initial unwrapping with 'grasses')
-	if [ $bridge_flag == yes ]; then 
+	if [ $bridge_flag == yes ]; then
 	   if [ ! -e $int_unw ]; then
 		echo "ERROR: Cannot locate unwrapped interferogram (*.unw). Please run this script from with bridge flag set to 'no' and then re-run with flag set to 'yes'"
 		exit 1
@@ -529,7 +621,7 @@ GEOCODE()
     GM geocode_back $int_unw $width_in $gc_map $unw_geocode_out $width_out - 1 0 - -
 
     # Make quick-look image of unwrapped interferogram
-    GM rasrmg $unw_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $unw_geocode_out.bmp 
+    GM rasrmg $unw_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $unw_geocode_out.bmp
 
 
     ## Use bicubic spline interpolation for geocoded filtered interferogram
@@ -685,7 +777,7 @@ else
 fi
 
 
-# script end 
+# script end
 ####################
 
 ## Copy errors to NCI error file (.e file)
@@ -698,7 +790,7 @@ fi
 
 ## Rename log files if beam exists
 if [ -z $beam ]; then # no beam
-    :    
+    :
 else # beam exists
     if [ -f $beam"_command.log" ]; then
 	cat command.log >>$beam"_command.log"

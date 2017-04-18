@@ -24,6 +24,8 @@ display_usage() {
     echo "*         Thomas Fuhrmann @ GA    21/10/2016, v1.4                            *"
     echo "*               resolved double usage of $cpp in func. offset_pwr/offset_fit  *"
     echo "*               changed parameter naming from snr to cc_thresh                *"
+    echo "*               usage of $npoly for initial offset fit (issue with ASAR SLCs) *"
+    echo "*               save statistical output of MLI to file image_stat.txt         *"
     echo "*******************************************************************************"
     echo -e "Usage: coregister_slave_SLC.bash [proc_file] [slave] [rlks] [alks] <beam>"
     }
@@ -144,7 +146,7 @@ coffs=$slave_dir/$master_mli_name-$slave_mli_name.coffs
 offs=$slave_dir/$master_mli_name-$slave_mli_name.offs
 offsets=$slave_dir/$master_mli_name-$slave_mli_name.offsets
 coffsets=$slave_dir/$master_mli_name-$slave_mli_name.coffsets
-
+stat=$slave_dir/image_stat.txt
 
 ## Coregistration results file
 if [ -z $beam ]; then
@@ -190,8 +192,8 @@ GM init_offsetm $rmli $slave_mli $diff_par 1 1 - - - - $slv_cct - 1
 
 GM offset_pwrm $rmli $slave_mli $diff_par $off"s0" $ccp"0" - - - 2
 
-## Fit the offset only
-GM offset_fitm $off"s0" $ccp"0" $diff_par $coffs"0" - $slv_cct 1
+## Fit the offset using the given number of polynomial coefficients
+GM offset_fitm $off"s0" $ccp"0" $diff_par $coffs"0" - $slv_cct $npoly
 
 ## Refinement of initial geocoding look up table
 GM gc_map_fine $lt"0" $master_mli_width $diff_par $lt
@@ -257,6 +259,9 @@ grep "final azimuth offset poly. coeff.:" output.log | tail -1 | awk '{print $6}
 paste temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks >> $check_file
 rm -f temp*
 
+# TF: save image statistics in txt file
+image_stat $rmli $master_mli_width - - - - $stat
+# non-zero samples in $stat can be used to check all slaves are fully included in master
 
 # script end
 ####################
