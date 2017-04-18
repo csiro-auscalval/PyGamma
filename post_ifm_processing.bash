@@ -184,7 +184,7 @@ if [ -z $beam ]; then #no beam
     echo \#\PBS -l ncpus=$plot_ncpus >> $plot
     echo \#\PBS -l wd >> $plot
     echo \#\PBS -q normal >> $plot
-    echo ~/repo/gamma_bash/plot_unw_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
+    echo ~/repo/gamma_insar/plot_unw_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
     chmod +x $plot
     qsub $plot | tee unw_ifm_job_id
 
@@ -199,7 +199,7 @@ if [ -z $beam ]; then #no beam
     echo \#\PBS -l ncpus=$plot_ncpus >> $plot
     echo \#\PBS -l wd >> $plot
     echo \#\PBS -q normal >> $plot
-    echo ~/repo/gamma_bash/plot_filt_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
+    echo ~/repo/gamma_insar/plot_filt_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
     chmod +x $plot 
     qsub $plot | tee filt_ifm_job_id
 
@@ -214,7 +214,7 @@ if [ -z $beam ]; then #no beam
     echo \#\PBS -l ncpus=$plot_ncpus >> $plot
     echo \#\PBS -l wd >> $plot
     echo \#\PBS -q normal >> $plot
-    echo ~/repo/gamma_bash/plot_filt_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
+    echo ~/repo/gamma_insar/plot_filt_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
     chmod +x $plot
     qsub $plot | tee filt_cc_job_id
 
@@ -229,7 +229,7 @@ if [ -z $beam ]; then #no beam
     echo \#\PBS -l ncpus=$plot_ncpus >> $plot
     echo \#\PBS -l wd >> $plot
     echo \#\PBS -q normal >> $plot
-    echo ~/repo/gamma_bash/plot_flat_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
+    echo ~/repo/gamma_insar/plot_flat_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks >> $plot
     chmod +x $plot
     qsub $plot | tee flat_cc_job_id
 
@@ -249,7 +249,7 @@ if [ -z $beam ]; then #no beam
     echo \#\PBS -l wd >> $job
     echo \#\PBS -q normal >> $job
     echo \#\PBS -W depend=afterany:$unw_ifm_jobid:$filt_ifm_jobid:$filt_cc_jobid:$flat_cc_jobid >> $job
-    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc_file 8 >> $job
+    echo ~/repo/gamma_insar/collate_nci_errors.bash $proc_file 8 >> $job
     chmod +x $job
     qsub $job
     
@@ -265,7 +265,7 @@ else #beam exists
     echo \#\PBS -l ncpus=$plot_ncpus >> $plot
     echo \#\PBS -l wd >> $plot
     echo \#\PBS -q normal >> $plot
-    echo ~/repo/gamma_bash/plot_unw_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
+    echo ~/repo/gamma_insar/plot_unw_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
     chmod +x $plot
     qsub $plot | tee unw_ifm_job_id
 
@@ -280,7 +280,7 @@ else #beam exists
     echo \#\PBS -l ncpus=$plot_ncpus >> $plot
     echo \#\PBS -l wd >> $plot
     echo \#\PBS -q normal >> $plot
-    echo ~/repo/gamma_bash/plot_filt_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
+    echo ~/repo/gamma_insar/plot_filt_ifms.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
     chmod +x $plot
     qsub $plot | tee filt_ifm_job_id
 
@@ -295,7 +295,7 @@ else #beam exists
     echo \#\PBS -l ncpus=$plot_ncpus >> $plot
     echo \#\PBS -l wd >> $plot
     echo \#\PBS -q normal >> $plot
-    echo ~/repo/gamma_bash/plot_filt_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
+    echo ~/repo/gamma_insar/plot_filt_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
     chmod +x $plot
     qsub $plot | tee filt_cc_job_id
 
@@ -310,7 +310,7 @@ else #beam exists
     echo \#\PBS -l ncpus=$plot_ncpus >> $plot
     echo \#\PBS -l wd >> $plot
     echo \#\PBS -q normal >> $plot
-    echo ~/repo/gamma_bash/plot_flat_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
+    echo ~/repo/gamma_insar/plot_flat_cc_files.bash $proc_file $list_type $ifm_rlks $ifm_alks $beam >> $plot
     chmod +x $plot
     qsub $plot | tee flat_cc_job_id
 
@@ -330,7 +330,7 @@ else #beam exists
     echo \#\PBS -l wd >> $job
     echo \#\PBS -q normal >> $job
     echo \#\PBS -W depend=afterany:$unw_ifm_jobid:$filt_ifm_jobid:$filt_cc_jobid:$flat_cc_jobid >> $job
-    echo ~/repo/gamma_bash/collate_nci_errors.bash $proc_file 8 $beam >> $job
+    echo ~/repo/gamma_insar/collate_nci_errors.bash $proc_file 8 $beam >> $job
     chmod +x $job
     qsub $job
 
