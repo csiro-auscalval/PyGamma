@@ -49,6 +49,7 @@ slc_alks=$4
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
     proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    raw_dir=$proj_dir/raw_data/$track_dir
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     raw_dir=$raw_dir_ga
@@ -108,7 +109,7 @@ mli_par=$mli.par
 tiff=$mli_name.tif
 ras_out=$mli_name.ras
 
-hfive=$raw_dir/date_dirs/$scene/CSKS*SCS*$scene*.h5
+hfive=$raw_dir/$scene/CSKS*SCS*$scene*.h5
 
 if [ ! -e $slc_dir/$scene/$slc ]; then
 ## Read CSK data and produce calibrated slc and parameter files in GAMMA format
