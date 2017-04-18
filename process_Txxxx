@@ -6,4 +6,4 @@
 #PBS -lother=gdata1
 #PBS -q express
 
-/home/547/xxx547/repo/gamma_bash/process_gamma.bash TxxxA/D.proc
+/home/547/xxx547/repo/gamma_insar/process_gamma.bash TxxxA/D.proc

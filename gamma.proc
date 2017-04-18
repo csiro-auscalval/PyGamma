@@ -1,7 +1,7 @@
 ##### GAMMA Configuration File Location #####
 GAMMA_GA=~/GAMMA_CONFIG
 #GAMMA_GA=/nas/gemd/insar/SOFTWARE/GAMMA/GAMMA_CONFIG
-GAMMA_NCI=/home/547/mcg547/dg9-apps/GAMMA/GAMMA_CONFIG_bash
+GAMMA_NCI=/short/dg9/insar/dg9-apps/GAMMA/GAMMA_CONFIG
 
 
 ###### Output Directories #####
@@ -27,6 +27,7 @@ Track=TxxxxA/D
 Sensor=PALSAR1
     # Sensor mode Sentinel-1: IWS/SM; Radarsat-2: W/MF (Wide/Multi-look Fine); PALSAR2: WD/SM (Wide-swath/Stripmap).
     # Sensor mode for ASAR: I4 or - (for other image modes)
+    # Sensor mode for CSK: HI for himage, SP for spotlight
     # Used to determine multi-look ratio
 Sensor_mode=IWS
     # if ERS sensor, specify which one (ERS1 or ERS2):

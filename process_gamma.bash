@@ -198,8 +198,20 @@ elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
     slc_alks=`echo $slc_looks | awk '{print $1*2}'`
     ifm_rlks=$ifm_looks
     ifm_alks=`echo $ifm_looks | awk '{print $1*2}'`
+elif [ $sensor == CSK ]; then
+    if [ $mode == HI ]; then
+       slc_rlks=$slc_looks
+       slc_alks=`echo $slc_looks | awk '{print $1*1.5}'`
+       ifm_rlks=$ifm_looks
+       ifm_alks=`echo $ifm_looks | awk '{print $1*1.5}'`
+    elif [ $mode == SP ]; then
+       slc_rlks=$slc_looks
+       slc_alks=$slc_looks
+       ifm_rlks=$ifm_looks
+       ifm_alks=$ifm_looks
+    fi
 else
-    # CSK, TSX, S1_SM
+    # TSX, S1_SM
     slc_rlks=$slc_looks
     slc_alks=$slc_looks
     ifm_rlks=$ifm_looks
@@ -357,7 +369,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$list_ncpus >> $job1
 	    echo \#\PBS -l wd >> $job1
 	    echo \#\PBS -q copyq >> $job1
-	    echo ~/repo/gamma_bash/create_scenes_list.bash $proj_dir/$proc_file 1 >> $job1
+	    echo ~/repo/gamma_insar/create_scenes_list.bash $proj_dir/$proc_file 1 >> $job1
 	    chmod +x $job1
 	    qsub $job1 | tee scene_list_job_id
 
@@ -373,7 +385,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job2
 	    echo \#\PBS -q normal >> $job2
 	    echo \#\PBS -W depend=afterok:$scene_list_jobid >> $job2
-	    echo ~/repo/gamma_bash/create_slaves_list.bash $proj_dir/$proc_file 1 >> $job2
+	    echo ~/repo/gamma_insar/create_slaves_list.bash $proj_dir/$proc_file 1 >> $job2
 	    chmod +x $job2
 	    qsub $job2 | tee slave_list_job_id
 
@@ -388,7 +400,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job3
 	    echo \#\PBS -q normal >> $job3
 	    echo \#\PBS -W depend=afterok:$scene_list_jobid >> $job3
-	    echo ~/repo/gamma_bash/create_ifms_list.bash $proj_dir/$proc_file 1 >> $job3
+	    echo ~/repo/gamma_insar/create_ifms_list.bash $proj_dir/$proc_file 1 >> $job3
 	    chmod +x $job3
 	    qsub $job3 | tee ifm_list_job_id
 
@@ -406,7 +418,7 @@ elif [ $do_setup == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$scene_list_jobid:$slave_list_jobid:$ifm_list_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 1 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 1 >> $job
 	    chmod +x $job
 	    qsub $job
 	else # scene list exists
@@ -493,7 +505,7 @@ if [ $do_raw == yes -a $platform == NCI ]; then
 	else
 	    :
 	fi
-	echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file 0 >> $job
+	echo ~/repo/gamma_insar/extract_raw_data.bash $proj_dir/$proc_file 0 >> $job
 	chmod +x $job
 	qsub $job | tee raw_job_id
 
@@ -510,7 +522,7 @@ if [ $do_raw == yes -a $platform == NCI ]; then
 	echo \#\PBS -l wd >> $job
 	echo \#\PBS -q normal >> $job
 	echo \#\PBS -W depend=afterany:$raw_jobid >> $job
-	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 2 >> $job
+	echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 2 >> $job
 	chmod +x $job
 	qsub $job | tee raw_err_job_id
     fi
@@ -634,7 +646,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			echo \#\PBS -l wd >> $job
 			echo \#\PBS -q normal >> $job
 			echo \#\PBS -W depend=afterok:$raw_jobid >> $job
-			echo ~/repo/gamma_bash/process_gamma.bash $proc_file >> $job
+			echo ~/repo/gamma_insar/process_gamma.bash $proc_file >> $job
 			chmod +x $job
 			qsub $job
 		    else # scene list exists
@@ -672,10 +684,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 				    read scene
 				    echo $scene
 				    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-					echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+					echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 				    else
-					echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-					echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+					echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+					echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 				    fi
         			done
 				chmod +x $job
@@ -740,10 +752,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			    echo \#\PBS -l wd >> $job
 			    echo \#\PBS -q normal >> $job
 			    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 			    else
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+				echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 			    fi
 			    chmod +x $job
 			done < $scene_list
@@ -760,7 +772,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			echo \#\PBS -l wd >> $job
 			echo \#\PBS -q normal >> $job
 			echo \#\PBS -W depend=afterany:$dep >> $job
-			echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 3 $beam_num >> $job
+			echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 3 $beam_num >> $job
 			chmod +x $job
 			qsub $job
 		    fi
@@ -805,10 +817,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 				read scene
 				echo $scene
 				if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-				    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 				else
-				    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-				    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+				    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 				fi
         		    done
 			    chmod +x $job
@@ -873,10 +885,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			echo \#\PBS -l wd >> $job
 			echo \#\PBS -q normal >> $job
 			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+			    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 			else
-			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+			    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+			    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 			fi
 			chmod +x $job
 		    done < $scene_list
@@ -893,7 +905,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		    echo \#\PBS -l wd >> $job
 		    echo \#\PBS -q normal >> $job
 		    echo \#\PBS -W depend=afterany:$dep >> $job
-		    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 3 $beam_num >> $job
+		    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 3 $beam_num >> $job
 		    chmod +x $job
 		    qsub $job
 		fi
@@ -917,7 +929,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		echo \#\PBS -W depend=afterok:$raw_jobid >> $job
-		echo ~/repo/gamma_bash/process_gamma.bash $proc_file >> $job
+		echo ~/repo/gamma_insar/process_gamma.bash $proc_file >> $job
 		chmod +x $job
 		qsub $job
 	    else # scene list exists
@@ -953,10 +965,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			    read scene
 			    echo $scene
 			    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+				echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 			    else
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-				echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+				echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+				echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 			    fi
         		done
 			chmod +x $job
@@ -1020,10 +1032,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		    echo \#\PBS -l wd >> $job
 		    echo \#\PBS -q normal >> $job
 		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		    else
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-			echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+			echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		    fi
 		    chmod +x $job
 		done < $scene_list
@@ -1040,7 +1052,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		echo \#\PBS -W depend=afterany:$dep >> $job
-		echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 3 >> $job
+		echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 3 >> $job
 		chmod +x $job
 		qsub $job
 	    fi
@@ -1083,10 +1095,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			read scene
 			echo $scene
 			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 			else
-			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-			    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+			    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 			fi
         	    done
 		    chmod +x $job
@@ -1150,10 +1162,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		else
-		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		    echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+		    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		fi
 		chmod +x $job
 	    done < $scene_list
@@ -1170,7 +1182,7 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 3 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 3 >> $job
 	    chmod +x $job
 	    qsub $job
 	fi
@@ -1239,10 +1251,10 @@ if [ $do_slc_subset == yes -a $platform == NCI -a $sensor == S1 ]; then
 		read scene
 		echo $scene
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_insar/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		else
-		    echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		    echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+		    echo ~/repo/gamma_insar/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_insar/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		fi
             done
 	    chmod +x $job
@@ -1306,10 +1318,10 @@ if [ $do_slc_subset == yes -a $platform == NCI -a $sensor == S1 ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		echo ~/repo/gamma_insar/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 	    else
-		echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		echo ~/repo/gamma_bash/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+		echo ~/repo/gamma_insar/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		echo ~/repo/gamma_insar/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 	    fi
 	    chmod +x $job
 	done < $scene_list
@@ -1326,7 +1338,7 @@ if [ $do_slc_subset == yes -a $platform == NCI -a $sensor == S1 ]; then
 	echo \#\PBS -l wd >> $job
 	echo \#\PBS -q normal >> $job
 	echo \#\PBS -W depend=afterany:$dep >> $job
-	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
+	echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
 	chmod +x $job
 	qsub $job
 else
@@ -1537,9 +1549,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		:
 	    fi
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
-                echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 1 - - - - $beam_num >> $job
+                echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 1 - - - - $beam_num >> $job
 	    else
- 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 2 - - - - $beam_num >> $job
+ 		echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 2 - - - - $beam_num >> $job
 	    fi
 	    chmod +x $job
 	    qsub $job | tee "full_dem_"$beam_num"_job_id"
@@ -1557,7 +1569,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterok:$full_dem_jobid >> $job
-	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file $beam_num >> $job
+	    echo ~/repo/gamma_insar/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file $beam_num >> $job
 	    chmod +x $job
 	    qsub $job | tee "calc_subset_dem_"$beam_num"_job_id"
 
@@ -1573,7 +1585,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterok:$subset_jobid >> $job
-	    echo ~/repo/gamma_bash/process_gamma.bash $proj_dir/$proc_file >> $job
+	    echo ~/repo/gamma_insar/process_gamma.bash $proj_dir/$proc_file >> $job
 	    chmod +x $job
 	    qsub $job
 
@@ -1588,9 +1600,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
-                echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 1 - - - - $beam_num >> $job
+                echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 1 - - - - $beam_num >> $job
 	    else
- 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 2 - - - - $beam_num >> $job
+ 		echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 2 - - - - $beam_num >> $job
 	    fi
 	    chmod +x $job
 
@@ -1602,7 +1614,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$list_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file $beam_num >> $job
+	    echo ~/repo/gamma_insar/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file $beam_num >> $job
 	    chmod +x $job
 	}
 
@@ -1621,22 +1633,22 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
 		fi
 	    else
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
 		fi
 	    fi
 	    chmod +x $job
@@ -1655,22 +1667,22 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines $beam_num >> $job
 		fi
 	    else
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines $beam_num >> $job
 		fi
 	    fi
 	    chmod +x $job
@@ -1688,7 +1700,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 $beam_num >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 4 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -1746,27 +1758,27 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    fi
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # no multi-look value - for geocoding full SLC data
-		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - $beam_num >> $job
+		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - $beam_num >> $job
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - $beam_num >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - $beam_num >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - $beam_num >> $job
 		fi
 	    else
 	        # no multi-look value - for geocoding full SLC data
-		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - $beam_num >> $job
+		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - $beam_num >> $job
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - $beam_num >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - $beam_num >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - $beam_num >> $job
 		fi
 	    fi
 	    chmod +x $job
@@ -1784,27 +1796,27 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -q normal >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # no multi-look value - for geocoding full SLC data
-		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - $beam_num >> $job
+		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - $beam_num >> $job
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - $beam_num >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - $beam_num >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - $beam_num >> $job
 		fi
 	    else
 	        # no multi-look value - for geocoding full SLC data
-		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - $beam_num >> $job
+		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - $beam_num >> $job
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - $beam_num >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - $beam_num >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - $beam_num >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - $beam_num >> $job
 		fi
 	    fi
 	    chmod +x $job
@@ -1822,7 +1834,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 5 $beam_num >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 5 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -1896,9 +1908,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 		:
 	    fi
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
-                echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
+                echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
 	    else
- 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
+ 		echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
 	    fi
 	    chmod +x $job
 	    qsub $job | tee full_dem_job_id
@@ -1914,9 +1926,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
-                echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
+                echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
 	    else
- 		echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
+ 		echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
 	    fi
 	    chmod +x $job
 
@@ -1934,7 +1946,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
 	    chmod +x $job
 	    qsub $job
   	}
@@ -1954,7 +1966,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$list_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file >> $job
+	    echo ~/repo/gamma_insar/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file >> $job
 	    chmod +x $job
 	    qsub $job | tee calc_subset_dem_job_id
 
@@ -1967,7 +1979,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$list_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-	    echo ~/repo/gamma_bash/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file >> $job
+	    echo ~/repo/gamma_insar/determine_subscene_pixels.bash $proj_dir/$proc_file $subset_file >> $job
 	    chmod +x $job
 	}
 
@@ -1996,22 +2008,22 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
 		fi
 	    else
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
 		fi
 	    fi
 	    chmod +x $job
@@ -2030,22 +2042,22 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 1 $roff $rlines $azoff $azlines >> $job
 		fi
 	    else
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 2 2 $roff $rlines $azoff $azlines >> $job
 		fi
 	    fi
 	    chmod +x $job
@@ -2063,7 +2075,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -2124,27 +2136,27 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    fi
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # no multi-look value - for geocoding full SLC data
-		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
+		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - >> $job
 		fi
 	    else
                 # no multi-look value - for geocoding full SLC data
-		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
+		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - >> $job
 		fi
 	    fi
 	    chmod +x $job
@@ -2162,27 +2174,27 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -q normal >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # no multi-look value - for geocoding full SLC data
-		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
+		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 1 - - - - >> $job
 		fi
 	    else
                 # no multi-look value - for geocoding full SLC data
-		#echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
+		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 2 - - - - >> $job
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
 		else
                 # SLC multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 2 - - - - >> $job
                 # ifm multi-look value
-		    echo ~/repo/gamma_bash/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - >> $job
+		    echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $ifm_rlks $ifm_alks 2 1 2 - - - - >> $job
 		fi
 	    fi
 	    chmod +x $job
@@ -2200,7 +2212,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -2430,10 +2442,10 @@ elif [ $coregister == yes -a $platform == NCI ]; then
                 	read scene
                 	echo $scene
 			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 			else
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 			fi
 		    done
 		    chmod +x $job
@@ -2500,10 +2512,10 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 		else
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 		fi
 		chmod +x $job
 	    done < $slave_list
@@ -2520,7 +2532,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 6 $beam_num >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 6 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -2625,10 +2637,10 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 			read scene
 			echo $scene
 			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 			else
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 			fi
         	    done
 		    chmod +x $job
@@ -2695,10 +2707,10 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		else
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		fi
 		chmod +x $job
 	    done < $slave_list
@@ -2715,7 +2727,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 6 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 6 >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -2744,7 +2756,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 #    echo \#\PBS -l wd >> $job
 #    echo \#\PBS -q normal >> $job
 #    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $job
-#    echo ~/repo/gamma_bash/check_slave_coregistration.bash $proj_dir/$proc_file 1 >> $job
+#    echo ~/repo/gamma_insar/check_slave_coregistration.bash $proj_dir/$proc_file 1 >> $job
 #    chmod +x $job
 #    qsub $job
 
@@ -2873,7 +2885,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 			echo $line
 			mas=`echo $line | awk 'BEGIN {FS=","} ; {print $1}'`
 			slv=`echo $line | awk 'BEGIN {FS=","} ; {print $2}'`
-			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
+			echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
  		    done
 		    chmod +x $job
 		    qsub $job | tee $ifm_batch_dir/$beam_num/"ifm_"$beam_num"_"$i"_job_id"
@@ -2941,7 +2953,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
+		echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
 		chmod +x $job
 	    done < $ifm_list
 
@@ -2957,7 +2969,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 7 $beam_num >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 7 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job
 
@@ -2973,7 +2985,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $ifm_post
 	    echo \#\PBS -q normal >> $ifm_post
 	    echo \#\PBS -W depend=afterok:$dep >> $ifm_post
-	    echo ~/repo/gamma_bash/post_ifm_processing.bash $proj_dir/$proc_file 1 $ifm_rlks $ifm_alks $beam_num >> $ifm_post
+	    echo ~/repo/gamma_insar/post_ifm_processing.bash $proj_dir/$proc_file 1 $ifm_rlks $ifm_alks $beam_num >> $ifm_post
 	    chmod +x $ifm_post
 	    qsub $ifm_post
 	}
@@ -3025,7 +3037,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $mosaic
 	    echo \#\PBS -q normal >> $mosaic
 	    echo \#\PBS -W depend=afterok:$dep >> $mosaic
-	    echo ~/repo/gamma_bash/mosaic_beam_ifms.bash $proj_dir/$proc_file >> $mosaic
+	    echo ~/repo/gamma_insar/mosaic_beam_ifms.bash $proj_dir/$proc_file >> $mosaic
 	    chmod +x $mosaic
 #	    qsub $mosaic | tee mosaic_job_id
 
@@ -3041,7 +3053,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$mosaic_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 7 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 7 >> $job
 	    chmod +x $job
 #	    qsub $job
 	else
@@ -3106,7 +3118,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 			echo $line
 			mas=`echo $line | awk 'BEGIN {FS=","} ; {print $1}'`
 			slv=`echo $line | awk 'BEGIN {FS=","} ; {print $2}'`
-			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
+			echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
  		    done
 		    chmod +x $job
 		    qsub $job | tee $ifm_batch_dir/"ifm_"$i"_job_id"
@@ -3174,7 +3186,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
+		echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
 		chmod +x $job
 	    done < $ifm_list
 
@@ -3190,7 +3202,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 7 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 7 >> $job
 	    chmod +x $job
 	    qsub $job
 
@@ -3206,7 +3218,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $ifm_post
 	    echo \#\PBS -q normal >> $ifm_post
 	    echo \#\PBS -W depend=afterok:$dep >> $ifm_post
-	    echo ~/repo/gamma_bash/post_ifm_processing.bash $proj_dir/$proc_file 1 $ifm_rlks $ifm_alks >> $ifm_post
+	    echo ~/repo/gamma_insar/post_ifm_processing.bash $proj_dir/$proc_file 1 $ifm_rlks $ifm_alks >> $ifm_post
 	    chmod +x $ifm_post
 	    qsub $ifm_post
 	}
@@ -3278,7 +3290,7 @@ if [ $add_scenes == yes -a $platform == NCI ]; then
 	echo \#\PBS -l ncpus=$list_ncpus >> $job1
 	echo \#\PBS -l wd >> $job1
 	echo \#\PBS -q copyq >> $job1
-	echo ~/repo/gamma_bash/create_scenes_list.bash $proj_dir/$proc_file 2 >> $job1
+	echo ~/repo/gamma_insar/create_scenes_list.bash $proj_dir/$proc_file 2 >> $job1
 	chmod +x $job1
 	qsub $job1 | tee add_scene_list_job_id
 
@@ -3295,7 +3307,7 @@ if [ $add_scenes == yes -a $platform == NCI ]; then
 	echo \#\PBS -l wd >> $job
 	echo \#\PBS -q copyq >> $job
 	echo \#\PBS -W depend=afterok:$add_scene_list_jobid >> $job
-	echo ~/repo/gamma_bash/extract_raw_data.bash $proj_dir/$proc_file 2 >> $job
+	echo ~/repo/gamma_insar/extract_raw_data.bash $proj_dir/$proc_file 2 >> $job
 	chmod +x $job
 	qsub $job | tee add_raw_job_id
 
@@ -3310,7 +3322,7 @@ if [ $add_scenes == yes -a $platform == NCI ]; then
 	echo \#\PBS -l wd >> $job2
 	echo \#\PBS -q normal >> $job2
 	echo \#\PBS -W depend=afterok:$add_scene_list_jobid >> $job2
-	echo ~/repo/gamma_bash/create_slaves_list.bash $proj_dir/$proc_file 2 >> $job2
+	echo ~/repo/gamma_insar/create_slaves_list.bash $proj_dir/$proc_file 2 >> $job2
 	chmod +x $job2
 	qsub $job2 | tee add_slave_list_job_id
 
@@ -3325,7 +3337,7 @@ if [ $add_scenes == yes -a $platform == NCI ]; then
 	echo \#\PBS -l wd >> $job3
 	echo \#\PBS -q normal >> $job3
 	echo \#\PBS -W depend=afterok:$add_scene_list_jobid >> $job3
-	echo ~/repo/gamma_bash/create_ifms_list.bash $proj_dir/$proc_file 2 >> $job3
+	echo ~/repo/gamma_insar/create_ifms_list.bash $proj_dir/$proc_file 2 >> $job3
 	chmod +x $job3
 	qsub $job3 | tee add_ifm_list_job_id
 
@@ -3344,7 +3356,7 @@ if [ $add_scenes == yes -a $platform == NCI ]; then
 	echo \#\PBS -l wd >> $job
 	echo \#\PBS -q normal >> $job
 	echo \#\PBS -W depend=afterany:$add_scene_list_jobid:$add_slave_list_jobid:$add_ifm_list_jobid >> $job
-	echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 10 >> $job
+	echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 10 >> $job
 	chmod +x $job
 	qsub $job
     else # add scene list exists
@@ -3416,7 +3428,7 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 			 echo \#\PBS -l wd >> $job
 			 echo \#\PBS -q normal >> $job
 			 echo \#\PBS -W depend=afterok:$add_raw_jobid >> $job
-			 echo ~/repo/gamma_bash/process_gamma.bash $proc_file >> $job
+			 echo ~/repo/gamma_insar/process_gamma.bash $proc_file >> $job
 			 chmod +x $job
 			 qsub $job
 		     else # additional scene list exists
@@ -3453,10 +3465,10 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 				     read scene
 				     echo $scene
 				     if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-					 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+					 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 				     else
-					 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-					 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+					 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+					 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 				     fi
         			 done
 				 chmod +x $job
@@ -3521,10 +3533,10 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 			     echo \#\PBS -l wd >> $job
 			     echo \#\PBS -q normal >> $job
 			     if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-				 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 			     else
-				 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-				 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+				 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+				 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 			     fi
 			     chmod +x $job
 			 done < $add_scene_list
@@ -3540,7 +3552,7 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 			 echo \#\PBS -l wd >> $job
 			 echo \#\PBS -q normal >> $job
 			 echo \#\PBS -W depend=afterany:$dep >> $job
-			 echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 11 $beam_num >> $job
+			 echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 11 $beam_num >> $job
 			 chmod +x $job
 			 qsub $job | tee "add_slc_err_"$beam_num"_job_id"
 		     fi
@@ -3565,7 +3577,7 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 		 echo \#\PBS -l wd >> $job
 		 echo \#\PBS -q normal >> $job
 		 echo \#\PBS -W depend=afterok:$add_raw_jobid >> $job
-		 echo ~/repo/gamma_bash/process_gamma.bash $proc_file >> $job
+		 echo ~/repo/gamma_insar/process_gamma.bash $proc_file >> $job
 		 chmod +x $job
 		 qsub $job
 	     else # additional scene list exists
@@ -3601,10 +3613,10 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 			     read scene
 			     echo $scene
 			     if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-				 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+				 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 			     else
-				 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-				 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+				 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+				 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 			     fi
         		 done
 			 chmod +x $job
@@ -3668,10 +3680,10 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 		     echo \#\PBS -l wd >> $job
 		     echo \#\PBS -q normal >> $job
 		     if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		     else
-			 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-			 echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+			 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		     fi
 		     chmod +x $job
 		 done < $add_scene_list
@@ -3687,7 +3699,7 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 		 echo \#\PBS -l wd >> $job
 		 echo \#\PBS -q normal >> $job
 		 echo \#\PBS -W depend=afterany:$dep >> $job
-		 echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 11 >> $job
+		 echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 11 >> $job
 		 chmod +x $job
 		 qsub $job
 	     fi
@@ -3724,10 +3736,10 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 			 read scene
 			 echo $scene
 			 if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			     echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			     echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 			 else
-			     echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-			     echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+			     echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			     echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 			 fi
         	     done
 		     chmod +x $job
@@ -3792,10 +3804,10 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 		 echo \#\PBS -l wd >> $job
 		 echo \#\PBS -q normal >> $job
 		 if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		     echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		     echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		 else
-		     echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		     echo ~/repo/gamma_bash/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+		     echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		     echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		 fi
 		 chmod +x $job
 	     done < $add_scene_list
@@ -3812,7 +3824,7 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 	     echo \#\PBS -l wd >> $job
 	     echo \#\PBS -q normal >> $job
 	     echo \#\PBS -W depend=afterany:$dep >> $job
-	     echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 11 >> $job
+	     echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 11 >> $job
 	     chmod +x $job
 	     qsub $job
 	     fi
@@ -3941,10 +3953,10 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
                 	read scene
                 	echo $scene
 			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 			else
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 			fi
 		    done
 		    chmod +x $job
@@ -4011,10 +4023,10 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 		else
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks $beam_num >> $job
 		fi
 		chmod +x $job
 	    done < $add_slave_list
@@ -4031,7 +4043,7 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 12 $beam_num >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 12 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -4132,10 +4144,10 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 			read scene
 			echo $scene
 			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 			else
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-			    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+			    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 			fi
         	    done
 		    chmod +x $job
@@ -4202,10 +4214,10 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		else
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
-		    echo ~/repo/gamma_bash/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
+		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $ifm_rlks $ifm_alks >> $job
 		fi
 		chmod +x $job
 	    done < $add_slave_list
@@ -4222,7 +4234,7 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 12 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 12 >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -4250,7 +4262,7 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 #    echo \#\PBS -l wd >> $job
 #    echo \#\PBS -q normal >> $job
 #    echo \#\PBS -W depend=afterok:$co_slc_jobid >> $job
-#    echo ~/repo/gamma_bash/check_slave_coregistration.bash $proj_dir/$proc_file 1 >> $job
+#    echo ~/repo/gamma_insar/check_slave_coregistration.bash $proj_dir/$proc_file 1 >> $job
 #    chmod +x $job
 #    qsub $job
 elif [ $coregister_add == no -a $platform == NCI ]; then
@@ -4346,7 +4358,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 			echo $line
 			mas=`echo $line | awk 'BEGIN {FS=","} ; {print $1}'`
 			slv=`echo $line | awk 'BEGIN {FS=","} ; {print $2}'`
-			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
+			echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
  		    done
 		    chmod +x $job
 		    qsub $job | tee $ifm_batch_dir/$beam_num/"add_ifm_"$beam_num"_"$i"_job_id"
@@ -4414,7 +4426,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
+		echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
 		chmod +x $job
 	    done < $ifm_list
 
@@ -4430,7 +4442,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 13 $beam_num >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 13 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job
 
@@ -4446,7 +4458,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $ifm_post
 	    echo \#\PBS -q normal >> $ifm_post
 	    echo \#\PBS -W depend=afterok:$dep >> $ifm_post
-	    echo ~/repo/gamma_bash/post_ifm_processing.bash $proj_dir/$proc_file 2 $ifm_rlks $ifm_alks $beam_num >> $ifm_post
+	    echo ~/repo/gamma_insar/post_ifm_processing.bash $proj_dir/$proc_file 2 $ifm_rlks $ifm_alks $beam_num >> $ifm_post
 	    chmod +x $ifm_post
 	    qsub $ifm_post
 	}
@@ -4498,7 +4510,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $mosaic
 	    echo \#\PBS -q normal >> $mosaic
 	    echo \#\PBS -W depend=afterok:$dep >> $mosaic
-	    echo ~/repo/gamma_bash/mosaic_beam_ifms.bash $proj_dir/$proc_file >> $mosaic
+	    echo ~/repo/gamma_insar/mosaic_beam_ifms.bash $proj_dir/$proc_file >> $mosaic
 	    chmod +x $mosaic
 #	    qsub $mosaic | tee add_mosaic_job_id
 
@@ -4514,7 +4526,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$add_mosaic_jobid >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 7 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 7 >> $job
 	    chmod +x $job
 #	    qsub $job
 	else
@@ -4580,7 +4592,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 			echo $line
 			mas=`echo $line | awk 'BEGIN {FS=","} ; {print $1}'`
 			slv=`echo $line | awk 'BEGIN {FS=","} ; {print $2}'`
-			echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
+			echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
  		    done
 		    chmod +x $job
 		    qsub $job | tee $ifm_batch_dir/"add_ifm_"$i"_job_id"
@@ -4648,7 +4660,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
-		echo ~/repo/gamma_bash/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
+		echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
 		chmod +x $job
 	    done < $ifm_list
 
@@ -4664,7 +4676,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_bash/collate_nci_errors.bash $proj_dir/$proc_file 13 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 13 >> $job
 	    chmod +x $job
 	    qsub $job
 
@@ -4680,7 +4692,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $ifm_post
 	    echo \#\PBS -q normal >> $ifm_post
 	    echo \#\PBS -W depend=afterok:$dep >> $ifm_post
-	    echo ~/repo/gamma_bash/post_ifm_processing.bash $proj_dir/$proc_file 2 $ifm_rlks $ifm_alks >> $ifm_post
+	    echo ~/repo/gamma_insar/post_ifm_processing.bash $proj_dir/$proc_file 2 $ifm_rlks $ifm_alks >> $ifm_post
 	    chmod +x $ifm_post
 	    qsub $ifm_post
 	}
