@@ -198,8 +198,20 @@ elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
     slc_alks=`echo $slc_looks | awk '{print $1*2}'`
     ifm_rlks=$ifm_looks
     ifm_alks=`echo $ifm_looks | awk '{print $1*2}'`
+elif [ $sensor == CSK ]; then
+    if [ $mode == HI ]; then
+       slc_rlks=$slc_looks
+       slc_alks=`echo $slc_looks | awk '{print $1*1.5}'`
+       ifm_rlks=$ifm_looks
+       ifm_alks=`echo $ifm_looks | awk '{print $1*1.5}'`
+    elif [ $mode == SP ]; then
+       slc_rlks=$slc_looks
+       slc_alks=$slc_looks
+       ifm_rlks=$ifm_looks
+       ifm_alks=$ifm_looks
+    fi
 else
-    # CSK, TSX, S1_SM
+    # TSX, S1_SM
     slc_rlks=$slc_looks
     slc_alks=$slc_looks
     ifm_rlks=$ifm_looks
