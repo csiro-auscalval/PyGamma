@@ -1,0 +1,192 @@
+#!/bin/bash
+
+display_usage() {
+    echo ""
+    echo "*******************************************************************************"
+    echo "* plot_csg_well_dev:  Plot cumulative development of csg wells.               *"
+    echo "*                     Made specifically for Surat project.                    *"
+    echo "*                                                                             *"
+    echo "*  NOTE: script will only work if run on the NCI.                             *"
+    echo "*                                                                             *"
+    echo "* input:  [proc_file]    name of GAMMA proc file (eg. gamma.proc)             *"
+    echo "*                                                                             *"
+    echo "* author: Sarah Lawrie @ GA       01/09/2015, v1.0                            *"
+    echo "*******************************************************************************"
+    echo -e "Usage: plot_csg_well_dev.bash [proc_file]"
+    }
+
+if [ $# -lt 1 ]
+then 
+    display_usage
+    exit 1
+fi
+
+proc_file=$1
+
+## Variables from parameter file (*.proc)
+platform=`grep Platform= $proc_file | cut -d "=" -f 2`
+project=`grep Project= $proc_file | cut -d "=" -f 2`
+sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
+track=`grep Track= $proc_file | cut -d "=" -f 2`
+
+## Identify project directory based on platform
+if [ $platform == NCI ]; then
+    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    pir_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/PIRATE
+else
+    proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    pir_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/PIRATE
+fi
+
+## Load GAMMA based on platform
+if [ $platform == NCI ]; then
+    GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
+    source $GAMMA
+else
+    GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
+    source $GAMMA
+fi
+
+## Identify dem project directory based on platform
+if [ $platform == NCI ]; then
+    dem_name_nci=`grep DEM_name_NCI= $proc_file | cut -d "=" -f 2`
+    dem_name=`echo $dem_name_nci | cut -f 1 -d '.'`
+    dem=$proj_dir/gamma_dem/$dem_name.grd
+else
+    :
+fi
+
+dir=$pir_dir/csg_wells
+cd $dir
+
+# For animations: Create a lexically increasing file namestem (no extension) based on prefix and frame number
+# i.e., prefix_######
+gmt_set_framename() {
+        echo $1 $2 | awk '{printf "%s_%03d\n", $1, $2}'
+}
+
+# For animations: Increment frame counter by one
+gmt_set_framenext() {
+       gmt math -Q $1 1 ADD =
+}
+
+## Create master map
+az=315
+tif_width=20c
+tif_height=13.6c
+dpi=300
+n_frames=29
+name=surat_csg_wells_anim
+ps=$name.ps
+gmtset MAP_FRAME_TYPE plain
+gmtset MAP_FRAME_PEN thin
+gmtset MAP_TICK_LENGTH_PRIMARY 2.2p/1.6p
+gmtset PROJ_LENGTH_UNIT c
+gmtset FORMAT_GEO_MAP ddd:mm
+gmtset FONT_ANNOT_PRIMARY 4.5p
+proj=-JM8
+plotrange=-R145.85/152.41/-28.72/-24.35
+
+# Plot basemap
+psbasemap $proj $plotrange -Ba1f0.5/a1f0.5WSen -K -P -V > $name.map.ps
+
+# Resize, filter and create intensity grid for dem 
+grdcut $dem -Gdem.grd $plotrange -V
+grdgradient dem.grd -A$az -Nt -Gdem_int.grd -V
+makecpt -Celevation -T0/4000/5 -N -Z -V > dem.cpt
+
+# Plot shaded relief of dem
+grdimage dem.grd -Cdem.cpt $proj $plotrange -Idem_int.grd -Qs -K -O -P -V >> $name.map.ps
+
+# Plot coast and colour scale
+pscoast -R -JM -W0.25p -Dh -S190/232/255 -K -O -P -V >> $name.map.ps
+
+# Plot surat basin outline
+psxy surat_basin_basic_points.txt $proj $plotrange -W0.25p,100/100/100 -Z -K -O -P -V >> $name.map.ps  
+
+
+## Create first frame (no csg wells)
+cp -f $name.map.ps $name.ps
+mkdir -p $name
+frame=0
+file=`gmt_set_framename ${name} ${frame}`
+
+# Plot places (with white shading behind text)
+psxy surat_place_points.txt $proj $plotrange -Sc0.06c -Gblack -W0.2p,white -K -O -P -V >> $name.ps  
+pstext surat_place_names1.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.515c/-0.195c -N -K -O -P -V >> $name.ps #goon
+pstext surat_place_names1.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.52c/-0.2c -N -K -O -P -V >> $name.ps  
+pstext surat_place_names2.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.275c/-0.195c -N -K -O -P -V >> $name.ps #surat
+pstext surat_place_names2.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.28/-0.2c -N -K -O -P -V >> $name.ps 
+pstext surat_place_names3.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.315c/-0.195c -N -K -O -P -V >> $name.ps #char
+pstext surat_place_names3.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.32c/-0.2c -N -K -O -P -V >> $name.ps  
+pstext surat_place_names4.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.275c/-0.195c -N -K -O -P -V >> $name.ps #injune
+pstext surat_place_names4.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.28c/-0.2c -N -K -O -P -V >> $name.ps 
+pstext surat_place_names5.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.295c/-0.195c -N -K -O -P -V >> $name.ps #roma
+pstext surat_place_names5.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.3c/-0.2c -N -K -O -P -V >> $name.ps  
+pstext surat_place_names6.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.465c/-0.195c -N -K -O -P -V >> $name.ps #bund
+pstext surat_place_names6.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.47c/-0.2c -N -K -O -P -V >> $name.ps  
+pstext surat_place_names7.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.545c/-0.195c -N -K -O -P -V >> $name.ps #too
+pstext surat_place_names7.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.55/-0.2c -N -O -P -V >> $name.ps  
+
+# Convert to tif
+ps2raster $name.ps -A+s$tif_width/$tif_height -E$dpi -Tt -V
+mv -f $name.tif $name/$file.tif
+echo "Frame ${file} completed"
+frame=`gmt_set_framenext ${frame}`
+
+## Create subsequent frames (with cumulative csg wells)
+
+while read list; do
+    year=`echo $list | cut -f 1 -d '.' | cut -f 3 -d '_'`
+    if [ $frame -le $n_frames ]; then
+	file=`gmt_set_framename ${name} ${frame}`
+	cp -f $name.map.ps $name.ps
+
+        # Plot year with white background
+	psxy $proj $plotrange -Gwhite -W0.25,black -K -O -P <<EOF >> $name.ps
+145.95 -24.45
+146.56 -24.45
+146.56 -24.70
+145.95 -24.70
+145.95 -24.45
+EOF
+	pstext $proj $plotrange -F+f8p,Helvetica-Bold,+j -K -O -P <<EOF >> $name.ps
+145.99 -24.50 TL $year
+EOF
+        # Plot csg wells 
+	psxy $list $proj $plotrange -Sc0.08c -G0/169/230 -W0.2p,black -K -O -P >> $name.ps
+
+        # Plot places (with white shading behind text) - want places to be on top of csg wells
+	psxy surat_place_points.txt $proj $plotrange -Sc0.06c -Gblack -W0.2p,white -K -O -P >> $name.ps  
+	pstext surat_place_names1.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.515c/-0.195c -N -K -O -P >> $name.ps #goon
+	pstext surat_place_names1.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.52c/-0.2c -N -K -O -P >> $name.ps  
+	pstext surat_place_names2.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.275c/-0.195c -N -K -O -P >> $name.ps #surat
+	pstext surat_place_names2.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.28/-0.2c -N -K -O -P >> $name.ps 
+	pstext surat_place_names3.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.315c/-0.195c -N -K -O -P >> $name.ps #char
+	pstext surat_place_names3.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.32c/-0.2c -N -K -O -P >> $name.ps  
+	pstext surat_place_names4.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.275c/-0.195c -N -K -O -P >> $name.ps #injune
+	pstext surat_place_names4.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.28c/-0.2c -N -K -O -P >> $name.ps 
+	pstext surat_place_names5.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.295c/-0.195c -N -K -O -P >> $name.ps #roma
+	pstext surat_place_names5.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.3c/-0.2c -N -K -O -P >> $name.ps  
+	pstext surat_place_names6.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.465c/-0.195c -N -K -O -P >> $name.ps #bund
+	pstext surat_place_names6.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.47c/-0.2c -N -K -O -P >> $name.ps  
+	pstext surat_place_names7.txt $proj $plotrange -F+f4.5p,Helvetica,white,+jTL -Dj-0.545c/-0.195c -N -K -O -P >> $name.ps #too
+	pstext surat_place_names7.txt $proj $plotrange -F+f4.5p,Helvetica,black,+jTL -Dj-0.55/-0.2c -N -O -P >> $name.ps  
+
+        # Convert to tif
+	ps2raster $name.ps -A+s$tif_width/$tif_height -E$dpi -Tt -V
+	mv -f $name.tif $name/$file.tif
+	echo "Frame ${file} completed"
+	frame=`gmt_set_framenext ${frame}`
+    else
+	:
+    fi
+done < years_list
+
+# Clean up files
+rm *.ps dem.cpt dem.grd dem_int.grd 
+
+
+
+# script end 
+####################
