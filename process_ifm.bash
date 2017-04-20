@@ -256,6 +256,10 @@ unw_geocode_out=$int_dir/$mas_slv_name"_utm.unw"
 filt_geocode_out=$int_dir/$mas_slv_name"_filt_int_utm.flt"
 smcc_geocode_out=$int_dir/$mas_slv_name"_filt_utm.cc"
 cc_geocode_out=$int_dir/$mas_slv_name"_flat_utm.cc"
+unw_geocode_bmp=$int_dir/$mas_slv_name"_utm_unw.bmp"
+filt_geocode_bmp=$int_dir/$mas_slv_name"_filt_int_utm_flt.bmp"
+smcc_geocode_bmp=$int_dir/$mas_slv_name"_filt_utm_cc.bmp"
+cc_geocode_bmp=$int_dir/$mas_slv_name"_flat_utm_cc.bmp"
 geotif=$unw_geocode_out.tif
 #lv_theta=$int_dir/$mas_slv_name.lv_theta
 #lv_phi=$int_dir/$mas_slv_name.lv_phi
@@ -619,21 +623,35 @@ GEOCODE()
 
     ## Use bicubic spline interpolation for geocoded unwrapped interferogram
     GM geocode_back $int_unw $width_in $gc_map $unw_geocode_out $width_out - 1 0 - -
-
-    # Make quick-look image of unwrapped interferogram
-    GM rasrmg $unw_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $unw_geocode_out.bmp
+    # make quick-look png image 
+    GM rasrmg $unw_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $unw_geocode_bmp
+    GM convert $unw_geocode_bmp ${unw_geocode_bmp/.bmp}.png
+    rm -f $unw_geocode_bmp
 
 
     ## Use bicubic spline interpolation for geocoded filtered interferogram
     # convert to float and extract phase
     GM cpx_to_real $int_filt $int_float $width_in 4
     GM geocode_back $int_float $width_in $gc_map $filt_geocode_out $width_out - 1 0 - -
+    # make quick-look png image
+    GM rasrmg $filt_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $filt_geocode_bmp
+    GM convert $filt_geocode_bmp ${filt_geocode_bmp/.bmp}.png
+    rm -f $filt_geocode_bmp
 
     ## Use bicubic spline interpolation for geocoded filt coherence file
     GM geocode_back $smcc $width_in $gc_map $smcc_geocode_out $width_out - 1 0 - -
+    # make quick-look png image
+    GM rasrmg $smcc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $smcc_geocode_bmp
+    GM convert $smcc_geocode_bmp ${smcc_geocode_bmp/.bmp}.png
+    rm -f $smcc_geocode_bmp
 
     ## Use bicubic spline interpolation for geocoded flat coherence file
     GM geocode_back $cc $width_in $gc_map $cc_geocode_out $width_out - 1 0 - -
+    # make quick-look png image
+    GM rasrmg $cc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $cc_geocode_bmp
+    GM convert $cc_geocode_bmp ${cc_geocode_bmp/.bmp}.png
+    rm -f $cc_geocode_bmp
+
 
     echo " "
     echo "Geocoded interferogram."
@@ -653,6 +671,10 @@ GEOCODE()
     else
 	:
     fi
+
+
+
+
 
     # Extract coordinates from DEM for plotting par file
     width=`grep width: $dem_par | awk '{print $2}'`
