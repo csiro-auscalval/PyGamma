@@ -36,6 +36,8 @@ display_usage() {
     echo "*              Not using landsat image for Sentinel-1 Master-DEM coreg.       *"
     echo "*         Matt Garthwaite @ GA    19.08.2016, v1.5                            *"
     echo "*              Change order of master and rdc_dem to fix errors in coreg      *"
+    echo "*         Sarah Lawrie @ GA       19/04/2017, v1.6                            *"
+    echo "*              Modify method for calculating subsetting DEM                   *"
     echo "*******************************************************************************"
     echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] [multi-look] [subset] [image] <roff> <rlines> <azoff> <azlines> <beam>"
     }
@@ -74,10 +76,13 @@ dem_win=`grep dem_win= $proc_file | cut -d "=" -f 2`
 dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
 rpos=`grep rpos= $proc_file | cut -d "=" -f 2`
 azpos=`grep azpos= $proc_file | cut -d "=" -f 2`
+subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
+
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
     proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    subset_file=$proj_dir/$track_dir/lists/`grep Subset_file= $proc_file | cut -d "=" -f 2`
     dem_name_nci=`grep DEM_name_NCI= $proc_file | cut -d "=" -f 2`
     dem=$proj_dir/gamma_dem/$dem_name_nci
     dem_par=$proj_dir/gamma_dem/$dem_name_nci.par
@@ -144,87 +149,8 @@ else # beam exists
     slc_name=$master"_"$polar"_"$beam
 fi
 
-if [ $multi_look -eq 1 -a $subset -eq 1 ]; then # full res DEM for calculating subset values or geocoding full slc
-    if [ -z $beam ]; then # no beam
-        mli_name=$master"_"$polar"_0rlks"
-    else # beam exists
-        mli_name=$master"_"$polar"_"$beam"_0rlks"
-    fi
-elif [ $multi_look -eq 1 -a $subset -eq 2 ]; then # full res DEM of subset
-    if [ -z $beam ]; then # no beam
-	mli_name=$master"_"$polar"-subset_0rlks"
-    else # beam exists
-	mli_name=$master"_"$polar"_"$beam"-subset_0rlks"
-    fi
-elif [ $multi_look -eq 2 -a $subset -eq 2 ]; then # multi-look dem and subset
-    if [ -z $beam ]; then # no beam
-	mli_name=$master"_"$polar"_"$rlks"rlks"	
-    else # beam exists
-	mli_name=$master"_"$polar"_"$beam"_"$rlks"rlks"
-    fi
-else # multi-look dem and no subset
-    if [ -z $beam ]; then # no beam
-	mli_name=$master"_"$polar"_"$rlks"rlks"
-    else # beam exists
-	mli_name=$master"_"$polar"_"$beam"_"$rlks"rlks"
-    fi
-fi
 
-## Files located in master SLC directory
-master_mli=$master_dir/$mli_name.mli
-master_mli_par=$master_mli.par
-master_slc=$master_dir/$slc_name.slc
-master_slc_par=$master_slc.par
-
-cd $master_dir
-
-## Determine range and azimuth looks for multi-looking
-echo " "
-echo "Range and azimuth looks: "$rlks $alks
-echo " "
-
-## Generate subsetted SLC and MLI files using parameters from gamma.proc
-GM SLC_copy $master_slc $master_slc_par r$slc_name.slc r$slc_name.slc.par 1 - $roff $rlines $azoff $azlines
-
-## Reset filenames after subsetting
-master_mli=$master_dir/r$mli_name.mli
-master_mli_par=$master_mli.par
-master_slc=$master_dir/r$slc_name.slc
-master_slc_par=$master_slc.par
-
-GM multi_look $master_slc $master_slc_par $master_mli $master_mli_par $rlks $alks 0
-
-#--------------------------------
-#DEM:
-
-mkdir -p $dem_dir
-cd $dem_dir
-
-# files located in DEM directory
-rdc_dem=$dem_dir/$mli_name"_rdc.dem"
-utm_dem=$dem_dir/$mli_name"_utm.dem"
-utm_dem_par=$utm_dem.par
-lt_rough=$dem_dir/$mli_name"_rough_utm_to_rdc.lt"
-lt_fine=$dem_dir/$mli_name"_fine_utm_to_rdc.lt"
-utm_sim_sar=$dem_dir/$mli_name"_utm.sim"
-rdc_sim_sar=$dem_dir/$mli_name"_rdc.sim"
-loc_inc=$dem_dir/$mli_name"_local_inc.ang"
-diff=$dem_dir/"diff_"$mli_name.par
-lsmap=$dem_dir/$mli_name"_utm.lsmap"
-off=$dem_dir/$mli_name.off
-offs=$dem_dir/$mli_name.offs
-ccp=$dem_dir/$mli_name.ccp
-offsets=$dem_dir/$mli_name.offsets
-coffs=$dem_dir/$mli_name.coffs
-coffsets=$dem_dir/$mli_name.coffsets
-##lsat_flt=$dem_dir/$mli_name"_lsat_sar.flt" 
-##lsat_init_sar=$dem_dir/$mli_name"_lsat_init.sar" 
-##lsat_sar=$dem_dir/$mli_name"_lsat.sar"
-lv_theta=$dem_dir/$mli_name"_utm.lv_theta"
-lv_phi=$dem_dir/$mli_name"_utm.lv_phi"
-
-
-## Coregistration results file
+# Coregistration results file
 if [ -z $beam ]; then
     check_file=$proj_dir/$track_dir/dem_coreg_results"_"$rlks"rlks_"$alks"alks.txt"
 else
@@ -232,80 +158,192 @@ else
 fi
 
 
-## Determine oversampling factor for DEM coregistration
-dem_post=`grep post_lon $dem_par | awk '{printf "%.8f\n", $2}'`
-if [ $(bc <<< "$dem_post <= 0.00011111") -eq 1 ]; then # 0.4 arc second or smaller DEMs
-    ovr=1
-elif [ $(bc <<< "$dem_post <= 0.00027778") -eq 1 ]; then # between 0.4 and 1 arc second DEMs
-    ovr=4
-elif [ $(bc <<< "$dem_post < 0.00083333") -eq 1 ]; then # between 1 and 3 arc second DEMs
-    ovr=4
-elif [ $(bc <<< "$dem_post >= 0.00083333") -eq 1 ]; then # 3 arc second or larger DEMs
-    ovr=8
-else
-    :
-fi
-echo " "
-echo "DEM oversampling factor: "$ovr
-echo " "
+# Copy SLC and subset if required
+COPY_SLC_FULL()
+{
+    if [ -z $beam ]; then # no beam
+        mli_name=$master"_"$polar"_0rlks"
+    else # beam exists
+        mli_name=$master"_"$polar"_"$beam"_0rlks"
+    fi
 
+    ## Files located in master SLC directory
+    master_mli=$master_dir/$mli_name.mli
+    master_mli_par=$master_mli.par
+    master_slc=$master_dir/$slc_name.slc
+    master_slc_par=$master_slc.par
+    
+    cd $master_dir
 
-##Generate DEM coregistered to master SLC in rdc geometry
-
-## Derivation of initial geocoding look-up table and simulated SAR intensity image
-# note: gc_map can produce looking vector grids and shadow and layover maps
-
-if [ -e $utm_dem_par ]; then
+    ## Determine range and azimuth looks for multi-looking
     echo " "
-    echo  $utm_dem_par" exists, removing file."
+    echo "Range and azimuth looks: "$rlks $alks
     echo " "
-    rm -f $utm_dem_par
-fi
-if [ -e $utm_dem ]; then
+
+    ## Generate subsetted SLC and MLI files using parameters from gamma.proc
+    GM SLC_copy $master_slc $master_slc_par r$slc_name.slc r$slc_name.slc.par 1 - - - - - 
+
+    ## Reset filenames after subsetting
+    master_mli=$master_dir/r$mli_name.mli
+    master_mli_par=$master_mli.par
+    master_slc=$master_dir/r$slc_name.slc
+    master_slc_par=$master_slc.par
+
+    GM multi_look $master_slc $master_slc_par $master_mli $master_mli_par 1 1 0
+}
+
+
+COPY_SLC()
+{
+    if [ -z $beam ]; then # no beam
+	mli_name=$master"_"$polar"_"$rlks"rlks"	
+    else # beam exists
+	mli_name=$master"_"$polar"_"$beam"_"$rlks"rlks"
+    fi
+
+    ## Files located in master SLC directory
+    master_mli=$master_dir/$mli_name.mli
+    master_mli_par=$master_mli.par
+    master_slc=$master_dir/$slc_name.slc
+    master_slc_par=$master_slc.par
+    
+    cd $master_dir
+
+    ## Determine range and azimuth looks for multi-looking
     echo " "
-    echo  $utm_dem" exists, removing file."
+    echo "Range and azimuth looks: "$rlks $alks
     echo " "
-    rm -f $utm_dem
-fi
 
-# pre-determine segmented DEM_par by inputting constant height (necessary to avoid a bug in using gc_map)
-GM gc_map $master_mli_par - $dem_par 10. $utm_dem_par $utm_dem $lt_rough $ovr $ovr - - - - - - - 8 1
-# use predetermined dem_par to segment the full DEM
-GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - $loc_inc - - $lsmap 8 1
+    ## Generate subsetted SLC and MLI files using parameters from gamma.proc
+    GM SLC_copy $master_slc $master_slc_par r$slc_name.slc r$slc_name.slc.par 1 - $roff $rlines $azoff $azlines
+
+    ## Reset filenames after subsetting
+    master_mli=$master_dir/r$mli_name.mli
+    master_mli_par=$master_mli.par
+    master_slc=$master_dir/r$slc_name.slc
+    master_slc_par=$master_slc.par
+
+    GM multi_look $master_slc $master_slc_par $master_mli $master_mli_par $rlks $alks 0
+}
 
 
-## Convert landsat float file to same coordinates as DEM
-##if [ $ext_image -eq 2 ]; then
-  ##  GM map_trans $dem_par $image $utm_dem_par $lsat_flt 1 1 1 0 -
-##else
-  ##  :
-##fi
+# Files located in DEM directory
+DEM_FILES()
+{
+    rdc_dem=$dem_dir/$mli_name"_rdc.dem"
+    utm_dem=$dem_dir/$mli_name"_utm.dem"
+    utm_dem_par=$utm_dem.par
+    lt_rough=$dem_dir/$mli_name"_rough_utm_to_rdc.lt"
+    lt_fine=$dem_dir/$mli_name"_fine_utm_to_rdc.lt"
+    utm_sim_sar=$dem_dir/$mli_name"_utm.sim"
+    rdc_sim_sar=$dem_dir/$mli_name"_rdc.sim"
+    loc_inc=$dem_dir/$mli_name"_local_inc.ang"
+    diff=$dem_dir/"diff_"$mli_name.par
+    lsmap=$dem_dir/$mli_name"_utm.lsmap"
+    off=$dem_dir/$mli_name.off
+    offs=$dem_dir/$mli_name.offs
+    ccp=$dem_dir/$mli_name.ccp
+    offsets=$dem_dir/$mli_name.offsets
+    coffs=$dem_dir/$mli_name.coffs
+    coffsets=$dem_dir/$mli_name.coffsets
+    ##lsat_flt=$dem_dir/$mli_name"_lsat_sar.flt" 
+    ##lsat_init_sar=$dem_dir/$mli_name"_lsat_init.sar" 
+    ##lsat_sar=$dem_dir/$mli_name"_lsat.sar"
+    lv_theta=$dem_dir/$mli_name"_utm.lv_theta"
+    lv_phi=$dem_dir/$mli_name"_utm.lv_phi"
+}
 
-dem_width=`grep width: $utm_dem_par | awk '{print $2}'`
-master_mli_width=`grep range_samples: $master_mli_par | awk '{print $2}'`
-master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
 
-## Transform simulated SAR intensity image to radar geometry
-GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
-##if [ $ext_image -eq 2 ]; then
-## Transform landsat image to radar geometr
-  ##  GM geocode $lt_rough $lsat_flt $dem_width $lsat_init_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
-##else
-  ##  :
-##fi
+# Determine oversampling factor for DEM coregistration
+OVER_SAMPLE()
+{
+    dem_post=`grep post_lon $dem_par | awk '{printf "%.8f\n", $2}'`
+    if [ $(bc <<< "$dem_post <= 0.00011111") -eq 1 ]; then # 0.4 arc second or smaller DEMs
+	ovr=1
+    elif [ $(bc <<< "$dem_post <= 0.00027778") -eq 1 ]; then # between 0.4 and 1 arc second DEMs
+	ovr=4
+    elif [ $(bc <<< "$dem_post < 0.00083333") -eq 1 ]; then # between 1 and 3 arc second DEMs
+	ovr=4
+    elif [ $(bc <<< "$dem_post >= 0.00083333") -eq 1 ]; then # 3 arc second or larger DEMs
+	ovr=8
+    else
+	:
+    fi
+    echo " "
+    echo "DEM oversampling factor: "$ovr
+    echo " "
+}
 
-## Fine coregistration of master MLI and simulated SAR image
+
+# Generate DEM coregistered to master SLC in rdc geometry
+GEN_DEM_RDC()
+{
+    # Derivation of initial geocoding look-up table and simulated SAR intensity image
+    # note: gc_map can produce looking vector grids and shadow and layover maps
+
+    if [ -e $utm_dem_par ]; then
+	echo " "
+	echo  $utm_dem_par" exists, removing file."
+	echo " "
+	rm -f $utm_dem_par
+    fi
+    if [ -e $utm_dem ]; then
+	echo " "
+	echo  $utm_dem" exists, removing file."
+	echo " "
+	rm -f $utm_dem
+    fi
+    
+    # pre-determine segmented DEM_par by inputting constant height (necessary to avoid a bug in using gc_map)
+    GM gc_map $master_mli_par - $dem_par 10. $utm_dem_par $utm_dem $lt_rough $ovr $ovr - - - - - - - 8 1
+    # use predetermined dem_par to segment the full DEM
+    GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - $loc_inc - - $lsmap 8 1
+    
+    # Convert landsat float file to same coordinates as DEM
+    #if [ $ext_image -eq 2 ]; then
+	#GM map_trans $dem_par $image $utm_dem_par $lsat_flt 1 1 1 0 -
+    #else
+        #:
+    #fi
+
+    dem_width=`grep width: $utm_dem_par | awk '{print $2}'`
+    master_mli_width=`grep range_samples: $master_mli_par | awk '{print $2}'`
+    master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
+    
+    # Transform simulated SAR intensity image to radar geometry
+    GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+
+    #if [ $ext_image -eq 2 ]; then
+    # Transform landsat image to radar geometr
+	#GM geocode $lt_rough $lsat_flt $dem_width $lsat_init_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+    #else
+        #:
+    #fi
+}
+
+
+# Fine coregistration of master MLI and simulated SAR image
 # Make file to input user-defined values from proc file #
-#for full dem:
-if [ $rlks -eq 1 -a $alks -eq 1 ]; then
+CREATE_DIFF_PAR_FULL()
+{
+    cd $dem_dir
     returns=$dem_dir/returns
     echo "" > $returns #default scene title
     echo $noffset >> $returns
     echo $offset_measure >> $returns
     echo $dem_win >> $returns 
     echo $dem_snr >> $returns 
-#for mli
-else
+
+    GM create_diff_par $master_mli_par - $diff 1 < $returns
+    rm -f $returns 
+    # remove temporary mli files (only required to generate diff par)
+    rm -f $master_mli $master_mli_par
+}
+
+
+CREATE_DIFF_PAR()
+{
+    cd $dem_dir
     noffset1=`echo $noffset | awk '{print $1}'`
     if [ $noffset1 -eq 0 ]; then
 	noff1=0
@@ -324,90 +362,175 @@ else
     echo $offset_measure >> $returns
     echo $dem_win >> $returns 
     echo $dem_snr >> $returns 
-fi
+        
+    GM create_diff_par $master_mli_par - $diff 1 < $returns
+    rm -f $returns  
+}
 
 
-## The high accuracy of Sentinel-1 orbits requires only a static offset fit term rather than higher order polynomial terms
-if [ $sensor == S1 ]; then
-    npoly=1
-else
-    npoly=4
-fi
+OFFSET_CALC()
+{
+    # The high accuracy of Sentinel-1 orbits requires only a static offset fit term rather than higher order polynomial terms
+    if [ $sensor == S1 ]; then
+	npoly=1
+    else
+	npoly=4
+    fi
 
-GM create_diff_par $master_mli_par - $diff 1 < $returns
-rm -f $returns
+    # initial offset estimate
+    ##if [ $ext_image -eq 1 ]; then
+    # MCG: following testing, rlks and azlks refer to FURTHER multi-looking. Should be set to 1 when using a multi-looked MLI for coreg.
+    # MCG: set rdc_sim_sar as reference image for robust coreg 
+    GM init_offsetm $rdc_sim_sar $master_mli $diff 1 1 $rpos $azpos - - $dem_snr $dem_patch_win 1
 
+    GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp - - $offsets 1 - - -
+    ##else
+    ##GM init_offsetm $master_mli $lsat_init_sar $diff $rlks $alks $rpos $azpos - - $dem_snr $dem_patch_win 1
+    ##GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp - - $offsets 1 - - - 
+    ##fi
+    # if image patch extends beyond input MLI-1 (init_offsetm), an error is generated but not automatically put into error.log file
+    grep "ERROR" output.log  1>&2
 
-## initial offset estimate
-##if [ $ext_image -eq 1 ]; then
- # MCG: following testing, rlks and azlks refer to FURTHER multi-looking. Should be set to 1 when using a multi-looked MLI for coreg.
- # MCG: set rdc_sim_sar as reference image for robust coreg 
-GM init_offsetm $rdc_sim_sar $master_mli $diff 1 1 $rpos $azpos - - $dem_snr $dem_patch_win 1
+    GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
 
-GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp - - $offsets 1 - - -
-##else
- ##GM init_offsetm $master_mli $lsat_init_sar $diff $rlks $alks $rpos $azpos - - $dem_snr $dem_patch_win 1
- ##GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp - - $offsets 1 - - - 
-##fi
-# if image patch extends beyond input MLI-1 (init_offsetm), an error is generated but not automatically put into error.log file
-grep "ERROR" output.log  1>&2
+    # precision estimation of the registration polynomial
+    rwin=`echo $dem_win | awk '{print $1/4}'`
+    azwin=`echo $dem_win | awk '{print $1/4}'`
+    nr=`echo $offset_measure | awk '{print $1*4}'`
+    naz=`echo $offset_measure | awk '{print $1*4}'`
 
-GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
-
-## precision estimation of the registration polynomial
-rwin=`echo $dem_win | awk '{print $1/4}'`
-azwin=`echo $dem_win | awk '{print $1/4}'`
-nr=`echo $offset_measure | awk '{print $1*4}'`
-naz=`echo $offset_measure | awk '{print $1*4}'`
-
-##if [ $ext_image -eq 1 ]; then
+    ##if [ $ext_image -eq 1 ]; then
     GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz -
     #GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz -
-##else
-  ##  GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz - 
-##fi
+    ##else
+    ##  GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz - 
+    ##fi
 
-## range and azimuth offset polynomial estimation 
-GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
+    ## range and azimuth offset polynomial estimation 
+    GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
+    
+    grep "final model fit std. dev." output.log
+    #grep "final range offset poly. coeff.:" output.log
+    #grep "final azimuth offset poly. coeff.:" output.log
 
-grep "final model fit std. dev." output.log
-#grep "final range offset poly. coeff.:" output.log
-#grep "final azimuth offset poly. coeff.:" output.log
+
+    # Refinement of initial geocoding look up table
+    if [ $ext_image -eq 1 ]; then
+	GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 1
+    else
+	GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 0
+    fi
+
+    rm -f $lt_rough $offs $snr $offsets $coffs $coffsets test1.dat test2.dat
+}
 
 
-## Refinement of initial geocoding look up table
-if [ $ext_image -eq 1 ]; then
-    GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 1
-else
-    GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 0
+GEOCODE()
+{
+    # Geocode map geometry DEM to radar geometry
+    GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_length 1 0 - - 2 4 -
+
+    # Geocode simulated SAR intensity image to radar geometry
+    GM geocode $lt_fine $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+
+    # Geocode landsat image to radar geometry
+    ##if [ $ext_image -eq 2 ]; then
+    ##  GM geocode $lt_fine $lsat_flt $dem_width $lsat_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+    ##else 
+    ##   :
+    ##fi
+
+    # Extract final model fit values to check coregistration
+    grep "final model fit std. dev. (samples)" output.log > temp1
+    awk '{print $8}' temp1 > temp2
+    awk '{print $10}' temp1 > temp3
+    paste temp2 temp3 >> $check_file
+    rm -f temp1 temp2 temp3
+}
+
+
+# Create look vector files
+LOOK_VECTOR()
+{
+    GM look_vector $master_slc_par - $utm_dem_par $utm_dem $lv_theta $lv_phi
+}
+
+
+# Create geotif of master mli for subsetting
+GEOTIF_FULL()
+{
+    cd $master_dir
+    master_mli_utm=$master_dir/r$mli_name"_utm_full.mli"
+    master_mli_geo=$master_dir/r$mli_name"_utm_mli_full.tif"
+    width_in=`grep range_samp_1: $diff | awk '{print $2}'`
+    width_out=`grep width: $utm_dem_par | awk '{print $2}'`
+    
+    GM geocode_back $master_mli $width_in $lt_fine $master_mli_utm $width_out - 0 0 - -
+    GM data2geotiff $utm_dem_par $master_mli_utm 2 $master_mli_geo 0.0
+}
+
+GEOTIF()
+{
+    cd $master_dir
+    master_mli_utm=$master_dir/r$mli_name"_utm_subset.mli"
+    master_mli_geo=$master_dir/r$mli_name"_utm_mli_subset.tif"
+    width_in=`grep range_samp_1: $diff | awk '{print $2}'`
+    width_out=`grep width: $utm_dem_par | awk '{print $2}'`
+    
+    GM geocode_back $master_mli $width_in $lt_fine $master_mli_utm $width_out - 0 0 - -
+    GM data2geotiff $utm_dem_par $master_mli_utm 2 $master_mli_geo 0.0
+}
+
+
+
+# Subsetting DEM option
+if [ $subset == yes ]; then
+    roff1=`[[ $roff =~ ^-?[0-9]+$ ]] && echo integer`
+    rlines1=`[[ $rlines =~ ^-?[0-9]+$ ]] && echo integer`
+    azoff1=`[[ $azoff =~ ^-?[0-9]+$ ]] && echo integer`
+    azlines1=`[[ $azlines =~ ^-?[0-9]+$ ]] && echo integer`
+    
+    # subset region not calculated
+    if [ $roff == "-" -a $rlines == "-" -a $azoff == "-" -a $azlines == "-" ]; then
+	if [ ! -e $subset_file ]; then #subset hasn't been calculated yet
+	    # generate diff par at full resolution
+	    COPY_SLC_FULL
+	    DEM_FILES
+	    CREATE_DIFF_PAR_FULL
+	    #generate full multi-looked dem for geotiffing so subset area can be determined in ArcGIS
+	    COPY_SLC
+	    DEM_FILES
+	    OVER_SAMPLE
+	    GEN_DEM_RDC
+	    CREATE_DIFF_PAR
+	    OFFSET_CALC
+	    GEOCODE
+	    GEOTIF_FULL
+	fi
+    # subset file exists and proc file has been updated
+    elif [ $roff1 == "integer" -a $rlines1 == "integer" -a $azoff1 == "integer" -a $azlines1 == "integer" ]; then
+	COPY_SLC
+	DEM_FILES
+	OVER_SAMPLE
+	GEN_DEM_RDC
+	CREATE_DIFF_PAR
+	OFFSET_CALC
+	GEOCODE
+	LOOK_VECTOR
+	GEOTIF
+    else
+	:
+    fi
+else # if no subsetting
+    COPY_SLC
+    DEM_FILES
+    OVER_SAMPLE
+    GEN_DEM_RDC
+    CREATE_DIFF_PAR
+    OFFSET_CALC
+    GEOCODE
+    LOOK_VECTOR
 fi
-
-rm -f $lt_rough $offs $snr $offsets $coffs $coffsets test1.dat test2.dat
-
-## Geocode map geometry DEM to radar geometry
-GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_length 1 0 - - 2 4 -
-
-## Geocode simulated SAR intensity image to radar geometry
-GM geocode $lt_fine $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
-
-## Geocode landsat image to radar geometry
-##if [ $ext_image -eq 2 ]; then
- ##  GM geocode $lt_fine $lsat_flt $dem_width $lsat_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
-##else 
-  ##   :
-##fi
-
-## Extract final model fit values to check coregistration
-grep "final model fit std. dev. (samples)" output.log > temp1
-awk '{print $8}' temp1 > temp2
-awk '{print $10}' temp1 > temp3
-paste temp2 temp3 >> $check_file
-rm -f temp1 temp2 temp3
-
-
-## Create look vector files
-GM look_vector $master_slc_par - $utm_dem_par $utm_dem $lv_theta $lv_phi
-
 
 
 # script end 
