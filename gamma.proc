@@ -124,6 +124,8 @@ dem_offset_measure=32 32
 dem_win=256 256
     # correlation SNR threshold (nominal: 0.15):
 dem_snr=0.15
+    # if full resolution processing, may need to change 'geocode' rad_max value to 8 to avoid holes in interpolation (default: 4)
+dem_rad_max=4
 
 ##### Slave coregistration parameters #####
     # Cross-correlation threshold for offset rejection (default = 0.1)
@@ -147,6 +149,14 @@ slv_win=256 256
 slv_cc_thresh=0.15
 
 ##### Interferogram Parameters #####
+# CSK spotlight initial interferogram parameters (uses some parameters from dem coregistration)
+    # cross-correlation threshold (default 0.15)
+int_thres=0.15
+    # window for cross-correlation (larger better, default 512)
+init_win=512 512
+    # offset window (recommended to use at least 64)
+offset_win=128 128
+
 ## adaptive spectral filtering (adf) parameters
     # exponent for non-linear filtering
 Exponent=0.5
@@ -168,7 +178,7 @@ start_y=-
 bridge=no
     # coherence threshold for masking
 Coherence_threshold=0.3
-    # number of patches (for mcf, default is 1)
+    # number of patches (for mcf, default is 1, for high res data may need to be 2 or more)
 Patches_range=1
 Patches_azimuth=1
     # location of reference pixel
