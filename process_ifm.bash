@@ -23,6 +23,8 @@ display_usage() {
     echo "*         Thomas Fuhrmann @ GA       21/03/2017, v1.3                         *"
     echo "*           - added iterative precision baseline estimation                   *"
     echo "*             note that initial baseline estimate uses orbital state vectors  *"
+    echo "*         Sarah Lawrie @ GA       13/07/2017, v1.4                            *"
+    echo "*           - add processing for CSK spotlight data                           *"
     echo "*******************************************************************************"
     echo -e "Usage: process_ifm.bash [proc_file] [master] [slave] [rlks] [alks] <beam>"
     }
@@ -52,7 +54,13 @@ project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
+sensor_mode=`grep Sensor_mode= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
+rpos=`grep rpos= $proc_file | cut -d "=" -f 2`
+azpos=`grep azpos= $proc_file | cut -d "=" -f 2`
+int_thres=`grep int_thres= $proc_file | cut -d "=" -f 2`
+init_win=`grep init_win= $proc_file | cut -d "=" -f 2`
+offset_win=`grep offset_win= $proc_file | cut -d "=" -f 2`
 unwrap_type=`grep unwrap_type= $proc_file | cut -d "=" -f 2`
 start_x=`grep start_x= $proc_file | cut -d "=" -f 2`
 start_y=`grep start_y= $proc_file | cut -d "=" -f 2`
@@ -138,6 +146,7 @@ GM()
 mas_dir=$slc_dir/$mas
 slv_dir=$slc_dir/$slv
 int_dir=$int_dir/$mas-$slv
+ref_mas_dir=$slc_dir/$master
 
 #if WB data, need to identify beam in file name
 if [ -z $beam ]; then # no beam
@@ -146,6 +155,7 @@ if [ -z $beam ]; then # no beam
     slv_slc_name=$slv"_"$polar
     slv_mli_name=$slv"_"$polar"_"$ifm_rlks"rlks"
     mas_slv_name=$mas-$slv"_"$polar"_"$ifm_rlks"rlks"
+    ref_mas_name=$master"_"$polar
 else # beam exists
     mas_slc_name=$mas"_"$polar"_"$beam
     mas_mli_name=$mas"_"$polar"_"$beam"_"$ifm_rlks"rlks"
@@ -165,6 +175,8 @@ slv_slc=$slv_dir/r$slv_slc_name.slc
 slv_slc_par=$slv_slc.par
 slv_mli=$slv_dir/r$slv_mli_name.mli
 slv_mli_par=$slv_mli.par
+    # reference master
+ref_mas_slc_par=$ref_mas_dir/r$ref_mas_name.slc.par
 
 
 if [ ! -f $mas_slc ]; then
@@ -228,7 +240,8 @@ int_flat0=$int_dir/$mas_slv_name"_flat0.int"
 int_flat1=$int_dir/$mas_slv_name"_flat1.int"
 int_flat10=$int_dir/$mas_slv_name"_flat10.int"
 int_filt=$int_dir/$mas_slv_name"_filt.int"
-int_float=$int_dir/$mas_slv_name"_filt_int.flt"
+int_flat_float=$int_dir/$mas_slv_name"_flat_int.flt"
+int_filt_float=$int_dir/$mas_slv_name"_filt_int.flt"
 #int_filt_mask=$int_dir/$mas_slv_name"_filt_mask.int"
 cc=$int_dir/$mas_slv_name"_flat.cc"
 cc0=$int_dir/$mas_slv_name"_flat0.cc"
@@ -253,10 +266,12 @@ base_temp=$int_dir/$mas_slv_name"_base_temp.par"
 bperp=$int_dir/$mas_slv_name"_bperp.par"
 flag=$int_dir/$mas_slv_name.flag
 unw_geocode_out=$int_dir/$mas_slv_name"_utm.unw"
+flat_geocode_out=$int_dir/$mas_slv_name"_flat_int_utm.flt"
 filt_geocode_out=$int_dir/$mas_slv_name"_filt_int_utm.flt"
 smcc_geocode_out=$int_dir/$mas_slv_name"_filt_utm.cc"
 cc_geocode_out=$int_dir/$mas_slv_name"_flat_utm.cc"
 unw_geocode_bmp=$int_dir/$mas_slv_name"_utm_unw.bmp"
+flat_geocode_bmp=$int_dir/$mas_slv_name"_flat_int_utm_flt.bmp"
 filt_geocode_bmp=$int_dir/$mas_slv_name"_filt_int_utm_flt.bmp"
 smcc_geocode_bmp=$int_dir/$mas_slv_name"_filt_utm_cc.bmp"
 cc_geocode_bmp=$int_dir/$mas_slv_name"_flat_utm_cc.bmp"
@@ -287,22 +302,52 @@ INT()
     ## Also done in offset tracking so test if this has been run
     if [ ! -e $off ]; then
 	GM create_offset $mas_slc_par $slv_slc_par $off 1 $ifm_rlks $ifm_alks 0
-	GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $ccp 64 64 - 2 64 256 0.1
-	GM offset_fit $offs $ccp $off $coffs $coffsets
+
+        ## 2-pass differential interferometry without phase unwrapping (CSK spotlight)
+	if [ $sensor = CSK ] && [ $sensor_mode = SP ]; then
+            # Measure initial range and azimuth offsets using orbit information
+	    GM init_offset_orbit $mas_slc_par $slv_slc_par $off $rpos $azpos 1
+
+	    # Measure initial range and azimuth offsets using the images
+	    GM init_offset $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $ifm_rlks $ifm_alks $rpos $azpos - - $int_thres $init_win 1
+
+	    # Estimate range and azimuth offset models using correlation of image intensities
+	    GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $ccp $offset_win - 2 32 32 $int_thres 4
+	    GM offset_fit $offs $ccp $off $coffs $coffsets $int_thres 1 0
+	else
+	    GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $ccp 64 64 - 2 64 256 0.1
+	    GM offset_fit $offs $ccp $off $coffs $coffsets
+	fi
     else
 	:
     fi
-    ## Calculate initial interferogram from coregistered SLCs
-    GM SLC_intf $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $int $ifm_rlks $ifm_alks - - 1 1
 
-    if [ $base_iter_flag == yes ]; then
-      ## Estimate initial baseline using orbit state vectors
-      GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 0
+    ## Calculate initial interferogram from coregistered SLCs
+    if [ $sensor = CSK ] && [ $sensor_mode = SP ]; then
+	# Simulate unwrapped interferometric phase using DEM height and deformation rate using orbit state vectors
+	GM phase_sim_orb $mas_slc_par $slv_slc_par $off $rdc_dem $sim_unw $ref_mas_slc_par - - 1 1	
+	
+        # Calculate interferogram without common band filtering (diff ifg generation from co-registered SLCs and a simulated interferogram)
+	GM SLC_diff_intf $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $sim_unw $int_flat $ifm_rlks $ifm_alks 1 0 0.25 1 1
+
+	# Calculate baseline
+	GM base_orbit $mas_slc_par $slv_slc_par $base
+
+        # Calculate perpendicular baselines
+	GM base_perp $base $mas_slc_par $off
+	base_perp $base $mas_slc_par $off > $bperp
+
     else
-      ## Estimate initial baseline using orbit state vectors, offsets, and interferogram phase
-      GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 2
+	GM SLC_intf $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $int $ifm_rlks $ifm_alks - - 1 1
+	if [ $base_iter_flag == yes ]; then
+            ## Estimate initial baseline using orbit state vectors
+	    GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 0
+	else
+            ## Estimate initial baseline using orbit state vectors, offsets, and interferogram phase
+	    GM base_init $mas_slc_par $slv_slc_par $off $int $base_init 2
+	fi
+            #GM look_vector $mas_slc_par $off $utm_dem_par $utm_dem $lv_theta $lv_phi
     fi
-    #GM look_vector $mas_slc_par $off $utm_dem_par $utm_dem $lv_theta $lv_phi
 }
 
 FLAT()
@@ -319,157 +364,160 @@ FLAT()
 
     cd $int_dir
 
-    ## Simulate the phase from the DEM and linear baseline model. linear baseline model may be inadequate for longer scenes, in which case use phase_sim_orb
-    GM phase_sim $mas_slc_par $off $base_init $rdc_dem $sim_unw0 0 0 - - 1 - 0
-
-    ## Create differential interferogram parameter file
-    GM create_diff_par $off - $diff_par 0 0
-
-    ## Subtract simulated phase
-    GM sub_phase $int $sim_unw0 $diff_par $int_flat0 1 0
-
-    ## Estimate residual baseline using fringe rate of differential interferogram
-    GM base_init $mas_slc_par $slv_slc_par $off $int_flat0 $base_res 4
-
-    ## Add residual baseline estimate to initial estimate
-    GM base_add $base_init $base_res $base 1
-
-    ## Simulate the phase from the DEM and refined baseline model
-    GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw1 0 0 - - 1 - 0
-
-    ## Subtract topographic phase
-    GM sub_phase $int $sim_unw1 $diff_par $int_flat1 1 0
-
-  if [ $base_iter_flag == yes ]; then
-  # As the initial baseline estimate maybe quite wrong for longer baselines, iterations are performed here
-  # Initialise variables for iterative baseline calculation (initial baseline)
-    counter=0
-    test=0
-    baseC=`grep "initial_baseline(TCN):" $base_init | awk '{print $3}'`
-    baseN=`grep "initial_baseline(TCN):" $base_init | awk '{print $4}'`
-    cp -f $base_init $base_temp
-    cp -f $int_flat0 $int_flat_temp
-    # $thresh defines the threshold in [m] at which the while loop is aborted
-    thresh=0.15
-
-   while [ $test -eq 0 -a $counter -lt 15 ]; do
-
-    let counter=counter+1
-    echo "Initial baseline refinement, Iteration:" $counter
-    echo
-
-    ## Estimate residual baseline using fringe rate of differential interferogram
-    GM base_init $mas_slc_par $slv_slc_par $off $int_flat_temp $base_res 4
-
-    baseC_res=`grep "initial_baseline(TCN):" $base_res | awk '{print $3}'`
-    baseN_res=`grep "initial_baseline(TCN):" $base_res | awk '{print $4}'`
-    baserateC_res=`grep "initial_baseline_rate:" $base_res | awk '{print $3}'`
-    baserateN_res=`grep "initial_baseline_rate:" $base_res | awk '{print $4}'`
-    echo "Baseline difference (C N):" $baseC_res $baseN_res
-    echo
-
-    # only add half of the residual estimate for better convergence of the iteration
-    # otherwise values may jump between two extreme values or even not converge at all
-    baseC_res_add=`echo "scale=7; ($baseC_res)/2" | bc`
-    baseN_res_add=`echo "scale=7; ($baseN_res)/2" | bc`
-    baserateC_add=`echo "scale=7; ($baserateC_res)/2" | bc`
-    baserateN_add=`echo "scale=7; ($baserateN_res)/2" | bc`
-    echo "initial_baseline(TCN):        0.0000000     "$baseC_res_add"     "$baseN_res_add"   m   m   m" > temp.txt
-    echo "initial_baseline_rate:        0.0000000     "$baserateC_add"     "$baserateN_add"   m/s m/s m/s" >> temp.txt
-    grep "precision_baseline(TCN):" $base_res >> temp.txt
-    grep "precision_baseline_rate:" $base_res >> temp.txt
-    grep "unwrap_phase_constant:" $base_res >> temp.txt
-    mv -f temp.txt $base_res
-
-    # $test equals 1 if the differences between baselines is below $thresh
-    test=`echo "${baseC_res_add#-} < $thresh && ${baseN_res_add#-} < $thresh" | bc`
-    #test=`echo "${baseC_res#-} < $thresh && ${baseN_res#-} < $thresh" | bc`
-
-    if [ $test -eq 0 -a $counter -eq 15 ]; then
-       echo "Baseline estimates did not converge after 15 iterations." >> error.log
-       echo "Initial baseline estimate using orbital state vectors is used for further processing." >> error.log
-       echo "Check baseline estimates and flattened IFG and rerun manually if necessary!" >> error.log
-       echo >> error.log
-       #cp -f $base_init $base
-       GM base_init $mas_slc_par $slv_slc_par $off $int $base 0
+    if [ $sensor = CSK ] && [ $sensor_mode = SP ]; then #flattening done as part of diff ifg generation in INT
+	:
     else
-    ## Add residual baseline estimate to initial estimate
-    GM base_add $base_temp $base_res $base 1
+        ## Simulate the phase from the DEM and linear baseline model. linear baseline model may be inadequate for longer scenes, in which case use phase_sim_orb
+	GM phase_sim $mas_slc_par $off $base_init $rdc_dem $sim_unw0 0 0 - - 1 - 0
+  
+        ## Create differential interferogram parameter file
+	GM create_diff_par $off - $diff_par 0 0
+
+        ## Subtract simulated phase
+	GM sub_phase $int $sim_unw0 $diff_par $int_flat0 1 0
+
+        ## Estimate residual baseline using fringe rate of differential interferogram
+	GM base_init $mas_slc_par $slv_slc_par $off $int_flat0 $base_res 4
+
+        ## Add residual baseline estimate to initial estimate
+	GM base_add $base_init $base_res $base 1
+
+        ## Simulate the phase from the DEM and refined baseline model
+	GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw1 0 0 - - 1 - 0
+
+        ## Subtract topographic phase
+	GM sub_phase $int $sim_unw1 $diff_par $int_flat1 1 0
+
+	if [ $base_iter_flag == yes ]; then
+            # As the initial baseline estimate maybe quite wrong for longer baselines, iterations are performed here
+            # Initialise variables for iterative baseline calculation (initial baseline)
+	    counter=0
+	    test=0
+	    baseC=`grep "initial_baseline(TCN):" $base_init | awk '{print $3}'`
+	    baseN=`grep "initial_baseline(TCN):" $base_init | awk '{print $4}'`
+	    cp -f $base_init $base_temp
+	    cp -f $int_flat0 $int_flat_temp
+            # $thresh defines the threshold in [m] at which the while loop is aborted
+	    thresh=0.15
+
+	    while [ $test -eq 0 -a $counter -lt 15 ]; do
+
+		let counter=counter+1
+		echo "Initial baseline refinement, Iteration:" $counter
+		echo
+
+                ## Estimate residual baseline using fringe rate of differential interferogram
+		GM base_init $mas_slc_par $slv_slc_par $off $int_flat_temp $base_res 4
+
+		baseC_res=`grep "initial_baseline(TCN):" $base_res | awk '{print $3}'`
+		baseN_res=`grep "initial_baseline(TCN):" $base_res | awk '{print $4}'`
+		baserateC_res=`grep "initial_baseline_rate:" $base_res | awk '{print $3}'`
+		baserateN_res=`grep "initial_baseline_rate:" $base_res | awk '{print $4}'`
+		echo "Baseline difference (C N):" $baseC_res $baseN_res
+		echo
+
+                # only add half of the residual estimate for better convergence of the iteration
+                # otherwise values may jump between two extreme values or even not converge at all
+		baseC_res_add=`echo "scale=7; ($baseC_res)/2" | bc`
+		baseN_res_add=`echo "scale=7; ($baseN_res)/2" | bc`
+		baserateC_add=`echo "scale=7; ($baserateC_res)/2" | bc`
+		baserateN_add=`echo "scale=7; ($baserateN_res)/2" | bc`
+		echo "initial_baseline(TCN):        0.0000000     "$baseC_res_add"     "$baseN_res_add"   m   m   m" > temp.txt
+		echo "initial_baseline_rate:        0.0000000     "$baserateC_add"     "$baserateN_add"   m/s m/s m/s" >> temp.txt
+		grep "precision_baseline(TCN):" $base_res >> temp.txt
+		grep "precision_baseline_rate:" $base_res >> temp.txt
+		grep "unwrap_phase_constant:" $base_res >> temp.txt
+		mv -f temp.txt $base_res
+
+                # $test equals 1 if the differences between baselines is below $thresh
+		test=`echo "${baseC_res_add#-} < $thresh && ${baseN_res_add#-} < $thresh" | bc`
+                #test=`echo "${baseC_res#-} < $thresh && ${baseN_res#-} < $thresh" | bc`
+
+		if [ $test -eq 0 -a $counter -eq 15 ]; then
+		    echo "Baseline estimates did not converge after 15 iterations." >> error.log
+		    echo "Initial baseline estimate using orbital state vectors is used for further processing." >> error.log
+		    echo "Check baseline estimates and flattened IFG and rerun manually if necessary!" >> error.log
+		    echo >> error.log
+                    #cp -f $base_init $base
+		    GM base_init $mas_slc_par $slv_slc_par $off $int $base 0
+		else
+                    ## Add residual baseline estimate to initial estimate
+		    GM base_add $base_temp $base_res $base 1
+		fi
+
+		baseC=`grep "initial_baseline(TCN):" $base | awk '{print $3}'`
+		baseN=`grep "initial_baseline(TCN):" $base | awk '{print $4}'`
+		echo "Baseline (C N):" $baseC $baseN
+
+                ## Simulate the phase from the DEM and refined baseline model
+		GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw1 0 0 - - 1 - 0
+
+                ## Subtract topographic phase
+		GM sub_phase $int $sim_unw1 $diff_par $int_flat1 1 0
+
+		cp -f $int_flat1 $int_flat_temp
+		cp -f $base $base_temp
+
+	    done
+            ### iteration
+
+	    rm -f $base_temp
+	    rm -f $int_flat_temp
+	else
+	    :
+        # use original baseline estimation without iteration
+	fi
+
+        #######################################
+        # Perform refinement of baseline model
+
+        ## multi-look the flattened interferogram 10 times
+	GM multi_cpx $int_flat1 $off $int_flat10 $off10 10 10 0 0
+
+	width10=`grep interferogram_width: $off10 | awk '{print $2}'`
+	
+        ## Generate coherence image
+	GM cc_wave $int_flat10 - - $cc10 $width10 7 7 1
+
+        ## Generate validity mask with high coherence threshold
+	GM rascc_mask $cc10 - $width10 1 1 0 1 1 0.7 0 - - - - 1 $cc10_mask
+
+        ## Perform unwrapping
+	GM mcf $int_flat10 $cc10 $cc10_mask $int_flat10.unw $width10 1 0 0 - - 1 1
+
+        ## Oversample unwrapped interferogram to original resolution
+	GM multi_real $int_flat10.unw $off10 $int_flat1.unw $off -10 -10 0 0
+
+        ## Add full-res unwrapped phase to simulated phase
+	GM sub_phase $int_flat1.unw $sim_unw1 $diff_par $int_flat"1.unw" 0 1
+
+        ## calculate coherence of original flattened interferogram
+        # WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
+	GM cc_wave $int_flat1 - - $cc0 $int_width $ccwin $ccwin 1
+
+        ## generate valifity mask for GCP selection
+	GM rascc_mask $cc0 - $int_width 1 1 0 1 1 0.4 0 - - - - 1 $cc0_mask
+
+        ## select GCPs from high coherence areas
+	GM extract_gcp $rdc_dem $off $gcp 100 100 $cc0_mask
+
+        ## extract phase at GCPs
+	GM gcp_phase $int_flat"1.unw" $off $gcp $gcp_ph 3
+
+        ## Calculate precision baseline from GCP phase data
+        #cp -f $base $base"1"
+	GM base_ls $mas_slc_par $off $gcp_ph $base 0 1 1 1 1 1.0
+
+        ## Simulate the phase from the DEM and precision baseline model.
+	GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw 0 1
+
+        ## subtract simulated phase
+	GM sub_phase $int $sim_unw $diff_par $int_flat 1 0
+
+        ## Calculate perpendicular baselines
+	GM base_perp $base $mas_slc_par $off
+	base_perp $base $mas_slc_par $off > $bperp
     fi
-
-    baseC=`grep "initial_baseline(TCN):" $base | awk '{print $3}'`
-    baseN=`grep "initial_baseline(TCN):" $base | awk '{print $4}'`
-    echo "Baseline (C N):" $baseC $baseN
-
-    ## Simulate the phase from the DEM and refined baseline model
-    GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw1 0 0 - - 1 - 0
-
-    ## Subtract topographic phase
-    GM sub_phase $int $sim_unw1 $diff_par $int_flat1 1 0
-
-    cp -f $int_flat1 $int_flat_temp
-    cp -f $base $base_temp
-
-   done
-   ### iteration
-
-   rm -f $base_temp
-   rm -f $int_flat_temp
-
-  else
-    :
-    # use original baseline estimation without iteration
-  fi
-
-    #######################################
-    # Perform refinement of baseline model
-
-    ## multi-look the flattened interferogram 10 times
-    GM multi_cpx $int_flat1 $off $int_flat10 $off10 10 10 0 0
-
-    width10=`grep interferogram_width: $off10 | awk '{print $2}'`
-
-    ## Generate coherence image
-    GM cc_wave $int_flat10 - - $cc10 $width10 7 7 1
-
-    ## Generate validity mask with high coherence threshold
-    GM rascc_mask $cc10 - $width10 1 1 0 1 1 0.7 0 - - - - 1 $cc10_mask
-
-    ## Perform unwrapping
-    GM mcf $int_flat10 $cc10 $cc10_mask $int_flat10.unw $width10 1 0 0 - - 1 1
-
-    ## Oversample unwrapped interferogram to original resolution
-    GM multi_real $int_flat10.unw $off10 $int_flat1.unw $off -10 -10 0 0
-
-    ## Add full-res unwrapped phase to simulated phase
-    GM sub_phase $int_flat1.unw $sim_unw1 $diff_par $int_flat"1.unw" 0 1
-
-    ## calculate coherence of original flattened interferogram
-    # WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
-    GM cc_wave $int_flat1 - - $cc0 $int_width $ccwin $ccwin 1
-
-    ## generate valifity mask for GCP selection
-    GM rascc_mask $cc0 - $int_width 1 1 0 1 1 0.4 0 - - - - 1 $cc0_mask
-
-    ## select GCPs from high coherence areas
-    GM extract_gcp $rdc_dem $off $gcp 100 100 $cc0_mask
-
-    ## extract phase at GCPs
-    GM gcp_phase $int_flat"1.unw" $off $gcp $gcp_ph 3
-
-    ## Calculate precision baseline from GCP phase data
-    #cp -f $base $base"1"
-    GM base_ls $mas_slc_par $off $gcp_ph $base 0 1 1 1 1 1.0
-
-    ## Calculate perpendicular baselines
-    GM base_perp $base $mas_slc_par $off
-    base_perp $base $mas_slc_par $off > $bperp
-
-    ## Simulate the phase from the DEM and precision baseline model.
-    GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw 0 1
-
-    ## subtract simulated phase
-    GM sub_phase $int $sim_unw $diff_par $int_flat 1 0
 }
 
 FILT()
@@ -628,11 +676,19 @@ GEOCODE()
     GM convert $unw_geocode_bmp ${unw_geocode_bmp/.bmp}.png
     rm -f $unw_geocode_bmp
 
+    ## Use bicubic spline interpolation for geocoded flattened interferogram
+    # convert to float and extract phase
+    GM cpx_to_real $int_flat $int_flat_float $width_in 4
+    GM geocode_back $int_flat_float $width_in $gc_map $flat_geocode_out $width_out - 1 0 - -
+    # make quick-look png image
+    GM rasrmg $flat_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $flat_geocode_bmp
+    GM convert $flat_geocode_bmp ${flat_geocode_bmp/.bmp}.png
+    rm -f $flat_geocode_bmp
 
     ## Use bicubic spline interpolation for geocoded filtered interferogram
     # convert to float and extract phase
-    GM cpx_to_real $int_filt $int_float $width_in 4
-    GM geocode_back $int_float $width_in $gc_map $filt_geocode_out $width_out - 1 0 - -
+    GM cpx_to_real $int_filt $int_filt_float $width_in 4
+    GM geocode_back $int_filt_float $width_in $gc_map $filt_geocode_out $width_out - 1 0 - -
     # make quick-look png image
     GM rasrmg $filt_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $filt_geocode_bmp
     GM convert $filt_geocode_bmp ${filt_geocode_bmp/.bmp}.png
