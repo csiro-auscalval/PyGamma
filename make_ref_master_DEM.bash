@@ -74,6 +74,7 @@ offset_measure=`grep dem_offset_measure= $proc_file | cut -d "=" -f 2`
 dem_patch_win=`grep dem_patch_window= $proc_file | cut -d "=" -f 2`
 dem_win=`grep dem_win= $proc_file | cut -d "=" -f 2`
 dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
+dem_rad_max=`grep dem_rad_max= $proc_file | cut -d "=" -f 2`
 rpos=`grep rpos= $proc_file | cut -d "=" -f 2`
 azpos=`grep azpos= $proc_file | cut -d "=" -f 2`
 subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
@@ -311,7 +312,7 @@ GEN_DEM_RDC()
     master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
     
     # Transform simulated SAR intensity image to radar geometry
-    GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+    GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 $dem_rad_max -
 
     #if [ $ext_image -eq 2 ]; then
     # Transform landsat image to radar geometr
@@ -348,13 +349,15 @@ CREATE_DIFF_PAR()
     if [ $noffset1 -eq 0 ]; then
 	noff1=0
     else
-	noff1=`echo $noffset1 | awk '{print $1/$rlks}'`
+	#noff1=`echo $noffset1 | awk '{print $1/$rlks}'`
+	noff1=$noffset1
     fi
     noffset2=`echo $noffset | awk '{print $2}'`
     if [ $noffset2 -eq 0 ]; then
 	noff2=0
     else
-	noff2=`echo $noffset2 | awk '{print $1/$alks}'`
+	#noff2=`echo $noffset2 | awk '{print $1/$alks}'`
+	noff2=$noffset2
     fi
     returns=$dem_dir/returns
     echo "" > $returns #default scene title
@@ -428,14 +431,14 @@ OFFSET_CALC()
 GEOCODE()
 {
     # Geocode map geometry DEM to radar geometry
-    GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_length 1 0 - - 2 4 -
+    GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_length 1 0 - - 2 $dem_rad_max -
 
     # Geocode simulated SAR intensity image to radar geometry
-    GM geocode $lt_fine $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+    GM geocode $lt_fine $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 $dem_rad_max -
 
     # Geocode landsat image to radar geometry
     ##if [ $ext_image -eq 2 ]; then
-    ##  GM geocode $lt_fine $lsat_flt $dem_width $lsat_sar $master_mli_width $master_mli_length 1 0 - - 2 4 -
+    ##  GM geocode $lt_fine $lsat_flt $dem_width $lsat_sar $master_mli_width $master_mli_length 1 0 - - 2 $dem_rad_max -
     ##else 
     ##   :
     ##fi
