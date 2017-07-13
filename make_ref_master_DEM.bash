@@ -3,7 +3,7 @@
 # set enivronment variable specific to script
 export OMP_NUM_THREADS=4
     
-display_usage() {
+display_usage() { 
     echo ""
     echo "*******************************************************************************"
     echo "* make_ref_master_DEM: Generate DEM coregistered to chosen master SLC in      *"
