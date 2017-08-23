@@ -234,6 +234,8 @@ int=$int_dir/$mas_slv_name.int
 sim_unw=$int_dir/$mas_slv_name"_sim.unw"
 sim_unw0=$int_dir/$mas_slv_name"_sim0.unw"
 sim_unw1=$int_dir/$mas_slv_name"_sim1.unw"
+sim_unw_ph=$int_dir/$mas_slv_name"_sim_ph.unw"
+sim_diff=$int_dir/$mas_slv_name"_sim_diff.unw"
 int_flat=$int_dir/$mas_slv_name"_flat.int"
 int_flat_temp=$int_dir/$mas_slv_name"_flat_temp.int"
 int_flat0=$int_dir/$mas_slv_name"_flat0.int"
@@ -342,10 +344,10 @@ FLAT()
 
     if [ $sensor = CSK ] && [ $sensor_mode = SP ]; then
         ## also calculate simulated phase using phase_sim
-	GM phase_sim $mas_slc_par $off $base_init $rdc_dem phase_sim 0 0 - - 1 - 0
+	GM phase_sim $mas_slc_par $off $base_init $rdc_dem $sim_unw_ph 0 0 - - 1 - 0
 
         ## calculate difference between phase_sim and phase_sim_orb algorithms (quadratic ramp in azimuth)
-        GM sub_phase $sim_unw0 phase_sim $diff_par diff 0 0
+        GM sub_phase $sim_unw0 $sim_unw_ph $diff_par $sim_diff 0 0
     fi
 
     ## Calculate initial flattened interferogram (baselines from orbit)
@@ -451,7 +453,7 @@ FLAT()
     if [ $sensor = CSK ] && [ $sensor_mode = SP ]; then
 	## Do not perform precision baseline refinement for Cosmo Spotlight data
         ## add azimuth ramp (diff) back to simulated phase
-        GM sub_phase diff $sim_unw1 $diff_par $sim_unw 0 1
+        GM sub_phase $sim_diff $sim_unw1 $diff_par $sim_unw 0 1
 
     else
         ## Perform refinement of baseline model using ground control points
