@@ -201,15 +201,22 @@ elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
     ifm_alks=`echo $ifm_looks | awk '{print $1*2}'`
 elif [ $sensor == CSK ]; then
     if [ $mode == HI ]; then
-       slc_rlks=$slc_looks
-       slc_alks=`echo $slc_looks | awk '{print $1*1.5}'`
-       ifm_rlks=$ifm_looks
-       ifm_alks=`echo $ifm_looks | awk '{print $1*1.5}'`
+	if [ $slc_looks -eq 1 ]; then  #cannot have square pixels for himage data processed at full res
+	    slc_rlks=$slc_looks
+	    slc_alks=$slc_looks
+	    ifm_rlks=$ifm_looks
+	    ifm_alks=$ifm_looks
+	else
+	    slc_rlks=$slc_looks
+	    slc_alks=`echo $slc_looks | awk '{print $1*1.5}'`
+	    ifm_rlks=$ifm_looks
+	    ifm_alks=`echo $ifm_looks | awk '{print $1*1.5}'`
+	fi
     elif [ $mode == SP ]; then
-       slc_rlks=$slc_looks
-       slc_alks=$slc_looks
-       ifm_rlks=$ifm_looks
-       ifm_alks=$ifm_looks
+	slc_rlks=$slc_looks
+	slc_alks=$slc_looks
+	ifm_rlks=$ifm_looks
+	ifm_alks=$ifm_looks
     fi
 else
     # TSX, S1_SM
@@ -1898,9 +1905,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    job=init_coreg_dem
 	    echo \#\!/bin/bash > $job
 	    echo \#\PBS -lother=gdata1 >> $job
-	    echo \#\PBS -l walltime=$list_walltime >> $job
-	    echo \#\PBS -l mem=$slc_mem >> $job
-	    echo \#\PBS -l ncpus=$list_ncpus >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    if [ $do_slc == yes -a $platform == NCI ]; then
@@ -1922,9 +1929,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    job=init_coreg_dem
 	    echo \#\!/bin/bash > $job
 	    echo \#\PBS -lother=gdata1 >> $job
-	    echo \#\PBS -l walltime=$list_walltime >> $job
-	    echo \#\PBS -l mem=$slc_mem >> $job
-	    echo \#\PBS -l ncpus=$list_ncpus >> $job
+	    echo \#\PBS -l walltime=$dem_walltime >> $job
+	    echo \#\PBS -l mem=$dem_mem >> $job
+	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
