@@ -47,6 +47,7 @@ fi
 proc_file=$1
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
@@ -113,7 +114,7 @@ post_ncpus=`grep post_ncpus= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
@@ -626,6 +627,7 @@ elif [ $do_slc == no -a $platform == GA ]; then
 #### NCI ####
 
 elif [ $do_slc == yes -a $platform == NCI ]; then
+    cd $batch_dir
     slc_batch_dir=$batch_dir/slc_jobs
     slc_manual_dir=$manual_dir/slc_jobs
 
@@ -1265,7 +1267,7 @@ if [ $do_auto_crop == yes -a $platform == NCI -a $sensor == S1 ]; then
     echo "Preparing error collation for 'do_auto_crop'..."
     cd $crop_slc_batch_dir 
     crop_jobid=`sed s/.r-man2// crop_job_id`		
-    job=crop_slc_err_check
+    job=crop_err_check
     echo \#\!/bin/bash > $job
     echo \#\PBS -lother=gdata1 >> $job
     echo \#\PBS -l walltime=$error_walltime >> $job

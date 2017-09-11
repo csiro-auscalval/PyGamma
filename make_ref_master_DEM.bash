@@ -63,6 +63,7 @@ beam=${11} # need curly bracket to get 10th variable onwards to be recognised
 proc_file=$1
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
@@ -82,7 +83,7 @@ subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
     subset_file=$proj_dir/$track_dir/lists/`grep Subset_file= $proc_file | cut -d "=" -f 2`
     dem_name_nci=`grep DEM_name_NCI= $proc_file | cut -d "=" -f 2`
     dem=$proj_dir/gamma_dem/$dem_name_nci

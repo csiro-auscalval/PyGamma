@@ -41,6 +41,7 @@ fi
 proc_file=$1
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
@@ -57,7 +58,7 @@ beam=$5
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
     raw_dir=$proj_dir/raw_data/$track_dir
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA

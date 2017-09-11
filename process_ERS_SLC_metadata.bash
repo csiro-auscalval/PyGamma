@@ -49,7 +49,7 @@ mkdir -p $SLC_dir
 mkdir -p $scene_dir
 cd $scene_dir
 
-source /home/547/mcg547/dg9-apps/GAMMA/GAMMA_CONFIG_bash
+source /short/dg9/insar/dg9-apps/GAMMA/GAMMA_CONFIG
 
 ## Insert scene details top of NCI .e file
 echo "" 1>&2 # adds spaces at top so scene details are clear
