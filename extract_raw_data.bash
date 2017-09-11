@@ -38,6 +38,8 @@ fi
 proc_file=$1
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
+s1_path=`grep S1_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
@@ -50,8 +52,8 @@ ext_image=`grep Landsat_image= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
-    s1_dir=/g/data3/fj7/Copernicus/Sentinel-1/C-SAR/SLC
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    s1_dir=$s1_path
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
