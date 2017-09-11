@@ -30,6 +30,9 @@ display_usage() {
     echo "*             - added query on ASAR mode for different alks value for I4      *"
     echo "*             - corrected two minor bugs: scene_list2=$proj_dir/... grep      *"
     echo "*                                         dem_jobid=sed in SUBSET_DEM()       *"
+    echo "*         Sarah Lawrie @ GA       08/09/2017, v1.9                            *"
+    echo "*             -  update to include cropping of Sentinel-1 to enable scenes    *"
+    echo "*                to be same size and shape (auto crop)                        *"
     echo "*******************************************************************************"
     echo -e "Usage: process_gamma.bash [proc_file]"
     }
@@ -51,6 +54,8 @@ mode=`grep Sensor_mode= $proc_file | cut -d "=" -f 2`
 do_setup=`grep Setup= $proc_file | cut -d "=" -f 2`
 do_raw=`grep Do_raw_data= $proc_file | cut -d "=" -f 2`
 do_slc=`grep Do_SLC= $proc_file | cut -d "=" -f 2`
+do_auto_crop=`grep Do_auto_crop= $proc_file | cut -d "=" -f 2`
+ref_scene=`grep Ref_scene= $proc_file | cut -d "=" -f 2`
 do_slc_subset=`grep Do_SLC_subset= $proc_file | cut -d "=" -f 2`
 coregister_dem=`grep Coregister_DEM= $proc_file | cut -d "=" -f 2`
 coregister=`grep Coregister_slaves= $proc_file | cut -d "=" -f 2`
@@ -63,7 +68,7 @@ add_ifms=`grep Process_add_ifms= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 frame_list=`grep List_of_frames= $proc_file | cut -d "=" -f 2`
 beam_list=`grep List_of_beams= $proc_file | cut -d "=" -f 2`
-s1_list=`grep S1_rdsi_files= $proc_file | cut -d "=" -f 2`
+s1_list=`grep S1_file_list= $proc_file | cut -d "=" -f 2`
 ext_image=`grep Landsat_image= $proc_file | cut -d "=" -f 2`
 mas=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 slc_looks=`grep SLC_multi_look= $proc_file | cut -d "=" -f 2`
@@ -1205,6 +1210,80 @@ fi
 
 
 
+
+##########################   AUTO CROP SENTINEL-1 SLCS   ##########################
+
+
+#### NCI ####
+
+if [ $do_auto_crop == yes -a $platform == NCI -a $sensor == S1 ]; then
+    cd $batch_dir
+    mkdir -p $batch_dir/slc_crop_jobs
+    mkdir -p $manual_dir/slc_crop_jobs
+    crop_slc_batch_dir=$batch_dir/slc_crop_jobs
+    crop_slc_manual_dir=$manual_dir/slc_crop_jobs
+
+    cd $crop_slc_batch_dir
+
+    # run auto crop
+    echo "Auto cropping Sentinel-1 SLC data..."
+    cd $crop_slc_batch_dir
+    job=crop_slc
+    echo \#\!/bin/bash > $job
+    echo \#\PBS -l other=gdata1 >> $job
+    echo \#\PBS -l walltime=$slc_walltime >> $job
+    echo \#\PBS -l mem=$slc_mem >> $job
+    echo \#\PBS -l ncpus=$slc_ncpus >> $job
+    echo \#\PBS -l wd >> $job
+    echo \#\PBS -q normal >> $job
+    echo -e "\n" >> $job
+    if [ $do_slc == yes -a $platform == NCI ]; then
+	slc_jobid=`awk '{print $1}' $batch_dir/slc_jobs/all_slc_job_id`
+	echo \#\PBS -W depend=afterok:$slc_jobid >> $job
+    else
+	:
+    fi
+    echo ~/repo/gamma_insar/"auto_crop_"$sensor"_SLCs.bash" $proj_dir/$proc_file >> $job
+    chmod +x $job
+    qsub $job | tee crop_job_id
+
+    # in case future manual processing is required, create manual PBS job
+    cd $crop_slc_manual_dir
+
+    echo \#\!/bin/bash > $job
+    echo \#\PBS -lother=gdata1 >> $job
+    echo \#\PBS -l walltime=$slc_walltime >> $job
+    echo \#\PBS -l mem=$slc_mem >> $job
+    echo \#\PBS -l ncpus=$slc_ncpus >> $job
+    echo \#\PBS -l wd >> $job
+    echo \#\PBS -q normal >> $job
+    echo -e "\n" >> $job
+    echo ~/repo/gamma_insar/"auto_crop_"$sensor"_SLCs.bash" $proj_dir/$proc_file >> $job
+    chmod +x $job
+
+    # run crop slc error check
+    echo "Preparing error collation for 'do_auto_crop'..."
+    cd $crop_slc_batch_dir 
+    crop_jobid=`sed s/.r-man2// crop_job_id`		
+    job=crop_slc_err_check
+    echo \#\!/bin/bash > $job
+    echo \#\PBS -lother=gdata1 >> $job
+    echo \#\PBS -l walltime=$error_walltime >> $job
+    echo \#\PBS -l mem=$error_mem >> $job
+    echo \#\PBS -l ncpus=$error_ncpus >> $job
+    echo \#\PBS -l wd >> $job
+    echo \#\PBS -q normal >> $job
+    echo \#\PBS -W depend=afterany:$crop_jobid >> $job
+    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
+    chmod +x $job
+    qsub $job
+else
+    :
+fi
+
+
+
+
 ##########################   SUBSET SENTINEL-1 SLCS   ##########################
 
 
@@ -1346,7 +1425,7 @@ if [ $do_slc_subset == yes -a $platform == NCI -a $sensor == S1 ]; then
 	echo \#\PBS -l wd >> $job
 	echo \#\PBS -q normal >> $job
 	echo \#\PBS -W depend=afterany:$dep >> $job
-	echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 4 >> $job
+	echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
 	chmod +x $job
 	qsub $job
 else
@@ -1954,7 +2033,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 6 >> $job
 	    chmod +x $job
 	    qsub $job
   	}
@@ -2004,7 +2083,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 6 >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -2102,7 +2181,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 6 >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -2239,7 +2318,7 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dem_jobid >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 5 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 6 >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -2753,7 +2832,7 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 6 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 7 >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -2995,7 +3074,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 7 $beam_num >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 8 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job
 
@@ -3079,7 +3158,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$mosaic_jobid >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 7 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 8 >> $job
 	    chmod +x $job
 #	    qsub $job
 	else
@@ -3228,7 +3307,7 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 7 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 8 >> $job
 	    chmod +x $job
 	    qsub $job
 
@@ -3382,7 +3461,7 @@ if [ $add_scenes == yes -a $platform == NCI ]; then
 	echo \#\PBS -l wd >> $job
 	echo \#\PBS -q normal >> $job
 	echo \#\PBS -W depend=afterany:$add_scene_list_jobid:$add_slave_list_jobid:$add_ifm_list_jobid >> $job
-	echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 10 >> $job
+	echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 11 >> $job
 	chmod +x $job
 	qsub $job
     else # add scene list exists
@@ -3578,7 +3657,7 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 			 echo \#\PBS -l wd >> $job
 			 echo \#\PBS -q normal >> $job
 			 echo \#\PBS -W depend=afterany:$dep >> $job
-			 echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 11 $beam_num >> $job
+			 echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 12 $beam_num >> $job
 			 chmod +x $job
 			 qsub $job | tee "add_slc_err_"$beam_num"_job_id"
 		     fi
@@ -3725,7 +3804,7 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 		 echo \#\PBS -l wd >> $job
 		 echo \#\PBS -q normal >> $job
 		 echo \#\PBS -W depend=afterany:$dep >> $job
-		 echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 11 >> $job
+		 echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 12 >> $job
 		 chmod +x $job
 		 qsub $job
 	     fi
@@ -4069,7 +4148,7 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 12 $beam_num >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 13 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -4260,7 +4339,7 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 12 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 13 >> $job
 	    chmod +x $job
 	    qsub $job
 	}
@@ -4468,7 +4547,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 13 $beam_num >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 14 $beam_num >> $job
 	    chmod +x $job
 	    qsub $job
 
@@ -4702,7 +4781,7 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo \#\PBS -W depend=afterany:$dep >> $job
-	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 13 >> $job
+	    echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 14 >> $job
 	    chmod +x $job
 	    qsub $job
 
