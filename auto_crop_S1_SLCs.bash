@@ -147,7 +147,7 @@ CROP_SLCS()
             # rename full SLCs and MLIs
 	    slc=$slc_name.slc
 	    slc_par=$slc.par
-	    slc_bmp=$slc_name.bmp
+	    slc_bmp=$slc_name"_lowres.bmp"
 	    slc1=$slc_name"_IW1.slc"
 	    slc_par1=$slc1.par
 	    tops_par1=$slc1.TOPS_par
@@ -166,7 +166,7 @@ CROP_SLCS()
 	    alks=`grep azimuth_looks: $mli_par | cut -d ":" -f 2`
 	    full_slc=$slc_name"_full.slc"
 	    full_slc_par=$full_slc.par
-	    full_slc_bmp=$slc_name"_full.bmp"
+	    full_slc_bmp=$slc_name"_lowres_full.bmp"
 	    full_slc1=$slc_name"_full_IW1.slc"
 	    full_slc_par1=$full_slc1.par
 	    full_tops_par1=$full_slc1.TOPS_par
