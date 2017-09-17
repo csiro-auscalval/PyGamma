@@ -209,7 +209,7 @@ elif [ $type -eq 4 ]; then
 elif [ $type -eq 5 ]; then
     echo "Collating Errors from Sentinel-1 subset SLCs..."
     echo ""
-    dir=$batch_dir/sub_slc_jobs
+    dir=$batch_dir/slc_subset_jobs
     cd $dir
 
     error_list=$error_dir/subset_slc_creation_errors
