@@ -261,7 +261,7 @@ paste temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks >> $check_file
 rm -f temp*
 
 # TF: save image statistics in txt file
-image_stat $rmli $master_mli_width - - - - $stat
+GM image_stat $rmli $master_mli_width - - - - $stat
 # non-zero samples in $stat can be used to check all slaves are fully included in master
 
 # script end
