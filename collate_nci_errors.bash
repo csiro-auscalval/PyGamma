@@ -524,7 +524,7 @@ elif [ $type -eq 11 ]; then
 
 ## SLC Creation Errors
 elif [ $type -eq 12 ]; then
-    echo "Collating Errors from SLC Creation..."
+    echo "Collating Errors from Additional SLC Creation..."
     echo ""
     dir=$batch_dir/add_slc_jobs
     cd $dir
@@ -582,7 +582,7 @@ elif [ $type -eq 12 ]; then
 
 ## Coregister additional SLC Errors
 elif [ $type -eq 13 ]; then
-    echo "Collating Errors from SLC Coregistration..."
+    echo "Collating Errors from Additional SLC Coregistration..."
     echo ""
     dir=$batch_dir/add_slc_coreg_jobs
     cd $dir

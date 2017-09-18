@@ -3931,7 +3931,7 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 	     echo \#\PBS -l wd >> $job
 	     echo \#\PBS -q normal >> $job
 	     echo \#\PBS -W depend=afterany:$dep >> $job
-	     echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 11 >> $job
+	     echo ~/repo/gamma_insar/collate_nci_errors.bash $proj_dir/$proc_file 12 >> $job
 	     chmod +x $job
 	     qsub $job
 	     fi
