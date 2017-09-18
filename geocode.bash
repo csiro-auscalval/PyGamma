@@ -94,8 +94,8 @@ file_name=`echo $file | cut -d'.' -f1`
 file_ext=`echo $file | awk -F . '{if (NF>1) {print $NF}}'` 
 lks=`echo $file_name | awk -F _ '{print $3}'`
 
-geocode_out=$file_name"_utm."$file_ext
-geotif=$file_name"_utm_"$file_ext.tif
+geocode_out=$file_name"_eqa."$file_ext
+geotif=$file_name"_eqa_"$file_ext.tif
 
 if [ $file_ext == slc ]; then
     format=1 #fcomplex
@@ -120,8 +120,8 @@ else
 fi
 
 width_in=`grep range_samp_1: $dem_dir/"diff_"$master"_"$polar"_"$lks.par | awk '{print $2}'`
-gc_map=$dem_dir/$master"_"$polar"_"$lks"_fine_utm_to_rdc.lt"
-dem_par=$dem_dir/$master"_"$polar"_"$lks"_utm.dem.par"
+gc_map=$dem_dir/$master"_"$polar"_"$lks"_fine_eqa_to_rdc.lt"
+dem_par=$dem_dir/$master"_"$polar"_"$lks"_eqa.dem.par"
 width_out=`grep width: $dem_par | awk '{print $2}'`
 
 
@@ -137,7 +137,7 @@ echo " "
 
 
 ## Create geotiff
-real=$file_name"_utm_"$file_ext.flt
+real=$file_name"_eqa_"$file_ext.flt
 if [ $tif_flag -eq 1 ]; then
     echo " "
     echo "Creating geotiffed file for "$file"..."

@@ -86,7 +86,7 @@ fi
 
 file_name=`echo $file | awk -F. '{print $1}'`
 file_ext=`echo $file |awk -F . '{if (NF>1) {print $NF}}'` 
-geocode_out=$file_name"_utm."$file_ext
+geocode_out=$file_name"_eqa."$file_ext
 geotif=$geocode_out.tif
 
 while read file; do

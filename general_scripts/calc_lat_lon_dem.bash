@@ -91,8 +91,8 @@ cd $proj_dir/$track_dir
 
 
 mli_name=$master"_"$polar"_"$rlks"rlks"
-utm_dem=$dem_dir/$mli_name"_utm.dem"
-utm_dem_par=$utm_dem.par
+eqa_dem=$dem_dir/$mli_name"_eqa.dem"
+eqa_dem_par=$eqa_dem.par
 
 
 
