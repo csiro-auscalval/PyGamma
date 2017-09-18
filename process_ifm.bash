@@ -218,13 +218,13 @@ int_width=`grep range_samples $mas_mli_par | awk '{print $2}'`
 if [ -z $beam ]; then #no beam
     rdc_dem=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_rdc.dem"
     diff_dem=$dem_dir/"diff_"$master"_"$polar"_"$ifm_rlks"rlks.par"
-    gc_map=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_fine_utm_to_rdc.lt"
-    dem_par=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_utm.dem.par"
+    gc_map=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_fine_eqa_to_rdc.lt"
+    dem_par=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_eqa.dem.par"
 else # beam exists
     rdc_dem=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_rdc.dem"
     diff_dem=$dem_dir/"diff_"$master"_"$polar"_"$beam"_"$ifm_rlks"rlks.par"
-    gc_map=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_fine_utm_to_rdc.lt"
-    dem_par=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_utm.dem.par"
+    gc_map=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_fine_eqa_to_rdc.lt"
+    dem_par=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_eqa.dem.par"
 fi
 
 # files located in INT directory
@@ -268,16 +268,16 @@ base_res=$int_dir/$mas_slv_name"_base_res.par"
 base_temp=$int_dir/$mas_slv_name"_base_temp.par"
 bperp=$int_dir/$mas_slv_name"_bperp.par"
 flag=$int_dir/$mas_slv_name.flag
-unw_geocode_out=$int_dir/$mas_slv_name"_utm.unw"
-flat_geocode_out=$int_dir/$mas_slv_name"_flat_int_utm.flt"
-filt_geocode_out=$int_dir/$mas_slv_name"_filt_int_utm.flt"
-smcc_geocode_out=$int_dir/$mas_slv_name"_filt_utm.cc"
-cc_geocode_out=$int_dir/$mas_slv_name"_flat_utm.cc"
-unw_geocode_bmp=$int_dir/$mas_slv_name"_utm_unw.bmp"
-flat_geocode_bmp=$int_dir/$mas_slv_name"_flat_int_utm_flt.bmp"
-filt_geocode_bmp=$int_dir/$mas_slv_name"_filt_int_utm_flt.bmp"
-smcc_geocode_bmp=$int_dir/$mas_slv_name"_filt_utm_cc.bmp"
-cc_geocode_bmp=$int_dir/$mas_slv_name"_flat_utm_cc.bmp"
+unw_geocode_out=$int_dir/$mas_slv_name"_eqa.unw"
+flat_geocode_out=$int_dir/$mas_slv_name"_flat_int_eqa.flt"
+filt_geocode_out=$int_dir/$mas_slv_name"_filt_int_eqa.flt"
+smcc_geocode_out=$int_dir/$mas_slv_name"_filt_eqa.cc"
+cc_geocode_out=$int_dir/$mas_slv_name"_flat_eqa.cc"
+unw_geocode_bmp=$int_dir/$mas_slv_name"_eqa_unw.bmp"
+flat_geocode_bmp=$int_dir/$mas_slv_name"_flat_int_eqa_flt.bmp"
+filt_geocode_bmp=$int_dir/$mas_slv_name"_filt_int_eqa_flt.bmp"
+smcc_geocode_bmp=$int_dir/$mas_slv_name"_filt_eqa_cc.bmp"
+cc_geocode_bmp=$int_dir/$mas_slv_name"_flat_eqa_cc.bmp"
 geotif=$unw_geocode_out.tif
 #lv_theta=$int_dir/$mas_slv_name.lv_theta
 #lv_phi=$int_dir/$mas_slv_name.lv_phi
@@ -497,12 +497,20 @@ FLAT()
         #cp -f $base $base"1"
         GM base_ls $mas_slc_par $off $gcp_ph $base 0 1 1 1 1 10
 
+ 
+	##### CODE BELOW DOESN'T LINK PROPERLY TO REST OF FLOW, NOT SURE WHAT 'DIFF' SHOULD BE
         ## Simulate the phase from the DEM and precision baseline model.
-        GM phase_sim $mas_slc_par $off $base $rdc_dem refined 0 1
+        #GM phase_sim $mas_slc_par $off $base $rdc_dem refined 0 1
 
-        ## add refined phase_sim to original differenceulated phase from initial interferogram
-        GM sub_phase diff refined $diff_par $sim_unw 0 1
+        ## add refined phase_sim to original simulated phase from initial interferogram 
+        #GM sub_phase diff refined $diff_par $sim_unw 0 1
 
+	#### USE OLD CODE FOR NOW
+        ## Simulate the phase from the DEM and precision baseline model.
+	GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw 0 1
+ 
+        ## subtract simulated phase ('int_flat1' was originally 'int', but this file is no longer created)
+	GM sub_phase $int_flat1 $sim_unw $diff_par $int_flat 1 0
     fi
 
     ## Calculate final flattened interferogram with common band filtering (diff ifg generation from co-registered SLCs and a simulated interferogram)
