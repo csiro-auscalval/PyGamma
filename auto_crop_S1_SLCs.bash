@@ -209,7 +209,7 @@ CROP_SLCS()
 	    echo $scene_dir/$slc2 $scene_dir/$slc_par2 $scene_dir/$tops_par2 >> $slc_crop_tab
 	    echo $scene_dir/$slc3 $scene_dir/$slc_par3 $scene_dir/$tops_par3 >> $slc_crop_tab 
 
-            # use existing GAMMA script to determine subset burst tab
+            # use existing GAMMA script to determine crop burst tab
 	    GM S1_BURST_tab $ref_slc_full_tab $full_slc_tab $burst_tab
 	    rm -rf S1_BURST_tab.log
 
@@ -245,13 +245,13 @@ CROP_SLCS()
 		:
 	    fi
 
-            # Make quick-look image of subset SLC
+            # Multi-look cropped SLC
+	    GM multi_look $slc $slc_par $mli $mli_par $rlks $alks 0
+
+            # Make quick-look image of cropped SLC
 	    width=`grep range_samples: $slc_par | awk '{print $2}'`
 	    lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
 	    GM rasSLC $slc $width 1 $lines 50 20 - - 1 0 0 $slc_bmp
-
-            # Multi-look subset SLC
-	    GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0
 
             # Check number of bursts and their corner coordinates and put into central file
 	    burst_file=$scene_dir/slc_crop_burst_values.txt
@@ -277,7 +277,7 @@ CROP_SLCS()
 	    done < $slc_crop_tab
 	    rm -f temp1 temp2 temp3
 
-            # Preview of subset SLC and bursts
+            # Preview of cropped SLC and bursts
 
             # number of bursts per swath
 	    sed -n '/Swath: IW1/,/Num/p' $burst_file > temp1
