@@ -2,7 +2,7 @@
 
 ## Create image of geocoded filtered ifg of Sorong data for dgal presentation
 
-mli_utm=20081014-20090114_HH_20rlks_filt_int_utm.flt
+mli_eqa=20081014-20090114_HH_20rlks_filt_int_eqa.flt
 mli_txt=20081014-20090114.txt
 psfile=20081014-20090114.ps
 
@@ -15,7 +15,7 @@ proj=-JM8
 cpt=/g/data/dg9/repo/general_scripts/bcgyr.cpt
 
 # Convert file to one column ascii
-#float2ascii $mli_utm 1 $mli_txt 0 -
+#float2ascii $mli_eqa 1 $mli_txt 0 -
 
 # Convert ascii to grd
 #xyz2grd $mli_txt -N0 $range -ZTLa -r $inc -Gmli.grd

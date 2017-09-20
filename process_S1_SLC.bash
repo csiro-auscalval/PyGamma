@@ -118,7 +118,7 @@ mli_name=$scene"_"$polar"_"$slc_rlks"rlks"
 #para=$slc_name"_SLC_parameters.txt"
 slc=$slc_name.slc
 slc_par=$slc.par
-slc_bmp=$slc_name.bmp
+slc_bmp_low=$slc_name"_lowres.bmp"
 slc1=$slc_name"_IW1.slc"
 slc_par1=$slc1.par
 tops_par1=$slc1.TOPS_par
@@ -174,10 +174,10 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 			    echo " "
 			    echo "Processing swath "$swath" for SLC "$scene
 			    echo " "
-			    annot=`ls $raw_dir/F1/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
-			    data=`ls $raw_dir/F1/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
-			    calib=`ls $raw_dir/F1/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
-			    noise=`ls $raw_dir/F1/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
+			    annot=`ls $raw_dir/F1/$scene/*$scene*/annotation/s1*-iw$swath-slc-$pol*.xml`
+			    data=`ls $raw_dir/F1/$scene/*$scene*/measurement/s1*-iw$swath-slc-$pol*.tiff`
+			    calib=`ls $raw_dir/F1/$scene/*$scene*/annotation/calibration/calibration-s1*-iw$swath-slc-$pol*.xml`
+			    noise=`ls $raw_dir/F1/$scene/*$scene*/annotation/calibration/noise-s1*-iw$swath-slc-$pol*.xml`
 			    bslc="slc$swath"
 			    bslc_par=${!bslc}.par
 			    btops="tops_par$swath"
@@ -333,7 +333,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     # Make quick-look image of full SLC
     width=`grep range_samples: $slc_par | awk '{print $2}'`
     lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
-    GM rasSLC $slc $width 1 $lines 50 20 - - 1 0 0 $slc_bmp
+    GM rasSLC $slc $width 1 $lines 50 20 - - 1 0 0 $slc_bmp_low
 
     # Multi-look full SLC
     GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0
@@ -431,7 +431,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     pstext $outline $range -F+cTL+f15p -O -K -P <<EOF >> $psfile
 $project $track $scene $polar Full SLC
 EOF
-    psimage $slc_bmp -W4c/4c -Fthin -C14c/22c -O -K -P >> $psfile
+    psimage $slc_bmp_low -W4c/4c -Fthin -C14c/22c -O -K -P >> $psfile
     pstext $outline $range -F+f13p -O -K -P <<EOF >> $psfile
 5.5 88.5 Swath 1 ($sw1_burst)
 EOF

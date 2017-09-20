@@ -147,7 +147,7 @@ CROP_SLCS()
             # rename full SLCs and MLIs
 	    slc=$slc_name.slc
 	    slc_par=$slc.par
-	    slc_bmp=$slc_name.bmp
+	    slc_bmp=$slc_name"_lowres.bmp"
 	    slc1=$slc_name"_IW1.slc"
 	    slc_par1=$slc1.par
 	    tops_par1=$slc1.TOPS_par
@@ -166,7 +166,7 @@ CROP_SLCS()
 	    alks=`grep azimuth_looks: $mli_par | cut -d ":" -f 2`
 	    full_slc=$slc_name"_full.slc"
 	    full_slc_par=$full_slc.par
-	    full_slc_bmp=$slc_name"_full.bmp"
+	    full_slc_bmp=$slc_name"_lowres_full.bmp"
 	    full_slc1=$slc_name"_full_IW1.slc"
 	    full_slc_par1=$full_slc1.par
 	    full_tops_par1=$full_slc1.TOPS_par
@@ -209,7 +209,7 @@ CROP_SLCS()
 	    echo $scene_dir/$slc2 $scene_dir/$slc_par2 $scene_dir/$tops_par2 >> $slc_crop_tab
 	    echo $scene_dir/$slc3 $scene_dir/$slc_par3 $scene_dir/$tops_par3 >> $slc_crop_tab 
 
-            # use existing GAMMA script to determine subset burst tab
+            # use existing GAMMA script to determine crop burst tab
 	    GM S1_BURST_tab $ref_slc_full_tab $full_slc_tab $burst_tab
 	    rm -rf S1_BURST_tab.log
 
@@ -245,13 +245,13 @@ CROP_SLCS()
 		:
 	    fi
 
-            # Make quick-look image of subset SLC
+            # Multi-look cropped SLC
+	    GM multi_look $slc $slc_par $mli $mli_par $rlks $alks 0
+
+            # Make quick-look image of cropped SLC
 	    width=`grep range_samples: $slc_par | awk '{print $2}'`
 	    lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
 	    GM rasSLC $slc $width 1 $lines 50 20 - - 1 0 0 $slc_bmp
-
-            # Multi-look subset SLC
-	    GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0
 
             # Check number of bursts and their corner coordinates and put into central file
 	    burst_file=$scene_dir/slc_crop_burst_values.txt
@@ -277,7 +277,7 @@ CROP_SLCS()
 	    done < $slc_crop_tab
 	    rm -f temp1 temp2 temp3
 
-            # Preview of subset SLC and bursts
+            # Preview of cropped SLC and bursts
 
             # number of bursts per swath
 	    sed -n '/Swath: IW1/,/Num/p' $burst_file > temp1

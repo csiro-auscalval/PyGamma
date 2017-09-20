@@ -62,7 +62,7 @@ Do_raw_data=yes
 Do_SLC=yes
     # for Sentinel-1 only 
        # crop all scenes to same size and shape automatically, uses scene with smallest number of bursts as ref scene)
-Do_auto_crop=yes
+Do_auto_crop=no
        # if auto crop is 'yes', leave as - and value will be auto filled, if auto crop is 'no', enter ref scene to be used to crop other scenes
 Ref_scene=-
        # further subset scenes manually by specific burst numbers (do 'Do_SLC' first then change this to yes, can crop if desired first)
@@ -196,9 +196,6 @@ Ref_point_azimuth=-
     # Phase at reference pixel
 Ref_phase=0.0
 
-## create geotif of unwrapped interferogram
-    # options: yes/no
-create_geotif=no
 
 ## interferogram begin options: INT/FLAT/FILT/UNW/GEOCODE
 ifm_begin=INT
@@ -240,7 +237,7 @@ coreg_mem=4GB
 coreg_ncpus=4
 
 #create ifms (parameters for one ifm only)
-ifm_walltime=00:30:00
+ifm_walltime=01:00:00
 ifm_mem=6GB
 ifm_ncpus=1
 

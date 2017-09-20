@@ -218,13 +218,13 @@ int_width=`grep range_samples $mas_mli_par | awk '{print $2}'`
 if [ -z $beam ]; then #no beam
     rdc_dem=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_rdc.dem"
     diff_dem=$dem_dir/"diff_"$master"_"$polar"_"$ifm_rlks"rlks.par"
-    gc_map=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_fine_utm_to_rdc.lt"
-    dem_par=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_utm.dem.par"
+    gc_map=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_fine_eqa_to_rdc.lt"
+    dem_par=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_eqa.dem.par"
 else # beam exists
     rdc_dem=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_rdc.dem"
     diff_dem=$dem_dir/"diff_"$master"_"$polar"_"$beam"_"$ifm_rlks"rlks.par"
-    gc_map=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_fine_utm_to_rdc.lt"
-    dem_par=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_utm.dem.par"
+    gc_map=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_fine_eqa_to_rdc.lt"
+    dem_par=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_eqa.dem.par"
 fi
 
 # files located in INT directory
@@ -268,17 +268,16 @@ base_res=$int_dir/$mas_slv_name"_base_res.par"
 base_temp=$int_dir/$mas_slv_name"_base_temp.par"
 bperp=$int_dir/$mas_slv_name"_bperp.par"
 flag=$int_dir/$mas_slv_name.flag
-unw_geocode_out=$int_dir/$mas_slv_name"_utm.unw"
-flat_geocode_out=$int_dir/$mas_slv_name"_flat_int_utm.flt"
-filt_geocode_out=$int_dir/$mas_slv_name"_filt_int_utm.flt"
-smcc_geocode_out=$int_dir/$mas_slv_name"_filt_utm.cc"
-cc_geocode_out=$int_dir/$mas_slv_name"_flat_utm.cc"
-unw_geocode_bmp=$int_dir/$mas_slv_name"_utm_unw.bmp"
-flat_geocode_bmp=$int_dir/$mas_slv_name"_flat_int_utm_flt.bmp"
-filt_geocode_bmp=$int_dir/$mas_slv_name"_filt_int_utm_flt.bmp"
-smcc_geocode_bmp=$int_dir/$mas_slv_name"_filt_utm_cc.bmp"
-cc_geocode_bmp=$int_dir/$mas_slv_name"_flat_utm_cc.bmp"
-geotif=$unw_geocode_out.tif
+unw_geocode_out=$int_dir/$mas_slv_name"_eqa.unw"
+flat_geocode_out=$int_dir/$mas_slv_name"_flat_int_eqa.flt"
+filt_geocode_out=$int_dir/$mas_slv_name"_filt_int_eqa.flt"
+smcc_geocode_out=$int_dir/$mas_slv_name"_filt_eqa.cc"
+cc_geocode_out=$int_dir/$mas_slv_name"_flat_eqa.cc"
+unw_geocode_bmp=$int_dir/$mas_slv_name"_eqa_unw.bmp"
+flat_geocode_bmp=$int_dir/$mas_slv_name"_flat_int_eqa_flt.bmp"
+filt_geocode_bmp=$int_dir/$mas_slv_name"_filt_int_eqa_flt.bmp"
+smcc_geocode_bmp=$int_dir/$mas_slv_name"_filt_eqa_cc.bmp"
+cc_geocode_bmp=$int_dir/$mas_slv_name"_flat_eqa_cc.bmp"
 #lv_theta=$int_dir/$mas_slv_name.lv_theta
 #lv_phi=$int_dir/$mas_slv_name.lv_phi
 # disp=$int_dir/$mas_slv_name.displ_vert
@@ -288,7 +287,6 @@ coffs=$int_dir/$mas_slv_name.coffs
 coffsets=$int_dir/$mas_slv_name.coffsets
 gcp=$int_dir/$mas_slv_name.gcp
 gcp_ph=$int_dir/$mas_slv_name.gcp_ph
-real=$int_dir/$mas_slv_name.real
 
 
 ### Each processing step is a 'function'. The if statement which controls start and stop is below the functions
@@ -315,7 +313,7 @@ INT()
 	    GM init_offset $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $ifm_rlks $ifm_alks $rpos $azpos - - $int_thres $init_win 1
 
 	    # Estimate range and azimuth offset models using correlation of image intensities
-	    GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $ccp $offset_win - 2 32 32 $int_thres 4
+	    GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $ccp $offset_win - 2 32 32 $int_thres 5
 	    GM offset_fit $offs $ccp $off $coffs $coffsets $int_thres 1 0
 	else
 	    GM offset_pwr $mas_slc $slv_slc $mas_slc_par $slv_slc_par $off $offs $ccp 64 64 - 2 64 256 0.1
@@ -497,12 +495,20 @@ FLAT()
         #cp -f $base $base"1"
         GM base_ls $mas_slc_par $off $gcp_ph $base 0 1 1 1 1 10
 
+ 
+	##### CODE BELOW DOESN'T LINK PROPERLY TO REST OF FLOW, NOT SURE WHAT 'DIFF' SHOULD BE
         ## Simulate the phase from the DEM and precision baseline model.
-        GM phase_sim $mas_slc_par $off $base $rdc_dem refined 0 1
+        #GM phase_sim $mas_slc_par $off $base $rdc_dem refined 0 1
 
-        ## add refined phase_sim to original differenceulated phase from initial interferogram
-        GM sub_phase diff refined $diff_par $sim_unw 0 1
+        ## add refined phase_sim to original simulated phase from initial interferogram 
+        #GM sub_phase diff refined $diff_par $sim_unw 0 1
 
+	#### USE OLD CODE FOR NOW
+        ## Simulate the phase from the DEM and precision baseline model.
+	GM phase_sim $mas_slc_par $off $base $rdc_dem $sim_unw 0 1
+ 
+        ## subtract simulated phase ('int_flat1' was originally 'int', but this file is no longer created)
+	GM sub_phase $int_flat1 $sim_unw $diff_par $int_flat 1 0
     fi
 
     ## Calculate final flattened interferogram with common band filtering (diff ifg generation from co-registered SLCs and a simulated interferogram)
@@ -535,6 +541,10 @@ FILT()
 
     ## Smooth the phase by Goldstein-Werner filter
     GM adf $int_flat $int_filt $smcc $int_width $expon $filtwin $ccwin - 0 - -
+
+    ## Generate quicklook image of final wrapped interferogram
+    GM rasmph $int_filt $int_width 1 0 40 40 - - - $int_filt.bmp
+
 }
 
 UNW()
@@ -654,6 +664,9 @@ UNW()
 	echo "Unwrapping method not a valid type, must be branch-cut or minimum cost flow"
 	exit 1
     fi
+
+    ## Generate quicklook image of final unwrapped interferogram
+    GM rasrmg $int_unw - $int_width 1 1 0 40 40 - - - - - $int_unw.bmp
 }
 
 
@@ -667,6 +680,8 @@ GEOCODE()
 
     ## Use bicubic spline interpolation for geocoded unwrapped interferogram
     GM geocode_back $int_unw $width_in $gc_map $unw_geocode_out $width_out - 1 0 - -
+    # make geotif
+    GM data2geotiff $dem_par $unw_geocode_out 2 $unw_geocode_out.tif
     # make quick-look png image 
     GM rasrmg $unw_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $unw_geocode_bmp
     GM convert $unw_geocode_bmp ${unw_geocode_bmp/.bmp}.png
@@ -685,6 +700,8 @@ GEOCODE()
     # convert to float and extract phase
     GM cpx_to_real $int_filt $int_filt_float $width_in 4
     GM geocode_back $int_filt_float $width_in $gc_map $filt_geocode_out $width_out - 1 0 - -
+    # make geotif
+    GM data2geotiff $dem_par $filt_geocode_out 2 $filt_geocode_out.tif
     # make quick-look png image
     GM rasrmg $filt_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $filt_geocode_bmp
     GM convert $filt_geocode_bmp ${filt_geocode_bmp/.bmp}.png
@@ -699,30 +716,16 @@ GEOCODE()
 
     ## Use bicubic spline interpolation for geocoded flat coherence file
     GM geocode_back $cc $width_in $gc_map $cc_geocode_out $width_out - 1 0 - -
+    # make geotif
+    GM data2geotiff $dem_par $cc_geocode_out 2 $cc_geocode_out.tif
     # make quick-look png image
     GM rasrmg $cc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $cc_geocode_bmp
     GM convert $cc_geocode_bmp ${cc_geocode_bmp/.bmp}.png
     rm -f $cc_geocode_bmp
 
-
     echo " "
     echo "Geocoded interferogram."
     echo " "
-    ## Create geotiff (optional)
-
-    if [ $geotiff == yes ]; then
-	echo " "
-	echo "Creating geotiffed interferogram..."
-	echo " "
-	cp $int_unw $real
-	GM data2geotiff $dem_par $real 2 $geotif 0.0
-	rm -rf $real
-	echo " "
-	echo "Created geotiffed interferogram."
-	echo " "
-    else
-	:
-    fi
 
     # Extract coordinates from DEM for plotting par file
     width=`grep width: $dem_par | awk '{print $2}'`

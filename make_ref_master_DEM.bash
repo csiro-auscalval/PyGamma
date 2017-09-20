@@ -38,6 +38,9 @@ display_usage() {
     echo "*              Change order of master and rdc_dem to fix errors in coreg      *"
     echo "*         Sarah Lawrie @ GA       19/04/2017, v1.6                            *"
     echo "*              Modify method for calculating subsetting DEM                   *"
+    echo "*         Sarah Lawrie @ GA       12/09/2017, v1.7                            *"
+    echo "*              Update processing to reflect example 'S1_Mexico_coreg_demo',   *"
+    echo "*              This gives better refined offset estimates                     *"
     echo "*******************************************************************************"
     echo -e "Usage: make_ref_master_DEM.bash [proc_file] [rlks] [alks] [multi-look] [subset] [image] <roff> <rlines> <azoff> <azlines> <beam>"
     }
@@ -226,6 +229,11 @@ COPY_SLC()
     master_slc_par=$master_slc.par
 
     GM multi_look $master_slc $master_slc_par $master_mli $master_mli_par $rlks $alks 0
+
+    ## Create raster for comparison purposes
+    master_mli_width=`grep range_samples: $master_mli_par | awk '{print $2}'`
+    master_mli_bmp=$master_dir/r$mli_name.mli.bmp
+    GM raspwr $master_mli $master_mli_width 1 0 2 2 1. .35 1 $master_mli_bmp
 }
 
 
@@ -233,15 +241,18 @@ COPY_SLC()
 DEM_FILES()
 {
     rdc_dem=$dem_dir/$mli_name"_rdc.dem"
-    utm_dem=$dem_dir/$mli_name"_utm.dem"
-    utm_dem_par=$utm_dem.par
-    lt_rough=$dem_dir/$mli_name"_rough_utm_to_rdc.lt"
-    lt_fine=$dem_dir/$mli_name"_fine_utm_to_rdc.lt"
-    utm_sim_sar=$dem_dir/$mli_name"_utm.sim"
+    eqa_dem=$dem_dir/$mli_name"_eqa.dem"
+    eqa_dem_par=$eqa_dem.par
+    lt_rough=$dem_dir/$mli_name"_rough_eqa_to_rdc.lt"
+    lt_fine=$dem_dir/$mli_name"_fine_eqa_to_rdc.lt"
+    eqa_sim_sar=$dem_dir/$mli_name"_eqa.sim"
     rdc_sim_sar=$dem_dir/$mli_name"_rdc.sim"
     loc_inc=$dem_dir/$mli_name"_local_inc.ang"
     diff=$dem_dir/"diff_"$mli_name.par
-    lsmap=$dem_dir/$mli_name"_utm.lsmap"
+    lsmap=$dem_dir/$mli_name"_eqa.lsmap"
+    pix_sig=$dem_dir/$mli_name"_pix_simga0"
+    pix_gam=$dem_dir/$mli_name"_pix_gamma0"
+    pix_gam_bmp=$dem_dir/$mli_name"_pix_gamma0.bmp"
     off=$dem_dir/$mli_name.off
     offs=$dem_dir/$mli_name.offs
     ccp=$dem_dir/$mli_name.ccp
@@ -251,8 +262,8 @@ DEM_FILES()
     ##lsat_flt=$dem_dir/$mli_name"_lsat_sar.flt" 
     ##lsat_init_sar=$dem_dir/$mli_name"_lsat_init.sar" 
     ##lsat_sar=$dem_dir/$mli_name"_lsat.sar"
-    lv_theta=$dem_dir/$mli_name"_utm.lv_theta"
-    lv_phi=$dem_dir/$mli_name"_utm.lv_phi"
+    lv_theta=$dem_dir/$mli_name"_eqa.lv_theta"
+    lv_phi=$dem_dir/$mli_name"_eqa.lv_phi"
 }
 
 
@@ -283,37 +294,43 @@ GEN_DEM_RDC()
     # Derivation of initial geocoding look-up table and simulated SAR intensity image
     # note: gc_map can produce looking vector grids and shadow and layover maps
 
-    if [ -e $utm_dem_par ]; then
+    if [ -e $eqa_dem_par ]; then
 	echo " "
-	echo  $utm_dem_par" exists, removing file."
+	echo  $eqa_dem_par" exists, removing file."
 	echo " "
-	rm -f $utm_dem_par
+	rm -f $eqa_dem_par
     fi
-    if [ -e $utm_dem ]; then
+    if [ -e $eqa_dem ]; then
 	echo " "
-	echo  $utm_dem" exists, removing file."
+	echo  $eqa_dem" exists, removing file."
 	echo " "
-	rm -f $utm_dem
+	rm -f $eqa_dem
     fi
     
+    ### UPDATED PROCESS
+    # taken from 'S1_Mexico_coreg_demo'. Produces refined estimates compared to old version
+    GM gc_map $master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $lt_rough $ovr $ovr $eqa_sim_sar - - $loc_inc - - $lsmap 8 2
+
+
+    ### OLD VERSION
     # pre-determine segmented DEM_par by inputting constant height (necessary to avoid a bug in using gc_map)
-    GM gc_map $master_mli_par - $dem_par 10. $utm_dem_par $utm_dem $lt_rough $ovr $ovr - - - - - - - 8 1
+    #GM gc_map $master_mli_par - $dem_par 10. $eqa_dem_par $eqa_dem $lt_rough $ovr $ovr - - - - - - - 8 1
     # use predetermined dem_par to segment the full DEM
-    GM gc_map $master_mli_par - $dem_par $dem $utm_dem_par $utm_dem $lt_rough $ovr $ovr $utm_sim_sar - - $loc_inc - - $lsmap 8 1
+    #GM gc_map $master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $lt_rough $ovr $ovr $eqa_sim_sar - - $loc_inc - - $lsmap 8 1
     
     # Convert landsat float file to same coordinates as DEM
     #if [ $ext_image -eq 2 ]; then
-	#GM map_trans $dem_par $image $utm_dem_par $lsat_flt 1 1 1 0 -
+	#GM map_trans $dem_par $image $eqa_dem_par $lsat_flt 1 1 1 0 -
     #else
         #:
     #fi
 
-    dem_width=`grep width: $utm_dem_par | awk '{print $2}'`
+    dem_width=`grep width: $eqa_dem_par | awk '{print $2}'`
     master_mli_width=`grep range_samples: $master_mli_par | awk '{print $2}'`
     master_mli_length=`grep azimuth_lines: $master_mli_par | awk '{print $2}'`
     
     # Transform simulated SAR intensity image to radar geometry
-    GM geocode $lt_rough $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 $dem_rad_max -
+    GM geocode $lt_rough $eqa_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 $dem_rad_max -
 
     #if [ $ext_image -eq 2 ]; then
     # Transform landsat image to radar geometr
@@ -381,39 +398,58 @@ OFFSET_CALC()
 	npoly=4
     fi
 
+    ### UPDATED PROCESS
+    ## Taken from 'S1_Mexico_coreg_demo'. Produces refined estimates compared to old version
+    GM pixel_area $master_mli_par $eqa_dem_par $eqa_dem $lt_rough $lsmap $loc_inc $pix_sig $pix_gam
+    GM offset_pwrm $pix_sig $master_mli $diff $offs $ccp - - $offsets 2 - - -
+    GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
+
+    # Extract offset estimates to results file
+    echo "Offset Estimates" > $check_file
+    echo " " >> $check_file
+    grep "final solution:" output.log >> $check_file
+    echo " " >> $check_file
+    grep "final range offset poly. coeff.:" output.log >> $check_file
+    grep "final azimuth offset poly. coeff.:" output.log >> $check_file
+    echo " " >> $check_file
+    grep "final range offset poly. coeff. errors:" output.log >> $check_file
+    grep "final azimuth offset poly. coeff. errors:" output.log >> $check_file
+    grep "final model fit std. dev. (samples) range:" output.log >> $check_file
+
+
+    ### OLD VERSION
     # initial offset estimate
-    ##if [ $ext_image -eq 1 ]; then
     # MCG: following testing, rlks and azlks refer to FURTHER multi-looking. Should be set to 1 when using a multi-looked MLI for coreg.
     # MCG: set rdc_sim_sar as reference image for robust coreg 
-    GM init_offsetm $rdc_sim_sar $master_mli $diff 1 1 $rpos $azpos - - $dem_snr $dem_patch_win 1
+    #GM init_offsetm $rdc_sim_sar $master_mli $diff 1 1 $rpos $azpos - - $dem_snr $dem_patch_win 1
 
-    GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp - - $offsets 1 - - -
+    #GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp - - $offsets 1 - - -
     ##else
     ##GM init_offsetm $master_mli $lsat_init_sar $diff $rlks $alks $rpos $azpos - - $dem_snr $dem_patch_win 1
     ##GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp - - $offsets 1 - - - 
     ##fi
     # if image patch extends beyond input MLI-1 (init_offsetm), an error is generated but not automatically put into error.log file
-    grep "ERROR" output.log  1>&2
+    #grep "ERROR" output.log  1>&2
 
-    GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
+    #GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
 
     # precision estimation of the registration polynomial
-    rwin=`echo $dem_win | awk '{print $1/4}'`
-    azwin=`echo $dem_win | awk '{print $1/4}'`
-    nr=`echo $offset_measure | awk '{print $1*4}'`
-    naz=`echo $offset_measure | awk '{print $1*4}'`
+    #rwin=`echo $dem_win | awk '{print $1/4}'`
+    #azwin=`echo $dem_win | awk '{print $1/4}'`
+    #nr=`echo $offset_measure | awk '{print $1*4}'`
+    #naz=`echo $offset_measure | awk '{print $1*4}'`
 
     ##if [ $ext_image -eq 1 ]; then
-    GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz -
+    #GM offset_pwrm $rdc_sim_sar $master_mli $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz -
     #GM offset_pwrm $master_mli $rdc_sim_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz -
     ##else
     ##  GM offset_pwrm $master_mli $lsat_init_sar $diff $offs $ccp $rwin $azwin $offsets 2 $nr $naz - 
     ##fi
 
     ## range and azimuth offset polynomial estimation 
-    GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
+    #GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
     
-    grep "final model fit std. dev." output.log
+    #grep "final model fit std. dev." output.log
     #grep "final range offset poly. coeff.:" output.log
     #grep "final azimuth offset poly. coeff.:" output.log
 
@@ -425,6 +461,14 @@ OFFSET_CALC()
 	GM gc_map_fine $lt_rough $dem_width $diff $lt_fine 0
     fi
 
+    ## part of new version:
+    GM pixel_area $master_mli_par $eqa_dem_par $eqa_dem $lt_fine $lsmap $loc_inc $pix_sig $pix_gam
+
+    # create raster for comparison with master mli raster
+    master_mli_width=`grep range_samples: $master_mli_par | awk '{print $2}'`
+    GM raspwr $pix_gam $master_mli_width 1 0 2 2 1. .35 1 $pix_gam_bmp
+    #dis2ras $pix_gam_bmp $master_mli_bmp  
+
     rm -f $lt_rough $offs $snr $offsets $coffs $coffsets test1.dat test2.dat
 }
 
@@ -432,10 +476,11 @@ OFFSET_CALC()
 GEOCODE()
 {
     # Geocode map geometry DEM to radar geometry
-    GM geocode $lt_fine $utm_dem $dem_width $rdc_dem $master_mli_width $master_mli_length 1 0 - - 2 $dem_rad_max -
+    GM geocode $lt_fine $eqa_dem $dem_width $rdc_dem $master_mli_width $master_mli_length 1 0 - - 2 $dem_rad_max -
+    GM rashgt $rdc_dem $master_mli $master_mli_width 1 1 0 1 1 500. 1. .35 1 $rdc_dem.bmp
 
     # Geocode simulated SAR intensity image to radar geometry
-    GM geocode $lt_fine $utm_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 $dem_rad_max -
+    GM geocode $lt_fine $eqa_sim_sar $dem_width $rdc_sim_sar $master_mli_width $master_mli_length 1 0 - - 2 $dem_rad_max -
 
     # Geocode landsat image to radar geometry
     ##if [ $ext_image -eq 2 ]; then
@@ -443,20 +488,13 @@ GEOCODE()
     ##else 
     ##   :
     ##fi
-
-    # Extract final model fit values to check coregistration
-    grep "final model fit std. dev. (samples)" output.log > temp1
-    awk '{print $8}' temp1 > temp2
-    awk '{print $10}' temp1 > temp3
-    paste temp2 temp3 >> $check_file
-    rm -f temp1 temp2 temp3
 }
 
 
 # Create look vector files
 LOOK_VECTOR()
 {
-    GM look_vector $master_slc_par - $utm_dem_par $utm_dem $lv_theta $lv_phi
+    GM look_vector $master_slc_par - $eqa_dem_par $eqa_dem $lv_theta $lv_phi
 }
 
 
@@ -464,25 +502,25 @@ LOOK_VECTOR()
 GEOTIF_FULL()
 {
     cd $master_dir
-    master_mli_utm=$master_dir/r$mli_name"_utm_full.mli"
-    master_mli_geo=$master_dir/r$mli_name"_utm_mli_full.tif"
+    master_mli_eqa=$master_dir/r$mli_name"_eqa_full.mli"
+    master_mli_geo=$master_dir/r$mli_name"_eqa_mli_full.tif"
     width_in=`grep range_samp_1: $diff | awk '{print $2}'`
-    width_out=`grep width: $utm_dem_par | awk '{print $2}'`
+    width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
     
-    GM geocode_back $master_mli $width_in $lt_fine $master_mli_utm $width_out - 0 0 - -
-    GM data2geotiff $utm_dem_par $master_mli_utm 2 $master_mli_geo 0.0
+    GM geocode_back $master_mli $width_in $lt_fine $master_mli_eqa $width_out - 0 0 - -
+    GM data2geotiff $eqa_dem_par $master_mli_eqa 2 $master_mli_geo 0.0
 }
 
 GEOTIF()
 {
     cd $master_dir
-    master_mli_utm=$master_dir/r$mli_name"_utm_subset.mli"
-    master_mli_geo=$master_dir/r$mli_name"_utm_mli_subset.tif"
+    master_mli_eqa=$master_dir/r$mli_name"_eqa_subset.mli"
+    master_mli_geo=$master_dir/r$mli_name"_eqa_mli_subset.tif"
     width_in=`grep range_samp_1: $diff | awk '{print $2}'`
-    width_out=`grep width: $utm_dem_par | awk '{print $2}'`
+    width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
     
-    GM geocode_back $master_mli $width_in $lt_fine $master_mli_utm $width_out - 0 0 - -
-    GM data2geotiff $utm_dem_par $master_mli_utm 2 $master_mli_geo 0.0
+    GM geocode_back $master_mli $width_in $lt_fine $master_mli_eqa $width_out - 0 0 - -
+    GM data2geotiff $eqa_dem_par $master_mli_eqa 2 $master_mli_geo 0.0
 }
 
 

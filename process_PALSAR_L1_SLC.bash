@@ -181,20 +181,20 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 	    fi
 	fi
     done < $frame_list
-  
+    
     num_hv=`grep -co "HV" $pol_list`
-    if [ -f $sensor == PALSAR2 ]; then # no FBD or FBS conversion if PALSAR2 wide swath data
-	:
-    else
-	if [ "$num_hv" -eq 0 -a "$polar" == HH ]; then 
+    if [ $sensor == PALSAR1 ]; then # no FBD or FBS conversion if PALSAR2 wide swath data
+	if [[ "$num_hv" -eq 0 && "$polar" == HH ]]; then 
 	    mode=FBS
-	elif [ "$num_hv" -ge 1 -a "$polar" == HH ]; then 
+	elif [[ "$num_hv" -ge 1 && "$polar" == HH ]]; then 
 	    mode=FBD
 	elif [ $polar == HV ]; then
 	    mode=FBD
 	else
 	    :
 	fi
+    else
+	:
     fi
     echo "Mode:" $mode "  Polarisation:" $polar
     rm -f $pol_list
@@ -221,15 +221,15 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     		#IMG=$raw_dir/F$frame/date_dirs/$scene/IMG-$polar-*
 	    #else
 	    LED=$raw_dir/F$frame/$scene/LED-*
-    		
+    	    
 	    #fi
 	    GM par_EORC_PALSAR $LED $fr_slc_par $IMG $fr_slc
 
             # Make quick-look image
-	    GM multi_look $fr_slc $fr_slc_par $fr_mli $fr_mli_par $slc_rlks $slc_alks 0
-	    width=`grep range_samples: $fr_mli_par | awk '{print $2}'`
-	    lines=`grep azimuth_lines: $fr_mli_par | awk '{print $2}'`
-	    GM raspwr $fr_mli $width 1 $lines 10 10 1 0.35 1 $fr_mli.bmp 0
+	    #GM multi_look $fr_slc $fr_slc_par $fr_mli $fr_mli_par $slc_rlks $slc_alks 0
+	    #width=`grep range_samples: $fr_mli_par | awk '{print $2}'`
+	    #lines=`grep azimuth_lines: $fr_mli_par | awk '{print $2}'`
+	    #GM raspwr $fr_mli $width 1 $lines 10 10 1 0.35 1 $fr_mli.bmp 0
 
             # Copy data file details to text file to check if concatenation of scenes along track is required
 	    echo $fr_slc $fr_slc_par >> $raw_file_list
@@ -327,33 +327,30 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 #    grep "WARNING:" output.log  1>&2 
 #    grep "ERROR:" output.log  1>&2 
 #    rm -rf temp $raw_file_list
-fi
 
 
-## Compute the azimuth Doppler spectrum and the Doppler centroid from SLC data
-GM az_spec_SLC $slc $slc_par $slc_name.dop - 0 
+    ## Compute the azimuth Doppler spectrum and the Doppler centroid from SLC data
+    GM az_spec_SLC $slc $slc_par $slc_name.dop - 0 
 
-## update ISP file with new estimated doppler centroid frequency (must be done manually)
-org_value=`grep doppler_polynomial: $slc_par | awk '{print $2}'`
-new_value=`grep "new estimated Doppler centroid frequency (Hz):" output.log | awk '{print $7}'`
-sed ' s/'"$org_value"'/'"$new_value"'/' $slc_par > $slc_name.temp
-mv -f $slc_name.temp $slc_par
-rm -rf $slc_name"_temp.dop"
+    ## update ISP file with new estimated doppler centroid frequency (must be done manually)
+    org_value=`grep doppler_polynomial: $slc_par | awk '{print $2}'`
+    new_value=`grep "new estimated Doppler centroid frequency (Hz):" output.log | awk '{print $7}'`
+    sed ' s/'"$org_value"'/'"$new_value"'/' $slc_par > $slc_name.temp
+    mv -f $slc_name.temp $slc_par
+    rm -rf $slc_name"_temp.dop"
 
-## FBD to FBS Conversion
-if [ $sensor == PALSAR2 ]; then
-    :
-else
-    if [ $polar == HH -a $mode == FBD ]; then
-	GM SLC_ovr $slc $slc_par $fbd2fbs_slc $fbd2fbs_par 2
-	rm -f $slc
-	rm -f $slc_par
-	mv $fbd2fbs_slc $slc
-	mv $fbd2fbs_par $slc_par
-    else
-	:
+    ## FBD to FBS Conversion
+    if [ $sensor == PALSAR1 ]; then
+	if [[ "$polar" == HH && "$mode" == FBD ]]; then
+	    GM SLC_ovr $slc $slc_par $fbd2fbs_slc $fbd2fbs_par 2
+	    rm -f $slc
+	    rm -f $slc_par
+	    mv $fbd2fbs_slc $slc
+	    mv $fbd2fbs_par $slc_par
+	else
+	    :
+	fi
     fi
-fi
 
 else
     echo " "

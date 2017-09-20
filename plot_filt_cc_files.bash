@@ -101,8 +101,8 @@ if [ -z $beam ]; then #no beam
 	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
-	    file=$mas-$slv"_"$polar"_"$ifm_looks"rlks_filt_utm.cc"
-	    png=$mas-$slv"_"$polar"_"$ifm_looks"rlks_filt_utm_cc.png"
+	    file=$mas-$slv"_"$polar"_"$ifm_looks"rlks_filt_eqa.cc"
+	    png=$mas-$slv"_"$polar"_"$ifm_looks"rlks_filt_eqa_cc.png"
 	    cp $ifm_dir/$file $pyrate_dir
 	    cp $ifm_dir/ifg.rsc $pyrate_dir
 	    cp $ifm_dir/$png $png_dir
@@ -118,8 +118,8 @@ else #beam exists
 	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
-	    file=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_filt_utm.cc"
-	    png=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_filt_utm_cc.png"
+	    file=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_filt_eqa.cc"
+	    png=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_filt_eqa_cc.png"
 	    cp $ifm_dir/$file $pyrate_dir
 	    cp $ifm_dir/ifg.rsc $pyrate_dir
 	    cp $ifm_dir/$png $png_dir
