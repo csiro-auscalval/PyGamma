@@ -11,7 +11,7 @@ cc_type=flat
 
 pyrate_dir=$PWD
 
-dem_par=../DEM/*utm.dem.par
+dem_par=../DEM/*eqa.dem.par
 width=`grep width: $dem_par | awk '{print $2}'`
 
 cc_dir=$pyrate_dir/$cc_type"_cc_files"

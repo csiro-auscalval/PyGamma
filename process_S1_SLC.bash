@@ -19,6 +19,8 @@ display_usage() {
     echo "*         Sarah Lawrie @ GA          28/07/2016, v1.2                         *"
     echo "*         Add concatenation of consecutive burst SLCs (join 2 or 3 frames)    *"
     echo "*         Add use of precise orbit information                                *"
+    echo "*         Sarah Lawrie @ GA         08/09/2017, v1.3                          *"
+    echo "*         Update burst tabs to enable auto subset of scenes                   *"
     echo "*******************************************************************************"
     echo -e "Usage: process_S1_SLC.bash [proc_file] [scene] [rlks] [alks]"
     }
@@ -39,6 +41,7 @@ fi
 proc_file=$1
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
@@ -53,7 +56,7 @@ slc_alks=$4
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
     raw_dir=$proj_dir/raw_data/$track_dir
     orbit_dir=$raw_dir/orbits
 else
@@ -115,7 +118,7 @@ mli_name=$scene"_"$polar"_"$slc_rlks"rlks"
 #para=$slc_name"_SLC_parameters.txt"
 slc=$slc_name.slc
 slc_par=$slc.par
-slc_bmp=$slc_name.bmp
+slc_bmp_low=$slc_name"_lowres.bmp"
 slc1=$slc_name"_IW1.slc"
 slc_par1=$slc1.par
 tops_par1=$slc1.TOPS_par
@@ -146,33 +149,35 @@ slc_par3_1=$slc3_1.par
 tops_par3_1=$slc3_1.TOPS_par
 mli=$mli_name.mli
 mli_par=$mli.par
+slc_full_tab=$slc_name"_full_tab"
 
 
 
 ## Produce SLC data files
 if [ ! -e $slc_dir/$scene/$slc ]; then
-    rm -f slc_tab slc_tab_s pslc_tab 
+    rm -f $slc_full_tab slc_tab_s pslc_tab 
 
     # Get list of IW SLCs 
-    echo $scene_dir/$slc1 $scene_dir/$slc_par1 $scene_dir/$tops_par1 > slc_tab
-    echo $scene_dir/$slc2 $scene_dir/$slc_par2 $scene_dir/$tops_par2 >> slc_tab
-    echo $scene_dir/$slc3 $scene_dir/$slc_par3 $scene_dir/$tops_par3 >> slc_tab 
+    echo $scene_dir/$slc1 $scene_dir/$slc_par1 $scene_dir/$tops_par1 > $slc_full_tab
+    echo $scene_dir/$slc2 $scene_dir/$slc_par2 $scene_dir/$tops_par2 >> $slc_full_tab
+    echo $scene_dir/$slc3 $scene_dir/$slc_par3 $scene_dir/$tops_par3 >> $slc_full_tab 
 
     if [ -e $frame_list ]; then
 	while read frame_num; do
+	   #frame_num=`echo $list | awk '{print $1}'`
 	    if [ ! -z "$frame_num" ]; then
-		date=`echo $frame_num | awk '{print $1}'`
+		date=`echo $frame_num | awk '{print $2}'`
 		if [ "$date" -eq "$scene" ]; then
-		    tot_frame=`echo $frame_num | awk '{print $2}'`
+		    tot_frame=`echo $frame_num | awk '{print $1}'`
 		    if [ $tot_frame -eq 1 ]; then # single frame, no concatenation
 			for swath in 1 2 3; do
 			    echo " "
 			    echo "Processing swath "$swath" for SLC "$scene
 			    echo " "
-			    annot=`ls $raw_dir/F1/$scene/*$scene*/annotation/s1a-iw$swath-slc-$pol*.xml`
-			    data=`ls $raw_dir/F1/$scene/*$scene*/measurement/s1a-iw$swath-slc-$pol*.tiff`
-			    calib=`ls $raw_dir/F1/$scene/*$scene*/annotation/calibration/calibration-s1a-iw$swath-slc-$pol*.xml`
-			    noise=`ls $raw_dir/F1/$scene/*$scene*/annotation/calibration/noise-s1a-iw$swath-slc-$pol*.xml`
+			    annot=`ls $raw_dir/F1/$scene/*$scene*/annotation/s1*-iw$swath-slc-$pol*.xml`
+			    data=`ls $raw_dir/F1/$scene/*$scene*/measurement/s1*-iw$swath-slc-$pol*.tiff`
+			    calib=`ls $raw_dir/F1/$scene/*$scene*/annotation/calibration/calibration-s1*-iw$swath-slc-$pol*.xml`
+			    noise=`ls $raw_dir/F1/$scene/*$scene*/annotation/calibration/noise-s1*-iw$swath-slc-$pol*.xml`
 			    bslc="slc$swath"
 			    bslc_par=${!bslc}.par
 			    btops="tops_par$swath"
@@ -229,9 +234,9 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     echo " "
     while read frame_num; do
 	if [ ! -z "$frame_num" ]; then
-	    date=`echo $frame_num | awk '{print $1}'`
+	    date=`echo $frame_num | awk '{print $2}'`
 	    if [ "$date" -eq "$scene" ]; then
-		tot_frame=`echo $frame_num | awk '{print $2}'`
+		tot_frame=`echo $frame_num | awk '{print $1}'`
 		if [ $tot_frame -eq 1 ]; then # single frame, no concatenation
 		    :
 		elif [ $tot_frame -eq 2 ]; then # 2 frames
@@ -239,7 +244,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 		    head -n 3 lists > fr_tab1
 		    tail -3 lists > fr_tab2
 		    
-		    GM SLC_cat_S1_TOPS fr_tab1 fr_tab2 slc_tab
+		    GM SLC_cat_S1_TOPS fr_tab1 fr_tab2 $slc_full_tab
 
 		elif [ $tot_frame -eq 3 ]; then # 3 frames
 		    paste slc_list par_list tops_list > lists
@@ -251,7 +256,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 		    tail -3 lists > fr_tab3
 		    
 		    GM SLC_cat_S1_TOPS fr_tab1 fr_tab2 slc1_tab
-		    GM SLC_cat_S1_TOPS slc1_tab fr_tab3 slc_tab 
+		    GM SLC_cat_S1_TOPS slc1_tab fr_tab3 $slc_full_tab 
 		else
 		    echo "script can only concatenate up to 3 frames"   
 		fi
@@ -285,7 +290,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 
     ## Deramp the burst SLCs and output subtracted phase ramps
     ## Only needed if the SLC is to be oversampled e.g. for use with offset tracking programs
-    #GM SLC_deramp_S1_TOPS pslc_tab slc_tab 0 1
+    #GM SLC_deramp_S1_TOPS pslc_tab $slc_full_tab 0 1
 
     ## Phase shift for IW1 of the image before 15th of March 2015
     if [ $scene -lt 20150310 ]; then 
@@ -307,7 +312,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     echo "Mosaic SLC bursts ..."
     echo " "
 
-    GM SLC_mosaic_S1_TOPS slc_tab $slc $slc_par $slc_rlks $slc_alks  
+    GM SLC_mosaic_S1_TOPS $slc_full_tab $slc $slc_par $slc_rlks $slc_alks  
 
     # Import precise orbit information (if they have been downloaded)
     if [ -n "$(ls -A $orbit_dir)" ]; then #directory contains files
@@ -328,7 +333,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     # Make quick-look image of full SLC
     width=`grep range_samples: $slc_par | awk '{print $2}'`
     lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
-    GM rasSLC $slc $width 1 $lines 50 20 - - 1 0 0 $slc_bmp
+    GM rasSLC $slc $width 1 $lines 50 20 - - 1 0 0 $slc_bmp_low
 
     # Multi-look full SLC
     GM multi_look $slc $slc_par $mli $mli_par $slc_rlks $slc_alks 0
@@ -347,6 +352,8 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 
 	swath=`awk 'NR==7 {print $6}' temp1`
 	echo "Swath: "$swath >> $burst_file
+	start=`grep start_time: $par | awk '{print $2}'`
+	echo "   start time: "$start >> $burst_file
 	bursts=`awk 'NR==8 {print $7}' temp1`
 	echo "   total bursts: "$bursts >> $burst_file
 	echo "Num     Upper_Right                      Upper_left                      Lower_Left                     Lower_Right" >> $burst_file
@@ -354,18 +361,18 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
 	head -n -9 temp2 > temp3
 	awk '{print $2"\t"$3" "$4"\t"$5" "$6"\t"$7" "$8"\t"$9" "$10}' temp3 >> $burst_file
 	echo " " >> $burst_file
-    done < slc_tab
+    done < $slc_full_tab
     rm -f temp1 temp2 temp3
 
     # Preview of full SLC and bursts
 
     # number of bursts per swath
     sed -n '/Swath: IW1/,/Num/p' $burst_file > temp1
-    sw1_burst=`awk 'NR==2 {print}' temp1 | awk '{print $3}'`
+    sw1_burst=`awk 'NR==3 {print}' temp1 | awk '{print $3}'`
     sed -n '/Swath: IW2/,/Num/p' $burst_file > temp1
-    sw2_burst=`awk 'NR==2 {print}' temp1 | awk '{print $3}'`
+    sw2_burst=`awk 'NR==3 {print}' temp1 | awk '{print $3}'`
     sed -n '/Swath: IW3/,/Num/p' $burst_file > temp1
-    sw3_burst=`awk 'NR==2 {print}' temp1 | awk '{print $3}'`
+    sw3_burst=`awk 'NR==3 {print}' temp1 | awk '{print $3}'`
 
     # swath stop times (to determine placement of each swath plot)
     grep end_time: $slc_par1 | awk '{print $2}' > temp1
@@ -424,7 +431,7 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     pstext $outline $range -F+cTL+f15p -O -K -P <<EOF >> $psfile
 $project $track $scene $polar Full SLC
 EOF
-    psimage $slc_bmp -W4c/4c -Fthin -C14c/22c -O -K -P >> $psfile
+    psimage $slc_bmp_low -W4c/4c -Fthin -C14c/22c -O -K -P >> $psfile
     pstext $outline $range -F+f13p -O -K -P <<EOF >> $psfile
 5.5 88.5 Swath 1 ($sw1_burst)
 EOF

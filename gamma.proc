@@ -2,6 +2,8 @@
 GAMMA_GA=~/GAMMA_CONFIG
 #GAMMA_GA=/nas/gemd/insar/SOFTWARE/GAMMA/GAMMA_CONFIG
 GAMMA_NCI=/short/dg9/insar/dg9-apps/GAMMA/GAMMA_CONFIG
+NCI_PATH=/g/data1/dg9
+S1_PATH=/g/data3/fj7/Copernicus/Sentinel-1/C-SAR/SLC
 
 
 ###### Output Directories #####
@@ -23,22 +25,24 @@ Track=TxxxxA/D
 
 
 ##### Sensor/Data Details #####
-    # options: ASAR, CSK, ERS, JERS1, PALSAR1, PALSAR2, RSAT1, RSAT2, S1, TSX
-Sensor=PALSAR1
-    # Sensor mode Sentinel-1: IWS/SM; Radarsat-2: W/MF (Wide/Multi-look Fine); PALSAR2: WD/SM (Wide-swath/Stripmap).
-    # Sensor mode for ASAR: I4 or - (for other image modes)
-    # Sensor mode for CSK: HI for himage, SP for spotlight
-    # Used to determine multi-look ratio
+    # Sensor options: ASAR, CSK, ERS, JERS1, PALSAR1, PALSAR2, RSAT1, RSAT2, S1, TSX
+Sensor=S1
+    # Sensor mode (used to determine multi-look ratio):
+    # ASAR: I4 or - (for other image modes)
+    # CSK: HI or SP (HIMAGE or Spotlight)
+    # PALSAR2: WD/ or SM (Wide-swath/Stripmap)
+    # Radarsat-2: W or MF (Wide/Multi-look Fine)
+    # Sentinel-1: IWS or SM (Interferometic Wide Swath/Stripmap)
 Sensor_mode=IWS
     # if ERS sensor, specify which one (ERS1 or ERS2):
 ERS_sensor=
     # if PALSAR1 sensor, specify which raw data level (raw or slc):
-PALSAR1_data=raw
-    # orientation options: ascending, descending
-Orientation=ascending
-Polarisation=HH
+PALSAR1_data=
+    # orientation options (ascending or descending)
+Orientation=descending
+Polarisation=VV
     # Temporal baseline threshold in days (to refine number of interferograms, eg. TSX 121, ALOS 730)
-Threshold=121
+Threshold=730
 
 ##### Reference Master Scene Details #####
 Master_scene=20081104
@@ -56,13 +60,18 @@ azimuth_lines=-
 Setup=yes
 Do_raw_data=yes
 Do_SLC=yes
-    # for Sentinel-1 only (do 'Do_SLC' first then change this to yes)
-Do_SLC_subset=yes
+    # for Sentinel-1 only 
+       # crop all scenes to same size and shape automatically, uses scene with smallest number of bursts as ref scene)
+Do_auto_crop=no
+       # if auto crop is 'yes', leave as - and value will be auto filled, if auto crop is 'no', enter ref scene to be used to crop other scenes
+Ref_scene=-
+       # further subset scenes manually by specific burst numbers (do 'Do_SLC' first then change this to yes, can crop if desired first)
+Do_SLC_subset=no
 
-Coregister_DEM=yes
-Coregister_slaves=yes
+Coregister_DEM=no
+Coregister_slaves=no
     # only process interferograms after slave coregistration has been checked
-Process_ifms=yes
+Process_ifms=no
 
     # options for adding new SLCs to already processed dataset
 Add_scenes_setup=no
@@ -75,16 +84,16 @@ Process_add_ifms=no
 List_of_frames=frame.list
 List_of_beams=beam.list
 List_of_s1_bursts=burst.list
-S1_rdsi_files=s1_rdsi_files.txt
+S1_file_list=s1_zip_files.txt
 Subset_file=subset.txt
 List_of_scenes=scenes.list
 List_of_slaves=slaves.list
 List_of_ifms=ifms.list
-   # lists for adding new SLCs to already processed dataset
+    # lists for adding new SLCs to already processed dataset
 List_of_add_scenes=add_scenes.list
 List_of_add_slaves=add_slaves.list
 List_of_add_ifms=add_ifms.list
-   # list for removing scene/s from lists (ie. for slc that don't work)
+    # list for removing scene/s from lists (ie. for SLCs that don't work)
 List_of_remove_scenes=remove_scenes.list
 
 
@@ -102,21 +111,21 @@ Landsat_image=xxxx.flt
 
 ##### Multi-looking Values #####
     # multi-look value for SLCs. This is used for coregistration purposes.
-SLC_multi_look=4
+SLC_multi_look=2
     # interferogram multi-look value needs to be a multiple of the SLC multi-look value (eg. SLC=2 ifm=2,4,6,8,10...)
-ifm_multi_look=4
+ifm_multi_look=2
 
 
 ##### Make Reference Master DEM Parameters #####
-# for init_offsetm:
-    # correlation patch size (default 1024, options: 128, 256, 512, 1024)
-    # use larger window for large scenes and usage of scene centre (e.g. S1), use smaller window for windows towards edge of scene and smaller scenes (e.g. FB PALSAR)
+    # for init_offsetm:
+        # correlation patch size (default 1024, options: 128, 256, 512, 1024)
+        # use larger window for large scenes and usage of scene centre (e.g. S1), use smaller window for windows towards edge of scene and smaller scenes (e.g. FB PALSAR)
 dem_patch_window=1024
-    #select centre of window for initial offset estimation (default:- this gives scene centre)
+    # select centre of window for initial offset estimation (default:- this gives scene centre)
 rpos=-
 azpos=-
-# for create_diff_par:
-    # range, azimuth offsets of image2 relative to image1 (samples) (default 0 0): - for full DEM only, auto calculated for mli
+    # for create_diff_par:
+        # range, azimuth offsets of image2 relative to image1 (samples) (default 0 0): - for full DEM only, auto calculated for mli
 dem_offset=0 0
     # enter number of offset measurements in range, azimuth (default 32 32):
 dem_offset_measure=32 32
@@ -149,12 +158,12 @@ slv_win=256 256
 slv_cc_thresh=0.15
 
 ##### Interferogram Parameters #####
-# CSK spotlight initial interferogram parameters (uses some parameters from dem coregistration)
-    # cross-correlation threshold (default 0.15)
+    # CSK spotlight initial interferogram parameters (uses some parameters from dem coregistration)
+        # cross-correlation threshold (default 0.15)
 int_thres=0.15
-    # window for cross-correlation (larger better, default 512)
+        # window for cross-correlation (larger better, default 512)
 init_win=512 512
-    # offset window (recommended to use at least 64)
+        # offset window (recommended to use at least 64)
 offset_win=128 128
 
 ## adaptive spectral filtering (adf) parameters
@@ -187,9 +196,6 @@ Ref_point_azimuth=-
     # Phase at reference pixel
 Ref_phase=0.0
 
-## create geotif of unwrapped interferogram
-    # options: yes/no
-create_geotif=no
 
 ## interferogram begin options: INT/FLAT/FILT/UNW/GEOCODE
 ifm_begin=INT
@@ -231,7 +237,7 @@ coreg_mem=4GB
 coreg_ncpus=4
 
 #create ifms (parameters for one ifm only)
-ifm_walltime=00:30:00
+ifm_walltime=01:00:00
 ifm_mem=6GB
 ifm_ncpus=1
 
