@@ -694,6 +694,8 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 				echo \#\PBS -l wd >> $job
 				echo \#\PBS -q normal >> $job
 				echo -e "\n" >> $job
+                                echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                                echo -e "\n" >> $job
 
 				for(( n=0; n<nsteps; n++ )); do
 				    read scene
@@ -766,6 +768,9 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			    echo \#\PBS -l ncpus=$slc_ncpus >> $job
 			    echo \#\PBS -l wd >> $job
 			    echo \#\PBS -q normal >> $job
+                            echo -e "\n" >> $job
+                            echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                            echo -e "\n" >> $job
 			    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 				echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 			    else
@@ -827,6 +832,10 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			    else
 				:
 			    fi
+
+			    echo -e "\n" >> $job
+                            echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                            echo -e "\n" >> $job
 
 			    for(( n=0; n<nsteps; n++ )); do
 				read scene
@@ -899,6 +908,9 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			echo \#\PBS -l ncpus=$slc_ncpus >> $job
 			echo \#\PBS -l wd >> $job
 			echo \#\PBS -q normal >> $job
+                        echo -e "\n" >> $job
+                        echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                        echo -e "\n" >> $job
 			if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 			    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 			else
@@ -975,6 +987,8 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 			echo \#\PBS -l wd >> $job
 			echo \#\PBS -q normal >> $job
 			echo -e "\n" >> $job
+                        echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                        echo -e "\n" >> $job
 
 			for(( n=0; n<nsteps; n++ )); do
 			    read scene
@@ -1046,6 +1060,9 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		    echo \#\PBS -l ncpus=$slc_ncpus >> $job
 		    echo \#\PBS -l wd >> $job
 		    echo \#\PBS -q normal >> $job
+                    echo -e "\n" >> $job
+                    echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                    echo -e "\n" >> $job
 		    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 			echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		    else
@@ -1105,7 +1122,9 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		    else
 			:
 		    fi
-
+                    echo -e "\n" >> $job
+                    echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                    echo -e "\n" >> $job
 		    for(( n=0; n<nsteps; n++ )); do
 			read scene
 			echo $scene
@@ -1176,6 +1195,9 @@ elif [ $do_slc == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$slc_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
+                echo -e "\n" >> $job
+                echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                echo -e "\n" >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		    echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		else
@@ -1245,6 +1267,9 @@ if [ $do_auto_crop == yes -a $platform == NCI -a $sensor == S1 ]; then
     else
 	:
     fi
+    echo -e "\n" >> $job
+    echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+    echo -e "\n" >> $job
     echo ~/repo/gamma_insar/"auto_crop_"$sensor"_SLCs.bash" $proj_dir/$proc_file >> $job
     chmod +x $job
     qsub $job | tee crop_job_id
@@ -1259,6 +1284,8 @@ if [ $do_auto_crop == yes -a $platform == NCI -a $sensor == S1 ]; then
     echo \#\PBS -l ncpus=$slc_ncpus >> $job
     echo \#\PBS -l wd >> $job
     echo \#\PBS -q normal >> $job
+    echo -e "\n" >> $job
+    echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
     echo -e "\n" >> $job
     echo ~/repo/gamma_insar/"auto_crop_"$sensor"_SLCs.bash" $proj_dir/$proc_file >> $job
     chmod +x $job
@@ -1336,6 +1363,8 @@ if [ $do_slc_subset == yes -a $platform == NCI -a $sensor == S1 ]; then
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
 	    echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+            echo -e "\n" >> $job
 	    for(( n=0; n<nsteps; n++ )); do
 		read scene
 		echo $scene
@@ -1406,6 +1435,9 @@ if [ $do_slc_subset == yes -a $platform == NCI -a $sensor == S1 ]; then
 	    echo \#\PBS -l ncpus=$slc_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+            echo -e "\n" >> $job
 	    if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		echo ~/repo/gamma_insar/"subset_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 	    else
@@ -1637,6 +1669,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    else
 		:
 	    fi
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 1 - - - - $beam_num >> $job
 	    else
@@ -1688,6 +1723,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 2 1 - - - - $beam_num >> $job
 	    else
@@ -1719,6 +1757,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
@@ -1753,6 +1794,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
@@ -1845,6 +1889,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    else
 		:
 	    fi
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # no multi-look value - for geocoding full SLC data
 		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - $beam_num >> $job
@@ -1883,6 +1930,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # no multi-look value - for geocoding full SLC data
 		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - $beam_num >> $job
@@ -1997,6 +2047,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    else
 		:
 	    fi
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
 	    else
@@ -2015,6 +2068,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file $slc_rlks $slc_alks 2 1 1 - - - - >> $job
 	    else
@@ -2103,7 +2159,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
-
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
 	    roff1=`[[ $roff =~ ^-?[0-9]+$ ]] && echo integer`
 	    rlines1=`[[ $rlines =~ ^-?[0-9]+$ ]] && echo integer`
 	    azoff1=`[[ $azoff =~ ^-?[0-9]+$ ]] && echo integer`
@@ -2147,6 +2205,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # SLC and ifm multi-look value (same value)
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
@@ -2242,6 +2303,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    else
 		:
 	    fi
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # no multi-look value - for geocoding full SLC data
 		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
@@ -2280,6 +2344,9 @@ elif [ $coregister_dem == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l ncpus=$dem_ncpus >> $job
 	    echo \#\PBS -l wd >> $job
 	    echo \#\PBS -q normal >> $job
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$dem_ncpus >> $job
+            echo -e "\n" >> $job
   	    if [ ! -f $proj_dir/gamma_dem/$ext_image ]; then # no external reference image
                 # no multi-look value - for geocoding full SLC data
 		#echo ~/repo/gamma_insar/make_ref_master_DEM.bash $proj_dir/$proc_file 1 1 1 1 1 - - - - >> $job
@@ -2545,6 +2612,9 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		    else
 			:
 		    fi
+                    echo -e "\n" >> $job
+                    echo "export OMP_NUM_THREADS="$co_slc_ncpus >> $job
+                    echo -e "\n" >> $job
         	    for(( n=0; n<nsteps; n++ )); do
                 	read scene
                 	echo $scene
@@ -2618,6 +2688,9 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$co_slc_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
+                echo -e "\n" >> $job
+                echo "export OMP_NUM_THREADS="$co_slc_ncpus >> $job
+                echo -e "\n" >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 		else
@@ -2740,6 +2813,9 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		    else
 			:
 		    fi
+                    echo -e "\n" >> $job
+                    echo "export OMP_NUM_THREADS="$co_slc_ncpus >> $job
+                    echo -e "\n" >> $job
 		    for(( n=0; n<nsteps; n++ )); do
 			read scene
 			echo $scene
@@ -2813,6 +2889,9 @@ elif [ $coregister == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$co_slc_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
+                echo -e "\n" >> $job
+                echo "export OMP_NUM_THREADS="$co_slc_ncpus >> $job
+                echo -e "\n" >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		else
@@ -2987,6 +3066,9 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		    else
 			:
 		    fi
+                    echo -e "\n" >> $job
+                    echo "export OMP_NUM_THREADS="$ifm_ncpus >> $job
+                    echo -e "\n" >> $job
 		    for(( n=0; n<nsteps; n++ )); do
 			read line
 			echo $line
@@ -3060,6 +3142,9 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
+                echo -e "\n" >> $job
+                echo "export OMP_NUM_THREADS="$ifm_ncpus >> $job
+                echo -e "\n" >> $job
 		echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
 		chmod +x $job
 	    done < $ifm_list
@@ -3092,6 +3177,9 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $ifm_post
 	    echo \#\PBS -q normal >> $ifm_post
 	    echo \#\PBS -W depend=afterok:$dep >> $ifm_post
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$post_ncpus >> $job
+            echo -e "\n" >> $job
 	    echo ~/repo/gamma_insar/post_ifm_processing.bash $proj_dir/$proc_file 1 $ifm_rlks $ifm_alks $beam_num >> $ifm_post
 	    chmod +x $ifm_post
 	    qsub $ifm_post
@@ -3144,6 +3232,9 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $mosaic
 	    echo \#\PBS -q normal >> $mosaic
 	    echo \#\PBS -W depend=afterok:$dep >> $mosaic
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$mosaic_ncpus >> $job
+            echo -e "\n" >> $job
 	    echo ~/repo/gamma_insar/mosaic_beam_ifms.bash $proj_dir/$proc_file >> $mosaic
 	    chmod +x $mosaic
 #	    qsub $mosaic | tee mosaic_job_id
@@ -3220,6 +3311,9 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		    else
 			:
 		    fi
+                    echo -e "\n" >> $job
+                    echo "export OMP_NUM_THREADS="$ifm_ncpus >> $job
+                    echo -e "\n" >> $job
 		    for(( n=0; n<nsteps; n++ )); do
 			read line
 			echo $line
@@ -3293,6 +3387,9 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
+                echo -e "\n" >> $job
+                echo "export OMP_NUM_THREADS="$ifm_ncpus >> $job
+                echo -e "\n" >> $job
 		echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
 		chmod +x $job
 	    done < $ifm_list
@@ -3325,6 +3422,9 @@ elif [ $do_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $ifm_post
 	    echo \#\PBS -q normal >> $ifm_post
 	    echo \#\PBS -W depend=afterok:$dep >> $ifm_post
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$post_ncpus >> $job
+            echo -e "\n" >> $job
 	    echo ~/repo/gamma_insar/post_ifm_processing.bash $proj_dir/$proc_file 1 $ifm_rlks $ifm_alks >> $ifm_post
 	    chmod +x $ifm_post
 	    qsub $ifm_post
@@ -3568,6 +3668,8 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 				 echo \#\PBS -l wd >> $job
 				 echo \#\PBS -q normal >> $job
 				 echo -e "\n" >> $job
+                                 echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                                 echo -e "\n" >> $job
 				 for(( n=0; n<nsteps; n++ )); do
 				     read scene
 				     echo $scene
@@ -3639,6 +3741,9 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 			     echo \#\PBS -l ncpus=$slc_ncpus >> $job
 			     echo \#\PBS -l wd >> $job
 			     echo \#\PBS -q normal >> $job
+                             echo -e "\n" >> $job
+                             echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                             echo -e "\n" >> $job
 			     if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 				 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 			     else
@@ -3715,7 +3820,8 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 			 echo \#\PBS -l wd >> $job
 			 echo \#\PBS -q normal >> $job
 			 echo -e "\n" >> $job
-
+                         echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                         echo -e "\n" >> $job
 			 for(( n=0; n<nsteps; n++ )); do
 			     read scene
 			     echo $scene
@@ -3786,6 +3892,9 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 		     echo \#\PBS -l ncpus=$slc_ncpus >> $job
 		     echo \#\PBS -l wd >> $job
 		     echo \#\PBS -q normal >> $job
+                     echo -e "\n" >> $job
+                     echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                     echo -e "\n" >> $job
 		     if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 			 echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		     else
@@ -3838,7 +3947,8 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 		     echo \#\PBS -l wd >> $job
 		     echo \#\PBS -q normal >> $job
 		     echo -e "\n" >> $job
-
+                     echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                     echo -e "\n" >> $job
 		     for(( n=0; n<nsteps; n++ )); do
 			 read scene
 			 echo $scene
@@ -3910,6 +4020,9 @@ if [ $add_slc == yes -a $platform == NCI ]; then
 		 echo \#\PBS -l ncpus=$slc_ncpus >> $job
 		 echo \#\PBS -l wd >> $job
 		 echo \#\PBS -q normal >> $job
+                 echo -e "\n" >> $job
+                 echo "export OMP_NUM_THREADS="$slc_ncpus >> $job
+                 echo -e "\n" >> $job
 		 if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		     echo ~/repo/gamma_insar/"process_"$sensor"_SLC.bash" $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		 else
@@ -4056,6 +4169,9 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 		    else
 			:
 		    fi
+                    echo -e "\n" >> $job
+                    echo "export OMP_NUM_THREADS="$co_slc_ncpus >> $job
+                    echo -e "\n" >> $job
         	    for(( n=0; n<nsteps; n++ )); do
                 	read scene
                 	echo $scene
@@ -4129,6 +4245,9 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$co_slc_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
+                echo -e "\n" >> $job
+                echo "export OMP_NUM_THREADS="$co_slc_ncpus >> $job
+                echo -e "\n" >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks $beam_num >> $job
 		else
@@ -4247,6 +4366,9 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 		    else
 			:
 		    fi
+                    echo -e "\n" >> $job
+                    echo "export OMP_NUM_THREADS="$co_slc_ncpus >> $job
+                    echo -e "\n" >> $job
 		    for(( n=0; n<nsteps; n++ )); do
 			read scene
 			echo $scene
@@ -4320,6 +4442,9 @@ elif [ $coregister_add == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$co_slc_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
+                echo -e "\n" >> $job
+                echo "export OMP_NUM_THREADS="$co_slc_ncpus >> $job
+                echo -e "\n" >> $job
 		if [ $slc_rlks -eq $ifm_rlks -a $slc_alks -eq $ifm_alks ]; then
 		    echo ~/repo/gamma_insar/$coreg_script $proj_dir/$proc_file $scene $slc_rlks $slc_alks >> $job
 		else
@@ -4460,6 +4585,9 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 		    else
 			:
 		    fi
+                    echo -e "\n" >> $job
+                    echo "export OMP_NUM_THREADS="$ifm_ncpus >> $job
+                    echo -e "\n" >> $job
 		    for(( n=0; n<nsteps; n++ )); do
 			read line
 			echo $line
@@ -4533,6 +4661,9 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
+                echo -e "\n" >> $job
+                echo "export OMP_NUM_THREADS="$ifm_ncpus >> $job
+                echo -e "\n" >> $job
 		echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks $beam_num >> $job
 		chmod +x $job
 	    done < $ifm_list
@@ -4565,6 +4696,9 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $ifm_post
 	    echo \#\PBS -q normal >> $ifm_post
 	    echo \#\PBS -W depend=afterok:$dep >> $ifm_post
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$post_ncpus >> $job
+            echo -e "\n" >> $job
 	    echo ~/repo/gamma_insar/post_ifm_processing.bash $proj_dir/$proc_file 2 $ifm_rlks $ifm_alks $beam_num >> $ifm_post
 	    chmod +x $ifm_post
 	    qsub $ifm_post
@@ -4617,6 +4751,9 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $mosaic
 	    echo \#\PBS -q normal >> $mosaic
 	    echo \#\PBS -W depend=afterok:$dep >> $mosaic
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$mosaic_ncpus >> $job
+            echo -e "\n" >> $job
 	    echo ~/repo/gamma_insar/mosaic_beam_ifms.bash $proj_dir/$proc_file >> $mosaic
 	    chmod +x $mosaic
 #	    qsub $mosaic | tee add_mosaic_job_id
@@ -4694,6 +4831,9 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 		    else
 			:
 		    fi
+                    echo -e "\n" >> $job
+                    echo "export OMP_NUM_THREADS="$ifm_ncpus >> $job
+                    echo -e "\n" >> $job
 		    for(( n=0; n<nsteps; n++ )); do
 			read line
 			echo $line
@@ -4767,6 +4907,9 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 		echo \#\PBS -l ncpus=$ifm_ncpus >> $job
 		echo \#\PBS -l wd >> $job
 		echo \#\PBS -q normal >> $job
+                echo -e "\n" >> $job
+                echo "export OMP_NUM_THREADS="$ifm_ncpus >> $job
+                echo -e "\n" >> $job
 		echo ~/repo/gamma_insar/process_ifm.bash $proj_dir/$proc_file $mas $slv $ifm_rlks $ifm_alks >> $job
 		chmod +x $job
 	    done < $ifm_list
@@ -4799,6 +4942,9 @@ elif [ $add_ifms == yes -a $platform == NCI ]; then
 	    echo \#\PBS -l wd >> $ifm_post
 	    echo \#\PBS -q normal >> $ifm_post
 	    echo \#\PBS -W depend=afterok:$dep >> $ifm_post
+            echo -e "\n" >> $job
+            echo "export OMP_NUM_THREADS="$post_ncpus >> $job
+            echo -e "\n" >> $job
 	    echo ~/repo/gamma_insar/post_ifm_processing.bash $proj_dir/$proc_file 2 $ifm_rlks $ifm_alks >> $ifm_post
 	    chmod +x $ifm_post
 	    qsub $ifm_post

@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# set enivronment variable specific to script
-export OMP_NUM_THREADS=4
-    
 display_usage() { 
     echo ""
     echo "*******************************************************************************"
