@@ -58,7 +58,7 @@ slc_alks=$4
 if [ $platform == NCI ]; then
     proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
     raw_dir=$proj_dir/raw_data/$track_dir
-    orbit_dir=$raw_dir/orbits
+    orbit_dir=/g/data1/dg9/S1_ORBITS/
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     raw_dir=$raw_dir_ga
@@ -315,11 +315,12 @@ if [ ! -e $slc_dir/$scene/$slc ]; then
     GM SLC_mosaic_S1_TOPS $slc_full_tab $slc $slc_par $slc_rlks $slc_alks  
 
     # Import precise orbit information (if they have been downloaded)
-    if [ -n "$(ls -A $orbit_dir)" ]; then #directory contains files
-	ls $orbit_dir/* > temp1
+    sat=`grep "sensor:    S" $slc_par | awk '{print $2}'`
+    if [ -n "$(ls -A $orbit_dir/$sat)" ]; then #directory contains files
+	ls $orbit_dir/$sat/* > temp1
 	date_sub=1
 	orb_date=$(date "--date=${scene} -${date_sub} day" +%Y%m%d)
-	opod=`sed -n "/$orb_date/p" temp1`
+	opod=`sed -n "/V$orb_date/p" temp1`
 	if [ ! -z $opod ]; then #correct orbit file exists
 	    GM S1_OPOD_vec $slc_par $opod 
 	else
