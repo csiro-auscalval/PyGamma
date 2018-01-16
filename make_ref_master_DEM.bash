@@ -70,15 +70,33 @@ sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
-noffset=`grep dem_offset= $proc_file | cut -d "=" -f 2`
 offset_measure=`grep dem_offset_measure= $proc_file | cut -d "=" -f 2`
-dem_patch_win=`grep dem_patch_window= $proc_file | cut -d "=" -f 2`
-dem_win=`grep dem_win= $proc_file | cut -d "=" -f 2`
 dem_snr=`grep dem_snr= $proc_file | cut -d "=" -f 2`
 dem_rad_max=`grep dem_rad_max= $proc_file | cut -d "=" -f 2`
+subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
+
+noffset=`grep dem_offset= $proc_file | cut -d "=" -f 2`
+noff1=`echo $noffset | awk '{print $1}'`
+noff2=`echo $noffset | awk '{print $2}'`
+dem_patch_win=`grep dem_patch_window= $proc_file | cut -d "=" -f 2`
+dem_win1=`grep dem_win= $proc_file | cut -d "=" -f 2 | awk '{print $1}'`
+dem_win2=`grep dem_win= $proc_file | cut -d "=" -f 2 | awk '{print $2}'`
 rpos=`grep rpos= $proc_file | cut -d "=" -f 2`
 azpos=`grep azpos= $proc_file | cut -d "=" -f 2`
-subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
+# modify the following parameters for multi-look values greater than 1
+if [ $rlks > 1 ]; then
+    dem_win1=`echo $dem_win1 $rlks | awk '{printf "%i\n", $1/$2}'`
+    dem_win2=`echo $dem_win2 $rlks | awk '{printf "%i\n", $1/$2}'`
+    dem_patch_win=`echo $dem_patch_win $rlks | awk '{printf "%i\n", $1/$2}'`
+    noff1=`echo $noff1 $rlks | awk '{printf "%i\n", $1/$2}'`
+    noff2=`echo $noff2 $rlks | awk '{printf "%i\n", $1/$2}'`
+    if [ $rpos != "-" ]; then
+        rpos=`echo $rpos $rlks | awk '{printf "%i\n", $1/$2}'`
+    fi
+    if [ $azpos != "-" ]; then
+        azpos=`echo $azpos $rlks | awk '{printf "%i\n", $1/$2}'`
+    fi
+fi
 
 
 ## Identify project directory based on platform
@@ -247,7 +265,7 @@ DEM_FILES()
     loc_inc=$dem_dir/$mli_name"_local_inc.ang"
     diff=$dem_dir/"diff_"$mli_name.par
     lsmap=$dem_dir/$mli_name"_eqa.lsmap"
-    pix_sig=$dem_dir/$mli_name"_pix_simga0"
+    pix_sig=$dem_dir/$mli_name"_pix_sigma0"
     pix_gam=$dem_dir/$mli_name"_pix_gamma0"
     pix_gam_bmp=$dem_dir/$mli_name"_pix_gamma0.bmp"
     off=$dem_dir/$mli_name.off
@@ -345,10 +363,11 @@ CREATE_DIFF_PAR_FULL()
     cd $dem_dir
     returns=$dem_dir/returns
     echo "" > $returns #default scene title
-    echo $noffset >> $returns
+    echo $noff1 $noff2 >> $returns
     echo $offset_measure >> $returns
-    echo $dem_win >> $returns 
-    echo $dem_snr >> $returns 
+    echo $dem_win1 $dem_win2 >> $returns 
+    echo $dem_snr >> $returns
+    echo >> $returns
 
     GM create_diff_par $master_mli_par - $diff 1 < $returns
     rm -f $returns 
@@ -360,26 +379,13 @@ CREATE_DIFF_PAR_FULL()
 CREATE_DIFF_PAR()
 {
     cd $dem_dir
-    noffset1=`echo $noffset | awk '{print $1}'`
-    if [ $noffset1 -eq 0 ]; then
-	noff1=0
-    else
-	#noff1=`echo $noffset1 | awk '{print $1/$rlks}'`
-	noff1=$noffset1
-    fi
-    noffset2=`echo $noffset | awk '{print $2}'`
-    if [ $noffset2 -eq 0 ]; then
-	noff2=0
-    else
-	#noff2=`echo $noffset2 | awk '{print $1/$alks}'`
-	noff2=$noffset2
-    fi
     returns=$dem_dir/returns
     echo "" > $returns #default scene title
     echo $noff1 $noff2 >> $returns
     echo $offset_measure >> $returns
-    echo $dem_win >> $returns 
-    echo $dem_snr >> $returns 
+    echo $dem_win1 $dem_win2 >> $returns 
+    echo $dem_snr >> $returns
+    echo >> $returns 
         
     GM create_diff_par $master_mli_par - $diff 1 < $returns
     rm -f $returns  
@@ -389,8 +395,11 @@ CREATE_DIFF_PAR()
 OFFSET_CALC()
 {
     # The high accuracy of Sentinel-1 orbits requires only a static offset fit term rather than higher order polynomial terms
+    # Also true for PALSAR2?
     if [ $sensor == S1 ]; then
 	npoly=1
+#    elif [ $sensor == PALSAR2 ]; then
+#        npoly=1
     else
 	npoly=4
     fi
@@ -398,6 +407,7 @@ OFFSET_CALC()
     ### UPDATED PROCESS
     ## Taken from 'S1_Mexico_coreg_demo'. Produces refined estimates compared to old version
     GM pixel_area $master_mli_par $eqa_dem_par $eqa_dem $lt_rough $lsmap $loc_inc $pix_sig $pix_gam
+    GM init_offsetm $pix_sig $master_mli $diff 1 1 $rpos $azpos - - $dem_snr $dem_patch_win 1
     GM offset_pwrm $pix_sig $master_mli $diff $offs $ccp - - $offsets 2 - - -
     GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
 
