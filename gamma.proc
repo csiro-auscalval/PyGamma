@@ -117,11 +117,12 @@ ifm_multi_look=2
 
 
 ##### Make Reference Master DEM Parameters #####
+# parameters given here are based on SLC_multi_look factor above. If ifm_multi_look factor is more, parameter values will be updated by the script
     # for init_offsetm:
         # correlation patch size (default 1024, options: 128, 256, 512, 1024)
         # use larger window for large scenes and usage of scene centre (e.g. S1), use smaller window for windows towards edge of scene and smaller scenes (e.g. FB PALSAR)
 dem_patch_window=1024
-    # select centre of window for initial offset estimation (default:- this gives scene centre)
+    # select centre of window for initial offset estimation (default: "-" this gives scene centre)
 rpos=-
 azpos=-
     # for create_diff_par:
@@ -223,23 +224,23 @@ raw_ncpus=1
 
 #create slcs (parameters for one slc only)
 SLC_walltime=02:00:00
-SLC_mem=4GB
+SLC_mem=8GB
 SLC_ncpus=4
 
 #coregister dem
-DEM_walltime=05:00:00
-DEM_mem=6GB
+DEM_walltime=02:00:00
+DEM_mem=8GB
 DEM_ncpus=4
 
 #coregister slcs (parameters for one slave coregistration only)
-coreg_walltime=02:00:00
-coreg_mem=4GB
+coreg_walltime=01:00:00
+coreg_mem=8GB
 coreg_ncpus=4
 
 #create ifms (parameters for one ifm only)
 ifm_walltime=01:00:00
-ifm_mem=6GB
-ifm_ncpus=1
+ifm_mem=8GB
+ifm_ncpus=4
 
 #mosaic ifms
 mosaic_walltime=02:00:00
