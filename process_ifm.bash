@@ -608,10 +608,14 @@ UNW()
 
         ## Use model to unwrap filtered interferogram
 	if [ $refrg = "-" -a $refaz = "-" ]; then
-	   GM unw_model $int_filt $int_unw_model $int_unw $int_width
+	   GM unw_model $int_filt $int_unw_model temp $int_width
 	else
-	   GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
+	   GM unw_model $int_filt $int_unw_model temp $int_width $refrg $refaz $refphs
 	fi
+
+        # mask unwrapped interferogram for low coherence threshold
+        GM mask_data temp $int_width $int_unw $mask 0
+        rm -f temp
 
         ## Convert LOS signal to vertical
         #GM dispmap $int_unw $rdc_dem $mas_slc_par $off $disp 1
