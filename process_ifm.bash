@@ -737,6 +737,11 @@ GEOCODE()
     echo X_STEP $post_lon >> $gmt_par
     echo Y_FIRST $lat >> $gmt_par
     echo Y_STEP $post_lat >> $gmt_par
+
+    ## remove unnecessary files
+    rm -f *flat0*
+    rm -f *flat1*
+    rm -f *sim0* *sim1*
 }
 
 DONE()
