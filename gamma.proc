@@ -194,8 +194,6 @@ Patches_azimuth=1
     # location of reference pixel
 Ref_point_range=-
 Ref_point_azimuth=-
-    # Phase at reference pixel
-Ref_phase=0.0
 
 
 ## interferogram begin options: INT/FLAT/FILT/UNW/GEOCODE

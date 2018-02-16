@@ -75,7 +75,6 @@ patch_r=`grep Patches_range= $proc_file | cut -d "=" -f 2`
 patch_az=`grep Patches_azimuth= $proc_file | cut -d "=" -f 2`
 refrg=`grep Ref_point_range= $proc_file | cut -d "=" -f 2`
 refaz=`grep Ref_point_azimuth= $proc_file | cut -d "=" -f 2`
-refphs=`grep Ref_phase= $proc_file | cut -d "=" -f 2`
 geotiff=`grep create_geotif= $proc_file | cut -d "=" -f 2`
 begin=`grep ifm_begin= $proc_file | cut -d "=" -f 2`
 finish=`grep ifm_end= $proc_file | cut -d "=" -f 2`
