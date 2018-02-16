@@ -243,8 +243,8 @@ int_flat0=$int_dir/$mas_slv_name"_flat0.int"
 int_flat1=$int_dir/$mas_slv_name"_flat1.int"
 int_flat10=$int_dir/$mas_slv_name"_flat10.int"
 int_filt=$int_dir/$mas_slv_name"_filt.int"
-int_flat_float=$int_dir/$mas_slv_name"_flat_int.flt"
-int_filt_float=$int_dir/$mas_slv_name"_filt_int.flt"
+#int_flat_float=$int_dir/$mas_slv_name"_flat_int.flt"
+#int_filt_float=$int_dir/$mas_slv_name"_filt_int.flt"
 #int_filt_mask=$int_dir/$mas_slv_name"_filt_mask.int"
 cc=$int_dir/$mas_slv_name"_flat.cc"
 cc0=$int_dir/$mas_slv_name"_flat0.cc"
@@ -659,7 +659,7 @@ UNW()
     fi
 
     ## Generate quicklook image of final unwrapped interferogram
-    GM rasrmg $int_unw - $int_width 1 1 0 2 2 - - - - - $int_unw.bmp
+    #GM rasrmg $int_unw - $int_width 1 1 0 2 2 - - - - - $int_unw.bmp
 }
 
 
@@ -671,48 +671,50 @@ GEOCODE()
     width_in=`grep range_samp_1: $diff_dem | awk '{print $2}'`
     width_out=`grep width: $dem_par | awk '{print $2}'`
 
+    pixav=20
+
     ## Use bicubic spline interpolation for geocoded unwrapped interferogram
     GM geocode_back $int_unw $width_in $gc_map $unw_geocode_out $width_out - 1 0 - -
-    # make geotif
-    GM data2geotiff $dem_par $unw_geocode_out 2 $unw_geocode_out.tif
-    # make quick-look png image 
-    GM rasrmg $unw_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $unw_geocode_bmp
+    ## make geotif
+    #GM data2geotiff $dem_par $unw_geocode_out 2 $unw_geocode_out.tif
+    ## make quick-look png image 
+    GM rasrmg $unw_geocode_out - $width_out 1 1 0 $pixav $pixav 1 - - 0 1 $unw_geocode_bmp
     GM convert $unw_geocode_bmp ${unw_geocode_bmp/.bmp}.png
     rm -f $unw_geocode_bmp
 
     ## Use bicubic spline interpolation for geocoded flattened interferogram
-    # convert to float and extract phase
-    GM cpx_to_real $int_flat $int_flat_float $width_in 4
-    GM geocode_back $int_flat_float $width_in $gc_map $flat_geocode_out $width_out - 1 0 - -
-    # make quick-look png image
-    GM rasrmg $flat_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $flat_geocode_bmp
+    ## convert to float and extract phase
+    #GM cpx_to_real $int_flat $int_flat_float $width_in 4
+    GM geocode_back $int_flat $width_in $gc_map $flat_geocode_out $width_out - 1 0 - -
+    ## make quick-look png image
+    GM rasmph $flat_geocode_out $width_out 1 0 $pixav $pixav - - 1 $flat_geocode_bmp 0
     GM convert $flat_geocode_bmp ${flat_geocode_bmp/.bmp}.png
     rm -f $flat_geocode_bmp
 
     ## Use bicubic spline interpolation for geocoded filtered interferogram
-    # convert to float and extract phase
-    GM cpx_to_real $int_filt $int_filt_float $width_in 4
-    GM geocode_back $int_filt_float $width_in $gc_map $filt_geocode_out $width_out - 1 0 - -
-    # make geotif
-    GM data2geotiff $dem_par $filt_geocode_out 2 $filt_geocode_out.tif
-    # make quick-look png image
-    GM rasrmg $filt_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $filt_geocode_bmp
+    ## convert to float and extract phase
+    #GM cpx_to_real $int_filt $int_filt_float $width_in 4
+    GM geocode_back $int_filt $width_in $gc_map $filt_geocode_out $width_out - 1 0 - -
+    ## make geotif
+    #GM data2geotiff $dem_par $filt_geocode_out 2 $filt_geocode_out.tif
+    ## make quick-look png image
+    GM rasmph $filt_geocode_out $width_out 1 0 $pixav $pixav0 - - 1 $filt_geocode_bmp 0
     GM convert $filt_geocode_bmp ${filt_geocode_bmp/.bmp}.png
     rm -f $filt_geocode_bmp
 
     ## Use bicubic spline interpolation for geocoded filt coherence file
     GM geocode_back $smcc $width_in $gc_map $smcc_geocode_out $width_out - 1 0 - -
-    # make quick-look png image
-    GM rasrmg $smcc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $smcc_geocode_bmp
+    ## make quick-look png image
+    GM rascc $smcc_geocode_out - $width_out 1 1 0 $pixav $pixav 0 1 - - 1 $smcc_geocode_bmp
     GM convert $smcc_geocode_bmp ${smcc_geocode_bmp/.bmp}.png
     rm -f $smcc_geocode_bmp
 
     ## Use bicubic spline interpolation for geocoded flat coherence file
     GM geocode_back $cc $width_in $gc_map $cc_geocode_out $width_out - 1 0 - -
-    # make geotif
-    GM data2geotiff $dem_par $cc_geocode_out 2 $cc_geocode_out.tif
-    # make quick-look png image
-    GM rasrmg $cc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $cc_geocode_bmp
+    ## make geotif
+    #GM data2geotiff $dem_par $cc_geocode_out 2 $cc_geocode_out.tif
+    ## make quick-look png image
+    GM rascc $cc_geocode_out - $width_out 1 1 0 $pixav $pixav 0 1 - - 1 $cc_geocode_bmp
     GM convert $cc_geocode_bmp ${cc_geocode_bmp/.bmp}.png
     rm -f $cc_geocode_bmp
 
