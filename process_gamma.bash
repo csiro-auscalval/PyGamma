@@ -202,9 +202,16 @@ elif [ $sensor == S1 -a $mode == IWS ]; then
     ifm_rlks=`echo $ifm_looks | awk '{print $1*5}'`
 elif [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
     slc_rlks=$slc_looks
-    slc_alks=`echo $slc_looks | awk '{print $1*2}'`
     ifm_rlks=$ifm_looks
-    ifm_alks=`echo $ifm_looks | awk '{print $1*2}'`
+    if [ $mode == ST ]; then
+       # steep incidence angle
+       slc_alks=`echo $slc_looks | awk '{print $1*3}'`
+       ifm_alks=`echo $ifm_looks | awk '{print $1*3}'`
+    else
+       # default case
+       slc_alks=`echo $slc_looks | awk '{print $1*2}'`
+       ifm_alks=`echo $ifm_looks | awk '{print $1*2}'`
+    fi
 elif [ $sensor == CSK ]; then
     if [ $mode == HI ]; then
 	if [ $slc_looks -eq 1 ]; then  #cannot have square pixels for himage data processed at full res
@@ -1292,8 +1299,8 @@ if [ $do_auto_crop == yes -a $platform == NCI -a $sensor == S1 ]; then
 
     # run crop slc error check
     echo "Preparing error collation for 'do_auto_crop'..."
-    cd $crop_slc_batch_dir 
-    crop_jobid=`sed s/.r-man2// crop_job_id`		
+    cd $crop_slc_batch_dir
+    crop_jobid=`sed s/.r-man2// crop_job_id`
     job=crop_err_check
     echo \#\!/bin/bash > $job
     echo \#\PBS -lother=gdata1 >> $job

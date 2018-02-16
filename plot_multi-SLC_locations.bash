@@ -74,8 +74,8 @@ slc_dir=$proj_dir/$track_dir/`grep SLC_dir= $proc_file | cut -d "=" -f 2`
 subset_info=$slc_dir/subset_info.txt
 echo "Date         Latitude    Longitude  azimuth    range  az_spacing  rg_spacing  inc_angle" > $subset_info
 
-if [ $sensor == RSAT2 ]; then
-# no msp_par file for RSAT2 processing
+if [ $sensor == RSAT2 -o $sensor == PALSAR1 ]; then
+# no msp_par file for RSAT2 processing and PALSAR1 processing with SLCs
 # only centre lat/lon is output instead of an image
   while read file; do
     scene=$file
