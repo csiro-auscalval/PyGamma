@@ -562,60 +562,49 @@ UNW()
 
     if [ $unwrap_type == mcf ]; then
 
-        #look=5
-
-        ## multi-look the flattened interferogram 10 times
-        #GM multi_cpx $int_filt $off $int_filt$look $off$look $look $look 0 0
-
-        #width=`grep interferogram_width: $off$look | awk '{print $2}'`
-
-        ## Generate coherence image
-        #GM cc_wave $int_filt$look - - $smcc$look $width 7 7 1
-
-        ## Generate validity mask with low coherence threshold to unwrap more area
-        #GM rascc_mask $smcc$look - $width 1 1 0 1 1 0.1
-
-        ## Perform unwrapping
-        #GM mcf $int_filt$look $smcc$look $smcc$look"_mask.ras" $int_filt$look.unw $width 1 0 0 - - 1 1 - 32 45 1
-
-        ## Oversample unwrapped interferogram to original resolution
-        #GM multi_real $int_filt$look.unw $off$look $int_filt"1.unw" $off -$look -$look 0 0
-
-        #GM unw_model $int_filt $int_filt"1.unw" $int_unw $int_width
-
         ## Produce unwrapping validity mask based on smoothed coherence
         GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask
 
-        ## Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser network which can be interpoolated and then used as a model for unwrapping the full interferogram
-	thres_1=`echo $coh_thres + 0.2 | bc`
-	thres_max=`echo $thres_1 + 0.2 | bc`
-        #if [ $thres_max -gt 1 ]; then
-        #    echo " "
-        #    echo "MASK THINNING MAXIMUM THRESHOLD GREATER THAN ONE. Modify coherence threshold in proc file."
-        #    echo " "
-        #    exit 1
-        #else
-        #    :
-        #fi
-	GM rascc_mask_thinning $mask $smcc $int_width $mask_thin 3 $coh_thres $thres_1 $thres_max
+        ## Use arbitrary mlook threshold of 4 to decide whether to thin data for unwrapping or not
+        if [ $ifm_rlks -le 4 ]; then
 
-        ## Unwrapping with validity mask
-        #GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - 1 1 - $refrg $refaz 1
-	GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $patch_az - $refrg $refaz 0
+	    ## Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser network which can be interpoolated and then used as a model for unwrapping the full interferogram
+	    thres_1=`echo $coh_thres + 0.2 | bc`
+	    thres_max=`echo $thres_1 + 0.2 | bc`
+            #if [ $thres_max -gt 1 ]; then
+            #    echo " "
+            #    echo "MASK THINNING MAXIMUM THRESHOLD GREATER THAN ONE. Modify coherence threshold in proc file."
+            #    echo " "
+            #    exit 1
+            #else
+            #    :
+            #fi
+	    GM rascc_mask_thinning $mask $smcc $int_width $mask_thin 3 $coh_thres $thres_1 $thres_max
 
-        ## Interpolate sparse unwrapped points to give unwrapping model
-	GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
+            ## Unwrapping with validity mask
+	    GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $patch_az - $refrg $refaz 0
 
-        ## Use model to unwrap filtered interferogram
-	if [ $refrg = "-" -a $refaz = "-" ]; then
-	   GM unw_model $int_filt $int_unw_model temp $int_width
-	else
-	   GM unw_model $int_filt $int_unw_model temp $int_width $refrg $refaz $refphs
-	fi
+            ## Interpolate sparse unwrapped points to give unwrapping model
+	    GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
 
-        # mask unwrapped interferogram for low coherence threshold
-        GM mask_data temp $int_width $int_unw $mask 0
-        rm -f temp
+            ## Use model to unwrap filtered interferogram
+	    #if [ $refrg = "-" -a $refaz = "-" ]; then
+	    #    GM unw_model $int_filt $int_unw_model temp $int_width
+	    #else
+	        GM unw_model $int_filt $int_unw_model temp $int_width $refrg $refaz 0.0
+	    #fi
+
+            # mask unwrapped interferogram for low coherence areas below threshold
+            GM mask_data temp $int_width $int_unw $mask 0
+            rm -f temp
+        else
+	    #if [ $refrg = "-" -a $refaz = "-" ]; then
+            #    GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - $patch_r $patch_az - - - 0
+            #else
+                GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - $patch_r $patch_az - $refrg $refaz 1
+            #fi
+        fi
+
 
         ## Convert LOS signal to vertical
         #GM dispmap $int_unw $rdc_dem $mas_slc_par $off $disp 1
@@ -670,7 +659,7 @@ UNW()
     fi
 
     ## Generate quicklook image of final unwrapped interferogram
-    GM rasrmg $int_unw - $int_width 1 1 0 40 40 - - - - - $int_unw.bmp
+    GM rasrmg $int_unw - $int_width 1 1 0 2 2 - - - - - $int_unw.bmp
 }
 
 
