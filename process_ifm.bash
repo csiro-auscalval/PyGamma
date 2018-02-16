@@ -268,13 +268,13 @@ base_temp=$int_dir/$mas_slv_name"_base_temp.par"
 bperp=$int_dir/$mas_slv_name"_bperp.par"
 flag=$int_dir/$mas_slv_name.flag
 unw_geocode_out=$int_dir/$mas_slv_name"_eqa.unw"
-flat_geocode_out=$int_dir/$mas_slv_name"_flat_int_eqa.flt"
-filt_geocode_out=$int_dir/$mas_slv_name"_filt_int_eqa.flt"
+flat_geocode_out=$int_dir/$mas_slv_name"_flat_eqa.int"
+filt_geocode_out=$int_dir/$mas_slv_name"_filt_eqa.int"
 smcc_geocode_out=$int_dir/$mas_slv_name"_filt_eqa.cc"
 cc_geocode_out=$int_dir/$mas_slv_name"_flat_eqa.cc"
 unw_geocode_bmp=$int_dir/$mas_slv_name"_eqa_unw.bmp"
-flat_geocode_bmp=$int_dir/$mas_slv_name"_flat_int_eqa_flt.bmp"
-filt_geocode_bmp=$int_dir/$mas_slv_name"_filt_int_eqa_flt.bmp"
+flat_geocode_bmp=$int_dir/$mas_slv_name"_flat_eqa_int.bmp"
+filt_geocode_bmp=$int_dir/$mas_slv_name"_filt__eqa_int.bmp"
 smcc_geocode_bmp=$int_dir/$mas_slv_name"_filt_eqa_cc.bmp"
 cc_geocode_bmp=$int_dir/$mas_slv_name"_flat_eqa_cc.bmp"
 #lv_theta=$int_dir/$mas_slv_name.lv_theta
@@ -444,8 +444,8 @@ FLAT()
     fi
 
     ## Generate quicklook image
-    GM rasmph $int_flat0 $int_width 1 0 40 40 - - - $int_flat0.bmp
-    GM rasmph $int_flat1 $int_width 1 0 40 40 - - - $int_flat1.bmp
+    #GM rasmph $int_flat0 $int_width 1 0 40 40 - - - $int_flat0.bmp
+    #GM rasmph $int_flat1 $int_width 1 0 40 40 - - - $int_flat1.bmp
 
     #######################################
     if [ $sensor = CSK ] && [ $sensor_mode = SP ]; then
@@ -518,7 +518,7 @@ FLAT()
     base_perp $base $mas_slc_par $off > $bperp
 
     ## Generate quicklook image of final flattened interferogram
-    GM rasmph $int_flat $int_width 1 0 40 40 - - - $int_flat.bmp
+    #GM rasmph $int_flat $int_width 1 0 40 40 - - - $int_flat.bmp
 }
 
 FILT()
@@ -542,7 +542,7 @@ FILT()
     GM adf $int_flat $int_filt $smcc $int_width $expon $filtwin $ccwin - 0 - -
 
     ## Generate quicklook image of final wrapped interferogram
-    GM rasmph $int_filt $int_width 1 0 40 40 - - - $int_filt.bmp
+    #GM rasmph $int_filt $int_width 1 0 40 40 - - - $int_filt.bmp
 
 }
 
@@ -684,7 +684,7 @@ GEOCODE()
     ## Use bicubic spline interpolation for geocoded flattened interferogram
     ## convert to float and extract phase
     #GM cpx_to_real $int_flat $int_flat_float $width_in 4
-    GM geocode_back $int_flat $width_in $gc_map $flat_geocode_out $width_out - 1 0 - -
+    GM geocode_back $int_flat $width_in $gc_map $flat_geocode_out $width_out - 1 1 - -
     ## make quick-look png image
     GM rasmph $flat_geocode_out $width_out 1 0 $pixav $pixav - - 1 $flat_geocode_bmp 0
     GM convert $flat_geocode_bmp ${flat_geocode_bmp/.bmp}.png
@@ -693,7 +693,7 @@ GEOCODE()
     ## Use bicubic spline interpolation for geocoded filtered interferogram
     ## convert to float and extract phase
     #GM cpx_to_real $int_filt $int_filt_float $width_in 4
-    GM geocode_back $int_filt $width_in $gc_map $filt_geocode_out $width_out - 1 0 - -
+    GM geocode_back $int_filt $width_in $gc_map $filt_geocode_out $width_out - 1 1 - -
     ## make geotif
     #GM data2geotiff $dem_par $filt_geocode_out 2 $filt_geocode_out.tif
     ## make quick-look png image
