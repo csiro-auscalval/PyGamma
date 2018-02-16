@@ -324,7 +324,8 @@ GEN_DEM_RDC()
     
     ### UPDATED PROCESS
     # taken from 'S1_Mexico_coreg_demo'. Produces refined estimates compared to old version
-    GM gc_map $master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $lt_rough $ovr $ovr $eqa_sim_sar - - $loc_inc - - $lsmap 8 2
+    #GM gc_map $master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $lt_rough $ovr $ovr $eqa_sim_sar - - $loc_inc - - $lsmap 8 2
+    GM gc_map $master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $lt_rough $ovr $ovr $eqa_sim_sar - - - - - - 8 2
 
 
     ### OLD VERSION
@@ -406,7 +407,8 @@ OFFSET_CALC()
 
     ### UPDATED PROCESS
     ## Taken from 'S1_Mexico_coreg_demo'. Produces refined estimates compared to old version
-    GM pixel_area $master_mli_par $eqa_dem_par $eqa_dem $lt_rough $lsmap $loc_inc $pix_sig $pix_gam
+    #GM pixel_area $master_mli_par $eqa_dem_par $eqa_dem $lt_rough $lsmap $loc_inc $pix_sig $pix_gam
+    GM pixel_area $master_mli_par $eqa_dem_par $eqa_dem $lt_rough - - $pix_sig -
     GM init_offsetm $pix_sig $master_mli $diff 1 1 $rpos $azpos - - $dem_snr $dem_patch_win 1
     GM offset_pwrm $pix_sig $master_mli $diff $offs $ccp - - $offsets 2 - - -
     GM offset_fitm $offs $ccp $diff $coffs $coffsets - $npoly
