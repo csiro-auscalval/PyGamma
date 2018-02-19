@@ -672,8 +672,8 @@ GEOCODE()
 
     pixav=20
 
-    ## Use bicubic spline interpolation for geocoded unwrapped interferogram
-    GM geocode_back $int_unw $width_in $gc_map $unw_geocode_out $width_out - 1 0 - -
+    ## Use nearest neighbour interpolation for geocoded unwrapped interferogram
+    GM geocode_back $int_unw $width_in $gc_map $unw_geocode_out $width_out - 0 0 - -
     ## make geotif
     #GM data2geotiff $dem_par $unw_geocode_out 2 $unw_geocode_out.tif
     ## make quick-look png image 
@@ -681,19 +681,19 @@ GEOCODE()
     GM convert $unw_geocode_bmp ${unw_geocode_bmp/.bmp}.png
     rm -f $unw_geocode_bmp
 
-#    ## Use bicubic spline interpolation for geocoded flattened interferogram
+#    ## Use nearest neighbour interpolation for geocoded flattened interferogram
 #    ## convert to float and extract phase
 #    #GM cpx_to_real $int_flat $int_flat_float $width_in 4
-#    GM geocode_back $int_flat $width_in $gc_map $flat_geocode_out $width_out - 1 1 - -
+#    GM geocode_back $int_flat $width_in $gc_map $flat_geocode_out $width_out - 0 1 - -
 #    ## make quick-look png image
 #    GM rasmph $flat_geocode_out $width_out 1 0 $pixav $pixav - - 1 $flat_geocode_bmp 0
 #    GM convert $flat_geocode_bmp ${flat_geocode_bmp/.bmp}.png
 #    rm -f $flat_geocode_bmp
 
-#    ## Use bicubic spline interpolation for geocoded filtered interferogram
+#    ## Use nearest neighbour interpolation for geocoded filtered interferogram
 #    ## convert to float and extract phase
 #    #GM cpx_to_real $int_filt $int_filt_float $width_in 4
-#    GM geocode_back $int_filt $width_in $gc_map $filt_geocode_out $width_out - 1 1 - -
+#    GM geocode_back $int_filt $width_in $gc_map $filt_geocode_out $width_out - 0 1 - -
 #    ## make geotif
 #    #GM data2geotiff $dem_par $filt_geocode_out 2 $filt_geocode_out.tif
 #    ## make quick-look png image
@@ -701,15 +701,15 @@ GEOCODE()
 #    GM convert $filt_geocode_bmp ${filt_geocode_bmp/.bmp}.png
 #    rm -f $filt_geocode_bmp
 
-    ## Use bicubic spline interpolation for geocoded filt coherence file
-    GM geocode_back $smcc $width_in $gc_map $smcc_geocode_out $width_out - 1 0 - -
+    ## Use nearest neighbour interpolation for geocoded filt coherence file
+    GM geocode_back $smcc $width_in $gc_map $smcc_geocode_out $width_out - 0 0 - -
     ## make quick-look png image
     GM rascc $smcc_geocode_out - $width_out 1 1 0 $pixav $pixav 0 1 - - 1 $smcc_geocode_bmp
     GM convert $smcc_geocode_bmp ${smcc_geocode_bmp/.bmp}.png
     rm -f $smcc_geocode_bmp
 
-#    ## Use bicubic spline interpolation for geocoded flat coherence file
-#    GM geocode_back $cc $width_in $gc_map $cc_geocode_out $width_out - 1 0 - -
+#    ## Use nearest neighbour interpolation for geocoded flat coherence file
+#    GM geocode_back $cc $width_in $gc_map $cc_geocode_out $width_out - 0 0 - -
 #    ## make geotif
 #    #GM data2geotiff $dem_par $cc_geocode_out 2 $cc_geocode_out.tif
 #    ## make quick-look png image
