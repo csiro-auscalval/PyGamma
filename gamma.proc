@@ -1,7 +1,7 @@
 ##### GAMMA Configuration File Location #####
 GAMMA_GA=~/GAMMA_CONFIG
 #GAMMA_GA=/nas/gemd/insar/SOFTWARE/GAMMA/GAMMA_CONFIG
-GAMMA_NCI=g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
+GAMMA_NCI=/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
 
 
 ###### Output Directories #####
