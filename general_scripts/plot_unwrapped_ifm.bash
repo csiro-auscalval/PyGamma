@@ -8,13 +8,13 @@ bot_pad=0.2
 side_pad=0.05
 
 
-#mli_utm=20081014-20090114_HH_4rlks_utm.unw
-#mli_utm=20081014-20090114_HH_20rlks_filt_int_utm.flt
+#mli_eqa=20081014-20090114_HH_4rlks_eqa.unw
+#mli_eqa=20081014-20090114_HH_20rlks_filt_int_eqa.flt
 
 
 # grd files created in process_ifm.bash
-mli_grd=20081014-20090114_HH_20rlks_utm.grd
-#mli_grd=20081014-20090114_HH_20rlks_filt_int_utm.grd
+mli_grd=20081014-20090114_HH_20rlks_eqa.grd
+#mli_grd=20081014-20090114_HH_20rlks_filt_int_eqa.grd
 
 mli_txt=20081014-20090114_unw.txt
 psfile=20081014-20090114_unw.ps

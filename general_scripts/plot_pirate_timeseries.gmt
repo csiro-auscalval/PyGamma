@@ -72,6 +72,7 @@ else
 fi
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
@@ -81,8 +82,8 @@ orient=`grep Orientation= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
-    pir_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/PIRATE
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    pir_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/PIRATE
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
     pir_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/PIRATE

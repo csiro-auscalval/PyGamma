@@ -23,6 +23,7 @@ fi
 proc_file=$1
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
@@ -34,7 +35,7 @@ slc_looks=`grep SLC_multi_look= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
@@ -90,8 +91,8 @@ cd $proj_dir/$track_dir
 
 
 mli_name=$master"_"$polar"_"$rlks"rlks"
-utm_dem=$dem_dir/$mli_name"_utm.dem"
-utm_dem_par=$utm_dem.par
+eqa_dem=$dem_dir/$mli_name"_eqa.dem"
+eqa_dem_par=$eqa_dem.par
 
 
 

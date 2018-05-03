@@ -36,6 +36,7 @@ ifm_alks=$4
 beam=$5
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
@@ -53,7 +54,7 @@ error_ncpus=`grep error_ncpus= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
@@ -129,10 +130,10 @@ if [ -z $beam ]; then #no beam
 	    ls *.par > bperp_list
 	fi
     done < $ifm_list
-    dem=$master"_"$polar"_"$ifm_looks"rlks_utm.dem"
+    dem=$master"_"$polar"_"$ifm_looks"rlks_eqa.dem"
     dem_par=$dem.par
-    lv_theta=$master"_"$polar"_"$ifm_looks"rlks_utm.lv_theta"
-    lv_phi=$master"_"$polar"_"$ifm_looks"rlks_utm.lv_phi"
+    lv_theta=$master"_"$polar"_"$ifm_looks"rlks_eqa.lv_theta"
+    lv_phi=$master"_"$polar"_"$ifm_looks"rlks_eqa.lv_phi"
     cp $dem_dir/$dem $pyrate_dir/dem_files
     cp $dem_dir/$dem_par $pyrate_dir/dem_files
     cp $dem_dir/$lv_theta $pyrate_dir/dem_files
@@ -154,10 +155,10 @@ else #beam exists
 	    ls *.par > bperp_list
 	fi
     done < $ifm_list
-    dem=$master"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.dem"
+    dem=$master"_"$polar"_"$beam"_"$ifm_looks"rlks_eqa.dem"
     dem_par=$dem.par
-    lv_theta=$master"_"$polar"_"$beam"_"$ifm_looks"_utm.lv_theta"
-    lv_phi=$master"_"$polar"_"$beam"_"$ifm_looks"_utm.lv_phi"
+    lv_theta=$master"_"$polar"_"$beam"_"$ifm_looks"_eqa.lv_theta"
+    lv_phi=$master"_"$polar"_"$beam"_"$ifm_looks"_eqa.lv_phi"
     cp $dem_dir/$dem $pyrate_dir/dem_files
     cp $dem_dir/$dem_par $pyrate_dir/dem_files
     cp $dem_dir/$lv_theta $pyrate_dir/dem_files

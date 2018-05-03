@@ -27,7 +27,7 @@ msp_par=$2
 sensor_name=$3
 ras=$4
 polar=VV
-logo=/home/547/mcg547/dg9-apps/GAMMA/gamma_scripts/GEOSCIENCE_INLINE.ras
+logo=/short/dg9/insar/dg9-apps/dg9-apps/GAMMA/gamma_scripts/GEOSCIENCE_INLINE.ras
 
 year=`echo $scene | awk '{print substr($1,1,4)}'`
 mth=`echo $scene | awk '{print substr($1,5,2)}'`

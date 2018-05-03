@@ -5,7 +5,7 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* plot_bperp_values:  Copy unw files from each interferogram directory to a       *"
+    echo "* plot_bperp_values:  Copy unw files from each interferogram directory to a   *"
     echo "*                 central location and check processing results.              *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
@@ -33,6 +33,7 @@ ifm_alks=$4
 beam=$5
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
@@ -43,7 +44,7 @@ master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
@@ -206,7 +207,7 @@ if [ -z $beam ]; then #no beam
 	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
-	    unw=$mas-$slv"_"$polar"_"$ifm_looks"rlks_utm.unw"
+	    unw=$mas-$slv"_"$polar"_"$ifm_looks"rlks_eqa.unw"
 	    cp $ifm_dir/$unw $png_dir
 
 	fi
@@ -217,7 +218,7 @@ else #beam exists
 	    mas=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
 	    slv=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifm_dir=$int_dir/$mas-$slv
-	    unw=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_utm.unw"
+	    unw=$mas-$slv"_"$polar"_"$beam"_"$ifm_looks"rlks_eqa.unw"
 	    cp $ifm_dir/$unw $png_dir
 	fi
     done < $ifm_list
@@ -227,9 +228,9 @@ ls *.unw > unw_list
 
 # Extract coordinates from DEM for plotting par file
 if [ -z $beam ]; then #no beam
-    dem_par=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_utm.dem.par"
+    dem_par=$dem_dir/$master"_"$polar"_"$ifm_rlks"rlks_eqa.dem.par"
 else # beam exists
-    dem_par=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_utm.dem.par"
+    dem_par=$dem_dir/$master"_"$polar"_"$beam"_"$ifm_rlks"rlks_eqa.dem.par"
 fi
 width=`grep width: $dem_par | awk '{print $2}'`
 lines=`grep nlines: $dem_par | awk '{print $2}'`

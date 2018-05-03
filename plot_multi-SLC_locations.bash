@@ -28,6 +28,7 @@ list=$2
 proc_file=$1
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
@@ -36,7 +37,7 @@ sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
@@ -73,8 +74,8 @@ slc_dir=$proj_dir/$track_dir/`grep SLC_dir= $proc_file | cut -d "=" -f 2`
 subset_info=$slc_dir/subset_info.txt
 echo "Date         Latitude    Longitude  azimuth    range  az_spacing  rg_spacing  inc_angle" > $subset_info
 
-if [ $sensor == RSAT2 ]; then
-# no msp_par file for RSAT2 processing
+if [ $sensor == RSAT2 -o $sensor == PALSAR1 ]; then
+# no msp_par file for RSAT2 processing and PALSAR1 processing with SLCs
 # only centre lat/lon is output instead of an image
   while read file; do
     scene=$file

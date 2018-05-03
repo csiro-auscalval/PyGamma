@@ -32,7 +32,7 @@ mas=`echo $int | awk -F"-" '{print $1}'`
 slv=`echo $int | awk -F"-" '{print $2}'`
 mas_mli_par=$slc_dir/$mas/r$mas"_"$polar"_"$rlks"rlks.mli.par"
 int_width=`grep range_samples $mas_mli_par | awk '{print $2}'`
-dem_par=$dem_dir/$master"_"$polar"_"$rlks"rlks_utm.dem.par"
+dem_par=$dem_dir/$master"_"$polar"_"$rlks"rlks_eqa.dem.par"
 width_out=`grep width: $dem_par | awk '{print $2}'`
 thres_1=`echo $coh_thres + 0.2 | bc`
 thres_max=`echo $thres_1 + 0.2 | bc`
@@ -83,12 +83,12 @@ view_unw $int"_"$polar"_"$rlks"rlks.unw" &
 
 
 
-geocode_back $int_dir/$int"_"$polar"_"$rlks"rlks.unw" $int_width $dem_dir/$master"_"$polar"_"$rlks"rlks_fine_utm_to_rdc.lt" $int_dir/$int"_"$polar"_"$rlks"rlks_utm.unw" $width_out - 1 0 - -
+geocode_back $int_dir/$int"_"$polar"_"$rlks"rlks.unw" $int_width $dem_dir/$master"_"$polar"_"$rlks"rlks_fine_eqa_to_rdc.lt" $int_dir/$int"_"$polar"_"$rlks"rlks_eqa.unw" $width_out - 1 0 - -
 
 cpx_to_real $int_dir/$int"_"$polar"_"$rlks"rlks_filt.int" $int_dir/$int"_"$polar"_"$rlks"rlks_filt_int.flt" $int_width 4
 
-geocode_back $int_dir/$int"_"$polar"_"$rlks"rlks_filt_int.flt" $int_width $dem_dir/$master"_"$polar"_"$rlks"rlks_fine_utm_to_rdc.lt" $int_dir/$int"_"$polar"_"$rlks"rlks_filt_int_utm.flt" $width_out - 1 0 - -
+geocode_back $int_dir/$int"_"$polar"_"$rlks"rlks_filt_int.flt" $int_width $dem_dir/$master"_"$polar"_"$rlks"rlks_fine_eqa_to_rdc.lt" $int_dir/$int"_"$polar"_"$rlks"rlks_filt_int_eqa.flt" $width_out - 1 0 - -
 
-geocode_back $int_dir/$int"_"$polar"_"$rlks"rlks_filt.cc" $int_width $dem_dir/$master"_"$polar"_"$rlks"rlks_fine_utm_to_rdc.lt" $int_dir/$int"_"$polar"_"$rlks"rlks_filt_utm.cc" $width_out - 1 0 - -
+geocode_back $int_dir/$int"_"$polar"_"$rlks"rlks_filt.cc" $int_width $dem_dir/$master"_"$polar"_"$rlks"rlks_fine_eqa_to_rdc.lt" $int_dir/$int"_"$polar"_"$rlks"rlks_filt_eqa.cc" $width_out - 1 0 - -
 
-geocode_back $int_dir/$int"_"$polar"_"$rlks"rlks_flat.cc" $int_width $dem_dir/$master"_"$polar"_"$rlks"rlks_fine_utm_to_rdc.lt" $int_dir/$int"_"$polar"_"$rlks"rlks_flat_utm.cc" $width_out - 1 0 - -
+geocode_back $int_dir/$int"_"$polar"_"$rlks"rlks_flat.cc" $int_width $dem_dir/$master"_"$polar"_"$rlks"rlks_fine_eqa_to_rdc.lt" $int_dir/$int"_"$polar"_"$rlks"rlks_flat_eqa.cc" $width_out - 1 0 - -
