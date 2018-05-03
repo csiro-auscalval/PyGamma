@@ -6,14 +6,14 @@ rlks=4
 master=20140804
 
 diff_dem="../../DEM/diff_"$master"_"$polar"_"$rlks"rlks.par"
-gc_map="../../DEM/"$master"_"$polar"_"$rlks"rlks_fine_utm_to_rdc.lt"
-dem_par="../../DEM/"$master"_"$polar"_"$rlks"rlks_utm.dem.par"
+gc_map="../../DEM/"$master"_"$polar"_"$rlks"rlks_fine_eqa_to_rdc.lt"
+dem_par="../../DEM/"$master"_"$polar"_"$rlks"rlks_eqa.dem.par"
 
 width_in=`grep range_samp_1: $diff_dem | awk '{print $2}'`
 width_out=`grep width: $dem_par | awk '{print $2}'`
 
-utm_cc=$date"_"$polar"_"$rlks"rlks_filt_utm.cc"
-utm_tif=$date"_"$polar"_"$rlks"rlks_filt_utm_cc.tif"
+eqa_cc=$date"_"$polar"_"$rlks"rlks_filt_eqa.cc"
+eqa_tif=$date"_"$polar"_"$rlks"rlks_filt_eqa_cc.tif"
 
 xyz=$date"_filt_cc.xyz"
 ps=$date"_filt_cc.ps"
@@ -21,10 +21,10 @@ png=$date"_filt_cc.png"
 
 
 # Replace nan values (which are actually 0) with 9999 (enable nan values to be properly dealt with making geotiff and display in arcgis)
-replace_values $utm_cc 0 9999 temp.flt $width_out 0 2
+replace_values $eqa_cc 0 9999 temp.flt $width_out 0 2
 
 # Geotiff geocoded ifg
-data2geotiff $dem_par temp.flt 2 $utm_tif 9999
+data2geotiff $dem_par temp.flt 2 $eqa_tif 9999
 
 
 rm -rf temp.flt
@@ -39,7 +39,7 @@ proj=-JM8
 cpt=/g/data/dg9/repo/general_scripts/bcgyr.cpt
 
 # translate geotif to xyz ascii table
-gdal_translate -of XYZ -a_nodata 9999 $utm_tif $xyz  
+gdal_translate -of XYZ -a_nodata 9999 $eqa_tif $xyz  
 
 xyz2grd $xyz -Gtemp.grd $inc $range -V
 

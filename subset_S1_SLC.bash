@@ -38,6 +38,7 @@ fi
 proc_file=$1
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
@@ -50,7 +51,7 @@ slc_alks=$4
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
 fi
@@ -102,10 +103,10 @@ mli_name=$scene"_"$polar"_"$slc_rlks"rlks"
 #para=$slc_name"_SLC_parameters.txt"
 slc=$slc_name.slc
 slc_par=$slc.par
-slc_bmp=$slc_name.bmp
-slc_full=$slc_name"_full.slc"
+slc_bmp=$slc_name"_lowres.bmp"
+slc_full=$slc_name"_pre-subset.slc"
 slc_full_par=$slc_full.par
-slc_full_bmp=$slc_full.bmp
+slc_full_bmp=$slc_full"_lowres.bmp"
 slc1=$slc_name"_IW1.slc"
 slc_par1=$slc1.par
 tops_par1=$slc1.TOPS_par
@@ -120,7 +121,7 @@ slc_pre_bmp1=$slc_pre1.bmp
 slc1s=$slc_name"_IW1_s.slc"
 slc_par1s=$slc1s.par
 tops_par1s=$slc1s.TOPS_par
-slc_full1=$slc_name"_IW1_full.slc"
+slc_full1=$slc_name"_IW1_pre-subset.slc"
 slc_full_par1=$slc_full1.par
 tops_full_par1=$slc_full1.TOPS_par
 slc_full_bmp1=$slc_full1.bmp
@@ -131,7 +132,7 @@ slc_bmp2=$slc2.bmp
 slc2_1=$slc_name"_IW2_1.slc"
 slc_par2_1=$slc2_1.par
 tops_par2_1=$slc2_1.TOPS_par
-slc_full2=$slc_name"_IW2_full.slc"
+slc_full2=$slc_name"_IW2_pre-subset.slc"
 slc_full_par2=$slc_full2.par
 tops_full_par2=$slc_full2.TOPS_par
 slc_full_bmp2=$slc_full2.bmp
@@ -142,13 +143,13 @@ slc_bmp3=$slc3.bmp
 slc3_1=$slc_name"_IW3_1.slc"
 slc_par3_1=$slc3_1.par
 tops_par3_1=$slc3_1.TOPS_par
-slc_full3=$slc_name"_IW3_full.slc"
+slc_full3=$slc_name"_IW3_pre-subset.slc"
 slc_full_par3=$slc_full3.par
 tops_full_par3=$slc_full3.TOPS_par
 slc_full_bmp3=$slc_full3.bmp
 mli=$mli_name.mli
 mli_par=$mli.par
-mli_full=$mli_name"_full.mli"
+mli_full=$mli_name"_pre-subset.mli"
 mli_full_par=$mli_full.par
 
 
@@ -157,7 +158,7 @@ mli_full_par=$mli_full.par
 echo " "
 echo "Subsetting SLC..."
 echo " "
-rm -f sub_slc_tab slc_tab_full slc_in slc_out burst_tab
+rm -f sub_slc_tab slc_tab_pre-subset slc_in slc_out burst_tab
 
 # Create burst tab file
 sed -n "/$scene/p" $burst_list > temp1
@@ -196,7 +197,7 @@ while read burst; do
 
 	echo $scene_dir/${!bslc} $scene_dir/$bslc_par $scene_dir/${!btops} >> slc_in
 	echo $scene_dir/${!sub_slc} $scene_dir/$sub_slc_par $scene_dir/${!sub_tops} >> slc_out 
-	echo $scene_dir/${!fslc} $scene_dir/$fslc_par $scene_dir/${!ftops} >> slc_tab_full
+	echo $scene_dir/${!fslc} $scene_dir/$fslc_par $scene_dir/${!ftops} >> slc_tab_pre-subset
     done
 done < temp1
 rm -f temp1
@@ -206,7 +207,7 @@ GM SLC_copy_S1_TOPS slc_in slc_out burst_tab 0
 
 # Rename full slc files
 awk '{print $1}' slc_in > temp1
-awk '{print $1}' slc_tab_full > temp2
+awk '{print $1}' slc_tab_pre-subset > temp2
 paste temp1 temp2 > rename1
 while read file1; do
     in_file=`echo $file1 | awk '{print $1}'`
@@ -216,7 +217,7 @@ while read file1; do
 done < rename1
 
 awk '{print $2}' slc_in > temp1
-awk '{print $2}' slc_tab_full > temp2
+awk '{print $2}' slc_tab_pre-subset > temp2
 paste temp1 temp2 > rename2
 while read file1; do
     in_file=`echo $file1 | awk '{print $1}'`
@@ -225,7 +226,7 @@ while read file1; do
 done < rename2
 
 awk '{print $3}' slc_in > temp1
-awk '{print $3}' slc_tab_full > temp2
+awk '{print $3}' slc_tab_pre-subset > temp2
 paste temp1 temp2 > rename3
 while read file1; do
     in_file=`echo $file1 | awk '{print $1}'`
@@ -278,10 +279,10 @@ for swath in 1 2 3; do
     lines=`grep azimuth_lines: $bslc_par | awk '{print $2}'`
     GM rasSLC ${!bslc} $width 1 $lines 50 10 - - 1 0 0 ${!bmp}
 done
-rm -f slc_in slc_out slc_tab_full
+rm -f slc_in slc_out slc_tab_pre-subset
 
 # Make the SLC mosaic from individual burst SLCs
-GM SLC_mosaic_S1_TOPS slc_tab $slc $slc_par $slc_rlks $slc_alks  
+GM SLC_mosaic_S1_TOPS *full_tab $slc $slc_par $slc_rlks $slc_alks  
 
 # Make quick-look image of subset SLC
 width=`grep range_samples: $slc_par | awk '{print $2}'`
@@ -313,7 +314,7 @@ while read file; do
     head -n -9 temp2 > temp3
     awk '{print $2"\t"$3" "$4"\t"$5" "$6"\t"$7" "$8"\t"$9" "$10}' temp3 >> $burst_file
     echo " " >> $burst_file
-done < slc_tab
+done < *full_tab
 rm -f temp1 temp2 temp3
 
 # number of bursts per swath

@@ -25,6 +25,8 @@ display_usage() {
     echo "*             - add additional error collation for ifm plots                  *"
     echo "*         Sarah Lawrie @ GA       28/07/2016, v1.4                            *"
     echo "*             - add error collation for subsetting S1 SLCs                    *"
+    echo "*         Sarah Lawrie @ GA       08/09/2017, v1.5                            *"
+    echo "*             - add error collation for auto cropping S1 SLCs                 *"
     echo "*******************************************************************************"
     echo -e "Usage: collate_nci_errors.bash [proc_file] [type]"
     }
@@ -39,6 +41,7 @@ proc_file=$1
 type=$2
 
 ## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
 platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
@@ -47,7 +50,7 @@ sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
 else
     :
 fi
@@ -178,11 +181,35 @@ elif [ $type -eq 3 ]; then
     fi
 
 
-## Subset Sentinel-1 SLC Errors
+## Auto Crop Sentinel-1 SLC Errors
 elif [ $type -eq 4 ]; then
+    echo "Collating Errors from Sentinel-1 auto crop SLCs..."
+    echo ""
+    dir=$batch_dir/slc_crop_jobs
+    cd $dir
+
+    error_list=$error_dir/crop_slc_creation_errors
+    if [ -f $error_list ]; then
+	rm -rf $error_list
+    else
+	:
+    fi
+    ls *.e* > list
+    while read error; do
+	if [ ! -z $error ]; then
+	    less $error > temp
+	    paste temp >> $error_list
+	    rm -rf temp
+	fi
+    done < list
+    rm -rf list
+
+
+## Subset Sentinel-1 SLC Errors
+elif [ $type -eq 5 ]; then
     echo "Collating Errors from Sentinel-1 subset SLCs..."
     echo ""
-    dir=$batch_dir/sub_slc_jobs
+    dir=$batch_dir/slc_subset_jobs
     cd $dir
 
     error_list=$error_dir/subset_slc_creation_errors
@@ -211,7 +238,7 @@ elif [ $type -eq 4 ]; then
 
 
 ## Ref DEM Creation Errors
-elif [ $type -eq 5 ]; then
+elif [ $type -eq 6 ]; then
     echo "Collating Errors from Make Reference Master DEM..."
     echo ""
     dir=$batch_dir/dem_jobs
@@ -252,7 +279,7 @@ elif [ $type -eq 5 ]; then
     fi
 
 ## Coregister SLC Errors
-elif [ $type -eq 6 ]; then
+elif [ $type -eq 7 ]; then
     echo "Collating Errors from SLC Coregistration..."
     echo ""
     dir=$batch_dir/slc_coreg_jobs
@@ -309,7 +336,7 @@ elif [ $type -eq 6 ]; then
     fi
 
 ## Interferogram Errors
-elif [ $type -eq 7 ]; then
+elif [ $type -eq 8 ]; then
     echo "Collating Errors from Interferogram Creation..."
     echo ""
     dir=$batch_dir/ifm_jobs
@@ -383,7 +410,7 @@ elif [ $type -eq 7 ]; then
     fi
 
 ## Interferogram Plotting Errors
-elif [ $type -eq 8 ]; then
+elif [ $type -eq 9 ]; then
     echo "Collating Errors from Interferogram Plots..."
     echo ""
     dir=$batch_dir/ifm_jobs
@@ -426,7 +453,7 @@ elif [ $type -eq 8 ]; then
 
 
 ## Mosaic Beam Interferograms
-elif [ $type -eq 9 ]; then
+elif [ $type -eq 10 ]; then
     echo "Collating Errors from Mosaicing Beam Interferograms..."
     echo ""
     dir=$batch_dir/ifm_jobs
@@ -450,7 +477,7 @@ elif [ $type -eq 9 ]; then
 
 
 ## Additional Scene Setup Errors
-elif [ $type -eq 10 ]; then
+elif [ $type -eq 11 ]; then
     echo "Collating Errors from Adding Additional Scenes..."
     echo "" 1>&2
     dir=$batch_dir
@@ -496,8 +523,8 @@ elif [ $type -eq 10 ]; then
 
 
 ## SLC Creation Errors
-elif [ $type -eq 11 ]; then
-    echo "Collating Errors from SLC Creation..."
+elif [ $type -eq 12 ]; then
+    echo "Collating Errors from Additional SLC Creation..."
     echo ""
     dir=$batch_dir/add_slc_jobs
     cd $dir
@@ -554,8 +581,8 @@ elif [ $type -eq 11 ]; then
     fi
 
 ## Coregister additional SLC Errors
-elif [ $type -eq 12 ]; then
-    echo "Collating Errors from SLC Coregistration..."
+elif [ $type -eq 13 ]; then
+    echo "Collating Errors from Additional SLC Coregistration..."
     echo ""
     dir=$batch_dir/add_slc_coreg_jobs
     cd $dir
@@ -611,7 +638,7 @@ elif [ $type -eq 12 ]; then
     fi
 
 ## Interferogram Errors
-elif [ $type -eq 13 ]; then
+elif [ $type -eq 14 ]; then
     echo "Collating Errors from Addtional Interferogram Creation..."
     echo ""
     dir=$batch_dir/add_ifm_jobs

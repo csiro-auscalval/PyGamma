@@ -7,18 +7,18 @@ display_usage() {
     echo "*             run based on the input file/s. Works with files with            *"
     echo "*             extensions:                                                     *"
     echo "*                                                                             *"
-    echo "*             *.mli, *_utm.mli                                                *" 
-    echo "*             *.slc, *_utm.slc                                                *"
+    echo "*             *.mli, *_eqa.mli                                                *" 
+    echo "*             *.slc, *_eqa.slc                                                *"
     echo "*             *.dem, *_rdc.dem                                                *"
-    echo "*             *_rdc.sim, *_utm.sim                                            *"
+    echo "*             *_rdc.sim, *_eqa.sim                                            *"
     echo "*             *_sar.flt                                                       *"
     echo "*             *_init.sar, *_lsat.sar                                          *"
     echo "*             *.lt                                                            *"
-    echo "*             *.cc, *_utm.cc                                                  *"
-    echo "*             *.flag, *_utm.flag                                              *"
-    echo "*             *.ras, *_utm.ras                                                *"
-    echo "*             *.int, *_utm.int                                                *"
-    echo "*             *.unw, *_sim.unw, *_utm.unw                                     *"
+    echo "*             *.cc, *_eqa.cc                                                  *"
+    echo "*             *.flag, *_eqa.flag                                              *"
+    echo "*             *.ras, *_eqa.ras                                                *"
+    echo "*             *.int, *_eqa.int                                                *"
+    echo "*             *.unw, *_sim.unw, *_eqa.unw                                     *"
     echo "*                                                                             *"
     echo "* input:   [file_1]   name of file to display                                 *"
     echo "*          <file_2>   name of second file to display (optional)               *"
@@ -65,16 +65,16 @@ fi
 file1_ext=`echo $file1 | awk -F . '{if (NF>1) {print $NF}}'`
 file2_ext=`echo $file2 | awk -F . '{if (NF>1) {print $NF}}'`
 
-# Display MLI (*.mli, *_utm.mli)
+# Display MLI (*.mli, *_eqa.mli)
 if [ $file1_ext == mli ]; then
     file_name1=`echo $file1 | cut -d'.' -f1`
     file_name2=`echo $file2 | cut -d'.' -f1`
     mli_type=`echo $file_name1 | sed 's#.*_##'`
     lks1=`echo $file_name1 | awk -F _ '{print $3}'`
     lks2=`echo $file_name2 | awk -F _ '{print $3}'`
-    if [ $mli_type == utm ]; then
+    if [ $mli_type == eqa ]; then
 	if [ -z $file2_ext ]; then # if no second file
-	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file=$proj_dir/DEM/*$lks1"_eqa.dem.par"
 	    width1=`grep width: $width_file | awk '{print $2}'`
 	    lines=`grep nlines: $width_file | awk '{print $2}'`
 	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
@@ -92,8 +92,8 @@ if [ $file1_ext == mli ]; then
 	    fi
 	    disrmg $file1 - $width1 $start - $nlines - - - -
 	else # two files
-	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
-	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width_file1=$proj_dir/DEM/*$lks1"_eqa.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_eqa.dem.par"
 	    width1=`grep width: $width_file1 | awk '{print $2}'`
 	    width2=`grep width: $width_file2 | awk '{print $2}'`
 	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
@@ -175,9 +175,9 @@ if [ $file1_ext == slc ]; then
     slc_type=`echo $file_name1 | sed 's#.*_##'`
     lks1=0rlks
     lks2=0rlks
-    if [ $slc_type == utm ]; then
+    if [ $slc_type == eqa ]; then
 	if [ -z $file2_ext ]; then # if no second file
-	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file=$proj_dir/DEM/*$lks1"_eqa.dem.par"
 	    width1=`grep width: $width_file | awk '{print $2}'`
 	    lines=`grep nlines: $width_file | awk '{print $2}'`
 	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
@@ -195,8 +195,8 @@ if [ $file1_ext == slc ]; then
 	    fi
 	    disrmg $file1 - $width1 $start - $nlines - - - -
 	else # two files
-	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
-	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width_file1=$proj_dir/DEM/*$lks1"_eqa.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_eqa.dem.par"
 	    width1=`grep width: $width_file1 | awk '{print $2}'`
 	    width2=`grep width: $width_file2 | awk '{print $2}'`
 	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
@@ -282,7 +282,7 @@ else
     :
 fi
 
-# Display DEM files (*.dem, *rdc.dem, *utm.dem, *.lt, *.sim)
+# Display DEM files (*.dem, *rdc.dem, *eqa.dem, *.lt, *.sim)
 if [ $file1_ext == dem ]; then
     #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
@@ -336,7 +336,7 @@ if [ $file1_ext == dem ]; then
 	fi
 	dis2hgt $file1 $file2 $width1 $width2 $start $nlines
     fi
-    elif [ $dem_type == utm ]; then
+    elif [ $dem_type == eqa ]; then
 	lines=`grep nlines: $file1.par | awk '{print $2}'`
 	if [ $# -lt 4 -a $lines -gt 4000 ]; then
 	    echo  " "
@@ -380,7 +380,7 @@ if [ $file1_ext == lt ]; then
     lks1=`echo $file_name1 | awk -F _ '{print $3}'`
     lks2=`echo $file_name2 | awk -F _ '{print $3}'`
     if [ -z $file2_ext ]; then # if no second file
-	width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	width_file=$proj_dir/DEM/*$lks1"_eqa.dem.par"
 	width1=`grep width: $width_file | awk '{print $2}'`
 	lines=`grep nlines: $width_file | awk '{print $2}'`
 	if [ $# -lt 4 -a $lines -gt 4000 ]; then
@@ -398,8 +398,8 @@ if [ $file1_ext == lt ]; then
 	fi
 	dismph $file1 $width1 $start $nlines - - 0
     else # two files
-	width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
-	width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	width_file1=$proj_dir/DEM/*$lks1"_eqa.dem.par"
+	width_file2=$proj_dir/DEM/*$lks2"_eqa.dem.par"
 	width1=`grep width: $width_file1 | awk '{print $2}'`
 	width2=`grep width: $width_file2 | awk '{print $2}'`
 	lines1=`grep nlines: $width_file1 | awk '{print $2}'`
@@ -480,9 +480,9 @@ if [ $file1_ext == sim ]; then
 	    fi
 	    dis2pwr $file1 $file2 $width1 $width2 $start $nlines - - - - 0
 	fi
-    elif [ $dem_type == utm ]; then
+    elif [ $dem_type == eqa ]; then
 	if [ -z $file2_ext ]; then # if no second file
-	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file=$proj_dir/DEM/*$lks1"_eqa.dem.par"
 	    width1=`grep width: $width_file | awk '{print $2}'`
 	    lines=`grep nlines: $width_file | awk '{print $2}'`
 	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
@@ -500,8 +500,8 @@ if [ $file1_ext == sim ]; then
 	    fi
 	    dispwr $file1 $width1 $start $nlines - - 0
 	else # two files
-	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
-	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width_file1=$proj_dir/DEM/*$lks1"_eqa.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_eqa.dem.par"
 	    width1=`grep width: $width_file1 | awk '{print $2}'`
 	    width2=`grep width: $width_file2 | awk '{print $2}'`
 	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
@@ -543,7 +543,7 @@ if [ $file1_ext == flt ]; then
     lks2=`echo $file_name2 | awk -F _ '{print $3}'`
     if [ $dem_type == sar ]; then
 	if [ -z $file2_ext ]; then # if no second file
-	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file=$proj_dir/DEM/*$lks1"_eqa.dem.par"
 	    width1=`grep width: $width_file | awk '{print $2}'`
 	    lines=`grep nlines: $width_file | awk '{print $2}'`
 	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
@@ -561,8 +561,8 @@ if [ $file1_ext == flt ]; then
 	    fi
 	    dispwr $file1 $width1 $start $nlines - - 0
 	else # two files
-	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
-	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width_file1=$proj_dir/DEM/*$lks1"_eqa.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_eqa.dem.par"
 	    width1=`grep width: $width_file1 | awk '{print $2}'`
 	    width2=`grep width: $width_file2 | awk '{print $2}'`
 	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
@@ -716,9 +716,9 @@ if [ $file1_ext == cc ]; then
     cc_type=`echo $file_name1 | sed 's#.*_##'`
     lks1=`echo $file_name1 | awk -F _ '{print $3}'`
     lks2=`echo $file_name2 | awk -F _ '{print $3}'`
-    if [ $cc_type == utm ]; then
+    if [ $cc_type == eqa ]; then
 	if [ -z $file2_ext ]; then # if no second file
-	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file=$proj_dir/DEM/*$lks1"_eqa.dem.par"
 	    width1=`grep width: $width_file | awk '{print $2}'`
 	    lines=`grep nlines: $width_file | awk '{print $2}'`
 	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
@@ -736,8 +736,8 @@ if [ $file1_ext == cc ]; then
 	    fi
 	    disrmg $file1 - $width1 $start - $nlines - - - -
 	else # two files
-	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
-	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width_file1=$proj_dir/DEM/*$lks1"_eqa.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_eqa.dem.par"
 	    width1=`grep width: $width_file1 | awk '{print $2}'`
 	    width2=`grep width: $width_file2 | awk '{print $2}'`
 	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
@@ -813,7 +813,7 @@ else
     :
 fi
 
-# Display flag file (*.flag, *_utm.flag)
+# Display flag file (*.flag, *_eqa.flag)
 if [ $file1_ext == flag ]; then
     #proj_dir=`echo $PWD | sed 's,/*[^/]\+/*$,,' | sed 's,/*[^/]\+/*$,,'`
     file_name1=`echo $file1 | cut -d'.' -f1`
@@ -821,9 +821,9 @@ if [ $file1_ext == flag ]; then
     flag_type=`echo $file_name1 | sed 's#.*_##'`
     lks1=`echo $file_name1 | awk -F _ '{print $3}'`
     lks2=`echo $file_name2 | awk -F _ '{print $3}'`
-    if [ $flag_type == utm ]; then
+    if [ $flag_type == eqa ]; then
 	if [ -z $file2_ext ]; then # if no second file
-	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file=$proj_dir/DEM/*$lks1"_eqa.dem.par"
 	    width1=`grep width: $width_file | awk '{print $2}'`
 	    lines=`grep nlines: $width_file | awk '{print $2}'`
 	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
@@ -841,8 +841,8 @@ if [ $file1_ext == flag ]; then
 	    fi
 	    disrmg $file1 - $width1 $start - $nlines - - - -
 	else # two files
-	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
-	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width_file1=$proj_dir/DEM/*$lks1"_eqa.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_eqa.dem.par"
 	    width1=`grep width: $width_file1 | awk '{print $2}'`
 	    width2=`grep width: $width_file2 | awk '{print $2}'`
 	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
@@ -901,9 +901,9 @@ if [ $file1_ext == ras ]; then
     ras_type=`echo $file_name1 | sed 's#.*_##'`
     lks1=`echo $file_name1 | awk -F _ '{print $3}'`
     lks2=`echo $file_name2 | awk -F _ '{print $3}'`
-    if [ $ras_type == utm ]; then
+    if [ $ras_type == eqa ]; then
 	if [ -z $file2_ext ]; then # if no second file
-	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file=$proj_dir/DEM/*$lks1"_eqa.dem.par"
 	    width1=`grep width: $width_file | awk '{print $2}'`
 	    lines=`grep nlines: $width_file | awk '{print $2}'`
 	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
@@ -921,8 +921,8 @@ if [ $file1_ext == ras ]; then
 	    fi
 	    disrmg $file1 - $width1 $start - $nlines - - - -
 	else # two files
-	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
-	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width_file1=$proj_dir/DEM/*$lks1"_eqa.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_eqa.dem.par"
 	    width1=`grep width: $width_file1 | awk '{print $2}'`
 	    width2=`grep width: $width_file2 | awk '{print $2}'`
 	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
@@ -966,9 +966,9 @@ if [ $file1_ext == int ]; then
     int_type=`echo $file_name1 | sed 's#.*_##'`
     lks1=`echo $file_name1 | awk -F _ '{print $3}'`
     lks2=`echo $file_name2 | awk -F _ '{print $3}'`
-    if [ $int_type == utm ]; then
+    if [ $int_type == eqa ]; then
 	if [ -z $file2_ext ]; then # if no second file
-	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file=$proj_dir/DEM/*$lks1"_eqa.dem.par"
 	    width1=`grep width: $width_file | awk '{print $2}'`
 	    lines=`grep nlines: $width_file | awk '{print $2}'`
 	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
@@ -986,8 +986,8 @@ if [ $file1_ext == int ]; then
 	    fi
 	    disrmg $file1 - $width1 $start - $nlines - - - -
 	else # two files
-	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
-	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width_file1=$proj_dir/DEM/*$lks1"_eqa.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_eqa.dem.par"
 	    width1=`grep width: $width_file1 | awk '{print $2}'`
 	    width2=`grep width: $width_file2 | awk '{print $2}'`
 	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
@@ -1117,9 +1117,9 @@ if [ $file1_ext == unw ]; then
 	    fi
 	    dis2rmg $file1 $file2 $width1 $width2 $start $nlines - - - - 
 	fi
-    elif [ $unw_type == utm ]; then
+    elif [ $unw_type == eqa ]; then
 	if [ -z $file2_ext ]; then # if no second file
-	    width_file=$proj_dir/DEM/*$lks1"_utm.dem.par"
+	    width_file=$proj_dir/DEM/*$lks1"_eqa.dem.par"
 	    width1=`grep width: $width_file | awk '{print $2}'`
 	    lines=`grep nlines: $width_file | awk '{print $2}'`
 	    if [ $# -lt 4 -a $lines -gt 4000 ]; then
@@ -1137,8 +1137,8 @@ if [ $file1_ext == unw ]; then
 	    fi
 	    disrmg $file1 - $width1 $start - $nlines - - - -
 	else # two files
-	    width_file1=$proj_dir/DEM/*$lks1"_utm.dem.par"
-	    width_file2=$proj_dir/DEM/*$lks2"_utm.dem.par"
+	    width_file1=$proj_dir/DEM/*$lks1"_eqa.dem.par"
+	    width_file2=$proj_dir/DEM/*$lks2"_eqa.dem.par"
 	    width1=`grep width: $width_file1 | awk '{print $2}'`
 	    width2=`grep width: $width_file2 | awk '{print $2}'`
 	    lines1=`grep nlines: $width_file1 | awk '{print $2}'`
