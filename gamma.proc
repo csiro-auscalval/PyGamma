@@ -1,7 +1,7 @@
 ##### GAMMA Configuration File Location #####
 GAMMA_GA=~/GAMMA_CONFIG
 #GAMMA_GA=/nas/gemd/insar/SOFTWARE/GAMMA/GAMMA_CONFIG
-GAMMA_NCI=/short/dg9/insar/dg9-apps/GAMMA/GAMMA_CONFIG
+GAMMA_NCI=/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
 NCI_PATH=/g/data1/dg9
 S1_PATH=/g/data3/fj7/Copernicus/Sentinel-1/C-SAR/SLC
 
