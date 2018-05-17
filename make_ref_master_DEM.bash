@@ -84,11 +84,11 @@ dem_win2=`grep dem_win= $proc_file | cut -d "=" -f 2 | awk '{print $2}'`
 rpos=`grep rpos= $proc_file | cut -d "=" -f 2`
 azpos=`grep azpos= $proc_file | cut -d "=" -f 2`
 # modify the following parameters for multi-look values greater than 1
-if [ $rlks > 1 ]; then
+if [ $rlks -gt 1 ]; then
     dem_win1=`echo $dem_win1 $rlks | awk '{printf "%i\n", $1/$2}'`
     dem_win2=`echo $dem_win2 $rlks | awk '{printf "%i\n", $1/$2}'`
     dem_patch_win=`echo $dem_patch_win $rlks | awk '{printf "%i\n", $1/$2}'`
-    if [$dem_patch_win < 128 ]; then
+    if [ $dem_patch_win -ls 128 ]; then
         dem_patch_win=128 # minimum size for init_offsetm
     fi
     noff1=`echo $noff1 $rlks | awk '{printf "%i\n", $1/$2}'`
