@@ -27,15 +27,25 @@ beam=
 
 ## Variables from parameter file (*.proc)
 nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
-platform=`grep Platform= $proc_file | cut -d "=" -f 2`
 project=`grep Project= $proc_file | cut -d "=" -f 2`
 sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
+echo $sensor
+if [ $sensor == S1 ]; then
+    platform=NCI
+else
+    platform=`grep Platform= $proc_file | cut -d "=" -f 2`
+fi
 mode=`grep Sensor_mode= $proc_file | cut -d "=" -f 2`
 track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
 master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
 polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
-slc_looks=`grep SLC_multi_look= $proc_file | cut -d "=" -f 2`
-rlks=$slc_looks
+if [ $sensor == S1 ]; then
+    rlks=`grep Range_looks= $proc_file | cut -d "=" -f 2`
+else
+    slc_looks=`grep SLC_multi_look= $proc_file | cut -d "=" -f 2`
+    rlks=$slc_looks
+fi
+
 
 ## Identify project directory based on platform
 if [ $platform == NCI ]; then
@@ -67,7 +77,6 @@ else
     GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
     source $GAMMA
 fi
-
 
 
 ## Identify project directory based on platform
