@@ -6,10 +6,13 @@ display_usage() {
     echo "*******************************************************************************"
     echo "* calc_subset_values:   calculate subset values to be used in .proc file      *"
     echo "*                       prior to DEM coregistration                           *"
+    echo "*                       Not applicable to Sentinel-1 data with bursts/swaths  *"
+    echo "*                       v1.1: write rounded subsetting values to .proc file   *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
     echo "*                       subset_info.txt as calc. when plotting SLC locations  *"
     echo "* author: Thomas Fuhrmann @ GA    13/12/2016, v1.0                            *"
+    echo "*                                 12/06/2018, v1.1                            *"
     echo "*******************************************************************************"
     echo -e "Usage: calc_subset_values.bash [proc_file]"
     }
@@ -67,6 +70,7 @@ while read line; do
     azsp=`echo $line | awk '{print $6}'`
     rgsp=`echo $line | awk '{print $7}'`
     inc=`echo $line | awk '{print $8}'`
+
   # find master lat and lon
   if [ $date -eq $master ]; then
     masterlat=`echo $lat`
@@ -188,3 +192,31 @@ echo "******************"
 echo "Recommended to round up offset values and round down line numbers by several pixels"
 echo "" 1>&2
 
+# add a pixel seam and round subsetting values to closest integer
+seam=10
+# note that this seam could be made adaptive to the ML factors
+temp=`echo "scale=0; $rgoff+$seam" | bc`
+rg_off=`echo $temp | xargs printf "%.*f\n" 0`
+temp=`echo "scale=0; $rglines-$seam" | bc`
+rg_lines=`echo $temp | xargs printf "%.*f\n" 0`
+temp=`echo "scale=0; $azoff+$seam" | bc`
+az_off=`echo $temp | xargs printf "%.*f\n" 0`
+temp=`echo "scale=0; $azlines-$seam" | bc`
+az_lines=`echo $temp | xargs printf "%.*f\n" 0`
+
+
+echo "Writting rounded subsetting values to .proc file..."
+echo "******************"
+strrep=`echo range_offset=$rg_off`
+echo $strrep
+sed -i "s/range_offset=.*/$strrep/g" $proc_file
+strrep=`echo range_lines=$rg_lines`
+echo $strrep
+sed -i "s/range_lines=.*/$strrep/g" $proc_file
+strrep=`echo azimuth_offset=$az_off`
+echo $strrep
+sed -i "s/azimuth_offset=.*/$strrep/g" $proc_file
+strrep=`echo azimuth_lines=$az_lines`
+echo $strrep
+sed -i "s/azimuth_lines=.*/$strrep/g" $proc_file
+echo "******************"
