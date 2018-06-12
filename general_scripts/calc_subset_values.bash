@@ -220,3 +220,6 @@ strrep=`echo azimuth_lines=$az_lines`
 echo $strrep
 sed -i "s/azimuth_lines=.*/$strrep/g" $proc_file
 echo "******************"
+
+# set subsetting to 'yes' (if not already)
+sed -i "s/Subsetting=no/Subsetting=yes/g" $proc_file
