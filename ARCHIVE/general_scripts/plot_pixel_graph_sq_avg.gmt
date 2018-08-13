@@ -1,0 +1,154 @@
+#!/bin/bash
+
+module load gmt/5.1.0
+
+display_usage() {
+    echo ""
+    echo "*******************************************************************************"
+    echo "* plot_pixel_graph_sq_avg:  Plot pixel point analysis on a graph.             *"
+    echo "*                           Requires pixel_avg_values*.txt to be created in   *"
+    echo "*                           Pirate.                                           *"
+    echo "*                                                                             *"
+    echo "*  NOTE: script will only work if run on the NCI. The Pirate files will need  *"
+    echo "*        to be transferred from GA to NCI                                     *"
+    echo "*                                                                             *"
+    echo "* input:  [values_file]  name of pixel values file                            *"
+    echo "*         <event_lines>  name of file containing events that are to be        *"
+    echo "*                        plotted as lines on the graph (eg. earthquake)       *"                      
+    echo "*                                                                             *"
+    echo "* author: Sarah Lawrie @ GA       24/09/2015, v1.0                            *"
+    echo "*******************************************************************************"
+    echo -e "Usage: plot_pixel_graph_sq_avg.bash [values_file] <event_lines>"
+    }
+
+if [ $# -lt 1 ]
+then 
+    display_usage
+    exit 1
+fi
+
+values_file=$1
+event_file=$2
+
+dir=`pwd`
+cd $dir
+
+col=`awk 'NR == 2 {print $1}' $values_file | cut -f 1 -d ','`
+row=`awk 'NR == 2 {print $1}' $values_file | cut -f 2 -d ','`
+grid=`awk 'NR == 2 {print $1}' $values_file | cut -f 3 -d ','`
+box=$(echo $grid \* 2 | bc)
+pix_box=$(echo $box + 1 | bc)
+title="Pixel Square Average "$pix_box"sq ("$col"c, "$row"r "$grid" grid)"
+psfile="pixel_sq_avg_graph_"$grid"_"$col"c"$row"r.ps"
+
+
+# Determine min and max values for plotting
+sed '/NaN/d' $values_file > temp_values
+
+awk 'NR > 16 {print $1}' temp_values > yr_values
+awk 'NR > 16 {print $2}' temp_values > p_values
+awk 'NR > 16 {print $3}' temp_values > e_values
+paste yr_values p_values e_values > values
+
+min_yr1=`head -n 1 yr_values`
+min_yr=`printf '%.*f\n' 0 $min_yr1`
+max_yr1=`tail -1 yr_values | cut -d "." -f 1`
+max_yr=$(echo $max_yr1 + 1 | bc)
+
+paste p_values e_values > temp1
+sort -k1 -n -r temp1 > temp2
+min=`head -n 1 temp2`
+max=`tail -1 temp2`
+p1=`echo $min | awk '{print $1}'`
+p2=`echo $max | awk '{print $1}'`
+
+e1=`echo $min | awk '{print $2}'`
+if (( $(bc <<< "$p1 < 0") == 1 )); then
+    val1=$(echo $p1 + $e1 | bc)
+else
+    val1=$(echo $p1 + $e1 | bc)    
+fi
+min_p1=`printf '%.*f\n' 0 $val1`
+
+if (( $(bc <<< "$min_p1 < 0") == 1 )); then
+    min_p=$(echo $min_p1 + 2 | bc)
+else
+    min_p=$(echo $min_p1 - 2 | bc)    
+fi
+
+e2=`echo $max | awk '{print $2}'`
+if (( $(bc <<< "$p2 < 0") == 1 )); then
+    val2=$(echo $p2 - $e2 | bc)
+else
+    val2=$(echo $p2 + $e2 | bc)    
+fi
+
+max_p1=`printf '%.*f\n' 0 $val2`
+
+if (( $(bc <<< "$max_p1 < 0") == 1 )); then
+    max_p=$(echo $max_p1 - 2 | bc)
+else
+    max_p=$(echo $max_p1 + 2 | bc)    
+fi
+
+
+#flip x min and max if negative
+if [ $min_p -le 0 -a  $max_p -le 0 ]; then
+    min_p1=$max_p
+    max_p1=$min_p
+elif [ $min_p -gt 0 -a  $max_p -le 0 ]; then
+    min_p1=$max_p
+    max_p1=$min_p
+elif [ $min_p -gt 0 -a  $max_p -gt 0 ]; then
+    echo $min_p > temp6
+    echo $max_p >> temp6
+    sort -k1 -n temp6 > temp7
+    min=`head -n 1 temp7`
+    max=`tail -1 temp7`
+    min_p1=$min
+    max_p1=$max
+else
+    :
+fi
+
+proj=-JX8/7
+range=-R$min_yr/$max_yr/$min_p1/$max_p1
+
+tif_width=7.3c
+tif_height=6.76c
+dpi=300
+
+gmtset PROJ_LENGTH_UNIT c
+gmtset MAP_TICK_LENGTH_PRIMARY 4p/2p
+gmtset FONT_ANNOT_PRIMARY 10p
+gmtset FONT_LABEL 12p 
+gmtset MAP_LABEL_OFFSET 0.3c
+gmtset FONT_TITLE 14p
+gmtset MAP_TITLE_OFFSET 0.4c
+
+# Plot event lines (if they exist) and error bars
+if [ ! -z $event_file ]; then
+    psxy $event_file $proj $range -W0.8p,0/200/0 -K -P -V > $psfile
+    psxy values $proj $range -Ey5p/0.55p,108/166/205 -Sc0.01 -Gblack -K -O -P -V >> $psfile
+else
+    psxy values $proj $range -Ey5p/0.55p,108/166/205 -Sc0.01 -Gblack -K -P -V > $psfile
+fi
+
+# Plot line between points
+psxy values $proj $range -W0.5p,108/166/205 -K -O -P -V >> $psfile
+
+# Plot pixel points
+psxy values $proj $range -Sc0.15 -G108/166/205 -Ba1f0.5:"Time (yrs)":/a2f1:"LOS cuml displ (mm)":/WSne -K -O -P -V >> $psfile
+
+# Plot basemap and header
+psbasemap $proj $range -B:."$title":wsen -O -P -V >> $psfile
+
+# Export to .tif
+ps2raster $psfile -A+s$tif_width/$tif_height -E$dpi -Tt -V
+
+# Clean up files
+rm -f *.ps p_values yr_values e_values values temp_values temp1 temp2
+
+
+# script end 
+####################

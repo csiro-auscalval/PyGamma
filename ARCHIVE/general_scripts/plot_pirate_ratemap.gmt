@@ -1,0 +1,314 @@
+#!/bin/bash
+
+display_usage() {
+    echo ""
+    echo "*******************************************************************************"
+    echo "* plot_pirate_ratemap:  Plot ratemap image that was produced in Pirate.       *"
+    echo "*                       Requires *.dat and *_header.txt files of the          *"
+    echo "*                       image to be created in Pirate.                        *"
+    echo "*                                                                             *"
+    echo "*  NOTE: script will only work if run on the NCI. The Pirate files will need  *"
+    echo "*        to be transferred from GA to NCI                                     *"
+    echo "*                                                                             *"
+    echo "* input:  [proc_file]    name of GAMMA proc file (eg. gamma.proc)             *"
+    echo "*         [image]        pirate ratemap file (*.dat)                          *"
+    echo "*         <scale_title>  LOS or vertical (default LOS)                        *"
+    echo "*         <az>           azimuth illumination for DEM (default 315)           *"
+    echo "*         <inc>          scale bar increment (default 5)                      *"
+    echo "*         <scale>        min/max scale bar value (default 15)                 *"
+    echo "*                                                                             *"
+    echo "*         Padding around image to fit scale bar and LOS arrows:               *" 
+    echo "*         <top_pad>      top padding (default 0.03)                           *"
+    echo "*         <bot_pad>      bottom padding (default 0.2)                         *"
+    echo "*         <side_pad>     side padding (default 0.05)                          *"
+    echo "*                                                                             *"
+    echo "* author: Sarah Lawrie @ GA       24/08/2015, v1.0                            *"
+    echo "*******************************************************************************"
+    echo -e "Usage: plot_pirate_ratemap.bash [proc_file] [image] <scale_title> <az> <inc> <scale> <top_pad> <bot_pad> <side_pad>"
+    }
+
+if [ $# -lt 2 ]
+then 
+    display_usage
+    exit 1
+fi
+
+proc_file=$1
+image=$2
+
+if [ $# -gt 2 ]; then
+    title_type=$3
+else
+    title_type=LOS
+fi
+if [ $# -gt 3 ]; then
+    az=$4
+else
+    az=315
+fi
+if [ $# -gt 4 ]; then
+    int=$5
+else
+    int=5
+fi
+if [ $# -gt 5 ]; then
+    scale=$6
+else
+    scale=15
+fi
+if [ $# -gt 6 ]; then
+    top_pad=$7
+else
+    top_pad=0.03
+fi
+if [ $# -gt 7 ]; then
+    bot_pad=$8
+else
+    bot_pad=0.2
+fi
+if [ $# -gt 8 ]; then
+    side_pad=$9
+else
+    side_pad=0.05
+fi
+
+
+#'LOS Phase (mm) or 'Phase (mm)' for vertical
+if [ $title_type == LOS ]; then
+    scale_title="LOS Phase (mm/yr)"
+elif [ $title_type == vertical ]; then
+    scale_title="Phase (mm/yr)"
+else
+    echo "scale title not recognised, must be LOS or vertical"
+fi
+
+## Variables from parameter file (*.proc)
+nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
+platform=`grep Platform= $proc_file | cut -d "=" -f 2`
+project=`grep Project= $proc_file | cut -d "=" -f 2`
+sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
+track=`grep Track= $proc_file | cut -d "=" -f 2`
+orient=`grep Orientation= $proc_file | cut -d "=" -f 2`
+
+
+## Identify project directory based on platform
+if [ $platform == NCI ]; then
+    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
+else
+    proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
+fi
+
+## Load GAMMA based on platform
+if [ $platform == NCI ]; then
+    GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
+    source $GAMMA
+else
+    GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
+    source $GAMMA
+fi
+
+## Identify dem project directory based on platform
+if [ $platform == NCI ]; then
+    dem_name_nci=`grep DEM_name_NCI= $proc_file | cut -d "=" -f 2`
+    dem_name=`echo $dem_name_nci | cut -f 1 -d '.'`
+    dem=$proj_dir/gamma_dem/$dem_name.grd
+else
+    :
+fi
+
+dir=`pwd`
+
+cpt=/g/data/dg9/repo/general_scripts/bcgyr.cpt
+
+name=`echo $image | cut -f 1 -d '.'`
+image_hdr=$name"_header.txt"
+psfile=$name.ps
+
+
+cd $dir
+
+gmtset MAP_FRAME_TYPE plain
+gmtset MAP_TICK_LENGTH_PRIMARY 5p/2.5p
+gmtset PROJ_LENGTH_UNIT c
+gmtset FORMAT_GEO_MAP ddd:mm
+gmtset FONT_ANNOT_PRIMARY 10p
+proj=-JM8
+
+
+## Image coordinates (from matlab)
+lon_min3=`grep x_min: $image_hdr | awk '{print $2}'`
+lon_max3=`grep x_max: $image_hdr | awk '{print $2}'`
+lat_min3=`grep y_min: $image_hdr | awk '{print $2}'`
+lat_max3=`grep y_max: $image_hdr | awk '{print $2}'`
+
+# force dem intensity image to be the same size as the input image by using row and column values, not increment
+width=`grep width: $image_hdr | awk '{print $2}'`
+length=`grep length: $image_hdr | awk '{print $2}'`
+img_inc=-I$width+/$length+
+
+#flip lat min and max if negative
+if (( $(bc <<< "$lat_min3 < 0") == 1 )); then
+    lat_min4=$lat_max3
+    lat_max4=$lat_min3
+else
+    lat_min4=$lat_min3
+    lat_max4=$lat_min3
+fi
+
+range=-R$lon_min3/$lon_max3/$lat_min4/$lat_max4
+
+
+## Determine plot coordinates (add padding around image coordinates)
+if (( $(bc <<< "$lat_min3 < 0") == 1 )); then
+    lat_min5=$(echo $lat_min4 - $bot_pad | bc)
+    lat_max5=$(echo $lat_max4 + $top_pad | bc)
+
+    lon_min5=$(echo $lon_min3 - $side_pad | bc)
+    lon_max5=$(echo $lon_max3 + $side_pad | bc)
+else
+    lat_min5=$(echo $lat_min4 - $top_pad | bc)
+    lat_max5=$(echo $lat_max4 + $bot_pad | bc)
+
+    lon_min5=$(echo $lon_min3 - $side_pad | bc)
+    lon_max5=$(echo $lon_max3 + $side_pad | bc)
+fi
+
+# round values to 2 decimal places (so plot will work)
+lat_min6=`echo $lat_min5 | awk '{printf "%0.2f",$1}'`
+lat_max6=`echo $lat_max5 | awk '{printf "%0.2f",$1}'`
+lon_min6=`echo $lon_min5 | awk '{printf "%0.2f",$1}'`
+lon_max6=`echo $lon_max5 | awk '{printf "%0.2f",$1}'`
+
+plotrange=-R$lon_min6/$lon_max6/$lat_min6/$lat_max6
+
+
+## Resize, filter and create intensity grid for dem 
+grdcut $dem -Gtemp.grd $plotrange -V
+grdfilter temp.grd -Gdem.grd -D1 -Fg0.35 -V 
+grdgradient dem.grd -A$az -Nt -Gdem_int.grd -V
+makecpt -Cgray -T20/200/10 -N -Z -V > dem.cpt
+
+# Intensity grid for image
+grdsample dem.grd -Gimg_dem.grd $range $img_inc -V # resample to image resolution
+grdgradient img_dem.grd -A$az -Nt -Gimg_int.grd -V
+
+# Convert image to grid
+xyz2grd $image -N0 $range -ZTLf $img_inc -Gphs.grd -V 
+makecpt -C$cpt -T-$scale/$scale/1 -N -Z -V > phs.cpt
+
+# Plot shaded relief of dem
+grdimage dem.grd -Cdem.cpt $proj $plotrange -Idem_int.grd -Qs -K -P -V > $psfile
+
+# Plot image over dem
+grdimage phs.grd -Cphs.cpt $proj $plotrange -Iimg_int.grd -Qs -K -O -P -V >> $psfile
+
+# Plot coast and colour scale
+pscoast -R -JM -W1 -Dh -Swhite -K -O -P -V >> $psfile
+psscale -D4/1/6/0.3h -S -Al -B$int -Cphs.cpt -K -O -P -V >> $psfile
+
+# Plot basemap
+psbasemap $proj $plotrange -Ba0.5f0.25/a0.5f0.25WSen -K -O -P -V >> $psfile
+
+# Position of scale bar
+temp1=$(echo $lon_max6 - $lon_min6 | bc -l)
+temp2=$(echo $temp1/2 | bc -l)
+scale_lon=$(echo $lon_min6 + $temp2 | bc -l)
+
+if (( $(bc <<< "$lat_min6 < 0") == 1 )); then
+    scale_lat=$(echo $lat_min6 + 0.155 | bc -l)
+else
+    scale_lat=$(echo $lat_max6 - 0.155 | bc -l)
+fi
+
+# Plot colour scale label
+pstext $proj $plotrange -F+f10p,Helvetica-Bold -N -K -O -P -V <<EOF >> $psfile
+$scale_lon $scale_lat $scale_title
+EOF
+
+# Plot LOS arrow
+if [ $orient == ascending ]; then
+    t1=$(echo $lon_min6 + 0.895 | bc -l)
+    if (( $(bc <<< "$lat_min6 < 0") == 1 )); then
+	t2=$(echo $lat_min6 + 1.202 | bc -l)
+    else
+	t2=$(echo $lat_max6 - 1.202 | bc -l)
+    fi
+    t3=$(echo $lon_min6 + 0.878 | bc -l)
+    if (( $(bc <<< "$lat_min6 < 0") == 1 )); then
+	t4=$(echo $lat_min6 + 1.26 | bc -l)
+    else
+	t4=$(echo $lat_max6 - 1.26 | bc -l)
+    fi
+    t5=$(echo $lon_min6 + 0.828 | bc -l)
+    if (( $(bc <<< "$lat_min6 < 0") == 1 )); then
+	t6=$(echo $lat_min6 + 1.38 | bc -l)
+    else
+	t6=$(echo $lat_max6 - 1.38 | bc -l)
+    fi
+    t7=$(echo $lon_min6 + 1.05 | bc -l)
+    if (( $(bc <<< "$lat_min6 < 0") == 1 )); then
+	t8=$(echo $lat_min6 + 1.27 | bc -l)
+    else
+	t8=$(echo $lat_max6 - 1.27 | bc -l)
+    fi
+psxy $proj $plotrange -W0.8 -Sv0.25+e -Gblack -O -K -P -V <<EOF >> $psfile
+$t1 $t2 105 1.2
+EOF
+psxy $proj $plotrange -W0.8 -Sv0.25+e -Gblack -O -K -P -V <<EOF >> $psfile
+$t3 $t4 17 0.6
+EOF
+pstext $proj $plotrange -F+f8p,Helvetica-Bold,+j -Gwhite -O -K -P -V <<EOF >> $psfile
+$t5 $t6 TL Az
+EOF
+pstext $proj $plotrange -F+f8p,Helvetica-Bold,+j -Gwhite -O -P -V <<EOF >> $psfile
+$t7 $t8 BR LOS
+EOF
+else
+    t1=$(echo $lon_min6 + 0.213 | bc -l)
+    if (( $(bc <<< "$lat_min6 < 0") == 1 )); then
+	t2=$(echo $lat_min6 + 1.32 | bc -l)
+    else
+	t2=$(echo $lat_max6 - 1.32 | bc -l)
+    fi
+    t3=$(echo $lon_min6 + 0.197 | bc -l)
+    if (( $(bc <<< "$lat_min6 < 0") == 1 )); then
+	t4=$(echo $lat_min6 + 1.26 | bc -l)
+    else
+	t4=$(echo $lat_max6 - 1.26 | bc -l)
+    fi
+    t5=$(echo $lon_min6 + 0.145 | bc -l)
+    if (( $(bc <<< "$lat_min6 < 0") == 1 )); then
+	t6=$(echo $lat_min6 + 1.165 | bc -l)
+    else
+	t6=$(echo $lat_max6 - 1.165 | bc -l)
+    fi
+    t7=$(echo $lon_min6 + 0.025 | bc -l)
+    if (( $(bc <<< "$lat_min6 < 0") == 1 )); then
+	t8=$(echo $lat_min6 + 1.27 | bc -l)
+    else
+	t8=$(echo $lat_max6 - 1.27 | bc -l)
+    fi
+psxy $proj $plotrange -W0.8 -Sv0.25+e -Gblack -O -K -P -V <<EOF >> $psfile
+$t1 $t2 255 1.2
+EOF
+psxy $proj $plotrange -W0.8 -Sv0.25+e -Gblack -O -K -P -V <<EOF >> $psfile
+$t3 $t4 167 0.6
+EOF
+pstext $proj $plotrange -F+f8p,Helvetica-Bold,+j -Gwhite -O -K -P -V <<EOF >> $psfile
+$t5 $t6 TL Az
+EOF
+pstext $proj $plotrange -F+f8p,Helvetica-Bold,+j -Gwhite -O -P -V <<EOF >> $psfile
+$t7 $t8 BL LOS
+EOF
+fi
+
+# Export to .tif
+ps2raster $psfile -A -E300 -Tf -V
+
+# Clean up files
+rm *.ps dem.cpt dem.grd dem_int.grd img_dem.grd img_int.grd output.txt temp.grd phs.grd phs.cpt 
+
+
+# script end 
+####################
+

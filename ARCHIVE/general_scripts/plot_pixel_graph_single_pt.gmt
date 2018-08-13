@@ -1,0 +1,132 @@
+#!/bin/bash
+
+module load gmt/5.1.0
+
+display_usage() {
+    echo ""
+    echo "*******************************************************************************"
+    echo "* plot_pixel_graph_single_pt: Plot pixel point analysis on a graph.           *"
+    echo "*                             Requires pixel_point_values*.txt to be created  *"
+    echo "*                             in Pirate.                                      *"
+    echo "*                                                                             *"
+    echo "*  NOTE: script will only work if run on the NCI. The Pirate files will need  *"
+    echo "*        to be transferred from GA to NCI                                     *"
+    echo "*                                                                             *"
+    echo "* input:  [values_file]  name of pixel values file                            *"
+    echo "*         <event_lines>  name of file containing events that are to be        *"
+    echo "*                        plotted as lines on the graph (eg. earthquake)       *"                      
+    echo "*                                                                             *"
+    echo "* author: Sarah Lawrie @ GA       24/09/2015, v1.0                            *"
+    echo "*******************************************************************************"
+    echo -e "Usage: plot_pixel_graph_single_pt.bash [values_file] <event_lines>"
+    }
+
+if [ $# -lt 1 ]
+then 
+    display_usage
+    exit 1
+fi
+
+values_file=$1
+event_file=$2
+
+dir=`pwd`
+cd $dir
+
+col=`awk 'NR == 2 {print $1}' $values_file | cut -f 1 -d ','`
+row=`awk 'NR == 2 {print $1}' $values_file | cut -f 2 -d ','`
+title="Pixel Point ("$col"c, "$row"r)"
+psfile="pixel_point_graph_"$col"c"$row"r.ps"
+
+
+# Determine min and max values for plotting
+sed '/NaN/d' $values_file > temp_values
+
+awk 'NR > 6 {print $1}' temp_values > yr_values
+awk 'NR > 6 {print $2}' temp_values > p_values
+paste yr_values p_values > values
+
+min_yr1=`head -n 1 yr_values`
+min_yr=`printf '%.*f\n' 0 $min_yr1`
+max_yr1=`tail -1 yr_values | cut -d "." -f 1`
+max_yr=$(echo $max_yr1 + 1 | bc)
+
+sort -k1 -n -r p_values > temp1
+min=`head -n 1 temp1`
+max=`tail -1 temp1`
+min1=`echo $min | awk '{print $1}'`
+max1=`echo $max | awk '{print $1}'`
+
+min2=`printf '%.*f\n' 0 $min1`
+
+if (( $(bc <<< "$min2 < 0") == 1 )); then
+    min3=$(echo $min2 + 2 | bc)
+else
+    min3=$(echo $min2 + 2 | bc)    
+fi
+
+max2=`printf '%.*f\n' 0 $max1`
+
+if (( $(bc <<< "$max2 < 0") == 1 )); then
+    max3=$(echo $max2 - 2 | bc)
+else
+    max3=$(echo $max2 + 2 | bc)    
+fi
+
+#flip x min and max if negative
+if [ $min3 -le 0 -a  $max3 -le 0 ]; then
+    min=$max3
+    max=$min3
+elif [ $min3 -gt 0 -a  $max3 -le 0 ]; then
+    min=$max3
+    max=$min3
+elif [ $min3 -gt 0 -a  $max3 -gt 0 ]; then
+    echo $min3 > temp6
+    echo $max3 >> temp6
+    sort -k1 -n temp6 > temp7
+    min4=`head -n 1 temp7`
+    max4=`tail -1 temp7`
+    min=$min4
+    max=$max4
+else
+    :
+fi
+
+proj=-JX8/7
+range=-R$min_yr/$max_yr/$min/$max
+
+tif_width=7.3c
+tif_height=6.76c
+dpi=300
+
+gmtset PROJ_LENGTH_UNIT c
+gmtset MAP_TICK_LENGTH_PRIMARY 4p/2p
+gmtset FONT_ANNOT_PRIMARY 10p
+gmtset FONT_LABEL 12p 
+gmtset MAP_LABEL_OFFSET 0.3c
+gmtset FONT_TITLE 14p
+gmtset MAP_TITLE_OFFSET 0.4c
+
+# Plot event lines (if they exist) and line between points
+if [ ! -z $event_file ]; then
+    psxy $event_file $proj $range -W0.8p,0/200/0 -K -P -V > $psfile
+    psxy values $proj $range -W0.5p,108/166/205 -K -O -P -V >> $psfile
+else
+    psxy values $proj $range -W0.5p,108/166/205 -K -P -V > $psfile
+fi
+
+# Plot pixel points
+psxy values $proj $range -Sc0.15 -G108/166/205 -Ba1f0.5:"Time (yrs)":/a2f1:"LOS cuml displ (mm)":/WSne -K -O -P -V >> $psfile
+
+# Plot basemap and header
+psbasemap $proj $range -B:."$title":wsen -O -P -V >> $psfile
+
+# Export to .tif
+ps2raster $psfile -A+s$tif_width/$tif_height -E$dpi -Tt -V
+
+# Clean up files
+rm -f *.ps p_values yr_values values temp_values temp1 
+
+
+# script end 
+####################
