@@ -1,17 +1,19 @@
 #!/bin/bash
 
-### Script doesn't include scene concatenation
-
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* process_RISAT1_SLC:  Script takes xxxx format xxxx from xxxx and            *"
-    echo "*                      and produces sigma0 calibrated SLC images.             *"
+    echo "* check_slave_coregistration: Script takes each MLI image and runs dis2pwr    *"
+    echo "*                             to enable checking of coregistration between    *"
+    echo "*                             reference master and slave scenes.              *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
-    echo "*         [scene]      scene ID (eg. 20180423)                                *"
+    echo "*         [list_type]  slave list type (1 = slaves.list, 2 = add_slaves.list, *"
+    echo "*                      default is 1)                                          *"
+    echo "*         <start>      starting line of SLC (optional, default: 1)            *"
+    echo "*         <nlines>     number of lines to display (optional, default: 4000)   *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       20/05/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       13/08/2018, v2.0                            *"
     echo "*             -  Major update to streamline processing:                       *"
     echo "*                  - use functions for variables and PBS job generation       *"
@@ -22,20 +24,29 @@ display_usage() {
     echo "*                     subsetting by bursts                                    *"
     echo "*                  - remove GA processing option                              *"
     echo "*******************************************************************************"
-    echo -e "Usage: process_RISAT1_SLC.bash [proc_file] [scene]"
+    echo -e "Usage: check_slave_coregistration.bash [proc_file] [list_type] <start> <nlines>"
     }
 
-if [ $# -lt 2 ]
+if [ $# -lt 1 ]
 then 
     display_usage
     exit 1
 fi
 
-if [ $2 -lt "10000000" ]; then 
-    echo "ERROR: Scene ID needed in YYYYMMDD format"
-    exit 1
+if [ $# -eq 2 ]; then
+    list_type=$2
 else
-    scene=$2
+    list_type=1
+fi
+if [ $# -eq 3 ]; then
+    start=$3
+else
+    start=1
+fi
+if [ $# -eq 4 ]; then
+    nlines=$4
+else
+    nlines=4000
 fi
 
 proc_file=$1
@@ -53,47 +64,35 @@ final_file_loc
 # Load GAMMA to access GAMMA programs
 source $config_file
 
-# Print processing summary to .o & .e files
-PBS_processing_details $project $track $scene 
-
 ######################################################################
 
 ## File names
-slc_file_names
-final_file_loc
+dem_master_names
 
-mkdir -p $scene_dir
-cd $scene_dir
+cd $proj_dir/$track
 
-## Raw data location
-xml=`ls $raw_data_track_dir/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/*.xml`
-cosar=`ls $raw_data_track_dir/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/IMAGEDATA/IMAGE*.cos`
-
-
-if [ ! -e $scene_dir/$slc ]; then
-    GM par_RISAT_SLC $xml $cosar $slc_par $slc
-
-    # Apply the stated calFactor from the xml file, scale according to sin(inc_angle) and convert from scomplex to fcomplex. Output is sigma0
-    GM radcal_SLC $slc $slc.par sigma0.slc sigma0.slc.par 3 - 0 0 1 0 -
-    mv -f sigma0.slc $slc
-    mv -f sigma0.slc.par $slc_par
-
-    # Make quick-look png image of SLC
-    width=`grep range_samples: $slc_par | awk '{print $2}'`
-    lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
-    GM rasSLC $slc $width 1 $lines 50 20 - - 1 0 0 $slc_bmp
-    GM convert $slc_bmp $slc_png
-    rm -f $slc_bmp
+if [ $list_type -eq 1 ]; then
+    list=$slave_list
+    echo " "
+    echo "Checking coregistration of slaves with master scene..."
 else
+    list=$add_slave_list
     echo " "
-    echo "Full SLC already created."
-    echo " "
+    echo "Checking coregistration of additional slaves with master scene..."
 fi
 
+while read slave; do
+    if [ ! -z $slave ]; then
+	slave_file_names
+	s1_slave_file_names
+	r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
+	r_slave_mli_width=`grep range_samples: $r_slave_mli_par | awk '{print $2}'`
+	dis2pwr $r_dem_master_mli $r_slave_mli $r_dem_master_mli_width $r_slave_mli_width $start $nlines - - - - 0
+    fi
+done < $list
+echo " "
+echo "Checked slave coregistration to reference SLC."
+echo " "
 
-# script end 
+# script end
 ####################
-
-## Copy errors to NCI error file (.e file)
-cat error.log 1>&2
-

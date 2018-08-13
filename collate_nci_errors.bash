@@ -27,6 +27,15 @@ display_usage() {
     echo "*             - add error collation for subsetting S1 SLCs                    *"
     echo "*         Sarah Lawrie @ GA       08/09/2017, v1.5                            *"
     echo "*             - add error collation for auto cropping S1 SLCs                 *"
+    echo "*         Sarah Lawrie @ GA       13/08/2018, v2.0                            *"
+    echo "*             -  Major update to streamline processing:                       *"
+    echo "*                  - use functions for variables and PBS job generation       *"
+    echo "*                  - add option to auto calculate multi-look values and       *"
+    echo "*                      master reference scene                                 *"
+    echo "*                  - add initial and precision baseline calculations          *"
+    echo "*                  - add full Sentinel-1 processing, including resizing and   *"
+    echo "*                     subsetting by bursts                                    *"
+    echo "*                  - remove GA processing option                              *"
     echo "*******************************************************************************"
     echo -e "Usage: collate_nci_errors.bash [proc_file] [type]"
     }
@@ -40,676 +49,158 @@ fi
 proc_file=$1
 type=$2
 
-## Variables from parameter file (*.proc)
-nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
-platform=`grep Platform= $proc_file | cut -d "=" -f 2`
-project=`grep Project= $proc_file | cut -d "=" -f 2`
-track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
-sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
 
+##########################   GENERIC SETUP  ##########################
 
-## Identify project directory based on platform
-if [ $platform == NCI ]; then
-    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
-else
-    :
-fi
+# Load generic GAMMA functions
+source ~/repo/gamma_insar/gamma_functions
 
-beam_list=$proj_dir/$track_dir/lists/`grep List_of_beams= $proc_file | cut -d "=" -f 2`
+# Load variables and directory paths
+proc_variables $proc_file
+final_file_loc
 
-## Insert scene details top of NCI .e file
-echo "" 1>&2 # adds spaces at top so scene details are clear
-echo "" 1>&2
-echo "PROCESSING_PROJECT: "$project $track_dir 1>&2
-echo "" 1>&2
+# Load GAMMA to access GAMMA programs
+source $config_file
 
-## Insert scene details top of NCI .o file
-echo ""
-echo ""
-echo "PROCESSING PROJECT: "$project $track_dir
-echo ""
+# Print processing summary to .o & .e files
+PBS_processing_details $project $track 
 
-batch_dir=$proj_dir/$track_dir/batch_jobs
-error_dir=$proj_dir/$track_dir/error_results
+######################################################################
 
-
-
-## Setup Errors
-if [ $type -eq 1 ]; then
-    echo "Collating Errors from Setup..."
-    echo "" 1>&2
+# Single PBS job function
+function single_err_job {
+    local err_list=$1
+    local job_dir=$2
+    local job_err=$3
     
-# lists creation
-    error_list=$error_dir/list_creation_errors
-    if [ -f $error_list ]; then
-	rm -rf $error_list
+    cd $job_dir
+    less $job_err > $err_list
+}
+
+# Multiple PBS jobs function
+function multi_err_job {
+    local err_list=$1
+    local job_dir=$2
+
+    if [ -f $err_list ]; then
+	rm -rf $er_list
     else
 	:
     fi
-    cd $batch_dir
-    ls scene_list*.e* > list
-    ls slave_list*.e* >> list
-    ls ifm_list*.e* >> list
-    while read error; do
-	if [ ! -z $error ]; then
-	    less $error > temp
-	    paste temp >> $error_list
-	    rm -rf temp
-	fi
-    done < list
-    rm -rf list
-
-
-## Raw Data Extraction Errors
-elif [ $type -eq 2 ]; then
-    echo "Collating Errors from Raw Data Extraction..."
-    echo "" 1>&2
-    error_list=$error_dir/extract_raw_errors
-    if [ -f $error_list ]; then
-	rm -rf $error_list
-    else
-	:
-    fi
-    cd $batch_dir
-    ls extract_raw*.e* > list
-    while read error; do
-	if [ ! -z $error ]; then
-	    less $error > temp
-	    paste temp >> $error_list
-	    rm -rf temp
-	fi
-    done < list
-    rm -rf list
-
-
-## SLC Creation Errors
-elif [ $type -eq 3 ]; then
-    echo "Collating Errors from SLC Creation..."
-    echo ""
-    dir=$batch_dir/slc_jobs
-    cd $dir
-    if [ ! -z $beam ]; then
-	error_list=$error_dir/$beam"_slc_errors.list"
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	cd $beam
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$beam/$list
-		ls *.e* > list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir/$beam
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    else
-	cd $dir
-	error_list=$error_dir/slc_creation_errors
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$list
-		ls *.e* > list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    fi
-
-
-## Auto Crop Sentinel-1 SLC Errors
-elif [ $type -eq 4 ]; then
-    echo "Collating Errors from Sentinel-1 auto crop SLCs..."
-    echo ""
-    dir=$batch_dir/slc_crop_jobs
-    cd $dir
-
-    error_list=$error_dir/crop_slc_creation_errors
-    if [ -f $error_list ]; then
-	rm -rf $error_list
-    else
-	:
-    fi
-    ls *.e* > list
-    while read error; do
-	if [ ! -z $error ]; then
-	    less $error > temp
-	    paste temp >> $error_list
-	    rm -rf temp
-	fi
-    done < list
-    rm -rf list
-
-
-## Subset Sentinel-1 SLC Errors
-elif [ $type -eq 5 ]; then
-    echo "Collating Errors from Sentinel-1 subset SLCs..."
-    echo ""
-    dir=$batch_dir/slc_subset_jobs
-    cd $dir
-
-    error_list=$error_dir/subset_slc_creation_errors
-    if [ -f $error_list ]; then
-	rm -rf $error_list
-    else
-	:
-    fi
+    cd $job_dir
     ls -d job_* > dir_list
     while read list; do
 	if [ ! -z $list ]; then
-	    cd $dir/$list
+	    cd $job_dir/$list
 	    ls *.e* > list
 	    while read error; do
 		if [ ! -z $error ]; then
 		    less $error > temp
-		    paste temp >> $error_list
+		    paste temp >> $err_list
 		    rm -rf temp
 		fi
 	    done < list
-	    rm -rf list
-	    cd $dir
+	    rm -rf list  
+	    cd ../
 	fi
     done < dir_list
     rm -rf dir_list
+}
 
+## Raw Data extraction errors
+if [ $type -eq 1 ]; then
+    list=$error_dir/extract_raw_errors
+    dir=$batch_dir/extract_raw_jobs
+    multi_err_job $list $dir 
 
-## Ref DEM Creation Errors
+## Full SLC creation errors
+elif [ $type -eq 2 ]; then
+    list=$error_dir/slc_creation_errors
+    dir=$batch_dir/slc_jobs  
+    multi_err_job $list $dir 
+
+## Multi-looking values calculation errors
+elif [ $type -eq 3 ]; then
+    list=$error_dir/ml_values_calc_errors
+    dir=$batch_dir/slc_jobs
+    err_job=ml_values.e*
+    single_err_job $list $dir $err_job
+    
+## Multi-look SLC errors
+elif [ $type -eq 4 ]; then
+    list=$error_dir/multi-look_slc_errors
+    dir=$batch_dir/ml_slc_jobs
+    multi_err_job $list $dir 
+
+## Baseline estimation errors
+elif [ $type -eq 5 ]; then
+    list=$error_dir/init_baseline_errors
+    dir=$batch_dir/baseline_jobs
+    err_job=init_base.e*
+    single_err_job $list $dir $err_job
+
+## Sentinel-1 resizing reference scene calculation errors
 elif [ $type -eq 6 ]; then
-    echo "Collating Errors from Make Reference Master DEM..."
-    echo ""
-    dir=$batch_dir/dem_jobs
-    cd $dir
-    if [ ! -z $beam ]; then
-	error_list=$error_dir/$beam"_dem_errors.list"
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	cd $beam
-	ls *.e* > list
-	while read error; do
-	    if [ ! -z $error ]; then
-		less $error > temp
-		paste temp >> $error_list
-		rm -rf temp
-	    fi
-	done < list
-	rm -rf list
-    else
-	error_list=$error_dir/dem_creation_errors
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	ls *.e* > list
-	while read error; do
-	    if [ ! -z $error ]; then
-		less $error > temp
-		paste temp >> $error_list
-		rm -rf temp
-	    fi
-	done < list
-	rm -rf list
-    fi
+    list=$error_dir/ref_s1_resize_calc_errors
+    dir=$batch_dir/slc_jobs
+    err_job=s1_resize_ref.e* 
+    single_err_job $list $dir $err_job
 
-## Coregister SLC Errors
+## Resize Sentinel-1 SLC errors
 elif [ $type -eq 7 ]; then
-    echo "Collating Errors from SLC Coregistration..."
-    echo ""
-    dir=$batch_dir/slc_coreg_jobs
-    cd $dir
-    if [ ! -z $beam ]; then
-	error_list=$error_dir/$beam"_slc_coreg_errors.list"
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	cd $beam
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$beam/$list
-		ls *.e* > list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir/$beam
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    else
-	error_list=$error_dir/slc_coreg_errors
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$list
-		ls *.e* > list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    fi
+    list=$error_dir/resize_S1_slc_errors
+    dir=$batch_dir/resize_S1_slc_jobs 
+    multi_err_job $list $dir 
 
-## Interferogram Errors
+## Subset Sentinel-1 SLC errors
 elif [ $type -eq 8 ]; then
-    echo "Collating Errors from Interferogram Creation..."
-    echo ""
-    dir=$batch_dir/ifm_jobs
-    cd $dir
-    if [ ! -z $beam ]; then
-	error_list=$error_dir/$beam"_ifm_errors.list"
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	cd $beam
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$beam/$list
-		ls *.e* > org_list
-		while read err; do # remove unnecessary lines created from float2ascii - creates hundreds of output lines, not errors)
-		    cp $err temp1
-		    sed '/^line:/ d ' < temp1 > temp2
-		    mv temp2 $err
-		    rm -rf temp1
-		done < org_list
-		rm -rf org_list
-		ls *.e* > list
-		ls "post_ifm_"$beam*.e* >> list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir/$beam
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    else
-	error_list=$error_dir/ifm_errors
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$list
-		ls *.e* > org_list
-		while read err; do # remove unnecessary lines created from float2ascii - creates hundreds of output lines, not errors)
-		    cp $err temp1
-		    sed '/^line:/ d ' < temp1 > temp2
-		    mv temp2 $err
-		    rm -rf temp1
-		done < org_list
-		rm -rf org_list
-		ls *.e* > list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    fi
+    list=$error_dir/subset_S1_slc_errors
+    dir=$batch_dir/subset_S1_slc_jobs
+    multi_err_job $list $dir 
 
-## Interferogram Plotting Errors
+## Coregister DEM errors
 elif [ $type -eq 9 ]; then
-    echo "Collating Errors from Interferogram Plots..."
-    echo ""
-    dir=$batch_dir/ifm_jobs
-    cd $dir
-    if [ ! -z $beam ]; then
-	error_list=$error_dir/$beam"_ifm_plots.list"
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	cd $beam
-	ls plot*.e* > list
-	while read error; do
-	    if [ ! -z $error ]; then
-		less $error > temp
-		paste temp >> $error_list
-		rm -rf temp
-	    fi
-	done < list
-	rm -rf list
-    else
-	error_list=$error_dir/ifm_plot_errors
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	ls plot*.e* > list
-	while read error; do
-	    if [ ! -z $error ]; then
-		less $error > temp
-		paste temp >> $error_list
-		rm -rf temp
-	    fi
-	done < list
-	rm -rf list
-    fi
+    dir=$batch_dir/dem_jobs
+    list=$error_dir/coreg_dem_errors
+    err_job=coreg_dem.e* 
+    single_err_job $list $dir $err_job
 
-
-
-## Mosaic Beam Interferograms
+## Lat-lon Pixel calculation errors
 elif [ $type -eq 10 ]; then
-    echo "Collating Errors from Mosaicing Beam Interferograms..."
-    echo ""
-    dir=$batch_dir/ifm_jobs
-    cd $dir
-    error_list=$error_dir/mosaic_beam_errors
-    if [ -f $error_list ]; then
-	rm -rf $error_list
-    else
-	:
-    fi
-    cd $dir
-    ls mosaic_beam*.e* > list
-    while read error; do
-	if [ ! -z $error ]; then
-	    less $error > temp
-	    paste temp >> $error_list
-	    rm -rf temp
-	fi
-    done < list
-    rm -rf list
+    dir=$batch_dir/dem_jobs
+    list=$error_dir/lat-lon_errors
+    err_job=calc_lat_lon.e* 
+    single_err_job $list $dir $err_job
 
-
-## Additional Scene Setup Errors
+## Coregister SLC errors
 elif [ $type -eq 11 ]; then
-    echo "Collating Errors from Adding Additional Scenes..."
-    echo "" 1>&2
-    dir=$batch_dir
-    cd $dir
-# lists creation
-    error_list=$error_dir/add_scene_errors
-    if [ -f $error_list ]; then
-	rm -rf $error_list
-    else
-	:
-    fi
-    cd $batch_dir
-    ls add_scene_list*.e* > list
-    ls add_slave_list*.e* >> list
-    ls add_ifm_list*.e* >> list
-    while read error; do
-	if [ ! -z $error ]; then
-	    less $error > temp
-	    paste temp >> $error_list
-	    rm -rf temp
-	fi
-    done < list
-    rm -rf list
+    list=$error_dir/coreg_slc_errors
+    dir=$batch_dir/coreg_slc_jobs
+    multi_err_job $list $dir 
 
-    echo "Collating Errors from Extracting Addtional Raw Data..."
-    echo "" 1>&2
-    error_list=$error_dir/add_extract_raw_errors
-    if [ -f $error_list ]; then
-	rm -rf $error_list
-    else
-	:
-    fi
-    cd $batch_dir
-    ls add_extract_raw*.e* > list
-    while read error; do
-	if [ ! -z $error ]; then
-	    less $error > temp
-	    paste temp >> $error_list
-	    rm -rf temp
-	fi
-    done < list
-    rm -rf list
-
-
-## SLC Creation Errors
+## Interferogram errors
 elif [ $type -eq 12 ]; then
-    echo "Collating Errors from Additional SLC Creation..."
-    echo ""
-    dir=$batch_dir/add_slc_jobs
-    cd $dir
-    if [ ! -z $beam ]; then
-	error_list=$error_dir/"add_"$beam"_slc_errors.list"
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	cd $beam
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$beam/$list
-		ls *.e* > list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir/$beam
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    else
-	cd $dir
-	error_list=$error_dir/add_slc_creation_errors
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$list
-		ls *.e* > list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    fi
+    list=$error_dir/ifg_errors
+    dir=$batch_dir/ifg_jobs
+    multi_err_job $list $dir 
 
-## Coregister additional SLC Errors
+## Baseline estimation errors
 elif [ $type -eq 13 ]; then
-    echo "Collating Errors from Additional SLC Coregistration..."
-    echo ""
-    dir=$batch_dir/add_slc_coreg_jobs
-    cd $dir
-    if [ ! -z $beam ]; then
-	error_list=$error_dir/"add_"$beam"_slc_coreg_errors.list"
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	cd $beam
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$beam/$list
-		ls *.e* > list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir/$beam
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    else
-	error_list=$error_dir/add_slc_coreg_errors
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$list
-		ls *.e* > list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    fi
+    list=$error_dir/prec_baseline_errors
+    dir=$batch_dir/baseline_jobs
+    err_job=prec_base.e*
+    single_err_job $list $dir $err_job
 
-## Interferogram Errors
+## Post processing errors
 elif [ $type -eq 14 ]; then
-    echo "Collating Errors from Addtional Interferogram Creation..."
-    echo ""
-    dir=$batch_dir/add_ifm_jobs
-    cd $dir
-    if [ ! -z $beam ]; then
-	error_list=$error_dir/"add_"$beam"_ifm_errors.list"
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	cd $beam
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$beam/$list
-		ls *.e* > org_list
-		while read err; do # remove unnecessary lines created from float2ascii - creates hundreds of output lines, not errors)
-		    cp $err temp1
-		    sed '/^line:/ d ' < temp1 > temp2
-		    mv temp2 $err
-		    rm -rf temp1
-		done < org_list
-		rm -rf org_list
-		ls *.e* > list
-		ls "post_ifm_"$beam*.e* >> list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir/$beam
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    else
-	error_list=$error_dir/add_ifm_errors
-	if [ -f $error_list ]; then
-	    rm -rf $error_list
-	else
-	    :
-	fi
-	ls -d job_* > dir_list
-	while read list; do
-	    if [ ! -z $list ]; then
-		cd $dir/$list
-		ls *.e* > org_list
-		while read err; do # remove unnecessary lines created from float2ascii - creates hundreds of output lines, not errors)
-		    cp $err temp1
-		    sed '/^line:/ d ' < temp1 > temp2
-		    mv temp2 $err
-		    rm -rf temp1
-		done < org_list
-		rm -rf org_list
-		ls *.e* > list
-		while read error; do
-		    if [ ! -z $error ]; then
-			less $error > temp
-			paste temp >> $error_list
-			rm -rf temp
-		    fi
-		done < list
-		rm -rf list
-		cd $dir
-	    fi
-	done < dir_list
-	rm -rf dir_list
-    fi
+    list=$error_dir/post_ifg_errors
+    dir=$batch_dir/post_ifg_jobs
+    err_job=post_ifg.e* 
+    single_err_job $list $dir $err_job
+
 else
     :
 fi
+# script end 
+####################
+
