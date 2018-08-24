@@ -381,9 +381,7 @@ if type == 'initial':
         Bperp_max = Br/f*r1*math.tan(inc/180*math.pi)
 
         # Btemp_max: total temporal decorrelation, use different values for L-band,
-        # C-band and X-band, therfore get the sensor from current directory
-        currdir = os.getcwd()
-        sensor = currdir[:-6].split("/")[-1]
+        #            C-band and X-band
 
         # select sensor-specific default values for temporal decorrelation
         # L-band: total decorrelation after 7 years
@@ -397,6 +395,7 @@ if type == 'initial':
             Btemp_max = 1095.75
         else:
             print("Sensor", sensor, "is not added yet. Default C-band parameters are used.")
+            Btemp_max = 1826.25
 
         # linear decorrelation model for Btemp, Bperp, Bdopp is used (Eq. 2.1 & 2.2 in Kampes (2005) along with a coherence threshold:
         coh_thres = 0.5
