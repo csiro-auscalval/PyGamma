@@ -11,7 +11,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* author: Thomas Fuhrmann @ GA       03/09/2018, v1.0                         *"
     echo "*******************************************************************************"
-    echo -e "Usage: collate_nci_errors.bash [proc_file] [type]"
+    echo -e "Usage: coregister_s1_slave_rerun.bash [proc_file] [type]"
     }
 
 if [ $# -lt 1 ]
@@ -21,6 +21,13 @@ then
 fi
 
 proc_file=$1
+
+if [ $# -eq 2 ]
+then
+    # 1: rerun slave coregistration for badly coregistered scenes
+    # 0: output only, no rerun
+    rerun=$2
+fi
 
 
 ##########################   GENERIC SETUP  ##########################
@@ -121,7 +128,6 @@ sort -g -k 2 $rerun_slave_list > $rerun_slave_date_list
 awk '{print $1}' $rerun_slave_date_list > $rerun_slave_list
 
 # set to 1 if badly coregistered scenes shall be rerun
-rerun=1
 if [ -s $rerun_slave_list -a $rerun -eq 1 ]; then # rerun slaves, start with date closest to master date
   j=0 # initialise job parameter
   depend_job=0 # now dependencies in first iteration
