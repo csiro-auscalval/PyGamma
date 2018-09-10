@@ -450,7 +450,7 @@ function dem_file_names {
     ext_image_init_sar=$dem_master_name"_ext_img_init.sar" 
     ext_image_sar=$dem_master_name"_ext_img.sar"
     dem_check_file=$results_dir/$track"_DEM_coreg_results"
-    lat_lon_pix=$dem_dir/$track"_"$rlks"_sar_latlon.txt"
+    lat_lon_pix=$dem_dir/$track"_"$rlks"rlks_sar_latlon.txt"
 }
 
 ## Slave coregistration file names
