@@ -17,7 +17,7 @@
 * input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *
 *         [type]        type of baseline to calculate (initial or precision)  *
 *                                                                             *
-* author: Thomas Fuhrmann @ GA    March, 2018 v0.1                            * 
+* author: Thomas Fuhrmann @ GA    March, 2018 v0.1                            *
 *         Sarah Lawrie @ GA       13/08/2018, v1.0                            *
 *             -  Major update to streamline processing:                       *
 *                  - use functions for variables and PBS job generation       *
@@ -142,7 +142,7 @@ if type == 'initial':
         proc_file_backup = os.path.join(pre_proc_dir, track + ".proc_pre_init_baseline")
         if os.path.isfile(proc_file) and os.access(proc_file, os.R_OK):
             copyfile(proc_file, proc_file_backup)
-            replace = { "REF_MASTER_SCENE=auto" : "REF_MASTER_SCENE="+str(master.strftime("%Y%m%d")) } 
+            replace = { "REF_MASTER_SCENE=auto" : "REF_MASTER_SCENE="+str(master.strftime("%Y%m%d")) }
             for line in fileinput.input(proc_file, inplace=True):
                 line = line.rstrip('\r\n')
                 print(replace.get(line, line))
@@ -327,7 +327,7 @@ if type == 'initial':
             for slave in slaves:
                 outfile.write(master.strftime("%Y%m%d") + "," + slave.strftime("%Y%m%d") + "\n")
             outfile.close
-            
+
 
     ##### Create Daisy-chained Interferogram List #####
 
@@ -349,7 +349,7 @@ if type == 'initial':
             for scene in dates:
                 in_scene = scene.strftime("%Y%m%d")
                 scenes.append(in_scene)
-        
+
             # join lists
             merged = []
             for idx, i  in enumerate(scenes):
@@ -424,7 +424,7 @@ if type == 'initial':
         # plot selected connections
         filename = os.path.join(base_dir, track + "_baseline_SBAS_network_plot")
         cbf.plot_baseline_time_sbas(np.array(dates), Bperps, epoch1, epoch2, filename)
-        
+
         # save dates of connections to ifgs.list
         # Check if ifgs.list file exists and has already be renamed
         if os.path.isfile(ifgs_list):
@@ -454,7 +454,7 @@ if type == 'initial':
 ################ PRECISION BASELINE CALCULATION ####################
 
 elif type == 'precision':
-   
+
     # Read master r*mli.par file and calculate look angle for centre pixel
     # open file and read relevant lines
     f = open(os.path.join(slc_dir, master1, "r" + master1 + "_" + polar + "_" + rlks + "rlks.mli.par"))
@@ -491,7 +491,7 @@ elif type == 'precision':
     Bperp_prec = [0] * num_ifgs
     # loop through all IFGs
     for epochA, epochB in zip(epoch1, epoch2):
-        filename = os.path.join(int_dir, epochA + "-" + epochB, epochA + "-" + epochB + "_" + polar + "_" + rlks + "rlks.base.par")
+        filename = os.path.join(int_dir, epochA + "-" + epochB, epochA + "-" + epochB + "_" + polar + "_" + rlks + "rlks_base.par")
         if os.path.isfile(filename) and os.access(filename, os.R_OK):
             f = open(filename)
             lines = f.readlines()
