@@ -1088,8 +1088,11 @@ if [ $coregister == yes ]; then
 	    j=0
 	    # split slave_list using a threshold for temporal difference
             #thres_days=93 # three months, S1A/B repeats 84, 90, 96, ... (90 still ok, 96 too long)
+            # -> some slaves with zero averages for azimuth offset refinement
             thres_days=63 # three months, S1A/B repeats 54, 60, 66, ... (60 still ok, 66 too long)
+            # -> 63 days seems to be a good compromise between runtime and coregistration success
             #thres_days=51 # maximum 7 weeks, S1A/B repeats 42, 48, 54, ... (48 still ok, 54 too long)
+            # -> longer runtime compared to 63, similar number of badly coregistered scenes
             # do slaves with time difference less than thres_days
             # rn existing split slave lists
             rm $list_dir/slaves*[0-9].list
@@ -1148,6 +1151,15 @@ if [ $coregister == yes ]; then
             {
 	        multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_batch_dir $script_type jobs1 steps1 j
 	    } < $slave_file
+
+	    # Create manual PBS jobs
+	    cd $co_slc_manual_dir
+	    job_type=2 #1 for batch job, 2 for manual job
+	    depend_job=0
+	    {
+	        multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_manual_dir $script_type jobs1 steps1 j
+	    } < $slave_list
+
 
             # continue to write slave lists until the slavesXY.list file is empty
             list_idx=1; # idx of slave lists
@@ -1226,56 +1238,68 @@ if [ $coregister == yes ]; then
                 j=$(($j+$jobs1)) # add number of previous jobs to index j
                 jobs1=$nlines
                 steps1=1
+                cd $co_slc_batch_dir
 	        depend_job=`sed s/.r-man2// $co_slc_batch_dir/all_co_slc_job_ids`
+                job_type=1 #1 for batch job, 2 for manual job
 	        echo Preparing to run $jobs1 jobs with $steps1 steps processing $((jobs1*steps1)) files
 	        {
 	            multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_batch_dir $script_type jobs1 steps1 j
 	        } < $slave_file
+
+	        # Create manual PBS jobs
+  	        cd $co_slc_manual_dir
+  	        job_type=2 #1 for batch job, 2 for manual job
+  	        depend_job=0
+  	        {
+  	            multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_manual_dir $script_type jobs1 steps1 j
+  	        } < $slave_list
+
 	      fi
 	    done
-	    # TODO: add in manual jobs and error collation
-	else
 
-         nlines=`cat $slave_list | sed '/^\s*$/d' | wc -l`
-	 echo Need to process $nlines files
+	else # not S1
 
-	 # PBS parameters
-	 wt1=`echo $co_slc_walltime | awk -F: '{print ($1*60) + $2 + ($3/60)}'` # walltime for a single slc in minutes
-	 pbs_job_prefix=co_slc_
-	 script_type=-
-	 depend_type=afterok
-	 job_type=1 #1 for batch job, 2 for manual job
+           nlines=`cat $slave_list | sed '/^\s*$/d' | wc -l`
+	   echo Need to process $nlines files
 
-         # Work out number of jobs to run within maximum number of jobs allowed and create jobs
-	 if [ $nlines -le $maxjobs ]; then
-	    jobs1=$nlines
-	    steps1=1
-	    jobs2=0
-	    steps2=0
-	 else
-	    steps2=$((nlines/maxjobs))
-	    steps1=$((nlines%maxjobs))
-	    jobs1=$steps1
-	    steps1=$((steps2+1))
-	    jobs2=$((maxjobs-jobs1))
-	 fi
-	 echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
-	 j=0
-	 {
-	     multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_batch_dir $script_type jobs1 steps1 j
-	     multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_batch_dir $script_type jobs2 steps2 jobs1
-	 } < $slave_list
-        fi
+	   # PBS parameters
+	   wt1=`echo $co_slc_walltime | awk -F: '{print ($1*60) + $2 + ($3/60)}'` # walltime for a single slc in minutes
+	   pbs_job_prefix=co_slc_
+	   script_type=-
+	   depend_type=afterok
+	   job_type=1 #1 for batch job, 2 for manual job
 
-        # Create manual PBS jobs
-	cd $co_slc_manual_dir
-	job_type=2 #1 for batch job, 2 for manual job
-	depend_job=0
-	j=0
-	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_manual_dir $script_type jobs1 steps1 j
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_manual_dir $script_type jobs2 steps2 jobs1
-	} < $slave_list
+           # Work out number of jobs to run within maximum number of jobs allowed and create jobs
+	   if [ $nlines -le $maxjobs ]; then
+	      jobs1=$nlines
+	      steps1=1
+	      jobs2=0
+	      steps2=0
+	   else
+	      steps2=$((nlines/maxjobs))
+	      steps1=$((nlines%maxjobs))
+	      jobs1=$steps1
+	      steps1=$((steps2+1))
+	      jobs2=$((maxjobs-jobs1))
+	   fi
+	   echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
+	   j=0
+	   {
+	       multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_batch_dir $script_type jobs1 steps1 j
+	       multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_batch_dir $script_type jobs2 steps2 jobs1
+	   } < $slave_list
+
+           # Create manual PBS jobs
+	   cd $co_slc_manual_dir
+	   job_type=2 #1 for batch job, 2 for manual job
+	   depend_job=0
+	   j=0
+	   {
+	       multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_manual_dir $script_type jobs1 steps1 j
+	       multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_manual_dir $script_type jobs2 steps2 jobs1
+	   } < $slave_list
+
+        fi # S1/other sensors
 
         # Error collation for slave SLC coregistration
 	cd $co_slc_batch_dir
