@@ -256,8 +256,8 @@ if [ $do_raw == yes ]; then
 	echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
 	j=0
 	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_batch_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_batch_dir $script_type jobs2 steps2 jobs1 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_batch_dir $script_type jobs1 steps1 j 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_batch_dir $script_type jobs2 steps2 jobs1 
 	} < $list
 
         # Create manual PBS jobs
@@ -266,8 +266,8 @@ if [ $do_raw == yes ]; then
 	depend_job=0
 	j=0
 	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs2 steps2 jobs1 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs1 steps1 j 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs2 steps2 jobs1 
 	} < $list
 
         # Error collation
@@ -281,7 +281,7 @@ if [ $do_raw == yes ]; then
 	err_type=1
 	script=collate_nci_errors.bash
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix1 $extract_raw_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+	    single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $extract_raw_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	}
 
         # clean up PBS job dir
@@ -349,8 +349,8 @@ if [ $do_slc == yes ]; then
 	echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
 	j=0
 	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_batch_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_batch_dir $script_type jobs2 steps2 jobs1 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_batch_dir $script_type jobs1 steps1 j 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_batch_dir $script_type jobs2 steps2 jobs1 
 	} < $scene_list
 
         # Create manual PBS jobs
@@ -359,8 +359,8 @@ if [ $do_slc == yes ]; then
 	depend_job=0
 	j=0
 	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_manual_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_manual_dir $script_type jobs2 steps2 jobs1 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_manual_dir $script_type jobs1 steps1 j 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_manual_dir $script_type jobs2 steps2 jobs1 
 	} < $scene_list
 
         # Create preview PDF of SLCs
@@ -374,7 +374,7 @@ if [ $do_slc == yes ]; then
 	plot_type=full_slc
 	script=plot_preview_pdfs.bash
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix1 $slc_batch_dir $img_walltime $img_mem $img_ncpus $exp_queue $depend_job $depend_type $job_type $plot_type $script
+	    single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $slc_batch_dir $img_walltime $img_mem $img_ncpus $exp_queue $depend_job $depend_type $job_type $plot_type $script
 	}
 
         # Error collation for full SLC creation
@@ -387,7 +387,7 @@ if [ $do_slc == yes ]; then
 	err_type=2
 	script=collate_nci_errors.bash
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix2 $slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+	    single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	}
 	
         # Calculate multi-looking values
@@ -401,7 +401,7 @@ if [ $do_slc == yes ]; then
 	    script_type=-
 	    script=calc_multi-look_values.bash
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix3 $slc_batch_dir $calc_walltime $calc_mem $calc_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+		single_job $pbs_run_loc $pbs_job_prefix3 $nci_project $slc_batch_dir $calc_walltime $calc_mem $calc_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 	    }
 
             # Create manual PBS jobs
@@ -409,7 +409,7 @@ if [ $do_slc == yes ]; then
 	    job_type=2 #1 for batch job, 2 for manual job
 	    depend_job=0
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix3 $slc_manual_dir $calc_walltime $calc_mem $calc_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+		single_job $pbs_run_loc $pbs_job_prefix3 $nci_project $slc_manual_dir $calc_walltime $calc_mem $calc_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 	    }
 
             # Error collation for calculating multi-looking values
@@ -423,7 +423,7 @@ if [ $do_slc == yes ]; then
 	    err_type=3
 	    script=collate_nci_errors.bash
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix4 $slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+		single_job $pbs_run_loc $pbs_job_prefix4 $nci_project $slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	    }
 
 	elif [[ $rlks =~ ^-?[0-9]+$ ]] && [[ $alks =~ ^-?[0-9]+$ ]]; then
@@ -478,8 +478,8 @@ if [ $do_slc == yes ]; then
 	    echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
 	    j=0
 	    {
-		multi_jobs $pbs_run_loc $pbs_job_prefix5 $ml_mem $ml_ncpus $queue $script $depend_job $depend_type $job_type $ml_batch_dir $script_type jobs1 steps1 j 
-		multi_jobs $pbs_run_loc $pbs_job_prefix5 $ml_mem $ml_ncpus $queue $script $depend_job $depend_type $job_type $ml_batch_dir $script_type jobs2 steps2 jobs1 
+		multi_jobs $pbs_run_loc $pbs_job_prefix5 $nci_project $ml_mem $ml_ncpus $queue $script $depend_job $depend_type $job_type $ml_batch_dir $script_type jobs1 steps1 j 
+		multi_jobs $pbs_run_loc $pbs_job_prefix5 $nci_project $ml_mem $ml_ncpus $queue $script $depend_job $depend_type $job_type $ml_batch_dir $script_type jobs2 steps2 jobs1 
 	    } < $scene_list
 
             # Create manual PBS jobs
@@ -488,8 +488,8 @@ if [ $do_slc == yes ]; then
 	    depend_job=0
 	    j=0
 	    {
-		multi_jobs $pbs_run_loc $pbs_job_prefix5 $ml_mem $ml_ncpus $queue $script $depend_job $depend_type $job_type $ml_manual_dir $script_type jobs1 steps1 j 
-		multi_jobs $pbs_run_loc $pbs_job_prefix5 $ml_mem $ml_ncpus $queue $script $depend_job $depend_type $job_type $ml_manual_dir $script_type jobs2 steps2 jobs1 
+		multi_jobs $pbs_run_loc $pbs_job_prefix5 $nci_project $ml_mem $ml_ncpus $queue $script $depend_job $depend_type $job_type $ml_manual_dir $script_type jobs1 steps1 j 
+		multi_jobs $pbs_run_loc $pbs_job_prefix5 $nci_project $ml_mem $ml_ncpus $queue $script $depend_job $depend_type $job_type $ml_manual_dir $script_type jobs2 steps2 jobs1 
 	    } < $scene_list
 
             # Error collation
@@ -503,7 +503,7 @@ if [ $do_slc == yes ]; then
 	    err_type=4
 	    script=collate_nci_errors.bash
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix6 $ml_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+		single_job $pbs_run_loc $pbs_job_prefix6 $nci_project $ml_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	    }
                 # clean up PBS job dir
 	    cd $ml_batch_dir
@@ -525,7 +525,7 @@ if [ $do_slc == yes ]; then
 	    script_type=initial
 	    script=calc_baselines.py
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix7 $base_batch_dir $base_walltime $base_mem $base_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+		single_job $pbs_run_loc $pbs_job_prefix7 $nci_project $base_batch_dir $base_walltime $base_mem $base_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 	    }
 
             # Create manual PBS jobs
@@ -533,7 +533,7 @@ if [ $do_slc == yes ]; then
 	    job_type=2 #1 for batch job, 2 for manual job
 	    depend_job=0
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix7 $base_manual_dir $base_walltime $base_mem $base_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+		single_job $pbs_run_loc $pbs_job_prefix7 $nci_project $base_manual_dir $base_walltime $base_mem $base_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 	    }
 
             # Error collation for calculating initial baselines
@@ -547,7 +547,7 @@ if [ $do_slc == yes ]; then
 	    err_type=5
 	    script=collate_nci_errors.bash
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix8 $base_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+		single_job $pbs_run_loc $pbs_job_prefix8 $nci_project $base_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	    }
 	fi
 
@@ -564,7 +564,7 @@ if [ $do_slc == yes ]; then
 		script_type=-
 		script=calc_resize_S1_ref_scene.bash
 		{
-		    single_job $pbs_run_loc $pbs_job_prefix4 $slc_batch_dir $calc_walltime $calc_mem $calc_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+		    single_job $pbs_run_loc $pbs_job_prefix4 $nci_project $slc_batch_dir $calc_walltime $calc_mem $calc_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 		}
 
                 # Create manual PBS jobs
@@ -572,7 +572,7 @@ if [ $do_slc == yes ]; then
 		job_type=2 #1 for batch job, 2 for manual job
 		depend_job=0
 		{
-		    single_job $pbs_run_loc $pbs_job_prefix4 $slc_manual_dir $calc_walltime $calc_mem $calc_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+		    single_job $pbs_run_loc $pbs_job_prefix4 $nci_project $slc_manual_dir $calc_walltime $calc_mem $calc_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 		}
 
                 # Error collation for calculating Sentinel-1 resizing reference scene
@@ -586,7 +586,7 @@ if [ $do_slc == yes ]; then
 		err_type=6
 		script=collate_nci_errors.bash
 		{
-		    single_job $pbs_run_loc $pbs_job_prefix5 $slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+		    single_job $pbs_run_loc $pbs_job_prefix5 $nci_project $slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 		}
 
 	    elif [[ $s1_resize_ref =~ ^-?[0-9]+$ ]]; then
@@ -638,7 +638,7 @@ if [ $sensor == S1 ]; then
 		type=-
 		script=process_gamma
 		{
-		    single_job $pbs_run_loc $pbs_job_prefix $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
+		    single_job $pbs_run_loc $pbs_job_prefix $nci_project $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
 		}
 		exit
 	    elif [[ $s1_resize_ref =~ ^-?[0-9]+$ ]]; then
@@ -680,8 +680,8 @@ if [ $sensor == S1 ]; then
 		echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
 		j=0
 		{
-		    multi_jobs $pbs_run_loc $pbs_job_prefix $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_batch_dir $script_type jobs1 steps1 j 
-		    multi_jobs $pbs_run_loc $pbs_job_prefix $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_batch_dir $script_type jobs2 steps2 jobs1 
+		    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_batch_dir $script_type jobs1 steps1 j 
+		    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_batch_dir $script_type jobs2 steps2 jobs1 
 		} < $scene_list
 
                 # Create manual PBS jobs
@@ -690,8 +690,8 @@ if [ $sensor == S1 ]; then
 		depend_job=0
 		j=0
 		{
-		    multi_jobs $pbs_run_loc $pbs_job_prefix $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_manual_dir $script_type jobs1 steps1 j 
-		    multi_jobs $pbs_run_loc $pbs_job_prefix $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_manual_dir $script_type jobs2 steps2 jobs1 
+		    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_manual_dir $script_type jobs1 steps1 j 
+		    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_manual_dir $script_type jobs2 steps2 jobs1 
 		} < $scene_list
 
                 # Create preview PDF of images determine shape and size
@@ -705,7 +705,7 @@ if [ $sensor == S1 ]; then
 		plot_type=resize_slc
 		script=plot_preview_pdfs.bash
 		{
-		    single_job $pbs_run_loc $pbs_job_prefix1 $resize_batch_dir $img_walltime $img_mem $img_ncpus $exp_queue $depend_job $depend_type $job_type $plot_type $script
+		    single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $resize_batch_dir $img_walltime $img_mem $img_ncpus $exp_queue $depend_job $depend_type $job_type $plot_type $script
 		}
 
                 # Error collation
@@ -718,7 +718,7 @@ if [ $sensor == S1 ]; then
 		err_type=7
 		script=collate_nci_errors.bash
 		{
-		    single_job $pbs_run_loc $pbs_job_prefix2 $resize_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+		    single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $resize_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 		}
 		
                 # clean up PBS job dir
@@ -790,8 +790,8 @@ if [ $sensor == S1 ]; then
 	    echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
 	    j=0
 	    {
-		multi_jobs $pbs_run_loc $pbs_job_prefix $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $subset_batch_dir $script_type jobs1 steps1 j 
-		multi_jobs $pbs_run_loc $pbs_job_prefix $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $subset_batch_dir $script_type jobs2 steps2 jobs1 
+		multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $subset_batch_dir $script_type jobs1 steps1 j 
+		multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $subset_batch_dir $script_type jobs2 steps2 jobs1 
 	    } < $scene_list
 
             # Create manual PBS jobs
@@ -800,8 +800,8 @@ if [ $sensor == S1 ]; then
 	    depend_job=0
 	    j=0
 	    {
-		multi_jobs $pbs_run_loc $pbs_job_prefix $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $subset_manual_dir $script_type jobs1 steps1 j 
-		multi_jobs $pbs_run_loc $pbs_job_prefix $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $subset_manual_dir $script_type jobs2 steps2 jobs1 
+		multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $subset_manual_dir $script_type jobs1 steps1 j 
+		multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $subset_manual_dir $script_type jobs2 steps2 jobs1 
 	    } < $scene_list
 
             # Create preview PDF of images to view subsetted results
@@ -815,7 +815,7 @@ if [ $sensor == S1 ]; then
 	    plot_type=subset_slc
 	    script=plot_preview_pdfs.bash
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix1 $subset_batch_dir $img_walltime $img_mem $img_ncpus $exp_queue $depend_job $depend_type $job_type $plot_type $script
+		single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $subset_batch_dir $img_walltime $img_mem $img_ncpus $exp_queue $depend_job $depend_type $job_type $plot_type $script
 	    }
 
             # Error collation
@@ -828,7 +828,7 @@ if [ $sensor == S1 ]; then
 	    err_type=8
 	    script=collate_nci_errors.bash
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix2 $subset_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+		single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $subset_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	    }
             # clean up PBS job dir
 	    cd $subset_batch_dir
@@ -865,7 +865,7 @@ if [ $coreg_dem == yes ]; then
 	    type=-
 	    script=process_gamma
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
+		single_job $pbs_run_loc $pbs_job_prefix $nci_project $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
 	    }
 	    exit  
 	elif [[ $master_scene =~ ^-?[0-9]+$ ]]; then
@@ -880,7 +880,7 @@ if [ $coreg_dem == yes ]; then
 		type=-
 		script=process_gamma
 		{
-		    single_job $pbs_run_loc $pbs_job_prefix $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
+		    single_job $pbs_run_loc $pbs_job_prefix $nci_project $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
 		}
 		exit  
 	    else
@@ -916,7 +916,7 @@ if [ $coreg_dem == yes ]; then
 		script_type=-
 		script=coregister_DEM.bash
 		{
-		    single_job $pbs_run_loc $pbs_job_prefix $dem_batch_dir $dem_walltime $dem_mem $dem_ncpus $queue $depend_job $depend_type $job_type $script_type $script
+		    single_job $pbs_run_loc $pbs_job_prefix $nci_project $dem_batch_dir $dem_walltime $dem_mem $dem_ncpus $queue $depend_job $depend_type $job_type $script_type $script
 		}
 
                 # Create manual PBS jobs
@@ -924,7 +924,7 @@ if [ $coreg_dem == yes ]; then
 		job_type=2 #1 for batch job, 2 for manual job
 		depend_job=0
 		{
-		    single_job $pbs_run_loc $pbs_job_prefix $dem_manual_dir $dem_walltime $dem_mem $dem_ncpus $queue $depend_job $depend_type $job_type $script_type $script
+		    single_job $pbs_run_loc $pbs_job_prefix $nci_project $dem_manual_dir $dem_walltime $dem_mem $dem_ncpus $queue $depend_job $depend_type $job_type $script_type $script
 		}
 
                 # Error collation for DEM coregistration
@@ -938,7 +938,7 @@ if [ $coreg_dem == yes ]; then
 		err_type=9
 		script=collate_nci_errors.bash
 		{
-		    single_job $pbs_run_loc $pbs_job_prefix1 $dem_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+		    single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $dem_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 		}
  
    	        # If STAMPS post processing, calculate lat-lon for each SAR pixel
@@ -952,14 +952,14 @@ if [ $coreg_dem == yes ]; then
 		    script_type=-
 		    script=calc_lat_lon.bash
 		    {
-			single_job $pbs_run_loc $pbs_job_prefix2 $dem_batch_dir $pix_walltime $pix_mem $pix_ncpus $queue $depend_job $depend_type $job_type $script_type $script
+			single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $dem_batch_dir $pix_walltime $pix_mem $pix_ncpus $queue $depend_job $depend_type $job_type $script_type $script
 		    }
 
                     # Create manual PBS jobs
 		    cd $dem_manual_dir
 		    job_type=2 #1 for batch job, 2 for manual job
 		    {
-			single_job $pbs_run_loc $pbs_job_prefix2 $dem_manual_dir $pix_walltime $pix_mem $pix_ncpus $queue $depend_job $depend_type $job_type $script_type $script
+			single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $dem_manual_dir $pix_walltime $pix_mem $pix_ncpus $queue $depend_job $depend_type $job_type $script_type $script
 		    }
 
                     # Error collation for calculating lat-lon for each SAR pixel
@@ -973,7 +973,7 @@ if [ $coreg_dem == yes ]; then
 		    err_type=10
 		    script=collate_nci_errors.bash
 		    {
-			single_job $pbs_run_loc $pbs_job_prefix3 $dem_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+			single_job $pbs_run_loc $pbs_job_prefix3 $nci_project $dem_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 		    }
 		fi
 	    fi
@@ -1036,7 +1036,7 @@ if [ $coregister == yes ]; then
 		    type=-
 		    script=process_gamma
 		    {
-                        single_job $pbs_run_loc $pbs_job_prefix $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
+                        single_job $pbs_run_loc $pbs_job_prefix $nci_project $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
 		    }
 		    exit
 		else
@@ -1068,7 +1068,7 @@ if [ $coregister == yes ]; then
 		type=-
 		script=process_gamma
 		{
-                    single_job $pbs_run_loc $pbs_job_prefix $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
+                    single_job $pbs_run_loc $pbs_job_prefix $nci_project $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
 		}
 		exit
 	    fi
@@ -1103,8 +1103,8 @@ if [ $coregister == yes ]; then
 	echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
 	j=0
 	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_batch_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_batch_dir $script_type jobs2 steps2 jobs1 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_batch_dir $script_type jobs1 steps1 j 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_batch_dir $script_type jobs2 steps2 jobs1 
 	} < $slave_list
 
         # Create manual PBS jobs
@@ -1113,8 +1113,8 @@ if [ $coregister == yes ]; then
 	depend_job=0
 	j=0
 	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_manual_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_manual_dir $script_type jobs2 steps2 jobs1 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_manual_dir $script_type jobs1 steps1 j 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_manual_dir $script_type jobs2 steps2 jobs1 
 	} < $slave_list
 
         # Error collation for slave SLC coregistration
@@ -1128,7 +1128,7 @@ if [ $coregister == yes ]; then
 	err_type=11
 	script=collate_nci_errors.bash
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix1 $co_slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+	    single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $co_slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	}
 	
         # clean up PBS job dir
@@ -1178,7 +1178,7 @@ if [ $do_ifgs == yes ]; then
 		type=-
 		script=process_gamma
 		{
-                    single_job $pbs_run_loc $pbs_job_prefix $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
+                    single_job $pbs_run_loc $pbs_job_prefix $nci_project $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
 		}
 		exit
             else
@@ -1209,7 +1209,7 @@ if [ $do_ifgs == yes ]; then
 		type=-
 		script=process_gamma
 		{
-                    single_job $pbs_run_loc $pbs_job_prefix $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
+                    single_job $pbs_run_loc $pbs_job_prefix $nci_project $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
 		}
 		exit
 	    fi
@@ -1247,8 +1247,8 @@ if [ $do_ifgs == yes ]; then
 	echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
 	j=0
 	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_batch_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_batch_dir $script_type jobs2 steps2 jobs1 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_batch_dir $script_type jobs1 steps1 j 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_batch_dir $script_type jobs2 steps2 jobs1 
 	} < $ifg_list
 
         # Create manual PBS jobs
@@ -1257,8 +1257,8 @@ if [ $do_ifgs == yes ]; then
 	depend_job=0
 	j=0
 	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_manual_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_manual_dir $script_type jobs2 steps2 jobs1 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_manual_dir $script_type jobs1 steps1 j 
+	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_manual_dir $script_type jobs2 steps2 jobs1 
 	} < $ifg_list
 
         # Create preview PDF of interferograms
@@ -1272,7 +1272,7 @@ if [ $do_ifgs == yes ]; then
 	plot_type=ifg
 	script=plot_preview_pdfs.bash
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix1 $ifg_batch_dir $img_walltime $img_mem $img_ncpus $exp_queue $depend_job $depend_type $job_type $plot_type $script
+	    single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $ifg_batch_dir $img_walltime $img_mem $img_ncpus $exp_queue $depend_job $depend_type $job_type $plot_type $script
 	}
 
         # Error collation for interferogram generation
@@ -1286,7 +1286,7 @@ if [ $do_ifgs == yes ]; then
 	err_type=12
 	script=collate_nci_errors.bash
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix2 $ifg_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+	    single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $ifg_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	}
 	
         # clean up PBS job dir
@@ -1309,7 +1309,7 @@ if [ $do_ifgs == yes ]; then
 	    script_type=precision
 	    script=calc_baselines.py
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix3 $base_batch_dir $base_walltime $base_mem $base_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+		single_job $pbs_run_loc $pbs_job_prefix3 $nci_project $base_batch_dir $base_walltime $base_mem $base_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 	    }
 
             # Create manual PBS jobs
@@ -1317,7 +1317,7 @@ if [ $do_ifgs == yes ]; then
 	    job_type=2 #1 for batch job, 2 for manual job
 	    depend_job=0
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix3 $base_manual_dir $base_walltime $base_mem $base_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+		single_job $pbs_run_loc $pbs_job_prefix3 $nci_project $base_manual_dir $base_walltime $base_mem $base_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 	    }
 
             # Error collation for calculating precision baselines
@@ -1331,7 +1331,7 @@ if [ $do_ifgs == yes ]; then
 	    err_type=13
 	    script=collate_nci_errors.bash
 	    {
-		single_job $pbs_run_loc $pbs_job_prefix4 $base_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+		single_job $pbs_run_loc $pbs_job_prefix4 $nci_project $base_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	    }
 	fi
 
@@ -1346,7 +1346,7 @@ if [ $do_ifgs == yes ]; then
 	script_type=-
 	script=post_ifg_processing.bash
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix5 $ifg_batch_dir $post_walltime $post_mem $post_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+	    single_job $pbs_run_loc $pbs_job_prefix5 $nci_project $ifg_batch_dir $post_walltime $post_mem $post_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 	}
 
         # Create manual PBS jobs
@@ -1354,7 +1354,7 @@ if [ $do_ifgs == yes ]; then
 	job_type=2 #1 for batch job, 2 for manual job
 	depend_job=0
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix5 $ifg_manual_dir $post_walltime $post_mem $post_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+	    single_job $pbs_run_loc $pbs_job_prefix5 $nci_project $ifg_manual_dir $post_walltime $post_mem $post_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 	}
 
         # Error collation for post processing
@@ -1368,7 +1368,7 @@ if [ $do_ifgs == yes ]; then
 	err_type=14
 	script=collate_nci_errors.bash
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix6 $ifg_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+	    single_job $pbs_run_loc $pbs_job_prefix6 $nci_project $ifg_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	}
     fi
 elif [ $do_ifgs == no ]; then

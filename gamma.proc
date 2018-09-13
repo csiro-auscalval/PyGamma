@@ -223,6 +223,8 @@ IFG_OFFSET_WIN=128 128
 
 -----NCI PBS JOB PARAMETERS-----------------------------------------------------------------------------
 
+NCI_PROJECT=dg9
+
     -----PBS JOB DEFAULTS FOR MULTI-JOBS-----
     # for raw data download, resize and subset Sentinel-1 SLCs, multi-look SLCs 
 MIN_JOBS=20 
