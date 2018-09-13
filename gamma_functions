@@ -671,6 +671,7 @@ function single_job {
     echo \#\PBS -l mem=$mem >> $job
     echo \#\PBS -l ncpus=$cpu >> $job
     echo \#\PBS -l wd >> $job
+    echo \#\PBS -W umask=017
     if [ $pbs_job_prefix == 'init_base' -o $pbs_job_prefix == 'prec_base' ]; then  ## needs python3 to activate baselines script
 	echo \#\PBS -l "software=python" >> $job
     else
@@ -744,6 +745,7 @@ function multi_jobs {
 	echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
 	echo \#\PBS -l mem=$mem >> $job
 	echo \#\PBS -l ncpus=$cpu >> $job
+	echo \#\PBS -W umask=017
 	echo \#\PBS -l wd >> $job
 	echo \#\PBS -q $queue >> $job
 	if [ $depend_job == "0" ]; then #cannnot be integer input, as the depend jobs may be 'xxxx:xxxx:xxxx:xxxx'
