@@ -36,6 +36,8 @@ display_usage() {
     echo "*                  - add full Sentinel-1 processing, including resizing and   *"
     echo "*                     subsetting by bursts                                    *"
     echo "*                  - remove GA processing option                              *"
+    echo "*         Sarah Lawrie @ GA       13/09/2018, v2.1                            *"
+    echo "*             -  Add automatic GAMMA DEM generation from scene extent         *"
     echo "*******************************************************************************"
     echo -e "Usage: collate_nci_errors.bash [proc_file] [type]"
     }
@@ -113,86 +115,93 @@ if [ $type -eq 1 ]; then
     dir=$batch_dir/extract_raw_jobs
     multi_err_job $list $dir 
 
-## Full SLC creation errors
+## Create DEM errors
 elif [ $type -eq 2 ]; then
+    dir=$batch_dir/dem_jobs
+    list=$error_dir/create_dem_errors
+    err_job=create_dem.e* 
+    single_err_job $list $dir $err_job
+
+## Full SLC creation errors
+elif [ $type -eq 3 ]; then
     list=$error_dir/slc_creation_errors
     dir=$batch_dir/slc_jobs  
     multi_err_job $list $dir 
 
 ## Multi-looking values calculation errors
-elif [ $type -eq 3 ]; then
+elif [ $type -eq 4 ]; then
     list=$error_dir/ml_values_calc_errors
     dir=$batch_dir/slc_jobs
     err_job=ml_values.e*
     single_err_job $list $dir $err_job
     
 ## Multi-look SLC errors
-elif [ $type -eq 4 ]; then
+elif [ $type -eq 5 ]; then
     list=$error_dir/multi-look_slc_errors
     dir=$batch_dir/ml_slc_jobs
     multi_err_job $list $dir 
 
 ## Baseline estimation errors
-elif [ $type -eq 5 ]; then
+elif [ $type -eq 6 ]; then
     list=$error_dir/init_baseline_errors
     dir=$batch_dir/baseline_jobs
     err_job=init_base.e*
     single_err_job $list $dir $err_job
 
 ## Sentinel-1 resizing reference scene calculation errors
-elif [ $type -eq 6 ]; then
+elif [ $type -eq 7 ]; then
     list=$error_dir/ref_s1_resize_calc_errors
     dir=$batch_dir/slc_jobs
     err_job=s1_resize_ref.e* 
     single_err_job $list $dir $err_job
 
 ## Resize Sentinel-1 SLC errors
-elif [ $type -eq 7 ]; then
+elif [ $type -eq 8 ]; then
     list=$error_dir/resize_S1_slc_errors
     dir=$batch_dir/resize_S1_slc_jobs 
     multi_err_job $list $dir 
 
 ## Subset Sentinel-1 SLC errors
-elif [ $type -eq 8 ]; then
+elif [ $type -eq 9 ]; then
     list=$error_dir/subset_S1_slc_errors
     dir=$batch_dir/subset_S1_slc_jobs
     multi_err_job $list $dir 
 
 ## Coregister DEM errors
-elif [ $type -eq 9 ]; then
+elif [ $type -eq 10 ]; then
     dir=$batch_dir/dem_jobs
     list=$error_dir/coreg_dem_errors
     err_job=coreg_dem.e* 
     single_err_job $list $dir $err_job
 
 ## Lat-lon Pixel calculation errors
-elif [ $type -eq 10 ]; then
+elif [ $type -eq 11 ]; then
     dir=$batch_dir/dem_jobs
     list=$error_dir/lat-lon_errors
     err_job=calc_lat_lon.e* 
     single_err_job $list $dir $err_job
 
 ## Coregister SLC errors
-elif [ $type -eq 11 ]; then
+elif [ $type -eq 12 ]; then
     list=$error_dir/coreg_slc_errors
     dir=$batch_dir/coreg_slc_jobs
     multi_err_job $list $dir 
 
 ## Interferogram errors
-elif [ $type -eq 12 ]; then
+elif [ $type -eq 13 ]; then
     list=$error_dir/ifg_errors
     dir=$batch_dir/ifg_jobs
     multi_err_job $list $dir 
 
 ## Baseline estimation errors
-elif [ $type -eq 13 ]; then
+elif [ $type -eq 14 ]; then
     list=$error_dir/prec_baseline_errors
     dir=$batch_dir/baseline_jobs
     err_job=prec_base.e*
     single_err_job $list $dir $err_job
 
 ## Post processing errors
-elif [ $type -eq 14 ]; then
+elif [ $type -eq 15 ]; then
     list=$error_dir/post_ifg_errors
     dir=$batch_dir/post_ifg_jobs
     err_job=post_ifg.e* 
