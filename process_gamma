@@ -42,6 +42,8 @@ display_usage() {
     echo "*                  - add full Sentinel-1 processing, including resizing and   *"
     echo "*                     subsetting by bursts                                    *"
     echo "*                  - remove GA processing option                              *"
+    echo "*         Sarah Lawrie @ GA       13/09/2018, v2.1                            *"
+    echo "*             -  Add automatic GAMMA DEM generation from scene extent         *"
     echo "*******************************************************************************"
     echo -e "Usage: process_gamma [proc_file]"
     }
@@ -192,20 +194,23 @@ else
     :
 fi
 
-## Extract GAMMA DEM from MDSS
-if [ ! -d $gamma_dem_dir ]; then
-    echo "Extracting GAMMA DEM from MDSS ..."
-    mdss get $mdss_dem < /dev/null $proj_dir # /dev/null allows mdss command to work properly in loop
-    tar -xvzf $dem_name.tar.gz
-    rm -rf $dem_name.tar.gz
-    cd $proj_dir
-    echo "GAMMA DEM extraction from MDSS completed."
-    echo ""
+## Check GAMMA DEM exists
+if [ ! -f $gamma_dem_dir/$dem_name.dem ]; then
+    if [ $sensor == 'S1' ] && [ $dem_area == 'aust' ]; then # auto generated GAMMA DEM
+	echo "Need to automatically create GAMMA DEM, this will be done after raw data extraction."
+    else
+	echo "Extracting GAMMA DEM from MDSS ..."
+	mdss get $mdss_dem < /dev/null $proj_dir # /dev/null allows mdss command to work properly in loop
+	tar -xvzf $dem_name.tar.gz
+	rm -rf $dem_name.tar.gz
+	cd $proj_dir
+	echo "GAMMA DEM extraction from MDSS completed."
+	echo ""
+    fi
 else
-    echo "GAMMA DEM already extracted from MDSS."
+    echo "GAMMA DEM already exists."
     echo ""
 fi
-
 
 
 ##########################   EXTRACT RAW_DATA  ##########################
@@ -283,7 +288,43 @@ if [ $do_raw == yes ]; then
 	{
 	    single_job $pbs_run_loc $pbs_job_prefix1 $extract_raw_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	}
-
+        # Create GAMMA DEM
+	if [ ! -d $gamma_dem_dir ]; then
+	    if [ $sensor == 'S1' ] && [ $dem_area == 'aust' ]; then
+		cd $dem_batch_dir
+		depend_job=`sed s/.r-man2// $extract_raw_batch_dir/"all_raw_job_ids"`
+		depend_type=afterok
+		job_type=1 #1 for batch job, 2 for manual job
+		pbs_job_prefix2=create_dem
+		echo ""
+		echo "Creating GAMMA DEM from scene extents ..."
+		script_type=-
+		script=make_GAMMA_DEM_auto.bash
+		{
+		    single_job $pbs_run_loc $pbs_job_prefix2 $dem_batch_dir $create_dem_walltime $create_dem_mem $create_dem_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+		}
+                # Create manual PBS jobs
+		cd $dem_manual_dir
+		job_type=2 #1 for batch job, 2 for manual job
+		depend_job=0
+		{
+		    single_job $pbs_run_loc $pbs_job_prefix2 $dem_manual_dir $create_dem_walltime $create_dem_mem $create_dem_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+		}
+                # Error collation for creating GAMMA DEM
+		cd $dem_batch_dir
+		echo ""
+		echo "Preparing error collation for creating GAMMA DEM ..."
+		depend_job=`sed s/.r-man2// $pbs_job_prefix2"_job_id"`
+		depend_type=afterany
+		job_type=1
+		pbs_job_prefix3=create_dem_err
+		err_type=2
+		script=collate_nci_errors.bash
+		{
+		    single_job $pbs_run_loc $pbs_job_prefix3 $dem_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+		}
+	    fi
+	fi
         # clean up PBS job dir
 	cd $extract_raw_batch_dir
 	rm -rf list* $pbs_job_prefix*"_job_id"    
@@ -384,7 +425,7 @@ if [ $do_slc == yes ]; then
 	depend_type=afterany
 	job_type=1
 	pbs_job_prefix2=slc_err
-	err_type=2
+	err_type=3
 	script=collate_nci_errors.bash
 	{
 	    single_job $pbs_run_loc $pbs_job_prefix2 $slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -420,7 +461,7 @@ if [ $do_slc == yes ]; then
 	    depend_type=afterany
 	    job_type=1
 	    pbs_job_prefix4=ml_values_err
-	    err_type=3
+	    err_type=4
 	    script=collate_nci_errors.bash
 	    {
 		single_job $pbs_run_loc $pbs_job_prefix4 $slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -500,7 +541,7 @@ if [ $do_slc == yes ]; then
 	    depend_type=afterany
 	    job_type=1
 	    pbs_job_prefix6=multi_err
-	    err_type=4
+	    err_type=5
 	    script=collate_nci_errors.bash
 	    {
 		single_job $pbs_run_loc $pbs_job_prefix6 $ml_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -544,7 +585,7 @@ if [ $do_slc == yes ]; then
 	    depend_type=afterany
 	    job_type=1
 	    pbs_job_prefix8=init_base_err
-	    err_type=5
+	    err_type=6
 	    script=collate_nci_errors.bash
 	    {
 		single_job $pbs_run_loc $pbs_job_prefix8 $base_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -583,7 +624,7 @@ if [ $do_slc == yes ]; then
 		depend_type=afterany
 		job_type=1
 		pbs_job_prefix5=s1_ref_err
-		err_type=6
+		err_type=7
 		script=collate_nci_errors.bash
 		{
 		    single_job $pbs_run_loc $pbs_job_prefix5 $slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -715,7 +756,7 @@ if [ $sensor == S1 ]; then
 		depend_type=afterany
 		job_type=1
 		pbs_job_prefix2=resize_err
-		err_type=7
+		err_type=8
 		script=collate_nci_errors.bash
 		{
 		    single_job $pbs_run_loc $pbs_job_prefix2 $resize_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -825,7 +866,7 @@ if [ $sensor == S1 ]; then
 	    depend_type=afterany
 	    job_type=1
 	    pbs_job_prefix2=subset_err
-	    err_type=8
+	    err_type=9
 	    script=collate_nci_errors.bash
 	    {
 		single_job $pbs_run_loc $pbs_job_prefix2 $subset_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -935,7 +976,7 @@ if [ $coreg_dem == yes ]; then
 		depend_type=afterany
 		job_type=1 #1 for batch job, 2 for manual job
 		pbs_job_prefix1=coreg_dem_err
-		err_type=9
+		err_type=10
 		script=collate_nci_errors.bash
 		{
 		    single_job $pbs_run_loc $pbs_job_prefix1 $dem_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -970,7 +1011,7 @@ if [ $coreg_dem == yes ]; then
 		    depend_type=afterany
 		    job_type=1
 		    pbs_job_prefix3=lat_lon_values_err
-		    err_type=10
+		    err_type=11
 		    script=collate_nci_errors.bash
 		    {
 			single_job $pbs_run_loc $pbs_job_prefix3 $dem_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -1125,7 +1166,7 @@ if [ $coregister == yes ]; then
 	depend_type=afterany
 	job_type=1
 	pbs_job_prefix1=co_slc_err
-	err_type=11
+	err_type=12
 	script=collate_nci_errors.bash
 	{
 	    single_job $pbs_run_loc $pbs_job_prefix1 $co_slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -1283,7 +1324,7 @@ if [ $do_ifgs == yes ]; then
 	depend_type=afterany
 	job_type=1
 	pbs_job_prefix2=ifg_err
-	err_type=12
+	err_type=13
 	script=collate_nci_errors.bash
 	{
 	    single_job $pbs_run_loc $pbs_job_prefix2 $ifg_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -1328,7 +1369,7 @@ if [ $do_ifgs == yes ]; then
 	    depend_type=afterany
 	    job_type=1
 	    pbs_job_prefix4=prec_base_err
-	    err_type=13
+	    err_type=14
 	    script=collate_nci_errors.bash
 	    {
 		single_job $pbs_run_loc $pbs_job_prefix4 $base_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -1365,7 +1406,7 @@ if [ $do_ifgs == yes ]; then
 	depend_type=afterany
 	job_type=1 
 	pbs_job_prefix6=post_ifg_err
-	err_type=14
+	err_type=15
 	script=collate_nci_errors.bash
 	{
 	    single_job $pbs_run_loc $pbs_job_prefix6 $ifg_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
