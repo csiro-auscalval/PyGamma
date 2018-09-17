@@ -10,7 +10,7 @@ display_usage() {
     echo "*                                                                             *"
     echo "* author: Thomas Fuhrmann @ GA       10/09/2018, v1.0                         *"
     echo "*******************************************************************************"
-    echo -e "Usage: process_ifm_rerun [proc_file]"
+    echo -e "Usage: process_ifg_rerun [proc_file]"
     }
 
 if [ $# -lt 1 ]
