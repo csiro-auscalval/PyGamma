@@ -15,6 +15,8 @@ function proc_variables {
     ers_orbits=`grep ^ERS_ORBITS= $proc_file | cut -d "=" -f 2`
     s1_path=`grep ^S1_PATH= $proc_file | cut -d "=" -f 2`
     s1_orbits=`grep ^S1_ORBITS= $proc_file | cut -d "=" -f 2`
+    master_dem_image=`grep ^MASTER_DEM_IMAGE= $proc_file | cut -d "=" -f 2`
+    dem_img=$master_dem_image/GAMMA_DEM_SRTM_1as_mosaic.img
     
     # Project details
     project=`grep ^PROJECT= $proc_file | cut -d "=" -f 2`
@@ -46,8 +48,9 @@ function proc_variables {
     results_dir=$proj_dir/$track/results
     
     # DEM details
+    dem_area=`grep ^DEM_AREA= $proc_file | cut -d "=" -f 2`
     mdss_dem=`grep ^MDSS_DEM_TAR= $proc_file | cut -d "=" -f 2`
-    dem_name=`basename $mdss_dem | cut -d "." -f 1`
+    dem_name=`grep ^DEM_NAME= $proc_file | cut -d "=" -f 2`
     ext_image=`grep ^EXT_IMAGE= $proc_file | cut -d "=" -f 2`
     use_ext_image=`grep ^USE_EXT_IMAGE= $proc_file | cut -d "=" -f 2`
 
@@ -139,6 +142,9 @@ function proc_variables {
     raw_walltime=`grep ^RAW_WALLTIME= $proc_file | cut -d "=" -f 2`
     raw_mem=`grep ^RAW_MEM= $proc_file | cut -d "=" -f 2`
     raw_ncpus=`grep ^RAW_NCPUS= $proc_file | cut -d "=" -f 2`
+    create_dem_walltime=`grep ^CREATE_DEM_WALLTIME= $proc_file | cut -d "=" -f 2`
+    create_dem_mem=`grep ^CREATE_DEM_MEM= $proc_file | cut -d "=" -f 2`
+    create_dem_ncpus=`grep ^CREATE_DEM_NCPUS= $proc_file | cut -d "=" -f 2`
     slc_walltime=`grep ^SLC_WALLTIME= $proc_file | cut -d "=" -f 2`
     slc_mem=`grep ^SLC_MEM= $proc_file | cut -d "=" -f 2`
     slc_ncpus=`grep ^SLC_NCPUS= $proc_file | cut -d "=" -f 2`
@@ -420,6 +426,11 @@ function dem_master_names {
     r_dem_master_mli_bmp=$r_dem_master_mli.bmp
 }
 
+## Automatic GAMMa DEM creation
+function auto_dem_creation {
+    dem_scene_extent_results=$results_dir/$track"_scene_extents_for_DEM"
+}
+
 ## DEM file names
 function dem_file_names {
     dem=$gamma_dem_dir/$dem_name.dem
@@ -666,6 +677,7 @@ function single_job {
     fi
 
     echo \#\!/bin/bash > $job
+    echo \#\PBS -P dg9 >> $job
     echo \#\PBS -l other=$pbs_run_loc >> $job
     echo \#\PBS -l walltime=$walltime >> $job
     echo \#\PBS -l mem=$mem >> $job
@@ -740,6 +752,7 @@ function multi_jobs {
 	    :
 	fi
 	echo \#\!/bin/bash > $job
+	echo \#\PBS -P dg9 >> $job
 	echo \#\PBS -l other=$pbs_run_loc >> $job
 	echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
 	echo \#\PBS -l mem=$mem >> $job
