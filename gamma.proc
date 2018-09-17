@@ -11,8 +11,9 @@ GAMMA_CONFIG=/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
 NCI_PATH=/g/data1/dg9
 ENVISAT_ORBITS=/g/data1/dg9/SAR_ORBITS/ENVISAT
 ERS_ORBITS=/g/data1/dg9/SAR_ORBITS/ERS_ODR_UPDATED
+S1_ORBITS=/g/data1/dg9/SAR_ORBITS/S1_ORBITS
 S1_PATH=/g/data1/fj7/Copernicus/Sentinel-1/C-SAR/SLC
-S1_ORBITS=/g/data1/dg9/S1_ORBITS
+MASTER_DEM_IMAGE=/g/data1/dg9/MASTER_DEM
 
 
 -----PROCESSING OUTPUT DIRECTORIES----------------------------------------------------------------------
@@ -50,8 +51,15 @@ TRACK=T<track_num><A/D>
 
 -----RAW DATA & DEM LOCATION ON MDSS--------------------------------------------------------------------
 
-    # Sentinel-1: only MDSS_DEM_tar required as data downloaded directly from S1_PATH and S1_ORBITS
+    # Sentinel-1 - if AOI within Australia, GAMMA DEM will be produced automatically. 
+                 - if AOI elsewhere,a  manual GAMMA DEM will need to first be created and MDSS_DEM_tar 
+                   details required.
+                 - data downloaded directly from S1_PATH and S1_ORBITS.
 
+    # Options: aust (within Australia) or other (outside Australia)
+DEM_AREA=aust
+    # if using DEM from MDSS, enter file name (exc. tar.gz). If auto generated, enter track name
+DEM_NAME=<name>
 MDSS_DATA_DIR=insar/<sensor>/<project>/<track>
 MDSS_DEM_TAR=insar/DEM/NT_EQ_MAY2016/<tar_name>.tar.gz
     # Name of external image used for DEM coregistration (if required, eg. very flat terrain)
@@ -237,6 +245,11 @@ MDSS_QUEUE=copyq
 RAW_WALLTIME=00:15:00
 RAW_MEM=500MB
 RAW_NCPUS=1
+
+   -----CREATE GAMMA DEM -----
+CREATE_DEM_WALLTIME=00:30:00
+CREATE_DEM_MEM=8GB
+CREATE_DEM_NCPUS=1
 
    -----FULL SLC CREATION-----  # parameters for one SLC only
 SLC_WALLTIME=01:00:00
