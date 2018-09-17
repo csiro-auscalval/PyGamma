@@ -133,6 +133,7 @@ function proc_variables {
     ifg_geotiff=`grep ^IFG_GEOTIFF= $proc_file | cut -d "=" -f 2`
 
     # PBS job parameters
+    nci_project=`grep ^NCI_PROJECT= $proc_file | cut -d "=" -f 2`
     minjobs=`grep ^MIN_JOBS= $proc_file | cut -d "=" -f 2`
     maxjobs=`grep ^MAX_JOBS= $proc_file | cut -d "=" -f 2`
     pbs_run_loc=`grep ^PBS_RUN_LOC= $proc_file | cut -d "=" -f 2`
@@ -655,16 +656,17 @@ function track_offsets {
 function single_job {
     local pbs_run_loc=$1
     local pbs_job_prefix=$2
-    local batch_dir=$3
-    local walltime=$4
-    local mem=$5
-    local cpu=$6
-    local queue=$7
-    local depend_job=$8
-    local depend_type=$9
-    local job_type=${10}
-    local script_type=${11}
-    local script=${12}
+    local nci_project=$3
+    local batch_dir=$4
+    local walltime=$5
+    local mem=$6
+    local cpu=$7
+    local queue=$8
+    local depend_job=$9
+    local depend_type=${10}
+    local job_type=${11}
+    local script_type=${12}
+    local script=${13}
 
     cd $batch_dir
     job=$pbs_job_prefix
@@ -683,6 +685,8 @@ function single_job {
     echo \#\PBS -l mem=$mem >> $job
     echo \#\PBS -l ncpus=$cpu >> $job
     echo \#\PBS -l wd >> $job
+    echo \#\PBS -W umask=017 >> $job
+    echo \#\PBS -P $nci_project >> $job
     if [ $pbs_job_prefix == 'init_base' -o $pbs_job_prefix == 'prec_base' ]; then  ## needs python3 to activate baselines script
 	echo \#\PBS -l "software=python" >> $job
     else
@@ -721,18 +725,19 @@ function single_job {
 function multi_jobs {
     local pbs_run_loc=$1
     local pbs_job_prefix=$2
-    local mem=$3
-    local cpu=$4
-    local queue=$5
-    local script=$6
-    local depend_job=$7
-    local depend_type=$8
-    local type=$9
-    local batch_dir=${10}
-    local script_type=${11}
-    local njobs=${12}
-    local nsteps=${13}
-    local i=${14}
+    local nci_project=$3
+    local mem=$4
+    local cpu=$5
+    local queue=$6
+    local script=$7
+    local depend_job=$8
+    local depend_type=$9
+    local type=${10}
+    local batch_dir=${11}
+    local script_type=${12}
+    local njobs=${13}
+    local nsteps=${14}
+    local i=${15}
     local wt=$(( wt1*nsteps ))
     local hh=$(( wt/60 ))
     local mm=$(( wt%60 ))
@@ -757,6 +762,8 @@ function multi_jobs {
 	echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
 	echo \#\PBS -l mem=$mem >> $job
 	echo \#\PBS -l ncpus=$cpu >> $job
+	echo \#\PBS -W umask=017
+	echo \#\PBS -P $nci_project >> $job
 	echo \#\PBS -l wd >> $job
 	echo \#\PBS -q $queue >> $job
 	if [ $depend_job == "0" ]; then #cannnot be integer input, as the depend jobs may be 'xxxx:xxxx:xxxx:xxxx'
