@@ -29,6 +29,9 @@ display_usage() {
     echo "*                  - add full Sentinel-1 processing, including resizing and   *"
     echo "*                     subsetting by bursts                                    *"
     echo "*                  - remove GA processing option                              *"
+    echo "*         Sarah Lawrie @ GA       12/09/2018, v2.1                            *"
+    echo "*                  - refine zip download to only include files related to     *"
+    echo "*                    polarisation rather than full zip file                   *"
     echo "*******************************************************************************"
     echo -e "Usage: extract_raw_data.bash [proc_file] [scene] <S1_grid_dir> <S1_zip_file> <S1_frame_number>"
     }
@@ -44,6 +47,9 @@ scene=$2
 grid=$3
 zip=$4
 frame_num=$5
+
+# extract_raw_data.bash /g/data1/dg9/INSAR_ANALYSIS/NT_EQ_MAY2016/S1/GAMMA/T075D.proc 20151017 25S130E-30S135E S1A_IW_SLC__1SDV_20151017T204339_20151017T204406_008197_00B871_9B84.zip 1 -
+
 
 
 ##########################   GENERIC SETUP  ##########################
@@ -65,6 +71,7 @@ PBS_processing_details $project $track $scene
 
 
 cd $raw_data_track_dir
+
 
 ## Create list of scenes
 if [ $sensor != 'S1' ]; then #non Sentinel-1
@@ -105,6 +112,7 @@ else # Sentinel-1
     year=`echo $scene | awk '{print substr($1,1,4)}'`
     month=`echo $scene | awk '{print substr($1,5,2)}'`
     s1_type=`echo $zip | cut -d "_" -f 1`
+
     # create scene directories
     cd $raw_data_track_dir/F$frame_num
     if [ -f $scene ]; then
@@ -112,11 +120,44 @@ else # Sentinel-1
     else
 	mkdir -p $scene
 	cd $scene
-	# copy zip file
-	cp $s1_path/$year/$year-$month/$grid/$zip $zip
-        # unzip file
-	unzip $zip
-	rm -f $zip
+	
+	# change polarisation variable to lowercase
+	pol=`echo $polar | tr '[:upper:]' '[:lower:]'`
+
+	# copy relevant parts of zip file 
+	dir_name=`basename $zip | cut -d "." -f 1`
+	dir=$dir_name.SAFE
+	anno_dir=$dir/annotation
+	meas_dir=$dir/measurement
+	cal_noise_dir=$anno_dir/calibration
+	zip_loc=$s1_path/$year/$year-$month/$grid/$zip
+	#mkdir -p $dir
+
+	# extract manifest.safe file
+	unzip -j $zip_loc $dir/manifest.safe -d $dir
+
+	# extract files based on polarisation
+	unzip -l $zip_loc | grep -E 'annotation/s1' | awk '{print $4}' | cut -d "/" -f 3 | sed -n '/'-"$pol"-'/p' > xml_list
+	unzip -l $zip_loc | grep -E 'measurement/s1' | awk '{print $4}' | cut -d "/" -f 3 | sed -n '/'-"$pol"-'/p' > data_list
+	unzip -l $zip_loc | grep -E 'calibration/calibration-s1' | awk '{print $4}' | cut -d "/" -f 4 | sed -n '/'-"$pol"-'/p' > calib_list
+	unzip -l $zip_loc | grep -E 'calibration/noise-s1' | awk '{print $4}' | cut -d "/" -f 4 | sed -n '/'-"$pol"-'/p' > noise_list
+	while read xml; do
+	    unzip -j $zip_loc $anno_dir/$xml -d $anno_dir
+	done < xml_list
+	rm -f xml_list
+	while read data; do
+	    unzip -j $zip_loc $meas_dir/$data -d $meas_dir
+	done < data_list
+	rm -f data_list
+	while read calib; do
+	    unzip -j $zip_loc $cal_noise_dir/$calib -d $cal_noise_dir
+	done < calib_list
+	rm -f calib_list
+	while read noise; do
+	    unzip -j $zip_loc $cal_noise_dir/$noise -d $cal_noise_dir
+	done < noise_list
+	rm -f noise_list
+
 	# get precision orbit file
 	start_date=`date -d "$scene -1 days" +%Y%m%d`
 	stop_date=`date -d "$scene +1 days" +%Y%m%d`
