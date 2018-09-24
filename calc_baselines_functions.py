@@ -28,7 +28,7 @@
 *    plot_baseline_time_sm:   time vs Bperp w.r.t. a single master            *
 *    plot_baseline_time_sbas: time vs Bperp + SBAS connections                *
 *                                                                             *
-* author: Thomas Fuhrmann @ GA March, 2018 v0.1                               * 
+* author: Thomas Fuhrmann @ GA March, 2018 v0.1                               *
 *         Sarah Lawrie @ GA       13/08/2018, v1.0                            *
 *             -  Major update to streamline processing:                       *
 *                  - use functions for variables and PBS job generation       *
@@ -362,8 +362,13 @@ def create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, \
                 ix2[i, j] = False
                 ix2[j, i] = False
 
-
+    # matrix of connections (true: use this connection, false: don't use
     ix = np.logical_and(ix2, tri_true)
+
+    # add back all daisy-chain interferograms (if not selected already)
+    for i in range(0, num_scenes-1):
+        ix[i, i+1] = True
+
     # final interferogram connections (already sorted ascending for x)
     [epoch1, epoch2] = np.where(ix)
     outfile.write('Number of final SBAS network connections: %d\n' % (len(epoch1)))

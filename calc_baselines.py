@@ -402,7 +402,11 @@ if type == 'initial':
 
         # Define min/max number of connections to be used
         nmin = 4
-        nmax = 10
+        # reduced max threshold for Sentinel-1 because of small repeat time
+        if sensor == "S1":
+            nmax = 7
+        else:
+            nmax = 10
 
         # Output SBAS network parameters
         outfile = open(os.path.join(base_dir, track + "_SBAS_parameters.txt"), "w")
@@ -426,6 +430,7 @@ if type == 'initial':
         cbf.plot_baseline_time_sbas(np.array(dates), Bperps, epoch1, epoch2, filename)
 
         # save dates of connections to ifgs.list
+        ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
         # Check if ifgs.list file exists and has already be renamed
         if os.path.isfile(ifgs_list):
             # save existing ifgs.list to ifgs_backup.list
