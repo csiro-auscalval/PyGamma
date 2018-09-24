@@ -17,7 +17,7 @@ function READ_TAB {
 
     # read burst SLC filename tab files
     if [ $tab_file == $master_slc_tab ]; then
-        # first line 
+        # first line
 	master_IW1_slc=`awk '(NR==1){print $1}' $tab_file` # SLC1_tab in 'S1_coreg_TOPS', RSLC1_tab in 'S1_poly_overlap' and 'S1_coreg_overlap' original scripts
 	master_IW1_par=`awk '(NR==1){print $2}' $tab_file`
 	master_IW1_TOPS=`awk '(NR==1){print $3}' $tab_file`
@@ -31,7 +31,7 @@ function READ_TAB {
 	if [ $nrows -gt 2 ]; then
 	    master_IW3_slc=`awk '(NR==3){print $1}' $tab_file`
 	    master_IW3_par=`awk '(NR==3){print $2}' $tab_file`
-	    master_IW3_TOPS=`awk '(NR==3){print $3}' $tab_file`    
+	    master_IW3_TOPS=`awk '(NR==3){print $3}' $tab_file`
 	fi
     elif [ $tab_file == $slave_slc_tab ]; then
         # first line
@@ -56,7 +56,7 @@ function READ_TAB {
 	r_slave_IW1_par=`awk '(NR==1){print $2}' $tab_file`
 	r_slave_IW1_TOPS=`awk '(NR==1){print $3}' $tab_file`
         # second line
-	if [ $nrows -gt 1 ]; then	 
+	if [ $nrows -gt 1 ]; then
 	    r_slave_IW2_slc=`awk '(NR==2){print $1}' $tab_file`
 	    r_slave_IW2_par=`awk '(NR==2){print $2}' $tab_file`
 	    r_slave_IW2_TOPS=`awk '(NR==2){print $3}' $tab_file`
@@ -67,14 +67,32 @@ function READ_TAB {
 	    r_slave_IW3_par=`awk '(NR==3){print $2}' $tab_file`
 	    r_slave_IW3_TOPS=`awk '(NR==3){print $3}' $tab_file`
 	fi
+    # option to coregister to another slave
+    elif [ $tab_file == $r_slave2_slc_tab ]; then
+	# first line
+	r_slave2_IW1_slc=`awk '(NR==1){print $1}' $tab_file` # RSLC3_tab in 'S1_coreg_TOPS' and 'S1_coreg_overlap' original scripts
+	r_slave2_IW1_par=`awk '(NR==1){print $2}' $tab_file`
+	r_slave2_IW1_TOPS=`awk '(NR==1){print $3}' $tab_file`
+        # second line
+	if [ $nrows -gt 1 ]; then
+	    r_slave2_IW2_slc=`awk '(NR==2){print $1}' $tab_file`
+	    r_slave2_IW2_par=`awk '(NR==2){print $2}' $tab_file`
+	    r_slave2_IW2_TOPS=`awk '(NR==2){print $3}' $tab_file`
+	fi
+	# third line
+	if [ $nrows -gt 2 ]; then
+	    r_slave2_IW3_slc=`awk '(NR==3){print $1}' $tab_file`
+	    r_slave2_IW3_par=`awk '(NR==3){print $2}' $tab_file`
+	    r_slave2_IW3_TOPS=`awk '(NR==3){print $3}' $tab_file`
+	fi
     fi
 }
 
-### derived from 'S1_poly_overlap' example GAMMA script 
+### derived from 'S1_poly_overlap' example GAMMA script
 # only uses overlap type 1 (for azimuth overlap), option 2 for range overlap isn't built into this function
 function POLY_OVERLAP {
     local master_slc_tab=$1
-    local rlks=$2 
+    local rlks=$2
     local alks=$3
     local slave_az_ovr_poly=$4
 
@@ -82,17 +100,17 @@ function POLY_OVERLAP {
     READ_TAB $master_slc_tab
 
     # set parameters used for all sub-swaths
-    azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $master_IW1_par`      
-    range_pixel_spacing=`awk '$1 == "range_pixel_spacing:" {print $2}' $master_IW1_par`      
+    azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $master_IW1_par`
+    range_pixel_spacing=`awk '$1 == "range_pixel_spacing:" {print $2}' $master_IW1_par`
     echo "azimuth_line_time: "$azimuth_line_time
     echo "range_pixel_spacing: "$range_pixel_spacing
 
     # determine start time (over all sub-swaths)
-    IW1_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW1_TOPS`      
-    start_time=$IW1_burst_start_time_1       
+    IW1_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW1_TOPS`
+    start_time=$IW1_burst_start_time_1
     IW1_k=0
     if [ $nrows -gt 1 ]; then
-	IW2_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW2_TOPS` 
+	IW2_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW2_TOPS`
 	rows_offset=`echo "$IW2_burst_start_time_1 $start_time $azimuth_line_time" | awk '{printf "%d", ($1-$2)/$3}'`
 	IW2_k=0
 	if [ $rows_offset -lt 0 ]; then
@@ -101,7 +119,7 @@ function POLY_OVERLAP {
 	fi
     fi
     if [ $nrows -gt 2 ]; then
-	IW3_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW3_TOPS` 
+	IW3_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW3_TOPS`
 	rows_offset=`echo "$IW3_burst_start_time_1 $start_time $azimuth_line_time" | awk '{printf "%d", ($1-$2)/$3}'`
 	IW3_k=0
 	if [ $rows_offset -lt 0 ]; then
@@ -111,50 +129,50 @@ function POLY_OVERLAP {
     fi
 
     # determine for each sub-swath: lirst/lat valid line/sample, offset between bursts (all in MLI pixels), k
-    IW1_number_of_bursts=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW1_TOPS`      
-    IW1_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW1_TOPS`      
-    IW1_burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW1_TOPS`      
-    IW1_first_valid_line=`awk '$1 == "first_valid_line_1:" {print $2}' $master_IW1_TOPS`      
-    IW1_last_valid_line=`awk '$1 == "last_valid_line_1:" {print $2}' $master_IW1_TOPS`      
-    IW1_near_range_slc=`awk '$1 == "near_range_slc:" {print $2}' $master_IW1_par`	
-    IW1_first_valid_sample=`awk '$1 == "first_valid_sample_1:" {print $2}' $master_IW1_TOPS`      
-    IW1_last_valid_sample=`awk '$1 == "last_valid_sample_1:" {print $2}' $master_IW1_TOPS`      
+    IW1_number_of_bursts=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW1_TOPS`
+    IW1_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW1_TOPS`
+    IW1_burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW1_TOPS`
+    IW1_first_valid_line=`awk '$1 == "first_valid_line_1:" {print $2}' $master_IW1_TOPS`
+    IW1_last_valid_line=`awk '$1 == "last_valid_line_1:" {print $2}' $master_IW1_TOPS`
+    IW1_near_range_slc=`awk '$1 == "near_range_slc:" {print $2}' $master_IW1_par`
+    IW1_first_valid_sample=`awk '$1 == "first_valid_sample_1:" {print $2}' $master_IW1_TOPS`
+    IW1_last_valid_sample=`awk '$1 == "last_valid_sample_1:" {print $2}' $master_IW1_TOPS`
     IW1_start_line=`echo "$IW1_burst_start_time_1 $start_time $azimuth_line_time $IW1_first_valid_line $alks" | awk '{printf "%d", 0.5+($4+($1-$2)/$3)/$5}'`
     IW1_stop_line=`echo "$IW1_burst_start_time_1 $start_time $azimuth_line_time $IW1_last_valid_line $alks" | awk '{printf "%d", 0.5+($4+($1-$2)/$3)/$5}'`
-    IW1_start_sample=`echo "$IW1_first_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'` 
-    IW1_stop_sample=`echo "$IW1_last_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'` 
+    IW1_start_sample=`echo "$IW1_first_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'`
+    IW1_stop_sample=`echo "$IW1_last_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'`
     IW1_rows_offset=`echo "$IW1_burst_start_time_1  $IW1_burst_start_time_2 $azimuth_line_time $alks" | awk '{printf "%f", ($2-$1)/$3/$4}'`
     echo "IW1_rows_offset: "$IW1_rows_offset
 
     if [ $nrows -gt 1 ]; then
-	IW2_number_of_bursts=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW2_TOPS`      
-	IW2_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW2_TOPS`      
-	IW2_burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW2_TOPS`      
-	IW2_first_valid_line=`awk '$1 == "first_valid_line_1:" {print $2}' $master_IW2_TOPS`      
-	IW2_last_valid_line=`awk '$1 == "last_valid_line_1:" {print $2}' $master_IW2_TOPS`      
-	IW2_near_range_slc=`awk '$1 == "near_range_slc:" {print $2}' $master_IW2_par`	
-	IW2_first_valid_sample=`awk '$1 == "first_valid_sample_1:" {print $2}' $master_IW2_TOPS`      
-	IW2_last_valid_sample=`awk '$1 == "last_valid_sample_1:" {print $2}' $master_IW2_TOPS`      
+	IW2_number_of_bursts=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW2_TOPS`
+	IW2_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW2_TOPS`
+	IW2_burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW2_TOPS`
+	IW2_first_valid_line=`awk '$1 == "first_valid_line_1:" {print $2}' $master_IW2_TOPS`
+	IW2_last_valid_line=`awk '$1 == "last_valid_line_1:" {print $2}' $master_IW2_TOPS`
+	IW2_near_range_slc=`awk '$1 == "near_range_slc:" {print $2}' $master_IW2_par`
+	IW2_first_valid_sample=`awk '$1 == "first_valid_sample_1:" {print $2}' $master_IW2_TOPS`
+	IW2_last_valid_sample=`awk '$1 == "last_valid_sample_1:" {print $2}' $master_IW2_TOPS`
 	IW2_start_line=`echo "$IW2_burst_start_time_1 $start_time $azimuth_line_time $IW2_first_valid_line $alks" | awk '{printf "%d", 0.5+($4+($1-$2)/$3)/$5}'`
 	IW2_stop_line=`echo "$IW2_burst_start_time_1 $start_time $azimuth_line_time $IW2_last_valid_line $alks" | awk '{printf "%d", 0.5+($4+($1-$2)/$3)/$5}'`
-	IW2_start_sample=`echo "$IW2_first_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'` 
-	IW2_stop_sample=`echo "$IW2_last_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'` 
+	IW2_start_sample=`echo "$IW2_first_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'`
+	IW2_stop_sample=`echo "$IW2_last_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'`
 	IW2_rows_offset=`echo "$IW2_burst_start_time_1  $IW2_burst_start_time_2 $azimuth_line_time $alks" | awk '{printf "%f", ($2-$1)/$3/$4}'`
         echo "IW2_rows_offset: "$IW2_rows_offset
     fi
     if [ $nrows -gt 2 ]; then
-	IW3_number_of_bursts=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW3_TOPS`      
-	IW3_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW3_TOPS`      
-	IW3_burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW3_TOPS`      
-	IW3_first_valid_line=`awk '$1 == "first_valid_line_1:" {print $2}' $master_IW3_TOPS`      
-	IW3_last_valid_line=`awk '$1 == "last_valid_line_1:" {print $2}' $master_IW3_TOPS`      
-	IW3_near_range_slc=`awk '$1 == "near_range_slc:" {print $2}' $master_IW3_par`	
-	IW3_first_valid_sample=`awk '$1 == "first_valid_sample_1:" {print $2}' $master_IW3_TOPS`      
-	IW3_last_valid_sample=`awk '$1 == "last_valid_sample_1:" {print $2}' $master_IW3_TOPS`      
+	IW3_number_of_bursts=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW3_TOPS`
+	IW3_burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW3_TOPS`
+	IW3_burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW3_TOPS`
+	IW3_first_valid_line=`awk '$1 == "first_valid_line_1:" {print $2}' $master_IW3_TOPS`
+	IW3_last_valid_line=`awk '$1 == "last_valid_line_1:" {print $2}' $master_IW3_TOPS`
+	IW3_near_range_slc=`awk '$1 == "near_range_slc:" {print $2}' $master_IW3_par`
+	IW3_first_valid_sample=`awk '$1 == "first_valid_sample_1:" {print $2}' $master_IW3_TOPS`
+	IW3_last_valid_sample=`awk '$1 == "last_valid_sample_1:" {print $2}' $master_IW3_TOPS`
 	IW3_start_line=`echo "$IW3_burst_start_time_1 $start_time $azimuth_line_time $IW3_first_valid_line $alks" | awk '{printf "%d", 0.5+($4+($1-$2)/$3)/$5}'`
 	IW3_stop_line=`echo "$IW3_burst_start_time_1 $start_time $azimuth_line_time $IW3_last_valid_line $alks" | awk '{printf "%d", 0.5+($4+($1-$2)/$3)/$5}'`
-	IW3_start_sample=`echo "$IW3_first_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'` 
-	IW3_stop_sample=`echo "$IW3_last_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'` 
+	IW3_start_sample=`echo "$IW3_first_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'`
+	IW3_stop_sample=`echo "$IW3_last_valid_sample $rlks" | awk '{printf "%d", 0.5+($1/$2)}'`
 	IW3_rows_offset=`echo "$IW3_burst_start_time_1  $IW3_burst_start_time_2 $azimuth_line_time $alks" | awk '{printf "%f", ($2-$1)/$3/$4}'`
 	echo "IW3_rows_offset: "$IW3_rows_offset
     fi
@@ -196,12 +214,12 @@ function POLY_OVERLAP {
 
 	i=1  # burst number
 	while [ "$i" -lt "$number_of_swaths" ]; do
-	    az1=`echo "$start_line $i $rows_offset" | awk '{printf "%d", 0.5+$1+($2*$3)}'` 
-	    az2=`echo "$stop_line $i $rows_offset" | awk '{printf "%d", 0.5+$1+(($2-1.)*$3)}'` 
+	    az1=`echo "$start_line $i $rows_offset" | awk '{printf "%d", 0.5+$1+($2*$3)}'`
+	    az2=`echo "$stop_line $i $rows_offset" | awk '{printf "%d", 0.5+$1+(($2-1.)*$3)}'`
             echo "i,j: "$i","$j"  mli_cols: "$start_sample" to "$stop_sample"   mli_rows: "$az1" to "$az2
 	    if [ "$i" -eq 1 ] && [ "$j" -eq 1 ]; then
 		echo "	$start_sample	$az1	1" > $slave_az_ovr_poly
-	    else       
+	    else
 		echo "	$start_sample	$az1	1" >> $slave_az_ovr_poly
 	    fi
 	    echo "	$stop_sample	$az1	2" >> $slave_az_ovr_poly
@@ -216,7 +234,7 @@ function POLY_OVERLAP {
 
 
 
-# derived from 'S1_coreg_overlap' example GAMMA script 
+# derived from 'S1_coreg_overlap' example GAMMA script
 function S1_COREG_OVERLAP {
     local master_slc_tab=$1
     local r_slave_slc_tab=$2
@@ -225,6 +243,10 @@ function S1_COREG_OVERLAP {
     local slave_s1_cct=$5
     local slave_s1_frac=$6
     local slave_s1_stdev=$7
+    # option to coregister to another slave
+    if [ $# -gt 7 ]; then
+      local r_slave2_slc_tab=$8
+    fi
 
     samples=0
     sum=0.0
@@ -237,60 +259,65 @@ function S1_COREG_OVERLAP {
     # determine number of rows and columns of tab file and read burst SLC filenames from tab files
     READ_TAB $master_slc_tab
     READ_TAB $r_slave_slc_tab
+    # option to coregister to another slave
+    if [ $# -gt 7 ]; then
+      READ_TAB $r_slave2_slc_tab
+    fi
+
 
     # determine lines offset between start of burst1 and start of burst2
-    azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $master_IW1_par`      
-    burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW1_TOPS`      
-    burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW1_TOPS`      
+    azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $master_IW1_par`
+    burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW1_TOPS`
+    burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW1_TOPS`
     lines_offset_float=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%f", (($2-$1)/$3)}'`
     lines_offset_IW1=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%d", (0.5+($2-$1)/$3)}'`
     echo "lines_offset_IW1: "$lines_offset_float $lines_offset_IW1   # lines offset between start of burst1 and start of burst2
 
     if [ $nrows -gt 1 ]; then
-	azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $master_IW2_par`      
-	burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW2_TOPS`      
-	burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW2_TOPS`      
+	azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $master_IW2_par`
+	burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW2_TOPS`
+	burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW2_TOPS`
 	lines_offset_float=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%f", (($2-$1)/$3)}'`
 	lines_offset_IW2=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%d", (0.5+($2-$1)/$3)}'`
 	echo "lines_offset_IW2: "$lines_offset_float $lines_offset_IW2   # lines offset between start of burst1 and start of burst2
     fi
 
     if [ $nrows -gt 2 ]; then
-	azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $master_IW3_par`      
-	burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW3_TOPS`      
-	burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW3_TOPS`      
+	azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $master_IW3_par`
+	burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $master_IW3_TOPS`
+	burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $master_IW3_TOPS`
 	lines_offset_float=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%f", (($2-$1)/$3)}'`
 	lines_offset_IW3=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%d", (0.5+($2-$1)/$3)}'`
 	echo "lines_offset_IW3: "$lines_offset_float $lines_offset_IW3   # lines offset between start of burst1 and start of burst2
     fi
 
     # calculate lines_offset for the second scene (for comparsion)
-    azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $r_slave_IW1_par`      
-    burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $r_slave_IW1_TOPS`      
-    burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $r_slave_IW1_TOPS`      
+    azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $r_slave_IW1_par`
+    burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $r_slave_IW1_TOPS`
+    burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $r_slave_IW1_TOPS`
     lines_offset_float=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%f", (($2-$1)/$3)}'`
     lines_offset=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%d", (0.5+($2-$1)/$3)}'`
     echo "lines_offset_IW1: "$lines_offset_float $lines_offset   # lines offset between start of burst1 and start of burst2
 
     if [ $nrows -gt 1 ]; then
-	azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $r_slave_IW2_par`      
-	burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $r_slave_IW2_TOPS`      
-	burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $r_slave_IW2_TOPS`      
+	azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $r_slave_IW2_par`
+	burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $r_slave_IW2_TOPS`
+	burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $r_slave_IW2_TOPS`
 	lines_offset_float=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%f", (($2-$1)/$3)}'`
 	lines_offset=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%d", (0.5+($2-$1)/$3)}'`
 	echo "lines_offset_IW2: "$lines_offset_float $lines_offset   # lines offset between start of burst1 and start of burst2
     fi
     if [ $nrows -gt 2 ]; then
-	azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $r_slave_IW3_par`      
-	burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $r_slave_IW3_TOPS`      
-	burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $r_slave_IW3_TOPS`      
+	azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $r_slave_IW3_par`
+	burst_start_time_1=`awk '$1 == "burst_start_time_1:" {print $2}' $r_slave_IW3_TOPS`
+	burst_start_time_2=`awk '$1 == "burst_start_time_2:" {print $2}' $r_slave_IW3_TOPS`
 	lines_offset_float=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%f", (($2-$1)/$3)}'`
-	lines_offset=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%d", (0.5+($2-$1)/$3)}'`  
+	lines_offset=`echo $burst_start_time_1 $burst_start_time_2 $azimuth_line_time | awk '{printf "%d", (0.5+($2-$1)/$3)}'`
 	echo "lines_offset_IW3: "$lines_offset_float $lines_offset   # lines offset between start of burst1 and start of burst2
     fi
 
     # set some parameters used
-    azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $master_IW1_par`      
+    azimuth_line_time=`awk '$1 == "azimuth_line_time:" {print $2}' $master_IW1_par`
     dDC=`echo $azimuth_line_time $lines_offset_IW1 | awk '{printf "%f", 1739.43*$1*$2}'`
     echo "dDC "$dDC" Hz"
     dt=`echo $dDC | awk '{printf "%f", 0.159154/$1}'`
@@ -303,12 +330,12 @@ function S1_COREG_OVERLAP {
 
     # determine phase offsets for sub-swath overlap regions of first/second sub-swaths
 
-    # IW1: 
-    number_of_bursts_IW1=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW1_TOPS`      
-    lines_per_burst=`awk '$1 == "lines_per_burst:" {print $2}' $master_IW1_TOPS`      
-    lines_offset=$lines_offset_IW1 
+    # IW1:
+    number_of_bursts_IW1=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW1_TOPS`
+    lines_per_burst=`awk '$1 == "lines_per_burst:" {print $2}' $master_IW1_TOPS`
+    lines_offset=$lines_offset_IW1
     lines_overlap=`echo $lines_per_burst $lines_offset | awk '{printf "%d", $1-$2}'`
-    range_samples=`awk '$1 == "range_samples:" {print $2}' $master_IW1_par`      
+    range_samples=`awk '$1 == "range_samples:" {print $2}' $master_IW1_par`
     samples=0
     sum=0.0
     sum_weight=0.0
@@ -323,17 +350,27 @@ function S1_COREG_OVERLAP {
         mas_IW1_slc=$r_master_slave_name"_IW1_slc"
         mas_IW1_par=$r_master_slave_name"_IW1_par"
 
-        SLC_copy $master_IW1_slc $master_IW1_par $mas_IW1_slc.$i.1 $mas_IW1_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
-	SLC_copy $master_IW1_slc $master_IW1_par $mas_IW1_slc.$i.2 $mas_IW1_par.$i.2 - 1. 0 $range_samples $starting_line1 $lines_overlap
+        # option to coregister to another slave
+        if [ $# -gt 7 ]; then
+          SLC_copy $r_slave2_IW1_slc $master_IW1_par $mas_IW1_slc.$i.1 $mas_IW1_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	  SLC_copy $r_slave2_IW1_slc $master_IW1_par $mas_IW1_slc.$i.2 $mas_IW1_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
+        else
+          SLC_copy $master_IW1_slc $master_IW1_par $mas_IW1_slc.$i.1 $mas_IW1_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	  SLC_copy $master_IW1_slc $master_IW1_par $mas_IW1_slc.$i.2 $mas_IW1_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
+        fi
+        # next two lines commented to allow for coregistration using another slave
+        #SLC_copy $master_IW1_slc $master_IW1_par $mas_IW1_slc.$i.1 $mas_IW1_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	#SLC_copy $master_IW1_slc $master_IW1_par $mas_IW1_slc.$i.2 $mas_IW1_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
 	SLC_copy $r_slave_IW1_slc $master_IW1_par $r_slave_IW1_slc.$i.1 $r_slave_IW1_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
-	SLC_copy $r_slave_IW1_slc $master_IW1_par $r_slave_IW1_slc.$i.2 $r_slave_IW1_par.$i.2 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	SLC_copy $r_slave_IW1_slc $master_IW1_par $r_slave_IW1_slc.$i.2 $r_slave_IW1_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
 
         # calculate the 2 single look interferograms for the burst overlap region i
         # using the earlier burst --> *.int1, using the later burst --> *.int2
-	off1=$r_master_slave_name.IW1.$i.off1 
+	off1=$r_master_slave_name.IW1.$i.off1
 	int1=$r_master_slave_name.IW1.$i.int1
 	if [ -e $off1 ]; then
 	    rm -f $off1
+	    rm -f $int1
 	fi
 	create_offset $mas_IW1_par.$i.1 $mas_IW1_par.$i.1 $off1 1 1 1 0
 	SLC_intf $mas_IW1_slc.$i.1 $r_slave_IW1_slc.$i.1 $mas_IW1_par.$i.1 $mas_IW1_par.$i.1 $off1 $int1 1 1 0 - 0 0
@@ -342,6 +379,7 @@ function S1_COREG_OVERLAP {
 	int2=$r_master_slave_name.IW1.$i.int2
 	if [ -e $off2 ]; then
 	    rm -f $off2
+	    rm -f $int2
 	fi
 	create_offset $mas_IW1_par.$i.2 $mas_IW1_par.$i.2 $off2 1 1 1 0
 	SLC_intf $mas_IW1_slc.$i.2 $r_slave_IW1_slc.$i.2 $mas_IW1_par.$i.2 $mas_IW1_par.$i.2 $off2 $int2 1 1 0 - 0 0
@@ -361,10 +399,10 @@ function S1_COREG_OVERLAP {
 	diff20=$r_master_slave_name.IW1.$i.diff20
 	off20=$r_master_slave_name.IW1.$i.off20
 	multi_cpx $diff1 $off1 $diff20 $off20 200 4
-	range_samples20=`awk '$1 == "interferogram_width:" {print $2}' $off20`      
-	azimuth_lines20=`awk '$1 == "interferogram_azimuth_lines:" {print $2}' $off20`      
-	range_samples20_half=`awk '$1 == "interferogram_width:" {printf "%d", $2/2}' $off20`      
-	azimuth_lines20_half=`awk '$1 == "interferogram_azimuth_lines:" {printf "%d", $2/2}' $off20`      
+	range_samples20=`awk '$1 == "interferogram_width:" {print $2}' $off20`
+	azimuth_lines20=`awk '$1 == "interferogram_azimuth_lines:" {print $2}' $off20`
+	range_samples20_half=`awk '$1 == "interferogram_width:" {printf "%d", $2/2}' $off20`
+	azimuth_lines20_half=`awk '$1 == "interferogram_azimuth_lines:" {printf "%d", $2/2}' $off20`
 	echo "range_samples20_half: "$range_samples20_half
 	echo "azimuth_samples20_half: "$azimuth_lines20_half
 
@@ -403,9 +441,9 @@ function S1_COREG_OVERLAP {
 	    cc_fraction=`awk '{print}' temp3`
 	    cc_fraction1000=`echo $cc_fraction | awk '{printf "%d", $1*1000.}'`
 	else
-	    cc_mean=0      
-	    cc_stdev=0      
-	    cc_fraction=0      
+	    cc_mean=0
+	    cc_stdev=0
+	    cc_fraction=0
 	    cc_fraction1000=0
 	fi
 	echo "cc_fraction1000: "$cc_fraction1000
@@ -420,9 +458,9 @@ function S1_COREG_OVERLAP {
 	    fraction=`awk '{print}' temp3`
 	    fraction1000=`echo $fraction | awk '{printf "%d", $1*1000.}'`
 	else
-	    mean=0       
-	    stdev=0       
-	    fraction=0     
+	    mean=0
+	    stdev=0
+	    fraction=0
 	    fraction1000=0
 	fi
 
@@ -435,7 +473,7 @@ function S1_COREG_OVERLAP {
 	stdev10000=`echo $stdev | awk '{printf "%d", $1*10000.}'`
 
         # only for overlap regions with a significant area with high coherence and phase standard deviation < stdev10000_thresh
-	if [[ "$fraction10000" -gt "$fraction10000_thresh" && "$stdev10000" -lt "$stdev10000_thresh" ]]; then   
+	if [[ "$fraction10000" -gt "$fraction10000_thresh" && "$stdev10000" -lt "$stdev10000_thresh" ]]; then
 	    weight=`echo $fraction $stdev | awk '{printf "%f", $1/($2+0.1)/($2+0.1)}'`    # +0.1 to limit maximum weights for very low stdev
 	    sum=`echo $sum $mean $fraction | awk '{printf "%f", $1+($2*$3)}'`
 	    samples=`echo $samples | awk '{printf "%d", $1+1}'`
@@ -476,13 +514,13 @@ function S1_COREG_OVERLAP {
 
     # determine phase offsets for burst overlap regions of second sub-swath
 
-    # IW2: 
+    # IW2:
     if [ $nrows -gt 1 ]; then  # only do this if there is more than 1 sub-swath
-	number_of_bursts_IW2=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW2_TOPS`      
-	lines_per_burst=`awk '$1 == "lines_per_burst:" {print $2}' $master_IW2_TOPS`      
-	lines_offset=$lines_offset_IW2 
+	number_of_bursts_IW2=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW2_TOPS`
+	lines_per_burst=`awk '$1 == "lines_per_burst:" {print $2}' $master_IW2_TOPS`
+	lines_offset=$lines_offset_IW2
 	lines_overlap=`echo $lines_per_burst $lines_offset | awk '{printf "%d", $1-$2}'`
-	range_samples=`awk '$1 == "range_samples:" {print $2}' $master_IW2_par`      
+	range_samples=`awk '$1 == "range_samples:" {print $2}' $master_IW2_par`
 	samples=0
 	sum=0.0
 	sum_weight=0.0
@@ -497,14 +535,23 @@ function S1_COREG_OVERLAP {
             mas_IW2_slc=$r_master_slave_name"_IW2_slc"
             mas_IW2_par=$r_master_slave_name"_IW2_par"
 
-	    SLC_copy $master_IW2_slc $master_IW2_par $mas_IW2_slc.$i.1 $mas_IW2_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
-	    SLC_copy $master_IW2_slc $master_IW2_par $mas_IW2_slc.$i.2 $mas_IW2_par.$i.2 - 1. 0 $range_samples $starting_line1 $lines_overlap
+            # option to coregister to another slave
+            if [ $# -gt 7 ]; then
+              SLC_copy $r_slave2_IW2_slc $master_IW2_par $mas_IW2_slc.$i.1 $mas_IW2_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	      SLC_copy $r_slave2_IW2_slc $master_IW2_par $mas_IW2_slc.$i.2 $mas_IW2_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
+            else
+              SLC_copy $master_IW2_slc $master_IW2_par $mas_IW2_slc.$i.1 $mas_IW2_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	      SLC_copy $master_IW2_slc $master_IW2_par $mas_IW2_slc.$i.2 $mas_IW2_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
+            fi
+	    # next two lines commented to allow for coregistration using another slave
+	    #SLC_copy $master_IW2_slc $master_IW2_par $mas_IW2_slc.$i.1 $mas_IW2_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	    #SLC_copy $master_IW2_slc $master_IW2_par $mas_IW2_slc.$i.2 $mas_IW2_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
 	    SLC_copy $r_slave_IW2_slc $master_IW2_par $r_slave_IW2_slc.$i.1 $r_slave_IW2_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
-	    SLC_copy $r_slave_IW2_slc $master_IW2_par $r_slave_IW2_slc.$i.2 $r_slave_IW2_par.$i.2 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	    SLC_copy $r_slave_IW2_slc $master_IW2_par $r_slave_IW2_slc.$i.2 $r_slave_IW2_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
 
             # calculate the 2 single look interferograms for the burst overlap region i
             # using the earlier burst --> *.int1, using the later burst --> *.int2
-	    off1=$r_master_slave_name.IW2.$i.off1 
+	    off1=$r_master_slave_name.IW2.$i.off1
 	    int1=$r_master_slave_name.IW2.$i.int1
 	    if [ -e $off1 ]; then
 		rm -f $off1
@@ -535,10 +582,10 @@ function S1_COREG_OVERLAP {
 	    diff20=$r_master_slave_name.IW2.$i.diff20
 	    off20=$r_master_slave_name.IW2.$i.off20
 	    multi_cpx $diff1 $off1 $diff20 $off20 200 4
-	    range_samples20=`awk '$1 == "interferogram_width:" {print $2}' $off20`      
-	    azimuth_lines20=`awk '$1 == "interferogram_azimuth_lines:" {print $2}' $off20`      
-	    range_samples20_half=`awk '$1 == "interferogram_width:" {printf "%d", $2/2}' $off20`      
-	    azimuth_lines20_half=`awk '$1 == "interferogram_azimuth_lines:" {printf "%d", $2/2}' $off20`      
+	    range_samples20=`awk '$1 == "interferogram_width:" {print $2}' $off20`
+	    azimuth_lines20=`awk '$1 == "interferogram_azimuth_lines:" {print $2}' $off20`
+	    range_samples20_half=`awk '$1 == "interferogram_width:" {printf "%d", $2/2}' $off20`
+	    azimuth_lines20_half=`awk '$1 == "interferogram_azimuth_lines:" {printf "%d", $2/2}' $off20`
 
             # determine coherence and coherence mask based on unfiltered double differential interferogram
 	    diff20cc=$r_master_slave_name.IW2.$i.diff20.cc
@@ -558,11 +605,11 @@ function S1_COREG_OVERLAP {
 	    diff20cc=$r_master_slave_name.IW2.$i.diff20.cc
 	    diff20cc_ras=$r_master_slave_name.IW2.$i.diff20.cc.ras
 	    diff20phase=$r_master_slave_name.IW2.$i.diff20.phase
-	    
+
 	    mcf $diff20adf $diff20cc $diff20cc_ras $diff20phase $range_samples20 1 0 0 - - 1 1 512 $range_samples20_half $azimuth_lines20_half
 	    ls -l $diff20phase > temp1
-	    size=`awk '{print $5}' temp1`	    
-	    
+	    size=`awk '{print $5}' temp1`
+
             # determine overlap phase average (in radian), standard deviation (in radian), and valid data fraction
 	    if [ -e $diff20cc ]; then
 		diff20ccstat=$r_master_slave_name.IW2.$i.diff20.cc.stat
@@ -576,9 +623,9 @@ function S1_COREG_OVERLAP {
 		cc_fraction=`awk '{print}' temp3`
 		cc_fraction1000=`echo $cc_fraction | awk '{printf "%d", $1*1000.}'`
 	    else
-		cc_mean=0      
-		cc_stdev=0      
-		cc_fraction=0      
+		cc_mean=0
+		cc_stdev=0
+		cc_fraction=0
 		cc_fraction1000=0
 	    fi
 	    echo "cc_fraction1000: "$cc_fraction1000
@@ -593,9 +640,9 @@ function S1_COREG_OVERLAP {
 		fraction=`awk '{print}' temp3`
 		fraction1000=`echo $fraction | awk '{printf "%d", $1*1000.}'`
 	    else
-		mean=0       
-		stdev=0       
-		fraction=0     
+		mean=0
+		stdev=0
+		fraction=0
 		fraction1000=0
 	    fi
 
@@ -608,7 +655,7 @@ function S1_COREG_OVERLAP {
 	    stdev10000=`echo $stdev | awk '{printf "%d", $1*10000.}'`
 
             # only for overlap regions with a significant area with high coherence and phase standard deviation < stdev10000_thresh
-	    if [[ "$fraction10000" -gt "$fraction10000_thresh" && "$stdev10000" -lt "$stdev10000_thresh" ]]; then   
+	    if [[ "$fraction10000" -gt "$fraction10000_thresh" && "$stdev10000" -lt "$stdev10000_thresh" ]]; then
 		weight=`echo $fraction $stdev | awk '{printf "%f", $1/($2+0.1)/($2+0.1)}'`    # +0.1 to limit maximum weights for very low stdev
 		sum=`echo $sum $mean $fraction | awk '{printf "%f", $1+($2*$3)}'`
 		samples=`echo $samples | awk '{printf "%d", $1+1}'`
@@ -649,13 +696,13 @@ function S1_COREG_OVERLAP {
 
     # determine phase offsets for burst overlap regions of third sub-swath
 
-    # IW3: 
+    # IW3:
     if [ $nrows -gt 2 ]; then
-	number_of_bursts_IW3=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW3_TOPS`      
-	lines_per_burst=`awk '$1 == "lines_per_burst:" {print $2}' $master_IW3_TOPS`      
-	lines_offset=$lines_offset_IW3 
+	number_of_bursts_IW3=`awk '$1 == "number_of_bursts:" {print $2}' $master_IW3_TOPS`
+	lines_per_burst=`awk '$1 == "lines_per_burst:" {print $2}' $master_IW3_TOPS`
+	lines_offset=$lines_offset_IW3
 	lines_overlap=`echo $lines_per_burst $lines_offset | awk '{printf "%d", $1-$2}'`
-	range_samples=`awk '$1 == "range_samples:" {print $2}' $master_IW3_par`      
+	range_samples=`awk '$1 == "range_samples:" {print $2}' $master_IW3_par`
 	samples=0
 	sum=0.0
 	sum_weight=0.0
@@ -670,14 +717,23 @@ function S1_COREG_OVERLAP {
             mas_IW3_slc=$r_master_slave_name"_IW3_slc"
             mas_IW3_par=$r_master_slave_name"_IW3_par"
 
-	    SLC_copy $master_IW3_slc $master_IW3_par $mas_IW3_slc.$i.1 $mas_IW3_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
-	    SLC_copy $master_IW3_slc $master_IW3_par $mas_IW3_slc.$i.2 $mas_IW3_par.$i.2 - 1. 0 $range_samples $starting_line1 $lines_overlap
+            # option to coregister to another slave
+            if [ $# -gt 7 ]; then
+              SLC_copy $r_slave2_IW3_slc $master_IW3_par $mas_IW3_slc.$i.1 $mas_IW3_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	      SLC_copy $r_slave2_IW3_slc $master_IW3_par $mas_IW3_slc.$i.2 $mas_IW3_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
+            else
+              SLC_copy $master_IW3_slc $master_IW3_par $mas_IW3_slc.$i.1 $mas_IW3_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	      SLC_copy $master_IW3_slc $master_IW3_par $mas_IW3_slc.$i.2 $mas_IW3_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
+            fi
+	    # next two lines commented to allow for coregistration using another slave
+	    #SLC_copy $master_IW3_slc $master_IW3_par $mas_IW3_slc.$i.1 $mas_IW3_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	    #SLC_copy $master_IW3_slc $master_IW3_par $mas_IW3_slc.$i.2 $mas_IW3_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
 	    SLC_copy $r_slave_IW3_slc $master_IW3_par $r_slave_IW3_slc.$i.1 $r_slave_IW3_par.$i.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
-	    SLC_copy $r_slave_IW3_slc $master_IW3_par $r_slave_IW3_slc.$i.2 $r_slave_IW3_par.$i.2 - 1. 0 $range_samples $starting_line1 $lines_overlap
+	    SLC_copy $r_slave_IW3_slc $master_IW3_par $r_slave_IW3_slc.$i.2 $r_slave_IW3_par.$i.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
 
             # calculate the 2 single look interferograms for the burst overlap region i
             # using the earlier burst --> *.int1, using the later burst --> *.int2
-	    off1=$r_master_slave_name.IW3.$i.off1 
+	    off1=$r_master_slave_name.IW3.$i.off1
 	    int1=$r_master_slave_name.IW3.$i.int1
 	    if [ -e $off1 ]; then
 		rm -f $off1
@@ -708,10 +764,10 @@ function S1_COREG_OVERLAP {
 	    diff20=$r_master_slave_name.IW3.$i.diff20
 	    off20=$r_master_slave_name.IW3.$i.off20
 	    multi_cpx $diff1 $off1 $diff20 $off20 200 4
-	    range_samples20=`awk '$1 == "interferogram_width:" {print $2}' $off20`      
-	    azimuth_lines20=`awk '$1 == "interferogram_azimuth_lines:" {print $2}' $off20`      
-	    range_samples20_half=`awk '$1 == "interferogram_width:" {printf "%d", $2/2}' $off20`      
-	    azimuth_lines20_half=`awk '$1 == "interferogram_azimuth_lines:" {printf "%d", $2/2}' $off20`      
+	    range_samples20=`awk '$1 == "interferogram_width:" {print $2}' $off20`
+	    azimuth_lines20=`awk '$1 == "interferogram_azimuth_lines:" {print $2}' $off20`
+	    range_samples20_half=`awk '$1 == "interferogram_width:" {printf "%d", $2/2}' $off20`
+	    azimuth_lines20_half=`awk '$1 == "interferogram_azimuth_lines:" {printf "%d", $2/2}' $off20`
 
             # determine coherence and coherence mask based on unfiltered double differential interferogram
 	    diff20cc=$r_master_slave_name.IW3.$i.diff20.cc
@@ -731,11 +787,11 @@ function S1_COREG_OVERLAP {
 	    diff20cc=$r_master_slave_name.IW3.$i.diff20.cc
 	    diff20cc_ras=$r_master_slave_name.IW3.$i.diff20.cc.ras
 	    diff20phase=$r_master_slave_name.IW3.$i.diff20.phase
-	        
+
 	    mcf $diff20adf $diff20cc $diff20cc_ras $diff20phase $range_samples20 1 0 0 - - 1 1 512 $range_samples20_half $azimuth_lines20_half
 	    ls -l $diff20phase > temp1
 	    size=`awk '{print $5}' temp1`
-	    
+
             # determine overlap phase average (in radian), standard deviation (in radian), and valid data fraction
 	    if [ -e $diff20cc ]; then
 		diff20ccstat=$r_master_slave_name.IW3.$i.diff20.cc.stat
@@ -749,9 +805,9 @@ function S1_COREG_OVERLAP {
 		cc_fraction=`awk '{print}' temp3`
 		cc_fraction1000=`echo $cc_fraction | awk '{printf "%d", $1*1000.}'`
 	    else
-		cc_mean=0      
-		cc_stdev=0      
-		cc_fraction=0      
+		cc_mean=0
+		cc_stdev=0
+		cc_fraction=0
 		cc_fraction1000=0
 	    fi
 	    echo "cc_fraction1000: "$cc_fraction1000
@@ -766,9 +822,9 @@ function S1_COREG_OVERLAP {
 		fraction=`awk '{print}' temp3`
 		fraction1000=`echo $fraction | awk '{printf "%d", $1*1000.}'`
 	    else
-		mean=0       
-		stdev=0       
-		fraction=0     
+		mean=0
+		stdev=0
+		fraction=0
 		fraction1000=0
 	    fi
 
@@ -781,7 +837,7 @@ function S1_COREG_OVERLAP {
 	    stdev10000=`echo $stdev | awk '{printf "%d", $1*10000.}'`
 
             # only for overlap regions with a significant area with high coherence and phase standard deviation < stdev10000_thresh
-	    if [[ "$fraction10000" -gt "$fraction10000_thresh" && "$stdev10000" -lt "$stdev10000_thresh" ]]; then   
+	    if [[ "$fraction10000" -gt "$fraction10000_thresh" && "$stdev10000" -lt "$stdev10000_thresh" ]]; then
 		weight=`echo $fraction $stdev | awk '{printf "%f", $1/($2+0.1)/($2+0.1)}'`    # +0.1 to limit maximum weights for very low stdev
 		sum=`echo $sum $mean $fraction | awk '{printf "%f", $1+($2*$3)}'`
 		samples=`echo $samples | awk '{printf "%d", $1+1}'`
@@ -834,7 +890,7 @@ function S1_COREG_OVERLAP {
     echo "azimuth_pixel_offset "$azimuth_pixel_offset" [azimuth SLC pixel]"
     echo "azimuth_pixel_offset "$azimuth_pixel_offset" [azimuth SLC pixel]" >> $slave_ovr_res
 
-    # correct offset file for determined additional azimuth offset 
+    # correct offset file for determined additional azimuth offset
     azpol_1=`awk '$1 == "azimuth_offset_polynomial:" {print $2}' $slave_off_start`
     azpol_2=`awk '$1 == "azimuth_offset_polynomial:" {print $3}' $slave_off_start`
     azpol_3=`awk '$1 == "azimuth_offset_polynomial:" {print $4}' $slave_off_start`
@@ -859,8 +915,8 @@ function S1_COREG_OVERLAP {
 #	rm -rf $r_slave_IW1_slc.??.?
 #	rm -rf $r_slave_IW1_par.??.?
 #    fi
-#    rm -rf $r_master_slave_name.IW?.?.off* 
-#    rm -rf $r_master_slave_name.IW?.?.int* 
+#    rm -rf $r_master_slave_name.IW?.?.off*
+#    rm -rf $r_master_slave_name.IW?.?.int*
 #    rm -rf $r_master_slave_name.IW?.?.diff*
 #    if [ $nrows -gt 1 ]; then
 #	rm -rf $master_IW2_slc.?.?
@@ -885,7 +941,7 @@ function S1_COREG_OVERLAP {
 #	    rm -rf $r_slave_IW3_slc.??.?
 #	    rm -rf $r_slave_IW3_par.??.?
 #	fi
-#    fi	  
+#    fi
 }
 
 

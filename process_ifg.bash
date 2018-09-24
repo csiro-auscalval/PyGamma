@@ -383,7 +383,7 @@ UNW()
     GM rascc_mask $ifg_filt_cc - $ifg_width 1 1 0 1 1 $ifg_coh_thres 0 - - - - 1 $ifg_mask
 
     ## Use arbitrary mlook threshold of 4 to decide whether to thin data for unwrapping or not
-    if [ $rlks -le 4 ]; then
+    if [ $looks -le 4 ]; then
 
          ## Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser network which can be interpoolated and then used as a model for unwrapping the full interferogram
 	thres_1=`echo $ifg_coh_thres + 0.2 | bc`

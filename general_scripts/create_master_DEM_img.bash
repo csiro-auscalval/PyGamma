@@ -8,7 +8,7 @@ display_usage() {
     echo "*                        for use in GAMMA (no 0 values & WGS 84 projection).  *"
     echo "*                                                                             *"
     echo "*   *.img file used by 'make_GAMMA_DEM_auto.bash' to automatically create     *"
-    echo "*    a GAMMA DEM which covers a Sentinel-1 scene extent (inlcuding a buffer)  *"
+    echo "*    a GAMMA DEM which covers a Sentinel-1 scene extent (including a buffer)  *"
     echo "*                                                                             *"
     echo "*  Script doesn't need to be run again once *.img file is created.            *"
     echo "*                                                                             *"

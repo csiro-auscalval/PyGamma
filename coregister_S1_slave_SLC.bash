@@ -49,6 +49,12 @@ else
     slave=$2
 fi
 
+# slave list index is given to select slave to coregister to
+if [ $# -eq 3 ]; then
+   list_idx=$3
+   echo $list_idx
+fi
+
 proc_file=$1
 
 
@@ -119,7 +125,7 @@ r1=0
 r2=$master_slc_width
 a1=0
 a2=$master_slc_nlines
-  
+
 # reduce offset estimation to 64 x 64 samples max
 rstep1=64
 rstep2=`echo $r1 $r2 | awk '{printf "%d", ($2-$1)/64}'`
@@ -175,12 +181,12 @@ while [[ "$daz10000" -gt 100 || "$daz10000" -lt -100 ]] && [ "$it" -le "$slave_n
     daz10000=`awk '$1 == "azimuth_offset_polynomial:" {printf "%d", $2*10000}' $slave_doff`
     daz=`awk '$1 == "azimuth_offset_polynomial:" {print $2}' $slave_doff`
     daz_mli=`echo "$daz" "$alks" | awk '{printf "%f", $1/$2}'`
-  
+
     # lookup table refinement
     # determine range and azimuth corrections for lookup table (in mli pixels)
-    dr=`awk '$1 == "range_offset_polynomial:" {print $2}' $slave_doff`      
+    dr=`awk '$1 == "range_offset_polynomial:" {print $2}' $slave_doff`
     dr_mli=`echo $dr $rlks | awk '{printf "%f", $1/$2}'`
-    daz=`awk '$1 == "azimuth_offset_polynomial:" {print $2}' $slave_doff`      
+    daz=`awk '$1 == "azimuth_offset_polynomial:" {print $2}' $slave_doff`
     daz_mli=`echo $daz $alks | awk '{printf "%f", $1/$2}'`
     echo "dr_mli: "$dr_mli"    daz_mli: "$daz_mli > $slave_ref_iter.$it
 
@@ -204,21 +210,24 @@ done
 #########################################################################################
 #########################################################################################
 
+# TF: commented since this results in zero phase values for most bursts and
+#     results in incorrect processing for S1_COREG_OVERLAP (see below)
+#     needed at all?
 
-### Iterative improvement of azimuth refinement using spectral diversity method 
-    # works with IW1, IW2 and IW3 only (can be expanded to work with swaths 4 and 5)  
+### Iterative improvement of azimuth refinement using spectral diversity method
+    # works with IW1, IW2 and IW3 only (can be expanded to work with swaths 4 and 5)
+#
+#if [ -e $slave_az_ovr_poly ]; then
+#    rm -rf $slave_az_ovr_poly
+#fi
+#POLY_OVERLAP $master_slc_tab $rlks $alks $slave_az_ovr_poly
 
-if [ -e $slave_az_ovr_poly ]; then
-    rm -rf $slave_az_ovr_poly
-fi
-POLY_OVERLAP $master_slc_tab $rlks $alks $slave_az_ovr_poly 
+## use LAT package here
+#GM poly_math $r_dem_master_mli $slave_az_ovr $master_mli_width $slave_az_ovr_poly - 1 0.0 1.0
+#GM raspwr $slave_az_ovr $master_mli_width 1 0 1 1 1.0 0.35 1 $slave_az_ovr_ras
 
-# use LAT package here  
-GM poly_math $r_dem_master_mli $slave_az_ovr $master_mli_width $slave_az_ovr_poly - 1 0.0 1.0
-GM raspwr $slave_az_ovr $master_mli_width 1 0 1 1 1.0 0.35 1 $slave_az_ovr_ras 
-
-# mask the lookup table
-GM mask_class $slave_az_ovr_ras $slave_lt $slave_lt_az_ovr 1 1 1 1 0 0.0 0.0
+## mask the lookup table
+#GM mask_class $slave_az_ovr_ras $slave_lt $slave_lt_az_ovr 1 1 1 1 0 0.0 0.0
 
 
 #########################################################################################
@@ -240,12 +249,39 @@ it=1
 while [[ "$daz10000" -gt 5 || "$daz10000" -lt -5 ]] && [ "$it" -le "$slave_niter" ]; do
     cp -rf $slave_off $slave_off_start
 
-    GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_master_slc_par $slave_lt_az_ovr $r_dem_master_mli_par $slave_mli_par $slave_off_start $r_slave_slc_tab $r_slave_slc $r_slave_slc_par 
+# TF don't use azimuth refined look-up table, but original one
+    #GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_master_slc_par $slave_lt_az_ovr $r_dem_master_mli_par $slave_mli_par $slave_off_start $r_slave_slc_tab $r_slave_slc $r_slave_slc_par
+    GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_master_slc_par $slave_lt $r_dem_master_mli_par $slave_mli_par $slave_off_start $r_slave_slc_tab $r_slave_slc $r_slave_slc_par
 
-    S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev > $slave_off.az_ovr.$it.out
+    # coregister to nearest slave if list_idx is given
+    if [ $list_idx == "-" ]; then # coregister to master
+      S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev > $slave_off.az_ovr.$it.out
+    elif [ $list_idx == "0" ]; then # coregister to adjacent slave
+      # get slave position in slaves.list
+      slave_pos=`grep -n $slave $slave_list | cut -f1 -d:`
+      if [ $slave -lt $master_scene ]; then
+        coreg_pos=$(($slave_pos+1))
+        coreg_slave=`head -n $coreg_pos $slave_list | tail -1`
+      elif [ $rerun_slave -gt $master_scene ]; then
+        coreg_pos=$(($slave_pos-1))
+        coreg_slave=`head -n $coreg_pos $slave_list | tail -1`
+      fi
+      r_coreg_slave_tab=$slc_dir/$coreg_slave/r$coreg_slave"_"$polar"_tab"
+      S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
+    else # coregister to slave image with short temporal baseline
+      #  take the first/last slave of the previous list for coregistration
+      prev_list_idx=$(($list_idx-1))
+      if [ $slave -lt $master_scene ]; then
+         coreg_slave=`head $list_dir/slaves$prev_list_idx.list -n1`
+      elif [ $slave -gt $master_scene ]; then
+         coreg_slave=`tail $list_dir/slaves$prev_list_idx.list -n1`
+      fi
+      r_coreg_slave_tab=$slc_dir/$coreg_slave/r$coreg_slave"_"$polar"_tab"
+      S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
+    fi
 
-    daz=`awk '$1 == "azimuth_pixel_offset" {print $2}' $slave_off.az_ovr.$it.out`      
-    daz10000=`awk '$1 == "azimuth_pixel_offset" {printf "%d", $2*10000}' $slave_off.az_ovr.$it.out`      
+    daz=`awk '$1 == "azimuth_pixel_offset" {print $2}' $slave_off.az_ovr.$it.out`
+    daz10000=`awk '$1 == "azimuth_pixel_offset" {printf "%d", $2*10000}' $slave_off.az_ovr.$it.out`
 
     cp -rf $slave_off $slave_off.az_ovr.$it
 
@@ -268,15 +304,17 @@ GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_ma
 
 ##############################################################
 
+# TF commented, not needed
 ### Generate differential interferogram (also for testing for jumps at burst overlaps)
-# topographic phase simulation 
-GM phase_sim_orb $r_dem_master_slc_par $slave_slc_par $slave_off $rdc_dem $slave_sim_unw $r_dem_master_slc_par - - 1 1
+# topographic phase simulation
+#GM phase_sim_orb $r_dem_master_slc_par $slave_slc_par $slave_off $rdc_dem $slave_sim_unw $r_dem_master_slc_par - - 1 1
 
 # calculation of a S1 TOPS differential interferogram
-GM SLC_diff_intf $r_dem_master_slc $r_slave_slc $r_dem_master_slc_par $r_slave_slc_par $slave_off $slave_sim_unw $slave_diff $rlks $alks 1 0 0.2 1 1
+#GM SLC_diff_intf $r_dem_master_slc $r_slave_slc $r_dem_master_slc_par $r_slave_slc_par $slave_off $slave_sim_unw $slave_diff $rlks $alks 1 0 0.2 1 1
+# TF
 
 ### Multilook coregistered slave
-GM multi_look $r_slave_slc $r_slave_slc_par $r_slave_mli $r_slave_mli_par $rlks $alks 
+GM multi_look $r_slave_slc $r_slave_slc_par $r_slave_mli $r_slave_mli_par $rlks $alks
 
 
 ### Clean up temp files
@@ -287,7 +325,7 @@ GM multi_look $r_slave_slc $r_slave_slc_par $r_slave_mli $r_slave_mli_par $rlks 
 #rm -rf $slave_lt.tmp.?
 #rm -rf $slave_snr
 #rm -rf $slave_offs
-#rm -rf $slave_doff  
+#rm -rf $slave_doff
 #rm -rf $slave_lt
 #rm -rf $slave_az_ovr_poly
 #rm -rf $slave_az_ovr
@@ -298,7 +336,7 @@ GM multi_look $r_slave_slc $r_slave_slc_par $r_slave_mli $r_slave_mli_par $rlks 
 #rm -rf *.off.az_ovr.?
 
 
-# script end 
+# script end
 ####################
 
 ## Copy errors to NCI error file (.e file)

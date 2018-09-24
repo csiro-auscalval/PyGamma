@@ -130,11 +130,17 @@ else # Sentinel-1
 	anno_dir=$dir/annotation
 	meas_dir=$dir/measurement
 	cal_noise_dir=$anno_dir/calibration
+	preview_dir=$dir/preview
 	zip_loc=$s1_path/$year/$year-$month/$grid/$zip
-	#mkdir -p $dir
 
 	# extract manifest.safe file
 	unzip -j $zip_loc $dir/manifest.safe -d $dir
+
+	# extract kml files
+	quick_look_image=`unzip -l $zip_loc | grep -E 'preview/quick-look.png' | awk '{print $4}'`
+	kml=`unzip -l $zip_loc | grep -E 'preview/map-overlay.kml' | awk '{print $4}'`
+	unzip -j $zip_loc $quick_look_image -d $preview_dir
+	unzip -j $zip_loc $kml -d $preview_dir	
 
 	# extract files based on polarisation
 	unzip -l $zip_loc | grep -E 'annotation/s1' | awk '{print $4}' | cut -d "/" -f 3 | sed -n '/'-"$pol"-'/p' > xml_list
