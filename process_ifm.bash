@@ -75,7 +75,6 @@ patch_r=`grep Patches_range= $proc_file | cut -d "=" -f 2`
 patch_az=`grep Patches_azimuth= $proc_file | cut -d "=" -f 2`
 refrg=`grep Ref_point_range= $proc_file | cut -d "=" -f 2`
 refaz=`grep Ref_point_azimuth= $proc_file | cut -d "=" -f 2`
-refphs=`grep Ref_phase= $proc_file | cut -d "=" -f 2`
 geotiff=`grep create_geotif= $proc_file | cut -d "=" -f 2`
 begin=`grep ifm_begin= $proc_file | cut -d "=" -f 2`
 finish=`grep ifm_end= $proc_file | cut -d "=" -f 2`
@@ -243,8 +242,8 @@ int_flat0=$int_dir/$mas_slv_name"_flat0.int"
 int_flat1=$int_dir/$mas_slv_name"_flat1.int"
 int_flat10=$int_dir/$mas_slv_name"_flat10.int"
 int_filt=$int_dir/$mas_slv_name"_filt.int"
-int_flat_float=$int_dir/$mas_slv_name"_flat_int.flt"
-int_filt_float=$int_dir/$mas_slv_name"_filt_int.flt"
+#int_flat_float=$int_dir/$mas_slv_name"_flat_int.flt"
+#int_filt_float=$int_dir/$mas_slv_name"_filt_int.flt"
 #int_filt_mask=$int_dir/$mas_slv_name"_filt_mask.int"
 cc=$int_dir/$mas_slv_name"_flat.cc"
 cc0=$int_dir/$mas_slv_name"_flat0.cc"
@@ -269,13 +268,13 @@ base_temp=$int_dir/$mas_slv_name"_base_temp.par"
 bperp=$int_dir/$mas_slv_name"_bperp.par"
 flag=$int_dir/$mas_slv_name.flag
 unw_geocode_out=$int_dir/$mas_slv_name"_eqa.unw"
-flat_geocode_out=$int_dir/$mas_slv_name"_flat_int_eqa.flt"
-filt_geocode_out=$int_dir/$mas_slv_name"_filt_int_eqa.flt"
+flat_geocode_out=$int_dir/$mas_slv_name"_flat_eqa.int"
+filt_geocode_out=$int_dir/$mas_slv_name"_filt_eqa.int"
 smcc_geocode_out=$int_dir/$mas_slv_name"_filt_eqa.cc"
 cc_geocode_out=$int_dir/$mas_slv_name"_flat_eqa.cc"
 unw_geocode_bmp=$int_dir/$mas_slv_name"_eqa_unw.bmp"
-flat_geocode_bmp=$int_dir/$mas_slv_name"_flat_int_eqa_flt.bmp"
-filt_geocode_bmp=$int_dir/$mas_slv_name"_filt_int_eqa_flt.bmp"
+flat_geocode_bmp=$int_dir/$mas_slv_name"_flat_eqa_int.bmp"
+filt_geocode_bmp=$int_dir/$mas_slv_name"_filt__eqa_int.bmp"
 smcc_geocode_bmp=$int_dir/$mas_slv_name"_filt_eqa_cc.bmp"
 cc_geocode_bmp=$int_dir/$mas_slv_name"_flat_eqa_cc.bmp"
 #lv_theta=$int_dir/$mas_slv_name.lv_theta
@@ -445,8 +444,8 @@ FLAT()
     fi
 
     ## Generate quicklook image
-    GM rasmph $int_flat0 $int_width 1 0 40 40 - - - $int_flat0.bmp
-    GM rasmph $int_flat1 $int_width 1 0 40 40 - - - $int_flat1.bmp
+    #GM rasmph $int_flat0 $int_width 1 0 40 40 - - - $int_flat0.bmp
+    #GM rasmph $int_flat1 $int_width 1 0 40 40 - - - $int_flat1.bmp
 
     #######################################
     if [ $sensor = CSK ] && [ $sensor_mode = SP ]; then
@@ -519,7 +518,7 @@ FLAT()
     base_perp $base $mas_slc_par $off > $bperp
 
     ## Generate quicklook image of final flattened interferogram
-    GM rasmph $int_flat $int_width 1 0 40 40 - - - $int_flat.bmp
+    #GM rasmph $int_flat $int_width 1 0 40 40 - - - $int_flat.bmp
 }
 
 FILT()
@@ -543,7 +542,7 @@ FILT()
     GM adf $int_flat $int_filt $smcc $int_width $expon $filtwin $ccwin - 0 - -
 
     ## Generate quicklook image of final wrapped interferogram
-    GM rasmph $int_filt $int_width 1 0 40 40 - - - $int_filt.bmp
+    #GM rasmph $int_filt $int_width 1 0 40 40 - - - $int_filt.bmp
 
 }
 
@@ -562,56 +561,49 @@ UNW()
 
     if [ $unwrap_type == mcf ]; then
 
-        #look=5
-
-        ## multi-look the flattened interferogram 10 times
-        #GM multi_cpx $int_filt $off $int_filt$look $off$look $look $look 0 0
-
-        #width=`grep interferogram_width: $off$look | awk '{print $2}'`
-
-        ## Generate coherence image
-        #GM cc_wave $int_filt$look - - $smcc$look $width 7 7 1
-
-        ## Generate validity mask with low coherence threshold to unwrap more area
-        #GM rascc_mask $smcc$look - $width 1 1 0 1 1 0.1
-
-        ## Perform unwrapping
-        #GM mcf $int_filt$look $smcc$look $smcc$look"_mask.ras" $int_filt$look.unw $width 1 0 0 - - 1 1 - 32 45 1
-
-        ## Oversample unwrapped interferogram to original resolution
-        #GM multi_real $int_filt$look.unw $off$look $int_filt"1.unw" $off -$look -$look 0 0
-
-        #GM unw_model $int_filt $int_filt"1.unw" $int_unw $int_width
-
         ## Produce unwrapping validity mask based on smoothed coherence
         GM rascc_mask $smcc - $int_width 1 1 0 1 1 $coh_thres 0 - - - - 1 $mask
 
-        ## Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser network which can be interpoolated and then used as a model for unwrapping the full interferogram
-	thres_1=`echo $coh_thres + 0.2 | bc`
-	thres_max=`echo $thres_1 + 0.2 | bc`
-        #if [ $thres_max -gt 1 ]; then
-        #    echo " "
-        #    echo "MASK THINNING MAXIMUM THRESHOLD GREATER THAN ONE. Modify coherence threshold in proc file."
-        #    echo " "
-        #    exit 1
-        #else
-        #    :
-        #fi
-	GM rascc_mask_thinning $mask $smcc $int_width $mask_thin 3 $coh_thres $thres_1 $thres_max
+        ## Use arbitrary mlook threshold of 4 to decide whether to thin data for unwrapping or not
+        if [ $ifm_rlks -le 4 ]; then
 
-        ## Unwrapping with validity mask
-        #GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - 1 1 - $refrg $refaz 1
-	GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $patch_az - $refrg $refaz 0
+	    ## Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser network which can be interpoolated and then used as a model for unwrapping the full interferogram
+	    thres_1=`echo $coh_thres + 0.2 | bc`
+	    thres_max=`echo $thres_1 + 0.2 | bc`
+            #if [ $thres_max -gt 1 ]; then
+            #    echo " "
+            #    echo "MASK THINNING MAXIMUM THRESHOLD GREATER THAN ONE. Modify coherence threshold in proc file."
+            #    echo " "
+            #    exit 1
+            #else
+            #    :
+            #fi
+	    GM rascc_mask_thinning $mask $smcc $int_width $mask_thin 3 $coh_thres $thres_1 $thres_max
 
-        ## Interpolate sparse unwrapped points to give unwrapping model
-	GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
+            ## Unwrapping with validity mask
+	    GM mcf $int_filt $smcc $mask_thin $int_unw_thin $int_width 1 - - - - $patch_r $patch_az - $refrg $refaz 0
 
-        ## Use model to unwrap filtered interferogram
-	if [ $refrg = "-" -a $refaz = "-" ]; then
-	   GM unw_model $int_filt $int_unw_model $int_unw $int_width
-	else
-	   GM unw_model $int_filt $int_unw_model $int_unw $int_width $refrg $refaz $refphs
-	fi
+            ## Interpolate sparse unwrapped points to give unwrapping model
+	    GM interp_ad $int_unw_thin $int_unw_model $int_width 32 8 16 2
+
+            ## Use model to unwrap filtered interferogram
+	    #if [ $refrg = "-" -a $refaz = "-" ]; then
+	    #    GM unw_model $int_filt $int_unw_model temp $int_width
+	    #else
+	        GM unw_model $int_filt $int_unw_model temp $int_width $refrg $refaz 0.0
+	    #fi
+
+            # mask unwrapped interferogram for low coherence areas below threshold
+            GM mask_data temp $int_width $int_unw $mask 0
+            rm -f temp
+        else
+	    #if [ $refrg = "-" -a $refaz = "-" ]; then
+            #    GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - $patch_r $patch_az - - - 0
+            #else
+                GM mcf $int_filt $smcc $mask $int_unw $int_width 1 - - - - $patch_r $patch_az - $refrg $refaz 1
+            #fi
+        fi
+
 
         ## Convert LOS signal to vertical
         #GM dispmap $int_unw $rdc_dem $mas_slc_par $off $disp 1
@@ -666,7 +658,7 @@ UNW()
     fi
 
     ## Generate quicklook image of final unwrapped interferogram
-    GM rasrmg $int_unw - $int_width 1 1 0 40 40 - - - - - $int_unw.bmp
+    #GM rasrmg $int_unw - $int_width 1 1 0 2 2 - - - - - $int_unw.bmp
 }
 
 
@@ -678,50 +670,52 @@ GEOCODE()
     width_in=`grep range_samp_1: $diff_dem | awk '{print $2}'`
     width_out=`grep width: $dem_par | awk '{print $2}'`
 
-    ## Use bicubic spline interpolation for geocoded unwrapped interferogram
-    GM geocode_back $int_unw $width_in $gc_map $unw_geocode_out $width_out - 1 0 - -
-    # make geotif
-    GM data2geotiff $dem_par $unw_geocode_out 2 $unw_geocode_out.tif
-    # make quick-look png image 
-    GM rasrmg $unw_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $unw_geocode_bmp
+    pixav=20
+
+    ## Use nearest neighbour interpolation for geocoded unwrapped interferogram
+    GM geocode_back $int_unw $width_in $gc_map $unw_geocode_out $width_out - 0 0 - -
+    ## make geotif
+    #GM data2geotiff $dem_par $unw_geocode_out 2 $unw_geocode_out.tif
+    ## make quick-look png image 
+    GM rasrmg $unw_geocode_out - $width_out 1 1 0 $pixav $pixav 1 - - 0 1 $unw_geocode_bmp
     GM convert $unw_geocode_bmp ${unw_geocode_bmp/.bmp}.png
     rm -f $unw_geocode_bmp
 
-    ## Use bicubic spline interpolation for geocoded flattened interferogram
-    # convert to float and extract phase
-    GM cpx_to_real $int_flat $int_flat_float $width_in 4
-    GM geocode_back $int_flat_float $width_in $gc_map $flat_geocode_out $width_out - 1 0 - -
-    # make quick-look png image
-    GM rasrmg $flat_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $flat_geocode_bmp
-    GM convert $flat_geocode_bmp ${flat_geocode_bmp/.bmp}.png
-    rm -f $flat_geocode_bmp
+#    ## Use nearest neighbour interpolation for geocoded flattened interferogram
+#    ## convert to float and extract phase
+#    #GM cpx_to_real $int_flat $int_flat_float $width_in 4
+#    GM geocode_back $int_flat $width_in $gc_map $flat_geocode_out $width_out - 0 1 - -
+#    ## make quick-look png image
+#    GM rasmph $flat_geocode_out $width_out 1 0 $pixav $pixav - - 1 $flat_geocode_bmp 0
+#    GM convert $flat_geocode_bmp ${flat_geocode_bmp/.bmp}.png
+#    rm -f $flat_geocode_bmp
 
-    ## Use bicubic spline interpolation for geocoded filtered interferogram
-    # convert to float and extract phase
-    GM cpx_to_real $int_filt $int_filt_float $width_in 4
-    GM geocode_back $int_filt_float $width_in $gc_map $filt_geocode_out $width_out - 1 0 - -
-    # make geotif
-    GM data2geotiff $dem_par $filt_geocode_out 2 $filt_geocode_out.tif
-    # make quick-look png image
-    GM rasrmg $filt_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $filt_geocode_bmp
-    GM convert $filt_geocode_bmp ${filt_geocode_bmp/.bmp}.png
-    rm -f $filt_geocode_bmp
+#    ## Use nearest neighbour interpolation for geocoded filtered interferogram
+#    ## convert to float and extract phase
+#    #GM cpx_to_real $int_filt $int_filt_float $width_in 4
+#    GM geocode_back $int_filt $width_in $gc_map $filt_geocode_out $width_out - 0 1 - -
+#    ## make geotif
+#    #GM data2geotiff $dem_par $filt_geocode_out 2 $filt_geocode_out.tif
+#    ## make quick-look png image
+#    GM rasmph $filt_geocode_out $width_out 1 0 $pixav $pixav0 - - 1 $filt_geocode_bmp 0
+#    GM convert $filt_geocode_bmp ${filt_geocode_bmp/.bmp}.png
+#    rm -f $filt_geocode_bmp
 
-    ## Use bicubic spline interpolation for geocoded filt coherence file
-    GM geocode_back $smcc $width_in $gc_map $smcc_geocode_out $width_out - 1 0 - -
-    # make quick-look png image
-    GM rasrmg $smcc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $smcc_geocode_bmp
+    ## Use nearest neighbour interpolation for geocoded filt coherence file
+    GM geocode_back $smcc $width_in $gc_map $smcc_geocode_out $width_out - 0 0 - -
+    ## make quick-look png image
+    GM rascc $smcc_geocode_out - $width_out 1 1 0 $pixav $pixav 0 1 - - 1 $smcc_geocode_bmp
     GM convert $smcc_geocode_bmp ${smcc_geocode_bmp/.bmp}.png
     rm -f $smcc_geocode_bmp
 
-    ## Use bicubic spline interpolation for geocoded flat coherence file
-    GM geocode_back $cc $width_in $gc_map $cc_geocode_out $width_out - 1 0 - -
-    # make geotif
-    GM data2geotiff $dem_par $cc_geocode_out 2 $cc_geocode_out.tif
-    # make quick-look png image
-    GM rasrmg $cc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $cc_geocode_bmp
-    GM convert $cc_geocode_bmp ${cc_geocode_bmp/.bmp}.png
-    rm -f $cc_geocode_bmp
+#    ## Use nearest neighbour interpolation for geocoded flat coherence file
+#    GM geocode_back $cc $width_in $gc_map $cc_geocode_out $width_out - 0 0 - -
+#    ## make geotif
+#    #GM data2geotiff $dem_par $cc_geocode_out 2 $cc_geocode_out.tif
+#    ## make quick-look png image
+#    GM rascc $cc_geocode_out - $width_out 1 1 0 $pixav $pixav 0 1 - - 1 $cc_geocode_bmp
+#    GM convert $cc_geocode_bmp ${cc_geocode_bmp/.bmp}.png
+#    rm -f $cc_geocode_bmp
 
     echo " "
     echo "Geocoded interferogram."
@@ -743,6 +737,12 @@ GEOCODE()
     echo X_STEP $post_lon >> $gmt_par
     echo Y_FIRST $lat >> $gmt_par
     echo Y_STEP $post_lat >> $gmt_par
+
+    ## remove unnecessary files
+    rm -f *flat0*
+    rm -f *flat1*
+    rm -f *sim0* *sim1*
+    rm -f *int1*
 }
 
 DONE()
