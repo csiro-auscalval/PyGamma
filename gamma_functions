@@ -68,6 +68,8 @@ function proc_variables {
     # Interferogram processing method
     process_method=`grep ^PROCESS_METHOD= $proc_file | cut -d "=" -f 2`
     master_scene=`grep ^REF_MASTER_SCENE= $proc_file | cut -d "=" -f 2`
+    min_connection=`grep ^MIN_CONNECT= $proc_file | cut -d "=" -f 2`
+    max_connection=`grep ^MAX_CONNECT= $proc_file | cut -d "=" -f 2`
 
     # Post processing method
     post_method=`grep ^POST_PROCESS_METHOD= $proc_file | cut -d "=" -f 2`

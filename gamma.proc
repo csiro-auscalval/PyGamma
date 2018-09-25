@@ -61,7 +61,7 @@ DEM_AREA=aust
     # if using DEM from MDSS, enter file name (exc. tar.gz). If auto generated, enter track name
 DEM_NAME=<name>
 MDSS_DATA_DIR=insar/<sensor>/<project>/<track>
-MDSS_DEM_TAR=insar/DEM/NT_EQ_MAY2016/<tar_name>.tar.gz
+MDSS_DEM_TAR=insar/DEM/<project>/<tar_name>.tar.gz
     # Name of external image used for DEM coregistration (if required, eg. very flat terrain)
 EXT_IMAGE=
 
