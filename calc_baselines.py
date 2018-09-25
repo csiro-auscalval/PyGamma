@@ -83,6 +83,10 @@ for line in open(proc_file):
         master1 = line.split('=')[1].strip()
     if line.startswith('RANGE_LOOKS='):
         rlks = line.split('=')[1].strip()
+    if line.startswith('MIN_CONNECT='):
+        nmin = int(line.split('=')[1].strip())
+    if line.startswith('MAX_CONNECT='):
+        nmax = int(line.split('=')[1].strip())
 
 # Project directories
 proj_dir = os.path.join(nci_path, "INSAR_ANALYSIS", project, sensor, "GAMMA")
@@ -400,13 +404,11 @@ if type == 'initial':
         # linear decorrelation model for Btemp, Bperp, Bdopp is used (Eq. 2.1 & 2.2 in Kampes (2005) along with a coherence threshold:
         coh_thres = 0.5
 
-        # Define min/max number of connections to be used
-        nmin = 4
+        # min/max number of connections to be used are now defined in .proc file
+        # default values are: nmin = 4
+        #                     nmax = 7 (Sentinel-1)
+        #                     nmax = 10 (other sensors)
         # reduced max threshold for Sentinel-1 because of small repeat time
-        if sensor == "S1":
-            nmax = 7
-        else:
-            nmax = 10
 
         # Output SBAS network parameters
         outfile = open(os.path.join(base_dir, track + "_SBAS_parameters.txt"), "w")

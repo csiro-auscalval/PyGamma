@@ -106,6 +106,10 @@ AZIMUTH_LOOKS=auto
 PROCESS_METHOD=<method>
     # Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated
 REF_MASTER_SCENE=auto
+    # thresholds for minimum and maximum number of SBAS connections
+MIN_CONNECT=4
+    # default is 7 for S1, 10 for other sensors (e.g. RSAT2)
+MAX_CONNECT=7
 
 
 -----POST PROCESSING PROCESSING METHOD------------------------------------------------------------------
@@ -168,7 +172,7 @@ DEM_RAD_MAX=4
 COREG_CC_THRESH=0.1
     # Number of polynomial model parameters (1, 3, 4 or 6; only 1 required for S1)
 COREG_MODEL_PARAMS=1
-    # Size of window for intensity cross-correlation (default: 128) 
+    # Size of window for intensity cross-correlation (default: 128)
 COREG_WINDOW_SIZE=128
     # Number of search windows in range and azimuth directions (default: 64)
 COREG_NUM_WINDOWS=64
@@ -234,10 +238,10 @@ IFG_OFFSET_WIN=128 128
 NCI_PROJECT=dg9
 
     -----PBS JOB DEFAULTS FOR MULTI-JOBS-----
-    # for raw data download, resize and subset Sentinel-1 SLCs, multi-look SLCs 
-MIN_JOBS=20 
+    # for raw data download, resize and subset Sentinel-1 SLCs, multi-look SLCs
+MIN_JOBS=20
     # for SLC creation, SLC coregistration, ifg creation
-MAX_JOBS=50 
+MAX_JOBS=50
 PBS_RUN_LOC=gdata1
 QUEUE=normal
 EXP_QUEUE=express
@@ -272,12 +276,12 @@ BASE_NCPUS=1
 ML_WALLTIME=00:30:00
 ML_MEM=4GB
 ML_NCPUS=1
-    
+
    -----RESIZE AND/OR SUBSET SENTINEL-1 SLC ONLY-----  # parameters for one SLC only, includes multi-looking
 RESIZE_WALLTIME=01:00:00
 RESIZE_MEM=8GB
 RESIZE_NCPUS=1
-    
+
    -----DEM COREGISTRATION-----
 DEM_WALLTIME=02:00:00
 DEM_MEM=8GB
@@ -297,8 +301,8 @@ COREG_NCPUS=4
 IFG_WALLTIME=01:00:00
 IFG_MEM=8GB
 IFG_NCPUS=4
-    
-   -----POST INTERFEROGRAM PROCESSING----- 
+
+   -----POST INTERFEROGRAM PROCESSING-----
 POST_WALLTIME=00:30:00
 POST_MEM=500MB
 POST_NCPUS=1
