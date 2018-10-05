@@ -120,7 +120,7 @@ COPY_SLC()
 
     ## Create raster for comparison purposes
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
-    GM raspwr $r_dem_master_mli $r_dem_master_mli_width 1 0 2 2 1. .35 1 $r_dem_master_mli_bmp
+    GM raspwr $r_dem_master_mli $r_dem_master_mli_width 1 0 20 20 1. .35 1 $r_dem_master_mli_bmp
     GM convert $r_dem_master_mli_bmp ${r_dem_master_mli_bmp/.bmp}.png
     rm -f $r_dem_master_mli_bmp
 }
@@ -272,9 +272,8 @@ OFFSET_CALC()
 
     # create raster for comparison with master mli raster
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
-    GM raspwr $dem_pix_gam $r_dem_master_mli_width 1 0 2 2 1. .35 1 $dem_pix_gam_bmp
-    png_file=`echo $dem_pix_gam_bmp | cut -d "." -f 1` 
-    GM convert $dem_pix_gam_bmp $png_file.png
+    GM raspwr $dem_pix_gam $r_dem_master_mli_width 1 0 20 20 1. .35 1 $dem_pix_gam_bmp
+    GM convert $dem_pix_gam_bmp ${dem_pix_gam_bmp/.bmp}.png
     rm -f $dem_pix_gam_bmp
 
     rm -f $dem_lt_rough $dem_offs $snr $dem_offsets $dem_coffs $dem_coffsets test1.dat test2.dat
@@ -286,7 +285,7 @@ GEOCODE()
     cd $dem_dir
     # Geocode map geometry DEM to radar geometry
     GM geocode $dem_lt_fine $eqa_dem $dem_width $rdc_dem $r_dem_master_mli_width $r_dem_master_mli_length 1 0 - - 2 $dem_rad_max -
-    GM rashgt $rdc_dem $r_dem_master_mli $r_dem_master_mli_width 1 1 0 1 1 500. 1. .35 1 $rdc_dem.bmp
+    GM rashgt $rdc_dem $r_dem_master_mli $r_dem_master_mli_width 1 1 0 20 20 500. 1. .35 1 $rdc_dem.bmp
     GM convert $rdc_dem.bmp ${rdc_dem/.bmp}.png
     rm -f $rdc_dem.bmp
 
