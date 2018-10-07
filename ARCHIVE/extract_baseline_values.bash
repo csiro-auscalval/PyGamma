@@ -76,13 +76,15 @@ else
     source $GAMMA
 fi
 
-int_dir=$proj_dir/$track_dir/`grep INT_dir= $proc_file | cut -d "=" -f 2`
-base_dir=$proj_dir/$track_dir/`grep base_dir= $proc_file | cut -d "=" -f 2`
+#int_dir=$proj_dir/$track_dir/`grep INT_dir= $proc_file | cut -d "=" -f 2`
+int_dir=$proj_dir/$track_dir/INT
+#base_dir=$proj_dir/$track_dir/`grep base_dir= $proc_file | cut -d "=" -f 2`
+base_dir=$proj_dir/$track_dir/BASELINE
 
 mkdir -p $base_dir
 cd $base_dir
 
-results=$base_dir/$project"_"$sensor"_"$track_dir"_"ifm_bperp_results.txt
+results=$base_dir/$sensor"_"$track_dir"_"ifm_bperp_results.txt
 
 if [ -e $results ]; then
     rm -f $results 

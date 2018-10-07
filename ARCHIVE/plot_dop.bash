@@ -39,6 +39,6 @@ awk '{print $1, $4}' $dop | psxy $proj $range -B -Wred -K -O >> $psfile
 
 awk '{print $1, $5}' $dop | psxy $proj $range -B -Wgreen -O >> $psfile
 
-ps2raster -A -Tf -P $psfile
+ps2raster -A -Tg -P $psfile
 
 rm -f $psfile
