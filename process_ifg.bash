@@ -460,16 +460,18 @@ GEOCODE()
     ## Use bicubic spline interpolation for geocoded flat coherence file
     GM geocode_back $ifg_flat_cc $width_in $dem_lt_fine $ifg_flat_cc_geocode_out $width_out - 1 0 - -
     # make quick-look png image
-    GM rasrmg $ifg_flat_cc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $ifg_flat_cc_geocode_bmp
+    GM rascc $ifg_flat_cc_geocode_out - $width_out 1 1 0 10 10 0 1 1 0.35 1 temp.bmp
+    GM ras2ras temp.bmp $ifg_flat_cc_geocode_bmp gray.cm
     GM convert $ifg_flat_cc_geocode_bmp ${ifg_flat_cc_geocode_bmp/.bmp}.png
-    rm -f $ifg_flat_cc_geocode_bmp
+    rm -f $ifg_flat_cc_geocode_bmp temp.bmp
 
     ## Use bicubic spline interpolation for geocoded filt coherence file
     GM geocode_back $ifg_filt_cc $width_in $dem_lt_fine $ifg_filt_cc_geocode_out $width_out - 1 0 - -
     # make quick-look png image
-    GM rasrmg $ifg_filt_cc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $ifg_filt_cc_geocode_bmp
+    GM rascc $ifg_filt_cc_geocode_out - $width_out 1 1 0 10 10 0 1 1 0.35 1 temp.bmp
+    GM ras2ras temp.bmp $ifg_filt_cc_geocode_bmp gray.cm
     GM convert $ifg_filt_cc_geocode_bmp ${ifg_filt_cc_geocode_bmp/.bmp}.png
-    rm -f $ifg_filt_cc_geocode_bmp
+    rm -f $ifg_filt_cc_geocode_bmp temp.bmp
 
     echo " "
     echo "Geocoded interferogram."
