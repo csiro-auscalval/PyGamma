@@ -435,7 +435,7 @@ GEOCODE()
     ## Use bicubic spline interpolation for geocoded unwrapped interferogram
     GM geocode_back $ifg_unw $width_in $dem_lt_fine $ifg_unw_geocode_out $width_out - 1 0 - -
     # make quick-look png image 
-    GM rasrmg $ifg_unw_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $ifg_unw_geocode_bmp
+    GM rasrmg $ifg_unw_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_unw_geocode_bmp
     GM convert $ifg_unw_geocode_bmp -transparent black ${ifg_unw_geocode_bmp/.bmp}.png
     GM kml_map ${ifg_unw_geocode_bmp/.bmp}.png $eqa_dem_par ${ifg_unw_geocode_bmp/.bmp}.kml
     rm -f $ifg_unw_geocode_bmp
@@ -445,7 +445,7 @@ GEOCODE()
     GM cpx_to_real $ifg_flat $ifg_flat_float $width_in 4
     GM geocode_back $ifg_flat_float $width_in $dem_lt_fine $ifg_flat_geocode_out $width_out - 1 0 - -
     # make quick-look png image
-    GM rasrmg $ifg_flat_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $ifg_flat_geocode_bmp
+    GM rasrmg $ifg_flat_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_flat_geocode_bmp
     GM convert $ifg_flat_geocode_bmp -transparent black ${ifg_flat_geocode_bmp/.bmp}.png
     GM kml_map ${ifg_flat_geocode_bmp/.bmp}.png $eqa_dem_par ${ifg_flat_geocode_bmp/.bmp}.kml
     rm -f $ifg_flat_geocode_bmp
@@ -455,7 +455,7 @@ GEOCODE()
     GM cpx_to_real $ifg_filt $ifg_filt_float $width_in 4
     GM geocode_back $ifg_filt_float $width_in $dem_lt_fine $ifg_filt_geocode_out $width_out - 1 0 - -
     # make quick-look png image
-    GM rasrmg $ifg_filt_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $ifg_filt_geocode_bmp
+    GM rasrmg $ifg_filt_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_filt_geocode_bmp
     GM convert $ifg_filt_geocode_bmp -transparent black ${ifg_filt_geocode_bmp/.bmp}.png
     GM kml_map ${ifg_filt_geocode_bmp/.bmp}.png $eqa_dem_par ${ifg_filt_geocode_bmp/.bmp}.kml
     rm -f $ifg_filt_geocode_bmp
@@ -463,7 +463,7 @@ GEOCODE()
     ## Use bicubic spline interpolation for geocoded flat coherence file
     GM geocode_back $ifg_flat_cc $width_in $dem_lt_fine $ifg_flat_cc_geocode_out $width_out - 1 0 - -
     # make quick-look png image
-    GM rascc $ifg_flat_cc_geocode_out - $width_out 1 1 0 10 10 0 1 1 0.35 1 temp.bmp
+    GM rascc $ifg_flat_cc_geocode_out - $width_out 1 1 0 20 20 0 1 1 0.35 1 temp.bmp
     GM ras2ras temp.bmp $ifg_flat_cc_geocode_bmp gray.cm
     GM convert $ifg_flat_cc_geocode_bmp -transparent black ${ifg_flat_cc_geocode_bmp/.bmp}.png
     GM kml_map ${ifg_flat_cc_geocode_bmp/.bmp}.png $eqa_dem_par ${ifg_flat_cc_geocode_bmp/.bmp}.kml
@@ -472,7 +472,7 @@ GEOCODE()
     ## Use bicubic spline interpolation for geocoded filt coherence file
     GM geocode_back $ifg_filt_cc $width_in $dem_lt_fine $ifg_filt_cc_geocode_out $width_out - 1 0 - -
     # make quick-look png image
-    GM rascc $ifg_filt_cc_geocode_out - $width_out 1 1 0 10 10 0 1 1 0.35 1 temp.bmp
+    GM rascc $ifg_filt_cc_geocode_out - $width_out 1 1 0 20 20 0 1 1 0.35 1 temp.bmp
     GM ras2ras temp.bmp $ifg_filt_cc_geocode_bmp gray.cm
     GM convert $ifg_filt_cc_geocode_bmp -transparent black ${ifg_filt_cc_geocode_bmp/.bmp}.png
     GM kml_map ${ifg_filt_cc_geocode_bmp/.bmp}.png $eqa_dem_par ${ifg_filt_cc_geocode_bmp/.bmp}.kml
