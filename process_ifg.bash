@@ -411,9 +411,13 @@ UNW()
         GM mcf $ifg_filt - - temp $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
     fi
 
-    ## Mask unwrapped interferogram for low coherence areas below threshold
-    GM mask_data temp $ifg_width $ifg_unw $ifg_mask 0
-    rm -f temp
+    if [ $ifg_unw_mask == yes ]; then
+        ## Mask unwrapped interferogram for low coherence areas below threshold
+        GM mask_data temp $ifg_width $ifg_unw $ifg_mask 0
+        rm -f temp
+    else
+        mv temp $ifg_unw
+    fi
 
     ## Convert unwrapped phase in radians to a LOS displacement in metres
     #GM dispmap $ifg_unw $rdc_dem $r_master_slc_par $ifg_off $disp 0
