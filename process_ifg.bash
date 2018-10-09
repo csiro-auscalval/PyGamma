@@ -399,31 +399,24 @@ UNW()
 	GM rascc_mask_thinning $ifg_mask $ifg_filt_cc $ifg_width $ifg_mask_thin 3 $ifg_coh_thres $thres_1 $thres_max
 
         ## Unwrapping with validity mask
-	GM mcf $ifg_filt $ifg_filt_cc $ifg_mask_thin $ifg_unw_thin $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 0
+	GM mcf $ifg_filt $ifg_filt_cc $ifg_mask_thin $ifg_unw_thin $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
 
         ## Interpolate sparse unwrapped points to give unwrapping model
 	GM interp_ad $ifg_unw_thin $ifg_unw_model $ifg_width 32 8 16 2
 
         ## Use model to unwrap filtered interferogram
-	#if [ $ifg_refrg = "-" -a $ifg_refaz = "-" ]; then
-	#    GM unw_model $ifg_filt $ifg_unw_model temp $ifg_width
-	#else
 	GM unw_model $ifg_filt $ifg_unw_model temp $ifg_width $ifg_refrg $ifg_refaz 0.0
-	#fi
-
-        # mask unwrapped interferogram for low coherence areas below threshold
-        GM mask_data temp $ifg_width $ifg_unw $ifg_mask 0
-        rm -f temp
     else
-	#if [ $ifg_refrg = "-" -a $ifg_refaz = "-" ]; then
-        #    GM mcf $ifg_filt $ifg_filt_cc $ifg_mask $ifg_unw $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - - - 0
-        #else
-        GM mcf $ifg_filt $ifg_filt_cc $ifg_mask $ifg_unw $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
-        #fi
+        ## Unwrap the full interferogram without masking
+        GM mcf $ifg_filt - - temp $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
     fi
 
-    ## Convert LOS signal to vertical
-    #GM dispmap $ifg_unw $rdc_dem $r_master_slc_par $ifg_off $disp 1
+    ## Mask unwrapped interferogram for low coherence areas below threshold
+    GM mask_data temp $ifg_width $ifg_unw $ifg_mask 0
+    rm -f temp
+
+    ## Convert unwrapped phase in radians to a LOS displacement in metres
+    #GM dispmap $ifg_unw $rdc_dem $r_master_slc_par $ifg_off $disp 0
 }
 
 
