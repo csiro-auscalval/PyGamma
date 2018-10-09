@@ -128,6 +128,7 @@ function proc_variables {
     ifg_filtwin=`grep ^IFG_FILTERING_WINDOW= $proc_file | cut -d "=" -f 2`
     ifg_ccwin=`grep ^IFG_COHERENCE_WINDOW= $proc_file | cut -d "=" -f 2`
     ifg_coh_thres=`grep ^IFG_COHERENCE_THRESHOLD= $proc_file | cut -d "=" -f 2`
+    ifg_unw_mask=`grep ^IFG_UNW_MASK= $proc_file | cut -d "=" -f 2`
     ifg_patch_r=`grep ^IFG_PATCHES_RANGE= $proc_file | cut -d "=" -f 2`
     ifg_patch_az=`grep ^IFG_PATCHES_AZIMUTH= $proc_file | cut -d "=" -f 2`
     ifg_refrg=`grep ^IFG_REF_POINT_RANGE= $proc_file | cut -d "=" -f 2`

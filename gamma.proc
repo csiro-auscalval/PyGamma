@@ -207,6 +207,8 @@ IFG_END=DONE
 
     # Coherence threshold for masking
 IFG_COHERENCE_THRESHOLD=0.3
+    # Mask unwrapped pixels below coherence threshold
+IFG_UNW_MASK=no
     # Number of unwrapping patches (default: 1, for high res data may need to be 2 or more)
 IFG_PATCHES_RANGE=2
 IFG_PATCHES_AZIMUTH=2
