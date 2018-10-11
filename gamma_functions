@@ -86,6 +86,9 @@ function proc_variables {
     s1_resize_ref=`grep ^S1_RESIZE_REF_SLC= $proc_file | cut -d "=" -f 2`
     do_s1_subset=`grep ^DO_S1_BURST_SUBSET= $proc_file | cut -d "=" -f 2`
 
+    # Clean up intermediate files
+    clean_up=`grep ^CLEAN_UP= $proc_file | cut -d "=" -f 2`
+
     # DEM coregistration details
     dem_rpos=`grep ^DEM_RPOS= $proc_file | cut -d "=" -f 2`
     dem_azpos=`grep ^DEM_AZPOS= $proc_file | cut -d "=" -f 2`
