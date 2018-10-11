@@ -210,8 +210,8 @@ IFG_COHERENCE_THRESHOLD=0.3
     # Mask unwrapped pixels below coherence threshold
 IFG_UNW_MASK=no
     # Number of unwrapping patches (default: 1, for high res data may need to be 2 or more)
-IFG_PATCHES_RANGE=2
-IFG_PATCHES_AZIMUTH=2
+IFG_PATCHES_RANGE=3
+IFG_PATCHES_AZIMUTH=3
     # Location of reference pixel
 IFG_REF_POINT_RANGE=-
 IFG_REF_POINT_AZIMUTH=-
@@ -300,7 +300,7 @@ COREG_MEM=8GB
 COREG_NCPUS=4
 
    -----INTERFEROGRAM GENERATION-----  # parameters for one ifg only
-IFG_WALLTIME=01:00:00
+IFG_WALLTIME=02:00:00
 IFG_MEM=16GB
 IFG_NCPUS=4
 
