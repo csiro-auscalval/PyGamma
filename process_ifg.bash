@@ -157,6 +157,10 @@ INT()
     else
 	:
     fi
+
+    ## clean up unnecessary files
+    rm -f $ifg_offs $ifg_ccp $ifg_coffs $ifg_coffsets
+
     ## Create differential interferogram parameter file
     GM create_diff_par $ifg_off - $ifg_diff_par 0 0
 }
@@ -269,12 +273,14 @@ FLAT()
         done
         ### iteration
 
-        rm -f $ifg_base_temp
-        rm -f $ifg_flat_temp
     else
         # use original baseline estimation without iteration
         :
     fi
+
+    ## clean up unnecessary files
+    rm -f $ifg_base_temp $ifg_base_res $ifg_base_init $ifg_flat_temp $ifg_sim_unw0 $ifg_flat0
+
 
     #######################################
     if [ $sensor = CSK ] && [ $sensor_mode = SP ]; then
@@ -335,6 +341,12 @@ FLAT()
  
         ## subtract simulated phase ('ifg_flat1' was originally 'ifg', but this file is no longer created)
 	GM sub_phase $ifg_flat1 $ifg_sim_unw $ifg_diff_par $ifg_flat 1 0
+
+        ## clean up unnecessary files
+        rm -f $ifg_flat1 $ifg_flat"1.unw" $ifg_sim_unw1 $ifg_flat1.unw 
+        rm -f $ifg_flat_cc0 $ifg_flat_cc0_mask 
+        rm -f $ifg_flat10.unw $ifg_off10 $ifg_flat10 $ifg_flat_cc10 $ifg_flat_cc10_mask 
+        rm -f $ifg_gcp $ifg_gcp_ph
     fi
 
     ## Calculate final flattened interferogram with common band filtering (diff ifg generation from co-registered SLCs and a simulated interferogram)
