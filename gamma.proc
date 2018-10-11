@@ -141,6 +141,11 @@ COREGISTER_SLAVES=yes
 PROCESS_IFGS=yes
 IFG_GEOTIFF=yes
 
+-----CLEAN UP-------------------------------------------------------------------------------------------
+
+    # Clean up intermediate processing files
+CLEAN_UP=yes
+
 
 -----DEM COREGISTRATION PARAMETERS----------------------------------------------------------------------
 
