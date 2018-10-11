@@ -167,8 +167,10 @@ GEN_DEM_RDC()
 	echo " "
 	rm -f $eqa_dem
     fi
-    
-    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2
+
+    ## Generate initial geocoding look up table and simulated SAR image
+    #GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2    
+    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - - - - - 8 2
 
     # Convert landsat float file to same coordinates as DEM
     if [ $use_ext_image == yes ]; then
@@ -268,13 +270,13 @@ OFFSET_CALC()
 	GM gc_map_fine $dem_lt_rough $dem_width $dem_diff $dem_lt_fine 1
     fi
 
-    GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_fine $dem_lsmap $dem_loc_inc $dem_pix_sig $dem_pix_gam
+    #GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_fine $dem_lsmap $dem_loc_inc $dem_pix_sig $dem_pix_gam
 
-    # create raster for comparison with master mli raster
+    ## create raster for comparison with master mli raster
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
-    GM raspwr $dem_pix_gam $r_dem_master_mli_width 1 0 20 20 1. .35 1 $dem_pix_gam_bmp
-    GM convert $dem_pix_gam_bmp ${dem_pix_gam_bmp/.bmp}.png
-    rm -f $dem_pix_gam_bmp
+    #GM raspwr $dem_pix_gam $r_dem_master_mli_width 1 0 20 20 1. .35 1 $dem_pix_gam_bmp
+    #GM convert $dem_pix_gam_bmp ${dem_pix_gam_bmp/.bmp}.png
+    #rm -f $dem_pix_gam_bmp
 
     rm -f $dem_lt_rough $dem_offs $snr $dem_offsets $dem_coffs $dem_coffsets test1.dat test2.dat
 }
