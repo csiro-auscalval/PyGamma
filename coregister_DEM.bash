@@ -278,7 +278,11 @@ OFFSET_CALC()
     #GM convert $dem_pix_gam_bmp ${dem_pix_gam_bmp/.bmp}.png
     #rm -f $dem_pix_gam_bmp
 
-    rm -f $dem_lt_rough $dem_offs $snr $dem_offsets $dem_coffs $dem_coffsets test1.dat test2.dat
+    ## Make sea-mask based on DEM zero values
+    GM replace_values $eqa_dem 0.0001 0 temp $dem_width 0 2 1
+    GM rashgt temp - $dem_width 1 1 0 1 1 100.0 - - - $seamask
+
+    rm -f temp $dem_lt_rough $dem_offs $snr $dem_offsets $dem_coffs $dem_coffsets test1.dat test2.dat
 }
 
 
