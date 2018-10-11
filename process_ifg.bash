@@ -457,35 +457,41 @@ GEOCODE()
     width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
 
     ## Use bicubic spline interpolation for geocoded unwrapped interferogram
-    GM geocode_back $ifg_unw $width_in $dem_lt_fine $ifg_unw_geocode_out $width_out - 1 0 - -
+    GM geocode_back $ifg_unw $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    ## apply sea mask to phase data
+    GM mask_data temp $width_out $ifg_unw_geocode_out $seamask 0
     # make quick-look png image 
     GM rasrmg $ifg_unw_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_unw_geocode_bmp
     GM convert $ifg_unw_geocode_bmp -transparent black ${ifg_unw_geocode_bmp/.bmp}.png
     name=`ls *rlks_eqa_unw.png`
     GM kml_map $name $eqa_dem_par ${name/.png}.kml
-    rm -f $ifg_unw_geocode_bmp
+    rm -f $ifg_unw_geocode_bmp temp
 
     ## Use bicubic spline interpolation for geocoded flattened interferogram
     # convert to float and extract phase
     GM cpx_to_real $ifg_flat $ifg_flat_float $width_in 4
-    GM geocode_back $ifg_flat_float $width_in $dem_lt_fine $ifg_flat_geocode_out $width_out - 1 0 - -
+    GM geocode_back $ifg_flat_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    ## apply sea mask to phase data
+    GM mask_data temp $width_out $ifg_flat_geocode_out $seamask 0
     # make quick-look png image
     GM rasrmg $ifg_flat_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_flat_geocode_bmp
     GM convert $ifg_flat_geocode_bmp -transparent black ${ifg_flat_geocode_bmp/.bmp}.png
     name=`ls *rlks_flat_eqa_int.png`
     GM kml_map $name $eqa_dem_par ${name/.png}.kml
-    rm -f $ifg_flat_geocode_bmp
+    rm -f $ifg_flat_geocode_bmp temp $ifg_flat_float
 
     ## Use bicubic spline interpolation for geocoded filtered interferogram
     # convert to float and extract phase
     GM cpx_to_real $ifg_filt $ifg_filt_float $width_in 4
-    GM geocode_back $ifg_filt_float $width_in $dem_lt_fine $ifg_filt_geocode_out $width_out - 1 0 - -
+    GM geocode_back $ifg_filt_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    ## apply sea mask to phase data
+    GM mask_data temp $width_out $ifg_filt_geocode_out $seamask 0
     # make quick-look png image
     GM rasrmg $ifg_filt_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_filt_geocode_bmp
     GM convert $ifg_filt_geocode_bmp -transparent black ${ifg_filt_geocode_bmp/.bmp}.png
     name=`ls *rlks_filt_eqa_int.png`
     GM kml_map $name $eqa_dem_par ${name/.png}.kml    
-    rm -f $ifg_filt_geocode_bmp
+    rm -f $ifg_filt_geocode_bmp temp $ifg_filt_float
 
     ## Use bicubic spline interpolation for geocoded flat coherence file
     GM geocode_back $ifg_flat_cc $width_in $dem_lt_fine $ifg_flat_cc_geocode_out $width_out - 1 0 - -
