@@ -193,86 +193,48 @@ elif [ $post_method == 'pymode' ]; then
     cp $dem_lv_phi .
 
 elif [ $post_method == 'pyrate' ]; then
+    cd $post_dir
     ## DEM files
     dem_file_names
-    mkdir -p $post_dem_dir
-    cd $post_dem_dir
-    cp $eqa_dem . 
+#    cp $eqa_dem . # Not currently used in PyRate
     cp $eqa_dem_par .
-    cp $dem_lv_theta .
-    cp $dem_lv_phi .
-    ls * > dem_list
-    cd $post_dir
+#    cp $dem_lv_theta . # Not currently used in PyRate
+#    cp $dem_lv_phi . # Not currently used in PyRate
+#    ls * > dem_list
 
-    ## Flattened interferogram files
-    mkdir -p $post_flat_ifg_dir
-    cd $post_flat_ifg_dir
+    ## SLC par files
+    dem_master_names
+    cp $r_dem_master_slc_par .
+
     while read list; do
         if [ ! -z $list ]; then
-            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifg_file_names
-	    cp $ifg_flat_geocode_out .
-	    cp $ifg_dir/ifg.rsc .
+            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+            slave_file_names
+            cp $r_slave_slc_par .
         fi
-    done < $ifg_list
-    cd $post_dir
-
-    ## Filtered interferogram files
-    mkdir -p $post_filt_ifg_dir
-    cd $post_filt_ifg_dir
-    while read list; do
-        if [ ! -z $list ]; then
-            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifg_file_names
-	    cp $ifg_filt_geocode_out .
-	    cp $ifg_dir/ifg.rsc .
-        fi
-    done < $ifg_list
-    cd $post_dir
+    done < $slave_list
 
     ## Unwrapped interferogram files
-    mkdir -p $post_unw_ifg_dir
-    cd $post_unw_ifg_dir
     while read list; do
         if [ ! -z $list ]; then
             master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
             slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	    ifg_file_names
 	    cp $ifg_unw_geocode_out .
-	    cp $ifg_dir/ifg.rsc .
         fi
     done < $ifg_list
-    cd $post_dir
 
-    ## Flattened coherence files
-    mkdir -p $post_flat_cc_dir
-    cd $post_flat_cc_dir
-    while read list; do
-        if [ ! -z $list ]; then
-            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifg_file_names
-	    cp $ifg_flat_cc_geocode_out .
-	    cp $ifg_dir/ifg.rsc .
-        fi
-    done < $ifg_list
-    cd $post_dir
+    ## Flattened coherence files - not currently used in PyRate
+#    while read list; do
+#        if [ ! -z $list ]; then
+#            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+#            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+#	    ifg_file_names
+#	    cp $ifg_flat_cc_geocode_out .
+#	    cp $ifg_dir/ifg.rsc .
+#        fi
+#    done < $ifg_list
 
-    ## Filtered coherence files
-    mkdir -p $post_filt_cc_dir
-    cd $post_filt_cc_dir
-    while read list; do
-        if [ ! -z $list ]; then
-            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifg_file_names
-	    cp $ifg_filt_cc_geocode_out .
-	    cp $ifg_dir/ifg.rsc .
-        fi
-    done < $ifg_list
-    cd $post_dir
 else
     :
 fi
