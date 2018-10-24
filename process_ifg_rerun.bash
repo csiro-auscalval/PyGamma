@@ -99,8 +99,8 @@ if [ -s $ifg_rerun_list ]; then
     echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
     j=0
     {
-        multi_jobs $pbs_run_loc $pbs_job_prefix $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_batch_dir $script_type jobs1 steps1 j
-        multi_jobs $pbs_run_loc $pbs_job_prefix $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_batch_dir $script_type jobs2 steps2 jobs1
+        multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_batch_dir $script_type jobs1 steps1 j
+        multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $ifg_mem $ifg_ncpus $queue $script $depend_job $depend_type $job_type $ifg_batch_dir $script_type jobs2 steps2 jobs1
     } < $ifg_rerun_list
 fi
 
