@@ -167,20 +167,17 @@ else # Sentinel-1
 	# get precision orbit file
 	start_date=`date -d "$scene -1 days" +%Y%m%d`
 	stop_date=`date -d "$scene +1 days" +%Y%m%d`
-	# check if orbit files are missing are missing
-	if [ $s1_type == "S1A" ]; then
-	    if grep -R "$scene" $s1_orbits/missing_S1A; then
-		echo "No orbit file available for date: "$scene
-	    else
-		cp $s1_orbits/$s1_type/*V$start_date*_$stop_date*.EOF .
-	    fi
-	elif [ $s1_type == "S1B" ]; then
-	    if grep -R "$scene" $s1_orbits/missing_S1B; then
-		echo "No orbit file available for date: "$scene
-	    else
-		cp $s1_orbits/$s1_type/*V$start_date*_$stop_date*.EOF .
-	    fi
-	fi
+	# check if precise orbit file is available
+        if [ -e $s1_orbits/POEORB/$s1_type/*V$start_date*_$stop_date*.EOF ]; then
+            ## determine the most recent file (in case there are duplicates)
+            recent=`ls $s1_orbits/POEORB/$s1_type/*V$start_date*_$stop_date*.EOF | sort | tail -1`
+            cp $recent .
+#        elif [ -e $s1_orbits/RESORB/$s1_type/*V$start_date*_$stop_date*.EOF ]; then
+#            recent=`ls $s1_orbits/RESORB/$s1_type/*V$start_date*_$stop_date*.EOF | sort | tail -1`
+#            cp $recent .
+        else
+            echo "No precise orbit file (POEORB) available for date: "$scene
+        fi
 	cd $proj_dir
     fi
 fi
