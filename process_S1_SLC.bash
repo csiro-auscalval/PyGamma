@@ -211,7 +211,7 @@ function burst_images {
 
 # Phase shift for IW1 of the image before 15th of March 2015
 function phase_shift {
-    if [ $scene -lt 20150310 ]; then 
+    if [ $scene -lt 20150315 ]; then 
 	GM SLC_phase_shift $slc1 $slc_par1 $slc1s $slc_par1s -1.25
 	cp $tops_par1 $tops_par1s
         # rename original slc files to 'pre_shift' and rename new slcs back to original filenames
@@ -222,7 +222,8 @@ function phase_shift {
 	mv $slc_par1s $slc_par1
 	mv $tops_par1s $tops_par1
     else
-	:
+	echo "No SLC phase shift necessary, scene later than 15/03/2015"
+	echo
     fi 
 }
 
@@ -240,10 +241,11 @@ function mosaic_slc {
 
 # Import precise orbit information (if available)
 function orbits {
-    if [ -e $raw_data_track_dir/$scene/*.EOF ]; then
-	GM S1_OPOD_vec $slc_par $raw_data_track_dir/$scene/*.EOF
+    if [ -e $raw_data_track_dir/F$i/$scene/*.EOF ]; then
+	GM S1_OPOD_vec $slc_par $raw_data_track_dir/F$i/$scene/*.EOF
     else 
-	:
+	echo "No precise orbit information found for scene "$scene
+	echo
     fi
 }
 
