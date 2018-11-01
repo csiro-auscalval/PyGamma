@@ -32,6 +32,8 @@ display_usage() {
     echo "*         Sarah Lawrie @ GA       12/09/2018, v2.1                            *"
     echo "*                  - refine zip download to only include files related to     *"
     echo "*                    polarisation rather than full zip file                   *"
+    echo "*         Sarah Lawrie @ GA       01/11/2018, v2.3                            *"
+    echo "*                  - add option to download RESORB if no precise orbit file   *"
     echo "*******************************************************************************"
     echo -e "Usage: extract_raw_data.bash [proc_file] [scene] <S1_grid_dir> <S1_zip_file> <S1_frame_number>"
     }
@@ -167,14 +169,36 @@ else # Sentinel-1
 	# get precision orbit file
 	start_date=`date -d "$scene -1 days" +%Y%m%d`
 	stop_date=`date -d "$scene +1 days" +%Y%m%d`
+	start_time=`sed -n 's/.*<safe.startTime>\([^<]*\)<\/safe.startTime>.*/\1/p' $dir/manifest.safe | cut -d 'T' -f 2 | cut -d '.' -f 1 | sed 's/\://g'`
+	stop_time=`sed -n 's/.*<safe.stopTime>\([^<]*\)<\/safe.stopTime>.*/\1/p' $dir/manifest.safe | cut -d 'T' -f 2 | cut -d '.' -f 1 | sed 's/\://g'`
+
+	# search for restituted orbit files (in case required)
+	ls  $s1_orbits/RESORB/$s1_type/*V$date*_$date*.EOF > list
+	while read line; do
+	    echo $line | cut -d '/' -f 9 >> list2
+	done < list
+	rm -rf list
+
 	# check if precise orbit file is available
         if [ -e $s1_orbits/POEORB/$s1_type/*V$start_date*_$stop_date*.EOF ]; then
             ## determine the most recent file (in case there are duplicates)
             recent=`ls $s1_orbits/POEORB/$s1_type/*V$start_date*_$stop_date*.EOF | sort | tail -1`
             cp $recent .
-#        elif [ -e $s1_orbits/RESORB/$s1_type/*V$start_date*_$stop_date*.EOF ]; then
-#            recent=`ls $s1_orbits/RESORB/$s1_type/*V$start_date*_$stop_date*.EOF | sort | tail -1`
-#            cp $recent .
+	    rm -rf list2
+	# if no precise orbit, check for restituted orbit file
+	elif [ -e list2 ]; then
+	    while read line; do
+		start=`echo $line | cut -d '_' -f 7 | cut -d 'T' -f 2`
+		stop=`echo $line | cut -d '_' -f 8 | cut -d 'T' -f 2 | cut -d '.' -f 1`
+		if [ "$start_time" -ge "$start" ] && [ "$stop_time" -le "$stop" ]; then
+		    echo $line | tr '_' ' ' | tr 'T' ' ' >> list3
+		fi
+	    done < list2
+	    rm -rf list2
+	    file=`sort -k7 -n -r list3 | head -1 | awk 'BEGIN{FS=OFS="_"}{split($1, a, " "); $1=a[1]"_"a[2]"_"a[3]"_"a[4]"_"a[5]"_"a[6]"T"a[7]"_"a[8]"T"a[9]"_"a[10]"T"a[11]}1'`
+	    recent=$s1_orbits/RESORB/$s1_type/$file
+	    cp $recent .
+	    rm -rf list3
         else
             echo "No precise orbit file (POEORB) available for date: "$scene
         fi
