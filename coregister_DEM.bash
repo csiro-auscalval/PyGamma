@@ -169,8 +169,8 @@ GEN_DEM_RDC()
     fi
 
     ## Generate initial geocoding look up table and simulated SAR image
-    #GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2    
-    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - - - - - 8 2
+    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - pix $dem_lsmap 8 2    
+    #GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - - - - - 8 2
 
     # Convert landsat float file to same coordinates as DEM
     if [ $use_ext_image == yes ]; then
@@ -243,9 +243,9 @@ OFFSET_CALC()
 	npoly=4
     fi
 
-    GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_rough - - $dem_pix_sig -
-    GM init_offsetm $dem_pix_sig $r_dem_master_mli $dem_diff 1 1 $dem_rpos $dem_azpos - - $dem_snr $dem_patch_win 1
-    GM offset_pwrm $dem_pix_sig $r_dem_master_mli $dem_diff $dem_offs $dem_ccp - - $dem_offsets 2 - - -
+    #GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_rough $dem_lsmap $dem_loc_inc $dem_pix_sig -
+    GM init_offsetm pix $r_dem_master_mli $dem_diff 1 1 $dem_rpos $dem_azpos - - $dem_snr $dem_patch_win 1
+    GM offset_pwrm pix $r_dem_master_mli $dem_diff $dem_offs $dem_ccp - - $dem_offsets 2 - - -
     GM offset_fitm $dem_offs $dem_ccp $dem_diff $dem_coffs $dem_coffsets - $npoly
 
     # Extract offset estimates to results file
@@ -270,7 +270,8 @@ OFFSET_CALC()
 	GM gc_map_fine $dem_lt_rough $dem_width $dem_diff $dem_lt_fine 1
     fi
 
-    #GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_fine $dem_lsmap $dem_loc_inc $dem_pix_sig $dem_pix_gam
+    ## Generate sigma0 and gamma0 pixel normalisation area images
+    GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_fine $dem_lsmap $dem_loc_inc $dem_pix_sig $dem_pix_gam
 
     ## create raster for comparison with master mli raster
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
@@ -297,6 +298,9 @@ GEOCODE()
 
     # Geocode simulated SAR intensity image to radar geometry
     GM geocode $dem_lt_fine $dem_eqa_sim_sar $dem_width $dem_rdc_sim_sar $r_dem_master_mli_width $r_dem_master_mli_length 1 0 - - 2 $dem_rad_max -
+
+    # Geocode local incidence angle image to radar geometry
+    GM geocode $dem_lt_fine $dem_loc_inc $dem_width $dem_rdc_inc $r_dem_master_mli_width $r_dem_master_mli_length 1 0 - - 2 $dem_rad_max -
 
     # Geocode external image to radar geometry
     if [ $use_ext_image == yes ]; then
