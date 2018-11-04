@@ -173,7 +173,7 @@ else # Sentinel-1
 	stop_time=`sed -n 's/.*<safe.stopTime>\([^<]*\)<\/safe.stopTime>.*/\1/p' $dir/manifest.safe | cut -d 'T' -f 2 | cut -d '.' -f 1 | sed 's/\://g'`
 
 	# search for restituted orbit files (in case required)
-	ls  $s1_orbits/RESORB/$s1_type/*V$date*_$date*.EOF > list
+	ls  $s1_orbits/RESORB/$s1_type/*V$scene*_$scene*.EOF > list
 	while read line; do
 	    echo $line | cut -d '/' -f 9 >> list2
 	done < list
