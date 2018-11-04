@@ -114,7 +114,7 @@ function read_raw_data {
 			bslc="slc$swath"
 			bslc_par=${!bslc}.par
 			btops="tops_par$swath"
-			GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops} 0 60.0000 -
+			GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops} 0 - -
 		    done 
 		else # multiple frames
 		    while [ "$i" -le "$tot_frame" ]; do
@@ -130,7 +130,7 @@ function read_raw_data {
 			    bslc="fr_slc$swath"
 			    bslc_par=${!bslc}.par
 			    btops="fr_tops_par$swath"
-			    GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops} 0 60.0000 -
+			    GM par_S1_SLC $data $annot $calib $noise $bslc_par ${!bslc} ${!btops} 0 - -
 
 			    echo ${!bslc} >> slc_list
 			    echo $bslc_par >> par_list
