@@ -316,6 +316,8 @@ GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_ma
 ### Multilook coregistered slave
 GM multi_look $r_slave_slc $r_slave_slc_par $r_slave_mli $r_slave_mli_par $rlks $alks
 
+### Full-res MLI for CR analysis 
+#GM multi_look $slv_rslc $slv_rslc_par $slv_dir/r$slv_slc_name"_1rlks.mli" $slv_dir/r$slv_slc_name"_1rlks.mli.par" 1 1
 
 ### Clean up temp files
 #rm -rf $slave_lt.tmp.?

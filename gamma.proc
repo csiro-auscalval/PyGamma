@@ -11,7 +11,7 @@ GAMMA_CONFIG=/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
 NCI_PATH=/g/data1/dg9
 ENVISAT_ORBITS=/g/data1/dg9/SAR_ORBITS/ENVISAT
 ERS_ORBITS=/g/data1/dg9/SAR_ORBITS/ERS_ODR_UPDATED
-S1_ORBITS=/g/data1/dg9/SAR_ORBITS/S1_ORBITS
+S1_ORBITS=/g/data/fj7/Copernicus/Sentinel-1
 S1_PATH=/g/data1/fj7/Copernicus/Sentinel-1/C-SAR/SLC
 MASTER_DEM_IMAGE=/g/data1/dg9/MASTER_DEM
 
@@ -141,6 +141,11 @@ COREGISTER_SLAVES=yes
 PROCESS_IFGS=yes
 IFG_GEOTIFF=yes
 
+-----CLEAN UP-------------------------------------------------------------------------------------------
+
+    # Clean up intermediate processing files
+CLEAN_UP=yes
+
 
 -----DEM COREGISTRATION PARAMETERS----------------------------------------------------------------------
 
@@ -207,9 +212,11 @@ IFG_END=DONE
 
     # Coherence threshold for masking
 IFG_COHERENCE_THRESHOLD=0.3
+    # Mask unwrapped pixels below coherence threshold
+IFG_UNW_MASK=no
     # Number of unwrapping patches (default: 1, for high res data may need to be 2 or more)
-IFG_PATCHES_RANGE=1
-IFG_PATCHES_AZIMUTH=1
+IFG_PATCHES_RANGE=3
+IFG_PATCHES_AZIMUTH=3
     # Location of reference pixel
 IFG_REF_POINT_RANGE=-
 IFG_REF_POINT_AZIMUTH=-
@@ -298,8 +305,8 @@ COREG_MEM=8GB
 COREG_NCPUS=4
 
    -----INTERFEROGRAM GENERATION-----  # parameters for one ifg only
-IFG_WALLTIME=01:00:00
-IFG_MEM=8GB
+IFG_WALLTIME=02:00:00
+IFG_MEM=16GB
 IFG_NCPUS=4
 
    -----POST INTERFEROGRAM PROCESSING-----

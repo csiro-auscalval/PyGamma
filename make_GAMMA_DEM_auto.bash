@@ -104,7 +104,8 @@ echo "Max_Lon: "$max_lon >> $dem_scene_extent_results
 gdal_translate -projwin $min_lon $max_lat $max_lon $min_lat $dem_img temp.tif
 
 ## GAMMA regards 0 as null data, change default null value from -3.4028234663852886e+38 to 0
-gdalwarp -srcnodata "-3.40282346638529011e+38" -dstnodata "0" temp.tif temp2.tif
+## MG: change 0 to 0.0001 (i.e. 0.1 mm) so that water areas are not masked in coregistered slaves
+gdalwarp -srcnodata "-3.40282346638529011e+38" -dstnodata "0.0001" temp.tif temp2.tif
 
 ## Create GAMMA DEM and DEM_par from geotif
 dem_import temp2.tif $dem $dem_par 0 1

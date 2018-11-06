@@ -35,6 +35,6 @@ awk '{print $1, $3}' $mlcc | psxy $proj $range -B -Wblue -K -O >> $psfile
 
 awk '{print $1, $4}' $mlcc | psxy $proj $range -Bf100a500:"Range bin (pixels)":/f0.25a0.5:"Correlation phase"::."Line to Line Correlation Phase (radians)":nSeW -Wgreen -O >> $psfile
 
-ps2raster -A -Tf -P $psfile
+ps2raster -A -Tg -P $psfile
 
 rm -f $psfile

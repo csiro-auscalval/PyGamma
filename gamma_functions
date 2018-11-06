@@ -86,6 +86,9 @@ function proc_variables {
     s1_resize_ref=`grep ^S1_RESIZE_REF_SLC= $proc_file | cut -d "=" -f 2`
     do_s1_subset=`grep ^DO_S1_BURST_SUBSET= $proc_file | cut -d "=" -f 2`
 
+    # Clean up intermediate files
+    clean_up=`grep ^CLEAN_UP= $proc_file | cut -d "=" -f 2`
+
     # DEM coregistration details
     dem_rpos=`grep ^DEM_RPOS= $proc_file | cut -d "=" -f 2`
     dem_azpos=`grep ^DEM_AZPOS= $proc_file | cut -d "=" -f 2`
@@ -128,6 +131,7 @@ function proc_variables {
     ifg_filtwin=`grep ^IFG_FILTERING_WINDOW= $proc_file | cut -d "=" -f 2`
     ifg_ccwin=`grep ^IFG_COHERENCE_WINDOW= $proc_file | cut -d "=" -f 2`
     ifg_coh_thres=`grep ^IFG_COHERENCE_THRESHOLD= $proc_file | cut -d "=" -f 2`
+    ifg_unw_mask=`grep ^IFG_UNW_MASK= $proc_file | cut -d "=" -f 2`
     ifg_patch_r=`grep ^IFG_PATCHES_RANGE= $proc_file | cut -d "=" -f 2`
     ifg_patch_az=`grep ^IFG_PATCHES_AZIMUTH= $proc_file | cut -d "=" -f 2`
     ifg_refrg=`grep ^IFG_REF_POINT_RANGE= $proc_file | cut -d "=" -f 2`
@@ -443,6 +447,7 @@ function dem_file_names {
     rdc_dem=$dem_master_name"_rdc.dem"
     eqa_dem=$dem_master_name"_eqa.dem"
     eqa_dem_par=$eqa_dem.par
+    seamask=$dem_master_name"_eqa_seamask.ras"
     dem_lt_rough=$dem_master_name"_rough_eqa_to_rdc.lt"
     dem_lt_fine=$dem_master_name"_fine_eqa_to_rdc.lt"
     dem_eqa_sim_sar=$dem_master_name"_eqa.sim"

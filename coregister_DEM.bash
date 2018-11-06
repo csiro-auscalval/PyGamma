@@ -120,7 +120,7 @@ COPY_SLC()
 
     ## Create raster for comparison purposes
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
-    GM raspwr $r_dem_master_mli $r_dem_master_mli_width 1 0 2 2 1. .35 1 $r_dem_master_mli_bmp
+    GM raspwr $r_dem_master_mli $r_dem_master_mli_width 1 0 20 20 1. .35 1 $r_dem_master_mli_bmp
     GM convert $r_dem_master_mli_bmp ${r_dem_master_mli_bmp/.bmp}.png
     rm -f $r_dem_master_mli_bmp
 }
@@ -167,8 +167,10 @@ GEN_DEM_RDC()
 	echo " "
 	rm -f $eqa_dem
     fi
-    
-    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2
+
+    ## Generate initial geocoding look up table and simulated SAR image
+    #GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2    
+    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - - - - - 8 2
 
     # Convert landsat float file to same coordinates as DEM
     if [ $use_ext_image == yes ]; then
@@ -268,16 +270,19 @@ OFFSET_CALC()
 	GM gc_map_fine $dem_lt_rough $dem_width $dem_diff $dem_lt_fine 1
     fi
 
-    GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_fine $dem_lsmap $dem_loc_inc $dem_pix_sig $dem_pix_gam
+    #GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_fine $dem_lsmap $dem_loc_inc $dem_pix_sig $dem_pix_gam
 
-    # create raster for comparison with master mli raster
+    ## create raster for comparison with master mli raster
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
-    GM raspwr $dem_pix_gam $r_dem_master_mli_width 1 0 2 2 1. .35 1 $dem_pix_gam_bmp
-    png_file=`echo $dem_pix_gam_bmp | cut -d "." -f 1` 
-    GM convert $dem_pix_gam_bmp $png_file.png
-    rm -f $dem_pix_gam_bmp
+    #GM raspwr $dem_pix_gam $r_dem_master_mli_width 1 0 20 20 1. .35 1 $dem_pix_gam_bmp
+    #GM convert $dem_pix_gam_bmp ${dem_pix_gam_bmp/.bmp}.png
+    #rm -f $dem_pix_gam_bmp
 
-    rm -f $dem_lt_rough $dem_offs $snr $dem_offsets $dem_coffs $dem_coffsets test1.dat test2.dat
+    ## Make sea-mask based on DEM zero values
+    GM replace_values $eqa_dem 0.0001 0 temp $dem_width 0 2 1
+    GM rashgt temp - $dem_width 1 1 0 1 1 100.0 - - - $seamask
+
+    rm -f temp $dem_lt_rough $dem_offs $snr $dem_offsets $dem_coffs $dem_coffsets test1.dat test2.dat
 }
 
 
@@ -286,7 +291,7 @@ GEOCODE()
     cd $dem_dir
     # Geocode map geometry DEM to radar geometry
     GM geocode $dem_lt_fine $eqa_dem $dem_width $rdc_dem $r_dem_master_mli_width $r_dem_master_mli_length 1 0 - - 2 $dem_rad_max -
-    GM rashgt $rdc_dem $r_dem_master_mli $r_dem_master_mli_width 1 1 0 1 1 500. 1. .35 1 $rdc_dem.bmp
+    GM rashgt $rdc_dem $r_dem_master_mli $r_dem_master_mli_width 1 1 0 20 20 500. 1. .35 1 $rdc_dem.bmp
     GM convert $rdc_dem.bmp ${rdc_dem/.bmp}.png
     rm -f $rdc_dem.bmp
 

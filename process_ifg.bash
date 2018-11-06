@@ -157,6 +157,12 @@ INT()
     else
 	:
     fi
+
+    if [ $clean_up == yes ]; then
+        ## clean up unnecessary files
+        rm -f $ifg_offs $ifg_ccp $ifg_coffs $ifg_coffsets
+    fi
+
     ## Create differential interferogram parameter file
     GM create_diff_par $ifg_off - $ifg_diff_par 0 0
 }
@@ -269,12 +275,16 @@ FLAT()
         done
         ### iteration
 
-        rm -f $ifg_base_temp
-        rm -f $ifg_flat_temp
     else
         # use original baseline estimation without iteration
         :
     fi
+
+    if [ $clean_up == yes ]; then
+        ## clean up unnecessary files
+        rm -f $ifg_base_temp $ifg_base_res $ifg_base_init $ifg_flat_temp $ifg_sim_unw0 $ifg_flat0
+    fi
+
 
     #######################################
     if [ $sensor = CSK ] && [ $sensor_mode = SP ]; then
@@ -335,6 +345,14 @@ FLAT()
  
         ## subtract simulated phase ('ifg_flat1' was originally 'ifg', but this file is no longer created)
 	GM sub_phase $ifg_flat1 $ifg_sim_unw $ifg_diff_par $ifg_flat 1 0
+
+        if [ $clean_up == yes ]; then
+            ## clean up unnecessary files
+            rm -f $ifg_flat1 $ifg_flat"1.unw" $ifg_sim_unw1 $ifg_flat1.unw 
+            rm -f $ifg_flat_cc0 $ifg_flat_cc0_mask 
+            rm -f $ifg_flat10.unw $ifg_off10 $ifg_flat10 $ifg_flat_cc10 $ifg_flat_cc10_mask 
+            rm -f $ifg_gcp $ifg_gcp_ph
+        fi
     fi
 
     ## Calculate final flattened interferogram with common band filtering (diff ifg generation from co-registered SLCs and a simulated interferogram)
@@ -399,31 +417,34 @@ UNW()
 	GM rascc_mask_thinning $ifg_mask $ifg_filt_cc $ifg_width $ifg_mask_thin 3 $ifg_coh_thres $thres_1 $thres_max
 
         ## Unwrapping with validity mask
-	GM mcf $ifg_filt $ifg_filt_cc $ifg_mask_thin $ifg_unw_thin $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 0
+	GM mcf $ifg_filt $ifg_filt_cc $ifg_mask_thin $ifg_unw_thin $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
 
         ## Interpolate sparse unwrapped points to give unwrapping model
 	GM interp_ad $ifg_unw_thin $ifg_unw_model $ifg_width 32 8 16 2
 
         ## Use model to unwrap filtered interferogram
-	#if [ $ifg_refrg = "-" -a $ifg_refaz = "-" ]; then
-	#    GM unw_model $ifg_filt $ifg_unw_model temp $ifg_width
-	#else
 	GM unw_model $ifg_filt $ifg_unw_model temp $ifg_width $ifg_refrg $ifg_refaz 0.0
-	#fi
 
-        # mask unwrapped interferogram for low coherence areas below threshold
+        if [ $clean_up == yes ]; then
+            ## clean up unnecessary files
+            rm -f $ifg_unw_thin $ifg_unw_model
+        fi
+
+    else
+        ## Unwrap the full interferogram without masking
+        GM mcf $ifg_filt - - temp $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
+    fi
+
+    if [ $ifg_unw_mask == yes ]; then
+        ## Mask unwrapped interferogram for low coherence areas below threshold
         GM mask_data temp $ifg_width $ifg_unw $ifg_mask 0
         rm -f temp
     else
-	#if [ $ifg_refrg = "-" -a $ifg_refaz = "-" ]; then
-        #    GM mcf $ifg_filt $ifg_filt_cc $ifg_mask $ifg_unw $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - - - 0
-        #else
-        GM mcf $ifg_filt $ifg_filt_cc $ifg_mask $ifg_unw $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
-        #fi
+        mv temp $ifg_unw
     fi
 
-    ## Convert LOS signal to vertical
-    #GM dispmap $ifg_unw $rdc_dem $r_master_slc_par $ifg_off $disp 1
+    ## Convert unwrapped phase in radians to a LOS displacement in metres
+    #GM dispmap $ifg_unw $rdc_dem $r_master_slc_par $ifg_off $disp 0
 }
 
 
@@ -436,43 +457,61 @@ GEOCODE()
     width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
 
     ## Use bicubic spline interpolation for geocoded unwrapped interferogram
-    GM geocode_back $ifg_unw $width_in $dem_lt_fine $ifg_unw_geocode_out $width_out - 1 0 - -
+    GM geocode_back $ifg_unw $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    ## apply sea mask to phase data
+    GM mask_data temp $width_out $ifg_unw_geocode_out $seamask 0
     # make quick-look png image 
-    GM rasrmg $ifg_unw_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $ifg_unw_geocode_bmp
-    GM convert $ifg_unw_geocode_bmp ${ifg_unw_geocode_bmp/.bmp}.png
-    rm -f $ifg_unw_geocode_bmp
+    GM rasrmg $ifg_unw_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_unw_geocode_bmp
+    GM convert $ifg_unw_geocode_bmp -transparent black ${ifg_unw_geocode_bmp/.bmp}.png
+    name=`ls *rlks_eqa_unw.png`
+    GM kml_map $name $eqa_dem_par ${name/.png}.kml
+    rm -f $ifg_unw_geocode_bmp temp
 
     ## Use bicubic spline interpolation for geocoded flattened interferogram
     # convert to float and extract phase
     GM cpx_to_real $ifg_flat $ifg_flat_float $width_in 4
-    GM geocode_back $ifg_flat_float $width_in $dem_lt_fine $ifg_flat_geocode_out $width_out - 1 0 - -
+    GM geocode_back $ifg_flat_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    ## apply sea mask to phase data
+    GM mask_data temp $width_out $ifg_flat_geocode_out $seamask 0
     # make quick-look png image
-    GM rasrmg $ifg_flat_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $ifg_flat_geocode_bmp
-    GM convert $ifg_flat_geocode_bmp ${ifg_flat_geocode_bmp/.bmp}.png
-    rm -f $ifg_flat_geocode_bmp
+    GM rasrmg $ifg_flat_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_flat_geocode_bmp
+    GM convert $ifg_flat_geocode_bmp -transparent black ${ifg_flat_geocode_bmp/.bmp}.png
+    name=`ls *rlks_flat_eqa_int.png`
+    GM kml_map $name $eqa_dem_par ${name/.png}.kml
+    rm -f $ifg_flat_geocode_bmp temp $ifg_flat_float
 
     ## Use bicubic spline interpolation for geocoded filtered interferogram
     # convert to float and extract phase
     GM cpx_to_real $ifg_filt $ifg_filt_float $width_in 4
-    GM geocode_back $ifg_filt_float $width_in $dem_lt_fine $ifg_filt_geocode_out $width_out - 1 0 - -
+    GM geocode_back $ifg_filt_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    ## apply sea mask to phase data
+    GM mask_data temp $width_out $ifg_filt_geocode_out $seamask 0
     # make quick-look png image
-    GM rasrmg $ifg_filt_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $ifg_filt_geocode_bmp
-    GM convert $ifg_filt_geocode_bmp ${ifg_filt_geocode_bmp/.bmp}.png
-    rm -f $ifg_filt_geocode_bmp
+    GM rasrmg $ifg_filt_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_filt_geocode_bmp
+    GM convert $ifg_filt_geocode_bmp -transparent black ${ifg_filt_geocode_bmp/.bmp}.png
+    name=`ls *rlks_filt_eqa_int.png`
+    GM kml_map $name $eqa_dem_par ${name/.png}.kml    
+    rm -f $ifg_filt_geocode_bmp temp $ifg_filt_float
 
     ## Use bicubic spline interpolation for geocoded flat coherence file
     GM geocode_back $ifg_flat_cc $width_in $dem_lt_fine $ifg_flat_cc_geocode_out $width_out - 1 0 - -
     # make quick-look png image
-    GM rasrmg $ifg_flat_cc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $ifg_flat_cc_geocode_bmp
-    GM convert $ifg_flat_cc_geocode_bmp ${ifg_flat_cc_geocode_bmp/.bmp}.png
-    rm -f $ifg_flat_cc_geocode_bmp
+    GM rascc $ifg_flat_cc_geocode_out - $width_out 1 1 0 20 20 0 1 1 0.35 1 temp.bmp
+    GM ras2ras temp.bmp $ifg_flat_cc_geocode_bmp gray.cm
+    GM convert $ifg_flat_cc_geocode_bmp -transparent black ${ifg_flat_cc_geocode_bmp/.bmp}.png
+    name=`ls *rlks_flat_eqa_cc.png`
+    GM kml_map $name $eqa_dem_par ${name/.png}.kml    
+    rm -f $ifg_flat_cc_geocode_bmp temp.bmp
 
     ## Use bicubic spline interpolation for geocoded filt coherence file
     GM geocode_back $ifg_filt_cc $width_in $dem_lt_fine $ifg_filt_cc_geocode_out $width_out - 1 0 - -
     # make quick-look png image
-    GM rasrmg $ifg_filt_cc_geocode_out - $width_out 1 1 0 10 10 1 1 0.35 0 1 $ifg_filt_cc_geocode_bmp
-    GM convert $ifg_filt_cc_geocode_bmp ${ifg_filt_cc_geocode_bmp/.bmp}.png
-    rm -f $ifg_filt_cc_geocode_bmp
+    GM rascc $ifg_filt_cc_geocode_out - $width_out 1 1 0 20 20 0 1 1 0.35 1 temp.bmp
+    GM ras2ras temp.bmp $ifg_filt_cc_geocode_bmp gray.cm
+    GM convert $ifg_filt_cc_geocode_bmp -transparent black ${ifg_filt_cc_geocode_bmp/.bmp}.png
+    name=`ls *rlks_filt_eqa_cc.png`
+    GM kml_map $name $eqa_dem_par ${name/.png}.kml    
+    rm -f $ifg_filt_cc_geocode_bmp temp.bmp
 
     echo " "
     echo "Geocoded interferogram."
