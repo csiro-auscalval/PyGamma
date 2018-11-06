@@ -56,6 +56,6 @@ gmtset ANNOT_FONT_SIZE_PRIMARY 10p LABEL_FONT_SIZE 12p HEADER_FONT_SIZE 14p
 
 awk '{print $1, $2}' $rspec | psxy $proj $range -Bf1a5g1000:"Frequency (x10@+6@+ Hz)":/f1a5:"Intensity (dB)"::."Range Spectrum":nSeW -Wblue > $psfile
 
-ps2raster -A -Tf -P $psfile
+ps2raster -A -Tg -P $psfile
 
 rm -f $psfile

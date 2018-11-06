@@ -1,9 +1,0 @@
-#!/bin/bash
-#PBS -l walltime=00:20:00
-#PBS -l mem=50MB
-#PBS -l ncpus=1
-#PBS -l wd
-#PBS -lother=gdata1
-#PBS -q express
-
-/home/547/xxx547/repo/gamma_insar/process_gamma.bash TxxxA/D.proc

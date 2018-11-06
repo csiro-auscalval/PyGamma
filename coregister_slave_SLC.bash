@@ -7,11 +7,6 @@ display_usage() {
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
     echo "*         [slave]      slave scene ID (eg. 20120520)                          *"
-    echo "*         [rlks]       range multi-look value (for SLCs: from *.mli.par file  *"
-    echo "*                      or for ifms: from proc file)                           *"
-    echo "*         [alks]       azimuth multi-look value (for SLCs: from *.mli.par     *"
-    echo "*                      file or for ifms: from proc file)                      *"
-    echo "*         <beam>       beam number (eg, F2)                                   *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       22/05/2015, v1.1                            *"
@@ -26,208 +21,122 @@ display_usage() {
     echo "*               changed parameter naming from snr to cc_thresh                *"
     echo "*               usage of $npoly for initial offset fit (issue with ASAR SLCs) *"
     echo "*               save statistical output of MLI to file image_stat.txt         *"
+    echo "*         Sarah Lawrie @ GA       13/08/2018, v2.0                            *"
+    echo "*             -  Major update to streamline processing:                       *"
+    echo "*                  - use functions for variables and PBS job generation       *"
+    echo "*                  - add option to auto calculate multi-look values and       *"
+    echo "*                      master reference scene                                 *"
+    echo "*                  - add initial and precision baseline calculations          *"
+    echo "*                  - add full Sentinel-1 processing, including resizing and   *"
+    echo "*                     subsetting by bursts                                    *"
+    echo "*                  - remove GA processing option                              *"
     echo "*******************************************************************************"
-    echo -e "Usage: coregister_slave_SLC.bash [proc_file] [slave] [rlks] [alks] <beam>"
+    echo -e "Usage: coregister_slave_SLC.bash [proc_file] [slave]"
     }
 
-if [ $# -lt 4 ]
+if [ $# -lt 2 ]
 then
     display_usage
     exit 1
 fi
 
+
+if [ $2 -lt "10000000" ]; then
+    echo "ERROR: Scene ID needed in YYYYMMDD format"
+    exit 1
+else
+    slave=$2
+fi
+
 proc_file=$1
-slave=$2
-rlks=$3
-alks=$4
-beam=$5
 
-## Variables from parameter file (*.proc)
-nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
-platform=`grep Platform= $proc_file | cut -d "=" -f 2`
-project=`grep Project= $proc_file | cut -d "=" -f 2`
-sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
-track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
-master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
-polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
-subset=`grep Subsetting= $proc_file | cut -d "=" -f 2`
-subset_done=`grep Subsetting_done= $proc_file | cut -d "=" -f 2`
-## MLI registration params
-offset_measure=`grep slv_offset_measure= $proc_file | cut -d "=" -f 2`
-slv_win=`grep slv_win= $proc_file | cut -d "=" -f 2`
-slv_cct=`grep slv_cc_thresh= $proc_file | cut -d "=" -f 2`
-## SLC registration params
-cct=`grep coreg_cc_thresh= $proc_file | cut -d "=" -f 2`
-npoly=`grep coreg_model_params= $proc_file | cut -d "=" -f 2`
-win=`grep coreg_window_size= $proc_file | cut -d "=" -f 2`
-nwin=`grep coreg_num_windows= $proc_file | cut -d "=" -f 2`
-ovr=`grep coreg_oversampling= $proc_file | cut -d "=" -f 2`
-niter=`grep coreg_num_iterations= $proc_file | cut -d "=" -f 2`
 
-## Identify project directory based on platform
-if [ $platform == NCI ]; then
-    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
-else
-    proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
-fi
+##########################   GENERIC SETUP  ##########################
 
-slc_dir=$proj_dir/$track_dir/`grep SLC_dir= $proc_file | cut -d "=" -f 2`
-dem_dir=$proj_dir/$track_dir/`grep DEM_dir= $proc_file | cut -d "=" -f 2`
+# Load generic GAMMA functions
+source ~/repo/gamma_insar/gamma_functions
 
-cd $proj_dir
+# Load variables and directory paths
+proc_variables $proc_file
+final_file_loc
 
-## Insert scene details top of NCI .e file
-echo "" 1>&2 # adds spaces at top so scene details are clear
-echo "" 1>&2
-echo "PROCESSING_SCENE: "$project $track_dir $slave $rlks"rlks" $alks"alks" $beam 1>&2
-echo "" 1>&2
+# Load GAMMA to access GAMMA programs
+source $config_file
 
-## Insert scene details top of NCI .0 file
-echo ""
-echo ""
-echo "PROCESSING_SCENE: "$project $track_dir $slave $rlks"rlks" $alks"alks" $beam
-echo ""
+# Print processing summary to .o & .e files
+PBS_processing_details $project $track $slave
 
-## Copy output of Gamma programs to log files
-GM()
-{
-    echo $* | tee -a command.log
-    echo
-    $* >> output.log 2> temp_log
-    cat temp_log >> error.log
-    #cat output.log (option to add output results to NCI .o file if required)
-}
+######################################################################
 
-## Load GAMMA based on platform
-if [ $platform == NCI ]; then
-    GAMMA=`grep GAMMA_NCI= $proc_file | cut -d "=" -f 2`
-    source $GAMMA
-else
-    GAMMA=`grep GAMMA_GA= $proc_file | cut -d "=" -f 2`
-    source $GAMMA
-fi
-
-master_dir=$slc_dir/$master
-slave_dir=$slc_dir/$slave
-
-#if WB data, need to identify beam in file name
-if [ -z $beam ]; then # no beam
-    master_slc_name=$master"_"$polar
-    slave_slc_name=$slave"_"$polar
-    master_mli_name=$master"_"$polar"_"$rlks"rlks"
-    slave_mli_name=$slave"_"$polar"_"$rlks"rlks"
-else # beam exists
-    master_slc_name=$master"_"$polar"_"$beam
-    slave_slc_name=$slave"_"$polar"_"$beam
-    master_mli_name=$master"_"$polar"_"$beam"_"$rlks"rlks"
-    slave_mli_name=$slave"_"$polar"_"$beam"_"$rlks"rlks"
-fi
-
-## files located in SLC directories
-master_mli=$master_dir/r$master_mli_name.mli
-master_mli_par=$master_mli.par
-master_slc=$master_dir/r$master_slc_name.slc
-master_slc_par=$master_slc.par
-
-slave_mli=$slave_dir/$slave_mli_name.mli
-slave_mli_par=$slave_mli.par
-slave_slc=$slave_dir/$slave_slc_name.slc
-slave_slc_par=$slave_slc.par
-
-rslc=$slave_dir/r$slave_slc_name.slc
-rslc_par=$rslc.par
-rmli=$slave_dir/r$slave_mli_name.mli
-rmli_par=$rmli.par
-
-lt=$slave_dir/$master-$slave_mli_name.lt
-off=$slave_dir/$master-$slave_mli_name.off
-diff_par=$slave_dir/$master"-"$slave_mli_name"_diff.par"
-ccp=$slave_dir/$master_mli_name-$slave_mli_name.ccp
-coffs=$slave_dir/$master_mli_name-$slave_mli_name.coffs
-offs=$slave_dir/$master_mli_name-$slave_mli_name.offs
-offsets=$slave_dir/$master_mli_name-$slave_mli_name.offsets
-coffsets=$slave_dir/$master_mli_name-$slave_mli_name.coffsets
-stat=$slave_dir/image_stat.txt
-
-## Coregistration results file
-if [ -z $beam ]; then
-    check_file=$proj_dir/$track_dir/slave_coreg_results"_"$rlks"rlks_"$alks"alks.txt"
-else
-    check_file=$proj_dir/$track_dir/slave_coreg_results"_"$beam"_"$rlks"rlks_"$alks"alks.txt"
-fi
+## File names
+dem_master_names
+dem_file_names
+slave_file_names
 
 cd $slave_dir
 
-## Determine range and azimuth looks in MLI
-echo " "
-echo "MLI range and azimuth looks: "$rlks $alks
-echo " "
 
-#-------------------------
-
-## files located in DEM directory
-rdc_dem=$dem_dir/$master_mli_name"_rdc.dem"
 
 ## Generate initial lookup table between master and slave MLI considering terrain heights from DEM coregistered to master
-GM rdc_trans $master_mli_par $rdc_dem $slave_mli_par $lt"0"
+GM rdc_trans $r_dem_master_mli_par $rdc_dem $slave_mli_par $slave_lt"0"
 
 slave_mli_width=`awk 'NR==11 {print $2}' $slave_mli_par`
-master_mli_width=`awk 'NR==11 {print $2}' $master_mli_par`
+r_dem_master_mli_width=`awk 'NR==11 {print $2}' $r_dem_master_mli_par`
 slave_mli_length=`awk 'NR==12 {print $2}' $slave_mli_par`
 
-GM geocode $lt"0" $master_mli $master_mli_width $rmli $slave_mli_width $slave_mli_length 2 0
+GM geocode $slave_lt"0" $r_dem_master_mli $r_dem_master_mli_width $r_slave_mli $slave_mli_width $slave_mli_length 2 0
 
 ## Measure offset and estimate offset polynomials between slave MLI and resampled slave MLI
 returns=$slave_dir/returns
 echo "" > $returns
 echo "" >> $returns
-echo $offset_measure >> $returns
-echo $slv_win >> $returns
-echo $slv_cct >> $returns
+echo $slave_offset_measure >> $returns
+echo $slave_win2 >> $returns
+echo $slave_cct2 >> $returns
 
-GM create_diff_par $slave_mli_par $slave_mli_par $diff_par 1 < $returns
+GM create_diff_par $slave_mli_par $slave_mli_par $slave_diff_par 1 < $returns
 rm -f $returns
 
 ## Measure offset between slave MLI and resampled slave MLI
-GM init_offsetm $rmli $slave_mli $diff_par 1 1 - - - - $slv_cct - 1
+GM init_offsetm $r_slave_mli $slave_mli $slave_diff_par 1 1 - - - - $slave_cct2 - 1
 
-GM offset_pwrm $rmli $slave_mli $diff_par $off"s0" $ccp"0" - - - 2
+GM offset_pwrm $r_slave_mli $slave_mli $slave_diff_par $slave_off"s0" $slave_ccp"0" - - - 2
 
 ## Fit the offset using the given number of polynomial coefficients
-GM offset_fitm $off"s0" $ccp"0" $diff_par $coffs"0" - $slv_cct $npoly
+GM offset_fitm $slave_off"s0" $slave_ccp"0" $slave_diff_par $slave_coffs"0" - $slave_cct2 $slave_npoly
 
 ## Refinement of initial geocoding look up table
-GM gc_map_fine $lt"0" $master_mli_width $diff_par $lt
+GM gc_map_fine $slave_lt"0" $r_dem_master_mli_width $slave_diff_par $slave_lt
 
 ## Resample slave SLC into geometry of master SLC using lookup table
-GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par - $rslc $rslc_par
+GM SLC_interp_lt $slave_slc $r_dem_master_slc_par $slave_slc_par $slave_lt $r_dem_master_mli_par $slave_mli_par - $r_slave_slc $r_slave_slc_par
 
 #------------------------
 
 ## set up iterable loop
 i=1
-while [ $i -le $niter ]; do
+while [ $i -le $slave_niter ]; do
 
-    ioff=$off$i
-    rm -f $offs $ccp $offsets $coffsets
+    ioff=$slave_off$i
+    rm -f $slave_offs $slave_ccp $slave_offsets $slave_coffsets
     echo "Starting Iteration "$i
 
 ## Measure offsets for refinement of lookup table using initially resampled slave SLC
-    GM create_offset $master_slc_par $rslc_par $ioff 1 $rlks $alks 0
+    GM create_offset $r_dem_master_slc_par $r_slave_slc_par $ioff 1 $rlks $alks 0
 
-    GM offset_pwr $master_slc $rslc $master_slc_par $rslc_par $ioff $offs $ccp $win $win $offsets $ovr $nwin $nwin $cct
+    GM offset_pwr $r_dem_master_slc $r_slave_slc $r_dem_master_slc_par $r_slave_slc_par $ioff $slave_offs $slave_ccp $slave_win $slave_win $slave_offsets $slave_ovr $slave_nwin $slave_nwin $slave_cct
 
 ## Fit polynomial model to offsets
-    GM offset_fit $offs $ccp $ioff - $coffsets $cct $npoly 0
+    GM offset_fit $slave_offs $slave_ccp $ioff - $slave_coffsets $slave_cct $slave_npoly 0
 
 ## Create blank offset file for first iteration and calculate the total estimated offset
     if [ $i == 1 ]; then
-	GM create_offset $master_slc_par $rslc_par $off"0" 1 $rlks $alks 0
+	GM create_offset $r_dem_master_slc_par $r_slave_slc_par $slave_off"0" 1 $rlks $alks 0
 
-	GM offset_add $off"0" $ioff $off
+	GM offset_add $slave_off"0" $ioff $slave_off
     else
 ## Calculate the cumulative total estimated offset
-	GM offset_add $off $ioff $off
+	GM offset_add $slave_off $ioff $slave_off
     fi
 
 ## if estimated offsets are less than 0.2 of a pixel then break iterable loop
@@ -238,7 +147,7 @@ while [ $i -le $niter ]; do
     echo "Iteration "$i": azimuth offset is "$azoff", range offset is "$rgoff
 
 ## Perform resampling of slave SLC using lookup table and offset model
-    GM SLC_interp_lt $slave_slc $master_slc_par $slave_slc_par $lt $master_mli_par $slave_mli_par $off $rslc $rslc_par
+    GM SLC_interp_lt $slave_slc $r_dem_master_slc_par $slave_slc_par $slave_lt $r_dem_master_mli_par $slave_mli_par $slave_off $r_slave_slc $r_slave_slc_par
 
     if [ $test1 -lt 2 -a $test2 -lt 2 ]; then
 	break
@@ -248,51 +157,25 @@ done
 
 #-------------------------
 
-GM multi_look $rslc $rslc_par $rmli $rmli_par $rlks $alks
+GM multi_look $r_slave_slc $r_slave_slc_par $r_slave_mli $r_slave_mli_par $rlks $alks
 
-rm -f $off"s0" $ccp"0" $coffs"0" $offs $ccp $coffs $coffsets $lt"0"
+rm -f $slave_off"s0" $slave_ccp"0" $slave_coffs"0" $slave_offs $slave_ccp $slave_coffs $slave_coffsets $slave_lt"0"
 
 ## Extract final offset values to check coregistration
-echo $master > temp1_$rlks
-echo $slave > temp2_$rlks
-grep "final range offset poly. coeff.:" output.log | tail -1 | awk '{print $6}' > temp3_$rlks
-grep "final azimuth offset poly. coeff.:" output.log | tail -1 | awk '{print $6}' > temp4_$rlks
-paste temp1_$rlks temp2_$rlks temp3_$rlks temp4_$rlks >> $check_file
+echo $master_scene > temp1
+echo $slave > temp2
+grep "final range offset poly. coeff.:" output.log | tail -1 | awk '{print $6}' > temp3
+grep "final azimuth offset poly. coeff.:" output.log | tail -1 | awk '{print $6}' > temp4
+paste temp1 temp2 temp3 temp4 >> $slave_check_file
 rm -f temp*
 
 # TF: save image statistics in txt file
-GM image_stat $rmli $master_mli_width - - - - $stat
-# non-zero samples in $stat can be used to check all slaves are fully included in master
+GM image_stat $r_slave_mli $r_dem_master_mli_width - - - - $slave_stat
+# non-zero samples in $slave_stat can be used to check all slaves are fully included in master
 
 # script end
 ####################
 
 ## Copy errors to NCI error file (.e file)
-if [ $platform == NCI ]; then
-    cat error.log 1>&2
-#    rm temp_log
-#else
-#    rm temp_log
-fi
-
-## Rename log files if beam exists
-if [ -z $beam ]; then # no beam
-    :
-else # beam exists
-    if [ -f $beam"_command.log" ]; then
-	cat command.log >>$beam"_command.log"
-    else
-	mv command.log $beam"_command.log"
-    fi
-    if [ -f $beam"_output.log" ]; then
-	cat output.log >>$beam"_output.log"
-    else
-	mv output.log $beam"_output.log"
-    fi
-    if [ -f $beam"_error.log" ]; then
-	cat error.log >>$beam"_error.log"
-    else
-	mv error.log $beam"_error.log"
-    fi
-fi
+cat error.log 1>&2
 
