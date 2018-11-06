@@ -304,20 +304,26 @@ GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_ma
 
 ##############################################################
 
-# TF commented, not needed
-### Generate differential interferogram (also for testing for jumps at burst overlaps)
-# topographic phase simulation
-#GM phase_sim_orb $r_dem_master_slc_par $slave_slc_par $slave_off $rdc_dem $slave_sim_unw $r_dem_master_slc_par - - 1 1
-
-# calculation of a S1 TOPS differential interferogram
-#GM SLC_diff_intf $r_dem_master_slc $r_slave_slc $r_dem_master_slc_par $r_slave_slc_par $slave_off $slave_sim_unw $slave_diff $rlks $alks 1 0 0.2 1 1
-# TF
-
 ### Multilook coregistered slave
 GM multi_look $r_slave_slc $r_slave_slc_par $r_slave_mli $r_slave_mli_par $rlks $alks
 
 ### Full-res MLI for CR analysis 
 #GM multi_look $slv_rslc $slv_rslc_par $slv_dir/r$slv_slc_name"_1rlks.mli" $slv_dir/r$slv_slc_name"_1rlks.mli.par" 1 1
+
+## Generate Gamma0 backscatter image for slave scene according to equation in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
+GM float_math $r_slave_mli $ellip_pix_sigma0 temp1 $master_mli_width 2
+GM float_math temp1 $dem_pix_gam $slave_gamma0 $master_mli_width 3
+rm -f temp1
+
+## Back-geocode Gamma0 backscatter product to map geometry
+dem_width=`grep width: $eqa_dem_par | awk '{print $2}'`
+GM geocode_back $slave_gamma0 $master_mli_width $dem_lt_fine $slave_gamma0_eqa $dem_width - 1 0 - -
+# make quick-look png image
+GM raspwr $slave_gamma0_eqa $dem_width 1 0 20 20 - - - $slave_gamma0_eqa_bmp
+GM convert $slave_gamma0_eqa_bmp -transparent black ${slave_gamma0_eqa_bmp/.bmp}.png
+GM kml_map ${slave_gamma0_eqa_bmp/.bmp}.png $eqa_dem_par ${slave_gamma0_eqa_bmp/.bmp}.kml
+rm -f $slave_gamma0_eqa_bmp
+
 
 ### Clean up temp files
 #rm -rf $slave_lt.tmp.?

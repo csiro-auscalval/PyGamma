@@ -424,6 +424,10 @@ function dem_master_names {
     dem_master_mli_name=$dem_master_dir/$master_scene"_"$polar"_"$rlks"rlks"
     dem_master_mli=$dem_master_mli_name.mli
     dem_master_mli_par=$dem_master_mli.par
+    dem_master_gamma0=$dem_master_mli_name.gamma0
+    dem_master_gamma0_bmp=$dem_master_gamma0.bmp
+    dem_master_gamma0_eqa=$dem_master_mli_name"_eqa.gamma0"
+    dem_master_gamma0_eqa_bmp=$dem_master_gamma0_eqa.bmp
     r_dem_master_slc_name=$dem_master_dir/r$master_scene"_"$polar
     r_dem_master_slc=$r_dem_master_slc_name.slc
     r_dem_master_slc_par=$r_dem_master_slc.par
@@ -455,9 +459,9 @@ function dem_file_names {
     dem_loc_inc=$dem_master_name"_eqa.linc"
     dem_rdc_inc=$dem_master_name"_rdc.linc"
     dem_lsmap=$dem_master_name"_eqa.lsmap"
-    dem_pix_sig=$dem_master_name"_rdc_pix_sigma0"
+    ellip_pix_sigma0=$dem_master_name"_ellip_pix_sigma0"
     dem_pix_gam=$dem_master_name"_rdc_pix_gamma0"
-    dem_pix_gam_bmp=dem_pix_gam".bmp"
+    dem_pix_gam_bmp=$dem_pix_gam".bmp"
     dem_off=$dem_master_name.off
     dem_offs=$dem_master_name.offs
     dem_ccp=$dem_master_name.ccp
@@ -488,6 +492,9 @@ function slave_file_names {
     r_slave_mli_name=r$slave"_"$polar"_"$rlks"rlks"
     r_slave_mli=$slave_dir/$r_slave_mli_name.mli
     r_slave_mli_par=$r_slave_mli.par
+    slave_gamma0=$slave_mli_name.gamma0
+    slave_gamma0_eqa=$slave_mli_name"_eqa.gamma0"
+    slave_gamma0_eqa_bmp=$slave_gamma0_eqa.bmp
     r_master_slave_name=$slave_dir/$master_scene-$slave_mli_name
     slave_az_ovr=$r_master_slave_name.az_ovr
     slave_az_ovr_poly=$r_master_slave_name.az_ovr.poly

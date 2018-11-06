@@ -121,8 +121,8 @@ COPY_SLC()
     ## Create raster for comparison purposes
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
     GM raspwr $r_dem_master_mli $r_dem_master_mli_width 1 0 20 20 1. .35 1 $r_dem_master_mli_bmp
-    GM convert $r_dem_master_mli_bmp ${r_dem_master_mli_bmp/.bmp}.png
-    rm -f $r_dem_master_mli_bmp
+    #GM convert $r_dem_master_mli_bmp ${r_dem_master_mli_bmp/.bmp}.png
+    #rm -f $r_dem_master_mli_bmp
 }
 
 
@@ -272,21 +272,28 @@ OFFSET_CALC()
     GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_fine $dem_lsmap $dem_loc_inc - pix
     
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
-    
+
     ## interpolate holes
     GM interp_ad pix $dem_pix_gam $r_dem_master_mli_width - - - 2 2 1
 
+    ## Obtain ellipsoid-based ground range sigma0 pixel reference area
+    GM radcal_MLI $r_dem_master_mli $r_dem_master_mli_par - sigma0 - 0 0 1 - - $ellip_pix_sigma0
+
+    ## Generate Gamma0 backscatter image for master scene according to equation in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
+    GM float_math $r_dem_master_mli $ellip_pix_sigma0 temp1 $r_dem_master_mli_width 2
+    GM float_math temp1 $dem_pix_gam $dem_master_gamma0 $r_dem_master_mli_width 3
+
     ## create raster for comparison with master mli raster
-    #GM raspwr $dem_pix_gam $r_dem_master_mli_width 1 0 20 20 1. .35 1 $dem_pix_gam_bmp
-    #GM convert $dem_pix_gam_bmp ${dem_pix_gam_bmp/.bmp}.png
-    #rm -f $dem_pix_gam_bmp
+    GM raspwr $dem_master_gamma0 $r_dem_master_mli_width 1 0 20 20 1. .35 1 $dem_master_gamma0_bmp
+    #GM convert $dem_master_gamma0_bmp ${dem_master_gamma0_bmp/.bmp}.png
+    #rm -f $dem_master_gamma0_bmp
 
     ## Make sea-mask based on DEM zero values
     GM replace_values $eqa_dem 0.0001 0 temp $dem_width 0 2 1
     GM rashgt temp - $dem_width 1 1 0 1 1 100.0 - - - $seamask
 
-    rm -f temp $dem_offs $snr $dem_offsets $dem_coffs $dem_coffsets test1.dat test2.dat
-    rm -f $dem_lt_rough pix
+    rm -f temp temp1 $dem_offs $snr $dem_offsets $dem_coffs $dem_coffsets test1.dat test2.dat
+    rm -f $dem_lt_rough pix sigma0
 }
 
 
@@ -311,6 +318,15 @@ GEOCODE()
     else 
 	:
     fi
+
+    ## Back-geocode Gamma0 backscatter product to map geometry
+    GM geocode_back $dem_master_gamma0 $r_dem_master_mli_width $dem_lt_fine $dem_master_gamma0_eqa $dem_width - 1 0 - -
+    # make quick-look png image
+    GM raspwr $dem_master_gamma0_eqa $dem_width 1 0 20 20 - - - $dem_master_gamma0_eqa_bmp
+    GM convert $dem_master_gamma0_eqa_bmp -transparent black ${dem_master_gamma0_eqa_bmp/.bmp}.png
+    GM kml_map ${dem_master_gamma0_eqa_bmp/.bmp}.png $eqa_dem_par ${dem_master_gamma0_eqa_bmp/.bmp}.kml
+    rm -f $dem_master_gamma0_eqa_bmp
+
 }
 
 
