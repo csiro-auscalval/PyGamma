@@ -9,7 +9,6 @@ GAMMA PROCESSING WORKFLOW DIRECTORY SETUP
 
 
 
-
 USAGE
 
 When 'loadgamma' is run, all scripts in 'gamma_insar' and 'general_scripts' directories will be available on the command line
@@ -29,7 +28,7 @@ STEPS
 
 3. Copy proc file template, update details and put in directory created in step 1
 
-4. A DEM file which covers the scene extent (needs to be slightly larger than largest scene)
+4. A DEM file which covers the scene extent is now automatically created for scenes covering Australia. A manual DEM needs to be created for other areas:
       - if a suitable DEM doesn't exist on MDSS:
           a. use ArcGIS to create an ASCII file of the DEM (GA InSAR Processing Guide details steps for this)
           b. copy ASCII file to irectory created in step 1
@@ -58,8 +57,6 @@ STEPS
 
 6. Start processing
      - run 'process_gamma <track>.proc' on command line
-
-
 
 
 
