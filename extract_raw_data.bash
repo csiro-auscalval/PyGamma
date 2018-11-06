@@ -172,21 +172,19 @@ else # Sentinel-1
 	start_time=`sed -n 's/.*<safe.startTime>\([^<]*\)<\/safe.startTime>.*/\1/p' $dir/manifest.safe | cut -d 'T' -f 2 | cut -d '.' -f 1 | sed 's/\://g'`
 	stop_time=`sed -n 's/.*<safe.stopTime>\([^<]*\)<\/safe.stopTime>.*/\1/p' $dir/manifest.safe | cut -d 'T' -f 2 | cut -d '.' -f 1 | sed 's/\://g'`
 
-	# search for restituted orbit files (in case required)
-	ls  $s1_orbits/RESORB/$s1_type/*V$scene*_$scene*.EOF > list
-	while read line; do
-	    echo $line | cut -d '/' -f 9 >> list2
-	done < list
-	rm -rf list
-
 	# check if precise orbit file is available
         if [ -e $s1_orbits/POEORB/$s1_type/*V$start_date*_$stop_date*.EOF ]; then
             ## determine the most recent file (in case there are duplicates)
             recent=`ls $s1_orbits/POEORB/$s1_type/*V$start_date*_$stop_date*.EOF | sort | tail -1`
             cp $recent .
-	    rm -rf list2
-	# if no precise orbit, check for restituted orbit file
-	elif [ -e list2 ]; then
+	# if no precise orbit, use restituted orbit file
+	else
+	    echo "No precise orbit file (POEORB) available for date: "$scene
+	    ls  $s1_orbits/RESORB/$s1_type/*V$scene*_$scene*.EOF > list
+	    while read line; do
+		echo $line | cut -d '/' -f 9 >> list2
+	    done < list
+	    rm -rf list
 	    while read line; do
 		start=`echo $line | cut -d '_' -f 7 | cut -d 'T' -f 2`
 		stop=`echo $line | cut -d '_' -f 8 | cut -d 'T' -f 2 | cut -d '.' -f 1`
@@ -199,8 +197,6 @@ else # Sentinel-1
 	    recent=$s1_orbits/RESORB/$s1_type/$file
 	    cp $recent .
 	    rm -rf list3
-        else
-            echo "No precise orbit file (POEORB) available for date: "$scene
         fi
 	cd $proj_dir
     fi
