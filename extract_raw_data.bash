@@ -169,6 +169,7 @@ else # Sentinel-1
 	# get precision orbit file
 	start_date=`date -d "$scene -1 days" +%Y%m%d`
 	stop_date=`date -d "$scene +1 days" +%Y%m%d`
+
 	start_time=`sed -n 's/.*<safe.startTime>\([^<]*\)<\/safe.startTime>.*/\1/p' $dir/manifest.safe | cut -d 'T' -f 2 | cut -d '.' -f 1 | sed 's/\://g'`
 	stop_time=`sed -n 's/.*<safe.stopTime>\([^<]*\)<\/safe.stopTime>.*/\1/p' $dir/manifest.safe | cut -d 'T' -f 2 | cut -d '.' -f 1 | sed 's/\://g'`
 
@@ -178,27 +179,27 @@ else # Sentinel-1
             recent=`ls $s1_orbits/POEORB/$s1_type/*V$start_date*_$stop_date*.EOF | sort | tail -1`
             cp $recent .
 	# if no precise orbit, use restituted orbit file
-	else
-	    echo "No precise orbit file (POEORB) available for date: "$scene
-	    ls  $s1_orbits/RESORB/$s1_type/*V$scene*_$scene*.EOF > list
-	    while read line; do
-		echo $line | cut -d '/' -f 9 >> list2
-	    done < list
-	    rm -rf list
-	    while read line; do
-		start=`echo $line | cut -d '_' -f 7 | cut -d 'T' -f 2`
-		stop=`echo $line | cut -d '_' -f 8 | cut -d 'T' -f 2 | cut -d '.' -f 1`
-		if [ "$start_time" -ge "$start" ] && [ "$stop_time" -le "$stop" ]; then
-		    echo $line | tr '_' ' ' | tr 'T' ' ' >> list3
-		fi
-	    done < list2
-	    rm -rf list2
-	    file=`sort -k7 -n -r list3 | head -1 | awk 'BEGIN{FS=OFS="_"}{split($1, a, " "); $1=a[1]"_"a[2]"_"a[3]"_"a[4]"_"a[5]"_"a[6]"T"a[7]"_"a[8]"T"a[9]"_"a[10]"T"a[11]}1'`
-	    recent=$s1_orbits/RESORB/$s1_type/$file
-	    cp $recent .
-	    rm -rf list3
+	      else
+	          echo "No precise orbit file (POEORB) available for date: "$scene
+	          ls  $s1_orbits/RESORB/$s1_type/*V$scene*_$scene*.EOF > list
+	          while read line; do
+		            echo $line | cut -d '/' -f 9 >> list2
+	          done < list
+	          rm -rf list
+	          while read line; do
+		            start=`echo $line | cut -d '_' -f 7 | cut -d 'T' -f 2`
+		            stop=`echo $line | cut -d '_' -f 8 | cut -d 'T' -f 2 | cut -d '.' -f 1`
+		            if [ "$start_time" -ge "$start" ] && [ "$stop_time" -le "$stop" ]; then
+		                echo $line | tr '_' ' ' | tr 'T' ' ' >> list3
+		            fi
+	          done < list2
+	          rm -rf list2
+	          file=`sort -k7 -n -r list3 | head -1 | awk 'BEGIN{FS=OFS="_"}{split($1, a, " "); $1=a[1]"_"a[2]"_"a[3]"_"a[4]"_"a[5]"_"a[6]"T"a[7]"_"a[8]"T"a[9]"_"a[10]"T"a[11]}1'`
+	          recent=$s1_orbits/RESORB/$s1_type/$file
+	          cp $recent .
+	          rm -rf list3
         fi
-	cd $proj_dir
+	      cd $proj_dir
     fi
 fi
 # script end

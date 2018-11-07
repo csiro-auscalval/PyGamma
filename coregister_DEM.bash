@@ -121,8 +121,9 @@ COPY_SLC()
     ## Create raster for comparison purposes
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
     GM raspwr $r_dem_master_mli $r_dem_master_mli_width 1 0 20 20 1. .35 1 $r_dem_master_mli_bmp
-    GM convert $r_dem_master_mli_bmp ${r_dem_master_mli_bmp/.bmp}.png
-    rm -f $r_dem_master_mli_bmp
+
+    #GM convert $r_dem_master_mli_bmp ${r_dem_master_mli_bmp/.bmp}.png
+    #rm -f $r_dem_master_mli_bmp
 }
 
 
@@ -169,25 +170,21 @@ GEN_DEM_RDC()
     fi
 
     ## Generate initial geocoding look up table and simulated SAR image
-    #GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2    
-    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - - - - - 8 2
+    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2    
 
-    # Convert landsat float file to same coordinates as DEM
-    if [ $use_ext_image == yes ]; then
- 	GM map_trans $dem_par $ext_image $eqa_dem_par $ext_image_flt 1 1 1 0 -
-    else
-        :
-    fi
-
+    ## Generate initial gamma0 pixel normalisation area image in radar geometry
+    GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_rough $dem_lsmap $dem_loc_inc - $dem_pix_gam
+    
     dem_width=`grep width: $eqa_dem_par | awk '{print $2}'`
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
     r_dem_master_mli_length=`grep azimuth_lines: $r_dem_master_mli_par | awk '{print $2}'`
-    
+
     # Transform simulated SAR intensity image to radar geometry
-    GM geocode $dem_lt_rough $dem_eqa_sim_sar $dem_width $dem_rdc_sim_sar $r_dem_master_mli_width $r_dem_master_mli_length 1 0 - - 2 $dem_rad_max -
+    #GM geocode $dem_lt_rough $dem_eqa_sim_sar $dem_width $dem_rdc_sim_sar $r_dem_master_mli_width $r_dem_master_mli_length 0 0 - - 2 $dem_rad_max -
 
     if [ $use_ext_image == yes ]; then
-        # Transform external image to radar geometr
+ 	GM map_trans $dem_par $ext_image $eqa_dem_par $ext_image_flt 1 1 1 0 -
+        # Transform external image to radar geometry
 	GM geocode $dem_lt_rough $ext_image_flt $dem_width $ext_image_init_sar $r_dem_master_mli_width $r_dem_master_mli_length 1 0 - - 2 4 -
     else
         :
@@ -243,9 +240,9 @@ OFFSET_CALC()
 	npoly=4
     fi
 
-    GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_rough - - $dem_pix_sig -
-    GM init_offsetm $dem_pix_sig $r_dem_master_mli $dem_diff 1 1 $dem_rpos $dem_azpos - - $dem_snr $dem_patch_win 1
-    GM offset_pwrm $dem_pix_sig $r_dem_master_mli $dem_diff $dem_offs $dem_ccp - - $dem_offsets 2 - - -
+    ## MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than simulated SAR image in offset calculation
+    GM init_offsetm $dem_pix_gam $r_dem_master_mli $dem_diff 1 1 $dem_rpos $dem_azpos - - $dem_snr $dem_patch_win 1
+    GM offset_pwrm $dem_pix_gam $r_dem_master_mli $dem_diff $dem_offs $dem_ccp - - $dem_offsets 2 - - -
     GM offset_fitm $dem_offs $dem_ccp $dem_diff $dem_coffs $dem_coffsets - $npoly
 
     # Extract offset estimates to results file
@@ -270,19 +267,32 @@ OFFSET_CALC()
 	GM gc_map_fine $dem_lt_rough $dem_width $dem_diff $dem_lt_fine 1
     fi
 
-    #GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_fine $dem_lsmap $dem_loc_inc $dem_pix_sig $dem_pix_gam
+    ## Generate refined gamma0 pixel normalisation area image in radar geometry
+    GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_fine $dem_lsmap $dem_loc_inc - pix
+    
+    r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
+
+    ## interpolate holes
+    GM interp_ad pix $dem_pix_gam $r_dem_master_mli_width - - - 2 2 1
+
+    ## Obtain ellipsoid-based ground range sigma0 pixel reference area
+    GM radcal_MLI $r_dem_master_mli $r_dem_master_mli_par - sigma0 - 0 0 1 - - $ellip_pix_sigma0
+
+    ## Generate Gamma0 backscatter image for master scene according to equation in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
+    GM float_math $r_dem_master_mli $ellip_pix_sigma0 temp1 $r_dem_master_mli_width 2
+    GM float_math temp1 $dem_pix_gam $dem_master_gamma0 $r_dem_master_mli_width 3
 
     ## create raster for comparison with master mli raster
-    r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
-    #GM raspwr $dem_pix_gam $r_dem_master_mli_width 1 0 20 20 1. .35 1 $dem_pix_gam_bmp
-    #GM convert $dem_pix_gam_bmp ${dem_pix_gam_bmp/.bmp}.png
-    #rm -f $dem_pix_gam_bmp
+    GM raspwr $dem_master_gamma0 $r_dem_master_mli_width 1 0 20 20 1. .35 1 $dem_master_gamma0_bmp
+    #GM convert $dem_master_gamma0_bmp ${dem_master_gamma0_bmp/.bmp}.png
+    #rm -f $dem_master_gamma0_bmp
 
     ## Make sea-mask based on DEM zero values
     GM replace_values $eqa_dem 0.0001 0 temp $dem_width 0 2 1
     GM rashgt temp - $dem_width 1 1 0 1 1 100.0 - - - $seamask
 
-    rm -f temp $dem_lt_rough $dem_offs $snr $dem_offsets $dem_coffs $dem_coffsets test1.dat test2.dat
+    rm -f temp temp1 $dem_offs $snr $dem_offsets $dem_coffs $dem_coffsets test1.dat test2.dat
+    rm -f $dem_lt_rough pix sigma0
 }
 
 
@@ -296,14 +306,29 @@ GEOCODE()
     rm -f $rdc_dem.bmp
 
     # Geocode simulated SAR intensity image to radar geometry
-    GM geocode $dem_lt_fine $dem_eqa_sim_sar $dem_width $dem_rdc_sim_sar $r_dem_master_mli_width $r_dem_master_mli_length 1 0 - - 2 $dem_rad_max -
+    GM geocode $dem_lt_fine $dem_eqa_sim_sar $dem_width $dem_rdc_sim_sar $r_dem_master_mli_width $r_dem_master_mli_length 0 0 - - 2 $dem_rad_max -
+
+    # Geocode local incidence angle image to radar geometry
+    GM geocode $dem_lt_fine $dem_loc_inc $dem_width $dem_rdc_inc $r_dem_master_mli_width $r_dem_master_mli_length 0 0 - - 2 $dem_rad_max -
 
     # Geocode external image to radar geometry
     if [ $use_ext_image == yes ]; then
-	GM geocode $dem_lt_fine $ext_image_flt $dem_width $ext_image_sar $r_dem_master_mli_width $r_dem_master_mli_length 1 0 - - 2 $dem_rad_max -
+	GM geocode $dem_lt_fine $ext_image_flt $dem_width $ext_image_sar $r_dem_master_mli_width $r_dem_master_mli_length 0 0 - - 2 $dem_rad_max -
     else 
 	:
     fi
+
+    ## Back-geocode Gamma0 backscatter product to map geometry
+    GM geocode_back $dem_master_gamma0 $r_dem_master_mli_width $dem_lt_fine $dem_master_gamma0_eqa $dem_width - 1 0 - -
+    # make quick-look png image
+    GM raspwr $dem_master_gamma0_eqa $dem_width 1 0 20 20 - - - $dem_master_gamma0_eqa_bmp
+    GM convert $dem_master_gamma0_eqa_bmp -transparent black ${dem_master_gamma0_eqa_bmp/.bmp}.png
+
+    cd $dem_master_dir    
+    name=`ls *eqa*gamma0.png`
+    GM kml_map $name $eqa_dem_par ${name/.png}.kml
+    rm -f $dem_master_gamma0_eqa_bmp
+
 }
 
 
