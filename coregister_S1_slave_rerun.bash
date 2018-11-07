@@ -176,7 +176,7 @@ if [ -s $rerun_slave_list -a $rerun -eq 1 ]; then # rerun slaves, start with dat
     steps1=1
     echo Preparing to run $jobs1 jobs with $steps1 steps processing $((jobs1*steps1)) files
     {
-       multi_jobs $pbs_run_loc $pbs_job_prefix $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_rerun_batch_dir $script_type jobs1 steps1 j
+       multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $co_slc_mem $co_slc_ncpus $queue $script $depend_job $depend_type $job_type $co_slc_rerun_batch_dir $script_type jobs1 steps1 j
     } < $rerun_slave_batch
     depend_job=`sed s/.r-man2// $co_slc_rerun_batch_dir/all_co_slc_job_ids`
     j=$(($j+$jobs1)) # add number of previous jobs to index j

@@ -325,7 +325,6 @@ name=`ls *eqa*gamma0.png`
 GM kml_map $name $eqa_dem_par ${name/.png}.kml
 rm -f $slave_gamma0_eqa_bmp
 
-
 ### Clean up temp files
 #rm -rf $slave_lt.tmp.?
 #rm -rf $slave_lt_masked

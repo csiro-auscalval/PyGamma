@@ -451,7 +451,7 @@ function dem_file_names {
     rdc_dem=$dem_master_name"_rdc.dem"
     eqa_dem=$dem_master_name"_eqa.dem"
     eqa_dem_par=$eqa_dem.par
-    seamask=$dem_master_name"_eqa_seamask.bmp"
+    seamask=$dem_master_name"_eqa_seamask.ras"
     dem_lt_rough=$dem_master_name"_rough_eqa_to_rdc.lt"
     dem_lt_fine=$dem_master_name"_eqa_to_rdc.lt"
     dem_eqa_sim_sar=$dem_master_name"_eqa.sim"

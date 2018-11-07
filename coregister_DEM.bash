@@ -121,6 +121,7 @@ COPY_SLC()
     ## Create raster for comparison purposes
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
     GM raspwr $r_dem_master_mli $r_dem_master_mli_width 1 0 20 20 1. .35 1 $r_dem_master_mli_bmp
+
     #GM convert $r_dem_master_mli_bmp ${r_dem_master_mli_bmp/.bmp}.png
     #rm -f $r_dem_master_mli_bmp
 }
