@@ -321,7 +321,8 @@ GM geocode_back $slave_gamma0 $master_mli_width $dem_lt_fine $slave_gamma0_eqa $
 # make quick-look png image
 GM raspwr $slave_gamma0_eqa $dem_width 1 0 20 20 - - - $slave_gamma0_eqa_bmp
 GM convert $slave_gamma0_eqa_bmp -transparent black ${slave_gamma0_eqa_bmp/.bmp}.png
-GM kml_map ${slave_gamma0_eqa_bmp/.bmp}.png $eqa_dem_par ${slave_gamma0_eqa_bmp/.bmp}.kml
+name=`ls *eqa*gamma0.png`
+GM kml_map $name $eqa_dem_par ${name/.png}.kml
 rm -f $slave_gamma0_eqa_bmp
 
 
