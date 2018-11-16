@@ -326,14 +326,14 @@ def create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, \
                 # get index of scene with maximum correlation
                 rho_max_ix = np.argmax(rho[i, temp_ix])
                 # check if value is not subject to total decorrelation
+                j = temp_ix[rho_max_ix]
                 if rho[i, rho_max_ix] > 0:
-                    j = temp_ix[rho_max_ix]
                     # set value in ix2 to True for this scene
                     ix2[i, j] = True
                     ix2[j, i] = True
                 else:
-                    print("Connection between scene", i, "and scene", j, "\
-                    possible (total decorrelation)")
+                    print("connection between scene", i, "and scene", j, "\
+                    not possible (total decorrelation)")
         ntest = ntest + 1
 
 
