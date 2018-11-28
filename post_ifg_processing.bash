@@ -29,7 +29,7 @@ display_usage() {
     }
 
 if [ $# -lt 1 ]
-then 
+then
     display_usage
     exit 1
 fi
@@ -50,7 +50,7 @@ final_file_loc
 source $config_file
 
 # Print processing summary to .o & .e files
-PBS_processing_details $project $track 
+PBS_processing_details $project $track
 
 ######################################################################
 
@@ -91,9 +91,62 @@ fi
 
 
 if [ $post_method == 'stamps' ]; then
-    echo "stamps post ifg processing not implemented yet, needs stamps to be installed centrally"
-    exit
+    echo "Preparing files for post-processing using StaMPS (SBAS approach)"
+    echo
 
+    ## check area to be processed in StaMPS
+    rg_min=`echo $post_ifg_area_rg | awk '{print $1}'`
+    rg_max=`echo $post_ifg_area_rg | awk '{print $2}'`
+    az_min=`echo $post_ifg_area_az | awk '{print $1}'`
+    az_max=`echo $post_ifg_area_az | awk '{print $2}'`
+    dem_master_names
+    master_mli_width=`grep range_samples: $r_dem_master_mli_par | cut -d ":" -f 2`
+    master_mli_nlines=`grep azimuth_lines: $r_dem_master_mli_par | cut -d ":" -f 2`
+    # no values given -> use full extent
+    if [ "$post_ifg_area_rg" == "- -" ]; then
+        post_ifg_area_rg=`echo "0 $master_mli_width"`
+    fi
+    if [ "$post_ifg_area_az" == "- -" ]; then
+        post_ifg_area_az=`echo "0 $master_mli_nlines"`
+    fi
+    # max values greater maximum number of pixels -> use maximum number
+    if [ $rg_max -gt $master_mli_width ]; then
+        echo "Maximum range greater than number of range pixels ("$master_mli_width")"
+        echo "Maximum range set to" $master_mli_width
+        echo
+        post_ifg_area_rg=`echo "$rg_min $master_mli_width"`
+    fi
+    if [ $az_max -gt $master_mli_nlines ]; then
+        echo "Maximum azimuth greater than number of azimuth pixels ("$master_mli_nlines")"
+        echo "Maximum azimuth set to" $master_mli_nlines
+        echo
+        post_ifg_area_az=`echo "$az_min $master_mli_nlines"`
+    fi
+    # min values greater max values -> error
+    if [ $rg_min -gt $rg_max ]; then
+        echo "ERROR: maximum range must be greater than minimum range"
+        echo "Min/max range extent given:" $rg_min $rg_max
+        echo
+        exit 1
+    fi
+    if [ $az_min -gt $az_max ]; then
+        echo "ERROR: maximum aziumth must be greater than minimum azimuth"
+        echo "Min/max azimuth extent given:" $az_min $az_max
+        echo
+        exit 1
+    fi
+    ## list parameters from .proc file
+    echo "The folloing parameters will be used:"
+    echo "Amplitude Dispersion Threshold:" $post_ifg_d_a
+    echo "Area to be processed in StaMPS (min/max range, min/max azimuth):" $post_ifg_area_rg $post_ifg_area_az
+    echo "Number of patches in range and azimuth directions:" $post_ifg_patches_rg $post_ifg_patches_az
+    echo "Number of overlapping range and azimuth pixels per patch:" $post_ifg_overlap_rg $post_ifg_overlap_az
+    echo
+
+    echo "Creating directories and copying files..."
+    echo
+
+    ## Directories
     mkdir -p $gamma_data_dir
     mkdir -p $stamps_geo_dir
     mkdir -p $stamps_baselines_dir
@@ -105,16 +158,21 @@ if [ $post_method == 'stamps' ]; then
     dem_file_names
     cp $lat_lon_pix .
     cp $rdc_dem .
+    # rename sar_latlon for compatibility with mt_prep
+    mv $gamma_data_dir/geo/*sar_latlon.txt $gamma_data_dir/geo/sar_latlon.txt
 
+    ## MLI files
     cd $stamps_rslc_dir
-    dem_master_names
-    slave_file_names
-    cp $r_dem_master_mli .
-    cp $r_dem_master_mli_par .
-    cp $r_slave_mli .
-    cp $r_slave_mli_par .
-    rm -f *eqa_subset.mli
+    while read list; do
+        if [ ! -z $list ]; then
+            slave=`echo $list`
+            slave_file_names
+            cp $r_slave_mli .
+            cp $r_slave_mli_par .
+        fi
+    done < $scene_list
 
+    ## IFG files
     cd $stamps_diff_dir
     while read list; do
         if [ ! -z $list ]; then
@@ -135,18 +193,20 @@ if [ $post_method == 'stamps' ]; then
     fi
 
     ## any interferograms that should be exluded?
-        # place here by giving the date an copying the two rm lines
-    #echo "The following Interferograms are excluded:"
+        # place here by giving the date and copying the two rm lines
+        # could be added to proc file
+    #echo "The following Interferogram dates are excluded:"
     #echo
-    #date=20050912
+    #date=20150524
     #echo $date
-    #rm -f $stamps_rslc_dir/r$date*
-    #rm -f $stamps_diff_dir/$master-$date*
-    #date=20100419
+    #rm -f $gamma_data_dir/SMALL_BASELINES/rslc/r$date*
+    #rm -f $gamma_data_dir/SMALL_BASELINES/diff0/$date*
+    #rm -f $gamma_data_dir/SMALL_BASELINES/diff0/*-$date*
+    #date=20150605
     #echo $date
-    #rm -f $stamps_rslc_dir/r$date*
-    #rm -f $stamps_diff_dir/$master-$date*
-    # ifgs excluded
+    #rm -f $gamma_data_dir/SMALL_BASELINES/rslc/r$date*
+    #rm -f $gamma_data_dir/SMALL_BASELINES/diff0/$date*
+    #rm -f $gamma_data_dir/SMALL_BASELINES/diff0/*-$date*
 
     ## Swap bytes for fcomplex data
     echo "Swapping bytes (big endian > little endian)"
@@ -163,7 +223,8 @@ if [ $post_method == 'stamps' ]; then
     done
     rm -r temp1
 
-    /home/547/txf547/StaMPS_v3.3b1/bin/mt_prep_gamma_area $master_scene $gamma_data_dir 0.6 0 1008 1871 3541 1 1 50 50
+    echo "Starting interface and PS candidate selection using Amplitude Dispersion"
+    /g/data1/dg9/SOFTWARE/dg9-apps/stamps-4.1/bin/mt_prep_gamma_area $master_scene $gamma_data_dir $post_ifg_d_a $post_ifg_area_rg $post_ifg_area_az $post_ifg_patches_rg $post_ifg_patches_az $post_ifg_overlap_rg $post_ifg_overlap_az
 
     ## remove files which are not needed anymore
     rm -f $stamps_diff_dir/*_flat.int

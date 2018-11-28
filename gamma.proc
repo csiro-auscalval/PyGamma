@@ -51,8 +51,8 @@ TRACK=T<track_num><A/D>
 
 -----RAW DATA & DEM LOCATION ON MDSS--------------------------------------------------------------------
 
-    # Sentinel-1 - if AOI within Australia, GAMMA DEM will be produced automatically. 
-                 - if AOI elsewhere,a  manual GAMMA DEM will need to first be created and MDSS_DEM_tar 
+    # Sentinel-1 - if AOI within Australia, GAMMA DEM will be produced automatically.
+                 - if AOI elsewhere,a  manual GAMMA DEM will need to first be created and MDSS_DEM_tar
                    details required.
                  - data downloaded directly from S1_PATH and S1_ORBITS.
 
@@ -195,8 +195,8 @@ SLAVE_WIN=256 256
 SLAVE_CC_THRESH=0.15
 
     -----SENTINEL-1 ONLY-----
-    # Coherence threshold used (default: 0.8)
-COREG_S1_CC_THRESH=0.8
+    # Coherence threshold used (default: 0.6)
+COREG_S1_CC_THRESH=0.6
     # Minimum valid fraction of unwrapped phase values used (default: 0.01)
 COREG_S1_FRAC_THRESH=0.01
     # Phase standard deviation threshold (default: 0.8)
@@ -238,6 +238,24 @@ IFG_THRES=0.15
 IFG_INIT_WIN=512 512
     # Offset window (recommended to use at least 64)
 IFG_OFFSET_WIN=128 128
+
+
+-----POST PROCESSING PARAMETERS-------------------------------------------------------------------------
+
+    # Amplitude Dispersion threshold for PS candidate selection (default: 0.6)
+POST_IFG_DA_THRESHOLD=0.6
+    # Area to crop the data to (min/max range, min/max aziumuth, full area is used by default:- -)
+POST_IFG_AREA_RANGE=- -
+POST_IFG_AREA_AZIMUTH=- -
+    # example with values
+#POST_IFG_AREA_RANGE=1234 3456
+#POST_IFG_AREA_AZIMUTH=2345 4567
+    # Number of patches for StaMPS processing (default: 2, for large areas more patches are recommended to save runtime)
+POST_IFG_PATCHES_RANGE=2
+POST_IFG_PATCHES_AZIMUTH=2
+    # Number of overlapping pixels in each patch for StaMPS processing (default: 50)
+POST_IFG_OVERLAP_RANGE=50
+POST_IFG_OVERLAP_AZIMUTH=50
 
 
 -----NCI PBS JOB PARAMETERS-----------------------------------------------------------------------------

@@ -17,7 +17,7 @@ function proc_variables {
     s1_orbits=`grep ^S1_ORBITS= $proc_file | cut -d "=" -f 2`
     master_dem_image=`grep ^MASTER_DEM_IMAGE= $proc_file | cut -d "=" -f 2`
     dem_img=$master_dem_image/GAMMA_DEM_SRTM_1as_mosaic.img
-    
+
     # Project details
     project=`grep ^PROJECT= $proc_file | cut -d "=" -f 2`
     track=`grep ^TRACK= $proc_file | cut -d "=" -f 2`
@@ -46,7 +46,7 @@ function proc_variables {
     mdss_data_dir=`grep ^MDSS_DATA_DIR= $proc_file | cut -d "=" -f 2`
     gamma_dem_dir=$proj_dir/gamma_dem
     results_dir=$proj_dir/$track/results
-    
+
     # DEM details
     dem_area=`grep ^DEM_AREA= $proc_file | cut -d "=" -f 2`
     mdss_dem=`grep ^MDSS_DEM_TAR= $proc_file | cut -d "=" -f 2`
@@ -137,6 +137,15 @@ function proc_variables {
     ifg_refrg=`grep ^IFG_REF_POINT_RANGE= $proc_file | cut -d "=" -f 2`
     ifg_refaz=`grep ^IFG_REF_POINT_AZIMUTH= $proc_file | cut -d "=" -f 2`
     ifg_geotiff=`grep ^IFG_GEOTIFF= $proc_file | cut -d "=" -f 2`
+
+    # Post interferogram processing details
+    post_ifg_d_a=`grep ^POST_IFG_DA_THRESHOLD= $proc_file | cut -d "=" -f 2`
+    post_ifg_area_rg=`grep ^POST_IFG_AREA_RANGE= $proc_file | cut -d "=" -f 2`
+    post_ifg_area_az=`grep ^POST_IFG_AREA_AZIMUTH= $proc_file | cut -d "=" -f 2`
+    post_ifg_patches_rg=`grep ^POST_IFG_PATCHES_RANGE= $proc_file | cut -d "=" -f 2`
+    post_ifg_patches_az=`grep ^POST_IFG_PATCHES_AZIMUTH= $proc_file | cut -d "=" -f 2`
+    post_ifg_overlap_rg=`grep ^POST_IFG_OVERLAP_RANGE= $proc_file | cut -d "=" -f 2`
+    post_ifg_overlap_az=`grep ^POST_IFG_OVERLAP_AZIMUTH= $proc_file | cut -d "=" -f 2`
 
     # PBS job parameters
     nci_project=`grep ^NCI_PROJECT= $proc_file | cut -d "=" -f 2`
@@ -247,10 +256,10 @@ function PBS_processing_details {
     echo "" 1>&2
     echo "PROCESSING_PROJECT: "$project $track $scene  1>&2
     echo "" 1>&2
-    
+
     # .o file
     echo ""
-    echo "PROCESSING PROJECT: "$project $track $scene 
+    echo "PROCESSING PROJECT: "$project $track $scene
     echo ""
 }
 
@@ -312,7 +321,7 @@ function radarsat_slc_file_names {
     fr_slc_par=$fr_slc.par
 }
 
-## Sentinel-1 SLC file names 
+## Sentinel-1 SLC file names
 function s1_slc_file_names {
     slc1=$slc_name"_IW1.slc"
     slc_par1=$slc1.par
@@ -470,8 +479,8 @@ function dem_file_names {
     dem_coffsets=$dem_master_name.coffsets
     dem_lv_theta=$dem_master_name"_eqa.lv_theta"
     dem_lv_phi=$dem_master_name"_eqa.lv_phi"
-    ext_image_flt=$dem_master_name"_ext_img_sar.flt" 
-    ext_image_init_sar=$dem_master_name"_ext_img_init.sar" 
+    ext_image_flt=$dem_master_name"_ext_img_sar.flt"
+    ext_image_init_sar=$dem_master_name"_ext_img_init.sar"
     ext_image_sar=$dem_master_name"_ext_img.sar"
     dem_check_file=$results_dir/$track"_DEM_coreg_results"
     lat_lon_pix=$dem_dir/$track"_"$rlks"rlks_sar_latlon.txt"
@@ -502,8 +511,8 @@ function slave_file_names {
     slave_ccp=$r_master_slave_name.ccp
     slave_coffs=$r_master_slave_name.coffs
     slave_coffsets=$r_master_slave_name.coffsets
-    slave_diff=$r_master_slave_name.diff   
-    slave_diff_par=$r_master_slave_name.diff_par   
+    slave_diff=$r_master_slave_name.diff
+    slave_diff_par=$r_master_slave_name.diff_par
     slave_doff=$r_master_slave_name.doff
     slave_lt=$r_master_slave_name.lt
     slave_lt_az_ovr=$r_master_slave_name.lt.az_ovr
@@ -583,9 +592,9 @@ function ifg_file_names {
     ifg_diff_par=$master_slave_name"_diff.par"
     ifg_filt=$master_slave_name"_filt.int"
     ifg_filt_float=$master_slave_name"_filt_int.flt"
-    ifg_filt_geocode_bmp=$master_slave_name"_filt_eqa_int.bmp"  
+    ifg_filt_geocode_bmp=$master_slave_name"_filt_eqa_int.bmp"
     ifg_filt_geocode_out=$master_slave_name"_filt_eqa.int"
-    ifg_filt_geocode_png=$master_slave_name"_filt_eqa_int.png" 
+    ifg_filt_geocode_png=$master_slave_name"_filt_eqa_int.png"
     ifg_filt_mask=$master_slave_name"_filt_mask.int"
     ifg_filt_cc=$master_slave_name"_filt.cc"
     ifg_filt_cc_geocode_bmp=$master_slave_name"_filt_eqa_cc.bmp"
@@ -757,7 +766,7 @@ function multi_jobs {
     local mm=$(( wt%60 ))
     local m=0
     local n=0
-    
+
     for(( m=0; m<njobs; m++ )); do
 	i=$(( i+=1 ))
 	jobdir=job_$i
@@ -824,7 +833,7 @@ function multi_jobs {
 	sed s'/.$//' list5 > "all_"$pbs_job_prefix"job_ids" # remove last :
 	dep=`awk '{print $1}' "all_"$pbs_job_prefix"job_ids" `
     else
-	: 
+	:
     fi
 }
 
