@@ -1,0 +1,102 @@
+"""
+Constants
+---------
+"""
+
+from __future__ import absolute_import, print_function
+from enum import Enum
+
+
+SAFE_FMT = '{s}.SAFE'
+S1_SOURCE_DIR_FMT = '{y}/{y}-{m}/{g}/{f}'
+DATE_FMT = '*{dt}*'
+
+
+class Wildcards(Enum):
+    """
+    Defines the wildcard patterns which are used in finding files with
+    specific pattern match
+    """
+    # slc directory
+    SCENE_CONNECTION_TYPE = '*-*'
+    RADAR_CODED_TYPE = 'r*'
+    SWATH_TYPE = '*IW*'
+    SLC_ERROR_LOG_TYPE = 'error.log'
+    RADAR_CODED_MLI_TYPE = 'r*.mli'
+    RADAR_CODED_MLI_PAR_TYPE = 'r*.mli.par'
+    MLI_PAR_TYPE = '*.mli.par'
+    MLI_TYPE = '*.mli'
+    GAMMA0_TYPE = '*gamma0*'
+
+    # ifg directory
+    FLT_TYPE = '*.flt'
+    MODEL_UNW_TYPE = '*_model.unw'
+    SIM_UNW_TYPE = '*_sim.unw'
+    THIN_UNW_TYPE = '*_thin.unw'
+    EQA_UNW_TYPE = '*eqa.unw'
+    INT_FLAT_TYPE = '*_flat.int'
+    OFF_PAR_TYPE = '*off.par'
+
+    # gamma dem directory
+    TRACK_DEM_TYPE = '{track}.dem'
+    TRACK_DEM_PAR_TYPE = '{track}.dem.par'
+
+    # dem directory
+    CCP_TYPE = '*.ccp'
+    SIM_TYPE = '*.sim'
+    PIX_TYPE = '*_pix*'
+    RDC_TYPE = '*_rdc*'
+    RDC_SIM_TYPE = '*_rdc.sim'
+    DEM_ERROR_LOG_TYPE = 'error.log'
+
+    # raw data directory
+    TIFF_TYPE = '*.tiff'
+    ALL_TYPE = '*'
+
+
+class FolderNames(Enum):
+    """
+    Defines the name of folders used throughout the insar processing workflow
+    """
+    # raw data directpry
+    MEASUREMENT = 'measurement'
+
+
+class MatchStrings(Enum):
+    """
+    Defines the string (or characters) which are used in finding
+    characters with specific match in a file
+    """
+
+    # slc directory
+    SLC_RANGE_SAMPLES = 'range_samples'
+    SLC_AZIMUTH_LINES = 'azimuth_lines'
+
+    # ifg directory
+    IFG_RANGE_SAMPLES = 'interferogram_azimuth_lines:'
+    IFG_AZIMUTH_LINES = 'interferogram_width:'
+
+    # dem directory
+    DEM_USAGE_NOTE = 'USAGE NOTE:'
+    DEM_SCENE_TITLE = 'scene title:'
+    DEM_WARNING = 'WARNING:'
+    DEM_ISP = 'Using ISP SLC/MLI'
+
+
+class ErrorMessages(Enum):
+    """
+    Defines the error messages
+    """
+
+    # raw Data file size error
+    RAW_FILE_SIZE_ERROR_MSGS = '{f}: File size is {s}B at the source and {d}B at the destination}'
+
+    # error log file size
+    ERROR_LOG_MSGS = '{f}: File size is {s}B, the expected file size is {d}B'
+
+    # multi-look file size error
+    MLI_FILE_SIZE_ERROR_MSGS = '{f}: File size {s}B, the expected file size is greater than {s}B'
+
+    # error log content
+    ERROR_CONTENT_MSGS = '{f}: contains following errors: {s}'
+
