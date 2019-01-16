@@ -1,6 +1,6 @@
 #!/bin/bash
 
-display_usage() { 
+display_usage() {
     echo ""
     echo "*******************************************************************************"
     echo "* coregister_DEM: Script generates DEM coregistered to master SLC in radar    *"
@@ -39,7 +39,7 @@ display_usage() {
     }
 
 if [ $# -lt 1 ]
-then 
+then
     display_usage
     exit 1
 fi
@@ -59,7 +59,7 @@ final_file_loc
 source $config_file
 
 # Print processing summary to .o & .e files
-PBS_processing_details $project $track 
+PBS_processing_details $project $track
 
 ######################################################################
 
@@ -108,12 +108,12 @@ fi
 
 
 
-# Functions 
+# Functions
 COPY_SLC()
 {
     cd $dem_master_dir
     ## Generate subsetted SLC and MLI files using parameters from gamma.proc
-    GM SLC_copy $dem_master_slc $dem_master_slc_par $r_dem_master_slc $r_dem_master_slc_par 1 - 
+    GM SLC_copy $dem_master_slc $dem_master_slc_par $r_dem_master_slc $r_dem_master_slc_par 1 -
     #GM SLC_copy $dem_master_slc $dem_master_slc_par $r_dem_master_slc $r_dem_master_slc_par 1 - $roff $rlines $azoff $azlines
 
     GM multi_look $r_dem_master_slc $r_dem_master_slc_par $r_dem_master_mli $r_dem_master_mli_par $rlks $alks 0
@@ -170,11 +170,11 @@ GEN_DEM_RDC()
     fi
 
     ## Generate initial geocoding look up table and simulated SAR image
-    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2    
+    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2
 
     ## Generate initial gamma0 pixel normalisation area image in radar geometry
     GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_rough $dem_lsmap $dem_loc_inc - $dem_pix_gam
-    
+
     dem_width=`grep width: $eqa_dem_par | awk '{print $2}'`
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
     r_dem_master_mli_length=`grep azimuth_lines: $r_dem_master_mli_par | awk '{print $2}'`
@@ -200,12 +200,12 @@ CREATE_DIFF_PAR_FULL()
     echo "" > $returns #default scene title
     echo $dem_noff1 $dem_noff2 >> $returns
     echo $dem_offset_measure >> $returns
-    echo $dem_win1 $dem_win2 >> $returns 
+    echo $dem_win1 $dem_win2 >> $returns
     echo $dem_snr >> $returns
     echo >> $returns
 
     GM create_diff_par $r_dem_master_mli_par - $dem_diff 1 < $returns
-    rm -f $returns 
+    rm -f $returns
     # remove temporary mli files (only required to generate diff par)
     rm -f $r_dem_master_mli $r_dem_master_mli_par
 }
@@ -218,14 +218,14 @@ CREATE_DIFF_PAR()
     echo "" > $returns #default scene title
     echo $dem_noff1 $dem_noff2 >> $returns
     echo $dem_offset_measure >> $returns
-    echo $dem_win1 $dem_win2 >> $returns 
+    echo $dem_win1 $dem_win2 >> $returns
     echo $dem_snr >> $returns
-    echo >> $returns 
-     
+    echo >> $returns
+
     # not using 'GM' for this command as it prints a standard output to the error.log, making dependent PBS jobs fail, force output to 'null' file
     #create_diff_par $r_dem_master_mli_par - $dem_diff 1 < $returns &> null
     GM create_diff_par $r_dem_master_mli_par - $dem_diff 1 < $returns
-    rm -f $returns  
+    rm -f $returns
 }
 
 
@@ -269,7 +269,7 @@ OFFSET_CALC()
 
     ## Generate refined gamma0 pixel normalisation area image in radar geometry
     GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_fine $dem_lsmap $dem_loc_inc - pix
-    
+
     r_dem_master_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
 
     ## interpolate holes
@@ -314,7 +314,7 @@ GEOCODE()
     # Geocode external image to radar geometry
     if [ $use_ext_image == yes ]; then
 	GM geocode $dem_lt_fine $ext_image_flt $dem_width $ext_image_sar $r_dem_master_mli_width $r_dem_master_mli_length 0 0 - - 2 $dem_rad_max -
-    else 
+    else
 	:
     fi
 
@@ -323,8 +323,9 @@ GEOCODE()
     # make quick-look png image
     GM raspwr $dem_master_gamma0_eqa $dem_width 1 0 20 20 - - - $dem_master_gamma0_eqa_bmp
     GM convert $dem_master_gamma0_eqa_bmp -transparent black ${dem_master_gamma0_eqa_bmp/.bmp}.png
+    GM data2geotiff $eqa_dem_par $dem_master_gamma0_eqa 2 $dem_master_gamma0_eqa_geo 0.0
 
-    cd $dem_master_dir    
+    cd $dem_master_dir
     name=`ls *eqa*gamma0.png`
     GM kml_map $name $eqa_dem_par ${name/.png}.kml
     rm -f $dem_master_gamma0_eqa_bmp
@@ -350,7 +351,7 @@ GEOTIF_FULL()
     r_dem_master_mli_geo=$dem_master_dir/$r_dem_master_mli_name"_eqa_mli_full.tif"
     width_in=`grep range_samp_1: $dem_diff | awk '{print $2}'`
     width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
-    
+
     GM geocode_back $r_dem_master_mli $width_in $dem_lt_fine $r_dem_master_mli_eqa $width_out - 0 0 - -
     GM data2geotiff $eqa_dem_par $r_dem_master_mli_eqa 2 $r_dem_master_mli_geo 0.0
 }
@@ -362,7 +363,7 @@ GEOTIF()
     r_dem_master_mli_geo=$dem_master_dir/$r_dem_master_mli_name"_eqa_mli.tif"
     width_in=`grep range_samp_1: $dem_diff | awk '{print $2}'`
     width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
-    
+
     GM geocode_back $r_dem_master_mli $width_in $dem_lt_fine $r_dem_master_mli_eqa $width_out - 0 0 - -
     GM data2geotiff $eqa_dem_par $r_dem_master_mli_eqa 2 $r_dem_master_mli_geo 0.0
 }
@@ -378,7 +379,7 @@ GEOCODE
 LOOK_VECTOR
 
 
-# script end 
+# script end
 ####################
 
 ## Copy errors to NCI error file (.e file)

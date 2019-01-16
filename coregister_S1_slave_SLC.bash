@@ -307,7 +307,7 @@ GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_ma
 ### Multilook coregistered slave
 GM multi_look $r_slave_slc $r_slave_slc_par $r_slave_mli $r_slave_mli_par $rlks $alks
 
-### Full-res MLI for CR analysis 
+### Full-res MLI for CR analysis
 #GM multi_look $slv_rslc $slv_rslc_par $slv_dir/r$slv_slc_name"_1rlks.mli" $slv_dir/r$slv_slc_name"_1rlks.mli.par" 1 1
 
 ## Generate Gamma0 backscatter image for slave scene according to equation in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
@@ -321,6 +321,7 @@ GM geocode_back $slave_gamma0 $master_mli_width $dem_lt_fine $slave_gamma0_eqa $
 # make quick-look png image
 GM raspwr $slave_gamma0_eqa $dem_width 1 0 20 20 - - - $slave_gamma0_eqa_bmp
 GM convert $slave_gamma0_eqa_bmp -transparent black ${slave_gamma0_eqa_bmp/.bmp}.png
+GM data2geotiff $eqa_dem_par $slave_gamma0_eqa 2 $slave_gamma0_eqa_geo 0.0
 name=`ls *eqa*gamma0.png`
 GM kml_map $name $eqa_dem_par ${name/.png}.kml
 rm -f $slave_gamma0_eqa_bmp
