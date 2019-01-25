@@ -315,9 +315,9 @@ GM float_math $r_slave_mli $ellip_pix_sigma0 temp1 $master_mli_width 2
 GM float_math temp1 $dem_pix_gam $slave_gamma0 $master_mli_width 3
 rm -f temp1
 
-## Back-geocode Gamma0 backscatter product to map geometry
+## Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
 dem_width=`grep width: $eqa_dem_par | awk '{print $2}'`
-GM geocode_back $slave_gamma0 $master_mli_width $dem_lt_fine $slave_gamma0_eqa $dem_width - 1 0 - -
+GM geocode_back $slave_gamma0 $master_mli_width $dem_lt_fine $slave_gamma0_eqa $dem_width - 5 0 - - 5
 # make quick-look png image
 GM raspwr $slave_gamma0_eqa $dem_width 1 0 20 20 - - - $slave_gamma0_eqa_bmp
 GM convert $slave_gamma0_eqa_bmp -transparent black ${slave_gamma0_eqa_bmp/.bmp}.png

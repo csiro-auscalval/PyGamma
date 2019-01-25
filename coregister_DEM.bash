@@ -318,8 +318,8 @@ GEOCODE()
 	:
     fi
 
-    ## Back-geocode Gamma0 backscatter product to map geometry
-    GM geocode_back $dem_master_gamma0 $r_dem_master_mli_width $dem_lt_fine $dem_master_gamma0_eqa $dem_width - 1 0 - -
+    ## Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
+    GM geocode_back $dem_master_gamma0 $r_dem_master_mli_width $dem_lt_fine $dem_master_gamma0_eqa $dem_width - 5 0 - - 5
     # make quick-look png image
     GM raspwr $dem_master_gamma0_eqa $dem_width 1 0 20 20 - - - $dem_master_gamma0_eqa_bmp
     GM convert $dem_master_gamma0_eqa_bmp -transparent black ${dem_master_gamma0_eqa_bmp/.bmp}.png
