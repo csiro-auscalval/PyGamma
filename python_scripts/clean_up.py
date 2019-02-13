@@ -6,6 +6,7 @@ from python_scripts.constant import Wildcards
 import fnmatch
 import shutil
 import numpy
+import argparse
 
 
 def clean_rawdatadir(raw_data_path=None):
@@ -71,6 +72,8 @@ def clean_gammademdir(gamma_dem_path=None, track=None):
     if track:
         patterns = [Wildcards.TRACK_DEM_TYPE.value.format(track=track),
                     Wildcards.TRACK_DEM_PAR_TYPE.value.format(track=track)]
+    else:
+        patterns = None
 
     if exists(gamma_dem_path):
         files_list = get_wildcard_match_files(dirs_path=gamma_dem_path, wildcards=patterns)
@@ -133,8 +136,47 @@ def _del_files(file_dir=None, files_list=None):
     """
     if files_list:
         for item in files_list:
-            print(item)
             if exists(pjoin(file_dir, item)):
                 print('deleting file: {}'.format(item))
                 os.remove(pjoin(file_dir, item))
 
+
+def run(proc_file):
+
+    from python_scripts.initialize_proc_file import get_path
+    path_name = get_path(proc_file)
+
+    clean_rawdatadir(raw_data_path=path_name['raw_data_dir'])
+    clean_gammademdir(gamma_dem_path=path_name['gamma_dem'], track=path_name['track'])
+    clean_slcdir(slc_path=path_name['slc_dir'])
+    clean_ifgdir(ifg_path=path_name['ifg_dir'])
+    clean_demdir(dem_path=path_name['dem_dir'])
+
+
+def _parser():
+    """ Argument parser. """
+    description = "clean up of default clean up files within the insar project directory"
+
+    formatter = argparse.ArgumentDefaultsHelpFormatter
+    parser = argparse.ArgumentParser(description=description,
+                                     formatter_class=formatter)
+
+    parser.add_argument("--proc_file", required=True)
+
+    return parser
+
+
+def main():
+
+    """ Main execution. """
+    parser = _parser()
+    args = parser.parse_args()
+    run(args.proc_file)
+
+
+if __name__ == '__main__':
+    """
+    To clean up the files in after a debugging process 
+       
+    """
+    main()

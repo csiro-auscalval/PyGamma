@@ -133,6 +133,8 @@ class CheckRawData(luigi.Task):
         if complete_status:
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        else:
+            raise ValueError('failed to download raw data')
 
 
 class CreateGammaDem(luigi.Task):
@@ -194,8 +196,7 @@ class CheckGammaDem(luigi.Task):
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
         else:
-            pid = int(os.getpid())
-            os.kill(pid, signal.SIGTERM)
+            raise ValueError('failed to create gamma dem')
 
 
 class CreateFullSlc(luigi.Task):
@@ -260,6 +261,9 @@ class CheckFullSlc(luigi.Task):
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
+        else:
+            raise ValueError('failed in creating full slc')
+
 
 class CreateMultilook(luigi.Task):
     """
@@ -320,6 +324,9 @@ class CheckMultilook(luigi.Task):
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
+        else:
+            raise ValueError('failed in creating multi-look')
+
 
 class CalcInitialBaseline(luigi.Task):
     """
@@ -378,6 +385,9 @@ class CheckBaseline(luigi.Task):
         if complete_status:
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+
+        else:
+            raise ValueError('failed in checking baseline task')
 
 
 class CalcResizeScene(luigi.Task):
@@ -466,6 +476,8 @@ class CheckResize(luigi.Task):
         if complete_status:
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        else:
+            raise ValueError('Failed ')
 
 
 class SubsetByBursts(luigi.Task):
@@ -592,6 +604,9 @@ class CheckDemMaster(luigi.Task):
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
+        else:
+            raise ValueError('failed in co-registering dem to master')
+
 
 class CoregisterSlaves(luigi.Task):
     """
@@ -654,6 +669,8 @@ class CheckCoregSlave(luigi.Task):
 
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        else:
+            raise ValueError('failed in co-registering master to slaves')
 
 
 class ProcessInterFerograms(luigi.Task):
@@ -717,6 +734,9 @@ class CheckInterFerograms(luigi.Task):
 
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+
+        else:
+            raise ValueError('failed in processing inter-ferograms')
 
 
 class CompletionCheck(luigi.Task):
@@ -948,12 +968,17 @@ class ARD(luigi.Task):
                 proc_file1 = self.proc_file
 
             if self.restart_process:
-                print(self.checkpoint_patterns)
-                path_name = get_path(proc_file1)
-                clean_checkpoints(checkpoint_path=path_name['checkpoint_dir'], patterns=self.checkpoint_patterns)
-                proc_file1 = pjoin(path_name['proj_dir'], '{t}.proc'.format(t=basename(self.download_list)))
 
-            yield Workflow(proc_file_path=proc_file1, s1_download_list=self.download_list)
+                path_name = get_path(proc_file1)
+                proc_file1 = pjoin(path_name['proj_dir'], '{t}.proc'.format(t=basename(self.download_list)))
+                path_name = get_path(proc_file1)
+
+                if not exists(pjoin(path_name['checkpoint_dir'], 'final_status_logs.out')):
+                    clean_checkpoints(checkpoint_path=path_name['checkpoint_dir'], patterns=self.checkpoint_patterns)
+
+                yield Workflow(proc_file_path=proc_file1, s1_download_list=self.download_list)
+            else:
+                yield Workflow(proc_file_path=proc_file1, s1_download_list=self.download_list)
 
     def output(self):
         out_name = pjoin(self.workdir, '{f}.out'.format(f=basename(self.download_list)))
