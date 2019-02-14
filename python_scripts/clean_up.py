@@ -14,7 +14,6 @@ def clean_rawdatadir(raw_data_path=None):
     Deletes all files in the raw data directory
     """
     if exists(raw_data_path):
-        print("deleting raw data dir ...")
         shutil.rmtree(raw_data_path)
 
 
@@ -27,7 +26,6 @@ def clean_slcdir(slc_path=None, patterns=None):
 
     if exists(slc_path):
         for scene in os.listdir(slc_path):
-            print(scene)
             scene_dir = pjoin(slc_path, scene)
             # delete the files set by wildcard patterns
             files_list = get_wildcard_match_files(dirs_path=scene_dir, wildcards=patterns)
