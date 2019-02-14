@@ -27,6 +27,7 @@ def clean_slcdir(slc_path=None, patterns=None):
 
     if exists(slc_path):
         for scene in os.listdir(slc_path):
+            print(scene)
             scene_dir = pjoin(slc_path, scene)
             # delete the files set by wildcard patterns
             files_list = get_wildcard_match_files(dirs_path=scene_dir, wildcards=patterns)
@@ -137,12 +138,12 @@ def _del_files(file_dir=None, files_list=None):
     if files_list:
         for item in files_list:
             if exists(pjoin(file_dir, item)):
-                print('deleting file: {}'.format(item))
+                # print('deleting file: {}'.format(item))
                 os.remove(pjoin(file_dir, item))
 
 
 def run(proc_file):
-
+    """ clean default clean up files if processing was run without clean up option """
     from python_scripts.initialize_proc_file import get_path
     path_name = get_path(proc_file)
 
@@ -167,7 +168,6 @@ def _parser():
 
 
 def main():
-
     """ Main execution. """
     parser = _parser()
     args = parser.parse_args()
