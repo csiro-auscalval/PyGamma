@@ -35,7 +35,7 @@ class TestCheckStatus(unittest.TestCase):
     @staticmethod
     def write_dummy_file(filename):
         with open(filename, 'w') as fid:
-            fid.writelines('This is dummy text')
+            fid.writelines('This is dummy fill texts')
     
     @staticmethod
     def write_empty_file(filename): 
@@ -195,10 +195,41 @@ class TestCheckStatus(unittest.TestCase):
         os.remove(r_mli_file)
         self.write_empty_file(r_mli_file)
         status = check_status.checkdemmaster(**kwargs)
-        self.assertTrue(status)
+        self.assertFalse(status)
         
     def test_checkcoregslaves(self):
-        pass
+        """
+        Test the checkcoregslaves function.
+        """
+        kwargs = {'slc_path': pjoin(self.test_dir, 'SLC'),
+                  'master_scene': '20170712'}
+
+        scene_dir = pjoin(kwargs['slc_path'], '20170727')
+        self.create_files(scene_dir, pjoin(DATA_DIR, test_data.TEST_VARS['slc_file']))
+        slc_files = [f for f in os.listdir(scene_dir)]
+
+        slc_error_log = pjoin(scene_dir, fnmatch.filter(slc_files, Wildcards.SLC_ERROR_LOG_TYPE.value)[0])
+        r_mli_file = pjoin(scene_dir, fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_TYPE.value)[0])
+        r_mli_par_file = pjoin(scene_dir, fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_PAR_TYPE.value)[0])
+        
+        status = check_status.checkcoregslaves(**kwargs)
+        self.assertFalse(status)
+        
+        os.remove(slc_error_log)
+        self.write_empty_file(slc_error_log)
+        os.remove(r_mli_file)
+        self.write_empty_file(r_mli_file)
+        status = check_status.checkcoregslaves(**kwargs)
+        self.assertFalse(status)
+        
+        os.remove(r_mli_file)
+        os.remove(r_mli_par_file)
+        self.write_dummy_file(r_mli_file)
+        with open(r_mli_par_file, 'w') as fid: 
+            fid.writelines('{}:2\n'.format(MatchStrings.SLC_RANGE_SAMPLES.value))
+            fid.writelines('{}:3'.format(MatchStrings.SLC_AZIMUTH_LINES.value))
+        status = check_status.checkcoregslaves(**kwargs)
+        print(status)
 
     def test_checkifgs(self):
         pass
