@@ -15,18 +15,26 @@ DATA_DIR = pjoin(dirname(abspath(__file__)), 'data')
 
 class TestCleanUp(unittest.TestCase):
 
+    """
+    Test the functions in python_scripts.clean_up module.
+    """
     def setUp(self):
-        # Create a temporary directory
+        """
+        Creates a temporary directory.
+        """
         self.test_dir = tempfile.mkdtemp()
 
     def tearDown(self):
-        # Remove the directory after the test
+        """
+        Remove the directory after the test.
+        """
         if exists(self.test_dir):
             shutil.rmtree(self.test_dir)
 
     def test_clean_rawdatadir(self):
-        """ test case to check if raw data directory is removed"""
-
+        """
+        Test the cleanup of raw data directory.
+        """
         dummy_file_lists = ['dummy_{i}.txt'.format(i=idx) for idx in range(5)]
         for f in dummy_file_lists:
             checkstatus.TestCheckStatus.write_dummy_file(pjoin(self.test_dir, f))
@@ -34,8 +42,9 @@ class TestCleanUp(unittest.TestCase):
         self.assertFalse(os._exists(self.test_dir))
 
     def test_clean_scldir(self):
-        """ test case to check if SLC directory is cleaned as expected"""
-
+        """
+        Test the cleanup of SLC directory.
+        """
         scene_dir = pjoin(self.test_dir, '20161122')
         files_list = pjoin(DATA_DIR, test_data.TEST_VARS['slc_file'])
         checkstatus.TestCheckStatus.create_files(scene_dir, files_list)
@@ -46,8 +55,9 @@ class TestCleanUp(unittest.TestCase):
         self.assertTrue(all(elem in files_cleanup for elem in files_test))
 
     def test_clean_ifgdir(self):
-        """ test case to check if IFG directory is cleaned as expected"""
-
+        """
+        Test the cleanup of IFG directory.
+        """
         scene_dir = pjoin(self.test_dir, '20161005-20161017')
         files_list = pjoin(DATA_DIR, test_data.TEST_VARS['ifg_file'])
         checkstatus.TestCheckStatus.create_files(scene_dir, files_list)
@@ -58,8 +68,9 @@ class TestCleanUp(unittest.TestCase):
         self.assertTrue(all(elem in files_cleanup for elem in files_test))
 
     def test_clean_demdir(self):
-        """ test case to check if DEM directory is cleaned as expected"""
-
+        """
+        Test the cleanup of dem directory.
+        """
         files_list = pjoin(DATA_DIR, test_data.TEST_VARS['dem_file'])
         checkstatus.TestCheckStatus.create_files(self.test_dir, files_list)
 
@@ -69,8 +80,9 @@ class TestCleanUp(unittest.TestCase):
         self.assertTrue(all(elem in files_cleanup for elem in files_test))
 
     def test_clean_checkpoints(self):
-        """ test case to check if check point file are cleaned as expected"""
-
+        """
+        Test the cleanup of checkpoint directory.
+        """
         with open(pjoin(DATA_DIR, test_data.TEST_VARS['check_file']), 'r') as src:
             for item in src.readlines():
                 checkstatus.TestCheckStatus.write_dummy_file(pjoin(self.test_dir, item.rstrip()))
