@@ -34,6 +34,8 @@ class TestCheckStatus(unittest.TestCase):
 
     @staticmethod
     def write_dummy_file(filename):
+        if not exists(dirname(filename)):
+            os.makedirs(dirname(filename))
         with open(filename, 'w') as fid:
             fid.writelines('This is dummy fill texts')
     
@@ -54,29 +56,31 @@ class TestCheckStatus(unittest.TestCase):
             for item in src.readlines():
                 filename = pjoin(scene_dir, item.rstrip())
                 cls.write_dummy_file(filename)
-    '''
+
     def test_checkrawdata(self):
         """
         Test the checkrawdata function.
         """
-        #TODO make temporary zipped file with tiff datasets as source s1 data for testing
+        granule = 'S1A_IW_SLC__1SDV_20170712T192147_20170712T192214_017442_01D25D_FB1F'
+        tiff_file = 's1a-iw1-slc-vv-20170712t192149-20170712t192214-017442-01d25d-004.tiff'
 
-        kwargs = {'raw_data_path': pjoin(DATA_DIR, 'SLC_DATA_RAW'),
-                  's1_dir_path': pjoin(DATA_DIR, 'SLC_DATA_SOURCE'),
-                  'download_list_path':  pjoin(DATA_DIR, 's1_des_download_half1.list'),
+        raw_dir = pjoin(self.test_dir, 'SLC_DATA_RAW/20170712/{}.SAFE/measurement'.format(granule))
+        source_dir = pjoin(self.test_dir, 'SLC_DATA_SOURCE/2017/2017-07/25S150E-30S155E')
+        os.makedirs(source_dir)
+
+        self.write_dummy_file(pjoin(raw_dir, tiff_file))
+        shutil.make_archive(pjoin(source_dir, granule), 'zip', raw_dir)
+
+        kwargs = {'raw_data_path': raw_dir,
+                  's1_dir_path': pjoin(self.test_dir, 'SLC_DATA_SOURCE'),
+                  'download_list_path': pjoin(DATA_DIR, 's1_des_download_half1.list'),
                   'scenes_list_path': pjoin(DATA_DIR, 'scenes.list')}
 
-        status = check_status.checkrawdata(**kwargs)
-        self.assertTrue(status)
+        self.assertTrue(check_status.checkrawdata(**kwargs))
 
-        raw_data_dir = pjoin(self.test_dir, test_data.TEST_VARS['tiff_folder'])
-        os.makedirs(raw_data_dir)
-        self.write_dummy_file(pjoin(raw_data_dir, test_data.TEST_VARS['tiff_file']))
-
-        kwargs['raw_data_path'] = self.test_dir
-        status = check_status.checkrawdata(**kwargs)
-        self.assertTrue(status)
-    '''
+        os.remove(pjoin(raw_dir, tiff_file))
+        self.write_empty_file(pjoin(raw_dir, tiff_file))
+        self.assertTrue(check_status.checkrawdata(**kwargs))
 
     def test_checkgammadem(self):
         """
@@ -92,11 +96,10 @@ class TestCheckStatus(unittest.TestCase):
             filename = pjoin(self.test_dir, item)
             self.write_dummy_file(filename)
 
-        status = check_status.checkgammadem(**kwargs)
-        self.assertTrue(status)
+        self.assertTrue(check_status.checkgammadem(**kwargs))
+
         os.remove(pjoin(self.test_dir, gamma_dem_files[0]))
-        status = check_status.checkgammadem(**kwargs)
-        self.assertFalse(status)
+        self.assertFalse(check_status.checkgammadem(**kwargs))
 
     def test_checkfullslc(self):
         """
@@ -104,16 +107,14 @@ class TestCheckStatus(unittest.TestCase):
         """
         scene_dir = pjoin(self.test_dir, '20170712')
         files_list = pjoin(DATA_DIR, test_data.TEST_VARS['slc_file'])
+
         self.create_files(scene_dir, files_list)
-        status = check_status.checkfullslc(self.test_dir)
-        self.assertFalse(status)
+        self.assertFalse(check_status.checkfullslc(self.test_dir))
 
         os.remove(pjoin(scene_dir, Wildcards.SLC_ERROR_LOG_TYPE.value))
         error_log = pjoin(pjoin(scene_dir, Wildcards.SLC_ERROR_LOG_TYPE.value))
-        
         self.write_empty_file(error_log)
-        status = check_status.checkfullslc(self.test_dir)
-        self.assertTrue(status)
+        self.assertTrue(check_status.checkfullslc(self.test_dir))
 
     def test_checkmultilook(self):
         """
@@ -121,30 +122,28 @@ class TestCheckStatus(unittest.TestCase):
         """
         scene_dir = pjoin(self.test_dir, '20170712')
         files_list = pjoin(DATA_DIR, test_data.TEST_VARS['slc_file'])
+
         self.create_files(scene_dir, files_list)
-        status = check_status.checkmultilook(self.test_dir)
-        
+        self.assertTrue(check_status.checkmultilook(self.test_dir))
+
         slc_files = [f for f in os.listdir(scene_dir)]
         mli_file = fnmatch.filter(slc_files, Wildcards.MLI_TYPE.value)[0]
         os.remove(pjoin(scene_dir, mli_file))
-        
         self.write_empty_file(pjoin(scene_dir, mli_file))
-        status = check_status.checkmultilook(self.test_dir)
-        self.assertFalse(status)
+        self.assertFalse(check_status.checkmultilook(self.test_dir))
 
     def test_checkbaseline(self):
         """
         Test the checkbaseline function.
         """
         filename = pjoin(self.test_dir, 'ifg_list.list')
+
         self.write_dummy_file(filename)
-        status = check_status.checkbaseline(filename)
-        self.assertTrue(status)
+        self.assertTrue(check_status.checkbaseline(filename))
         
         os.remove(filename)
         self.write_empty_file(filename)
-        status = check_status.checkbaseline(filename)
-        self.assertFalse(status)
+        self.assertFalse(check_status.checkbaseline(filename))
 
     def test_checkdemmaster(self):
         """
@@ -153,12 +152,12 @@ class TestCheckStatus(unittest.TestCase):
         kwargs = {'slc_path': pjoin(self.test_dir, 'SLC'),
                   'dem_path': pjoin(self.test_dir, 'DEM'),
                   'master_scene': '20170712'}
+
         master_scene_path = pjoin(kwargs['slc_path'], kwargs['master_scene'])
+
         self.create_files(master_scene_path, pjoin(DATA_DIR, test_data.TEST_VARS['slc_file']))
         self.create_files(kwargs['dem_path'], pjoin(DATA_DIR, test_data.TEST_VARS['dem_file']))
-        
-        status = check_status.checkdemmaster(**kwargs)
-        self.assertFalse(status)
+        self.assertFalse(check_status.checkdemmaster(**kwargs))
         
         slc_files = [f for f in os.listdir(master_scene_path)]
         dem_files = [f for f in os.listdir(kwargs['dem_path'])]
@@ -172,31 +171,32 @@ class TestCheckStatus(unittest.TestCase):
 
         os.remove(slc_error_log)
         os.remove(dem_error_log)
-        
         self.write_empty_file(slc_error_log)
-        
         with open(dem_error_log, 'w') as fid: 
-             fid.writelines(MatchStrings.DEM_USAGE_NOTE.value)
-             fid.writelines(MatchStrings.DEM_SCENE_TITLE.value)
-             fid.writelines([MatchStrings.DEM_WARNING.value for i in range(55)])
-             fid.writelines(MatchStrings.DEM_ISP.value)
-
-        status = check_status.checkdemmaster(**kwargs)
-        self.assertFalse(status)
+            fid.writelines(MatchStrings.DEM_USAGE_NOTE.value)
+            fid.writelines(MatchStrings.DEM_SCENE_TITLE.value)
+            fid.writelines(MatchStrings.DEM_WARNING.value * 55)
+            fid.writelines(MatchStrings.DEM_ISP.value)
+        self.assertFalse(check_status.checkdemmaster(**kwargs))
         
         os.remove(rdc_sim_file)
         self.write_empty_file(rdc_sim_file)
-        status = check_status.checkdemmaster(**kwargs)
-        self.assertFalse(status)
+        self.assertFalse(check_status.checkdemmaster(**kwargs))
         
         os.remove(rdc_sim_file)
         self.write_dummy_file(rdc_sim_file)
-        
         os.remove(r_mli_file)
         self.write_empty_file(r_mli_file)
-        status = check_status.checkdemmaster(**kwargs)
-        self.assertFalse(status)
-        
+        self.assertFalse(check_status.checkdemmaster(**kwargs))
+
+        os.remove(r_mli_file)
+        os.remove(r_mli_par_file)
+        self.write_dummy_file(r_mli_file)
+        with open(r_mli_par_file, 'w') as fid:
+            fid.writelines('{}:2\n'.format(MatchStrings.SLC_RANGE_SAMPLES.value))
+            fid.writelines('{}:3'.format(MatchStrings.SLC_AZIMUTH_LINES.value))
+        self.assertTrue(check_status.checkdemmaster(**kwargs))
+
     def test_checkcoregslaves(self):
         """
         Test the checkcoregslaves function.
@@ -205,22 +205,20 @@ class TestCheckStatus(unittest.TestCase):
                   'master_scene': '20170712'}
 
         scene_dir = pjoin(kwargs['slc_path'], '20170727')
+
         self.create_files(scene_dir, pjoin(DATA_DIR, test_data.TEST_VARS['slc_file']))
         slc_files = [f for f in os.listdir(scene_dir)]
-
         slc_error_log = pjoin(scene_dir, fnmatch.filter(slc_files, Wildcards.SLC_ERROR_LOG_TYPE.value)[0])
         r_mli_file = pjoin(scene_dir, fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_TYPE.value)[0])
         r_mli_par_file = pjoin(scene_dir, fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_PAR_TYPE.value)[0])
-        
-        status = check_status.checkcoregslaves(**kwargs)
-        self.assertFalse(status)
+
+        self.assertFalse(check_status.checkcoregslaves(**kwargs))
         
         os.remove(slc_error_log)
         self.write_empty_file(slc_error_log)
         os.remove(r_mli_file)
         self.write_empty_file(r_mli_file)
-        status = check_status.checkcoregslaves(**kwargs)
-        self.assertFalse(status)
+        self.assertFalse(check_status.checkcoregslaves(**kwargs))
         
         os.remove(r_mli_file)
         os.remove(r_mli_par_file)
@@ -228,11 +226,35 @@ class TestCheckStatus(unittest.TestCase):
         with open(r_mli_par_file, 'w') as fid: 
             fid.writelines('{}:2\n'.format(MatchStrings.SLC_RANGE_SAMPLES.value))
             fid.writelines('{}:3'.format(MatchStrings.SLC_AZIMUTH_LINES.value))
-        status = check_status.checkcoregslaves(**kwargs)
-        print(status)
+        self.assertTrue(check_status.checkcoregslaves(**kwargs))
 
     def test_checkifgs(self):
-        pass
+        """
+        Test the checkifg function.
+        """
+        scene_dir = pjoin(self.test_dir, '20170727')
+        self.create_files(scene_dir, pjoin(DATA_DIR, test_data.TEST_VARS['ifg_file']))
+        ifg_files = [f for f in os.listdir(scene_dir)]
+
+        ifg_error_log = pjoin(scene_dir, fnmatch.filter(ifg_files, Wildcards.SLC_ERROR_LOG_TYPE.value)[0])
+        flat_file = pjoin(scene_dir, fnmatch.filter(ifg_files, Wildcards.INT_FLAT_TYPE.value)[0])
+        eqa_unw_file = pjoin(scene_dir, fnmatch.filter(ifg_files, Wildcards.EQA_UNW_TYPE.value)[0])
+
+        self.assertFalse(check_status.checkifgs(self.test_dir))
+
+        os.remove(ifg_error_log)
+        self.write_empty_file(ifg_error_log)
+        self.assertTrue(check_status.checkifgs(self.test_dir))
+
+        os.remove(flat_file)
+        self.write_empty_file(flat_file)
+        self.assertFalse(check_status.checkifgs(self.test_dir))
+
+        os.remove(flat_file)
+        os.remove(eqa_unw_file)
+        self.write_empty_file(eqa_unw_file)
+        self.write_dummy_file(flat_file)
+        self.assertFalse(check_status.checkifgs(self.test_dir))
 
 
 if __name__ == '__main__':
