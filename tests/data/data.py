@@ -77,9 +77,7 @@ CHECKPOINT_FILES = ['CalcInitialBaseline_status_logs.out',
                     'Coregister_dem_Master_status_logs.out',
                     'Slc_resize_status_logs.out']
 
-TEST_VARS = {'tiff_folder': '20170712/S1A_IW_SLC__1SDV_20170712T192147_20170712T192214_017442_01D25D_FB1F.SAFE/measurement',
-             'tiff_file': 's1a-iw1-slc-vv-20170712t192149-20170712t192214-017442-01d25d-004.tiff',
-             'slc_file': 'slc_files.txt',
+TEST_VARS = {'slc_file': 'slc_files.txt',
              'ifg_file': 'ifg_files.txt',
              'dem_file': 'dem_files.txt',
              'check_file': 'check_files.txt'}
