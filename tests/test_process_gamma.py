@@ -67,7 +67,7 @@ class TestProcessGamma(unittest.TestCase):
         """
         if exists(self.test_dir):
             shutil.rmtree(self.test_dir)
-
+    '''
     @with_config({'scheduler': {'retry_count': '2', 'retry_delay': '0.0'}, 'worker': {'wait_interval': '0.01'}})
     def test_externalfilechecker(self):
         """
@@ -98,13 +98,13 @@ class TestProcessGamma(unittest.TestCase):
         
         summary = self.summary()
         result = summary.split('\n')
-        print(result)
         expected = ['', 
                     '===== Luigi Execution Summary =====', 
                     '', 
                     'Scheduled 1 tasks of which:', 
                     '* 1 ran successfully:', 
-                    '    - 1 InitialSetup(proc_file_path={}, s1_download_list={})'.format(self.proc_file, self.s1_download_file), 
+                    '    - 1 InitialSetup(proc_file_path={}, s1_download_list={})'
+                    .format(self.proc_file, self.s1_download_file), 
                     '', 
                     'This progress looks :) because there were no failed tasks or missing dependencies', 
                     '', 
@@ -113,16 +113,69 @@ class TestProcessGamma(unittest.TestCase):
         self.assertEqual(len(result), len(expected))
         for i, line in enumerate(result): 
             self.assertEqual(line, expected[i])
-   
+    '''
 
+    @with_config({'scheduler': {'retry_count': '10', 'retry_delay': '1.0'}, 'worker': {'wait_interval': '1'}})
+    def test_raw_data_extract(self):
+        """
+        Test the RawDataExtract function
+        """
+        e_file = pjoin(self.test_dir, 'testfile.txt')
 
-
-
-
-
-
-
+        kwargs = {'proc_file_path': self.proc_file,
+                  's1_download_list': self.s1_download_file}
+        task1 = process_gamma.InitialSetup(**kwargs)
+        task2 = process_gamma.ExternalFileChecker(e_file)
+        kwargs['upstream_task'] = {'initialsetup': task1, 'scene_list': task2}
+        target = process_gamma.RawDataExtract(**kwargs)    
+        luigi.build([target], workers=4, local_scheduler=True)
+        print(exists(target.output().path))
 
 
 if __name__ == '__main__':
     unittest.main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
