@@ -88,22 +88,32 @@ class TestProcessGamma(unittest.TestCase):
         Test the InitialSetup function.
         """
         target = process_gamma.InitialSetup(proc_file_path=self.proc_file, s1_download_list=self.s1_download_file)
-        print(target)
         # luigi.build([target], workers=1, local_scheduler=True)
         self.run_task(target)   
         path_name = get_path(self.proc_file)
         self.assertTrue(exists(path_name['scenes_list']))
         self.assertTrue(target.complete())
         d = self.summary_dict()
-       
-        print(d['completed'])
-
-
-
-
-
-
-
+        self.assertTrue({target}, (d['completed']))
+        
+        summary = self.summary()
+        result = summary.split('\n')
+        print(result)
+        expected = ['', 
+                    '===== Luigi Execution Summary =====', 
+                    '', 
+                    'Scheduled 1 tasks of which:', 
+                    '* 1 ran successfully:', 
+                    '    - 1 InitialSetup(proc_file_path={}, s1_download_list={})'.format(self.proc_file, self.s1_download_file), 
+                    '', 
+                    'This progress looks :) because there were no failed tasks or missing dependencies', 
+                    '', 
+                    '===== Luigi Execution Summary =====', 
+                    '']
+        self.assertEqual(len(result), len(expected))
+        for i, line in enumerate(result): 
+            self.assertEqual(line, expected[i])
+   
 
 
 
