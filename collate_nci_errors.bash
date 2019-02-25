@@ -148,60 +148,47 @@ elif [ $type -eq 6 ]; then
     err_job=init_base.e*
     single_err_job $list $dir $err_job
 
-## Sentinel-1 resizing reference scene calculation errors
-elif [ $type -eq 7 ]; then
-    list=$error_dir/ref_s1_resize_calc_errors
-    dir=$batch_dir/slc_jobs
-    err_job=s1_resize_ref.e* 
-    single_err_job $list $dir $err_job
-
-## Resize Sentinel-1 SLC errors
-elif [ $type -eq 8 ]; then
-    list=$error_dir/resize_S1_slc_errors
-    dir=$batch_dir/resize_S1_slc_jobs 
-    multi_err_job $list $dir 
-
 ## Subset Sentinel-1 SLC errors
-elif [ $type -eq 9 ]; then
+elif [ $type -eq 7 ]; then
     list=$error_dir/subset_S1_slc_errors
     dir=$batch_dir/subset_S1_slc_jobs
     multi_err_job $list $dir 
 
 ## Coregister DEM errors
-elif [ $type -eq 10 ]; then
+elif [ $type -eq 8 ]; then
     dir=$batch_dir/dem_jobs
     list=$error_dir/coreg_dem_errors
     err_job=coreg_dem.e* 
     single_err_job $list $dir $err_job
 
 ## Lat-lon Pixel calculation errors
-elif [ $type -eq 11 ]; then
+elif [ $type -eq 9 ]; then
     dir=$batch_dir/dem_jobs
     list=$error_dir/lat-lon_errors
     err_job=calc_lat_lon.e* 
     single_err_job $list $dir $err_job
 
 ## Coregister SLC errors
-elif [ $type -eq 12 ]; then
+elif [ $type -eq 10 ]; then
     list=$error_dir/coreg_slc_errors
     dir=$batch_dir/coreg_slc_jobs
     multi_err_job $list $dir 
 
 ## Interferogram errors
-elif [ $type -eq 13 ]; then
+elif [ $type -eq 11 ]; then
     list=$error_dir/ifg_errors
     dir=$batch_dir/ifg_jobs
     multi_err_job $list $dir 
 
 ## Baseline estimation errors
-elif [ $type -eq 14 ]; then
+elif [ $type -eq 12 ]; then
     list=$error_dir/prec_baseline_errors
     dir=$batch_dir/baseline_jobs
     err_job=prec_base.e*
     single_err_job $list $dir $err_job
 
 ## Post processing errors
-elif [ $type -eq 15 ]; then
+elif [ $type -eq 13 ]; then
     list=$error_dir/post_ifg_errors
     dir=$batch_dir/post_ifg_jobs
     err_job=post_ifg.e* 
