@@ -64,7 +64,8 @@ else
     :
 fi
 
-cd $proj_dir/$track
+cd $proj_dir/$track_dir
+
 
 ## Create list of scenes
 if [ $sensor != 'S1' ]; then # non Sentinel-1 data
@@ -107,15 +108,12 @@ if [ $sensor != 'S1' ]; then # non Sentinel-1 data
 	rm -rf tar.list date.list
     fi
 else # Sentinel-1 data
-    if [ -f $s1_download_list ]; then
-	while read list; do
-	    date=`echo $list | awk '{print $1}'`
-	    echo $date >> date.list
-	done < $s1_download_list
-	awk '{print $1}' date.list | sort | uniq > $scene_list 
-	rm -rf date.list
+    if [ -f $s1_file_list ]; then
+	awk '/FILES_TO_DOWNLOAD/ { show=1 } show; /SUBSET_BURSTS/ { show=0 }' $s1_file_list | tail -n+3 | head -n -2 > file_list
+	awk '{print $1}' file_list | sort | uniq > $scene_list
+	rm -rf file_list
     else
-	echo "No Sentinel-1 data download list exists, create list and re-run script"
+	echo "No Sentinel-1 data file list exists, create list and re-run script"
     fi
 fi
 

@@ -35,7 +35,7 @@ display_usage() {
     echo "*         Sarah Lawrie @ GA       01/11/2018, v2.3                            *"
     echo "*                  - add option to download RESORB if no precise orbit file   *"
     echo "*******************************************************************************"
-    echo -e "Usage: extract_raw_data.bash [proc_file] [scene] <S1_grid_dir> <S1_zip_file> <S1_frame_number>"
+    echo -e "Usage: extract_raw_data.bash [proc_file] [scene] <S1_grid_dir> <S1_zip_file>"
     }
 
 if [ $# -lt 2 ]
@@ -48,9 +48,6 @@ proc_file=$1
 scene=$2
 grid=$3
 zip=$4
-frame_num=$5
-
-# extract_raw_data.bash /g/data1/dg9/INSAR_ANALYSIS/NT_EQ_MAY2016/S1/GAMMA/T075D.proc 20151017 25S130E-30S135E S1A_IW_SLC__1SDV_20151017T204339_20151017T204406_008197_00B871_9B84.zip 1 -
 
 
 
@@ -67,7 +64,7 @@ final_file_loc
 source $config_file
 
 # Print processing summary to .o & .e files
-PBS_processing_details $project $track $scene 
+PBS_processing_details $project $track $scene $frame
 
 ######################################################################
 
@@ -110,13 +107,14 @@ if [ $sensor != 'S1' ]; then #non Sentinel-1
 	    :
 	fi
     fi
+
 else # Sentinel-1 
     year=`echo $scene | awk '{print substr($1,1,4)}'`
     month=`echo $scene | awk '{print substr($1,5,2)}'`
     s1_type=`echo $zip | cut -d "_" -f 1`
 
     # create scene directories
-    cd $raw_data_track_dir/F$frame_num
+    cd $raw_data_track_dir/$frame
     if [ -f $scene ]; then
 	: # data already extracted
     else
@@ -177,7 +175,7 @@ else # Sentinel-1
         if [ -e $s1_orbits/POEORB/$s1_type/*V$start_date*_$stop_date*.EOF ]; then
             ## determine the most recent file (in case there are duplicates)
             recent=`ls $s1_orbits/POEORB/$s1_type/*V$start_date*_$stop_date*.EOF | sort | tail -1`
-            cp $recent .
+            cp -r $recent .
 	# if no precise orbit, use restituted orbit file
 	      else
 	          echo "No precise orbit file (POEORB) available for date: "$scene
@@ -196,7 +194,7 @@ else # Sentinel-1
 	          rm -rf list2
 	          file=`sort -k7 -n -r list3 | head -1 | awk 'BEGIN{FS=OFS="_"}{split($1, a, " "); $1=a[1]"_"a[2]"_"a[3]"_"a[4]"_"a[5]"_"a[6]"T"a[7]"_"a[8]"T"a[9]"_"a[10]"T"a[11]}1'`
 	          recent=$s1_orbits/RESORB/$s1_type/$file
-	          cp $recent .
+	          cp -r $recent .
 	          rm -rf list3
         fi
 	      cd $proj_dir
