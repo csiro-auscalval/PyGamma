@@ -47,7 +47,7 @@ final_file_loc
 source $config_file
 
 # Print processing summary to .o & .e files
-PBS_processing_details $project $track 
+PBS_processing_details $project $track $frame
 
 ######################################################################
 
@@ -55,7 +55,7 @@ PBS_processing_details $project $track
 multilook
 
 
-cd $proj_dir/$track
+cd $proj_dir/$track_dir
 
 ## Calculate multi-looking factor
 
@@ -129,7 +129,7 @@ if [ $rlks == "auto" -a $alks == "auto" ]; then
     cp $proc_file temp1
     sed -i "s/RANGE_LOOKS=auto/RANGE_LOOKS=$rlks/g" temp1
     sed -i "s/AZIMUTH_LOOKS=auto/AZIMUTH_LOOKS=$alks/g" temp1
-    cp $proc_file $pre_proc_dir/$track".proc_pre_ml"
+    cp $proc_file $pre_proc_dir/$track_dir".proc_pre_ml"
     mv temp1 $proc_file
     rm -rf temp1
     echo "MULTI-LOOKING VALUE RESULTS" > $multi_results
