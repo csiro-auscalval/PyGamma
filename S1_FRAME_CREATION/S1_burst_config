@@ -1,0 +1,46 @@
+#####  CONFIGURATION FILE  #####
+
+### For Sentinel-1 only. Extracts burst coordinates, creates archive lists and generates shapefiles
+
+SAR_DIR=/g/data1/fj7/Copernicus/Sentinel-1/C-SAR
+PROJ_DIR=/g/data1/dg9/SENTINEL-1_BURSTS
+
+GAMMA_CONFIG=/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG_new
+
+
+### Input parameters
+TYPE=SLC
+MODE=IW
+TODAY_DATE=20190213
+
+
+### Processing steps (run one at at time, no dependencies currently built in):
+
+# Create list of zip files
+ZIP_LIST=yes
+    # Add new scenes to existing lists and shapefiles
+ZIP_COMPARE=no
+COMPARE_DIR=2019xxxx_S1_archive_SLC_zip_lists
+
+# Extract metadata using zip file lists
+EXTRACT_METADATA=no
+
+# Create archive lists from metadata
+CREATE_ARCHIVE_LIST=no
+
+# Create burst and scene shapefiles from metadata
+CREATE_SHP=no
+
+
+
+
+
+
+
+
+
+
+
+
+
+
