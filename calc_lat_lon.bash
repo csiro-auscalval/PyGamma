@@ -31,39 +31,7 @@ then
 fi
 
 proc_file=$1
-<<<<<<< HEAD:calc_lat_lon.bash
-=======
-beam=
 
-## Variables from parameter file (*.proc)
-nci_path=`grep NCI_PATH= $proc_file | cut -d "=" -f 2`
-project=`grep Project= $proc_file | cut -d "=" -f 2`
-sensor=`grep Sensor= $proc_file | cut -d "=" -f 2`
-echo $sensor
-if [ $sensor == S1 ]; then
-    platform=NCI
-else
-    platform=`grep Platform= $proc_file | cut -d "=" -f 2`
-fi
-mode=`grep Sensor_mode= $proc_file | cut -d "=" -f 2`
-track_dir=`grep Track= $proc_file | cut -d "=" -f 2`
-master=`grep Master_scene= $proc_file | cut -d "=" -f 2`
-polar=`grep Polarisation= $proc_file | cut -d "=" -f 2`
-if [ $sensor == S1 ]; then
-    rlks=`grep Range_looks= $proc_file | cut -d "=" -f 2`
-else
-    slc_looks=`grep SLC_multi_look= $proc_file | cut -d "=" -f 2`
-    rlks=$slc_looks
-fi
-
-
-## Identify project directory based on platform
-if [ $platform == NCI ]; then
-    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
-else
-    proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
-fi
->>>>>>> remotes/origin/develop:general_scripts/calc_lat_lon.bash
 
 ##########################   GENERIC SETUP  ##########################
 
@@ -82,19 +50,9 @@ PBS_processing_details $project $track
 
 ######################################################################
 
-<<<<<<< HEAD:calc_lat_lon.bash
 ## File names
 dem_master_names
 dem_file_names
-=======
-## Identify project directory based on platform
-if [ $platform == NCI ]; then
-    proj_dir=/g/data1/dg9/INSAR_ANALYSIS/$project/$sensor/GAMMA
-else
-    proj_dir=/nas/gemd/insar/INSAR_ANALYSIS/$project/$sensor/GAMMA
-fi
->>>>>>> remotes/origin/develop:general_scripts/calc_lat_lon.bash
-
 
 cd $dem_dir
 
