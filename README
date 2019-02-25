@@ -7,6 +7,8 @@ GAMMA PROCESSING WORKFLOW DIRECTORY SETUP
 
 'gamma_insar/ARCHIVE' directory contains a copy of all the scripts available prior to major upgrade of GAMMA scripts in August 2018
 
+'gamma_insar/S1_FRAME_CREATION' directory contains scripts for archive metadata scraping. These results are inputs for the python notebooks to create stacks of scenes for
+   pre-defined 'frames'.
 
 
 USAGE
@@ -17,6 +19,11 @@ When 'loadgamma' is run, all scripts in 'gamma_insar' and 'general_scripts' dire
     - 'gamma.proc' is the configuration file
     - 'process_gamma' calls the other scripts
     - 'gamma_functions' sets the variables used by the scripts
+
+
+PYTHON NOTEBOOKS
+
+To use the metadata scraping and scene list creation notebooks, these need to be run in the VDI. Uses Python3.
 
 
 
@@ -37,16 +44,8 @@ STEPS
 
 5. Sensor lists:
     SENTINEL-1
-       - s1_download.list
-           a. use ArcGIS to generate a list of files to download
-           b. file format is: <date> <grid_dir> <zip_file> <frame_number>
-               - can have up to 3 frames per date. Don't need the same number of frames for all dates. For example:
-	          20180423  <grid_dir> <zip_file> 1
-	          20180423  <grid_dir> <zip_file> 2
-	          20180423  <grid_dir> <zip_file> 3
-	   	  20180523  <grid_dir> <zip_file> 1
-		  20180523  <grid_dir> <zip_file> 2
-          c. move list to directory created in step 1
+       - S1_T<track>_F<frame>_<polar>_scene_stack.txt
+           a. use S1_frame_scene_stack_creation_final.ipynb to generate list
        
     SENSORS WHERE FRAMES ARE USED (not Sentinel-1)
        - frame.list
@@ -62,16 +61,8 @@ STEPS
 
 SENTINEL-1
 
-If subsettting by bursts, the bursts will need to be identified and put into 'subset_burst.list'
-    - file format is: <date> <swath_num> <start_burst> <end_burst>. For example:
-	   20180423 1 5 9
-	   20180423 2 6 10
-	   20180423 3 5 9
-	   20180523 1 6 10
-	   20180523 2 5 9
-	   20180523 3 5 9
-    a. if list is created before processing starts, move list to directory created in step 1
-    b. if list created later, move into 'lists' directory
+If subsettting a pre-defined frame by bursts, the bursts need to be identified. Determine bursts from preview scene full SLC PDFs and update proc file with values.
+
 
 
 
