@@ -43,7 +43,6 @@ import fileinput
 
 import calc_baselines_functions as cbf
 
-
 # Input parameters
 proc_file = sys.argv[1]
 type = sys.argv[2]
@@ -59,6 +58,8 @@ for line in open(proc_file):
         sensor = line.split('=')[1].strip()
     if line.startswith('TRACK='):
         track = line.split('=')[1].strip()
+    if line.startswith('FRAME='):
+        frame = line.split('=')[1].strip()
     if line.startswith('SLC_DIR='):
         slc_dir1 = line.split('=')[1].strip()
     if line.startswith('INT_DIR='):
@@ -90,14 +91,20 @@ for line in open(proc_file):
 
 # Project directories
 proj_dir = os.path.join(nci_path, "INSAR_ANALYSIS", project, sensor, "GAMMA")
-track_dir = os.path.join(proj_dir, track)
-slc_dir = os.path.join(proj_dir, track, slc_dir1)
-int_dir = os.path.join(proj_dir, track, int_dir1)
+if sensor == "S1":
+    track_name = "%s_%s"%(track,frame)
+    track_dir =  os.path.join(proj_dir, track_name)
+else:
+    track_dir = os.path.join(proj_dir, track)
 
-base_dir = os.path.join(proj_dir, track, base_dir1)
-list_dir = os.path.join(proj_dir, track, list_dir1)
+slc_dir = os.path.join(proj_dir, track_dir, slc_dir1)
+int_dir = os.path.join(proj_dir, track_dir, int_dir1)
+
+base_dir = os.path.join(proj_dir, track_dir, base_dir1)
+list_dir = os.path.join(proj_dir, track_dir, list_dir1)
 pre_proc_dir = os.path.join(proj_dir, pre_proc_dir1)
-results_dir = os.path.join(proj_dir, track, "results")
+results_dir = os.path.join(proj_dir, track_dir, "results")
+
 
 # Create baselines directory
 if not os.path.exists(base_dir):
