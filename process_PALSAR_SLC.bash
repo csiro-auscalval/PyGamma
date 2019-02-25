@@ -106,9 +106,9 @@ function set_mode {
     if [ $sensor == PALSAR1 ]; then # no FBD or FBS conversion if PALSAR2 wide swath data
 	if [[ "$num_hv" -eq 0 && "$polar" == HH ]]; then 
 	    mode=FBS
-	elif [[ "$num_hv" -ge 1 && "$polar" == HH ]]; then 
+	elif [[ "$num_hv" -ge 1 && "$polar" == HH ]]; then
 	    mode=FBD
-	elif [ $polar == HV ]; then
+	elif [ "$polar" == HV ]; then
 	    mode=FBD
 	else
 	    :
@@ -121,15 +121,16 @@ function set_mode {
 }
 
 ## Produce Level 0 SLC data files
-function level0_lslc {
+function level0_slc {
     # Produce raw data files
+
     while read frame_num; do
 	if [ ! -z $frame_num ]; then
 	    frame=`echo $frame_num | awk '{print $1}'`
 	    ls $raw_data_track_dir/F$frame/$scene/LED-ALP* >& temp
 	    LED=`awk '{print $1}' temp`
 	    rm -f temp
-
+	    
             # Check polarisation
 	    if [ $polar == HH ]; then
 		ls $raw_data_track_dir/F$frame/$scene/IMG-HH* >& temp
@@ -141,7 +142,7 @@ function level0_lslc {
 		rm -f temp
 	    fi
 	    sensor_fm_par="PALSAR_sensor_"$frame"_"$polar.par
-	    msp_fm_par="p"$scene"_"$frame"_"$polar.slc.par
+	    msp_fm_par=$scene"_"$frame"_"$polar"_p.slc.par"
 	    raw_fm_file=$scene"_"$frame"_"$polar.raw
 	    
             # Set polarisation (0 = H, 1 = V)
@@ -157,10 +158,10 @@ function level0_lslc {
 	    else
 		rx_pol1=1
 	    fi
-
+	    
             # Generate the processing parameter files and raw data in GAMMA format
 	    GM PALSAR_proc $LED $sensor_fm_par $msp_fm_par $IMG $raw_fm_file $tx_pol1 $rx_pol1
-
+	    
             # Copy raw data file details to text file to check if concatenation of scenes along track is required
 	    echo $raw_fm_file $sensor_fm_par $msp_fm_par >> $raw_file_list
 	fi
@@ -177,7 +178,7 @@ function level0_lslc {
     else
         ## Concatenate scenes into one output raw data file
 	GM cat_raw $raw_file_list $sensor_par $msp_par $raw 1 0 - 
-	rm -f p$scene"_"*"_"$polar.slc.par
+	rm -f $scene"_"*"_"$polar"_p.slc.par"
 	rm -f "PALSAR_sensor_"*"_"$polar.par
 	rm -f $scene"_"*"_"$polar.raw
 	rm -f $raw_file_list
@@ -356,7 +357,7 @@ function slc_image {
     rm -f $slc_bmp
 }
 
-if [ ! -e $scene_dir/$slc ]; then
+if [ ! -e $slc ]; then
     if [ $sensor == 'PALSAR1' ]; then
 	set_mode
 	level0_slc
