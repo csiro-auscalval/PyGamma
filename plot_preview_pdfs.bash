@@ -7,7 +7,7 @@ display_usage() {
     echo  "*                     quick check of processing outputs.                     *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
-    echo "*         [type]       input type (full_slc, resize_slc, subset_slc, ifg)     *"
+    echo "*         [type]       input type (full_slc, subset_slc, ifg)                 *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       13/08/2018, v1.0                            *"
     echo "*             -  Major update to streamline processing:                       *"
@@ -45,12 +45,12 @@ final_file_loc
 source $config_file
 
 # Print processing summary to .o & .e files
-PBS_processing_details $project $track 
+PBS_processing_details $project $track $frame 
 
 ######################################################################
 
 
-cd $proj_dir/$track
+cd $proj_dir/$track_dir
 
 
 function plot_pdfs {
@@ -154,10 +154,15 @@ function plot_pdfs {
 
 	    psbasemap $outline $range -X0c -Y-1c -Bnesw -P -K > $psfile
 
-	    pstext $outline $range -F+cTC+f15p -O -P -K <<EOF >> $psfile
+	    if [ -z $frame ]; then
+	        pstext $outline $range -F+cTC+f15p -O -P -K <<EOF >> $psfile
 $project $sensor $track $polar $header
 EOF
-
+            else
+                pstext $outline $range -F+cTC+f15p -O -P -K <<EOF >> $psfile
+$project $sensor $track $frame $polar $header
+EOF
+            fi
             # 1st row
 	    psimage $img1 $box -C0.5c/24.1c -O -P -K >> $psfile # top left left corner
 	    pstext $outline $range $font -O -P -K <<EOF >> $psfile
@@ -481,25 +486,21 @@ rm -rf $image_list*.ps $image_list*.pdf "all_"$image_list gmt.* $image_list"_"* 
 # remove any existing file lists
 rm -f *_slc_images *_ifg_images *_cc_images
 
+if [ -z $frame ]; then
+    prefix=$project"_"$sensor"_"$track"_"$polar
+else
+    prefix=$project"_"$sensor"_"$track"_"$frame"_"$polar
+fi
 
-if [ $type == 'full_slc' ]; then
+if [ $type == 'slc' ]; then
     while read scene; do
 	slc_file_names
 	image=$slc_png
-	echo $image >> full_slc_images
+	echo $image >> slc_images
     done < $scene_list
-    header="Full_SLCs"
-    pdf_name=$project"_"$sensor"_"$track"_"$polar"_full_SLCs"
-    plot_pdfs full_slc_images $header $pdf_name
-elif [ $type == 'resize_slc' ]; then
-    while read scene; do
-	slc_file_names
-	image=$slc_png
-	echo $image >> resize_slc_images
-    done < $scene_list
-    header="Resized_SLCs"
-    pdf_name=$project"_"$sensor"_"$track"_"$polar"_resized_SLCs"
-    plot_pdfs resize_slc_images $header $pdf_name
+    header="SLCs"
+    pdf_name=$prefix"_SLCs"
+    plot_pdfs slc_images $header $pdf_name
 elif [ $type == 'subset_slc' ]; then
     while read scene; do
 	slc_file_names
@@ -507,7 +508,7 @@ elif [ $type == 'subset_slc' ]; then
 	echo $image >> subset_slc_images
     done < $scene_list
     header="Subsetted_SLCs"
-    pdf_name=$project"_"$sensor"_"$track"_"$polar"_subsetted_SLCs"
+    pdf_name=$prefix"_subsetted_SLCs"
     plot_pdfs subset_slc_images $header $pdf_name
 
 elif [ $type == 'ifg' ]; then
@@ -534,27 +535,27 @@ elif [ $type == 'ifg' ]; then
     done < $ifg_list
     if [ -e unw_ifg_images ]; then
 	header="Unwrapped_Ifgs"
-	pdf_name=$project"_"$sensor"_"$track"_"$polar"_"$rlks"rlks_unw_ifgs"
+	pdf_name=$prefix"_"$rlks"rlks_unw_ifgs"
 	plot_pdfs unw_ifg_images $header $pdf_name
     fi
     if [ -e flat_ifg_images ]; then
 	header="Flattened_Ifgs"
-	pdf_name=$project"_"$sensor"_"$track"_"$polar"_"$rlks"rlks_flat_ifgs"
+	pdf_name=$prefix"_"$rlks"rlks_flat_ifgs"
 	plot_pdfs flat_ifg_images $header $pdf_name
     fi
     if [ -e filt_ifg_images ]; then
 	header="Filtered_Ifgs"
-	pdf_name=$project"_"$sensor"_"$track"_"$polar"_"$rlks"rlks_filt_ifgs"
+	pdf_name=$prefix"_"$rlks"rlks_filt_ifgs"
 	plot_pdfs filt_ifg_images $header $pdf_name
     fi
     if [ -e flat_cc_images ]; then
 	header="Flattened_Coherence"
-	pdf_name=$project"_"$sensor"_"$track"_"$polar"_"$rlks"rlks_flat_cc"
+	pdf_name=$prefix"_"$rlks"rlks_flat_cc"
 	plot_pdfs flat_cc_images $header $pdf_name
     fi
     if [ -e filt_cc_images ]; then
 	header="Filtered_Coherence"
-	pdf_name=$project"_"$sensor"_"$track"_"$polar"_"$rlks"rlks_filt_cc"
+	pdf_name=$prefix"_"$rlks"rlks_filt_cc"
 	plot_pdfs filt_cc_images $header $pdf_name
     fi
 else

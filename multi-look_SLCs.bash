@@ -52,7 +52,7 @@ final_file_loc
 source $config_file
 
 # Print processing summary to .o & .e files
-PBS_processing_details $project $track $scene 
+PBS_processing_details $project $track $frame $scene 
 
 ######################################################################
 
