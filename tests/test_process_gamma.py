@@ -175,8 +175,8 @@ class TestProcessGamma(unittest.TestCase):
         self.assertEqual(len(result), len(expected))
         for i, line in enumerate(result): 
             self.assertEqual(line, expected[i])
-
-        
+    
+    def 
 
 if __name__ == '__main__':
     unittest.main()
