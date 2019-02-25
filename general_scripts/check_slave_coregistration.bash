@@ -69,7 +69,7 @@ source $config_file
 ## File names
 dem_master_names
 
-cd $proj_dir/$track
+cd $proj_dir/$track_dir
 
 if [ $list_type -eq 1 ]; then
     list=$slave_list
