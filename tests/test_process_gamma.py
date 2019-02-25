@@ -32,7 +32,7 @@ class TestProcessGamma(unittest.TestCase):
         self.s1_download_file = pjoin(DATA_DIR, 's1_des_download.list')
         self.scheduler = luigi.scheduler.Scheduler(prune_on_get_work=False)
         self.worker = luigi.worker.Worker(scheduler=self.scheduler)
-       
+        
         kwargs = {'download_list': basename(self.s1_download_file),
                   'outdir': self.test_dir,
                   'project': 'dg9',
@@ -67,7 +67,7 @@ class TestProcessGamma(unittest.TestCase):
         """
         if exists(self.test_dir):
             shutil.rmtree(self.test_dir)
-    '''
+       
     @with_config({'scheduler': {'retry_count': '2', 'retry_delay': '0.0'}, 'worker': {'wait_interval': '0.01'}})
     def test_externalfilechecker(self):
         """
@@ -113,9 +113,9 @@ class TestProcessGamma(unittest.TestCase):
         self.assertEqual(len(result), len(expected))
         for i, line in enumerate(result): 
             self.assertEqual(line, expected[i])
-    '''
+    
 
-    @with_config({'scheduler': {'retry_count': '10', 'retry_delay': '1.0'}, 'worker': {'wait_interval': '1'}})
+    @with_config({'scheduler': {'retry_count': '1', 'retry_delay': '1.0'}, 'worker': {'wait_interval': '1'}})
     def test_raw_data_extract(self):
         """
         Test the RawDataExtract function
@@ -128,9 +128,55 @@ class TestProcessGamma(unittest.TestCase):
         task2 = process_gamma.ExternalFileChecker(e_file)
         kwargs['upstream_task'] = {'initialsetup': task1, 'scene_list': task2}
         target = process_gamma.RawDataExtract(**kwargs)    
-        luigi.build([target], workers=4, local_scheduler=True)
-        print(exists(target.output().path))
+        self.run_task(target)
+        summary = self.summary()
+        result = summary.split('\n')
+        expected = ['', 
+                    '===== Luigi Execution Summary =====',
+                    '',
+                    'Scheduled 3 tasks of which:',
+                    '* 1 ran successfully:',
+                    '    - 1 InitialSetup(proc_file_path={}, s1_download_list={})'
+                    .format(self.proc_file, self.s1_download_file),
+                    '* 1 failed:', 
+                    '    - 1 ExternalFileChecker(filename={}/testfile.txt)'.format(self.test_dir),
+                    '* 1 were left pending, among these:',
+                    '    * 1 had failed dependencies:',
+                    '        - 1 RawDataExtract(...)',
+                    '',
+                    'This progress looks :( because there were failed tasks',
+                    '',
+                    '===== Luigi Execution Summary =====',
+                    '']
 
+        self.assertEqual(len(result), len(expected))
+        for i, line in enumerate(result): 
+            self.assertEqual(line, expected[i])
+        
+        e_file = pjoin(self.test_dir, 'testfile.txt')
+        check_status.TestCheckStatus.write_dummy_file(e_file)
+        self.run_task(target)
+        summary = self.summary()
+        result = summary.split('\n')
+        expected = ['',
+                    '===== Luigi Execution Summary =====',
+                    '', 
+                    'Scheduled 3 tasks of which:', 
+                    '* 3 ran successfully:', 
+                    '    - 1 ExternalFileChecker(filename={}/testfile.txt)'.format(self.test_dir), 
+                    '    - 1 InitialSetup(proc_file_path={}, s1_download_list={})'
+                    .format(self.proc_file, self.s1_download_file), 
+                    '    - 1 RawDataExtract(...)', 
+                    '', 
+                    'This progress looks :) because there were failed tasks but they all succeeded in a retry', 
+                    '', 
+                    '===== Luigi Execution Summary =====', 
+                    '']
+        self.assertEqual(len(result), len(expected))
+        for i, line in enumerate(result): 
+            self.assertEqual(line, expected[i])
+
+        
 
 if __name__ == '__main__':
     unittest.main()
