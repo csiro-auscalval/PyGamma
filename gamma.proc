@@ -33,12 +33,15 @@ PRE_PROC_DIR=pre_proc_files
 
 -----INPUT TEXT FILES-----------------------------------------------------------------------------------
 
+    # Sentinel-1 only, other lists will be automatically created using this list:
+S1_FILE_LIST=S1_T<track_num><A/D>_F<frame_num>_<polar>_scene_stack.txt
+
 SCENE_LIST=scenes.list
 SLAVE_LIST=slaves.list
 IFG_LIST=ifgs.list
+    # manually created for other sensors that use frames (not Sentinel-1)
 FRAME_LIST=frame.list
-S1_BURST_LIST=subset_burst.list
-S1_DOWNLOAD_LIST=s1_download.list
+
     # list for removing scene/s from lists (ie. for SLCs that don't work)
 REMOVE_SCENE_LIST=remove_scenes.list
 
@@ -47,6 +50,8 @@ REMOVE_SCENE_LIST=remove_scenes.list
 
 PROJECT=<project>
 TRACK=T<track_num><A/D>
+    # if Sentinel-1, enter frame number (e.g. Fxxx) (if other sensor, leave blank and use FRAME_LIST) 
+FRAME=F<frame_num>
 
 
 -----RAW DATA & DEM LOCATION ON MDSS--------------------------------------------------------------------
@@ -58,7 +63,7 @@ TRACK=T<track_num><A/D>
 
     # Options: aust (within Australia) or other (outside Australia)
 DEM_AREA=aust
-    # if using DEM from MDSS, enter file name (exc. tar.gz). If auto generated, enter track name
+    # if using DEM from MDSS, enter file name (exc. tar.gz). If auto generated, enter track/frame name (e.g. T124D or T89D_F19)
 DEM_NAME=<name>
 MDSS_DATA_DIR=insar/<sensor>/<project>/<track>
 MDSS_DEM_TAR=insar/DEM/<project>/<tar_name>.tar.gz
@@ -75,16 +80,16 @@ EXT_IMAGE=
         # PALSAR1/2: HH, VV, HV, VH (generally HH)
         # RSAT2: HH, VV
         # S1: HH, VV, HV, VH (generally VV)
-POLARISATION=<polarisation>
+POLARISATION=VV
     # Options: ASAR, CSK, ERS, JERS1, PALSAR1, PALSAR2, RSAT1, RSAT2, S1, TSX
-SENSOR=<sensor>
+SENSOR=S1
     # Sensor mode options:
         # ASAR: I4 or - for other image modes
         # CSK: HI or SP (HIMAGE or Spotlight)
         # PALSAR2: WD or SM (Wide-swath/Stripmap)
         # RSAT2: W or MF (Wide/Multi-look Fine)
         # S1: IWS or SM (Interferometic Wide Swath/Stripmap)
-SENSOR_MODE=<mode>
+SENSOR_MODE=IWS
     # If ERS, specify which one (ERS1 or ERS2)
 ERS_SENSOR=
     # If PALSAR2, specify which raw data level (raw or slc)
@@ -94,7 +99,7 @@ PALSAR2_TYPE=
 -----MULTI-LOOK VALUES----------------------------------------------------------------------------------
 
     # For full resolution (with square pixels), set to 1
-MULTI-LOOK=<looks>
+MULTI-LOOK=1
     # Leave as 'auto' if not pre-selecting, it will then be auto calculated and updated
 RANGE_LOOKS=auto
 AZIMUTH_LOOKS=auto
@@ -103,8 +108,8 @@ AZIMUTH_LOOKS=auto
 -----INTERFEROGRAM PROCESSING METHOD--------------------------------------------------------------------
 
     # Options: chain (use daisy-chain), sbas (use reference master) or single (use single master)
-PROCESS_METHOD=<method>
-    # Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated
+PROCESS_METHOD=sbas
+    # Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated, S1 will use resize ref scene if set to auto
 REF_MASTER_SCENE=auto
     # thresholds for minimum and maximum number of SBAS connections
 MIN_CONNECT=4
@@ -115,7 +120,7 @@ MAX_CONNECT=7
 -----POST PROCESSING PROCESSING METHOD------------------------------------------------------------------
 
    # Options: pymode, pyrate or stamps
-POST_PROCESS_METHOD=<method>
+POST_PROCESS_METHOD=pyrate
 
 
 -----PROCESSING STEPS-----------------------------------------------------------------------------------
@@ -125,13 +130,12 @@ EXTRACT_RAW_DATA=yes
 DO_SLC=yes
 
     -----SENTINEL-1 SLC ONLY-----
-    # Resize all SLCs to same shape and size (uses S1_RESIZE_REF_SLC), default: yes (must be same shape/size for processing)
-DO_S1_RESIZE=yes
-    # Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated
-        # Scene can be different from the MASTER_SCENE used in Processing Method
-S1_RESIZE_REF_SLC=auto
-    # Subset all SLCs by burst numbers
-DO_S1_BURST_SUBSET=yes
+    # Subset all SLCs by specific burst numbers
+DO_S1_BURST_SUBSET=no
+    # start and end bursts for each swath (e.g. 4-7)
+SWATH1=
+SWATH2=
+SWATH3=
 
 COREGISTER_DEM=yes
     # External image is required to assist in DEM coregistration?
@@ -260,8 +264,8 @@ RAW_MEM=500MB
 RAW_NCPUS=1
 
    -----CREATE GAMMA DEM -----
-CREATE_DEM_WALLTIME=00:30:00
-CREATE_DEM_MEM=8GB
+CREATE_DEM_WALLTIME=01:00:00
+CREATE_DEM_MEM=16GB
 CREATE_DEM_NCPUS=1
 
    -----FULL SLC CREATION-----  # parameters for one SLC only
@@ -290,8 +294,8 @@ RESIZE_MEM=8GB
 RESIZE_NCPUS=1
 
    -----DEM COREGISTRATION-----
-DEM_WALLTIME=02:00:00
-DEM_MEM=8GB
+DEM_WALLTIME=02:30:00
+DEM_MEM=10GB
 DEM_NCPUS=4
 
    -----CALCULATE LATITUDE-LONGITUDE FOR EACH PIXEL (STAMPS ONLY)-----
@@ -300,13 +304,13 @@ PIX_MEM=100MB
 PIX_NCPUS=1
 
    -----SLAVE COREGISTRATION-----  # parameters for one SLC only
-COREG_WALLTIME=01:00:00
-COREG_MEM=8GB
+COREG_WALLTIME=01:30:00
+COREG_MEM=10GB
 COREG_NCPUS=4
 
    -----INTERFEROGRAM GENERATION-----  # parameters for one ifg only
 IFG_WALLTIME=02:00:00
-IFG_MEM=16GB
+IFG_MEM=10GB
 IFG_NCPUS=4
 
    -----POST INTERFEROGRAM PROCESSING-----
