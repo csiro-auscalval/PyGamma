@@ -69,14 +69,14 @@ proc_variables $proc_file
 source $config_file
 
 # Print processing summary to screen
-processing_details "Running 'process_gamma'" $project $track
+processing_details "Running 'process_gamma'" $project $track $frame
 
 ##########################   INITIAL SETUP  ##########################
 
 cd $proj_dir
 
 ## Create processing directories (exc. CR dir as this is not part of standard processing for now, so not created)
-mkdir -p $track
+mkdir -p $track_dir
 mkdir -p $slc_dir
 mkdir -p $dem_dir
 mkdir -p $int_dir
@@ -118,21 +118,12 @@ if [ -f $frame_list ]; then
 else
    :
 fi
-if [ -f $s1_download_list ]; then
-    dos2unix -q $s1_download_list $s1_download_list # remove any DOS characters if list was created in Windows
-    sort -k1 -n $s1_download_list > temp1 #sort by date
-    mv -f temp1 $s1_download_list
-    rm -f temp1
-    mv -f $s1_download_list $list_dir/$s1_download_list
+if [ -f $s1_file_list ]; then
+    mv -f $s1_file_list $list_dir/$s1_file_list
 else
     :
 fi
-if [ -f $s1_burst_list ]; then
-    dos2unix -q $s1_burst_list $s1_burst_list # remove any DOS characters if list was created in Windows
-    mv -f $s1_burst_list $list_dir/$s1_burst_list
-else
-    :
-fi
+
 
 ## Final file locations for processing
 final_file_loc
@@ -148,24 +139,6 @@ else
     echo ""
 fi
 
-## Create frame list for Sentinel-1
-if [ $sensor == 'S1' ]; then
-    if [ -f $s1_download_list ]; then
-	if [ ! -f $frame_list ]; then
-	    echo "Creating Sentinel-1 frame list ..."
-	    create_S1_frame_list.bash $proj_dir/$proc_file
-	    echo "Initial setup and scene list creation completed."
-	    echo ""
-	else
-	    echo "Sentinel-1 frame list already created."
-	fi
-    else
-	echo "Sentinel-1 download list doesn't exist."
-    fi
-else
-    :
-fi
-
 ## Create frame raw data directories (if required)
 # Add carriage return to last line of frame list file if it exists (required for loops to work)
 if [ -f $frame_list ]; then
@@ -173,26 +146,19 @@ if [ -f $frame_list ]; then
 else
     :
 fi
-if [ -f $frame_list ]; then
-    if [ $sensor == 'S1' ]; then
-	while read frame; do
-	    frame_num=`echo $frame | awk '{print $2}'`
-	    count=1
-	    while [ $count -le $(($frame_num)) ]; do
-		mkdir -p raw_data/$track/F$count
-		count=$(($count+1))
-	    done
-	done < $frame_list
-    else
-	while read frame; do
-	    if [ ! -z $frame ]; then # skips any empty lines
-		mkdir -p raw_data/$track/F$frame
-	    fi
-	done < $frame_list
-    fi
-else
+if [ -z $frame ]; then
     :
+else
+    mkdir -p $raw_data_track_dir/$frame
 fi
+if [ -f $frame_list ]; then
+    while read frame; do
+	if [ ! -z $frame ]; then # skips any empty lines
+	    mkdir -p $raw_data_track_dir/F$frame
+	fi
+    done < $frame_list
+fi
+
 
 ## Check GAMMA DEM exists
 if [ ! -f $gamma_dem_dir/$dem_name.dem ]; then
@@ -213,6 +179,16 @@ else
 fi
 
 
+# if S1, change DEM reference scene to identified resize master
+if [ $sensor == S1 ]; then
+    if [ $master_scene == "auto" ]; then # ref master scene not calculated
+	cd $proj_dir
+	s1_frame_resize_master=`grep ^RESIZE_MASTER: $s1_file_list | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'`
+	sed -i "s/REF_MASTER_SCENE=auto/REF_MASTER_SCENE=$s1_frame_resize_master/g" $proc_file
+    fi
+fi
+
+
 ##########################   EXTRACT RAW_DATA  ##########################
 
 if [ $do_raw == yes ]; then
@@ -227,8 +203,30 @@ if [ $do_raw == yes ]; then
 
 	if [ $sensor == 'S1' ]; then
 	    queue1=$queue
-	    list=$s1_download_list
+	    input_list=$s1_file_list
+	    awk '/FILES_TO_DOWNLOAD/ { show=1 } show; /SUBSET_BURSTS/ { show=0 }' $input_list | tail -n+3 | head -n -2 > $list_dir/download_list
+	    list=$list_dir/download_list
 	    nlines=`cat $list | sed '/^\s*$/d' | wc -l`
+
+	    # create frame subset list (cut scenes to frame extents)
+	    awk '/SUBSET_BURSTS/ { show=1 } show; /ORG_BURSTS_V_MASTER_BURSTS/ { show=0 }' $input_list | tail -n+3 | head -n -2 | awk '{print $1,$5,$6,$7,$8}' > $list_dir/temp
+	    if [ -e $list_dir/frame_subset_list ]; then
+		rm -rf $list_dir/frame_subset_list
+	    fi
+	    while read subset; do
+		date=`echo $subset | awk '{print $1}'`
+		start_iw1=`echo $subset | awk '{print $2}' | cut -d '-' -f 1`
+		stop_iw1=`echo $subset | awk '{print $2}' | cut -d '-' -f 2`
+		start_iw2=`echo $subset | awk '{print $3}' | cut -d '-' -f 1`
+		stop_iw2=`echo $subset | awk '{print $3}' | cut -d '-' -f 2`
+		start_iw3=`echo $subset | awk '{print $4}' | cut -d '-' -f 1`
+		stop_iw3=`echo $subset | awk '{print $4}' | cut -d '-' -f 2`
+		complete_frame=`echo $subset | awk '{print $5}' | cut -d '-' -f 1`
+		echo $date "1" $start_iw1 $stop_iw1 $complete_frame >> $list_dir/frame_subset_list
+		echo $date "2" $start_iw2 $stop_iw2 $complete_frame >> $list_dir/frame_subset_list
+		echo $date "3" $start_iw3 $stop_iw3 $complete_frame >> $list_dir/frame_subset_list
+	    done < $list_dir/temp
+	    rm -rf $list_dir/temp
 	else
 	    queue1=$mdss_queue
 	    list=$scene_list
@@ -265,15 +263,15 @@ if [ $do_raw == yes ]; then
 	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_batch_dir $script_type jobs2 steps2 jobs1 
 	} < $list
 
-        # Create manual PBS jobs
-	cd $extract_raw_manual_dir
-	job_type=2 #1 for batch job, 2 for manual job
-	depend_job=0
-	j=0
-	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs2 steps2 jobs1 
-	} < $list
+            # Create manual PBS jobs
+	    cd $extract_raw_manual_dir
+	    job_type=2 #1 for batch job, 2 for manual job
+	    depend_job=0
+	    j=0
+	    {
+		multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs1 steps1 j 
+		multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs2 steps2 jobs1 
+	    } < $list
 
         # Error collation
 	cd $extract_raw_batch_dir
@@ -350,10 +348,7 @@ if [ $do_slc == yes ]; then
 	echo "Processing full SLCs ..."
 	rm -f list # temp file used to collate all PBS job numbers to dependency list
 
-	nlines=`cat $scene_list | sed '/^\s*$/d' | wc -l`
-	echo Need to process $nlines files
-
-        if [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
+	if [ $sensor == PALSAR1 -o $sensor == PALSAR2 ]; then
             sensor=PALSAR
         elif [ $sensor == ERS1 -o $sensor == ERS2 ]; then
             sensor=ERS
@@ -361,48 +356,118 @@ if [ $do_slc == yes ]; then
             :
         fi
 
-        # PBS parameters
-	wt1=`echo $slc_walltime | awk -F: '{print ($1*60) + $2 + ($3/60)}'` # walltime for a single process_slc in minutes
-	pbs_job_prefix=slc_
-	script="process_"$sensor"_SLC.bash"
-	script_type=slc #slc for full SLCs (all sensors), subset for subset Sentinel-1 SLCs
-	if [ $do_raw == yes ]; then
-	    depend_job=`sed s/.r-man2// $extract_raw_batch_dir/all_raw_job_ids`
-	else
-	    depend_job=0  # if no dependency, needs to zero
-	fi
-	depend_type=afterok
-	job_type=1 #1 for batch job, 2 for manual job
+	# if Sentinel-1, first need to process first full frame (resize master in S1 file list) as other frames may need to be resized to it
+        if [ $sensor == S1 ]; then
+ 	    if [ $do_raw == yes ]; then
+                depend_job=`sed s/.r-man2// $extract_raw_batch_dir/all_raw_job_ids`
+            else
+                depend_job=0  # if no dependency, needs to zero
+            fi
+            depend_type=afterok
+	    job_type=1 #1 for batch job
+            pbs_job_prefix2=slc_re_mas
+            script=process_S1_SLC.bash
+            script_type=slc 
+            {   	
+                s1_single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $slc_batch_dir $slc_walltime $slc_mem $slc_ncpus $queue $depend_job $depend_type $job_type $script $s1_frame_resize_master $script_type
+            } 
 
-        # Work out number of jobs to run within maximum number of jobs allowed and create jobs
-	if [ $nlines -le $maxjobs ]; then
-	    jobs1=$nlines
-	    steps1=1
-	    jobs2=0
-	    steps2=0
-	else
-	    steps2=$((nlines/maxjobs))
-	    steps1=$((nlines%maxjobs))
-	    jobs1=$steps1
-	    steps1=$((steps2+1))
-	    jobs2=$((maxjobs-jobs1))
-	fi
-	echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
-	j=0
-	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_batch_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_batch_dir $script_type jobs2 steps2 jobs1 
-	} < $scene_list
+            # remove resize master from scene list (create temp_scene_list)
+	    sed "/$s1_frame_resize_master/d" $scene_list > $list_dir/temp_scene_list
+	    
+            nlines=`cat $list_dir/temp_scene_list | sed '/^\s*$/d' | wc -l`
+            echo Need to process $nlines files
 
-        # Create manual PBS jobs
-	cd $slc_manual_dir
-	job_type=2 #1 for batch job, 2 for manual job
-	depend_job=0
-	j=0
-	{
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_manual_dir $script_type jobs1 steps1 j 
-	    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_manual_dir $script_type jobs2 steps2 jobs1 
-	} < $scene_list
+            # PBS parameters
+            wt1=`echo $slc_walltime | awk -F: '{print ($1*60) + $2 + ($3/60)}'` # walltime for a single process_slc in minutes
+            pbs_job_prefix=slc_
+
+            depend_job=`sed s/.r-man2// $pbs_job_prefix2"_job_id"`
+            depend_type=afterok
+            job_type=1 #1 for batch job, 2 for manual job
+
+            # Work out number of jobs to run within maximum number of jobs allowed and create jobs
+            if [ $nlines -le $maxjobs ]; then
+                jobs1=$nlines
+                steps1=1
+                jobs2=0
+                steps2=0
+            else
+                steps2=$((nlines/maxjobs))
+                steps1=$((nlines%maxjobs))
+                jobs1=$steps1
+                steps1=$((steps2+1))
+                jobs2=$((maxjobs-jobs1))
+            fi
+            echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
+            j=0
+            {
+                multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_batch_dir $script_type jobs1 steps1 j
+                multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_batch_dir $script_type jobs2 steps2 jobs1
+            } < $list_dir/temp_scene_list
+
+            # Create manual PBS jobs
+            cd $slc_manual_dir
+            job_type=2 #1 for batch job, 2 for manual job
+            depend_job=0
+            {
+                s1_single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $slc_manual_dir $slc_walltime $slc_mem $slc_ncpus $queue $depend_job $depend_type $job_type $script $s1_frame_resize_master $script_type
+            }
+            j=0
+            {
+                multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_manual_dir $script_type jobs1 steps1 j
+                multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_manual_dir $script_type jobs2 steps2 jobs1
+            } < $list_dir/temp_scene_list
+	    
+
+        else # other sensors
+
+            nlines=`cat $scene_list | sed '/^\s*$/d' | wc -l`
+            echo Need to process $nlines files
+
+            # PBS parameters
+   	    wt1=`echo $slc_walltime | awk -F: '{print ($1*60) + $2 + ($3/60)}'` # walltime for a single process_slc in minutes
+	    pbs_job_prefix=slc_
+	    script="process_"$sensor"_SLC.bash"
+	    script_type=slc #slc for full SLCs (all sensors), subset for subset Sentinel-1 SLCs
+ 	    if [ $do_raw == yes ]; then
+	        depend_job=`sed s/.r-man2// $extract_raw_batch_dir/all_raw_job_ids`
+	    else
+	        depend_job=0  # if no dependency, needs to zero
+	    fi
+	    depend_type=afterok
+	    job_type=1 #1 for batch job, 2 for manual job
+
+            # Work out number of jobs to run within maximum number of jobs allowed and create jobs
+	    if [ $nlines -le $maxjobs ]; then
+	        jobs1=$nlines
+	        steps1=1
+	        jobs2=0
+	        steps2=0
+	    else
+	        steps2=$((nlines/maxjobs))
+	        steps1=$((nlines%maxjobs))
+	        jobs1=$steps1
+	        steps1=$((steps2+1))
+	        jobs2=$((maxjobs-jobs1))
+	    fi
+	    echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
+	    j=0
+	    {
+	        multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_batch_dir $script_type jobs1 steps1 j 
+	        multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_batch_dir $script_type jobs2 steps2 jobs1 
+  	    } < $scene_list
+
+            # Create manual PBS jobs
+	    cd $slc_manual_dir
+	    job_type=2 #1 for batch job, 2 for manual job
+	    depend_job=0
+	    j=0
+	    {
+	        multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_manual_dir $script_type jobs1 steps1 j 
+	        multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $slc_mem $slc_ncpus $queue $script $depend_job $depend_type $job_type $slc_manual_dir $script_type jobs2 steps2 jobs1 
+	    } < $scene_list
+	fi	
 
         # Create preview PDF of SLCs
 	cd $slc_batch_dir
@@ -410,9 +475,9 @@ if [ $do_slc == yes ]; then
 	depend_type=afterok
 	job_type=1
 	echo ""
-	echo "Plotting preview of full SLCs ..."
-	pbs_job_prefix1=plot_full_slc
-	plot_type=full_slc
+	echo "Plotting preview of SLCs ..."
+	pbs_job_prefix1=plot_slc
+	plot_type=slc
 	script=plot_preview_pdfs.bash
 	{
 	    single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $slc_batch_dir $img_walltime $img_mem $img_ncpus $exp_queue $depend_job $depend_type $job_type $plot_type $script
@@ -591,190 +656,10 @@ if [ $do_slc == yes ]; then
 		single_job $pbs_run_loc $pbs_job_prefix8 $nci_project $base_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	    }
 	fi
-
-        # Calculate Sentinel-1 resizing reference scene
-        if [ $do_s1_resize == 'yes' ]; then
-    	    if [ $s1_resize_ref == "auto" ]; then # ref scene not calculated
-		cd $slc_batch_dir
-		depend_job=`sed s/.r-man2// "all_"$pbs_job_prefix"job_ids"`
-		depend_type=afterok
-		job_type=1 #1 for batch job, 2 for manual job
-		pbs_job_prefix4=s1_resize_ref
-		echo ""
-		echo "Calculating Sentinel-1 resizing reference scene ..."
-		script_type=-
-		script=calc_resize_S1_ref_scene.bash
-		{
-		    single_job $pbs_run_loc $pbs_job_prefix4 $nci_project $slc_batch_dir $calc_walltime $calc_mem $calc_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
-		}
-
-                # Create manual PBS jobs
-		cd $slc_manual_dir
-		job_type=2 #1 for batch job, 2 for manual job
-		depend_job=0
-		{
-		    single_job $pbs_run_loc $pbs_job_prefix4 $nci_project $slc_manual_dir $calc_walltime $calc_mem $calc_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
-		}
-
-                # Error collation for calculating Sentinel-1 resizing reference scene
-		cd $slc_batch_dir
-		echo ""
-		echo "Preparing error collation for calculating Sentinel-1 resizing reference scene ..."
-		depend_job=`sed s/.r-man2// $pbs_job_prefix4"_job_id"`
-		depend_type=afterany
-		job_type=1
-		pbs_job_prefix5=s1_ref_err
-		err_type=7
-		script=collate_nci_errors.bash
-		{
-		    single_job $pbs_run_loc $pbs_job_prefix5 $nci_project $slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
-		}
-
-	    elif [[ $s1_resize_ref =~ ^-?[0-9]+$ ]]; then
-		echo ""
-		echo "Sentinel-1 resizing reference scene already calculated."
-	    else
-		echo ""
-		echo "Sentinel-1 resizing reference scene not valid, check and re-process."
-	    fi
-
-            # clean up PBS job dir
-	    cd $slc_batch_dir
-	    rm -rf list* $pbs_job_prefix*"_job_id"
-	else
-	    :
-	fi
     fi
 elif [ $do_slc == no ]; then
     echo "Option to create SLC data not selected."
     echo ""
-else
-    :
-fi
-
-
-
-##########################   RESIZE SENTINEL-1   ##########################
-
-if [ $sensor == S1 ]; then
-    if [ $do_s1_resize == yes ]; then
-	s1_pbs_job_dirs
-	mkdir -p $resize_batch_dir
-	mkdir -p $resize_manual_dir
-
-	cd $resize_batch_dir
-	if [ -e all_resize_s1_job_ids ]; then
-	    echo "Sentinel-1 data already resized."
-	    echo ""
-	else
-	    if [ $s1_resize_ref == "auto" ]; then # ref scene not calculated
-		cd $proj_dir
-		echo "Sentinel-1 resizing reference scene not calculated yet, 'process_gamma' will auto re-run once full SLCs are created."
-		depend_job=`sed s/.r-man2// $slc_batch_dir/plot_full_slc_job_id`
-		depend_type=afterok
-		job_type=1
-		echo ""
-		echo "Restarting 'process_gamma' after calculating Sentinel-1 resizing reference scene ..."
-		pbs_job_prefix=restart"_"$track
-		type=-
-		script=process_gamma
-		{
-		    single_job $pbs_run_loc $pbs_job_prefix $nci_project $proj_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $type $script
-		}
-		exit
-	    elif [[ $s1_resize_ref =~ ^-?[0-9]+$ ]]; then
-		echo ""
-		echo "Resizing Sentinel-1 SLCs ..."
-		if [ -e $proj_dir/restart"_"$track ]; then # file only produced if 'process_gamma' has been restarted
-		    depend_job=0  # no dependency if restarted
-		else
-		    depend_job=`sed s/.r-man2// $slc_batch_dir/plot_full_slc_job_id` #assumes resize ref scene is already identified
-		fi
-		cd $resize_batch_dir
-
-		rm -f list # temp file used to collate all PBS job numbers to dependency list
-
-		nlines=`cat $scene_list | sed '/^\s*$/d' | wc -l`
-		echo Need to process $nlines files
-
-                # PBS parameters
-		wt1=`echo $resize_walltime | awk -F: '{print ($1*60) + $2 + ($3/60)}'` # walltime for a single process_slc in minutes
-		pbs_job_prefix=resize_s1_
-		script=resize_S1_SLC.bash
-		script_type=-
-		depend_type=afterok
-		job_type=1 #1 for batch job, 2 for manual job
-
-                # Work out number of jobs to run within maximum number of jobs allowed and create jobs
-		if [ $nlines -le $minjobs ]; then
-		    jobs1=$nlines
-		    steps1=1
-		    jobs2=0
-		    steps2=0
-		else
-		    steps2=$((nlines/minjobs))
-		    steps1=$((nlines%minjobs))
-		    jobs1=$steps1
-		    steps1=$((steps2+1))
-		    jobs2=$((minjobs-jobs1))
-		fi
-		echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
-		j=0
-		{
-		    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_batch_dir $script_type jobs1 steps1 j 
-		    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_batch_dir $script_type jobs2 steps2 jobs1 
-		} < $scene_list
-
-                # Create manual PBS jobs
-		cd $resize_manual_dir
-		job_type=2 #1 for batch job, 2 for manual job
-		depend_job=0
-		j=0
-		{
-		    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_manual_dir $script_type jobs1 steps1 j 
-		    multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $resize_mem $resize_ncpus $queue $script $depend_job $depend_type $job_type $resize_manual_dir $script_type jobs2 steps2 jobs1 
-		} < $scene_list
-
-                # Create preview PDF of images determine shape and size
-		cd $resize_batch_dir
-		depend_job=`sed s/.r-man2// "all_"$pbs_job_prefix"job_ids"`
-		depend_type=afterok
-		job_type=1
-		echo ""
-		echo "Plotting preview of resized Sentinel-1 SLCs ..."
-		pbs_job_prefix1=plot_resized_s1
-		plot_type=resize_slc
-		script=plot_preview_pdfs.bash
-		{
-		    single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $resize_batch_dir $img_walltime $img_mem $img_ncpus $exp_queue $depend_job $depend_type $job_type $plot_type $script
-		}
-
-                # Error collation
-		echo ""
-		echo "Preparing error collation for resizing Sentinel-1 SLCs..."
-		depend_job=`sed s/.r-man2// "all_"$pbs_job_prefix"job_ids"`
-		depend_type=afterany
-		job_type=1
-		pbs_job_prefix2=resize_err
-		err_type=8
-		script=collate_nci_errors.bash
-		{
-		    single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $resize_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
-		}
-
-                # clean up PBS job dir
-		cd $resize_batch_dir
-		rm -rf list* $pbs_job_prefix*"job_id"
-	    else
-		:
-	    fi
-	fi
-    elif [ $do_s1_resize == no ]; then
-	echo "Option to resize Sentinel-1 SLCs not selected."
-	echo ""
-    else
-	:
-    fi
 else
     :
 fi
@@ -807,8 +692,8 @@ if [ $sensor == S1 ]; then
 	    pbs_job_prefix=subset_s1_
 	    script=process_S1_SLC.bash
 	    script_type=subset #slc for full SLCs (all sensors), subset for subset Sentinel-1 SLCs
-	    if [ $do_s1_resize == yes ]; then
-		depend_job=`sed s/.r-man2// $resize_batch_dir/plot_resized_s1_job_id`
+	    if [ $do_slc == yes ]; then
+		depend_job=`sed s/.r-man2// $slc_batch_dir/plot_slc_job_id`
 	    else
 		depend_job=0  # if no dependency, needs to zero
 	    fi
@@ -866,7 +751,7 @@ if [ $sensor == S1 ]; then
 	    depend_type=afterany
 	    job_type=1
 	    pbs_job_prefix2=subset_err
-	    err_type=9
+	    err_type=7
 	    script=collate_nci_errors.bash
 	    {
 		single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $subset_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -897,12 +782,12 @@ if [ $coreg_dem == yes ]; then
 	if [ $master_scene == "auto" ]; then # ref master scene not calculated
 	    cd $proj_dir
 	    echo "DEM reference scene not calculated yet, 'process_gamma' will auto re-run once full SLCs are created."
-	    depend_job=`sed s/.r-man2// $slc_batch_dir/plot_full_slc_job_id`
+	    depend_job=`sed s/.r-man2// $slc_batch_dir/plot_slc_job_id`
 	    depend_type=afterok
 	    job_type=1
 	    echo ""
 	    echo "Restarting 'process_gamma' after calculating DEM reference scene ..."
-	    pbs_job_prefix=restart"_"$track
+	    pbs_job_prefix=restart"_"$track_dir
 	    type=-
 	    script=process_gamma
 	    {
@@ -912,12 +797,12 @@ if [ $coreg_dem == yes ]; then
 	elif [[ $master_scene =~ ^-?[0-9]+$ ]]; then
 	    if [ $rlks == "auto" -a $alks == "auto" ]; then
 		echo "Multi-lookng values not calculated yet, 'process_gamma' will auto re-run once full SLCs are created."
-		depend_job=`sed s/.r-man2// $slc_batch_dir/plot_full_slc_job_id`
+		depend_job=`sed s/.r-man2// $slc_batch_dir/plot_slc_job_id`
 		depend_type=afterok
 		job_type=1
 		echo ""
 		echo "Restarting 'process_gamma' after calculating multi-looking values ..."
-		pbs_job_prefix=restart"_"$track
+		pbs_job_prefix=restart"_"$track_dir
 		type=-
 		script=process_gamma
 		{
@@ -932,20 +817,18 @@ if [ $coreg_dem == yes ]; then
 
                 # PBS parameters
 		if [ $do_slc == yes ]; then
-		    if [ $proj_dir/restart"_"$track ]; then
+		    if [ -f $proj_dir/restart"_"$track_dir ]; then
 			if [ $sensor == 'S1' ]; then
-			    if [ $do_s1_resize == yes ]; then
-				if [ $do_s1_subset == yes ]; then
-				    depend_job=`sed s/.r-man2// $subset_batch_dir/plot_subset_s1_job_id`
-				else
-				    depend_job=`sed s/.r-man2// $resize_batch_dir/plot_resized_s1_job_id`
-				fi
+			    if [ $do_s1_subset == yes ]; then
+				depend_job=`sed s/.r-man2// $subset_batch_dir/plot_subset_s1_job_id`
+			    else
+				depend_job=0  # no dependency if restarted
 			    fi
 			else
 			    depend_job=0  # no dependency if restarted
 			fi
 		    else
-			depend_job=`sed s/.r-man2// $slc_batch_dir/plot_full_slc_job_id` #assumes ref scene is already identified
+			depend_job=`sed s/.r-man2// $slc_batch_dir/plot_slc_job_id` #assumes ref scene is already identified
 		    fi
 		else
 		    depend_job=0  # no dependency if restarted
@@ -976,7 +859,7 @@ if [ $coreg_dem == yes ]; then
 		depend_type=afterany
 		job_type=1 #1 for batch job, 2 for manual job
 		pbs_job_prefix1=coreg_dem_err
-		err_type=10
+		err_type=8
 		script=collate_nci_errors.bash
 		{
 		    single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $dem_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -1011,7 +894,7 @@ if [ $coreg_dem == yes ]; then
 		    depend_type=afterany
 		    job_type=1
 		    pbs_job_prefix3=lat_lon_values_err
-		    err_type=11
+		    err_type=9
 		    script=collate_nci_errors.bash
 		    {
 			single_job $pbs_run_loc $pbs_job_prefix3 $nci_project $dem_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -1028,6 +911,7 @@ elif [ $coreg_dem == no ]; then
 else
     :
 fi
+
 
 
 
@@ -1377,7 +1261,7 @@ if [ $coregister == yes ]; then
 	depend_type=afterany
 	job_type=1
 	pbs_job_prefix1=co_slc_err
-	err_type=12
+	err_type=10
 	script=collate_nci_errors.bash
 	{
 	    single_job $pbs_run_loc $pbs_job_prefix1 $nci_project $co_slc_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -1535,7 +1419,7 @@ if [ $do_ifgs == yes ]; then
 	depend_type=afterany
 	job_type=1
 	pbs_job_prefix2=ifg_err
-	err_type=13
+	err_type=11
 	script=collate_nci_errors.bash
 	{
 	    single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $ifg_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -1580,7 +1464,7 @@ if [ $do_ifgs == yes ]; then
 	    depend_type=afterany
 	    job_type=1
 	    pbs_job_prefix4=prec_base_err
-	    err_type=14
+	    err_type=12
 	    script=collate_nci_errors.bash
 	    {
 		single_job $pbs_run_loc $pbs_job_prefix4 $nci_project $base_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
@@ -1617,7 +1501,7 @@ if [ $do_ifgs == yes ]; then
 	depend_type=afterany
 	job_type=1
 	pbs_job_prefix6=post_ifg_err
-	err_type=15
+	err_type=13
 	script=collate_nci_errors.bash
 	{
 	    single_job $pbs_run_loc $pbs_job_prefix6 $nci_project $ifg_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
