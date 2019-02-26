@@ -21,6 +21,12 @@ function proc_variables {
     # Project details
     project=`grep ^PROJECT= $proc_file | cut -d "=" -f 2`
     track=`grep ^TRACK= $proc_file | cut -d "=" -f 2`
+    frame=`grep ^FRAME= $proc_file | cut -d "=" -f 2`
+    if [ -z $frame ]; then
+	track_dir=$track
+    else
+	track_dir=$track"_"$frame
+    fi
 
     # Sensor details
     sensor=`grep ^SENSOR= $proc_file | cut -d "=" -f 2`
@@ -31,22 +37,23 @@ function proc_variables {
 
     # Directories
     proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
-    slc_dir=$proj_dir/$track/`grep ^SLC_DIR= $proc_file | cut -d "=" -f 2`
-    dem_dir=$proj_dir/$track/`grep ^DEM_DIR= $proc_file | cut -d "=" -f 2`
-    int_dir=$proj_dir/$track/`grep ^INT_DIR= $proc_file | cut -d "=" -f 2`
-    base_dir=$proj_dir/$track/`grep ^BASE_DIR= $proc_file | cut -d "=" -f 2`
-    list_dir=$proj_dir/$track/`grep ^LIST_DIR= $proc_file | cut -d "=" -f 2`
-    error_dir=$proj_dir/$track/`grep ^ERROR_DIR= $proc_file | cut -d "=" -f 2`
-    pdf_dir=$proj_dir/$track/`grep ^PDF_DIR= $proc_file | cut -d "=" -f 2`
+    slc_dir=$proj_dir/$track_dir/`grep ^SLC_DIR= $proc_file | cut -d "=" -f 2`
+    dem_dir=$proj_dir/$track_dir/`grep ^DEM_DIR= $proc_file | cut -d "=" -f 2`
+    int_dir=$proj_dir/$track_dir/`grep ^INT_DIR= $proc_file | cut -d "=" -f 2`
+    base_dir=$proj_dir/$track_dir/`grep ^BASE_DIR= $proc_file | cut -d "=" -f 2`
+    list_dir=$proj_dir/$track_dir/`grep ^LIST_DIR= $proc_file | cut -d "=" -f 2`
+    error_dir=$proj_dir/$track_dir/`grep ^ERROR_DIR= $proc_file | cut -d "=" -f 2`
+    pdf_dir=$proj_dir/$track_dir/`grep ^PDF_DIR= $proc_file | cut -d "=" -f 2`
     raw_data_dir=$proj_dir/`grep ^RAW_DATA_DIR= $proc_file | cut -d "=" -f 2`
     raw_data_track_dir=$raw_data_dir/$track
-    batch_dir=$proj_dir/$track/`grep ^BATCH_JOB_DIR= $proc_file | cut -d "=" -f 2`
-    manual_dir=$proj_dir/$track/`grep ^MANUAL_JOB_DIR= $proc_file | cut -d "=" -f 2`
+    batch_dir=$proj_dir/$track_dir/`grep ^BATCH_JOB_DIR= $proc_file | cut -d "=" -f 2`
+    manual_dir=$proj_dir/$track_dir/`grep ^MANUAL_JOB_DIR= $proc_file | cut -d "=" -f 2`
     pre_proc_dir=$proj_dir/`grep ^PRE_PROC_DIR= $proc_file | cut -d "=" -f 2` # for storing previous versions of proc_files
     mdss_data_dir=`grep ^MDSS_DATA_DIR= $proc_file | cut -d "=" -f 2`
     gamma_dem_dir=$proj_dir/gamma_dem
-    results_dir=$proj_dir/$track/results
-    
+    results_dir=$proj_dir/$track_dir/results
+    kml_dir=$proj_dir/kmls/$track_dir 
+   
     # DEM details
     dem_area=`grep ^DEM_AREA= $proc_file | cut -d "=" -f 2`
     mdss_dem=`grep ^MDSS_DEM_TAR= $proc_file | cut -d "=" -f 2`
@@ -57,8 +64,7 @@ function proc_variables {
     # Initial lists
     frame_list=`grep ^FRAME_LIST= $proc_file | cut -d "=" -f 2`
     scene_list=`grep ^SCENE_LIST= $proc_file | cut -d "=" -f 2`
-    s1_burst_list=`grep ^S1_BURST_LIST= $proc_file | cut -d "=" -f 2`
-    s1_download_list=`grep ^S1_DOWNLOAD_LIST= $proc_file | cut -d "=" -f 2`
+    s1_file_list=`grep ^S1_FILE_LIST= $proc_file | cut -d "=" -f 2`
 
     # Multi-look details
     looks=`grep ^MULTI-LOOK= $proc_file | cut -d "=" -f 2`
@@ -82,9 +88,10 @@ function proc_variables {
     do_ifgs=`grep ^PROCESS_IFGS= $proc_file | cut -d "=" -f 2`
 
     # Sentinel-1 specific steps
-    do_s1_resize=`grep ^DO_S1_RESIZE= $proc_file | cut -d "=" -f 2`
-    s1_resize_ref=`grep ^S1_RESIZE_REF_SLC= $proc_file | cut -d "=" -f 2`
     do_s1_subset=`grep ^DO_S1_BURST_SUBSET= $proc_file | cut -d "=" -f 2`
+    swath1=`grep ^SWATH1= $proc_file | cut -d "=" -f 2`
+    swath2=`grep ^SWATH2= $proc_file | cut -d "=" -f 2`
+    swath3=`grep ^SWATH3= $proc_file | cut -d "=" -f 2`
 
     # Clean up intermediate files
     clean_up=`grep ^CLEAN_UP= $proc_file | cut -d "=" -f 2`
@@ -131,7 +138,7 @@ function proc_variables {
     ifg_filtwin=`grep ^IFG_FILTERING_WINDOW= $proc_file | cut -d "=" -f 2`
     ifg_ccwin=`grep ^IFG_COHERENCE_WINDOW= $proc_file | cut -d "=" -f 2`
     ifg_coh_thres=`grep ^IFG_COHERENCE_THRESHOLD= $proc_file | cut -d "=" -f 2`
-    ifg_unw_mask=`grep ^IFG_UNW_MASK= $proc_file | cut -d "=" -f 2`
+    ifg_unw_mask_flag=`grep ^IFG_UNW_MASK= $proc_file | cut -d "=" -f 2`
     ifg_patch_r=`grep ^IFG_PATCHES_RANGE= $proc_file | cut -d "=" -f 2`
     ifg_patch_az=`grep ^IFG_PATCHES_AZIMUTH= $proc_file | cut -d "=" -f 2`
     ifg_refrg=`grep ^IFG_REF_POINT_RANGE= $proc_file | cut -d "=" -f 2`
@@ -170,6 +177,9 @@ function proc_variables {
     dem_walltime=`grep ^DEM_WALLTIME= $proc_file | cut -d "=" -f 2`
     dem_mem=`grep ^DEM_MEM= $proc_file | cut -d "=" -f 2`
     dem_ncpus=`grep ^DEM_NCPUS= $proc_file | cut -d "=" -f 2`
+    kml_walltime=`grep ^KML_WALLTIME= $proc_file | cut -d "=" -f 2`
+    kml_mem=`grep ^KML_MEM= $proc_file | cut -d "=" -f 2`
+    kml_ncpus=`grep ^KML_NCPUS= $proc_file | cut -d "=" -f 2`
     pix_walltime=`grep ^PIX_WALLTIME= $proc_file | cut -d "=" -f 2`
     pix_mem=`grep ^PIX_MEM= $proc_file | cut -d "=" -f 2`
     pix_ncpus=`grep ^PIX_NCPUS= $proc_file | cut -d "=" -f 2`
@@ -197,6 +207,7 @@ function pbs_job_dirs {
     ml_batch_dir=$batch_dir/ml_slc_jobs
     base_batch_dir=$batch_dir/baseline_jobs
     dem_batch_dir=$batch_dir/dem_jobs
+    kml_batch_dir=$batch_dir/kml_jobs
     co_slc_batch_dir=$batch_dir/coreg_slc_jobs
     ifg_batch_dir=$batch_dir/ifg_jobs
     extract_raw_manual_dir=$manual_dir/extract_raw_jobs
@@ -204,6 +215,7 @@ function pbs_job_dirs {
     ml_manual_dir=$manual_dir/ml_slc_jobs
     base_manual_dir=$manual_dir/baseline_jobs
     dem_manual_dir=$manual_dir/dem_jobs
+    kml_manual_dir=$manual_dir/kml_jobs
     co_slc_manual_dir=$manual_dir/coreg_slc_jobs
     ifg_manual_dir=$manual_dir/ifg_jobs
 }
@@ -223,7 +235,8 @@ function final_file_loc {
     slave_list=$list_dir/`grep ^SLAVE_LIST= $proc_file | cut -d "=" -f 2`
     ifg_list=$list_dir/`grep ^IFG_LIST= $proc_file | cut -d "=" -f 2`
     s1_burst_list=$list_dir/`grep ^S1_BURST_LIST= $proc_file | cut -d "=" -f 2`
-    s1_download_list=$list_dir/`grep ^S1_DOWNLOAD_LIST= $proc_file | cut -d "=" -f 2`
+    s1_file_list=$list_dir/`grep ^S1_FILE_LIST= $proc_file | cut -d "=" -f 2`
+    s1_frame_resize_master=`grep ^RESIZE_MASTER: $s1_file_list | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'`
     remove_list=$list_dir/`grep ^REMOVE_SCENE_LIST= $proc_file | cut -d "=" -f 2`
 }
 
@@ -232,8 +245,10 @@ function processing_details {
     local summary=$1
     local project=$2
     local track=$3
+    local frame=$4
+    local scene=$5
     echo ""
-    echo $summary "for" $project $track "..."
+    echo $summary "for" $project $track $frame $scene "..."
     echo ""
 }
 
@@ -241,16 +256,17 @@ function processing_details {
 function PBS_processing_details {
     local project=$1
     local track=$2
-    local scene=$3
+    local frame=$3
+    local scene=$4
     # .e file
     echo "" 1>&2 # adds spaces at top so scene details are clear
     echo "" 1>&2
-    echo "PROCESSING_PROJECT: "$project $track $scene  1>&2
+    echo "PROCESSING_PROJECT: "$project $track $frame $scene 1>&2
     echo "" 1>&2
     
     # .o file
     echo ""
-    echo "PROCESSING PROJECT: "$project $track $scene 
+    echo "PROCESSING PROJECT: "$project $track $frame $scene
     echo ""
 }
 
@@ -283,7 +299,7 @@ function mli_file_names {
 
 ## ERS or JERS SLC file names
 function asar_ers_jers_slc_file_names {
-    msp_par=p$slc_name.slc.par
+    msp_par=$slc_name"_p.slc.par"
     raw=$slc_name.raw
     leader=$slc_name.ldr
 }
@@ -295,7 +311,7 @@ function palsar_slc_file_names {
     sensor_antpat=$MSP_HOME/sensors/palsar_ant_20061024.dat
     msp_antpat="PALSAR_antpat_MSP_"$polar.dat
     sensor_par="PALSAR_sensor_"$polar.par
-    msp_par=p$slc_name.slc.par
+    msp_par=$slc_name"_p.slc.par"
     raw=$slc_name.raw
     fbd2fbs_slc=$slc_name"_FBS.slc"
     fbd2fbs_par=p$slc_name"_FBS.slc.par"
@@ -303,7 +319,7 @@ function palsar_slc_file_names {
 
 ## RADARSAT-1 SLC file names
 function radarsat_slc_file_names {
-    msp_par=p$slc_name.slc.par
+    msp_par=$slc_name"_p.slc.par"
     raw=$slc_name.raw
     leader=$slc_name.ldr
     sensor_par=RSAT.par
@@ -348,8 +364,8 @@ function s1_slc_file_names {
     slc_bmp3=$slc3.bmp
     slc_png3=$slc3.png
 
-    # multi-frame file names
-    fr_slc_name=$scene"_"$polar"_F"$i
+    # multi-image file names
+    fr_slc_name=$scene"_"$polar"_"$frame"_"$id
     fr_slc1=$fr_slc_name"_IW1.slc"
     fr_slc_par1=$fr_slc1.par
     fr_tops_par1=$fr_slc1.TOPS_par
@@ -360,7 +376,7 @@ function s1_slc_file_names {
     fr_slc_par3=$fr_slc3.par
     fr_tops_par3=$fr_slc3.TOPS_par
 
-    # Subset specific file names
+    # Subset frame file names
     slc_pre_sub=$slc_name"_pre-subset.slc"
     slc_pre_sub_par=$slc_pre_sub.par
     slc_pre_sub1=$slc_name"_IW1_pre-subset.slc"
@@ -380,11 +396,8 @@ function s1_slc_file_names {
 
 ## Sentinel-1 resize scene file names
 function s1_resize {
-    resize_ref_results=$results_dir/$track"_S1_resize_ref_scene"
-    min_bursts=$list_dir/min_bursts
-    burst_file=$scene_dir/slc_burst_values.txt
-    ref_slc_name=$s1_resize_ref"_"$polar
-    ref_slc_tab=$slc_dir/$s1_resize_ref/$ref_slc_name"_tab"
+    ref_slc_name=$s1_frame_resize_master"_"$polar
+    ref_slc_tab=$slc_dir/$s1_frame_resize_master/$ref_slc_name"_tab"
     full_slc_tab=$slc_name"_full_tab"
     slc_resize_tab=$slc_name"_resize_tab"
     burst_tab=$slc_name"_resize_burst_tab"
@@ -407,7 +420,7 @@ function s1_resize {
 
 ## DEM reference master file names
 function dem_ref_master {
-    dem_ref_master_results=$proj_dir/$track/$track"_DEM_ref_master_results"
+    dem_ref_master_results=$proj_dir/$track_dir/$track"_DEM_ref_master_results"
 }
 
 ## Multi-look file names
@@ -428,6 +441,7 @@ function dem_master_names {
     dem_master_gamma0_bmp=$dem_master_gamma0.bmp
     dem_master_gamma0_eqa=$dem_master_mli_name"_eqa.gamma0"
     dem_master_gamma0_eqa_bmp=$dem_master_gamma0_eqa.bmp
+    dem_master_gamma0_eqa_geo=$dem_master_gamma0_eqa.tif
     r_dem_master_slc_name=$dem_master_dir/r$master_scene"_"$polar
     r_dem_master_slc=$r_dem_master_slc_name.slc
     r_dem_master_slc_par=$r_dem_master_slc.par
@@ -435,11 +449,6 @@ function dem_master_names {
     r_dem_master_mli=$r_dem_master_mli_name.mli
     r_dem_master_mli_par=$r_dem_master_mli.par
     r_dem_master_mli_bmp=$r_dem_master_mli.bmp
-}
-
-## Automatic GAMMa DEM creation
-function auto_dem_creation {
-    dem_scene_extent_results=$results_dir/$track"_scene_extents_for_DEM"
 }
 
 ## DEM file names
@@ -451,7 +460,8 @@ function dem_file_names {
     rdc_dem=$dem_master_name"_rdc.dem"
     eqa_dem=$dem_master_name"_eqa.dem"
     eqa_dem_par=$eqa_dem.par
-    seamask=$dem_master_name"_eqa_seamask.ras"
+    #seamask=$dem_master_name"_eqa_seamask.ras"
+    seamask=$dem_master_name"_eqa_seamask.tif"
     dem_lt_rough=$dem_master_name"_rough_eqa_to_rdc.lt"
     dem_lt_fine=$dem_master_name"_eqa_to_rdc.lt"
     dem_eqa_sim_sar=$dem_master_name"_eqa.sim"
@@ -495,6 +505,7 @@ function slave_file_names {
     slave_gamma0=$slave_mli_name.gamma0
     slave_gamma0_eqa=$slave_mli_name"_eqa.gamma0"
     slave_gamma0_eqa_bmp=$slave_gamma0_eqa.bmp
+    slave_gamma0_eqa_geo=$slave_gamma0_eqa.tif
     r_master_slave_name=$slave_dir/$master_scene-$slave_mli_name
     slave_az_ovr=$r_master_slave_name.az_ovr
     slave_az_ovr_poly=$r_master_slave_name.az_ovr.poly
@@ -627,18 +638,22 @@ function ifg_file_names {
     ifg_unw_mask=$master_slave_name"_mask.unw"
     ifg_unw_model=$master_slave_name"_model.unw"
     ifg_unw_thin=$master_slave_name"_thin.unw"
+    ifg_unw_disp=$master_slave_name"_disp.unw"
+    ifg_unw_disp_geocode_bmp=$master_slave_name"_eqa_disp_unw.bmp"
+    ifg_unw_disp_geocode_out=$master_slave_name"_eqa_disp.unw"
+    ifg_unw_disp_geocode_png=$master_slave_name"_eqa_disp_unw.png"
 }
 
 ## Post processing directories
 function post_process {
-    post_dir=$proj_dir/$track/$post_method
+    post_dir=$proj_dir/$track_dir/$post_method
     post_dem_dir=$post_dir/dem_files
     post_flat_ifg_dir=$post_dir/flat_ifg_files
     post_filt_ifg_dir=$post_dir/filt_ifg_files
     post_unw_ifg_dir=$post_dir/unw_ifg_files
     post_flat_cc_dir=$post_dir/flat_cc_files
     post_filt_cc_dir=$post_dir/filt_cc_files
-    geotiff_dir=$proj_dir/$track/geotiff_files
+    geotiff_dir=$proj_dir/$track_dir/geotiff_files
     geotiff_flat_ifg=$geotiff_dir/flat_ifg_geotiffs
     geotiff_filt_ifg=$geotiff_dir/filt_ifg_geotiffs
     geotiff_unw_ifg=$geotiff_dir/unw_ifg_geotiffs
@@ -667,6 +682,54 @@ function track_offsets {
 
 ##########################   PBS JOB GENERATION FUNCTIONS USED BY process_gamma  ##########################
 
+## Single PBS job function for creating Sentinel-1 frame resize master
+function s1_single_job {
+    local pbs_run_loc=$1
+    local pbs_job_prefix=$2
+    local nci_project=$3
+    local batch_dir=$4
+    local walltime=$5
+    local mem=$6
+    local cpu=$7
+    local queue=$8
+    local depend_job=$9
+    local depend_type=${10}
+    local job_type=${11}
+    local script=${12}
+    local scene=${13}
+    local script_type=${14}
+
+    cd $batch_dir
+    job=$pbs_job_prefix
+
+    echo \#\!/bin/bash > $job
+    echo \#\PBS -l other=$pbs_run_loc >> $job
+    echo \#\PBS -l walltime=$walltime >> $job
+    echo \#\PBS -l mem=$mem >> $job
+    echo \#\PBS -l ncpus=$cpu >> $job
+    echo \#\PBS -l wd >> $job
+    echo \#\PBS -W umask=017 >> $job
+    echo \#\PBS -P $nci_project >> $job
+    echo \#\PBS -q $queue >> $job
+    if [ $depend_job == "0" ]; then #cannnot be integer input, as the depend jobs may be 'xxxx:xxxx:xxxx:xxxx'
+        :
+    else
+        echo \#\PBS -W depend=$depend_type:$depend_job >> $job
+    fi
+    echo -e "\n" >> $job
+    echo "export OMP_NUM_THREADS="$cpu >> $job
+    echo -e "\n" >> $job
+
+    echo ~/repo/gamma_insar/$script $proj_dir/$proc_file $scene $script_type >> $job
+
+    chmod +x $job
+    if [ $job_type -eq 1 ]; then #batch job submission
+        qsub $job | tee $batch_dir/$pbs_job_prefix"_job_id"
+    else
+        :
+    fi
+}
+
 ## Single PBS job function
 function single_job {
     local pbs_run_loc=$1
@@ -687,14 +750,14 @@ function single_job {
     job=$pbs_job_prefix
 
     ## proc_file location differs if script restarted
-    if [ $pbs_job_prefix == 'restart' ]; then
+    if [[ $pbs_job_prefix == "restart"* ]]; then
 	proc_file1=$proc_file
     else
 	proc_file1=$proj_dir/$proc_file
     fi
 
     echo \#\!/bin/bash > $job
-      echo \#\PBS -l other=$pbs_run_loc >> $job
+    echo \#\PBS -l other=$pbs_run_loc >> $job
     echo \#\PBS -l walltime=$walltime >> $job
     echo \#\PBS -l mem=$mem >> $job
     echo \#\PBS -l ncpus=$cpu >> $job
@@ -717,15 +780,13 @@ function single_job {
     echo -e "\n" >> $job
 
     if [ $pbs_job_prefix == 'init_base' -o $pbs_job_prefix == 'prec_base' ]; then  ## needs python3 to activate baselines script
-	echo "module load python3/3.5.2 python3/3.5.2-matplotlib" >> $job
-	echo -e "\n" >> $job
 	echo python3 ~/repo/gamma_insar/$script $proc_file1 $script_type >> $job
     else
         echo ~/repo/gamma_insar/$script $proc_file1 $script_type >> $job
     fi
     chmod +x $job
     if [ $job_type -eq 1 ]; then #batch job submission
-	if [ $pbs_job_prefix == 'restart' ]; then
+	if [[ $pbs_job_prefix == "restart"* ]]; then
 	    qsub $job
 	else
 	    qsub $job | tee $batch_dir/$pbs_job_prefix"_job_id"
@@ -799,8 +860,13 @@ function multi_jobs {
 	done
 	chmod +x $job
 	if [ $type -eq 1 ]; then #batch job submission
+	    echo ""
 	    qsub $job | tee $batch_dir/$pbs_job_prefix$i"_job_id"
-	    ls $batch_dir/$pbs_job_prefix$i"_job_id" >> $batch_dir/list
+	    if [ $i -eq 1 ]; then
+		ls $batch_dir/$pbs_job_prefix$i"_job_id" > $batch_dir/list
+	    else
+		ls $batch_dir/$pbs_job_prefix$i"_job_id" >> $batch_dir/list
+	    fi
 	else
 	    :
 	fi
