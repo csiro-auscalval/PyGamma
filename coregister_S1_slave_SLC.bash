@@ -52,7 +52,6 @@ fi
 # slave list index is given to select slave to coregister to
 if [ $# -eq 3 ]; then
    list_idx=$3
-   echo $list_idx
 fi
 
 proc_file=$1
@@ -251,7 +250,7 @@ while [[ "$daz10000" -gt 5 || "$daz10000" -lt -5 ]] && [ "$it" -le "$slave_niter
 
 # TF don't use azimuth refined look-up table, but original one
     #GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_master_slc_par $slave_lt_az_ovr $r_dem_master_mli_par $slave_mli_par $slave_off_start $r_slave_slc_tab $r_slave_slc $r_slave_slc_par
-    GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_master_slc_par $slave_lt $r_dem_master_mli_par $slave_mli_par $slave_off_start $r_slave_slc_tab $r_slave_slc $r_slave_slc_par
+    GM SLC_interp_lt_ScanSAR $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_master_slc_par $slave_lt $r_dem_master_mli_par $slave_mli_par $slave_off_start $r_slave_slc_tab $r_slave_slc $r_slave_slc_par
 
     # coregister to nearest slave if list_idx is given
     if [ $list_idx == "-" ]; then # coregister to master
@@ -300,7 +299,7 @@ rm -rf temp1 $temp_file
 #########################################################################################
 
 ### Resample full data set
-GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_master_slc_par $slave_lt $r_dem_master_mli_par $slave_mli_par $slave_off $r_slave_slc_tab $r_slave_slc $r_slave_slc_par
+GM SLC_interp_lt_ScanSAR $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_master_slc_par $slave_lt $r_dem_master_mli_par $slave_mli_par $slave_off $r_slave_slc_tab $r_slave_slc $r_slave_slc_par
 
 ##############################################################
 
@@ -315,12 +314,13 @@ GM float_math $r_slave_mli $ellip_pix_sigma0 temp1 $master_mli_width 2
 GM float_math temp1 $dem_pix_gam $slave_gamma0 $master_mli_width 3
 rm -f temp1
 
-## Back-geocode Gamma0 backscatter product to map geometry
+## Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
 dem_width=`grep width: $eqa_dem_par | awk '{print $2}'`
-GM geocode_back $slave_gamma0 $master_mli_width $dem_lt_fine $slave_gamma0_eqa $dem_width - 1 0 - -
+GM geocode_back $slave_gamma0 $master_mli_width $dem_lt_fine $slave_gamma0_eqa $dem_width - 5 0 - - 5
 # make quick-look png image
 GM raspwr $slave_gamma0_eqa $dem_width 1 0 20 20 - - - $slave_gamma0_eqa_bmp
 GM convert $slave_gamma0_eqa_bmp -transparent black ${slave_gamma0_eqa_bmp/.bmp}.png
+GM data2geotiff $eqa_dem_par $slave_gamma0_eqa 2 $slave_gamma0_eqa_geo 0.0
 name=`ls *eqa*gamma0.png`
 GM kml_map $name $eqa_dem_par ${name/.png}.kml
 rm -f $slave_gamma0_eqa_bmp

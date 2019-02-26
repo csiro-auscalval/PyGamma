@@ -903,45 +903,45 @@ function S1_COREG_OVERLAP {
 
     ###################################################################################################################
 
-#    ## Clean up temp files
-#    rm -f temp1 temp2 temp3 tmp
-#    rm -rf $master_IW1_slc.?.?
-#    rm -rf $master_IW1_par.?.?
-#    rm -rf $r_slave_IW1_slc.?.?
-#    rm -rf $r_slave_IW1_par.?.?
-#    if [ $number_of_bursts_IW1 -gt 9 ]; then
-#	rm -rf $master_IW1_slc.??.?
-#	rm -rf $master_IW1_par.??.?
-#	rm -rf $r_slave_IW1_slc.??.?
-#	rm -rf $r_slave_IW1_par.??.?
-#    fi
-#    rm -rf $r_master_slave_name.IW?.?.off*
-#    rm -rf $r_master_slave_name.IW?.?.int*
-#    rm -rf $r_master_slave_name.IW?.?.diff*
-#    if [ $nrows -gt 1 ]; then
-#	rm -rf $master_IW2_slc.?.?
-#	rm -rf $master_IW2_par.?.?
-#	rm -rf $r_slave_IW2_slc.?.?
-#	rm -rf $r_slave_IW2_par.?.?
-#	if [ $number_of_bursts_IW2 -gt 9 ]; then
-#	    rm -rf $master_IW2_slc.??.?
-#	    rm -rf $master_IW2_par.??.?
-#	    rm -rf $r_slave_IW2_slc.??.?
-#	    rm -rf $r_slave_IW2_par.??.?
-#	fi
-#    fi
-#    if [ $nrows -gt 2 ]; then
-#	rm -rf $master_IW3_slc.?.?
-#	rm -rf $master_IW3_par.?.?
-#	rm -rf $r_slave_IW3_slc.?.?
-#	rm -rf $r_slave_IW3_par.?.?
-#	if [ $number_of_bursts_IW3 -gt 9 ]; then
-#	    rm -rf $master_IW3_slc.??.?
-#	    rm -rf $master_IW3_par.??.?
-#	    rm -rf $r_slave_IW3_slc.??.?
-#	    rm -rf $r_slave_IW3_par.??.?
-#	fi
-#    fi
+    ## Clean up temp files
+    rm -f temp1 temp2 temp3 tmp
+    rm -rf $master_IW1_slc.?.?
+    rm -rf $master_IW1_par.?.?
+    rm -rf $r_slave_IW1_slc.?.?
+    rm -rf $r_slave_IW1_par.?.?
+    if [ $number_of_bursts_IW1 -gt 9 ]; then
+	rm -rf $master_IW1_slc.??.?
+	rm -rf $master_IW1_par.??.?
+	rm -rf $r_slave_IW1_slc.??.?
+	rm -rf $r_slave_IW1_par.??.?
+    fi
+    rm -rf $r_master_slave_name.IW?.?.off*
+    rm -rf $r_master_slave_name.IW?.?.int*
+    rm -rf $r_master_slave_name.IW?.?.diff*
+    if [ $nrows -gt 1 ]; then
+	rm -rf $master_IW2_slc.?.?
+	rm -rf $master_IW2_par.?.?
+	rm -rf $r_slave_IW2_slc.?.?
+	rm -rf $r_slave_IW2_par.?.?
+	if [ $number_of_bursts_IW2 -gt 9 ]; then
+	    rm -rf $master_IW2_slc.??.?
+	    rm -rf $master_IW2_par.??.?
+	    rm -rf $r_slave_IW2_slc.??.?
+	    rm -rf $r_slave_IW2_par.??.?
+	fi
+    fi
+    if [ $nrows -gt 2 ]; then
+	rm -rf $master_IW3_slc.?.?
+	rm -rf $master_IW3_par.?.?
+	rm -rf $r_slave_IW3_slc.?.?
+	rm -rf $r_slave_IW3_par.?.?
+	if [ $number_of_bursts_IW3 -gt 9 ]; then
+	    rm -rf $master_IW3_slc.??.?
+	    rm -rf $master_IW3_par.??.?
+	    rm -rf $r_slave_IW3_slc.??.?
+	    rm -rf $r_slave_IW3_par.??.?
+	fi
+    fi
 }
 
 
