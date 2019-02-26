@@ -304,11 +304,32 @@ FLAT()
         GM cc_wave $ifg_flat10 - - $ifg_flat_cc10 $width10 7 7 1
 
         ## Generate validity mask with high coherence threshold for unwrapping
-        ccthr=0.7
-        GM rascc_mask $ifg_flat_cc10 - $width10 1 1 0 1 1 $ccthr 0 - $ccthr - - 1 $ifg_flat_cc10_mask
+	# Need minimum coherent pixels for mask to work properly with gcps, if default of 0.7 doesn't have enough, adjust threshold down
+	percent=0.00001
+	ccthr1=0.7 # use as integer to enable subtraction in loop
+	while (( $(echo "$percent < 0.09" | bc -l) )); do
+	    rascc_mask $ifg_flat_cc10 - $width10 1 1 0 1 1 $ccthr1 0 - 0.$ccthr1 - - 1 temp.ras
+	    convert temp.ras -fill black +opaque "rgb(255,255,255)" -format %c histogram:info: > list
+	    if grep -q "white" list; then
+		none=`grep "black" list | cut -d ':' -f1`
+		valid=`grep "white" list | cut -d ':' -f1`
+		percent=`echo "$valid/$none*100" | bc -l`
+		ccthr=$ccthr1
+		ccthr1=`echo "scale=1; ($ccthr1 - 0.1)" | bc -l`
+		rm -rf temp.ras list
+	    else
+		ccthr1=`echo "scale=1; ($ccthr1 - 0.1)" | bc -l`
+		percent=0.00001
+	    fi  
+	    if (( $(echo "$ccthr1 < 0" | bc -l) )); then
+		echo "insufficient coherence to use with calculating gcps"
+		break
+	    fi
+	done
+	GM rascc_mask $ifg_flat_cc10 - $width10 1 1 0 1 1 $ccthr 0 - $ccthr - - 1 $ifg_flat_cc10_mask
 
-        ## Perform unwrapping
-        GM mcf $ifg_flat10 $ifg_flat_cc10 $ifg_flat_cc10_mask $ifg_flat10.unw $width10 1 0 0 - - 1 1
+        ## Perform unwrapping 
+        GM mcf $ifg_flat10 $ifg_flat_cc10 $ifg_flat_cc10_mask $ifg_flat10.unw $width10 1 0 0 - - 1 1   
 
         ## Oversample unwrapped interferogram to original resolution
         GM multi_real $ifg_flat10.unw $ifg_off10 $ifg_flat1.unw $ifg_off -10 -10 0 0
@@ -323,14 +344,14 @@ FLAT()
         ## generate validity mask for GCP selection
         GM rascc_mask $ifg_flat_cc0 - $ifg_width 1 1 0 1 1 0.7 0 - - - - 1 $ifg_flat_cc0_mask
 
-        ## select GCPs from high coherence areas
-        GM extract_gcp $rdc_dem $ifg_off $ifg_gcp 100 100 $ifg_flat_cc0_mask
+        ## select GCPs from high coherence areas 
+        GM extract_gcp $rdc_dem $ifg_off $ifg_gcp 100 100 $ifg_flat_cc0_mas
 
-        ## extract phase at GCPs
+        ## extract phase at GCPs 
         GM gcp_phase $ifg_flat"1.unw" $ifg_off $ifg_gcp $ifg_gcp_ph 3
 
         ## Calculate precision baseline from GCP phase data
-        GM base_ls $r_master_slc_par $ifg_off $ifg_gcp_ph $ifg_base 0 1 1 1 1 10
+        GM base_ls $r_master_slc_par $ifg_off $ifg_gcp_ph $ifg_base 0 1 1 1 1 10    # if ERROR due to incorrect ccthr above: calloc_1d: number of elements <= 0: 0
  
 	##### CODE BELOW DOESN'T LINK PROPERLY TO REST OF FLOW, NOT SURE WHAT 'DIFF' SHOULD BE
         ## Simulate the phase from the DEM and precision baseline model.
@@ -435,7 +456,7 @@ UNW()
         GM mcf $ifg_filt - - temp $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
     fi
 
-    if [ $ifg_unw_mask == yes ]; then
+    if [ $ifg_unw_mask_flag == yes ]; then
         ## Mask unwrapped interferogram for low coherence areas below threshold
         GM mask_data temp $ifg_width $ifg_unw $ifg_mask 0
         rm -f temp
@@ -444,7 +465,7 @@ UNW()
     fi
 
     ## Convert unwrapped phase in radians to a LOS displacement in metres
-    #GM dispmap $ifg_unw $rdc_dem $r_master_slc_par $ifg_off $disp 0
+    GM dispmap $ifg_unw $rdc_dem $r_master_slc_par $ifg_off $ifg_unw_disp 0
 }
 
 
@@ -460,6 +481,8 @@ GEOCODE()
     GM geocode_back $ifg_unw $width_in $dem_lt_fine temp $width_out - 1 0 - -
     ## apply sea mask to phase data
     GM mask_data temp $width_out $ifg_unw_geocode_out $seamask 0
+    # remove standard output from use of $seamask from error.log
+    sed -i '/^TIFF/ d' error.log
     # make quick-look png image 
     GM rasrmg $ifg_unw_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_unw_geocode_bmp
     GM convert $ifg_unw_geocode_bmp -transparent black ${ifg_unw_geocode_bmp/.bmp}.png
@@ -467,12 +490,27 @@ GEOCODE()
     GM kml_map $name $eqa_dem_par ${name/.png}.kml
     rm -f $ifg_unw_geocode_bmp temp
 
+    ## Use bicubic spline interpolation for geocoded unwrapped interferogram (in m)
+    GM geocode_back $ifg_unw_disp $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    ## apply sea mask to phase data
+    GM mask_data temp $width_out $ifg_unw_disp_geocode_out $seamask 0
+    # remove standard output from use of $seamask from error.log
+    sed -i '/^TIFF/ d' error.log
+    # make quick-look png image 
+    GM rasrmg $ifg_unw_disp_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_unw_disp_geocode_bmp
+    GM convert $ifg_unw_disp_geocode_bmp -transparent black ${ifg_unw_disp_geocode_bmp/.bmp}.png
+    name=`ls *rlks_eqa_disp_unw.png`
+    GM kml_map $name $eqa_dem_par ${name/.png}.kml
+    rm -f $ifg_unw_disp_geocode_bmp temp
+
     ## Use bicubic spline interpolation for geocoded flattened interferogram
     # convert to float and extract phase
     GM cpx_to_real $ifg_flat $ifg_flat_float $width_in 4
     GM geocode_back $ifg_flat_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
     ## apply sea mask to phase data
     GM mask_data temp $width_out $ifg_flat_geocode_out $seamask 0
+    # remove standard output from use of $seamask from error.log
+    sed -i '/^TIFF/ d' error.log
     # make quick-look png image
     GM rasrmg $ifg_flat_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_flat_geocode_bmp
     GM convert $ifg_flat_geocode_bmp -transparent black ${ifg_flat_geocode_bmp/.bmp}.png
@@ -486,6 +524,8 @@ GEOCODE()
     GM geocode_back $ifg_filt_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
     ## apply sea mask to phase data
     GM mask_data temp $width_out $ifg_filt_geocode_out $seamask 0
+    # remove standard output from use of $seamask from error.log
+    sed -i '/^TIFF/ d' error.log
     # make quick-look png image
     GM rasrmg $ifg_filt_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_filt_geocode_bmp
     GM convert $ifg_filt_geocode_bmp -transparent black ${ifg_filt_geocode_bmp/.bmp}.png
@@ -521,6 +561,8 @@ GEOCODE()
     if [ $ifg_geotiff == yes ]; then
 	# unw
 	GM data2geotiff $eqa_dem_par $ifg_unw_geocode_out 2 $ifg_unw_geocode_out.tif
+	# disp unw
+	GM data2geotiff $eqa_dem_par $ifg_unw_disp_geocode_out 2 $ifg_unw_disp_geocode_out.tif
 	# flat ifg
 	GM data2geotiff $eqa_dem_par $ifg_flat_geocode_out 2 $ifg_flat_geocode_out.tif
 	# filt ifg
@@ -532,7 +574,6 @@ GEOCODE()
     else
 	:
     fi
-
 
     # Extract coordinates from DEM for plotting par file
     width=`grep width: $eqa_dem_par | awk '{print $2}'`
@@ -667,4 +708,10 @@ fi
 
 ## Copy errors to NCI error file (.e file)
 cat error.log 1>&2
+
+
+
+
+
+
 
