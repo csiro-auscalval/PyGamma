@@ -38,7 +38,7 @@ import math
 from datetime import datetime, date
 import numpy as np
 import operator
-from shutil import copyfile
+from shutil import copyfile, rmtree
 import fileinput
 
 import calc_baselines_functions as cbf
@@ -304,12 +304,12 @@ if type == 'initial':
     cbf.plot_baseline_time_sm(np.array(dates), Bperps, master_ix, filename)
 
     # Output epochs, Bperps and Bdopp to text file
-    outfile = open(os.path.join(base_dir, track + "_epoch_dop_cent.txt"), "w")
-    outfile.write('Epoch   Date[yyyy-mm-dd]   Bperp[m]   DC diff.[Hz]' + '\n')
-    outfile.write('-----------------------------------------------------' + '\n')
+    outfile = open(os.path.join(base_dir, track + "_baseline_master" + master.strftime("%Y%m%d") + "initial.txt"), "w")
+    outfile.write('Epoch   Date[yyyy-mm-dd]   Bperp[m]    DCdiff[Hz]' + '\n')
+    outfile.write('-------------------------------------------------' + '\n')
     epoch = 1
     for line, Bperp, dopp in zip(dates, Bperps, Bdopp):
-        outfile.write('%5d %16s %9.1f %13.1f\n' % (epoch, line.strftime("%Y-%m-%d"), Bperp, dopp))
+        outfile.write('%5d  %16s  %9.1f %13.1f\n' % (epoch, line.strftime("%Y-%m-%d"), Bperp, dopp))
         epoch = epoch + 1
     outfile.close
 
@@ -317,55 +317,69 @@ if type == 'initial':
     ##### Create Single Master Interferogram List #####
 
     if method == 'single':
-        ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
 
-        # Check if ifgs.list file exists and has already be renamed
+        ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
+        # Check if ifgs.list file exists and has already been renamed
         if os.path.isfile(ifgs_list):
-            # save existing ifgs.list to ifgs_backup.list
-            copyfile(ifgs_list, ifgs_list_backup)
             if os.path.isfile(ifgs_list_backup):
                 pass
-        else:
-            # write new ifgs.list
-            outfile = open(ifgs_list, "w")
-            for slave in slaves:
-                outfile.write(master.strftime("%Y%m%d") + "," + slave.strftime("%Y%m%d") + "\n")
-            outfile.close
+            else:
+                # save existing ifgs.list to ifgs_backup.list
+                copyfile(ifgs_list, ifgs_list_backup)
+
+        # write new ifgs.list
+        outfile = open(ifgs_list, "w")
+        # epoch indices (needed later for add_ifgs functionality)
+        epoch1 = []
+        epoch2 = []
+        for slave in slaves:
+            outfile.write(master.strftime("%Y%m%d") + "," + slave.strftime("%Y%m%d") + "\n")
+            # epoch1 is mas_ix
+            epoch1.append(mas_ix)
+            # get the index of slave for epoch2
+            epoch2.append(dates.index(slave))
+        outfile.close
 
 
     ##### Create Daisy-chained Interferogram List #####
 
     elif method == 'chain':
-        ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
 
-        # Check if ifgs.list file exists and has already be renamed
+        ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
+        # Check if ifgs.list file exists and has already been renamed
         if os.path.isfile(ifgs_list):
-            # save existing ifgs.list to ifgs_backup.list
-            copyfile(ifgs_list, ifgs_list_backup)
             if os.path.isfile(ifgs_list_backup):
                 pass
-        else:
-            # create temporary list for numbering each scene
-            nums = range(0, num_scenes)
+            else:
+                # save existing ifgs.list to ifgs_backup.list
+                copyfile(ifgs_list, ifgs_list_backup)
 
-            # create temporary scene list with dates in yyyymmdd format
-            scenes = []
-            for scene in dates:
-                in_scene = scene.strftime("%Y%m%d")
-                scenes.append(in_scene)
+        # create temporary list for numbering each scene
+        nums = range(0, num_scenes)
 
-            # join lists
-            merged = []
-            for idx, i  in enumerate(scenes):
-                merged.append( (nums[idx], i) )
+        # create temporary scene list with dates in yyyymmdd format
+        scenes = []
+        for scene in dates:
+            in_scene = scene.strftime("%Y%m%d")
+            scenes.append(in_scene)
 
-            # write new ifgs.list
-            outfile = open(ifgs_list, "w")
-            for num, scene in merged:
-                num1 = num + 1
-                if num1 < len(scenes):
-                    outfile.write(scene + "," + scenes[num1] + "\n")
-            outfile.close
+        # join lists
+        merged = []
+        for idx, i  in enumerate(scenes):
+            merged.append( (nums[idx], i) )
+
+        # write new ifgs.list
+        outfile = open(ifgs_list, "w")
+        # epoch indices (needed later for add_ifgs functionality)
+        epoch1 = []
+        epoch2 = []
+        for num, scene in merged:
+            num1 = num + 1
+            if num1 < len(scenes):
+                outfile.write(scene + "," + scenes[num1] + "\n")
+                epoch1.append(dates.index(datetime.strptime(scene, "%Y%m%d")))
+                epoch2.append(dates.index(datetime.strptime(scenes[num1], "%Y%m%d")))
+        outfile.close
 
 
     ##### Coherence-based SBAS Network Calculation and Interferogram List #####
@@ -424,7 +438,7 @@ if type == 'initial':
 
         # create the SBAS network
         outfile = os.path.join(base_dir, track + "_SBAS_connections.txt")
-        epoch1, epoch2, Bperps_sbas = cbf.create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, Bperp_max, Ba, coh_thres, nmin, nmax, outfile)
+        epoch1, epoch2, Bperps_sbas, ddiff_sbas, doppdiff_sbas = cbf.create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, Bperp_max, Ba, coh_thres, nmin, nmax, outfile)
         # note that epoch1 and epoch2 contain the indices of valid connections
 
         # plot selected connections
@@ -433,29 +447,100 @@ if type == 'initial':
 
         # save dates of connections to ifgs.list
         ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
-        # Check if ifgs.list file exists and has already be renamed
+        # Check if ifgs.list file exists and has already been renamed
         if os.path.isfile(ifgs_list):
-            # save existing ifgs.list to ifgs_backup.list
-            copyfile(ifgs_list, ifgs_list_backup)
             if os.path.isfile(ifgs_list_backup):
                 pass
-        else:
-            # write new ifgs.list
-            outfile = open(ifgs_list, "w")
-            for epo1, epo2 in zip(epoch1, epoch2):
-                outfile.write(dates[epo1].strftime("%Y%m%d") + "," + dates[epo2].strftime("%Y%m%d") + "\n")
-            outfile.close
+            else:
+                # save existing ifgs.list to ifgs_backup.list
+                copyfile(ifgs_list, ifgs_list_backup)
+
+        # write new ifgs.list
+        outfile = open(ifgs_list, "w")
+        for epo1, epo2 in zip(epoch1, epoch2):
+            outfile.write(dates[epo1].strftime("%Y%m%d") + "," + dates[epo2].strftime("%Y%m%d") + "\n")
+        outfile.close
 
         # save dates and Bperps of connection to ./TxxxX/baseline_plot_output.txt
-        outfile = open(os.path.join(base_dir, track + "_baseline_plot_output.txt"), "w")
-        outfile.write("Date1[yyyy-mm-dd]   Date2[yyyy-mm-dd]   Bperp[m]\n")
-        outfile.write("-----------------------------------------------------\n")
-        for epochA, epochB, Bperp, in zip(epoch1, epoch2, Bperps_sbas):
-            outfile.write("%17s    %17s   %9.1f\n" % (dates[epochA].strftime("%Y-%m-%d"), dates[epochB].strftime("%Y-%m-%d"), Bperp))
+        outfile = open(os.path.join(base_dir, track + "_baseline_SBAS_network.txt"), "w")
+        outfile.write("Date1[yyyy-mm-dd]   Date2[yyyy-mm-dd]   DateDiff[d]   Bperp[m]   DCdiff[Hz]\n")
+        outfile.write("---------------------------------------------------------------------------\n")
+        for epochA, epochB, Bperp, ddiff, doppdiff in zip(epoch1, epoch2, Bperps_sbas, ddiff_sbas, doppdiff_sbas):
+            outfile.write("%16s    %16s   %11d  %9.1f    %9.1f\n" % (dates[epochA].strftime("%Y-%m-%d"), dates[epochB].strftime("%Y-%m-%d"), ddiff, Bperp, doppdiff))
         outfile.close
 
     else:
         pass
+
+    ##### Check for already existing IFGs in TxxxX/INT directory and create the file add_ifgs.list
+    print()
+    print("Checking for existing IFGs in the INT directory...")
+    print()
+    int_dir = track_dir + "/INT"
+    if os.path.isdir(int_dir):
+        ifg_exist = os.listdir(int_dir)
+        i_add = 0
+        add_ifg = [True] * len(epoch1)
+        exist = [False] * len(ifg_exist)
+        for epo1, epo2 in zip(epoch1, epoch2):
+            ifg_dates = dates[epo1].strftime("%Y%m%d") + "-" + \
+                        dates[epo2].strftime("%Y%m%d")
+            i_exist = 0
+            for ifg in ifg_exist:
+                if ifg == ifg_dates:
+                    exist[i_exist] = True
+                    add_ifg[i_add] = False
+                    break
+                i_exist = i_exist + 1
+            i_add = i_add + 1
+
+        # check if there are existing IFGs which have not been selected
+        i = 0
+        del_ifg = []
+        for ifg in ifg_exist:
+            if exist[i] == False and len(ifg) == 17 and \
+               ifg[0:8].isdigit() == True and ifg[9:17].isdigit() == True:
+                del_ifg.append(ifg)
+            i = i + 1
+        if len(del_ifg) > 0:
+            remove_ifgs_list = os.path.join(list_dir,"removed_ifgs.list")
+            outfile = open(remove_ifgs_list, "a")
+            now = datetime.now()
+            outfile.write("The following IFGs have been deleted on " + now.strftime("%Y-%m-%d %X") + "\n")
+            print("WARNING: The following IFGs already exist but are not selected: ")
+            # Delete existing IFGs which are not selected for current SBAS network
+            del_ifg.sort()
+            for ifg in del_ifg:
+                print(ifg)
+                outfile.write(ifg + "\n")
+                rmtree(int_dir + "/" + ifg)
+            print("These IFGs have now been removed from the INT directory, see removed_ifgs.list.")
+            outfile.write("\n")
+        else:
+            print("All existing IFGs are selected and will be used.")
+        print()
+
+        # create add_ifgs list
+        if any(add_ifg) == True:
+            # save to add_ifgs.list
+            add_ifgs_list = os.path.join(list_dir,"add_ifgs.list")
+            outfile = open(add_ifgs_list, "w")
+            print("IFGs to be added will be written to add_ifgs.list, i.e.:")
+            i = 0
+            for epo1, epo2 in zip(epoch1, epoch2):
+                if add_ifg[i] == True:
+                    print(dates[epo1].strftime("%Y%m%d") + "-" + \
+                          dates[epo2].strftime("%Y%m%d"))
+                    outfile.write(dates[epo1].strftime("%Y%m%d") + "," + \
+                                  dates[epo2].strftime("%Y%m%d") + "\n")
+                i = i + 1
+            outfile.close
+        else:
+            print("Stack is already complete. No IFGs to add.")
+
+    else: # first run, no INT dir
+        print("INT directory doesn't exist yet. Nothing to add.")
+    print()
 
 
 ################ PRECISION BASELINE CALCULATION ####################

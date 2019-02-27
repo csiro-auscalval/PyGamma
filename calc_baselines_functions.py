@@ -281,7 +281,8 @@ def create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, \
     bdiff = abs(bdiff_all)
     # calculate Bdopp differences
     X, Y = np.meshgrid(np.array(Bdopp), np.array(Bdopp))
-    doppdiff = abs(X-Y)
+    doppdiff_all = X - Y
+    doppdiff = abs(doppdiff_all)
     # calculate Btemp differences in days (ddiff) for all possible IFG comb.
     dates_diff_days = [0] * num_scenes
     i = 0
@@ -377,9 +378,11 @@ def create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, \
 
     # plot Bperps of final connections
     Bperps_sbas = bdiff_all[ix]
+    ddiff_sbas = ddiff[ix]
+    doppdiff_sbas = doppdiff_all[ix]
 
     # return values
-    return epoch1, epoch2, Bperps_sbas
+    return epoch1, epoch2, Bperps_sbas, ddiff_sbas, doppdiff_sbas
 
 
 
