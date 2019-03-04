@@ -1,18 +1,19 @@
 #!/bin/bash
 
-### Script doesn't include scene concatenation
-
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* process_TSX_SLC:  Script takes DLR COSAR format SSC from TSX/TDX and        *"
-    echo "*                   and produces sigma0 calibrated SLC.                       *"
+    echo "* remove_scenes: Removes scene/s which have SLCs that don't work from SLC     *"
+    echo "*                directory and from scenes.list, slaves.list and ifms.list.   *"
     echo "*                                                                             *"
+    echo "*                Requires a 'remove_scenes.list' file to be created in the    *"                                     
+    echo "*                lists directory. This lists the dates to remove.             *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
-    echo "*         [scene]      scene ID (eg. 20180423)                                *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       26/05/2015, v1.0                            *"
+    echo "*         Sarah Lawrie @ GA       20/06/2015, v1.1                            *"
+    echo "*             - streamline auto processing and modify directory structure     *"
     echo "*         Sarah Lawrie @ GA       13/08/2018, v2.0                            *"
     echo "*             -  Major update to streamline processing:                       *"
     echo "*                  - use functions for variables and PBS job generation       *"
@@ -23,23 +24,17 @@ display_usage() {
     echo "*                     subsetting by bursts                                    *"
     echo "*                  - remove GA processing option                              *"
     echo "*******************************************************************************"
-    echo -e "Usage: process_TSX_SLC.bash [proc_file] [scene]"
+    echo -e "Usage: remove_scenes.bash [proc_file]"
     }
 
-if [ $# -lt 2 ]
+if [ $# -lt 1 ]
 then 
     display_usage
     exit 1
 fi
 
-if [ $2 -lt "10000000" ]; then 
-    echo "ERROR: Scene ID needed in YYYYMMDD format"
-    exit 1
-else
-    scene=$2
-fi
-
 proc_file=$1
+
 
 ##########################   GENERIC SETUP  ##########################
 
@@ -53,48 +48,53 @@ final_file_loc
 # Load GAMMA to access GAMMA programs
 source $config_file
 
-# Print processing summary to .o & .e files
-PBS_processing_details $project $track $scene 
-
 ######################################################################
 
-## File names
-slc_file_names
-final_file_loc
 
+cd $list_dir
 
-mkdir -p $scene_dir
-cd $scene_dir
+# Remove scenes from scenes.list
+cp $scene_list pre_remove_scenes.list
+grep -Fvx -f $remove_list $scene_list > temp1
+mv temp1 $scene_list
+rm -f temp1
 
-## Raw data location
-xml=$raw_data_track_dir/$scene/*X1_SAR_*$scene*/*.xml
-cosar=$raw_data_track_dir/$scene/*X1_SAR_*$scene*/IMAGEDATA/IMAGE*.cos
-
-if [ ! -e $scene_dir/$slc ]; then
-    # Read TSX data and produce slc and parameter files in GAMMA format
-    GM par_TX_SLC $xml $cosar $slc_par $slc
-
-    # Apply the stated calFactor from the xml file, scale according to sin(inc_angle) and convert from scomplex to fcomplex. Output is sigma0
-    GM radcal_SLC $slc $slc_par sigma0.slc sigma0.slc.par 3 - 0 0 1 0 -
-    mv -f sigma0.slc $slc
-    mv -f sigma0.slc.par $slc_par
-
-    # Make quick-look png image of SLC
-    width=`grep range_samples: $slc_par | awk '{print $2}'`
-    lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
-    GM rasSLC $slc $width 1 $lines 50 20 - - 1 0 0 $slc_bmp
-    GM convert $slc_bmp $slc_png
-    rm -f $slc_bmp
-else
-    echo " "
-    echo "Full SLC already created."
-    echo " "
+# Remove scenes from slave.list
+if [ -e $slave_list ]; then
+    cp $slave_list pre_remove_slaves.list
+    grep -Fvx -f $remove_list $slave_list > temp2
+    mv temp2 $slave_list
+    rm -f temp2
 fi
+
+# Remove scenes from ifms.list
+if [ -e $ifm_list ]; then
+    cp $ifm_list pre_remove_ifms.list
+    while read rm_scene; do
+	while read list; do
+	    master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+	    slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+	    ifm=$master,$slave
+	    if [ "$master" = "$rm_scene" ] || [ "$slave" = "$rm_scene" ]; then
+		echo $ifm >> temp3
+	    else
+		:
+	    fi
+	done < $ifm_list
+    done < $remove_list
+    grep -Fvx -f temp3 $ifm_list > temp4
+    mv temp4 $ifm_list
+    rm -f temp3 temp4
+fi
+
+
+# Remove scenes from SLC directory
+cd $slc_dir
+
+while read rm_scene; do
+    rm -rf $rm_scene
+done < $remove_list
 
 
 # script end 
 ####################
-
-## Copy errors to NCI error file (.e file)
-cat error.log 1>&2
-

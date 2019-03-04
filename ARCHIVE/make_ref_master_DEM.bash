@@ -327,8 +327,8 @@ GEN_DEM_RDC()
     
     ### UPDATED PROCESS
     # taken from 'S1_Mexico_coreg_demo'. Produces refined estimates compared to old version
-    #GM gc_map $master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $lt_rough $ovr $ovr $eqa_sim_sar - - $loc_inc - - $lsmap 8 2
-    GM gc_map $master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $lt_rough $ovr $ovr $eqa_sim_sar - - - - - - 8 2
+    GM gc_map $master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $lt_rough $ovr $ovr $eqa_sim_sar - - $loc_inc - - $lsmap 8 2
+    #GM gc_map $master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $lt_rough $ovr $ovr $eqa_sim_sar - - - - - - 8 2
 
 
     ### OLD VERSION

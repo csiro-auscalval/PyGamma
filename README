@@ -1,0 +1,68 @@
+GAMMA PROCESSING WORKFLOW DIRECTORY SETUP
+
+'gamma_insar' directory contains all the scripts used in the auto processing workflow
+
+'gamma_insar/general_scripts' directory contains scripts that are run manually by the user (ie. outside the auto processing workflow)
+   - eg. check_slave_coregistration.bash
+
+'gamma_insar/ARCHIVE' directory contains a copy of all the scripts available prior to major upgrade of GAMMA scripts in August 2018
+
+'gamma_insar/S1_FRAME_CREATION' directory contains scripts for archive metadata scraping. These results are inputs for the python notebooks to create stacks of scenes for
+   pre-defined 'frames'.
+
+
+USAGE
+
+When 'loadgamma' is run, all scripts in 'gamma_insar' and 'general_scripts' directories will be available on the command line
+
+'gamma.proc', 'process_gamma' and 'gamma_functions' are the scripts used to run auto processing
+    - 'gamma.proc' is the configuration file
+    - 'process_gamma' calls the other scripts
+    - 'gamma_functions' sets the variables used by the scripts
+
+
+PYTHON NOTEBOOKS
+
+To use the metadata scraping and scene list creation notebooks, these need to be run in the VDI. Uses Python3.
+
+
+
+STEPS
+
+1. Create top-level project directory structure in NCI (ie. INSAR_ANALYSIS/<project>/<sensor>/GAMMA)
+
+2. 'loadgamma'
+
+3. Copy proc file template, update details and put in directory created in step 1
+
+4. A DEM file which covers the scene extent is now automatically created for scenes covering Australia. A manual DEM needs to be created for other areas:
+      - if a suitable DEM doesn't exist on MDSS:
+          a. use ArcGIS to create an ASCII file of the DEM (GA InSAR Processing Guide details steps for this)
+          b. copy ASCII file to irectory created in step 1
+   	  c. create GAMMA DEM using 'general_scripts/make_GAMMA_DEM.bash'
+	  d. update proc file with DEM details
+
+5. Sensor lists:
+    SENTINEL-1
+       - S1_T<track>_F<frame>_<polar>_scene_stack.txt
+           a. use S1_frame_scene_stack_creation_final.ipynb to generate list
+       
+    SENSORS WHERE FRAMES ARE USED (not Sentinel-1)
+       - frame.list
+          a. file format is: <frame_number>. For example:
+               7160
+	       7170	
+          b. move list to directory created in step 1
+
+6. Start processing
+     - run 'process_gamma <track>.proc' on command line
+
+
+
+SENTINEL-1
+
+If subsettting a pre-defined frame by bursts, the bursts need to be identified. Determine bursts from preview scene full SLC PDFs and update proc file with values.
+
+
+
+

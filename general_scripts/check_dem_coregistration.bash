@@ -1,17 +1,17 @@
 #!/bin/bash
 
-### Script doesn't include scene concatenation
-
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* process_RISAT1_SLC:  Script takes xxxx format xxxx from xxxx and            *"
-    echo "*                      and produces sigma0 calibrated SLC images.             *"
+    echo "* check_dem_coregistration: Script takes the simulated radar DEM and the      *"
+    echo "*                           reference master MLI to enable coregistration     *"
+    echo "*                           checking.                                         *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]  name of GAMMA proc file (eg. gamma.proc)               *"
-    echo "*         [scene]      scene ID (eg. 20180423)                                *"
+    echo "*         <start>      starting line of SLC (optional, default: 1)            *"
+    echo "*         <nlines>     number of lines to display (optional, default: 4000)   *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       06/05/2015, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       15/08/2016, v1.0                            *"
     echo "*         Sarah Lawrie @ GA       13/08/2018, v2.0                            *"
     echo "*             -  Major update to streamline processing:                       *"
     echo "*                  - use functions for variables and PBS job generation       *"
@@ -22,20 +22,24 @@ display_usage() {
     echo "*                     subsetting by bursts                                    *"
     echo "*                  - remove GA processing option                              *"
     echo "*******************************************************************************"
-    echo -e "Usage: process_RISAT1_SLC.bash [proc_file] [scene]"
+    echo -e "Usage: check_dem_coregistration.bash [proc_file] <start> <nlines>"
     }
 
-if [ $# -lt 2 ]
+if [ $# -lt 1 ]
 then 
     display_usage
     exit 1
 fi
 
-if [ $2 -lt "10000000" ]; then 
-    echo "ERROR: Scene ID needed in YYYYMMDD format"
-    exit 1
+if [ $# -eq 2 ]; then
+    start=$2
 else
-    scene=$2
+    start=1
+fi
+if [ $# -eq 3 ]; then
+    nlines=$3
+else
+    nlines=4000
 fi
 
 proc_file=$1
@@ -53,47 +57,38 @@ final_file_loc
 # Load GAMMA to access GAMMA programs
 source $config_file
 
-# Print processing summary to .o & .e files
-PBS_processing_details $project $track $scene 
-
 ######################################################################
 
 ## File names
-slc_file_names
-final_file_loc
+dem_master_names
+dem_file_names
 
-mkdir -p $scene_dir
-cd $scene_dir
-
-## Raw data location
-xml=`ls $raw_data_track_dir/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/*.xml`
-cosar=`ls $raw_data_track_dir/$scene/*X1_SAR__SSC______SM_S_SRA_*$scene*/IMAGEDATA/IMAGE*.cos`
+cd $proj_dir/$track
 
 
-if [ ! -e $scene_dir/$slc ]; then
-    GM par_RISAT_SLC $xml $cosar $slc_par $slc
+r_mli_width=`grep range_samples: $r_dem_master_mli_par | awk '{print $2}'`
+r_mli_lines=`grep azimuth_lines: $r_dem_master_mli_par | awk '{print $2}'`
+rdc_width=`grep range_samp_1: $dem_diff | awk '{print $2}'`
+rdc_lines=`grep az_samp_1: $dem_diff | awk '{print $2}'`
 
-    # Apply the stated calFactor from the xml file, scale according to sin(inc_angle) and convert from scomplex to fcomplex. Output is sigma0
-    GM radcal_SLC $slc $slc.par sigma0.slc sigma0.slc.par 3 - 0 0 1 0 -
-    mv -f sigma0.slc $slc
-    mv -f sigma0.slc.par $slc_par
-
-    # Make quick-look png image of SLC
-    width=`grep range_samples: $slc_par | awk '{print $2}'`
-    lines=`grep azimuth_lines: $slc_par | awk '{print $2}'`
-    GM rasSLC $slc $width 1 $lines 50 20 - - 1 0 0 $slc_bmp
-    GM convert $slc_bmp $slc_png
-    rm -f $slc_bmp
+if [ $# -lt 3 -a $r_mli_lines -gt 4000 ]; then
+    echo  " "
+    echo "Image length is "$r_mli_lines", auto setting length to 4000 lines. If different length required, enter no. lines."
+    echo  " "
+    start=1
+    nlines=4000
+elif [ $# -eq 3 -a $r_mli_lines -gt 4000 ]; then
+    start=$2
+    nlines=$3
 else
-    echo " "
-    echo "Full SLC already created."
-    echo " "
+    start=1
+    nlines=-
 fi
+dis2pwr $r_dem_master_mli $dem_rdc_sim_sar $r_mli_width $rdc_width $start $nlines - - - - 0
 
+echo " "
+echo "Checked coregistration of DEM with reference SLC MLI."
+echo " "
 
-# script end 
+# script end
 ####################
-
-## Copy errors to NCI error file (.e file)
-cat error.log 1>&2
-
