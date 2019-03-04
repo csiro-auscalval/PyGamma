@@ -170,7 +170,9 @@ def scatter(iterable, n):
 
 def _gen_pbs(scattered_tasklist, options, env, omp_num_threads, workdir, outdir,
              pbs_resource):
-
+    """
+    Generates a pbs scripts
+    """
     pbs_scripts = []
 
     for block in scattered_tasklist:
@@ -198,21 +200,25 @@ def _gen_pbs(scattered_tasklist, options, env, omp_num_threads, workdir, outdir,
 
 
 def _submit_pbs(pbs_scripts, retry, test):
-
-        for scripts in pbs_scripts:
-            print(scripts)
-            if test:
-                time.sleep(1)
-                print("qsub -v NJOBS={retry} {job}".format(retry=retry, job=basename(scripts)))
-            else:
-                time.sleep(1)
-                os.chdir(dirname(scripts))
-                subprocess.call(['qsub', '-v', 'NJOBS={retry}'.format(retry=retry), basename(scripts)])
+    """
+    Submits a pbs job or mocks if set to test
+    """
+    for scripts in pbs_scripts:
+        print(scripts)
+        if test:
+            time.sleep(1)
+            print("qsub -v NJOBS={retry} {job}".format(retry=retry, job=basename(scripts)))
+        else:
+            time.sleep(1)
+            os.chdir(dirname(scripts))
+            subprocess.call(['qsub', '-v', 'NJOBS={retry}'.format(retry=retry), basename(scripts)])
 
 
 def run(taskfile, proc_file, checkpoint_patterns, workdir, outdir, env, total_ncpus, total_memory,
         omp_num_threads, project, queue, hours, email, retry, num_batch, test):
-
+    """
+    colsolidates batch processing job script creation and submission of pbs jobs
+    """
     with open(taskfile, 'r') as src:
         tasklist = src.readlines()
 

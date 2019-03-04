@@ -1,0 +1,431 @@
+2019-02-25 11:49:29,969: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp4rwvqejj/testfile.txt, retry=999999999) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 11:49:29,971: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_999999999_ed8545648a   has status   PENDING
+2019-02-25 11:49:29,971: INFO: Done scheduling tasks
+2019-02-25 11:49:29,971: INFO: Running Worker with 1 processes
+2019-02-25 11:49:29,972: INFO: [pid 8520] Worker Worker(salt=231027773, workers=1, host=raijin3, username=pd1813, pid=8520) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp4rwvqejj/testfile.txt, retry=999999999)
+2019-02-25 11:49:29,974: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_999999999_ed8545648a   has status   FAILED
+2019-02-25 11:49:29,975: INFO: [pid 8520] Worker Worker(salt=231027773, workers=1, host=raijin3, username=pd1813, pid=8520) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp4rwvqejj/testfile.txt, retry=999999999)
+2019-02-25 11:49:29,978: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_999999999_ed8545648a   has status   FAILED
+2019-02-25 11:49:29,979: INFO: Worker Worker(salt=231027773, workers=1, host=raijin3, username=pd1813, pid=8520) was stopped. Shutting down Keep-Alive thread
+2019-02-25 11:49:29,980: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp4rwvqejj/testfile.txt, retry=999999999)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 11:49:30,033: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_15b0bb5133   has status   PENDING
+2019-02-25 11:49:30,034: INFO: Running Worker with 1 processes
+2019-02-25 11:49:30,051: INFO: [pid 8520] Worker Worker(salt=282491370, workers=1, host=raijin3, username=pd1813, pid=8520) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpxh6pi1a1/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 11:49:35,852: INFO: [pid 8520] Worker Worker(salt=282491370, workers=1, host=raijin3, username=pd1813, pid=8520) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpxh6pi1a1/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 11:49:35,874: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_15b0bb5133   has status   DONE
+2019-02-25 11:49:35,946: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___edab06e6a2   has status   PENDING
+2019-02-25 11:49:35,946: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp716tvtup/testfile.txt, retry=1) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 11:49:35,947: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_1_dd0f0db6be   has status   PENDING
+2019-02-25 11:49:35,947: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_db94741c1a   has status   PENDING
+2019-02-25 11:49:35,947: INFO: Done scheduling tasks
+2019-02-25 11:49:35,947: INFO: Running Worker with 1 processes
+2019-02-25 11:49:35,948: INFO: [pid 8520] Worker Worker(salt=815298759, workers=1, host=raijin3, username=pd1813, pid=8520) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp716tvtup/testfile.txt, retry=1)
+2019-02-25 11:49:35,951: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_1_dd0f0db6be   has status   FAILED
+2019-02-25 11:49:35,951: INFO: [pid 8520] Worker Worker(salt=815298759, workers=1, host=raijin3, username=pd1813, pid=8520) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp716tvtup/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 11:49:41,670: INFO: [pid 8520] Worker Worker(salt=815298759, workers=1, host=raijin3, username=pd1813, pid=8520) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp716tvtup/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 11:49:41,672: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_db94741c1a   has status   DONE
+2019-02-25 11:49:41,673: INFO: Worker Worker(salt=815298759, workers=1, host=raijin3, username=pd1813, pid=8520) was stopped. Shutting down Keep-Alive thread
+2019-02-25 11:49:41,676: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 3 tasks of which:
+* 1 ran successfully:
+    - 1 InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp716tvtup/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp716tvtup/testfile.txt, retry=1)
+* 1 were left pending, among these:
+    * 1 had failed dependencies:
+        - 1 RawDataExtract(...)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 12:08:12,089: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp7lph1lik/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 12:08:12,091: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_72053cb19e   has status   PENDING
+2019-02-25 12:08:12,091: INFO: Done scheduling tasks
+2019-02-25 12:08:12,091: INFO: Running Worker with 1 processes
+2019-02-25 12:08:12,092: INFO: [pid 25399] Worker Worker(salt=083052446, workers=1, host=raijin6, username=pd1813, pid=25399) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp7lph1lik/testfile.txt)
+2019-02-25 12:08:12,097: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_72053cb19e   has status   FAILED
+2019-02-25 12:08:12,098: INFO: [pid 25399] Worker Worker(salt=083052446, workers=1, host=raijin6, username=pd1813, pid=25399) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp7lph1lik/testfile.txt)
+2019-02-25 12:08:12,101: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_72053cb19e   has status   FAILED
+2019-02-25 12:08:12,102: INFO: Worker Worker(salt=083052446, workers=1, host=raijin6, username=pd1813, pid=25399) was stopped. Shutting down Keep-Alive thread
+2019-02-25 12:08:12,103: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp7lph1lik/testfile.txt)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 12:08:12,178: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_ecbeed9d0e   has status   PENDING
+2019-02-25 12:08:12,178: INFO: Running Worker with 1 processes
+2019-02-25 12:08:12,198: INFO: [pid 25399] Worker Worker(salt=024890745, workers=1, host=raijin6, username=pd1813, pid=25399) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpzngc8htw/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 12:08:17,892: INFO: [pid 25399] Worker Worker(salt=024890745, workers=1, host=raijin6, username=pd1813, pid=25399) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpzngc8htw/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 12:08:17,918: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_ecbeed9d0e   has status   DONE
+2019-02-25 12:08:17,997: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___b7e91b938b   has status   PENDING
+2019-02-25 12:08:17,997: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp33lwp5bl/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 12:08:18,010: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_747764e37a   has status   PENDING
+2019-02-25 12:08:18,024: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_adf1b28321   has status   PENDING
+2019-02-25 12:08:18,024: INFO: Running Worker with 1 processes
+2019-02-25 12:08:18,038: INFO: [pid 25399] Worker Worker(salt=914005671, workers=1, host=raijin6, username=pd1813, pid=25399) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp33lwp5bl/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 12:08:23,489: INFO: [pid 25399] Worker Worker(salt=914005671, workers=1, host=raijin6, username=pd1813, pid=25399) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp33lwp5bl/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 12:08:23,508: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_adf1b28321   has status   DONE
+2019-02-25 12:08:23,523: INFO: [pid 25399] Worker Worker(salt=914005671, workers=1, host=raijin6, username=pd1813, pid=25399) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp33lwp5bl/testfile.txt)
+2019-02-25 12:08:23,538: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_747764e37a   has status   FAILED
+2019-02-25 12:11:04,846: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpijmbqxbo/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 12:11:04,847: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_edd1722635   has status   PENDING
+2019-02-25 12:11:04,847: INFO: Done scheduling tasks
+2019-02-25 12:11:04,847: INFO: Running Worker with 1 processes
+2019-02-25 12:11:04,848: INFO: [pid 372] Worker Worker(salt=009339061, workers=1, host=raijin6, username=pd1813, pid=372) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpijmbqxbo/testfile.txt)
+2019-02-25 12:11:04,850: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_edd1722635   has status   FAILED
+2019-02-25 12:11:04,850: INFO: [pid 372] Worker Worker(salt=009339061, workers=1, host=raijin6, username=pd1813, pid=372) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpijmbqxbo/testfile.txt)
+2019-02-25 12:11:04,854: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_edd1722635   has status   FAILED
+2019-02-25 12:11:04,854: INFO: Worker Worker(salt=009339061, workers=1, host=raijin6, username=pd1813, pid=372) was stopped. Shutting down Keep-Alive thread
+2019-02-25 12:11:04,856: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpijmbqxbo/testfile.txt)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 12:11:04,930: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_3acb6071d5   has status   PENDING
+2019-02-25 12:11:04,930: INFO: Running Worker with 1 processes
+2019-02-25 12:11:04,948: INFO: [pid 372] Worker Worker(salt=453494438, workers=1, host=raijin6, username=pd1813, pid=372) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpbl3oy9w8/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 12:11:10,478: INFO: [pid 372] Worker Worker(salt=453494438, workers=1, host=raijin6, username=pd1813, pid=372) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpbl3oy9w8/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 12:11:10,531: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_3acb6071d5   has status   DONE
+2019-02-25 12:11:10,609: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___43f11ec5ee   has status   PENDING
+2019-02-25 12:11:10,610: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp_nj7ix7i/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 12:11:10,625: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_0bb179fd42   has status   PENDING
+2019-02-25 12:11:10,638: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_9bd25cfc56   has status   PENDING
+2019-02-25 12:11:10,638: INFO: Running Worker with 1 processes
+2019-02-25 12:11:10,655: INFO: [pid 372] Worker Worker(salt=946691527, workers=1, host=raijin6, username=pd1813, pid=372) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp_nj7ix7i/testfile.txt)
+2019-02-25 12:11:10,673: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_0bb179fd42   has status   FAILED
+2019-02-25 12:11:10,687: INFO: [pid 372] Worker Worker(salt=946691527, workers=1, host=raijin6, username=pd1813, pid=372) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp_nj7ix7i/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 12:11:16,136: INFO: [pid 372] Worker Worker(salt=946691527, workers=1, host=raijin6, username=pd1813, pid=372) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp_nj7ix7i/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 12:11:16,156: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_9bd25cfc56   has status   DONE
+2019-02-25 15:39:12,278: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpy7rfxy5g/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:39:12,311: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_7aca16e38c   has status   PENDING
+2019-02-25 15:39:12,311: INFO: Done scheduling tasks
+2019-02-25 15:39:12,312: INFO: Running Worker with 1 processes
+2019-02-25 15:39:12,314: INFO: [pid 6349] Worker Worker(salt=004463056, workers=1, host=raijin6, username=pd1813, pid=6349) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpy7rfxy5g/testfile.txt)
+2019-02-25 15:39:12,325: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_7aca16e38c   has status   FAILED
+2019-02-25 15:39:12,327: INFO: [pid 6349] Worker Worker(salt=004463056, workers=1, host=raijin6, username=pd1813, pid=6349) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpy7rfxy5g/testfile.txt)
+2019-02-25 15:39:12,332: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_7aca16e38c   has status   FAILED
+2019-02-25 15:39:12,334: INFO: Worker Worker(salt=004463056, workers=1, host=raijin6, username=pd1813, pid=6349) was stopped. Shutting down Keep-Alive thread
+2019-02-25 15:39:12,339: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpy7rfxy5g/testfile.txt)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 15:39:12,509: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_e06c1585fa   has status   PENDING
+2019-02-25 15:39:12,509: INFO: Running Worker with 1 processes
+2019-02-25 15:39:12,543: INFO: [pid 6349] Worker Worker(salt=983897289, workers=1, host=raijin6, username=pd1813, pid=6349) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp6qku3w65/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:39:21,579: INFO: [pid 6349] Worker Worker(salt=983897289, workers=1, host=raijin6, username=pd1813, pid=6349) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp6qku3w65/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:39:21,607: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_e06c1585fa   has status   DONE
+2019-02-25 15:39:21,775: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___356abade55   has status   PENDING
+2019-02-25 15:39:21,775: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp5ca_4dsg/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:39:21,799: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_21a60100d2   has status   PENDING
+2019-02-25 15:39:21,832: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_cbf83a355f   has status   PENDING
+2019-02-25 15:39:21,832: INFO: Running Worker with 1 processes
+2019-02-25 15:39:21,852: INFO: [pid 6349] Worker Worker(salt=308816892, workers=1, host=raijin6, username=pd1813, pid=6349) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp5ca_4dsg/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:39:29,643: INFO: [pid 6349] Worker Worker(salt=308816892, workers=1, host=raijin6, username=pd1813, pid=6349) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp5ca_4dsg/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:39:29,669: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_cbf83a355f   has status   DONE
+2019-02-25 15:39:29,695: INFO: [pid 6349] Worker Worker(salt=308816892, workers=1, host=raijin6, username=pd1813, pid=6349) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp5ca_4dsg/testfile.txt)
+2019-02-25 15:39:29,718: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_21a60100d2   has status   FAILED
+2019-02-25 15:46:01,564: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpn7xfc43t/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:46:01,566: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_39dbd8d7fb   has status   PENDING
+2019-02-25 15:46:01,566: INFO: Done scheduling tasks
+2019-02-25 15:46:01,566: INFO: Running Worker with 1 processes
+2019-02-25 15:46:01,567: INFO: [pid 28444] Worker Worker(salt=752622506, workers=1, host=raijin6, username=pd1813, pid=28444) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpn7xfc43t/testfile.txt)
+2019-02-25 15:46:01,574: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_39dbd8d7fb   has status   FAILED
+2019-02-25 15:46:01,575: INFO: [pid 28444] Worker Worker(salt=752622506, workers=1, host=raijin6, username=pd1813, pid=28444) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpn7xfc43t/testfile.txt)
+2019-02-25 15:46:01,579: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_39dbd8d7fb   has status   FAILED
+2019-02-25 15:46:01,580: INFO: Worker Worker(salt=752622506, workers=1, host=raijin6, username=pd1813, pid=28444) was stopped. Shutting down Keep-Alive thread
+2019-02-25 15:46:01,583: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpn7xfc43t/testfile.txt)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 15:46:01,661: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_2a5590c6e7   has status   PENDING
+2019-02-25 15:46:01,661: INFO: Running Worker with 1 processes
+2019-02-25 15:46:01,686: INFO: [pid 28444] Worker Worker(salt=595273077, workers=1, host=raijin6, username=pd1813, pid=28444) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp33vk1kgo/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:46:10,483: INFO: [pid 28444] Worker Worker(salt=595273077, workers=1, host=raijin6, username=pd1813, pid=28444) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp33vk1kgo/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:46:10,509: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_2a5590c6e7   has status   DONE
+2019-02-25 15:46:10,643: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___3fa6e1ba4a   has status   PENDING
+2019-02-25 15:46:10,643: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpmxws4pvq/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:46:10,665: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_1ef87ae421   has status   PENDING
+2019-02-25 15:46:10,686: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_9726a80240   has status   PENDING
+2019-02-25 15:46:10,686: INFO: Running Worker with 1 processes
+2019-02-25 15:46:10,710: INFO: [pid 28444] Worker Worker(salt=690241698, workers=1, host=raijin6, username=pd1813, pid=28444) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpmxws4pvq/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:46:19,516: INFO: [pid 28444] Worker Worker(salt=690241698, workers=1, host=raijin6, username=pd1813, pid=28444) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpmxws4pvq/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:46:19,540: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_9726a80240   has status   DONE
+2019-02-25 15:46:19,557: INFO: [pid 28444] Worker Worker(salt=690241698, workers=1, host=raijin6, username=pd1813, pid=28444) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpmxws4pvq/testfile.txt)
+2019-02-25 15:46:19,577: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_1ef87ae421   has status   FAILED
+2019-02-25 15:47:10,542: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmph5x8c1ez/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:47:10,545: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_192bbe93bd   has status   PENDING
+2019-02-25 15:47:10,545: INFO: Done scheduling tasks
+2019-02-25 15:47:10,545: INFO: Running Worker with 1 processes
+2019-02-25 15:47:10,547: INFO: [pid 8300] Worker Worker(salt=888560182, workers=1, host=raijin6, username=pd1813, pid=8300) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmph5x8c1ez/testfile.txt)
+2019-02-25 15:47:10,548: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_192bbe93bd   has status   FAILED
+2019-02-25 15:47:10,549: INFO: [pid 8300] Worker Worker(salt=888560182, workers=1, host=raijin6, username=pd1813, pid=8300) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmph5x8c1ez/testfile.txt)
+2019-02-25 15:47:10,556: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_192bbe93bd   has status   FAILED
+2019-02-25 15:47:10,557: INFO: Worker Worker(salt=888560182, workers=1, host=raijin6, username=pd1813, pid=8300) was stopped. Shutting down Keep-Alive thread
+2019-02-25 15:47:10,559: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmph5x8c1ez/testfile.txt)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 15:47:10,634: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_d5b366459a   has status   PENDING
+2019-02-25 15:47:10,634: INFO: Running Worker with 1 processes
+2019-02-25 15:47:10,662: INFO: [pid 8300] Worker Worker(salt=069227832, workers=1, host=raijin6, username=pd1813, pid=8300) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpkcfbusw5/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:47:19,696: INFO: [pid 8300] Worker Worker(salt=069227832, workers=1, host=raijin6, username=pd1813, pid=8300) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpkcfbusw5/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:47:19,734: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_d5b366459a   has status   DONE
+2019-02-25 15:47:19,896: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___a2aaaa0b1b   has status   PENDING
+2019-02-25 15:47:19,896: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp3biw6qpg/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:47:19,953: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_82866d1d0c   has status   PENDING
+2019-02-25 15:47:19,968: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_569d4d5c53   has status   PENDING
+2019-02-25 15:47:19,968: INFO: Running Worker with 1 processes
+2019-02-25 15:47:19,987: INFO: [pid 8300] Worker Worker(salt=124865560, workers=1, host=raijin6, username=pd1813, pid=8300) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp3biw6qpg/testfile.txt)
+2019-02-25 15:47:20,014: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_82866d1d0c   has status   FAILED
+2019-02-25 15:47:20,034: INFO: [pid 8300] Worker Worker(salt=124865560, workers=1, host=raijin6, username=pd1813, pid=8300) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp3biw6qpg/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:47:28,529: INFO: [pid 8300] Worker Worker(salt=124865560, workers=1, host=raijin6, username=pd1813, pid=8300) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp3biw6qpg/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:47:28,558: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_569d4d5c53   has status   DONE
+2019-02-25 15:47:52,175: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpmp93d284/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:47:52,176: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_8e3e29d648   has status   PENDING
+2019-02-25 15:47:52,176: INFO: Done scheduling tasks
+2019-02-25 15:47:52,176: INFO: Running Worker with 1 processes
+2019-02-25 15:47:52,177: INFO: [pid 15816] Worker Worker(salt=431931306, workers=1, host=raijin6, username=pd1813, pid=15816) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpmp93d284/testfile.txt)
+2019-02-25 15:47:52,179: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_8e3e29d648   has status   FAILED
+2019-02-25 15:47:52,179: INFO: [pid 15816] Worker Worker(salt=431931306, workers=1, host=raijin6, username=pd1813, pid=15816) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpmp93d284/testfile.txt)
+2019-02-25 15:47:52,184: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_8e3e29d648   has status   FAILED
+2019-02-25 15:47:52,184: INFO: Worker Worker(salt=431931306, workers=1, host=raijin6, username=pd1813, pid=15816) was stopped. Shutting down Keep-Alive thread
+2019-02-25 15:47:52,186: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpmp93d284/testfile.txt)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 15:47:52,234: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_a04ffc8b39   has status   PENDING
+2019-02-25 15:47:52,235: INFO: Running Worker with 1 processes
+2019-02-25 15:47:52,250: INFO: [pid 15816] Worker Worker(salt=466132175, workers=1, host=raijin6, username=pd1813, pid=15816) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp495ve6c5/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:47:57,741: INFO: [pid 15816] Worker Worker(salt=466132175, workers=1, host=raijin6, username=pd1813, pid=15816) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp495ve6c5/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:47:57,760: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_a04ffc8b39   has status   DONE
+2019-02-25 15:47:57,841: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___ac4e1f173d   has status   PENDING
+2019-02-25 15:47:57,841: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpaa8somsp/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:47:57,853: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_6adf723b6e   has status   PENDING
+2019-02-25 15:47:57,866: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_e12399b7c3   has status   PENDING
+2019-02-25 15:47:57,866: INFO: Running Worker with 1 processes
+2019-02-25 15:47:57,880: INFO: [pid 15816] Worker Worker(salt=979864440, workers=1, host=raijin6, username=pd1813, pid=15816) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpaa8somsp/testfile.txt)
+2019-02-25 15:47:57,898: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_6adf723b6e   has status   FAILED
+2019-02-25 15:47:57,912: INFO: [pid 15816] Worker Worker(salt=979864440, workers=1, host=raijin6, username=pd1813, pid=15816) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpaa8somsp/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:48:03,418: INFO: [pid 15816] Worker Worker(salt=979864440, workers=1, host=raijin6, username=pd1813, pid=15816) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpaa8somsp/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:48:03,442: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_e12399b7c3   has status   DONE
+2019-02-25 15:50:22,019: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmps5u5eceh/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:50:22,020: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_8fef6071a4   has status   PENDING
+2019-02-25 15:50:22,021: INFO: Done scheduling tasks
+2019-02-25 15:50:22,021: INFO: Running Worker with 1 processes
+2019-02-25 15:50:22,021: INFO: [pid 17287] Worker Worker(salt=186625813, workers=1, host=raijin6, username=pd1813, pid=17287) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmps5u5eceh/testfile.txt)
+2019-02-25 15:50:22,023: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_8fef6071a4   has status   FAILED
+2019-02-25 15:50:22,024: INFO: [pid 17287] Worker Worker(salt=186625813, workers=1, host=raijin6, username=pd1813, pid=17287) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmps5u5eceh/testfile.txt)
+2019-02-25 15:50:22,028: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_8fef6071a4   has status   FAILED
+2019-02-25 15:50:22,028: INFO: Worker Worker(salt=186625813, workers=1, host=raijin6, username=pd1813, pid=17287) was stopped. Shutting down Keep-Alive thread
+2019-02-25 15:50:22,030: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmps5u5eceh/testfile.txt)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 15:50:22,085: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_23761c4e07   has status   PENDING
+2019-02-25 15:50:22,086: INFO: Running Worker with 1 processes
+2019-02-25 15:50:22,101: INFO: [pid 17287] Worker Worker(salt=344427588, workers=1, host=raijin6, username=pd1813, pid=17287) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp3sis7t3j/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:50:27,779: INFO: [pid 17287] Worker Worker(salt=344427588, workers=1, host=raijin6, username=pd1813, pid=17287) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp3sis7t3j/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:50:27,809: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_23761c4e07   has status   DONE
+2019-02-25 15:50:27,890: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___afc8c5f567   has status   PENDING
+2019-02-25 15:50:27,890: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpokq1fsx6/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:50:27,905: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_31c5a9a979   has status   PENDING
+2019-02-25 15:50:27,918: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_3b87027e2b   has status   PENDING
+2019-02-25 15:50:27,918: INFO: Running Worker with 1 processes
+2019-02-25 15:50:27,936: INFO: [pid 17287] Worker Worker(salt=320512327, workers=1, host=raijin6, username=pd1813, pid=17287) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpokq1fsx6/testfile.txt)
+2019-02-25 15:50:27,953: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_31c5a9a979   has status   FAILED
+2019-02-25 15:50:27,969: INFO: [pid 17287] Worker Worker(salt=320512327, workers=1, host=raijin6, username=pd1813, pid=17287) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpokq1fsx6/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:50:33,610: INFO: [pid 17287] Worker Worker(salt=320512327, workers=1, host=raijin6, username=pd1813, pid=17287) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpokq1fsx6/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:50:33,633: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_3b87027e2b   has status   DONE
+2019-02-25 15:50:33,656: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___afc8c5f567   has status   PENDING
+2019-02-25 15:50:33,669: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_31c5a9a979   has status   DONE
+2019-02-25 15:50:33,670: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_3b87027e2b   has status   DONE
+2019-02-25 15:50:33,670: INFO: Running Worker with 1 processes
+2019-02-25 15:50:33,686: INFO: [pid 17287] Worker Worker(salt=320512327, workers=1, host=raijin6, username=pd1813, pid=17287) running   RawDataExtract(proc_file_path=/short/u46/pd1813/tmp/tmpokq1fsx6/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list, upstream_task={'initialsetup': InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpokq1fsx6/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list), 'scene_list': ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpokq1fsx6/testfile.txt)})
+2019-02-25 15:50:35,985: INFO: [pid 17287] Worker Worker(salt=320512327, workers=1, host=raijin6, username=pd1813, pid=17287) done      RawDataExtract(proc_file_path=/short/u46/pd1813/tmp/tmpokq1fsx6/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list, upstream_task={'initialsetup': InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpokq1fsx6/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list), 'scene_list': ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpokq1fsx6/testfile.txt)})
+2019-02-25 15:50:36,009: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___afc8c5f567   has status   DONE
+2019-02-25 15:52:01,633: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp2insqxjs/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:52:01,634: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_5a0a56b524   has status   PENDING
+2019-02-25 15:52:01,634: INFO: Done scheduling tasks
+2019-02-25 15:52:01,634: INFO: Running Worker with 1 processes
+2019-02-25 15:52:01,635: INFO: [pid 30394] Worker Worker(salt=580604245, workers=1, host=raijin6, username=pd1813, pid=30394) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp2insqxjs/testfile.txt)
+2019-02-25 15:52:01,636: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_5a0a56b524   has status   FAILED
+2019-02-25 15:52:01,636: INFO: [pid 30394] Worker Worker(salt=580604245, workers=1, host=raijin6, username=pd1813, pid=30394) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp2insqxjs/testfile.txt)
+2019-02-25 15:52:01,640: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_5a0a56b524   has status   FAILED
+2019-02-25 15:52:01,640: INFO: Worker Worker(salt=580604245, workers=1, host=raijin6, username=pd1813, pid=30394) was stopped. Shutting down Keep-Alive thread
+2019-02-25 15:52:01,642: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmp2insqxjs/testfile.txt)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 15:52:01,687: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_339899d982   has status   PENDING
+2019-02-25 15:52:01,687: INFO: Running Worker with 1 processes
+2019-02-25 15:52:01,703: INFO: [pid 30394] Worker Worker(salt=920482846, workers=1, host=raijin6, username=pd1813, pid=30394) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp5nng_czk/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:52:07,140: INFO: [pid 30394] Worker Worker(salt=920482846, workers=1, host=raijin6, username=pd1813, pid=30394) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmp5nng_czk/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:52:07,159: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_339899d982   has status   DONE
+2019-02-25 15:52:07,238: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___8e58a4ddcd   has status   PENDING
+2019-02-25 15:52:07,239: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmps6bfi4om/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:52:07,252: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_c0f54766d3   has status   PENDING
+2019-02-25 15:52:07,269: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_05200c36e8   has status   PENDING
+2019-02-25 15:52:07,269: INFO: Running Worker with 1 processes
+2019-02-25 15:52:07,284: INFO: [pid 30394] Worker Worker(salt=875976248, workers=1, host=raijin6, username=pd1813, pid=30394) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmps6bfi4om/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:52:12,789: INFO: [pid 30394] Worker Worker(salt=875976248, workers=1, host=raijin6, username=pd1813, pid=30394) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmps6bfi4om/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:52:12,815: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_05200c36e8   has status   DONE
+2019-02-25 15:52:12,830: INFO: [pid 30394] Worker Worker(salt=875976248, workers=1, host=raijin6, username=pd1813, pid=30394) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmps6bfi4om/testfile.txt)
+2019-02-25 15:52:12,846: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_c0f54766d3   has status   FAILED
+2019-02-25 15:52:12,871: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___8e58a4ddcd   has status   PENDING
+2019-02-25 15:52:12,885: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_c0f54766d3   has status   DONE
+2019-02-25 15:52:12,885: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_05200c36e8   has status   DONE
+2019-02-25 15:52:12,885: INFO: Running Worker with 1 processes
+2019-02-25 15:52:12,901: INFO: [pid 30394] Worker Worker(salt=875976248, workers=1, host=raijin6, username=pd1813, pid=30394) running   RawDataExtract(proc_file_path=/short/u46/pd1813/tmp/tmps6bfi4om/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list, upstream_task={'initialsetup': InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmps6bfi4om/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list), 'scene_list': ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmps6bfi4om/testfile.txt)})
+2019-02-25 15:52:14,858: INFO: [pid 30394] Worker Worker(salt=875976248, workers=1, host=raijin6, username=pd1813, pid=30394) done      RawDataExtract(proc_file_path=/short/u46/pd1813/tmp/tmps6bfi4om/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list, upstream_task={'initialsetup': InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmps6bfi4om/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list), 'scene_list': ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmps6bfi4om/testfile.txt)})
+2019-02-25 15:52:14,882: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___8e58a4ddcd   has status   DONE
+2019-02-25 15:52:57,698: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpjesrcthh/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:52:57,699: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_68c39b6f52   has status   PENDING
+2019-02-25 15:52:57,699: INFO: Done scheduling tasks
+2019-02-25 15:52:57,699: INFO: Running Worker with 1 processes
+2019-02-25 15:52:57,700: INFO: [pid 7463] Worker Worker(salt=317545536, workers=1, host=raijin6, username=pd1813, pid=7463) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpjesrcthh/testfile.txt)
+2019-02-25 15:52:57,702: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_68c39b6f52   has status   FAILED
+2019-02-25 15:52:57,703: INFO: [pid 7463] Worker Worker(salt=317545536, workers=1, host=raijin6, username=pd1813, pid=7463) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpjesrcthh/testfile.txt)
+2019-02-25 15:52:57,706: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_68c39b6f52   has status   FAILED
+2019-02-25 15:52:57,706: INFO: Worker Worker(salt=317545536, workers=1, host=raijin6, username=pd1813, pid=7463) was stopped. Shutting down Keep-Alive thread
+2019-02-25 15:52:57,708: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpjesrcthh/testfile.txt)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 15:52:57,763: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_3accdb8c56   has status   PENDING
+2019-02-25 15:52:57,763: INFO: Running Worker with 1 processes
+2019-02-25 15:52:57,778: INFO: [pid 7463] Worker Worker(salt=973040420, workers=1, host=raijin6, username=pd1813, pid=7463) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpbnrt0dmy/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:53:03,229: INFO: [pid 7463] Worker Worker(salt=973040420, workers=1, host=raijin6, username=pd1813, pid=7463) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpbnrt0dmy/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:53:03,251: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_3accdb8c56   has status   DONE
+2019-02-25 15:53:03,339: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___41c64edbf0   has status   PENDING
+2019-02-25 15:53:03,339: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpvzg43mtn/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:53:03,360: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_da6948b28e   has status   PENDING
+2019-02-25 15:53:03,372: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_a4715a39b5   has status   PENDING
+2019-02-25 15:53:03,372: INFO: Running Worker with 1 processes
+2019-02-25 15:53:03,387: INFO: [pid 7463] Worker Worker(salt=981222607, workers=1, host=raijin6, username=pd1813, pid=7463) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpvzg43mtn/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:53:08,833: INFO: [pid 7463] Worker Worker(salt=981222607, workers=1, host=raijin6, username=pd1813, pid=7463) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpvzg43mtn/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:53:08,862: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_a4715a39b5   has status   DONE
+2019-02-25 15:53:08,878: INFO: [pid 7463] Worker Worker(salt=981222607, workers=1, host=raijin6, username=pd1813, pid=7463) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpvzg43mtn/testfile.txt)
+2019-02-25 15:53:08,894: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_da6948b28e   has status   FAILED
+2019-02-25 15:53:08,918: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___41c64edbf0   has status   PENDING
+2019-02-25 15:53:08,933: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_da6948b28e   has status   DONE
+2019-02-25 15:53:08,933: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_a4715a39b5   has status   DONE
+2019-02-25 15:53:08,933: INFO: Running Worker with 1 processes
+2019-02-25 15:53:08,949: INFO: [pid 7463] Worker Worker(salt=981222607, workers=1, host=raijin6, username=pd1813, pid=7463) running   RawDataExtract(proc_file_path=/short/u46/pd1813/tmp/tmpvzg43mtn/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list, upstream_task={'initialsetup': InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpvzg43mtn/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list), 'scene_list': ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpvzg43mtn/testfile.txt)})
+2019-02-25 15:53:11,032: INFO: [pid 7463] Worker Worker(salt=981222607, workers=1, host=raijin6, username=pd1813, pid=7463) done      RawDataExtract(proc_file_path=/short/u46/pd1813/tmp/tmpvzg43mtn/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list, upstream_task={'initialsetup': InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpvzg43mtn/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list), 'scene_list': ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpvzg43mtn/testfile.txt)})
+2019-02-25 15:53:11,052: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___41c64edbf0   has status   DONE
+2019-02-25 15:57:05,100: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpohs7kgsc/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:57:05,101: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_87dd365338   has status   PENDING
+2019-02-25 15:57:05,101: INFO: Done scheduling tasks
+2019-02-25 15:57:05,101: INFO: Running Worker with 1 processes
+2019-02-25 15:57:05,102: INFO: [pid 4873] Worker Worker(salt=507337701, workers=1, host=raijin6, username=pd1813, pid=4873) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpohs7kgsc/testfile.txt)
+2019-02-25 15:57:05,104: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_87dd365338   has status   FAILED
+2019-02-25 15:57:05,104: INFO: [pid 4873] Worker Worker(salt=507337701, workers=1, host=raijin6, username=pd1813, pid=4873) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpohs7kgsc/testfile.txt)
+2019-02-25 15:57:05,108: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_87dd365338   has status   FAILED
+2019-02-25 15:57:05,108: INFO: Worker Worker(salt=507337701, workers=1, host=raijin6, username=pd1813, pid=4873) was stopped. Shutting down Keep-Alive thread
+2019-02-25 15:57:05,110: INFO: 
+===== Luigi Execution Summary =====
+
+Scheduled 1 tasks of which:
+* 1 failed:
+    - 1 ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpohs7kgsc/testfile.txt)
+
+This progress looks :( because there were failed tasks
+
+===== Luigi Execution Summary =====
+
+2019-02-25 15:57:05,161: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_15554f1f04   has status   PENDING
+2019-02-25 15:57:05,161: INFO: Running Worker with 1 processes
+2019-02-25 15:57:05,190: INFO: [pid 4873] Worker Worker(salt=431685427, workers=1, host=raijin6, username=pd1813, pid=4873) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpz0_tvy7x/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:57:10,687: INFO: [pid 4873] Worker Worker(salt=431685427, workers=1, host=raijin6, username=pd1813, pid=4873) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpz0_tvy7x/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:57:10,720: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_15554f1f04   has status   DONE
+2019-02-25 15:57:10,803: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___acf3ca5576   has status   PENDING
+2019-02-25 15:57:10,803: WARNING: Data for ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpb_45hunx/testfile.txt) does not exist (yet?). The task is an external data dependency, so it cannot be run from this luigi process.
+2019-02-25 15:57:10,837: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_29d8bc58f0   has status   PENDING
+2019-02-25 15:57:10,858: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_f6d3c01a92   has status   PENDING
+2019-02-25 15:57:10,858: INFO: Running Worker with 1 processes
+2019-02-25 15:57:10,872: INFO: [pid 4873] Worker Worker(salt=420262077, workers=1, host=raijin6, username=pd1813, pid=4873) running   ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpb_45hunx/testfile.txt)
+2019-02-25 15:57:10,890: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_29d8bc58f0   has status   FAILED
+2019-02-25 15:57:10,913: INFO: [pid 4873] Worker Worker(salt=420262077, workers=1, host=raijin6, username=pd1813, pid=4873) running   InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpb_45hunx/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:57:16,391: INFO: [pid 4873] Worker Worker(salt=420262077, workers=1, host=raijin6, username=pd1813, pid=4873) done      InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpb_45hunx/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list)
+2019-02-25 15:57:16,414: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_f6d3c01a92   has status   DONE
+2019-02-25 15:57:16,438: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___acf3ca5576   has status   PENDING
+2019-02-25 15:57:16,455: INFO: Informed scheduler that task   ExternalFileChecker__short_u46_pd181_29d8bc58f0   has status   DONE
+2019-02-25 15:57:16,456: INFO: Informed scheduler that task   InitialSetup__short_u46_pd181__g_data1a_u46_us_f6d3c01a92   has status   DONE
+2019-02-25 15:57:16,456: INFO: Running Worker with 1 processes
+2019-02-25 15:57:16,475: INFO: [pid 4873] Worker Worker(salt=420262077, workers=1, host=raijin6, username=pd1813, pid=4873) running   RawDataExtract(proc_file_path=/short/u46/pd1813/tmp/tmpb_45hunx/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list, upstream_task={'initialsetup': InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpb_45hunx/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list), 'scene_list': ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpb_45hunx/testfile.txt)})
+2019-02-25 15:57:18,535: INFO: [pid 4873] Worker Worker(salt=420262077, workers=1, host=raijin6, username=pd1813, pid=4873) done      RawDataExtract(proc_file_path=/short/u46/pd1813/tmp/tmpb_45hunx/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list, upstream_task={'initialsetup': InitialSetup(proc_file_path=/short/u46/pd1813/tmp/tmpb_45hunx/test.proc, s1_download_list=/g/data1a/u46/users/pd1813/INSAR/INSAR_DEV/gamma_insar/tests/data/s1_des_download.list), 'scene_list': ExternalFileChecker(filename=/short/u46/pd1813/tmp/tmpb_45hunx/testfile.txt)})
+2019-02-25 15:57:18,554: INFO: Informed scheduler that task   RawDataExtract__short_u46_pd181__g_data1a_u46_us___initialsetup___acf3ca5576   has status   DONE

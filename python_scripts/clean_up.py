@@ -2,24 +2,25 @@
 
 import os
 from os.path import join as pjoin, exists, getmtime
-from python_scripts.constant import Wildcards
 import fnmatch
 import shutil
 import numpy
 import argparse
 
+from python_scripts.constant import Wildcards
 
-def clean_rawdatadir(raw_data_path=None):
+
+def clean_rawdatadir(raw_data_path):
     """
-    Deletes all files in the raw data directory
+    Deletes all files in the raw data directory.
     """
     if exists(raw_data_path):
         shutil.rmtree(raw_data_path)
 
 
-def clean_slcdir(slc_path=None, patterns=None):
+def clean_slcdir(slc_path, patterns=None):
     """
-    Deletes files associated with wildcard patterns from slc directory
+    Deletes files associated with wildcard patterns from slc directory.
     """
     if not patterns:
         patterns = [Wildcards.SWATH_TYPE.value, Wildcards.SCENE_CONNECTION_TYPE.value]
@@ -47,9 +48,9 @@ def clean_slcdir(slc_path=None, patterns=None):
             _del_files(file_dir=scene_dir, files_list=del_files_list)
 
 
-def clean_ifgdir(ifg_path=None, patterns=None):
+def clean_ifgdir(ifg_path, patterns=None):
     """
-    Deletes files associated with wildcard patterns from ifg directory
+    Deletes files associated with wildcard patterns from ifg directory.
     """
     if not patterns:
         patterns = [Wildcards.FLT_TYPE.value, Wildcards.MODEL_UNW_TYPE.value, Wildcards.SIM_UNW_TYPE.value,
@@ -64,9 +65,9 @@ def clean_ifgdir(ifg_path=None, patterns=None):
             _del_files(file_dir=scene_conn_dir, files_list=files_list)
 
 
-def clean_gammademdir(gamma_dem_path=None, track=None):
+def clean_gammademdir(gamma_dem_path, track=None):
     """
-    Deletes files associated with wildcard patterns from gamma dem directory
+    Deletes files associated with wildcard patterns from gamma dem directory.
     """
     if track:
         patterns = [Wildcards.TRACK_DEM_TYPE.value.format(track=track),
@@ -79,7 +80,7 @@ def clean_gammademdir(gamma_dem_path=None, track=None):
         _del_files(file_dir=gamma_dem_path, files_list=files_list)
 
 
-def clean_demdir(dem_path=None, patterns=None):
+def clean_demdir(dem_path, patterns=None):
     """
     Deletes files associated with wildcard patterns from DEM directory
     """
@@ -92,7 +93,7 @@ def clean_demdir(dem_path=None, patterns=None):
         _del_files(file_dir=dem_path, files_list=files_list)
 
 
-def clean_checkpoints(checkpoint_path=None, patterns=None):
+def clean_checkpoints(checkpoint_path, patterns=None):
     """
     Deletes the last check point file if pattern is None
     else deletes files associated with patterns
@@ -113,7 +114,7 @@ def clean_checkpoints(checkpoint_path=None, patterns=None):
             _del_files(file_dir=checkpoint_path, files_list=files_list)
 
 
-def get_wildcard_match_files(dirs_path=None, wildcards=None):
+def get_wildcard_match_files(dirs_path, wildcards=None):
     """
     returns files associated with wildcard patterns from directory 'dirs_path'
     """

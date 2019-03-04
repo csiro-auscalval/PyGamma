@@ -56,14 +56,14 @@ if [ ! -f $gamma_dem_dir/$dem_name.dem ]; then
         {
             single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $dem_batch_dir $create_dem_walltime $create_dem_mem $create_dem_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
         }
-        # Create manual PBS jobs
+                # Create manual PBS jobs
         cd $dem_manual_dir
         job_type=2 #1 for batch job, 2 for manual job
         depend_job=0
         {
             single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $dem_manual_dir $create_dem_walltime $create_dem_mem $create_dem_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
         }
-        # Error collation for creating GAMMA DEM
+                # Error collation for creating GAMMA DEM
         cd $dem_batch_dir
         echo ""
         echo "Preparing error collation for creating GAMMA DEM ..."
@@ -78,4 +78,3 @@ if [ ! -f $gamma_dem_dir/$dem_name.dem ]; then
         }
     fi
 fi
-

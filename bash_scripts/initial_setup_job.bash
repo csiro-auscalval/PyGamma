@@ -7,9 +7,9 @@ display_usage() {
     echo "*                 used throughout processing pipeline                         *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
-    echo "*                                                                             *"
+    echo "* input:  [s1_file_list]  name of s1 download list file                       *"
     echo "* author: Sarah Lawrie @ GA       13/08/2018, v1.0                            *"
-    echo "*             							        *"
+    echo "*             							                                    *"
     echo "*******************************************************************************"
     echo -e "Usage: initial_setup.bash [proc_file] [s1_download_file] "
     }
@@ -36,7 +36,7 @@ proc_variables $proc_file
 source $config_file
 
 # Print processing summary to .o & .e files
-PBS_processing_details $project $track $scene
+processing_details "Running 'process_gamma'" $project $track $scene
 
 #####################################################################
 mkdir -p $proj_dir
@@ -44,11 +44,11 @@ mkdir -p $proj_dir
 cp -n $proc_file $proj_dir
 
 proc_file="$(basename -- $proc_file)"
-echo $proc_file
 
 cd $proj_dir
+
 ## Create processing directories (exc. CR dir as this is not part of standard processing for now, so not created)
-mkdir -p $track
+mkdir -p $track_dir
 mkdir -p $slc_dir
 mkdir -p $dem_dir
 mkdir -p $int_dir
@@ -80,11 +80,9 @@ mkdir -p $manual_dir/coreg_slc_jobs
 mkdir -p $manual_dir/ifg_jobs
 
 ## Create directory to store a luigi checkpoints files
-mkdir -p $track/checkpoints
+mkdir -p $track_dir/checkpoints
 
-echo $frame_list
 ## move download file to list dir
-
 cp $download_file $list_dir
 
 ## PBS job directories
@@ -97,23 +95,14 @@ if [ -f $frame_list ]; then
 else
    :
 fi
-if [ -f $s1_download_list ]; then
-    dos2unix -q $s1_download_list $s1_download_list # remove any DOS characters if list was created in Windows
-    sort -k1 -n $s1_download_list > temp1 #sort by date
-    mv -f temp1 $s1_download_list
-    rm -f temp1
-    mv -f $s1_download_list $list_dir/$s1_download_list
-else
-    :
-fi
-if [ -f $s1_burst_list ]; then
-    dos2unix -q $s1_burst_list $s1_burst_list # remove any DOS characters if list was created in Windows
-    mv -f $s1_burst_list $list_dir/$s1_burst_list
+if [ -f $s1_file_list ]; then
+    mv -f $s1_file_list $list_dir/$s1_file_list
 else
     :
 fi
 
-##Final file locations for processing
+
+## Final file locations for processing
 final_file_loc
 
 ## Create scene list
@@ -127,24 +116,6 @@ else
     echo ""
 fi
 
-## Create frame list for Sentinel-1
-if [ $sensor == 'S1' ]; then
-    if [ -f $s1_download_list ]; then
-        if [ ! -f $frame_list ]; then
-            echo "Creating Sentinel-1 frame list ..."
-            create_S1_frame_list.bash $proj_dir/$proc_file
-            echo "Initial setup and scene list creation completed."
-            echo ""
-        else
-            echo "Sentinel-1 frame list already created."
-        fi
-    else
-        echo "Sentinel-1 download list doesn't exist."
-    fi
-else
-    :
-fi
-
 ## Create frame raw data directories (if required)
 # Add carriage return to last line of frame list file if it exists (required for loops to work)
 if [ -f $frame_list ]; then
@@ -152,42 +123,46 @@ if [ -f $frame_list ]; then
 else
     :
 fi
-if [ -f $frame_list ]; then
-    if [ $sensor == 'S1' ]; then
-        while read frame; do
-            frame_num=`echo $frame | awk '{print $2}'`
-            count=1
-            while [ $count -le $(($frame_num)) ]; do
-                mkdir -p raw_data/$track/F$count
-                count=$(($count+1))
-            done
-        done < $frame_list
-    else
-        while read frame; do
-            if [ ! -z $frame ]; then # skips any empty lines
-                mkdir -p raw_data/$track/F$frame
-            fi
-        done < $frame_list
-    fi
-else
+if [ -z $frame ]; then
     :
+else
+    mkdir -p $raw_data_track_dir/$frame
 fi
+if [ -f $frame_list ]; then
+    while read frame; do
+	if [ ! -z $frame ]; then # skips any empty lines
+	    mkdir -p $raw_data_track_dir/F$frame
+	fi
+    done < $frame_list
+fi
+
 
 ## Check GAMMA DEM exists
 if [ ! -f $gamma_dem_dir/$dem_name.dem ]; then
     if [ $sensor == 'S1' ] && [ $dem_area == 'aust' ]; then # auto generated GAMMA DEM
-        echo "Need to automatically create GAMMA DEM, this will be done after raw data extraction."
+	echo "Need to automatically create GAMMA DEM, this will be done after raw data extraction."
     else
-        echo "Extracting GAMMA DEM from MDSS ..."
-        mdss get $mdss_dem < /dev/null $proj_dir # /dev/null allows mdss command to work properly in loop
-        tar -xvzf $dem_name.tar.gz
-        rm -rf $dem_name.tar.gz
-        cd $proj_dir
-        echo "GAMMA DEM extraction from MDSS completed."
-        echo ""
+	echo "Extracting GAMMA DEM from MDSS ..."
+	mdss get $mdss_dem < /dev/null $proj_dir # /dev/null allows mdss command to work properly in loop
+	tar -xvzf $dem_name.tar.gz
+	rm -rf $dem_name.tar.gz
+	cd $proj_dir
+	echo "GAMMA DEM extraction from MDSS completed."
+	echo ""
     fi
 else
     echo "GAMMA DEM already exists."
     echo ""
 fi
+
+
+# if S1, change DEM reference scene to identified resize master
+if [ $sensor == S1 ]; then
+    if [ $master_scene == "auto" ]; then # ref master scene not calculated
+	cd $proj_dir
+	s1_frame_resize_master=`grep ^RESIZE_MASTER: $s1_file_list | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'`
+	sed -i "s/REF_MASTER_SCENE=auto/REF_MASTER_SCENE=$s1_frame_resize_master/g" $proc_file
+    fi
+fi
+
 

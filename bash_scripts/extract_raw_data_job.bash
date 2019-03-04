@@ -44,24 +44,46 @@ proc_file="$(basename -- $proc_file)"
 if [ $do_raw == yes ]; then
     cd $extract_raw_batch_dir
     if [ -e all_raw_job_ids ]; then
-        echo "Raw data already extracted."
-        echo ""
+	    echo "Raw data already extracted."
+	    echo ""
     else
-        echo ""
-        echo "Extracting raw data ..."
-        rm -f list # temp file used to collate all PBS job numbers to dependency list
+	    echo ""
+	    echo "Extracting raw data ..."
+	    rm -f list # temp file used to collate all PBS job numbers to dependency list
 
         if [ $sensor == 'S1' ]; then
             queue1=$queue
-            list=$s1_download_list
+            input_list=$s1_file_list
+            awk '/FILES_TO_DOWNLOAD/ { show=1 } show; /SUBSET_BURSTS/ { show=0 }' $input_list | tail -n+3 | head -n -2 > $list_dir/download_list
+            list=$list_dir/download_list
             nlines=`cat $list | sed '/^\s*$/d' | wc -l`
+
+            # create frame subset list (cut scenes to frame extents)
+            awk '/SUBSET_BURSTS/ { show=1 } show; /ORG_BURSTS_V_MASTER_BURSTS/ { show=0 }' $input_list | tail -n+3 | head -n -2 | awk '{print $1,$5,$6,$7,$8}' > $list_dir/temp
+            if [ -e $list_dir/frame_subset_list ]; then
+                rm -rf $list_dir/frame_subset_list
+            fi
+            while read subset; do
+                date=`echo $subset | awk '{print $1}'`
+                start_iw1=`echo $subset | awk '{print $2}' | cut -d '-' -f 1`
+                stop_iw1=`echo $subset | awk '{print $2}' | cut -d '-' -f 2`
+                start_iw2=`echo $subset | awk '{print $3}' | cut -d '-' -f 1`
+                stop_iw2=`echo $subset | awk '{print $3}' | cut -d '-' -f 2`
+                start_iw3=`echo $subset | awk '{print $4}' | cut -d '-' -f 1`
+                stop_iw3=`echo $subset | awk '{print $4}' | cut -d '-' -f 2`
+                complete_frame=`echo $subset | awk '{print $5}' | cut -d '-' -f 1`
+                echo $date "1" $start_iw1 $stop_iw1 $complete_frame >> $list_dir/frame_subset_list
+                echo $date "2" $start_iw2 $stop_iw2 $complete_frame >> $list_dir/frame_subset_list
+                echo $date "3" $start_iw3 $stop_iw3 $complete_frame >> $list_dir/frame_subset_list
+                done < $list_dir/temp
+                rm -rf $list_dir/temp
         else
             queue1=$mdss_queue
             list=$scene_list
             nlines=`cat $list | sed '/^\s*$/d' | wc -l`
         fi
-        echo Need to process $nlines files
 
+        echo Need to process $nlines files
         # PBS parameters
         wt1=`echo $raw_walltime | awk -F: '{print ($1*60) + $2 + ($3/60)}'` # walltime for a single process_slc in minutes
         pbs_job_prefix=raw_
@@ -84,6 +106,7 @@ if [ $do_raw == yes ]; then
             steps1=$((steps2+1))
             jobs2=$((minjobs-jobs1))
         fi
+
         echo Preparing to run $jobs1 jobs with $steps1 steps and $jobs2 jobs with $steps2 steps processing $((jobs1*steps1+jobs2*steps2)) files
         j=0
         {
@@ -97,8 +120,8 @@ if [ $do_raw == yes ]; then
         depend_job=0
         j=0
         {
-            multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs1 steps1 j
-            multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs2 steps2 jobs1
+        multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs1 steps1 j
+        multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs2 steps2 jobs1
         } < $list
 
         # Error collation
@@ -118,7 +141,8 @@ if [ $do_raw == yes ]; then
         # clean up PBS job dir
         cd $extract_raw_batch_dir
         rm -rf list* $pbs_job_prefix*"_job_id"
-    fi
+   fi
+
 elif [ $do_raw == no ]; then
     echo "Option to extract raw data not selected."
     echo ""

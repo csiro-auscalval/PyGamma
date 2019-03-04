@@ -9,7 +9,7 @@ GAMMA_CONFIG=/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
 
 -----NCI FILE PATHS-------------------------------------------------------------------------------------
 
-    # NCI_PATH=/g/data1/u46/users/pd1813/INSAR/test_a
+# NCI_PATH=/g/data1/u46/users/pd1813/INSAR/test_a
 
 NCI_PATH={outdir}
 ENVISAT_ORBITS=/g/data1/dg9/SAR_ORBITS/ENVISAT

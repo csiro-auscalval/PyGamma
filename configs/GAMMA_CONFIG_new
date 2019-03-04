@@ -18,12 +18,11 @@ module load gmt/5.1.0
 module load python3/3.5.2
 module load python3/3.5.2-matplotlib
 
+
 module load geodesy/GAMMA-20181130
 
 export MSP_HOME=/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20181130/MSP
 export DISP_HOME=/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20181130/DISP
-
-
 
 # link to symbolic link that's missing from gdal 2.0.0
 LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/g/data1/dg9/SOFTWARE/dg9-apps/lib"
@@ -34,4 +33,3 @@ export LD_PRELOAD=
 export HDF5_DISABLE_VERSION_CHECK=2
   # may need to create symbolic link to find right library
     # ln -s /apps/hdf5/1.8.7/lib/libhdf5.so.7.0.1 /g/data1/dg9/SOFTWARE/dg9-apps/lib/libhdf5.so.6
-

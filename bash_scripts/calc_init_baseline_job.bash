@@ -43,6 +43,7 @@ proc_file="$(basename -- $proc_file)"
 
 # Calculate intital baselines
 cd $base_batch_dir
+
 if [ -e init_base_job_id ]; then
     echo "Initial baselines already calculated ."
     echo ""
@@ -59,7 +60,7 @@ else
         single_job $pbs_run_loc $pbs_job_prefix7 $nci_project $base_batch_dir $base_walltime $base_mem $base_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
     }
 
-    # Create manual PBS jobs
+        # Create manual PBS jobs
     cd $base_manual_dir
     job_type=2 #1 for batch job, 2 for manual job
     depend_job=0
@@ -67,7 +68,7 @@ else
         single_job $pbs_run_loc $pbs_job_prefix7 $nci_project $base_manual_dir $base_walltime $base_mem $base_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
     }
 
-    # Error collation for calculating initial baselines
+        # Error collation for calculating initial baselines
     cd $base_batch_dir
     echo ""
     echo "Preparing error collation for calculating initial baselines ..."
@@ -81,3 +82,4 @@ else
         single_job $pbs_run_loc $pbs_job_prefix8 $nci_project $base_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script
     }
 fi
+
