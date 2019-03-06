@@ -3,15 +3,15 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* extract_raw_data: scripts used to extract raw data                          *"
+    echo "* create_dem_job: script used to create gamma compatible dem                  *"
     echo "*                                                                             *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       13/08/2018, v1.0                            *"
-    echo "*             							        *"
+    echo "*             							                                    *"
     echo "*******************************************************************************"
-    echo -e "Usage: initial_setup.bash [proc_file]"
+    echo -e "Usage: create_dem_job.bash [proc_file]"
     }
 
 if [ $# -lt 1 ]

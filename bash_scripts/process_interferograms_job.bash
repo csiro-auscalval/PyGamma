@@ -3,15 +3,15 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* initial_setup: Initial setup scripts used to set up directory and files     *"
+    echo "* process_interferograms_job: Script use to process interferogram jobs        *"
     echo "*                 used throughout processing pipeline                         *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       13/08/2018, v1.0                            *"
-    echo "*             							        *"
+    echo "*             							                                    *"
     echo "*******************************************************************************"
-    echo -e "Usage: initial_setup.bash [proc_file]"
+    echo -e "Usage: process_interferograms_job.bash [proc_file]"
     }
 
 if [ $# -lt 1 ]

@@ -3,15 +3,15 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* create_slc_data: script used to set up pipeline for create slc data         *"
-    echo "*                                        	                                *"
+    echo "* calc_init_baseline_job: script used to process initial baseline computation *"
+    echo "*                         job           	                                    *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       13/08/2018, v1.0                            *"
-    echo "*             							        *"
+    echo "*             							                                    *"
     echo "*******************************************************************************"
-    echo -e "Usage: initial_setup.bash [proc_file]"
+    echo -e "Usage: calc_init_baseline_job.bash [proc_file]"
     }
 
 if [ $# -lt 1 ]

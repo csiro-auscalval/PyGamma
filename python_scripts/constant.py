@@ -60,6 +60,8 @@ class FolderNames(Enum):
     """
     # raw data directpry
     MEASUREMENT = 'measurement'
+    ANNOTATION = 'annotation'
+    CALIBRATION = 'calibration'
 
 
 class MatchStrings(Enum):

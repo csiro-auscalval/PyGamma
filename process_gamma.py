@@ -13,7 +13,7 @@ import traceback
 
 from python_scripts.initialize_proc_file import get_path
 from python_scripts.check_status import checkrawdata, checkgammadem, checkfullslc, checkmultilook, \
-     checkresize, checksubset, checkbaseline, checkdemmaster, checkcoregslaves, checkifgs
+     checkbaseline, checkdemmaster, checkcoregslaves, checkifgs
 from python_scripts.proc_template import PROC_FILE_TEMPLATE
 from python_scripts.clean_up import clean_rawdatadir, clean_slcdir, clean_ifgdir, clean_gammademdir, \
      clean_demdir, clean_checkpoints
@@ -124,9 +124,7 @@ class CheckRawData(luigi.Task):
 
         kwargs = {'raw_data_path': path_name['raw_data_dir'],
                   's1_dir_path': path_name['s1_dir'],
-                  'download_list_path': path_name['download_list'],
-                  'scenes_list_path': path_name['scenes_list']}
-        print(path_name['download_list'])
+                  'download_list_path': path_name['download_list']}
         complete_status = checkrawdata(**kwargs)
 
         if complete_status:
@@ -194,8 +192,6 @@ class CheckGammaDem(luigi.Task):
         if complete_status:
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
-        else:
-            raise ValueError('failed to create gamma dem')
 
 
 class CreateFullSlc(luigi.Task):
@@ -260,9 +256,6 @@ class CheckFullSlc(luigi.Task):
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
-        else:
-            raise ValueError('failed in creating full slc')
-
 
 class CreateMultilook(luigi.Task):
     """
@@ -323,9 +316,6 @@ class CheckMultilook(luigi.Task):
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
-        else:
-            raise ValueError('failed in creating multi-look')
-
 
 class CalcInitialBaseline(luigi.Task):
     """
@@ -384,9 +374,6 @@ class CheckBaseline(luigi.Task):
         if complete_status:
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
-
-        else:
-            raise ValueError('failed in checking baseline task')
 
 
 class CalcResizeScene(luigi.Task):
@@ -475,8 +462,6 @@ class CheckResize(luigi.Task):
         if complete_status:
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
-        else:
-            raise ValueError('Failed ')
 
 
 class SubsetByBursts(luigi.Task):
@@ -603,9 +588,6 @@ class CheckDemMaster(luigi.Task):
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
-        else:
-            raise ValueError('failed in co-registering dem to master')
-
 
 class CoregisterSlaves(luigi.Task):
     """
@@ -668,8 +650,6 @@ class CheckCoregSlave(luigi.Task):
 
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
-        else:
-            raise ValueError('failed in co-registering master to slaves')
 
 
 class ProcessInterFerograms(luigi.Task):
@@ -733,9 +713,6 @@ class CheckInterFerograms(luigi.Task):
 
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
-
-        else:
-            raise ValueError('failed in processing inter-ferograms')
 
 
 class CompletionCheck(luigi.Task):

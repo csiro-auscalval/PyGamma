@@ -4,7 +4,7 @@ import os
 import logging
 from structlog import wrap_logger
 from structlog.processors import JSONRenderer
-from os.path import join as pjoin, basename, getsize, splitext, exists
+from os.path import join as pjoin, basename, getsize, splitext, exists, isdir
 import fnmatch
 import zipfile
 import shutil
@@ -17,54 +17,61 @@ ERROR_LOGGER = wrap_logger(logging.getLogger('errors'),
                            processors=[JSONRenderer(indent=1, sort_keys=True)])
 
 
-def checkrawdata(raw_data_path, s1_dir_path, download_list_path, scenes_list_path):
+def checkrawdata(raw_data_path, s1_dir_path, download_list_path):
     """
     Checks the raw data directory to see if data required are downloaded successfully or not!
     If not, additional retry on the failed download is carried out for maximum of three times.
 
     :param raw_data_path:
         A 'path' to raw data directory where data is downloaded
-    :param s1_dir_path:
-        A 'path' to where data is downloaded from
-    :param download_list_path:
-        A 'path' to location of download list
-    :param scenes_list_path:
-        A 'path' to location of a scenes list
+    :param s1_dir_path: 
+        A 'path' from where data were download from
+    :param download_list_path
+        A 'path' to a download list path
 
     :return:
         complete_status = True if all checks pass else False
     """
 
+    def _get_archive(grid, dt, granule): 
+        source_file = pjoin(s1_dir_path, S1_SOURCE_DIR_FMT.format(y=dt[0:4], m=dt[4:6], g=grid, f='{}.zip'.format(granule)))
+        
+        if not exists(source_file): 
+            return 
+
+        archive = zipfile.ZipFile(source_file) 
+        
+        measurement_files = fnmatch.filter(archive.namelist(), '*measurement/*vv*')
+        annotation_files = fnmatch.filter(archive.namelist(), '*annotation/*vv*')
+        
+        return measurement_files, annotation_files
+        
+    def _check_dirs(safe_dir):
+        pass
+        
+
+
     raw_status = []
-    with open(download_list_path, 'r') as src:
-        file_str_lists = [fname for fname in src.readlines()]
 
-    with open(scenes_list_path, 'r') as src:
-        scenes_list = [scene.strip() for scene in src.readlines()]
+    with open(download_list_path, 'r') as src: 
+        download_file_lists = [splitext(fname.strip())[0].split() for fname in src.readlines()]
 
-    for dt in scenes_list:
+    for df in os.listdir(raw_data_path): 
+        df_path =pjoin(raw_data_path, df)
+        if not isdir(df_path): 
+            continue 
 
-        file_list = fnmatch.filter(file_str_lists, DATE_FMT.format(dt=dt))
-
-        if not file_list:
-            continue
-
-        for fid in file_list:
-            flag = True
-
-            fid_split = fid.split()
-            grid = fid_split[1]
-            granule = splitext(fid_split[2])[0]
-
-            raw_dir = pjoin(raw_data_path, dt, SAFE_FMT.format(s=granule), FolderNames.MEASUREMENT.value)
-            source_dir = pjoin(s1_dir_path, S1_SOURCE_DIR_FMT.format(y=dt[0:4], m=dt[4:6], g=grid, f=fid_split[2]))
-            archive = zipfile.ZipFile(source_dir)
-
-            if not exists(raw_dir):
-                continue
-
-            for item in os.listdir(raw_dir):
-                file_size = getsize(pjoin(raw_dir, item))
+        for sf in os.listdir(df_path): 
+            if sf.endswith(".SAFE"): 
+                sf_path = pjoin(df_path, sf)
+                granule = splitext(basename(sf_path))[0]
+                (dt, grid) = [(l[0], l[1]) for l in  download_file_lists if l[2]==granule][0]
+                m_files, a_files  = _get_archive(grid, dt, granule)
+                
+                   
+    exit()
+            for item in os.listdir(measurement_dir):
+                file_size = getsize(pjoin(measurement_dir, item))
                 tiff_files = [s for s in archive.namelist() if item in s]
                 source_tiff_size = archive.getinfo(tiff_files[0]).file_size
 
@@ -73,10 +80,10 @@ def checkrawdata(raw_data_path, s1_dir_path, download_list_path, scenes_list_pat
                     retry_cnt = 0
                     while retry_cnt < 3:
                         data = archive.open(tiff_files[0])
-                        with open(pjoin(raw_dir, basename(tiff_files[0])), 'wb') as f:
+                        with open(pjoin(measurement_dir, basename(tiff_files[0])), 'wb') as f:
                             shutil.copyfileobj(data, f)
 
-                        file_size = getsize(pjoin(raw_dir, item))
+                        file_size = getsize(pjoin(measurement_dir, item))
 
                         if file_size != source_tiff_size:
                             retry_cnt += 1

@@ -65,6 +65,7 @@ class TestCheckStatus(unittest.TestCase):
         tiff_file = 's1a-iw1-slc-vv-20170712t192149-20170712t192214-017442-01d25d-004.tiff'
 
         raw_dir = pjoin(self.test_dir, 'SLC_DATA_RAW/20170712/{}.SAFE/measurement'.format(granule))
+        print(raw_dir)
         source_dir = pjoin(self.test_dir, 'SLC_DATA_SOURCE/2017/2017-07/25S150E-30S155E')
         os.makedirs(source_dir)
 

@@ -3,15 +3,15 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* initial_setup: Initial setup scripts used to set up directory and files     *"
-    echo "*                 used throughout processing pipeline                         *"
+    echo "* initial_setup_job: Script used to set up directory                          *"
+    echo "*                                                                             *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
     echo "* input:  [s1_file_list]  name of s1 download list file                       *"
     echo "* author: Sarah Lawrie @ GA       13/08/2018, v1.0                            *"
     echo "*             							                                    *"
     echo "*******************************************************************************"
-    echo -e "Usage: initial_setup.bash [proc_file] [s1_download_file] "
+    echo -e "Usage: initial_setup_job.bash [proc_file] [s1_download_file] "
     }
 
 if [ $# -lt 2 ]

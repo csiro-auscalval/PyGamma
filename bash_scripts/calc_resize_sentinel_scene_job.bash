@@ -3,15 +3,15 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* create_slc_data: script used to set up pipeline for create slc data         *"
-    echo "*                                        	                                *"
+    echo "* calc_resize_sentinel_scene_job: script used in processing sentinel resize   *"
+    echo "*                                        	                                    *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       13/08/2018, v1.0                            *"
-    echo "*             							        *"
+    echo "*             							                                    *"
     echo "*******************************************************************************"
-    echo -e "Usage: initial_setup.bash [proc_file]"
+    echo -e "Usage: calc_resize_sentinel_scene_job.bash [proc_file]"
     }
 
 if [ $# -lt 1 ]

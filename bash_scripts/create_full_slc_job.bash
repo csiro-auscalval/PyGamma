@@ -3,7 +3,7 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* create_slc_data: script used to set up pipeline to create slc data          *"
+    echo "* create_full_slc_job: script used to create full SLC                         *"
     echo "*                                        	                                    *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
@@ -11,7 +11,7 @@ display_usage() {
     echo "* author: Sarah Lawrie @ GA       13/08/2018, v1.0                            *"
     echo "*             							                                    *"
     echo "*******************************************************************************"
-    echo -e "Usage: initial_setup.bash [proc_file]"
+    echo -e "Usage: create_full_slc_job.bash [proc_file]"
     }
 
 if [ $# -lt 1 ]

@@ -3,7 +3,7 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* extract_raw_data: scripts used to extract raw data                          *"
+    echo "* extract_raw_data_job: scripts used to extract raw data                      *"
     echo "*                                                                             *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
@@ -11,7 +11,7 @@ display_usage() {
     echo "* author: Sarah Lawrie @ GA       13/08/2018, v1.0                            *"
     echo "*             							                                    *"
     echo "*******************************************************************************"
-    echo -e "Usage: initial_setup.bash [proc_file]"
+    echo -e "Usage: extract_raw_data_job.bash [proc_file]"
     }
 
 if [ $# -lt 1 ]
