@@ -35,13 +35,12 @@ PRE_PROC_DIR=pre_proc_files
 
 
 -----INPUT TEXT FILES-----------------------------------------------------------------------------------
+S1_FILE_LIST={s1_file_list}
 
 SCENE_LIST=scenes.list
 SLAVE_LIST=slaves.list
 IFG_LIST=ifgs.list
 FRAME_LIST=frame.list
-S1_BURST_LIST=subset_burst.list
-S1_DOWNLOAD_LIST={download_list}
     # list for removing scene/s from lists (ie. for SLCs that don't work)
 REMOVE_SCENE_LIST=remove_scenes.list
 
@@ -50,7 +49,7 @@ REMOVE_SCENE_LIST=remove_scenes.list
 
 PROJECT={project}
 TRACK={track}
-
+FRAME={frame}
 
 -----RAW DATA & DEM LOCATION ON MDSS--------------------------------------------------------------------
 
@@ -62,7 +61,7 @@ TRACK={track}
     # Options: aust (within Australia) or other (outside Australia)
 DEM_AREA=aust
     # if using DEM from MDSS, enter file name (exc. tar.gz). If auto generated, enter track name
-DEM_NAME={track}
+DEM_NAME={track}_{frame}
 MDSS_DATA_DIR=insar/<sensor>/<project>/<track>
 MDSS_DEM_TAR=insar/DEM/<project>/<tar_name>.tar.gz
     # Name of external image used for DEM coregistration (if required, eg. very flat terrain)
@@ -118,7 +117,7 @@ MAX_CONNECT=7
 -----POST PROCESSING PROCESSING METHOD------------------------------------------------------------------
 
    # Options: pymode, pyrate or stamps
-POST_PROCESS_METHOD=pymode
+POST_PROCESS_METHOD=pyrate
 
 
 -----PROCESSING STEPS-----------------------------------------------------------------------------------
@@ -128,13 +127,12 @@ EXTRACT_RAW_DATA={extract_raw_data}
 DO_SLC={do_slc}
 
     -----SENTINEL-1 SLC ONLY-----
-    # Resize all SLCs to same shape and size (uses S1_RESIZE_REF_SLC), default: yes (must be same shape/size for processing)
-DO_S1_RESIZE={do_s1_resize}
-    # Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated
-        # Scene can be different from the MASTER_SCENE used in Processing Method
-S1_RESIZE_REF_SLC=auto
-    # Subset all SLCs by burst numbers
+    # Subset all SLCs by specific burst numbers
 DO_S1_BURST_SUBSET=no
+    # start and end bursts for each swath (e.g. 4-7)
+SWATH1=
+SWATH2=
+SWATH3=
 
 COREGISTER_DEM={coregister_dem}
     # External image is required to assist in DEM coregistration?
@@ -263,8 +261,8 @@ RAW_MEM=500MB
 RAW_NCPUS=1
 
    -----CREATE GAMMA DEM -----
-CREATE_DEM_WALLTIME=00:30:00
-CREATE_DEM_MEM=8GB
+CREATE_DEM_WALLTIME=01:00:00
+CREATE_DEM_MEM=16GB
 CREATE_DEM_NCPUS=1
 
    -----FULL SLC CREATION-----  # parameters for one SLC only
@@ -293,7 +291,7 @@ RESIZE_MEM=16GB
 RESIZE_NCPUS=1
 
    -----DEM COREGISTRATION-----
-DEM_WALLTIME=02:00:00
+DEM_WALLTIME=02:30:00
 DEM_MEM=16GB
 DEM_NCPUS=4
 

@@ -1,6 +1,5 @@
 #!/usr/bin/python3 
 import luigi
-from luigi.util import inherits, requires
 import os
 import logging
 from structlog import wrap_logger
@@ -40,7 +39,7 @@ def on_failure(task, exception):
 
 
 class ExternalFileChecker(luigi.ExternalTask):
-
+    """ checks the external dependencies """
     filename = luigi.Parameter()
 
     def output(self):
@@ -53,7 +52,7 @@ class InitialSetup(luigi.Task):
     creating required directories and file lists
     """
     proc_file_path = luigi.Parameter()
-    s1_download_list = luigi.Parameter()
+    s1_file_list = luigi.Parameter()
 
     def output(self):
 
@@ -63,7 +62,7 @@ class InitialSetup(luigi.Task):
     def run(self):
         STATUS_LOGGER.info('initial setup task')
         args = (["bash", "initial_setup_job.bash",
-                 "%s" % self.proc_file_path, "%s" % self.s1_download_list])
+                 "%s" % self.proc_file_path, "%s" % self.s1_file_list])
         subprocess.check_call(args)
 
         with self.output().open('w') as f:
@@ -75,7 +74,7 @@ class RawDataExtract(luigi.Task):
     Runs the Raw data extract task
     """
     proc_file_path = luigi.Parameter()
-    s1_download_list = luigi.Parameter()
+    s1_file_list = luigi.Parameter()
     upstream_task = luigi.Parameter()
 
     def requires(self):
@@ -127,7 +126,7 @@ class CheckRawData(luigi.Task):
                   's1_dir_path': path_name['s1_dir'],
                   'download_list_path': path_name['download_list'],
                   'scenes_list_path': path_name['scenes_list']}
-
+        print(path_name['download_list'])
         complete_status = checkrawdata(**kwargs)
 
         if complete_status:
@@ -187,7 +186,7 @@ class CheckGammaDem(luigi.Task):
         path_name = get_path(self.proc_file_path)
         path_name = get_path(pjoin(path_name['proj_dir'], basename(self.proc_file_path)))
 
-        kwargs = {'track': path_name['track'],
+        kwargs = {'track_frame': path_name['track_frame'],
                   'gamma_dem_path': path_name['gamma_dem']}
 
         complete_status = checkgammadem(**kwargs)
@@ -553,7 +552,7 @@ class CoregisterDemMaster(luigi.Task):
     def output(self):
 
         inputs = self.input()
-        return luigi.LocalTarget(pjoin(dirname(inputs['resize_s1_slc'].path),
+        return luigi.LocalTarget(pjoin(dirname(inputs['calcbaseline'].path),
                                        'Coregister_dem_Master_status_logs.out'))
 
     def run(self):
@@ -765,7 +764,7 @@ class Workflow(luigi.Task):
     for a single stack
     """
     proc_file_path = luigi.Parameter()
-    s1_download_list = luigi.Parameter()
+    s1_file_list = luigi.Parameter()
 
     def requires(self):
 
@@ -778,19 +777,16 @@ class Workflow(luigi.Task):
         multi_look_slc_errors = ExternalFileChecker(path_name['multi-look_slc_errors'])
         init_baseline_errors = ExternalFileChecker(path_name['init_baseline_errors'])
         create_dem_errors = ExternalFileChecker(path_name['create_dem_errors'])
-        ref_s1_resize_calc_errors = ExternalFileChecker(path_name['ref_s1_resize_calc_errors'])
-        resize_s1_slc_errors = ExternalFileChecker(path_name['resize_S1_slc_errors'])
-        subset_s1_slc_errors = ExternalFileChecker(path_name['subset_S1_slc_errors'])
         coreg_dem_errors = ExternalFileChecker(path_name['coreg_dem_errors'])
         coreg_slc_errors = ExternalFileChecker(path_name['coreg_slc_errors'])
         ifg_errors = ExternalFileChecker(path_name['ifg_errors'])
 
         # upstream tasks
 
-        initialsetup = InitialSetup(proc_file_path=self.proc_file_path, s1_download_list=self.s1_download_list)
+        initialsetup = InitialSetup(proc_file_path=self.proc_file_path, s1_file_list=self.s1_file_list)
 
         rawdataextract = RawDataExtract(proc_file_path=self.proc_file_path,
-                                        s1_download_list=self.s1_download_list,
+                                        s1_file_list=self.s1_file_list,
                                         upstream_task={'initialsetup': initialsetup,
                                                        'scene_list': scenes_list})
 
@@ -822,27 +818,9 @@ class Workflow(luigi.Task):
         calcbaseline = CalcInitialBaseline(proc_file_path=self.proc_file_path,
                                            upstream_task={'check_multilook': check_multilook})
 
-        calc_resize_scene = CalcResizeScene(proc_file_path=self.proc_file_path,
-                                            upstream_task={'calcbaseline': calcbaseline,
-                                                           'init_baseline_errors': init_baseline_errors})
-
-        resize_s1_slc = ResizeSLC(proc_file_path=self.proc_file_path,
-                                  upstream_task={'calc_resize_scene': calc_resize_scene,
-                                                 'ref_s1_resize_calc_errors': ref_s1_resize_calc_errors})
-        '''
-        subsetbybursts = SubsetByBursts(proc_file_path=self.proc_file_path,
-                                        upstream_task={'resize_s1_slc': resize_s1_slc,
-                                                       'resize_s1_slc_error': resize_s1_slc_errors})
-
         coregmaster = CoregisterDemMaster(proc_file_path=self.proc_file_path,
-                                          upstream_task={'subsetbybursts': subsetbybursts,
-                                                         'subset_s1_slc_errors': subset_s1_slc_errors,
-                                                         'check_creategammadem': check_creategammadem})
-        '''
-
-        coregmaster = CoregisterDemMaster(proc_file_path=self.proc_file_path,
-                                          upstream_task={'resize_s1_slc': resize_s1_slc,
-                                                         'resize_s1_slc_errors': resize_s1_slc_errors,
+                                          upstream_task={'calcbaseline': calcbaseline,
+                                                         'init_baseline_errors': init_baseline_errors,
                                                          'check_creategammadem': check_creategammadem})
 
         check_coregmaster = CheckDemMaster(proc_file_path=self.proc_file_path,
@@ -897,8 +875,8 @@ class ARD(luigi.Task):
     The automatic restart are triggered if luigi scheduler exceeds the wall time
     or errors occurs with the source code. In the later case, luigi-workflow will
     resume, but same recurring errors will continue until retry for that jobs runs
-    out, then next job in the batch will be initiated. For exceeds the wall time,
-    The clean up of checkpoint files are done first, then luigi workflow process
+    out, then next job in the batch will be initiated. For jobs exceeding the wall
+    time the clean up of checkpoint files are done first, then luigi workflow process
     is re-initiated from last  available successful checkpoint (which is inferred
     from the available checkpoint files available in 'checkpoint' directory'.
     Default, clean up of 'checkpoint' files is set to clean only the
@@ -909,8 +887,10 @@ class ARD(luigi.Task):
     ------------------------------------------------------------------------------
     usage:{
         luigi --module process_gamma ARD
-        --download-list <path to a download file>
+        --s1-file-list <path to a s1 file list>
         --restart-process <True if resuming from previously completed state>
+        --track <S1 track number A/D>
+        --frame <frame number>
         --workdir <working directory, nci outputs and luigi logs will be stored>
         --outdir <output directory where processed data will be stored>
         --local-scheduler (use only local-scheduler)
@@ -918,15 +898,14 @@ class ARD(luigi.Task):
     }
 
     """
-
-    download_list = luigi.Parameter(significant=False)
+    s1_file_list = luigi.Parameter(significant=False)
     project = luigi.Parameter(significant=False)
     track = luigi.Parameter(significant=False)
+    frame = luigi.Parameter(significant=False)
     polarization = luigi.Parameter(default='VV', significant=False)
-    multilook = luigi.IntParameter(default=2, significant=False)
+    multilook = luigi.IntParameter(default=1, significant=False)
     extract_raw_data = luigi.Parameter(default='yes', significant=False)
     do_slc = luigi.Parameter(default='yes', significant=False)
-    do_s1_resize = luigi.Parameter(default='yes', significant=False)
     coregister_dem = luigi.Parameter(default='yes', significant=False)
     coregister_slaves = luigi.Parameter(default='yes', significant=False)
     process_ifgs = luigi.Parameter(default='yes', significant=False)
@@ -940,18 +919,18 @@ class ARD(luigi.Task):
 
     def requires(self):
 
-        if exists(self.download_list):
+        if exists(self.s1_file_list):
 
             if not self.proc_file:
-                kwargs = {'download_list': basename(self.download_list),
-                          'outdir': pjoin(self.outdir, splitext(basename(self.download_list))[0]),
+                kwargs = {'s1_file_list': basename(self.s1_file_list),
+                          'outdir': pjoin(self.outdir, '{}_{}'.format(self.track, self.frame)),
                           'project': self.project,
                           'track': self.track,
+                          'frame': self.frame,
                           'polarization': self.polarization,
                           'multilook': self.multilook,
                           'extract_raw_data': self.extract_raw_data,
                           'do_slc': self.do_slc,
-                          'do_s1_resize': self.do_s1_resize,
                           'coregister_dem': self.coregister_dem,
                           'coregister_slaves': self.coregister_slaves,
                           'process_ifgs': self.process_ifgs,
@@ -959,7 +938,7 @@ class ARD(luigi.Task):
                           'clean_up': self.clean_up}
 
                 proc_data = PROC_FILE_TEMPLATE.format(**kwargs)
-                proc_file1 = pjoin(self.workdir, '{t}.proc'.format(t=basename(self.download_list)))
+                proc_file1 = pjoin(self.workdir, '{}_{}.proc'.format(self.track, self.frame))
 
                 with open(proc_file1, 'w') as src:
                     src.writelines(proc_data)
@@ -970,18 +949,18 @@ class ARD(luigi.Task):
             if self.restart_process:
 
                 path_name = get_path(proc_file1)
-                proc_file1 = pjoin(path_name['proj_dir'], '{t}.proc'.format(t=basename(self.download_list)))
+                proc_file1 = pjoin(path_name['proj_dir'], '{}_{}.proc'.format(self.track, self.frame))
                 path_name = get_path(proc_file1)
 
                 if not exists(pjoin(path_name['checkpoint_dir'], 'final_status_logs.out')):
                     clean_checkpoints(checkpoint_path=path_name['checkpoint_dir'], patterns=self.checkpoint_patterns)
 
-                yield Workflow(proc_file_path=proc_file1, s1_download_list=self.download_list)
+                yield Workflow(proc_file_path=proc_file1, s1_file_list=self.s1_file_list)
             else:
-                yield Workflow(proc_file_path=proc_file1, s1_download_list=self.download_list)
+                yield Workflow(proc_file_path=proc_file1, s1_file_list=self.s1_file_list)
 
     def output(self):
-        out_name = pjoin(self.workdir, '{f}.out'.format(f=basename(self.download_list)))
+        out_name = pjoin(self.workdir, '{f}.out'.format(f=basename(self.s1_file_list)))
         return luigi.LocalTarget(out_name)
 
     def run(self):

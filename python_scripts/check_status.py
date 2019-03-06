@@ -34,6 +34,7 @@ def checkrawdata(raw_data_path, s1_dir_path, download_list_path, scenes_list_pat
     :return:
         complete_status = True if all checks pass else False
     """
+
     raw_status = []
     with open(download_list_path, 'r') as src:
         file_str_lists = [fname for fname in src.readlines()]
@@ -41,49 +42,54 @@ def checkrawdata(raw_data_path, s1_dir_path, download_list_path, scenes_list_pat
     with open(scenes_list_path, 'r') as src:
         scenes_list = [scene.strip() for scene in src.readlines()]
 
-    flag = True
     for dt in scenes_list:
 
-        file_list = fnmatch.filter(file_str_lists, DATE_FMT.format(dt=dt))[0].split()
+        file_list = fnmatch.filter(file_str_lists, DATE_FMT.format(dt=dt))
 
-        grid = file_list[1]
-        granule = splitext(file_list[2])[0]
-
-        raw_dir = pjoin(raw_data_path, dt, SAFE_FMT.format(s=granule), FolderNames.MEASUREMENT.value)
-        source_dir = pjoin(s1_dir_path, S1_SOURCE_DIR_FMT.format(y=dt[0:4], m=dt[4:6], g=grid, f=file_list[2]))
-        archive = zipfile.ZipFile(source_dir)
-
-        if not exists(raw_dir):
+        if not file_list:
             continue
 
-        for item in os.listdir(raw_dir):
-            file_size = getsize(pjoin(raw_dir, item))
-            tiff_files = [s for s in archive.namelist() if item in s]
-            source_tiff_size = archive.getinfo(tiff_files[0]).file_size
+        for fid in file_list:
+            flag = True
 
-            if file_size != source_tiff_size:
-                STATUS_LOGGER.info('{s} and {d}'.format(s=file_size, d=source_tiff_size))
-                retry_cnt = 0
-                while retry_cnt < 3:
-                    data = archive.open(tiff_files[0])
-                    with open(pjoin(raw_dir, basename(tiff_files[0])), 'wb') as f:
-                        shutil.copyfileobj(data, f)
+            fid_split = fid.split()
+            grid = fid_split[1]
+            granule = splitext(fid_split[2])[0]
 
-                    file_size = getsize(pjoin(raw_dir, item))
+            raw_dir = pjoin(raw_data_path, dt, SAFE_FMT.format(s=granule), FolderNames.MEASUREMENT.value)
+            source_dir = pjoin(s1_dir_path, S1_SOURCE_DIR_FMT.format(y=dt[0:4], m=dt[4:6], g=grid, f=fid_split[2]))
+            archive = zipfile.ZipFile(source_dir)
 
-                    if file_size != source_tiff_size:
-                        retry_cnt += 1
-                    else:
-                        break
+            if not exists(raw_dir):
+                continue
 
-                if retry_cnt == 3:
-                    error = ErrorMessages.RAW_FILE_SIZE_ERROR_MSGS.value.format(s=source_tiff_size,
-                                                                                d=file_size, f=item)
-                    ERROR_LOGGER.error(error)
-                    flag = False
-            else:
-                pass
-        raw_status.append(flag)
+            for item in os.listdir(raw_dir):
+                file_size = getsize(pjoin(raw_dir, item))
+                tiff_files = [s for s in archive.namelist() if item in s]
+                source_tiff_size = archive.getinfo(tiff_files[0]).file_size
+
+                if file_size != source_tiff_size:
+                    STATUS_LOGGER.info('{s} and {d}'.format(s=file_size, d=source_tiff_size))
+                    retry_cnt = 0
+                    while retry_cnt < 3:
+                        data = archive.open(tiff_files[0])
+                        with open(pjoin(raw_dir, basename(tiff_files[0])), 'wb') as f:
+                            shutil.copyfileobj(data, f)
+
+                        file_size = getsize(pjoin(raw_dir, item))
+
+                        if file_size != source_tiff_size:
+                            retry_cnt += 1
+                        else:
+                            break
+                    if retry_cnt == 3:
+                        error = ErrorMessages.RAW_FILE_SIZE_ERROR_MSGS.value.format(s=source_tiff_size,
+                                                                                    d=file_size, f=item)
+                        ERROR_LOGGER.error(error)
+                        flag = False
+                else:
+                    pass
+                raw_status.append(flag)
 
     # if all the raw_status are True then complete status is True else set to False
     if all(raw_status):
@@ -94,14 +100,14 @@ def checkrawdata(raw_data_path, s1_dir_path, download_list_path, scenes_list_pat
     return complete_status
 
 
-def checkgammadem(gamma_dem_path, track):
+def checkgammadem(gamma_dem_path, track_frame):
     """
     Checks if gamma dem has been created
     Check implemented here is checking the existence of {track}.dem and {track}.dem.par files
 
     :param gamma_dem_path:
         A 'path' to gamma dem directory
-    :param track:
+    :param track_frame:
         A 'name' of a sentinel 1 track
 
     :return:
@@ -111,8 +117,8 @@ def checkgammadem(gamma_dem_path, track):
     gamma_dem_files = [f for f in os.listdir(gamma_dem_path)]
 
     # set the name of dem and dem par files
-    dem_file = Wildcards.TRACK_DEM_TYPE.value.format(track=track)
-    dem_par_file = Wildcards.TRACK_DEM_PAR_TYPE.value.format(track=track)
+    dem_file = Wildcards.TRACK_DEM_TYPE.value.format(track_frame=track_frame)
+    dem_par_file = Wildcards.TRACK_DEM_PAR_TYPE.value.format(track_frame=track_frame)
 
     # check if both dem file and dem par file exists in gamma dem directory
     # set complete status to True if both exits, else set to False
@@ -238,7 +244,6 @@ def checkbaseline(ifgs_list_path):
 
     :return:
         complete_status = True if all checks pass else raises an error
-
     """
     # checks if ifg list exists and if its contents are not
     # just blank space
@@ -259,28 +264,6 @@ def checkbaseline(ifgs_list_path):
         complete_status = False
     else:
         complete_status = True
-
-    return complete_status
-
-
-def checkresize(slc_path):
-    """
-    :param slc_path:
-    :return:
-    """
-    # TODO implement check for resizing step if needed in future
-    complete_status = True
-
-    return complete_status
-
-
-def checksubset(slc_path):
-    """
-    :param slc_path:
-    :return:
-    """
-    # TODO implement check for resizing step if needed in future
-    complete_status = True
 
     return complete_status
 

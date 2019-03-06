@@ -3,13 +3,13 @@
 display_usage() {
     echo ""
     echo "*******************************************************************************"
-    echo "* create_slc_data: script used to set up pipeline for create slc data         *"
-    echo "*                                        	                                *"
+    echo "* create_slc_data: script used to set up pipeline to create slc data          *"
+    echo "*                                        	                                    *"
     echo "*                                                                             *"
     echo "* input:  [proc_file]   name of GAMMA proc file (eg. gamma.proc)              *"
     echo "*                                                                             *"
     echo "* author: Sarah Lawrie @ GA       13/08/2018, v1.0                            *"
-    echo "*             							        *"
+    echo "*             							                                    *"
     echo "*******************************************************************************"
     echo -e "Usage: initial_setup.bash [proc_file]"
     }
@@ -68,7 +68,7 @@ if [ $do_slc == yes ]; then
             script=process_S1_SLC.bash
             script_type=slc
             {
-                s1_single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $slc_batch_dir $slc_walltime $slc_mem $slc_ncpus $queue $depend_job $depend_type $job_type $script $s1_frame_resize_master $script_type
+                s1_single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $slc_batch_dir $slc_walltime $slc_mem $slc_ncpus $exp_queue $depend_job $depend_type $job_type $script $s1_frame_resize_master $script_type
             }
 
             # remove resize master from scene list (create temp_scene_list)

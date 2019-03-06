@@ -38,8 +38,8 @@ class Wildcards(Enum):
     OFF_PAR_TYPE = '*off.par'
 
     # gamma dem directory
-    TRACK_DEM_TYPE = '{track}.dem'
-    TRACK_DEM_PAR_TYPE = '{track}.dem.par'
+    TRACK_DEM_TYPE = '{track_frame}.dem'
+    TRACK_DEM_PAR_TYPE = '{track_frame}.dem.par'
 
     # dem directory
     CCP_TYPE = '*.ccp'

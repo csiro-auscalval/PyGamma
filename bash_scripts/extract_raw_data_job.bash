@@ -120,8 +120,8 @@ if [ $do_raw == yes ]; then
         depend_job=0
         j=0
         {
-        multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs1 steps1 j
-        multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs2 steps2 jobs1
+            multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs1 steps1 j
+            multi_jobs $pbs_run_loc $pbs_job_prefix $nci_project $raw_mem $raw_ncpus $queue1 $script $depend_job $depend_type $job_type $extract_raw_manual_dir $script_type jobs2 steps2 jobs1
         } < $list
 
         # Error collation

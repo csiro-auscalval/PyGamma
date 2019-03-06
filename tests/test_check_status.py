@@ -73,7 +73,7 @@ class TestCheckStatus(unittest.TestCase):
 
         kwargs = {'raw_data_path': raw_dir,
                   's1_dir_path': pjoin(self.test_dir, 'SLC_DATA_SOURCE'),
-                  'download_list_path': pjoin(DATA_DIR, 's1_des_download_half1.list'),
+                  'download_list_path': pjoin(DATA_DIR, 's1_des_download.list'),
                   'scenes_list_path': pjoin(DATA_DIR, 'scenes.list')}
 
         self.assertTrue(check_status.checkrawdata(**kwargs))
@@ -86,11 +86,11 @@ class TestCheckStatus(unittest.TestCase):
         """
         Test the checkgammadem function.
          """
-        kwargs = {'track': 'T111A',
+        kwargs = {'track_frame': 'T111A_F20',
                   'gamma_dem_path': self.test_dir}
 
-        gamma_dem_files = [Wildcards.TRACK_DEM_TYPE.value.format(track=kwargs['track']),
-                           Wildcards.TRACK_DEM_PAR_TYPE.value.format(track=kwargs['track'])]
+        gamma_dem_files = [Wildcards.TRACK_DEM_TYPE.value.format(track_frame=kwargs['track_frame']),
+                           Wildcards.TRACK_DEM_PAR_TYPE.value.format(track_frame=kwargs['track_frame'])]
 
         for item in gamma_dem_files:
             filename = pjoin(self.test_dir, item)

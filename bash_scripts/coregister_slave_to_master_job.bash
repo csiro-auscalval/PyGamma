@@ -96,18 +96,18 @@ if [ $coregister == yes ]; then
             job_type=1 #1 for batch job, 2 for manual job
             j=0
             # split slave_list using a threshold for temporal difference
-                #thres_days=93 # three months, S1A/B repeats 84, 90, 96, ... (90 still ok, 96 too long)
-                # -> some slaves with zero averages for azimuth offset refinement
-                thres_days=63 # three months, S1A/B repeats 54, 60, 66, ... (60 still ok, 66 too long)
-                # -> 63 days seems to be a good compromise between runtime and coregistration success
-                #thres_days=51 # maximum 7 weeks, S1A/B repeats 42, 48, 54, ... (48 still ok, 54 too long)
-                # -> longer runtime compared to 63, similar number of badly coregistered scenes
-                # do slaves with time difference less than thres_days
-                # rn existing split slave lists
-                rm -rf $list_dir/slaves*[0-9].list
-                # first slave list
-                slave_file=$list_dir/slaves1.list
-                # write new slave list
+            #thres_days=93 # three months, S1A/B repeats 84, 90, 96, ... (90 still ok, 96 too long)
+            # -> some slaves with zero averages for azimuth offset refinement
+            thres_days=63 # three months, S1A/B repeats 54, 60, 66, ... (60 still ok, 66 too long)
+            # -> 63 days seems to be a good compromise between runtime and coregistration success
+            #thres_days=51 # maximum 7 weeks, S1A/B repeats 42, 48, 54, ... (48 still ok, 54 too long)
+            # -> longer runtime compared to 63, similar number of badly coregistered scenes
+            # do slaves with time difference less than thres_days
+            # rn existing split slave lists
+            rm -rf $list_dir/slaves*[0-9].list
+            # first slave list
+            slave_file=$list_dir/slaves1.list
+            # write new slave list
             first_slave=`head $slave_list -n1`
             last_slave=`tail $slave_list -n1`
             # 2-branch tree: scenes before master: lower tree , scenes after master: upper tree
@@ -129,6 +129,7 @@ if [ $coregister == yes ]; then
                         fi
                     fi
                 done < $slave_list
+
                 if [ $lower -eq 0 ]; then # no scene written to lower tree
                     echo "Date difference to closest slave greater than" $date_thres "days, using closest slave only:" $closest_slave
                     echo $closest_slave >> $slave_file
@@ -136,7 +137,7 @@ if [ $coregister == yes ]; then
                 upper=0
                 date_diff_max=-9999
                 while read slave; do
-                        # calculate datediff between master and slave: upper tree
+                    # calculate datediff between master and slave: upper tree
                     date_diff=`echo $(( ($(date --date=$master_scene +%s) - $(date --date=$slave +%s) )/(60*60*24) ))`
                     if [ $date_diff -lt 0 ]; then
                         if [ $date_diff -gt -$thres_days ]; then
@@ -149,11 +150,13 @@ if [ $coregister == yes ]; then
                         fi
                     fi
                 done < $slave_list
+
                 if [ $upper -eq 0 ]; then # no scene written to upper tree
                     echo "Date difference to closest slave greater than" $date_thres "days, using closest slave only:" $closest_slave
                     echo $closest_slave >> $slave_file
                 fi
-                # if master_scene is the first date in the stack, only do upper tree
+
+            # if master_scene is the first date in the stack, only do upper tree
             elif [ $first_slave -gt $master_scene ] && [ $last_slave -gt $master_scene ]; then
                 upper=0
                 date_diff_max=-9999
@@ -171,6 +174,7 @@ if [ $coregister == yes ]; then
                         fi
                     fi
                 done < $slave_list
+
                 if [ $upper -eq 0 ]; then # no scene written to upper tree
                     echo "Date difference to closest slave greater than" $date_thres "days, using closest slave only:" $closest_slave
                     echo $closest_slave >> $slave_file
@@ -339,7 +343,7 @@ if [ $coregister == yes ]; then
 
             fi # S1/other sensors
 
-            # Error collation for slave SLC coregistration
+        # Error collation for slave SLC coregistration
         cd $co_slc_batch_dir
         echo ""
         echo "Preparing error collation for coregistering slave SLCs to master SLC ..."

@@ -1,17 +1,21 @@
 #!/usr/bin/python3
 
-from os.path import join as pjoin
+from os.path import join as pjoin, exists
 
 
 def get_path(proc_file):
     """
     :param proc_file:
-        A 'proc_file' which
+        A 'proc_file'
     :return:
         A 'dict' containing the path names for required processing
         workflow from a which is derived from a 'proc file'
     """
     pathname_dict = {}
+
+    if not exists(proc_file):
+        raise IOError
+
     with open(proc_file, 'r') as src:
         for line in src.readlines():
             if line.startswith('NCI_PATH='):
@@ -24,6 +28,8 @@ def get_path(proc_file):
                 sensor = line.split('=')[1].strip()
             if line.startswith('TRACK='):
                 track = line.split('=')[1].strip()
+            if line.startswith('FRAME='):
+                frame = line.split('=')[1].strip()
             if line.startswith('SLC_DIR='):
                 slc_dir1 = line.split('=')[1].strip()
             if line.startswith('DEM_DIR='):
@@ -52,27 +58,27 @@ def get_path(proc_file):
                 slave_list = line.split('=')[1].strip()
             if line.startswith('IFG_LIST='):
                 ifg_list = line.split('=')[1].strip()
-            if line.startswith('S1_DOWNLOAD_LIST='):
-                download_list = line.split('=')[1].strip()
+            if line.startswith('S1_FILE_LIST='):
+                s1_file_list = line.split('=')[1].strip()
 
         # Project directories
         proj_dir1 = pjoin(nci_path, "INSAR_ANALYSIS", project, sensor, "GAMMA")
-        error_dir = pjoin(proj_dir1, track, error_dir1)
-
+        pathname_dict['track_frame'] = '{}_{}'.format(track, frame)
         pathname_dict['track'] = track
+        pathname_dict['frame'] = frame
         pathname_dict['proj_dir'] = proj_dir1
-        pathname_dict['checkpoint_dir'] = pjoin(proj_dir1, track, 'checkpoints')
-        pathname_dict['list_dir'] = pjoin(proj_dir1, track, list_dir1)
-        pathname_dict['dem_dir'] = pjoin(proj_dir1, track, dem_dir1)
+        pathname_dict['checkpoint_dir'] = pjoin(proj_dir1, pathname_dict['track_frame'], 'checkpoints')
+        pathname_dict['list_dir'] = pjoin(proj_dir1, pathname_dict['track_frame'], list_dir1)
+        pathname_dict['dem_dir'] = pjoin(proj_dir1, pathname_dict['track_frame'], dem_dir1)
         pathname_dict['s1_dir'] = s1_path
-        pathname_dict['track_dir'] = pjoin(proj_dir1, track)
-        pathname_dict['slc_dir'] = pjoin(proj_dir1, track, slc_dir1)
-        pathname_dict['ifg_dir'] = pjoin(proj_dir1, track, int_dir1)
-        pathname_dict['batch_job_dir'] = pjoin(proj_dir1, track, batch_job_dir1)
-        pathname_dict['raw_data_dir'] = pjoin(proj_dir1, raw_data_dir1, track, 'F1')
-        pathname_dict['base_dir'] = pjoin(proj_dir1, track, base_dir1)
+        pathname_dict['track_dir'] = pjoin(proj_dir1, pathname_dict['track_frame'])
+        pathname_dict['slc_dir'] = pjoin(proj_dir1, pathname_dict['track_frame'], slc_dir1)
+        pathname_dict['ifg_dir'] = pjoin(proj_dir1, pathname_dict['track_frame'], int_dir1)
+        pathname_dict['batch_job_dir'] = pjoin(proj_dir1, pathname_dict['track_frame'], batch_job_dir1)
+        pathname_dict['raw_data_dir'] = pjoin(proj_dir1, raw_data_dir1, pathname_dict['track'], pathname_dict['frame'])
+        pathname_dict['base_dir'] = pjoin(proj_dir1, pathname_dict['track_frame'], base_dir1)
         pathname_dict['pre_proc_dir'] = pjoin(proj_dir1, pre_proc_dir1)
-        pathname_dict['results_dir'] = pjoin(proj_dir1, track, "results")
+        pathname_dict['results_dir'] = pjoin(proj_dir1, pathname_dict['track_frame'], "results")
         pathname_dict['gamma_dem'] = pjoin(proj_dir1, 'gamma_dem')
 
         # batch jobs directories
@@ -89,9 +95,11 @@ def get_path(proc_file):
         pathname_dict['scenes_list'] = pjoin(pathname_dict['list_dir'], scene_list)
         pathname_dict['slaves_list'] = pjoin(pathname_dict['list_dir'], slave_list)
         pathname_dict['ifgs_list'] = pjoin(pathname_dict['list_dir'], ifg_list)
-        pathname_dict['download_list'] = pjoin(pathname_dict['list_dir'], download_list)
+        pathname_dict['download_list'] = pjoin(pathname_dict['list_dir'], 'download_list')
+        pathname_dict['s1_file_list'] = pjoin(pathname_dict['list_dir'], s1_file_list)
 
         # error list files
+        error_dir = pjoin(proj_dir1, pathname_dict['track_frame'], error_dir1)
         pathname_dict['extract_raw_errors'] = pjoin(error_dir, 'extract_raw_errors')
         pathname_dict['create_dem_errors'] = pjoin(error_dir, 'create_dem_errors')
         pathname_dict['slc_creation_errors'] = pjoin(error_dir, 'slc_creation_errors')
