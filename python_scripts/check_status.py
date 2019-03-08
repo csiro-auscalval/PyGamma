@@ -1,13 +1,17 @@
 #!/usr/bin/python3
 
 import os
-import logging
-from structlog import wrap_logger
-from structlog.processors import JSONRenderer
 from os.path import join as pjoin, basename, getsize, splitext, exists, isdir
 import fnmatch
 import zipfile
 import shutil
+import datetime
+import logging
+from structlog import wrap_logger
+from structlog.processors import JSONRenderer
+
+import xml.etree.ElementTree as ET
+
 from python_scripts.constant import SAFE_FMT, S1_SOURCE_DIR_FMT, DATE_FMT
 from python_scripts.constant import Wildcards, MatchStrings, FolderNames,  ErrorMessages
 
@@ -17,94 +21,8 @@ ERROR_LOGGER = wrap_logger(logging.getLogger('errors'),
                            processors=[JSONRenderer(indent=1, sort_keys=True)])
 
 
-def checkrawdata(raw_data_path, s1_dir_path, download_list_path):
-    """
-    Checks the raw data directory to see if data required are downloaded successfully or not!
-    If not, additional retry on the failed download is carried out for maximum of three times.
-
-    :param raw_data_path:
-        A 'path' to raw data directory where data is downloaded
-    :param s1_dir_path: 
-        A 'path' from where data were download from
-    :param download_list_path
-        A 'path' to a download list path
-
-    :return:
-        complete_status = True if all checks pass else False
-    """
-
-    def _get_archive(grid, dt, granule): 
-        source_file = pjoin(s1_dir_path, S1_SOURCE_DIR_FMT.format(y=dt[0:4], m=dt[4:6], g=grid, f='{}.zip'.format(granule)))
-        
-        if not exists(source_file): 
-            return 
-
-        archive = zipfile.ZipFile(source_file) 
-        
-        measurement_files = fnmatch.filter(archive.namelist(), '*measurement/*vv*')
-        annotation_files = fnmatch.filter(archive.namelist(), '*annotation/*vv*')
-        
-        return measurement_files, annotation_files
-        
-    def _check_dirs(safe_dir):
-        pass
-        
-
-
-    raw_status = []
-
-    with open(download_list_path, 'r') as src: 
-        download_file_lists = [splitext(fname.strip())[0].split() for fname in src.readlines()]
-
-    for df in os.listdir(raw_data_path): 
-        df_path =pjoin(raw_data_path, df)
-        if not isdir(df_path): 
-            continue 
-
-        for sf in os.listdir(df_path): 
-            if sf.endswith(".SAFE"): 
-                sf_path = pjoin(df_path, sf)
-                granule = splitext(basename(sf_path))[0]
-                (dt, grid) = [(l[0], l[1]) for l in  download_file_lists if l[2]==granule][0]
-                m_files, a_files  = _get_archive(grid, dt, granule)
-                
-                   
-    exit()
-            for item in os.listdir(measurement_dir):
-                file_size = getsize(pjoin(measurement_dir, item))
-                tiff_files = [s for s in archive.namelist() if item in s]
-                source_tiff_size = archive.getinfo(tiff_files[0]).file_size
-
-                if file_size != source_tiff_size:
-                    STATUS_LOGGER.info('{s} and {d}'.format(s=file_size, d=source_tiff_size))
-                    retry_cnt = 0
-                    while retry_cnt < 3:
-                        data = archive.open(tiff_files[0])
-                        with open(pjoin(measurement_dir, basename(tiff_files[0])), 'wb') as f:
-                            shutil.copyfileobj(data, f)
-
-                        file_size = getsize(pjoin(measurement_dir, item))
-
-                        if file_size != source_tiff_size:
-                            retry_cnt += 1
-                        else:
-                            break
-                    if retry_cnt == 3:
-                        error = ErrorMessages.RAW_FILE_SIZE_ERROR_MSGS.value.format(s=source_tiff_size,
-                                                                                    d=file_size, f=item)
-                        ERROR_LOGGER.error(error)
-                        flag = False
-                else:
-                    pass
-                raw_status.append(flag)
-
-    # if all the raw_status are True then complete status is True else set to False
-    if all(raw_status):
-        complete_status = True
-    else:
-        complete_status = False
-
-    return complete_status
+def checkrawdata():
+    return True
 
 
 def checkgammadem(gamma_dem_path, track_frame):

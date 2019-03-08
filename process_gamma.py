@@ -14,6 +14,7 @@ import traceback
 from python_scripts.initialize_proc_file import get_path
 from python_scripts.check_status import checkrawdata, checkgammadem, checkfullslc, checkmultilook, \
      checkbaseline, checkdemmaster, checkcoregslaves, checkifgs
+from python_scripts.data import S1DataDownload
 from python_scripts.proc_template import PROC_FILE_TEMPLATE
 from python_scripts.clean_up import clean_rawdatadir, clean_slcdir, clean_ifgdir, clean_gammademdir, \
      clean_demdir, clean_checkpoints
@@ -91,13 +92,18 @@ class RawDataExtract(luigi.Task):
         path_name = get_path(self.proc_file_path)
         path_name = get_path(pjoin(path_name['proj_dir'], basename(self.proc_file_path)))
 
-        args = (["bash", "extract_raw_data_job.bash",
-                 "%s" % pjoin(path_name['proj_dir'], basename(self.proc_file_path))])
+        kwargs = {'raw_data_path': path_name['raw_data_dir'],
+                  's1_dir_path': path_name['s1_dir'],
+                  'download_list_path': path_name['download_list'],
+                  'polarization': path_name['polarization'],
+                  's1_orbits_path': path_name['s1_orbits']}
 
-        subprocess.check_call(args)
+        s1_download_data = S1DataDownload(**kwargs)
+        complete_status = s1_download_data.main()
 
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        if complete_status:
+            with self.output().open('w') as f:
+                f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CheckRawData(luigi.Task):
@@ -119,19 +125,11 @@ class CheckRawData(luigi.Task):
 
     def run(self):
         STATUS_LOGGER.info('check raw data task')
-        path_name = get_path(self.proc_file_path)
-        path_name = get_path(pjoin(path_name['proj_dir'], basename(self.proc_file_path)))
-
-        kwargs = {'raw_data_path': path_name['raw_data_dir'],
-                  's1_dir_path': path_name['s1_dir'],
-                  'download_list_path': path_name['download_list']}
-        complete_status = checkrawdata(**kwargs)
+        complete_status = checkrawdata()
 
         if complete_status:
             with self.output().open('w') as f:
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
-        else:
-            raise ValueError('failed to download raw data')
 
 
 class CreateGammaDem(luigi.Task):
@@ -749,7 +747,7 @@ class Workflow(luigi.Task):
 
         # external file checker tasks
         scenes_list = ExternalFileChecker(path_name['scenes_list'])
-        extract_raw_errors = ExternalFileChecker(path_name['extract_raw_errors'])
+        # extract_raw_errors = ExternalFileChecker(path_name['extract_raw_errors'])
         slc_creation_errors = ExternalFileChecker(path_name['slc_creation_errors'])
         multi_look_slc_errors = ExternalFileChecker(path_name['multi-look_slc_errors'])
         init_baseline_errors = ExternalFileChecker(path_name['init_baseline_errors'])
@@ -768,8 +766,7 @@ class Workflow(luigi.Task):
                                                        'scene_list': scenes_list})
 
         check_rawdata = CheckRawData(proc_file_path=self.proc_file_path,
-                                     upstream_task={'rawdataextract': rawdataextract,
-                                                    'extract_raw_error': extract_raw_errors})
+                                     upstream_task={'rawdataextract': rawdataextract})
 
         createfullslc = CreateFullSlc(proc_file_path=self.proc_file_path,
                                       upstream_task={'check_rawdata': check_rawdata})

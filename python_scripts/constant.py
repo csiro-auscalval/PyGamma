@@ -52,6 +52,7 @@ class Wildcards(Enum):
     # raw data directory
     TIFF_TYPE = '*.tiff'
     ALL_TYPE = '*'
+    POL_TYPE = ''
 
 
 class FolderNames(Enum):
@@ -62,7 +63,7 @@ class FolderNames(Enum):
     MEASUREMENT = 'measurement'
     ANNOTATION = 'annotation'
     CALIBRATION = 'calibration'
-
+    PREVIEW = 'preview'
 
 class MatchStrings(Enum):
     """

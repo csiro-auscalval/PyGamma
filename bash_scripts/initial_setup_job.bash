@@ -136,7 +136,6 @@ if [ -f $frame_list ]; then
     done < $frame_list
 fi
 
-
 ## Check GAMMA DEM exists
 if [ ! -f $gamma_dem_dir/$dem_name.dem ]; then
     if [ $sensor == 'S1' ] && [ $dem_area == 'aust' ]; then # auto generated GAMMA DEM
@@ -155,14 +154,38 @@ else
     echo ""
 fi
 
-
 # if S1, change DEM reference scene to identified resize master
 if [ $sensor == S1 ]; then
     if [ $master_scene == "auto" ]; then # ref master scene not calculated
-	cd $proj_dir
-	s1_frame_resize_master=`grep ^RESIZE_MASTER: $s1_file_list | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'`
-	sed -i "s/REF_MASTER_SCENE=auto/REF_MASTER_SCENE=$s1_frame_resize_master/g" $proc_file
+	    cd $proj_dir
+	    s1_frame_resize_master=`grep ^RESIZE_MASTER: $s1_file_list | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'`
+	    sed -i "s/REF_MASTER_SCENE=auto/REF_MASTER_SCENE=$s1_frame_resize_master/g" $proc_file
     fi
-fi
 
+    input_list=$s1_file_list
+    awk '/FILES_TO_DOWNLOAD/ { show=1 } show; /SUBSET_BURSTS/ { show=0 }' $input_list | tail -n+3 | head -n -2 > $list_dir/download_list
+    list=$list_dir/download_list
+    nlines=`cat $list | sed '/^\s*$/d' | wc -l`
+
+    # create frame subset list (cut scenes to frame extents)
+    awk '/SUBSET_BURSTS/ { show=1 } show; /ORG_BURSTS_V_MASTER_BURSTS/ { show=0 }' $input_list | tail -n+3 | head -n -2 | awk '{print $1,$5,$6,$7,$8}' > $list_dir/temp
+    if [ -e $list_dir/frame_subset_list ]; then
+        rm -rf $list_dir/frame_subset_list
+    fi
+    while read subset; do
+        date=`echo $subset | awk '{print $1}'`
+        start_iw1=`echo $subset | awk '{print $2}' | cut -d '-' -f 1`
+        stop_iw1=`echo $subset | awk '{print $2}' | cut -d '-' -f 2`
+        start_iw2=`echo $subset | awk '{print $3}' | cut -d '-' -f 1`
+        stop_iw2=`echo $subset | awk '{print $3}' | cut -d '-' -f 2`
+        start_iw3=`echo $subset | awk '{print $4}' | cut -d '-' -f 1`
+        stop_iw3=`echo $subset | awk '{print $4}' | cut -d '-' -f 2`
+        complete_frame=`echo $subset | awk '{print $5}' | cut -d '-' -f 1`
+        echo $date "1" $start_iw1 $stop_iw1 $complete_frame >> $list_dir/frame_subset_list
+        echo $date "2" $start_iw2 $stop_iw2 $complete_frame >> $list_dir/frame_subset_list
+        echo $date "3" $start_iw3 $stop_iw3 $complete_frame >> $list_dir/frame_subset_list
+    done < $list_dir/temp
+    rm -rf $list_dir/temp
+
+fi
 
