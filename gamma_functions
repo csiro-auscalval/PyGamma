@@ -780,7 +780,9 @@ function single_job {
     echo -e "\n" >> $job
 
     if [ $pbs_job_prefix == 'init_base' -o $pbs_job_prefix == 'prec_base' ]; then  ## needs python3 to activate baselines script
-	echo python3 ~/repo/gamma_insar/$script $proc_file1 $script_type >> $job
+        echo "module load python3/3.5.2 python3/3.5.2-matplotlib" >> $job
+        echo -e "\n" >> $job
+	    echo python3 ~/repo/gamma_insar/$script $proc_file1 $script_type >> $job
     else
         echo ~/repo/gamma_insar/$script $proc_file1 $script_type >> $job
     fi
