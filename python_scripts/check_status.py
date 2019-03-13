@@ -3,26 +3,17 @@
 import os
 from os.path import join as pjoin, basename, getsize, splitext, exists, isdir
 import fnmatch
-import zipfile
-import shutil
-import datetime
 import logging
+
 from structlog import wrap_logger
 from structlog.processors import JSONRenderer
 
-import xml.etree.ElementTree as ET
-
-from python_scripts.constant import SAFE_FMT, S1_SOURCE_DIR_FMT, DATE_FMT
 from python_scripts.constant import Wildcards, MatchStrings, FolderNames,  ErrorMessages
 
 STATUS_LOGGER = wrap_logger(logging.getLogger('status'),
                             processors=[JSONRenderer(indent=1, sort_keys=True)])
 ERROR_LOGGER = wrap_logger(logging.getLogger('errors'),
                            processors=[JSONRenderer(indent=1, sort_keys=True)])
-
-
-def checkrawdata():
-    return True
 
 
 def checkgammadem(gamma_dem_path, track_frame):

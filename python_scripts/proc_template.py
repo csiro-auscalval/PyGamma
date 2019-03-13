@@ -4,7 +4,7 @@ PROC_FILE_TEMPLATE=("""
 
 -----NCI SOFTWARE CONFIGURATION FILE--------------------------------------------------------------------
 
-GAMMA_CONFIG=/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
+GAMMA_CONFIG=/g/data/u46/users/pd1813/INSAR/INSAR_DEV_BULK_PROCESS/gamma_insar/configs/GAMMA_CONFIG
 
 
 -----NCI FILE PATHS-------------------------------------------------------------------------------------

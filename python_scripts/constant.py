@@ -40,7 +40,7 @@ class Wildcards(Enum):
     # gamma dem directory
     TRACK_DEM_TYPE = '{track_frame}.dem'
     TRACK_DEM_PAR_TYPE = '{track_frame}.dem.par'
-
+    TRACK_DEM_PNG_TYPE = '*.png'
     # dem directory
     CCP_TYPE = '*.ccp'
     SIM_TYPE = '*.sim'

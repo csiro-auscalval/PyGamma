@@ -8,6 +8,7 @@ import numpy
 import argparse
 
 from python_scripts.constant import Wildcards
+from python_scripts.initialize_proc_file import get_path
 
 
 def clean_rawdatadir(raw_data_path):
@@ -65,13 +66,14 @@ def clean_ifgdir(ifg_path, patterns=None):
             _del_files(file_dir=scene_conn_dir, files_list=files_list)
 
 
-def clean_gammademdir(gamma_dem_path, track=None):
+def clean_gammademdir(gamma_dem_path, track_frame=None):
     """
     Deletes files associated with wildcard patterns from gamma dem directory.
     """
-    if track:
-        patterns = [Wildcards.TRACK_DEM_TYPE.value.format(track=track),
-                    Wildcards.TRACK_DEM_PAR_TYPE.value.format(track=track)]
+    if track_frame:
+        patterns = [Wildcards.TRACK_DEM_TYPE.value.format(track_frame=track_frame),
+                    Wildcards.TRACK_DEM_PAR_TYPE.value.format(track_frame=track_frame),
+                    Wildcards.TRACK_DEM_PNG_TYPE.value]
     else:
         patterns = None
 
@@ -106,7 +108,6 @@ def clean_checkpoints(checkpoint_path, patterns=None):
                 time_lists.append(getmtime(pjoin(checkpoint_path, item)))
 
             del_file = [checkpoint_files[numpy.argmax(time_lists)]]
-
             _del_files(file_dir=checkpoint_path, files_list=del_file)
 
         else:
@@ -143,11 +144,10 @@ def _del_files(file_dir=None, files_list=None):
 
 def run(proc_file):
     """ clean default clean up files if processing was run without clean up option """
-    from python_scripts.initialize_proc_file import get_path
     path_name = get_path(proc_file)
 
     clean_rawdatadir(raw_data_path=path_name['raw_data_dir'])
-    clean_gammademdir(gamma_dem_path=path_name['gamma_dem'], track=path_name['track'])
+    clean_gammademdir(gamma_dem_path=path_name['gamma_dem'], track_frame=path_name['track_frame'])
     clean_slcdir(slc_path=path_name['slc_dir'])
     clean_ifgdir(ifg_path=path_name['ifg_dir'])
     clean_demdir(dem_path=path_name['dem_dir'])

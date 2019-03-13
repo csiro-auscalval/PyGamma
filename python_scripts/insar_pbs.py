@@ -45,10 +45,35 @@ usage:{
     --workdir <path to a working directory where nci outputs/luigi logs are generated>
     --outdir <path where processed data is to be stored> 
     --project <nci project>
+    --track <track>
+    --frame <frame>
     --num_batch <number batches>
     --test (if you want to mock the pbs submission)
     }
 """
+PBS_SINGLE_JOB_TEMPLATE = ("""#!/bin/bash
+#PBS -P {project}
+#PBS -q {queue}
+#PBS -l other=gdata1
+#PBS -l walltime={hours}:00:00
+#PBS -l mem={memory}GB
+#PBS -l ncpus={ncpus}
+#PBS -l jobfs=5GB
+#PBS -W umask=017
+#PBS -l wd
+#PBS -l software=python
+
+module load mpi4py/3.0.0-py3
+module load openmpi/2.1.1
+
+source /g/data/u46/users/pd1813/INSAR/test_bulk_pbs/insar.env
+
+n=1
+export OMP_NUM_THREADS=$n
+export NUM_PROCS=$(($PBS_NCPUS / $n))
+
+mpirun -np $(($PBS_NCPUS / $n)) -x $((OMP_NUM_THREADS)) -map-by ppr:$(($PBS_NCPUS / 2)):socket:PE=$(($OMP_NUM_THREADS)) --report-bindings --oversubscribe python3 /g/data/u46/users/pd1813/INSAR/INSAR_DEV_BULK_PROCESS/gamma_insar/python_scripts/raw_data_extract.py {proc_file}
+""")
 
 PBS_RESOURCES = ("""#!/bin/bash
 #PBS -P {project}
@@ -131,10 +156,10 @@ qsub -z -W depend=afterany:$PBS_JOBID $PBS_JOBNAME
 # check the checkpoint files before commencing the next job if NJOB is greater than 1 
 # Run the job
 if [ $NJOB -gt 1 ]; then 
-    luigi {options} --download-list $download_file --workers 4 --restart-process True --workdir {workdir} --outdir {outdir} --local-scheduler
+    luigi {options} --s1-file-list $download_file --track {track} --frame {frame} --workers 4 --restart-process True --workdir {workdir} --outdir {outdir} --local-scheduler
 
 else
-    luigi {options} --download-list $download_file --workers 4 --workdir {workdir} --outdir {outdir} --local-scheduler
+    luigi {options} --s1-file-list $download_file --track {track} --frame {frame} --workers 4 --workdir {workdir} --outdir {outdir} --local-scheduler
     
 fi 
 
@@ -168,7 +193,7 @@ def scatter(iterable, n):
     return list(res)
 
 
-def _gen_pbs(scattered_tasklist, options, env, omp_num_threads, workdir, outdir,
+def _gen_pbs(scattered_tasklist, options, env, omp_num_threads, track, frame, workdir, outdir,
              pbs_resource):
     """
     Generates a pbs scripts
@@ -180,6 +205,7 @@ def _gen_pbs(scattered_tasklist, options, env, omp_num_threads, workdir, outdir,
         jobid = uuid.uuid4().hex[0:6]
 
         job_dir = pjoin(workdir, 'jobid-{}'.format(jobid))
+        print(job_dir)
         if not exists(job_dir):
             os.makedirs(job_dir)
 
@@ -188,7 +214,8 @@ def _gen_pbs(scattered_tasklist, options, env, omp_num_threads, workdir, outdir,
             src.writelines(block)
 
         pbs = PBS_TEMPLATE.format(pbs_resources=pbs_resource, options=options, omp_num_threads=omp_num_threads,
-                                  env=env, s1_download_list=basename(out_fname), outdir=outdir, workdir=job_dir)
+                                  env=env, s1_download_list=basename(out_fname), outdir=outdir, workdir=job_dir,
+                                  track=track, frame=frame)
 
         out_fname = pjoin(job_dir, FMT1.format(jobid=jobid))
         with open(out_fname, 'w') as src:
@@ -214,7 +241,7 @@ def _submit_pbs(pbs_scripts, retry, test):
             subprocess.call(['qsub', '-v', 'NJOBS={retry}'.format(retry=retry), basename(scripts)])
 
 
-def run(taskfile, proc_file, checkpoint_patterns, workdir, outdir, env, total_ncpus, total_memory,
+def run(taskfile, proc_file, track, frame, checkpoint_patterns, workdir, outdir, env, total_ncpus, total_memory,
         omp_num_threads, project, queue, hours, email, retry, num_batch, test):
     """
     colsolidates batch processing job script creation and submission of pbs jobs
@@ -233,7 +260,8 @@ def run(taskfile, proc_file, checkpoint_patterns, workdir, outdir, env, total_nc
     else:
         options = ARD_FMT
 
-    pbs_scripts = _gen_pbs(scattered_tasklist, options, env, omp_num_threads, workdir, outdir, pbs_resources)
+    pbs_scripts = _gen_pbs(scattered_tasklist, options, env, omp_num_threads, track, frame,
+                           workdir, outdir, pbs_resources)
     _submit_pbs(pbs_scripts, retry, test)
 
 
@@ -250,9 +278,12 @@ def _parser():
                                            "tasks to be performed",
                         required=True)
 
-    parser.add_argument("--proc_file", help="The proc file containing the insar "
+    parser.add_argument('--proc_file', help="The proc file containing the insar "
                                             "processing details",
                         required=False)
+    parser.add_argument('--track', help="The track number of Sentinel-1", required=True)
+
+    parser.add_argument('--frame', help="The frame number of Sentinel-1", required=True)
 
     parser.add_argument("--checkpoint_patterns", help="The wildcard patterns used "
                                                       "in cleanup of check point files",
@@ -269,7 +300,7 @@ def _parser():
 
     parser.add_argument("--total_ncpus", type=int, help="The total number of cpus per job"
                                                         "required if known",
-                        default=4, required=False)
+                        default=1, required=False)
 
     parser.add_argument("--total_memory", type=int, help="Total memory required if known",
                         default=8, required=False)
@@ -306,7 +337,7 @@ def main():
     """ Main execution. """
     parser = _parser()
     args = parser.parse_args()
-    run(args.taskfile, args.proc_file, args.checkpoint_patterns, args.workdir, args.outdir,
+    run(args.taskfile, args.proc_file, args.track, args.frame, args.checkpoint_patterns, args.workdir, args.outdir,
         args.env, args.total_ncpus, args.total_memory, args.omp_num_threads,
         args.project, args.queue, args.hours, args.email, args.retry, args.num_batch, args.test)
 
