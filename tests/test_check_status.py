@@ -57,32 +57,6 @@ class TestCheckStatus(unittest.TestCase):
                 filename = pjoin(scene_dir, item.rstrip())
                 cls.write_dummy_file(filename)
 
-    def test_checkrawdata(self):
-        """
-        Test the checkrawdata function.
-        """
-        granule = 'S1A_IW_SLC__1SDV_20170712T192147_20170712T192214_017442_01D25D_FB1F'
-        tiff_file = 's1a-iw1-slc-vv-20170712t192149-20170712t192214-017442-01d25d-004.tiff'
-
-        raw_dir = pjoin(self.test_dir, 'SLC_DATA_RAW/20170712/{}.SAFE/measurement'.format(granule))
-        print(raw_dir)
-        source_dir = pjoin(self.test_dir, 'SLC_DATA_SOURCE/2017/2017-07/25S150E-30S155E')
-        os.makedirs(source_dir)
-
-        self.write_dummy_file(pjoin(raw_dir, tiff_file))
-        shutil.make_archive(pjoin(source_dir, granule), 'zip', raw_dir)
-
-        kwargs = {'raw_data_path': raw_dir,
-                  's1_dir_path': pjoin(self.test_dir, 'SLC_DATA_SOURCE'),
-                  'download_list_path': pjoin(DATA_DIR, 's1_des_download.list'),
-                  'scenes_list_path': pjoin(DATA_DIR, 'scenes.list')}
-
-        self.assertTrue(check_status.checkrawdata(**kwargs))
-
-        os.remove(pjoin(raw_dir, tiff_file))
-        self.write_empty_file(pjoin(raw_dir, tiff_file))
-        self.assertTrue(check_status.checkrawdata(**kwargs))
-
     def test_checkgammadem(self):
         """
         Test the checkgammadem function.
@@ -260,9 +234,6 @@ class TestCheckStatus(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-
-
 
 
 

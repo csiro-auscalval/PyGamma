@@ -27,7 +27,8 @@ ERROR_LOGGER = wrap_logger(logging.getLogger('errors'),
 
 class S1DataDownload:
 
-    def __init__(self, raw_data_path, s1_dir_path, download_list_path, polarization, s1_orbits_path, raw_data_error):
+    def __init__(self, raw_data_path=None, s1_dir_path=None, download_list_path=None, polarization=None,
+                 s1_orbits_path=None, raw_data_error=None):
 
         self.raw_data_path = raw_data_path
         self.s1_dir_path = s1_dir_path
@@ -86,10 +87,6 @@ class S1DataDownload:
 
         acq_orbit_file = fnmatch.filter(orbit_files, '*V{}*_{}*.EOF'.format(start_date, end_date))
 
-        # acq_orbit_file = ['S1A_OPER_AUX_POEORB_OPOD_20190301T121025_V20190208T225942_20190210T005942.EOF',
-        #                   'S1A_OPER_AUX_POEORB_OPOD_20190301T121015_V20190208T225942_20190210T005942.EOF',
-        #                   'S1A_OPER_AUX_POEORB_OPOD_20190301T121022_V20190208T225942_20190210T005942.EOF']
-
         if not acq_orbit_file:
             return
         if len(acq_orbit_file) > 1:
@@ -125,7 +122,7 @@ class S1DataDownload:
         return pjoin(resorb_path, acq_orbit_file[-1])
 
     def archive_download(self, source_file, target_path):
-        print('in retry-downloads')
+
         if not exists(target_path):
             os.makedirs(target_path)
 
@@ -137,6 +134,8 @@ class S1DataDownload:
 
         retry_cnt = 0
         while retry_cnt < 3:
+            if retry_cnt > 0:
+                STATUS_LOGGER.info('retry download number {}/3: {}'.format(retry_cnt, basename(target_file)))
             data = self.archive.open(source_file)
             with open(target_file, 'wb') as f:
                 shutil.copyfileobj(data, f)
@@ -202,6 +201,8 @@ class S1DataDownload:
             orbit_file = pjoin(dirname(safe_dir), basename(resorb_file))
             if not exists(orbit_file):
                 shutil.copyfile(resorb_file, orbit_file)
+            STATUS_LOGGER.info('POEORB file missing: using RESORB file: {}'.format(basename(orbit_file)))
+
         return True
 
     def parallelise(self):
