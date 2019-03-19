@@ -143,7 +143,6 @@ function proc_variables {
     ifg_patch_az=`grep ^IFG_PATCHES_AZIMUTH= $proc_file | cut -d "=" -f 2`
     ifg_refrg=`grep ^IFG_REF_POINT_RANGE= $proc_file | cut -d "=" -f 2`
     ifg_refaz=`grep ^IFG_REF_POINT_AZIMUTH= $proc_file | cut -d "=" -f 2`
-    ifg_geotiff=`grep ^IFG_GEOTIFF= $proc_file | cut -d "=" -f 2`
 
     # PBS job parameters
     nci_project=`grep ^NCI_PROJECT= $proc_file | cut -d "=" -f 2`
@@ -437,6 +436,9 @@ function dem_master_names {
     dem_master_mli_name=$dem_master_dir/$master_scene"_"$polar"_"$rlks"rlks"
     dem_master_mli=$dem_master_mli_name.mli
     dem_master_mli_par=$dem_master_mli.par
+    dem_master_sigma0=$dem_master_mli_name.sigma0
+    dem_master_sigma0_eqa=$dem_master_mli_name"_eqa.sigma0"
+    dem_master_sigma0_eqa_geo=$dem_master_sigma0_eqa.tif
     dem_master_gamma0=$dem_master_mli_name.gamma0
     dem_master_gamma0_bmp=$dem_master_gamma0.bmp
     dem_master_gamma0_eqa=$dem_master_mli_name"_eqa.gamma0"
@@ -460,7 +462,6 @@ function dem_file_names {
     rdc_dem=$dem_master_name"_rdc.dem"
     eqa_dem=$dem_master_name"_eqa.dem"
     eqa_dem_par=$eqa_dem.par
-    #seamask=$dem_master_name"_eqa_seamask.ras"
     seamask=$dem_master_name"_eqa_seamask.tif"
     dem_lt_rough=$dem_master_name"_rough_eqa_to_rdc.lt"
     dem_lt_fine=$dem_master_name"_eqa_to_rdc.lt"
@@ -480,6 +481,8 @@ function dem_file_names {
     dem_coffsets=$dem_master_name.coffsets
     dem_lv_theta=$dem_master_name"_eqa.lv_theta"
     dem_lv_phi=$dem_master_name"_eqa.lv_phi"
+    dem_lv_theta_geo=$dem_master_name"_eqa.lv_theta.tif"
+    dem_lv_phi_geo=$dem_master_name"_eqa.lv_phi.tif"
     ext_image_flt=$dem_master_name"_ext_img_sar.flt" 
     ext_image_init_sar=$dem_master_name"_ext_img_init.sar" 
     ext_image_sar=$dem_master_name"_ext_img.sar"
@@ -506,6 +509,9 @@ function slave_file_names {
     slave_gamma0_eqa=$slave_mli_name"_eqa.gamma0"
     slave_gamma0_eqa_bmp=$slave_gamma0_eqa.bmp
     slave_gamma0_eqa_geo=$slave_gamma0_eqa.tif
+    slave_sigma0=$slave_mli_name.sigma0
+    slave_sigma0_eqa=$slave_mli_name"_eqa.sigma0"
+    slave_sigma0_eqa_geo=$slave_gamma0_eqa.tif
     r_master_slave_name=$slave_dir/$master_scene-$slave_mli_name
     slave_az_ovr=$r_master_slave_name.az_ovr
     slave_az_ovr_poly=$r_master_slave_name.az_ovr.poly
@@ -649,16 +655,18 @@ function post_process {
     post_dir=$proj_dir/$track_dir/$post_method
     post_dem_dir=$post_dir/dem_files
     post_flat_ifg_dir=$post_dir/flat_ifg_files
-    post_filt_ifg_dir=$post_dir/filt_ifg_files
+    #post_filt_ifg_dir=$post_dir/filt_ifg_files
     post_unw_ifg_dir=$post_dir/unw_ifg_files
     post_flat_cc_dir=$post_dir/flat_cc_files
-    post_filt_cc_dir=$post_dir/filt_cc_files
+    #post_filt_cc_dir=$post_dir/filt_cc_files
     geotiff_dir=$proj_dir/$track_dir/geotiff_files
+    geotiff_dem=$geotiff_dir/dem_geotiffs
+    geotiff_slc=$geotiff_dir/slc_geotiffs
     geotiff_flat_ifg=$geotiff_dir/flat_ifg_geotiffs
-    geotiff_filt_ifg=$geotiff_dir/filt_ifg_geotiffs
+    #geotiff_filt_ifg=$geotiff_dir/filt_ifg_geotiffs
     geotiff_unw_ifg=$geotiff_dir/unw_ifg_geotiffs
     geotiff_flat_cc=$geotiff_dir/flat_cc_geotiffs
-    geotiff_filt_cc=$geotiff_dir/filt_cc_geotiffs
+    #geotiff_filt_cc=$geotiff_dir/filt_cc_geotiffs
     gamma_data_dir=$post_dir/gamma_data
     stamps_geo_dir=$gamma_data_dir/geo
     stamps_baselines_dir=$gamma_data_dir/SMALL_BASELINES
