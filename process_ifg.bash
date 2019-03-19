@@ -558,22 +558,19 @@ GEOCODE()
     echo " "
 
     ## Geotiff geocoded outputs
-    if [ $ifg_geotiff == yes ]; then
-	# unw
-	GM data2geotiff $eqa_dem_par $ifg_unw_geocode_out 2 $ifg_unw_geocode_out.tif
-	# disp unw
-	GM data2geotiff $eqa_dem_par $ifg_unw_disp_geocode_out 2 $ifg_unw_disp_geocode_out.tif
-	# flat ifg
-	GM data2geotiff $eqa_dem_par $ifg_flat_geocode_out 2 $ifg_flat_geocode_out.tif
-	# filt ifg
-	GM data2geotiff $eqa_dem_par $ifg_filt_geocode_out 2 $ifg_filt_geocode_out.tif
-	# flat cc
-	GM data2geotiff $eqa_dem_par $ifg_flat_cc_geocode_out 2 $ifg_flat_cc_geocode_out.tif
-	# filt cc
-	GM data2geotiff $eqa_dem_par $ifg_filt_cc_geocode_out 2 $ifg_filt_cc_geocode_out.tif
-    else
-	:
-    fi
+    #unw
+    GM data2geotiff $eqa_dem_par $ifg_unw_geocode_out 2 $ifg_unw_geocode_out.tif
+    # disp unw
+    GM data2geotiff $eqa_dem_par $ifg_unw_disp_geocode_out 2 $ifg_unw_disp_geocode_out.tif
+    # flat ifg
+    GM data2geotiff $eqa_dem_par $ifg_flat_geocode_out 2 $ifg_flat_geocode_out.tif
+    # filt ifg
+    GM data2geotiff $eqa_dem_par $ifg_filt_geocode_out 2 $ifg_filt_geocode_out.tif
+    # flat cc
+    GM data2geotiff $eqa_dem_par $ifg_flat_cc_geocode_out 2 $ifg_flat_cc_geocode_out.tif
+    # filt cc
+    GM data2geotiff $eqa_dem_par $ifg_filt_cc_geocode_out 2 $ifg_filt_cc_geocode_out.tif
+
 
     # Extract coordinates from DEM for plotting par file
     width=`grep width: $eqa_dem_par | awk '{print $2}'`

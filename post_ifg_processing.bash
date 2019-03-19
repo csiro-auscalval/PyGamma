@@ -60,27 +60,45 @@ post_process
 
 cd $proj_dir/$track
 
-## Copy geotiffs if created
-if [ $ifg_geotiff == 'yes' ]; then
-    mkdir -p $geotiff_dir
-    mkdir -p $geotiff_flat_ifg
-    mkdir -p $geotiff_filt_ifg
-    mkdir -p $geotiff_unw_ifg
-    mkdir -p $geotiff_flat_cc
-    mkdir -p $geotiff_filt_cc
-    while read list; do
-        if [ ! -z $list ]; then
-            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifg_file_names
-	    cp $ifg_flat_geocode_out.tif $geotiff_flat_ifg/
-	    cp $ifg_filt_geocode_out.tif $geotiff_filt_ifg/
-	    cp $ifg_unw_geocode_out.tif $geotiff_unw_ifg/
-	    cp $ifg_flat_cc_geocode_out.tif $geotiff_flat_cc/
-	    cp $ifg_filt_cc_geocode_out.tif $geotiff_filt_cc/
-        fi
-    done < $ifg_list
+## Move geotiffs 
+mkdir -p $geotiff_dir
+mkdir -p $geotiff_dem
+mkdir -p $geotiff_slc
+mkdir -p $geotiff_flat_ifg
+#mkdir -p $geotiff_filt_ifg
+mkdir -p $geotiff_unw_ifg
+mkdir -p $geotiff_flat_cc
+#mkdir -p $geotiff_filt_cc
+
+while read list; do
+    if [ ! -z $list ]; then
+        master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+        slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+	ifg_file_names
+	mv $ifg_flat_geocode_out.tif $geotiff_flat_ifg/
+	#cp $ifg_filt_geocode_out.tif $geotiff_filt_ifg/
+	mv $ifg_unw_geocode_out.tif $geotiff_unw_ifg/
+	mv $ifg_flat_cc_geocode_out.tif $geotiff_flat_cc/
+	#cp $ifg_filt_cc_geocode_out.tif $geotiff_filt_cc/
+    fi
+done < $ifg_list
 fi
+
+dem_master_names
+dem_file_names
+mv $dem_master_gamma0_eqa_geo $dem_master_sigma0_eqa_geo $geotiff_slc
+mv $dem_lv_theta_geo $dem_lv_phi_geo $geotiff_dem
+
+while read list; do
+    if [ ! -z $list ]; then
+        slave=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+        slave_file_names
+        mv $slave_gamma0_eqa_geo $slave_sigma0_eqa_geo $geotiff_slc
+    fi
+done < $slave_list
+
+
+
 
 if [ $post_method == 'stamps' ]; then
     :
@@ -196,7 +214,7 @@ elif [ $post_method == 'pyrate' ]; then
     cd $post_dir
     ## DEM files
     dem_file_names
-#    cp $eqa_dem . # Not currently used in PyRate
+    cp $eqa_dem . # Not currently used in PyRate
     cp $eqa_dem_par .
 #    cp $dem_lv_theta . # Not currently used in PyRate
 #    cp $dem_lv_phi . # Not currently used in PyRate
@@ -215,14 +233,14 @@ elif [ $post_method == 'pyrate' ]; then
     done < $slave_list
 
     ## Unwrapped interferogram files
-    while read list; do
-        if [ ! -z $list ]; then
-            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifg_file_names
-	    cp $ifg_unw_geocode_out .
-        fi
-    done < $ifg_list
+#    while read list; do
+#        if [ ! -z $list ]; then
+#            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+#            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+#	    ifg_file_names
+#	    cp $ifg_unw_geocode_out .
+#        fi
+#    done < $ifg_list
 
     ## Flattened coherence files - not currently used in PyRate
 #    while read list; do

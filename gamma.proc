@@ -143,7 +143,7 @@ USE_EXT_IMAGE=no
 
 COREGISTER_SLAVES=yes
 PROCESS_IFGS=yes
-IFG_GEOTIFF=yes
+
 
 -----CLEAN UP-------------------------------------------------------------------------------------------
 
