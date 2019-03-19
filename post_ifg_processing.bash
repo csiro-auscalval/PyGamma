@@ -65,10 +65,10 @@ mkdir -p $geotiff_dir
 mkdir -p $geotiff_dem
 mkdir -p $geotiff_slc
 mkdir -p $geotiff_flat_ifg
-#mkdir -p $geotiff_filt_ifg
+mkdir -p $geotiff_filt_ifg
 mkdir -p $geotiff_unw_ifg
 mkdir -p $geotiff_flat_cc
-#mkdir -p $geotiff_filt_cc
+mkdir -p $geotiff_filt_cc
 
 while read list; do
     if [ ! -z $list ]; then
@@ -76,10 +76,10 @@ while read list; do
         slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	ifg_file_names
 	mv $ifg_flat_geocode_out.tif $geotiff_flat_ifg/
-	#cp $ifg_filt_geocode_out.tif $geotiff_filt_ifg/
+	mv $ifg_filt_geocode_out.tif $geotiff_filt_ifg/
 	mv $ifg_unw_geocode_out.tif $geotiff_unw_ifg/
 	mv $ifg_flat_cc_geocode_out.tif $geotiff_flat_cc/
-	#cp $ifg_filt_cc_geocode_out.tif $geotiff_filt_cc/
+	mv $ifg_filt_cc_geocode_out.tif $geotiff_filt_cc/
     fi
 done < $ifg_list
 fi
