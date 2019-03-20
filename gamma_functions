@@ -474,6 +474,7 @@ function dem_file_names {
     rdc_dem=$dem_master_name"_rdc.dem"
     eqa_dem=$dem_master_name"_eqa.dem"
     eqa_dem_par=$eqa_dem.par
+    eqa_dem_geo=$eqa_dem.tif
     seamask=$dem_master_name"_eqa_seamask.tif"
     dem_lt_rough=$dem_master_name"_rough_eqa_to_rdc.lt"
     dem_lt_fine=$dem_master_name"_eqa_to_rdc.lt"
@@ -493,8 +494,8 @@ function dem_file_names {
     dem_coffsets=$dem_master_name.coffsets
     dem_lv_theta=$dem_master_name"_eqa.lv_theta"
     dem_lv_phi=$dem_master_name"_eqa.lv_phi"
-    dem_lv_theta_geo=$dem_master_name"_eqa.lv_theta.tif"
-    dem_lv_phi_geo=$dem_master_name"_eqa.lv_phi.tif"
+    dem_lv_theta_geo=$dem_lv_theta.tif
+    dem_lv_phi_geo=$dem_lv_phi.tif
     ext_image_flt=$dem_master_name"_ext_img_sar.flt" 
     ext_image_init_sar=$dem_master_name"_ext_img_init.sar" 
     ext_image_sar=$dem_master_name"_ext_img.sar"

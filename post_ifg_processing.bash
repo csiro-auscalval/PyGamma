@@ -75,25 +75,28 @@ while read list; do
         master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
         slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
 	ifg_file_names
-	mv $ifg_flat_geocode_out.tif $geotiff_flat_ifg/
-	mv $ifg_filt_geocode_out.tif $geotiff_filt_ifg/
-	mv $ifg_unw_geocode_out.tif $geotiff_unw_ifg/
-	mv $ifg_flat_cc_geocode_out.tif $geotiff_flat_cc/
-	mv $ifg_filt_cc_geocode_out.tif $geotiff_filt_cc/
+	ln -s $ifg_flat_geocode_out.tif $geotiff_flat_ifg
+	ln -s $ifg_filt_geocode_out.tif $geotiff_filt_ifg
+	ln -s $ifg_unw_geocode_out.tif $geotiff_unw_ifg
+	ln -s $ifg_flat_cc_geocode_out.tif $geotiff_flat_cc
+	ln -s $ifg_filt_cc_geocode_out.tif $geotiff_filt_cc
     fi
 done < $ifg_list
 fi
 
 dem_master_names
 dem_file_names
-mv $dem_master_gamma0_eqa_geo $dem_master_sigma0_eqa_geo $geotiff_slc
-mv $dem_lv_theta_geo $dem_lv_phi_geo $geotiff_dem
+ln -s $dem_master_gamma0_eqa_geo $geotiff_slc
+ln -s $dem_master_sigma0_eqa_geo $geotiff_slc
+ln -s $eqa_dem_geo $geotiff_dem
+ln -s $dem_lv_theta_geo $geotiff_dem
+ln -s $dem_lv_phi_geo $geotiff_dem
 
 while read list; do
     if [ ! -z $list ]; then
         slave=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
         slave_file_names
-        mv $slave_gamma0_eqa_geo $slave_sigma0_eqa_geo $geotiff_slc
+        ln -s $slave_gamma0_eqa_geo $slave_sigma0_eqa_geo $geotiff_slc
     fi
 done < $slave_list
 
@@ -232,25 +235,25 @@ elif [ $post_method == 'pyrate' ]; then
     done < $slave_list
 
     ## Unwrapped interferogram files
-    while read list; do
-        if [ ! -z $list ]; then
-            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifg_file_names
-	    cp $ifg_unw_geocode_out .
-        fi
-    done < $ifg_list
+   # while read list; do
+   #     if [ ! -z $list ]; then
+   #         master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+   #         slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+#	    ifg_file_names
+#	    cp $ifg_unw_geocode_out .
+#        fi
+#    done < $ifg_list
 
     ## Flattened coherence files - not currently used in PyRate
-    while read list; do
-        if [ ! -z $list ]; then
-            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifg_file_names
-	    cp $ifg_flat_cc_geocode_out .
-	    cp $ifg_dir/ifg.rsc .
-        fi
-    done < $ifg_list
+#    while read list; do
+#        if [ ! -z $list ]; then
+#            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+#            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+#	    ifg_file_names
+#	    cp $ifg_flat_cc_geocode_out .
+#	    cp $ifg_dir/ifg.rsc .
+#        fi
+#    done < $ifg_list
 
 else
     :
