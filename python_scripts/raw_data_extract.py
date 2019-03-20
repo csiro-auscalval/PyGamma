@@ -87,6 +87,10 @@ class S1DataDownload:
 
         acq_orbit_file = fnmatch.filter(orbit_files, '*V{}*_{}*.EOF'.format(start_date, end_date))
 
+        # acq_orbit_file = ['S1A_OPER_AUX_POEORB_OPOD_20190301T121025_V20190208T225942_20190210T005942.EOF',
+        #                   'S1A_OPER_AUX_POEORB_OPOD_20190301T121015_V20190208T225942_20190210T005942.EOF',
+        #                   'S1A_OPER_AUX_POEORB_OPOD_20190301T121022_V20190208T225942_20190210T005942.EOF']
+
         if not acq_orbit_file:
             return
         if len(acq_orbit_file) > 1:
