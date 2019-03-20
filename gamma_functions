@@ -79,6 +79,13 @@ function proc_variables {
 
     # Post processing method
     post_method=`grep ^POST_PROCESS_METHOD= $proc_file | cut -d "=" -f 2`
+    stamps_da=`grep ^STAMPS_DA_THRESH= $proc_file | cut -d "=" -f 2`
+    stamps_crop_rg=`grep ^STAMPS_CROP_RANGE= $proc_file | cut -d "=" -f 2`
+    stamps_crop_az=`grep ^STAMPS_CROP_AZ= $proc_file | cut -d "=" -f 2`
+    stamps_patches_rg=`grep ^STAMPS_PATCH_RANGE= $proc_file | cut -d "=" -f 2`
+    stamps_patches_az=`grep ^STAMPS_PATCH_AZ= $proc_file | cut -d "=" -f 2`
+    stamps_overlap_rg=`grep ^STAMPS_OVERLAP_RANGE= $proc_file | cut -d "=" -f 2`
+    stamps_overlap_az=`grep ^STAMPS_OVERLAP_AZ= $proc_file | cut -d "=" -f 2`
 
     # Processing steps (yes/no)
     do_raw=`grep ^EXTRACT_RAW_DATA= $proc_file | cut -d "=" -f 2`
@@ -86,6 +93,7 @@ function proc_variables {
     coreg_dem=`grep ^COREGISTER_DEM= $proc_file | cut -d "=" -f 2`
     coregister=`grep ^COREGISTER_SLAVES= $proc_file | cut -d "=" -f 2`
     do_ifgs=`grep ^PROCESS_IFGS= $proc_file | cut -d "=" -f 2`
+    do_post=`grep ^POST_PROCESS= $proc_file | cut -d "=" -f 2`
 
     # Sentinel-1 specific steps
     do_s1_subset=`grep ^DO_S1_BURST_SUBSET= $proc_file | cut -d "=" -f 2`
@@ -188,9 +196,12 @@ function proc_variables {
     ifg_walltime=`grep ^IFG_WALLTIME= $proc_file | cut -d "=" -f 2`
     ifg_mem=`grep ^IFG_MEM= $proc_file | cut -d "=" -f 2`
     ifg_ncpus=`grep ^IFG_NCPUS= $proc_file | cut -d "=" -f 2`
-    post_walltime=`grep ^POST_WALLTIME= $proc_file | cut -d "=" -f 2`
-    post_mem=`grep ^POST_MEM= $proc_file | cut -d "=" -f 2`
-    post_ncpus=`grep ^POST_NCPUS= $proc_file | cut -d "=" -f 2`
+    stamps_post_walltime=`grep ^STAMPS_POST_WALLTIME= $proc_file | cut -d "=" -f 2`
+    stamps_post_mem=`grep ^STAMPS_POST_MEM= $proc_file | cut -d "=" -f 2`
+    stamps_post_ncpus=`grep ^STAMPS_POST_NCPUS= $proc_file | cut -d "=" -f 2`
+    other_post_walltime=`grep ^OTHER_POST_WALLTIME= $proc_file | cut -d "=" -f 2`
+    other_post_mem=`grep ^OTHER_POST_MEM= $proc_file | cut -d "=" -f 2`
+    other_post_ncpus=`grep ^OTHER_POST_NCPUS= $proc_file | cut -d "=" -f 2`
     img_walltime=`grep ^IMAGE_WALLTIME= $proc_file | cut -d "=" -f 2`
     img_mem=`grep ^IMAGE_MEM= $proc_file | cut -d "=" -f 2`
     img_ncpus=`grep ^IMAGE_NCPUS= $proc_file | cut -d "=" -f 2`
@@ -236,7 +247,8 @@ function final_file_loc {
     s1_burst_list=$list_dir/`grep ^S1_BURST_LIST= $proc_file | cut -d "=" -f 2`
     s1_file_list=$list_dir/`grep ^S1_FILE_LIST= $proc_file | cut -d "=" -f 2`
     s1_frame_resize_master=`grep ^RESIZE_MASTER: $s1_file_list | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'`
-    remove_list=$list_dir/`grep ^REMOVE_SCENE_LIST= $proc_file | cut -d "=" -f 2`
+    remove_slc_list=$list_dir/`grep ^REMOVE_SLC_LIST= $proc_file | cut -d "=" -f 2`
+    remove_ifg_list=$list_dir/`grep ^REMOVE_IFG_LIST= $proc_file | cut -d "=" -f 2`
 }
 
 ## Print processing details to screen (when running from head node)
@@ -462,6 +474,7 @@ function dem_file_names {
     rdc_dem=$dem_master_name"_rdc.dem"
     eqa_dem=$dem_master_name"_eqa.dem"
     eqa_dem_par=$eqa_dem.par
+    eqa_dem_geo=$eqa_dem.tif
     seamask=$dem_master_name"_eqa_seamask.tif"
     dem_lt_rough=$dem_master_name"_rough_eqa_to_rdc.lt"
     dem_lt_fine=$dem_master_name"_eqa_to_rdc.lt"
@@ -481,8 +494,8 @@ function dem_file_names {
     dem_coffsets=$dem_master_name.coffsets
     dem_lv_theta=$dem_master_name"_eqa.lv_theta"
     dem_lv_phi=$dem_master_name"_eqa.lv_phi"
-    dem_lv_theta_geo=$dem_master_name"_eqa.lv_theta.tif"
-    dem_lv_phi_geo=$dem_master_name"_eqa.lv_phi.tif"
+    dem_lv_theta_geo=$dem_lv_theta.tif
+    dem_lv_phi_geo=$dem_lv_phi.tif
     ext_image_flt=$dem_master_name"_ext_img_sar.flt" 
     ext_image_init_sar=$dem_master_name"_ext_img_init.sar" 
     ext_image_sar=$dem_master_name"_ext_img.sar"

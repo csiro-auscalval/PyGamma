@@ -325,11 +325,14 @@ GEOCODE()
     # geotiff gamma0 file
     GM data2geotiff $eqa_dem_par $dem_master_gamma0_eqa 2 $dem_master_gamma0_eqa_geo 0.0
 
-    # geocode sigma0 mli 
+    # geocode and geotiff sigma0 mli 
     cp $r_dem_master_mli $dem_master_sigma0 
     GM geocode_back $dem_master_sigma0 $r_dem_master_mli_width $dem_lt_fine $dem_master_sigma0_eqa $dem_width - 0 0 - -
     GM data2geotiff $eqa_dem_par $dem_master_sigma0_eqa 2 $dem_master_sigma0_eqa_geo 0.0
     
+    # geotiff DEM
+    GM data2geotiff $eqa_dem_par $eqa_dem 2 $eqa_dem_geo 0.0
+
     cd $dem_master_dir    
     name=`ls *$rlks"rlks_eqa"*gamma0.png`
     GM kml_map $name $eqa_dem_par ${name/.png}.kml

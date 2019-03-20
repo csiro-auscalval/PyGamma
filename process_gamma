@@ -1470,19 +1470,47 @@ if [ $do_ifgs == yes ]; then
 		single_job $pbs_run_loc $pbs_job_prefix4 $nci_project $base_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	    }
 	fi
+elif [ $do_ifgs == no ]; then
+    echo "Option to generate interferograms not selected."
+    echo ""
+else
+    :
+fi
 
-	# Post interferogram processing
-	cd $ifg_batch_dir
-	depend_job=`sed s/.r-man2// "all_"$pbs_job_prefix"job_ids"`
-	depend_type=afterok
+
+##########################   POST PROCESSING   ##########################
+
+if [ $do_post == yes ]; then
+    cd $ifg_batch_dir
+    if [ -e post_ifg_job_id ]; then
+	echo "Post processing already completed."
+    else
+	if [ $do_ifgs == yes ]; then
+	    depend_job=`sed s/.r-man2// "all_ifg_job_ids"`
+	    depend_type=afterok
+	else
+	    depend_job=0  # if no dependency, needs to zero
+	fi
+   
+	# different resources required depending on post processing method
+	if [ $post_method == 'stamps' ]; then
+	    post_walltime=$stamps_post_walltime
+	    post_mem=$stamps_post_mem
+	    post_ncpus=$stamps_post_ncpus
+	else
+	    post_walltime=$other_post_walltime
+	    post_mem=$other_post_mem
+	    post_ncpus=$other_post_ncpus
+	fi
+
 	job_type=1 #1 for batch job, 2 for manual job
-	pbs_job_prefix5=post_ifg
+	pbs_job_prefix=post_ifg
 	echo ""
 	echo "Collating files for post processing ..."
 	script_type=-
 	script=post_ifg_processing.bash
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix5 $nci_project $ifg_batch_dir $post_walltime $post_mem $post_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+	    single_job $pbs_run_loc $pbs_job_prefix $nci_project $ifg_batch_dir $post_walltime $post_mem $post_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 	}
 
         # Create manual PBS jobs
@@ -1490,25 +1518,25 @@ if [ $do_ifgs == yes ]; then
 	job_type=2 #1 for batch job, 2 for manual job
 	depend_job=0
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix5 $nci_project $ifg_manual_dir $post_walltime $post_mem $post_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
+	    single_job $pbs_run_loc $pbs_job_prefix $nci_project $ifg_manual_dir $post_walltime $post_mem $post_ncpus $exp_queue $depend_job $depend_type $job_type $script_type $script
 	}
 
         # Error collation for post processing
 	cd $ifg_batch_dir
 	echo ""
 	echo "Preparing error collation for collating files for post processing ..."
-	depend_job=`sed s/.r-man2// $pbs_job_prefix5"_job_id"`
+	depend_job=`sed s/.r-man2// $pbs_job_prefix"_job_id"`
 	depend_type=afterany
 	job_type=1
-	pbs_job_prefix6=post_ifg_err
+	pbs_job_prefix2=post_ifg_err
 	err_type=13
 	script=collate_nci_errors.bash
 	{
-	    single_job $pbs_run_loc $pbs_job_prefix6 $nci_project $ifg_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
+	    single_job $pbs_run_loc $pbs_job_prefix2 $nci_project $ifg_batch_dir $err_walltime $err_mem $err_ncpus $exp_queue $depend_job $depend_type $job_type $err_type $script 
 	}
     fi
-elif [ $do_ifgs == no ]; then
-    echo "Option to generate interferograms not selected."
+elif [ $do_post == no ]; then
+    echo "Option to do post processing not selected."
     echo ""
 else
     :
