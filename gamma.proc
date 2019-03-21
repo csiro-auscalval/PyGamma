@@ -41,9 +41,10 @@ SLAVE_LIST=slaves.list
 IFG_LIST=ifgs.list
     # manually created for other sensors that use frames (not Sentinel-1)
 FRAME_LIST=frame.list
-
     # list for removing scene/s from lists (ie. for SLCs that don't work)
-REMOVE_SCENE_LIST=remove_scenes.list
+REMOVE_SLC_LIST=remove_slcs.list
+    # list for removing ifgs from post processing (i.e. ifgs that have errors: burst issues, unw errors, large atmosphere)
+REMOVE_IFG_LIST=remove_lfgs.list
 
 
 -----PROJECT DIRECTORY & TRACK--------------------------------------------------------------------------
@@ -117,12 +118,6 @@ MIN_CONNECT=4
 MAX_CONNECT=7
 
 
------POST PROCESSING PROCESSING METHOD------------------------------------------------------------------
-
-   # Options: pymode, pyrate or stamps
-POST_PROCESS_METHOD=pyrate
-
-
 -----PROCESSING STEPS-----------------------------------------------------------------------------------
 
     # yes / no options
@@ -143,7 +138,27 @@ USE_EXT_IMAGE=no
 
 COREGISTER_SLAVES=yes
 PROCESS_IFGS=yes
-IFG_GEOTIFF=yes
+POST_PROCESS=yes
+
+
+-----POST PROCESSING PROCESSING METHOD------------------------------------------------------------------
+
+   # Options: pymode, pyrate or stamps
+POST_PROCESS_METHOD=pyrate
+
+   -----STAMPS ONLY-----
+   # (delta) amplitude dispersion threshold (typical values: 0.4 for PS, 0.6 for SB)
+STAMPS_DA_THRESH=0.6
+   # crop area ('min' 'max' format, e.g. 1365 4125, leave as '-' if not cropping)
+STAMPS_CROP_RANGE=-
+STAMPS_CROP_AZ=-
+   # number of patches (default: 1)
+STAMPS_PATCH_RANGE=1
+STAMPS_PATCH_AZ=1
+   # overlapping pixels between patches (default: 50)
+STAMPS_OVERLAP_RANGE=50
+STAMPS_OVERLAP_AZ=50
+
 
 -----CLEAN UP-------------------------------------------------------------------------------------------
 
@@ -313,10 +328,15 @@ IFG_WALLTIME=02:00:00
 IFG_MEM=10GB
 IFG_NCPUS=4
 
-   -----POST INTERFEROGRAM PROCESSING-----
-POST_WALLTIME=00:30:00
-POST_MEM=500MB
-POST_NCPUS=1
+   -----STAMPS POST INTERFEROGRAM PROCESSING----- # if cropping, can reduce to 5GB and 1 cpu
+STAMPS_POST_WALLTIME=04:00:00
+STAMPS_POST_MEM=64GB
+STAMPS_POST_NCPUS=16
+
+   -----OTHER POST INTERFEROGRAM PROCESSING-----
+OTHER_POST_WALLTIME=00:30:00
+OTHER_POST_MEM=500MB
+OTHER_POST_NCPUS=1
 
     -----JOB ERROR COLLATION-----
 ERROR_WALLTIME=00:05:00

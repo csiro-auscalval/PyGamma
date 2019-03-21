@@ -60,39 +60,50 @@ post_process
 
 cd $proj_dir/$track
 
-## Copy geotiffs if created
-if [ $ifg_geotiff == 'yes' ]; then
-    mkdir -p $geotiff_dir
-    mkdir -p $geotiff_flat_ifg
-    mkdir -p $geotiff_filt_ifg
-    mkdir -p $geotiff_unw_ifg
-    mkdir -p $geotiff_flat_cc
-    mkdir -p $geotiff_filt_cc
-    while read list; do
-        if [ ! -z $list ]; then
-            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifg_file_names
-	    cp $ifg_flat_geocode_out.tif $geotiff_flat_ifg/
-	    cp $ifg_filt_geocode_out.tif $geotiff_filt_ifg/
-	    cp $ifg_unw_geocode_out.tif $geotiff_unw_ifg/
-	    cp $ifg_flat_cc_geocode_out.tif $geotiff_flat_cc/
-	    cp $ifg_filt_cc_geocode_out.tif $geotiff_filt_cc/
-        fi
-    done < $ifg_list
+## Move geotiffs 
+mkdir -p $geotiff_dir
+mkdir -p $geotiff_dem
+mkdir -p $geotiff_slc
+mkdir -p $geotiff_flat_ifg
+mkdir -p $geotiff_filt_ifg
+mkdir -p $geotiff_unw_ifg
+mkdir -p $geotiff_flat_cc
+mkdir -p $geotiff_filt_cc
+
+while read list; do
+    if [ ! -z $list ]; then
+        master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+        slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+	ifg_file_names
+	ln -s $ifg_flat_geocode_out.tif $geotiff_flat_ifg
+	ln -s $ifg_filt_geocode_out.tif $geotiff_filt_ifg
+	ln -s $ifg_unw_geocode_out.tif $geotiff_unw_ifg
+	ln -s $ifg_flat_cc_geocode_out.tif $geotiff_flat_cc
+	ln -s $ifg_filt_cc_geocode_out.tif $geotiff_filt_cc
+    fi
+done < $ifg_list
 fi
 
+dem_master_names
+dem_file_names
+ln -s $dem_master_gamma0_eqa_geo $geotiff_slc
+ln -s $dem_master_sigma0_eqa_geo $geotiff_slc
+ln -s $eqa_dem_geo $geotiff_dem
+ln -s $dem_lv_theta_geo $geotiff_dem
+ln -s $dem_lv_phi_geo $geotiff_dem
+
+while read list; do
+    if [ ! -z $list ]; then
+        slave=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+        slave_file_names
+        ln -s $slave_gamma0_eqa_geo $slave_sigma0_eqa_geo $geotiff_slc
+    fi
+done < $slave_list
+
+
 if [ $post_method == 'stamps' ]; then
-    :
-else
     mkdir -p $post_dir
     cd $post_dir
-fi
-
-
-if [ $post_method == 'stamps' ]; then
-    echo "stamps post ifg processing not implemented yet, needs stamps to be installed centrally"
-    exit
 
     mkdir -p $gamma_data_dir
     mkdir -p $stamps_geo_dir
@@ -105,16 +116,21 @@ if [ $post_method == 'stamps' ]; then
     dem_file_names
     cp $lat_lon_pix .
     cp $rdc_dem .
+    # rename sar_latlon for compatibility with mt_prep
+    mv *sar_latlon.txt sar_latlon.txt
 
+    ## MLI files
     cd $stamps_rslc_dir
-    dem_master_names
-    slave_file_names
-    cp $r_dem_master_mli .
-    cp $r_dem_master_mli_par .
-    cp $r_slave_mli .
-    cp $r_slave_mli_par .
-    rm -f *eqa_subset.mli
+    while read list; do
+        if [ ! -z $list ]; then
+            slave=`echo $list`
+            slave_file_names
+            cp $r_slave_mli .
+            cp $r_slave_mli_par .
+        fi
+    done < $scene_list
 
+    ## IFG files
     cd $stamps_diff_dir
     while read list; do
         if [ ! -z $list ]; then
@@ -127,30 +143,26 @@ if [ $post_method == 'stamps' ]; then
     done < $ifg_list
 
     ## CR file if exists
-    crfile=$proj_dir/$track/CR_site_lon_lat_hgt_date_az_rg.txt
+    crfile=$proj_dir/$track_dir/CR_site_lon_lat_hgt_date_az_rg.txt
     if [ -f $crfile ]; then
 	cp $crfile $post_dir
     else
 	:
     fi
 
-    ## any interferograms that should be exluded?
-        # place here by giving the date an copying the two rm lines
-    #echo "The following Interferograms are excluded:"
-    #echo
-    #date=20050912
-    #echo $date
-    #rm -f $stamps_rslc_dir/r$date*
-    #rm -f $stamps_diff_dir/$master-$date*
-    #date=20100419
-    #echo $date
-    #rm -f $stamps_rslc_dir/r$date*
-    #rm -f $stamps_diff_dir/$master-$date*
-    # ifgs excluded
+    # Exclude any problem interferograms
+    while read pair; do
+	master=`echo $pair | awk 'BEGIN {FS=","} ; {print $1}'`
+	slave=`echo $pair | awk 'BEGIN {FS=","} ; {print $2}'`
+	ifg=$master-$slave
+	rm -rf $stamps_diff_dir/$ifg*
+	rm -rf $stamps_rslc_dir/r$master* $stamps_rslc_dir/r$slave*
+    done < $remove_ifg_list
 
-    ## Swap bytes for fcomplex data
+    # Swap bytes for fcomplex data
     echo "Swapping bytes (big endian > little endian)"
     echo
+
     for file in $stamps_rslc_dir/*.mli
     do
 	mv $file temp1
@@ -163,12 +175,18 @@ if [ $post_method == 'stamps' ]; then
     done
     rm -r temp1
 
-    /home/547/txf547/StaMPS_v3.3b1/bin/mt_prep_gamma_area $master_scene $gamma_data_dir 0.6 0 1008 1871 3541 1 1 50 50
-
-    ## remove files which are not needed anymore
+    ## Run pre-processing
+    if [ $stamps_crop_rg == '-' ]; then
+	/g/data1/dg9/SOFTWARE/dg9-apps/stamps-4.1/bin/mt_prep_gamma $master_scene $gamma_data_dir $stamps_da $stamps_patches_rg $stamps_patches_az $stamps_overlap_rg $stamps_overlap_az
+    else #crop area
+	/g/data1/dg9/SOFTWARE/dg9-apps/stamps-4.1/bin/mt_prep_gamma_area $master_scene $gamma_data_dir $stamps_da $stamps_crop_rg $stamps_crop_az $stamps_patches_rg $stamps_patches_az $stamps_overlap_rg $stamps_overlap_az
+    fi
+    ## Remove files which are not needed anymore
     rm -f $stamps_diff_dir/*_flat.int
     rm -rf $stamps_geo_dir
     rm -f $stamps_rslc_dir/*.mli
+
+
 
 elif [ $post_method == 'pymode' ]; then
    ## interferogram files
@@ -191,6 +209,8 @@ elif [ $post_method == 'pymode' ]; then
     cp $eqa_dem_par .
     cp $dem_lv_theta .
     cp $dem_lv_phi .
+
+
 
 elif [ $post_method == 'pyrate' ]; then
     cd $post_dir
@@ -215,14 +235,14 @@ elif [ $post_method == 'pyrate' ]; then
     done < $slave_list
 
     ## Unwrapped interferogram files
-    while read list; do
-        if [ ! -z $list ]; then
-            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-	    ifg_file_names
-	    cp $ifg_unw_geocode_out .
-        fi
-    done < $ifg_list
+   # while read list; do
+   #     if [ ! -z $list ]; then
+   #         master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+   #         slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+#	    ifg_file_names
+#	    cp $ifg_unw_geocode_out .
+#        fi
+#    done < $ifg_list
 
     ## Flattened coherence files - not currently used in PyRate
 #    while read list; do
@@ -238,7 +258,6 @@ elif [ $post_method == 'pyrate' ]; then
 else
     :
 fi
-
 
 
 # script end

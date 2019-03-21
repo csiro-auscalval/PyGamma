@@ -229,7 +229,6 @@ CREATE_DIFF_PAR()
 }
 
 
-
 OFFSET_CALC()
 {
     cd $dem_dir
@@ -323,12 +322,21 @@ GEOCODE()
     # make quick-look png image
     GM raspwr $dem_master_gamma0_eqa $dem_width 1 0 20 20 - - - $dem_master_gamma0_eqa_bmp
     GM convert $dem_master_gamma0_eqa_bmp -transparent black ${dem_master_gamma0_eqa_bmp/.bmp}.png
+    # geotiff gamma0 file
+    GM data2geotiff $eqa_dem_par $dem_master_gamma0_eqa 2 $dem_master_gamma0_eqa_geo 0.0
+
+    # geocode and geotiff sigma0 mli 
+    cp $r_dem_master_mli $dem_master_sigma0 
+    GM geocode_back $dem_master_sigma0 $r_dem_master_mli_width $dem_lt_fine $dem_master_sigma0_eqa $dem_width - 0 0 - -
+    GM data2geotiff $eqa_dem_par $dem_master_sigma0_eqa 2 $dem_master_sigma0_eqa_geo 0.0
+    
+    # geotiff DEM
+    GM data2geotiff $eqa_dem_par $eqa_dem 2 $eqa_dem_geo 0.0
 
     cd $dem_master_dir    
     name=`ls *$rlks"rlks_eqa"*gamma0.png`
     GM kml_map $name $eqa_dem_par ${name/.png}.kml
     rm -f $dem_master_gamma0_eqa_bmp
-
 }
 
 
@@ -339,6 +347,10 @@ LOOK_VECTOR()
     # not using 'GM' for this command as it prints a standard output to the error.log, making dependent PBS jobs fail, force output to 'null' file
     #look_vector $r_dem_master_slc_par - $eqa_dem_par $eqa_dem $dem_lv_theta $dem_lv_phi  &> null
     GM look_vector $r_dem_master_slc_par - $eqa_dem_par $eqa_dem $dem_lv_theta $dem_lv_phi
+    
+    # geocode look vectors
+    GM data2geotiff $eqa_dem_par $dem_lv_theta 2 $dem_lv_theta_geo 0.0
+    GM data2geotiff $eqa_dem_par $dem_lv_phi 2 $dem_lv_phi_geo 0.0
 }
 
 
@@ -348,18 +360,6 @@ GEOTIF_FULL()
     cd $dem_master_dir
     r_dem_master_mli_eqa=$dem_master_dir/$r_dem_master_mli_name"_eqa_full.mli"
     r_dem_master_mli_geo=$dem_master_dir/$r_dem_master_mli_name"_eqa_mli_full.tif"
-    width_in=`grep range_samp_1: $dem_diff | awk '{print $2}'`
-    width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
-    
-    GM geocode_back $r_dem_master_mli $width_in $dem_lt_fine $r_dem_master_mli_eqa $width_out - 0 0 - -
-    GM data2geotiff $eqa_dem_par $r_dem_master_mli_eqa 2 $r_dem_master_mli_geo 0.0
-}
-
-GEOTIF()
-{
-    cd $dem_master_dir
-    r_dem_master_mli_eqa=$dem_master_dir/$r_dem_master_mli_name"_eqa.mli"
-    r_dem_master_mli_geo=$dem_master_dir/$r_dem_master_mli_name"_eqa_mli.tif"
     width_in=`grep range_samp_1: $dem_diff | awk '{print $2}'`
     width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
     
