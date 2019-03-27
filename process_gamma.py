@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import os
-from os.path import join as pjoin, basename, dirname, exists
+from os.path import join as pjoin, isdir, basename, dirname, exists
 import logging
 import subprocess
 import datetime
@@ -656,6 +656,7 @@ class Workflow(luigi.Task):
         completioncheck = CompletionCheck(upstream_task={'check_processifgs': check_processifgs})
 
         yield completioncheck
+        
 
     def output(self):
         path_name = get_path(self.proc_file_path)
@@ -701,8 +702,6 @@ class ARD(luigi.Task):
         luigi --module process_gamma ARD
         --s1-file-list <path to a s1 file list>
         --restart-process <True if resuming from previously completed state>
-        --track <S1 track number A/D>
-        --frame <frame number>
         --workdir <working directory, nci outputs and luigi logs will be stored>
         --outdir <output directory where processed data will be stored>
         --local-scheduler (use only local-scheduler)
@@ -712,8 +711,6 @@ class ARD(luigi.Task):
     """
     s1_file_list = luigi.Parameter(significant=False)
     project = luigi.Parameter(significant=False)
-    track = luigi.Parameter(significant=False)
-    frame = luigi.Parameter(significant=False)
     gamma_config = luigi.Parameter(significant=False)
     polarization = luigi.Parameter(default='VV', significant=False)
     multilook = luigi.IntParameter(default=1, significant=False)
@@ -724,11 +721,11 @@ class ARD(luigi.Task):
     process_ifgs = luigi.Parameter(default='yes', significant=False)
     process_geotiff = luigi.Parameter(default='yes', significant=False)
     clean_up = luigi.Parameter(default='no', significant=False)
-    proc_file = luigi.Parameter(default='', significant=False)
     restart_process = luigi.Parameter(default=False, significant=False)
     checkpoint_patterns = luigi.Parameter(default=None, significant=False)
     outdir = luigi.Parameter(significant=False)
     workdir = luigi.Parameter(significant=False)
+    proc_dir = luigi.Parameter(significant=False)
 
     def requires(self):
 
@@ -738,15 +735,28 @@ class ARD(luigi.Task):
                 os.makedirs(self.outdir)
             if not exists(self.workdir):
                 os.makedirs(self.workdir)
+            
+            if not exists(self.s1_file_list): 
+                ERROR_LOGGER.error('{} does not exist'.format(self.s1_file_list))
+                return 
 
-            if not self.proc_file:
-                kwargs = {'s1_file_list': basename(self.s1_file_list),
+            s1_file = basename(self.s1_file_list)
+            file_strings = s1_file.split('_')
+            print(file_strings)
+            track, frame, polarization = file_strings[1], file_strings[2], file_strings[3]
+            
+            proc_name = '{}_{}.proc'.format(track, frame)
+            proc_file1 = pjoin(self.proc_dir, proc_name)
+
+            if not exists(proc_file1):
+                STATUS_LOGGER.info('{} does not exist, used auto generated proc file'.format(proc_name)) 
+                kwargs = {'s1_file_list': s1_file,
                           'outdir': pjoin(self.outdir),
                           'project': self.project,
-                          'track': self.track,
+                          'track': track,
                           'gamma_config': self.gamma_config,
-                          'frame': self.frame,
-                          'polarization': self.polarization,
+                          'frame': frame,
+                          'polarization': polarization,
                           'multilook': self.multilook,
                           'extract_raw_data': self.extract_raw_data,
                           'do_slc': self.do_slc,
@@ -757,18 +767,17 @@ class ARD(luigi.Task):
                           'clean_up': self.clean_up}
 
                 proc_data = PROC_FILE_TEMPLATE.format(**kwargs)
-                proc_file1 = pjoin(self.workdir, '{}_{}.proc'.format(self.track, self.frame))
+                proc_file1 = pjoin(self.workdir, proc_name)
 
                 with open(proc_file1, 'w') as src:
-                    src.writelines(proc_data)
-
-            else:
-                proc_file1 = self.proc_file
+                    src.writelines(proc_data) 
+            print(self.s1_file_list)
+            print(proc_file1)
 
             if self.restart_process:
 
                 path_name = get_path(proc_file1)
-                proc_file1 = pjoin(path_name['proj_dir'], '{}_{}.proc'.format(self.track, self.frame))
+                proc_file1 = pjoin(path_name['proj_dir'], proc_name)
                 path_name = get_path(proc_file1)
 
                 if not exists(pjoin(path_name['checkpoint_dir'], 'final_status_logs.out')):

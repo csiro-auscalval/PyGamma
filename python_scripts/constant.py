@@ -65,6 +65,7 @@ class FolderNames(Enum):
     CALIBRATION = 'calibration'
     PREVIEW = 'preview'
 
+
 class MatchStrings(Enum):
     """
     Defines the string (or characters) which are used in finding
