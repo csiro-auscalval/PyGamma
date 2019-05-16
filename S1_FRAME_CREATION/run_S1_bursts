@@ -8,9 +8,20 @@ display_usage() {
     echo "*                so scenes can be automatically selected to create new scene  *"
     echo "*                stacks using GA's Sentinel-1 framing system.                 *"
     echo "*                                                                             *"
-    echo "* input:  [config_file]   S1 burst config file                                *"
+    echo "*                Also Creates dataframes of burst metadata for each track     *"
+    echo "*                and shapefiles of burst extents and scene extents for each   *"
+    echo "*                zip file in the archive.                                     *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       13/02/2019, v1.0                            *"
+    echo "*        Run script from: /g/data1/dg9/SENTINEL-1_BURSTS                      *"
+    echo "*                                                                             *"
+    echo "*   Automatically calls a miniconda virtual environment to run python         *"
+    echo "*   scripts. To access VM manually:                                           *"
+    echo "*      > source /g/data1/dg9/sll547/miniconda3/etc/profile.d/conda.sh         *"
+    echo "*      > conda activate S1_Frames                                             *"
+    echo "*                                                                             *"
+    echo "* input:  [config_file]   name of config file (e.g. S1_burst_config)          *"
+    echo "*                                                                             *"
+    echo "* author: Sarah Lawrie @ GA       13/03/2019, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: run_S1_bursts [config_file]"
     }
@@ -25,7 +36,6 @@ config_file=$1
 
 # Load generic variables
 source ~/repo/gamma_insar/S1_FRAME_CREATION/S1_burst_functions $config_file
-variables
 
 cd $proj_dir
 
@@ -34,11 +44,16 @@ mkdir -p $processing_dir $zip_dir $burst_dir $ind_burst_dir $pbs_dir $shp_dir
 
 ## Get list of zip files currently in the Sentinel-1 archive
 if [ $create_zip_list == 'yes' ]; then
+    if [ $compare_zip == 'yes' ]; then
+	echo "Creating list of zip files added to Sentinel-1 archive since last time this script was run ..."
+    else
+	echo "Creating list of all zip files in Sentinel-1 archive ..."
+    fi
     cd $pbs_dir
     job=s1_zip_list
     echo \#\!/bin/bash > $job
     echo \#\PBS -l other=gdata1 >> $job
-    echo \#\PBS -l walltime=05:00:00 >> $job
+    echo \#\PBS -l walltime=08:00:00 >> $job
     echo \#\PBS -l mem=10GB >> $job
     echo \#\PBS -l ncpus=1 >> $job
     echo \#\PBS -l wd >> $job
@@ -46,11 +61,19 @@ if [ $create_zip_list == 'yes' ]; then
     echo ~/repo/gamma_insar/S1_FRAME_CREATION/create_S1_zipfile_list.bash $proj_dir/$config_file >> $job
     chmod +x $job
     qsub $job 
+else
+    echo "Option to create zip lists not selected."
+fi
+
+
 ## Extract metadata for each zip file and calculate burst corner coordinates
-elif [ $extract_metadata == 'yes' ]; then
-    # split zip lists
+if [ $extract_metadata == 'yes' ]; then
+    echo "Extracting metadata from zip files ..."
+
     mkdir -p $split_dir
     cd $list_dir
+
+    # split zip file list into 5,000 blocks to speed up processing
     split -l 5000 $zip_list $split_name
     mv $split_name* $split_dir
     cd $split_dir
@@ -60,7 +83,7 @@ elif [ $extract_metadata == 'yes' ]; then
     cd $pbs_dir
 
     while read list; do
-	part=`echo $list | cut -d '_' -f 6`
+	part=`echo $list | cut -d '_' -f 5`
 	job="bursts_"$part
 	echo \#\!/bin/bash > $job
 	echo \#\PBS -lother=gdata1 >> $job
@@ -71,92 +94,69 @@ elif [ $extract_metadata == 'yes' ]; then
 	echo \#\PBS -q normal >> $job
 	echo ~/repo/gamma_insar/S1_FRAME_CREATION/extract_S1_bursts_metadata.bash $proj_dir/$config_file $split_dir/$list >> $job
 	chmod +x $job
-	qsub $job
+	qsub $job | tee $job"_job_id"
+        ls $job"_job_id" >> metadata_list
     done < $split_list
 
+    # create dependency list
+    while read id; do
+        less $id >> list2
+        rm -rf $id
+    done < metadata_list
+    sed s/.r-man2// list2 > list3 # leave just job numbers
+    sort -n list3 > list4 # sort numbers
+    tr '\n' ':' < list4 > list5 # move column to single row with numbers separated by :
+    sed s'/.$//' list5 > all_metadata_job_ids # remove last :
+    rm -rf metadata_list list2 list3 list4 list5
+
+    # create PBS job for consolidating metadata
+    job=consol_meta
+    echo \#\!/bin/bash > $job
+    echo \#\PBS -l other=gdata1 >> $job
+    echo \#\PBS -l walltime=00:15:00 >> $job
+    echo \#\PBS -l mem=500MB >> $job
+    echo \#\PBS -l ncpus=1 >> $job
+    echo \#\PBS -l wd >> $job
+    echo \#\PBS -q express >> $job
+    depend_job=`awk '{print $1}' all_metadata_job_ids`
+    echo \#\PBS -W depend=afterok:$depend_job >> $job
+    echo ~/repo/gamma_insar/S1_FRAME_CREATION/consolidate_metadata.bash $proj_dir/$config_file >> $job
+    chmod +x $job
+    qsub $job 
+
     echo "Archive tracks last updated on "$date > $proj_dir/LAST_UPDATE
-
-## Create archive lists for selecting scenes for frames 
-elif [ $create_archive == 'yes' ]; then
-    input_files=$burst_dir/"input_S1_"$mode"_"$type"_list_"*".burst-metadata"
-    merged_file=$burst_dir/"S1_"$mode"_"$type"_"$date".burst-metadata"
-
-    cd $burst_dir
-
-    # merge lists into single file
-    ls $input_files > list
-    while read file; do
-	cat $file >> temp
-    done < list
-    rm -rf list
-
-    # remove repeated headers
-    sed '1!{/^Mission/ d;}' temp > $merged_file
-    rm -rf temp
-    header=`head -n 1 $merged_file`
-
-    # move input lists
-    mkdir -p burst_metadata_lists
-    mv $input_files burst_metadata_lists
-
-    ## Split list by pass value
-    echo "Ascending" > pass_names
-    echo "Descending" >> pass_names
-    rm -rf pass_list
-
-    while read pass; do
-	awk -v var="$pass" -F' ' '$5 == var { print }' $merged_file > $mode"_"$type"_"$pass"_burst-metadata"
-        ls $mode"_"$type"_"$pass"_burst-metadata" >> pass_list
-        mkdir -p $archive_dir/$pass"_track_data"
-    done < pass_names
-
-    ## Split pass files by track for frame archive
-    while read file; do
-	pass=`echo $file | cut -d '_' -f 3`
-        if [ $pass == "Ascending" ]; then 
-	    pass1=A
-	elif [ $pass == "Descending" ]; then
-	    pass1=D
-	fi
-	awk '{ a[$8]++ } END { for (b in a) { print b } }' $file > $pass"_tracks"
-        while read track; do
-	    echo $header > "S1_"$mode"_"$type"_T"$track$pass1"_burst-metadata"
-            awk -v var="$track" -F' ' '$8 == var { print }' $mode"_"$type"_"$pass"_burst-metadata" >> "S1_"$mode"_"$type"_T"$track$pass1"_burst-metadata"
-            mv "S1_"$mode"_"$type"_T"$track$pass1"_burst-metadata" $archive_dir/$pass"_track_data"
-        done < $pass"_tracks"
-	rm -rf $pass"_tracks"
-    done < pass_list
-    rm -rf pass_list
-
-    rm -rf track_file_lists
-    while read pass; do
-	cd $archive_dir/$pass"_track_data"
-	ls * > $pass"_list"
-	echo $pass"_list" >> $burst_dir/track_file_lists
-	cd ../
-    done < pass_names
-    cd $burst_dir
-    rm -rf pass_names
-
-    # Generate python Dataframes for future use in frame data selection
-    echo ""
-    echo ""
-    echo "*********************************"
-    echo ""
-    echo "Now need to run Jupyter notebook: '' on the VDI to create dataframes for each track."
-    echo "    These dataframes are used when selecting scenes for a particular frame."
-    echo ""
-    echo "*********************************"
-
-## Generate shapefiles of burst extents and overall scene extents
-elif [ $create_shp == 'yes' ]; then
-    echo ""
-    echo ""
-    echo "*********************************"
-    echo ""
-    echo "To create shapefiles of bursts and scene extents for each archive track, need to run Jupyter notebook: ''  on the VDI."
-    echo ""
-    echo "*********************************"
-    echo ""
+else
+    echo "Option to extract metadata from zip files not selected."
 fi
 
+
+## Create archive lists, dataframes and shapefiles  
+if [ $create_archive == 'yes' ]; then
+    echo "Creating archive lists, dataframes and shapefiles from extracted metadata ..."
+
+    cd $pbs_dir
+
+    # create PBS jobs for creating archive dataframes and shapefiles
+    while read pass; do
+	while read list; do
+	    part=`echo $list | cut -d '_' -f 4`
+	    job="ar_"$part
+	    echo \#\!/bin/bash > $job
+	    echo \#\PBS -lother=gdata1 >> $job
+	    echo \#\PBS -l walltime=08:00:00 >> $job
+	    echo \#\PBS -l mem=32GB >> $job
+	    echo \#\PBS -l ncpus=1 >> $job
+	    echo \#\PBS -l wd >> $job
+	    echo \#\PBS -q express >> $job
+	    echo source /g/data1/dg9/sll547/miniconda3/etc/profile.d/conda.sh >> $job
+	    echo conda activate S1_Frames >> $job
+	    echo ~/repo/gamma_insar/S1_FRAME_CREATION/create_S1_archive_dataframe.py $proj_dir/$config_file ~/repo/gamma_insar/S1_FRAME_CREATION/S1_burst_functions $pass $list >> $job
+	    echo ~/repo/gamma_insar/S1_FRAME_CREATION/create_S1_archive_shapefiles.py $proj_dir/$config_file ~/repo/gamma_insar/S1_FRAME_CREATION/S1_burst_functions $pass $list >> $job
+	    chmod +x $job
+	    qsub $job 
+	done < $archive_dir/$pass"_track_data"/$pass"_list"
+    done < $burst_dir/pass_names
+
+else
+    echo "Option to create archive lists, dataframes and shapefiles from extracted metadata not selected."
+fi

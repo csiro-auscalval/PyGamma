@@ -1,0 +1,51 @@
+#### Create virtual env to run ipython notebooks (can't use miniconda on VDI)
+
+
+Need virtual environment to have the same package versions as installed on Miniconda so dataframes can be read properly
+
+vdi_vm_requirements.txt contains list of required packages that work with the notebooks
+
+
+### Create VM:
+
+Open VDI
+
+> cd /g/data1/dg9/SENTINEL-1_BURSTS/virtual_envs
+> mkdir S1_Frames_VDI
+> cd virtual_envs
+
+
+## Manual install of spatialindex 1.8.5 (needed for rtree)
+
+> curl -L http://download.osgeo.org/libspatialindex/spatialindex-src-1.8.5.tar.gz | tar xz
+> cd spatialindex-src-1.8.5
+> ./configure --prefix=/g/data1/dg9/SENTINEL-1_BURSTS/virtual_envs
+> make
+> make install
+
+# update .bash_profile
+
+> cd ~/
+add to .bash_profile:
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/g/data1/dg9/SENTINEL-1_BURSTS/virtual_envs/lib"
+> source .bash_profile
+> cd /g/data1/dg9/SENTINEL-1_BURSTS/virtual_envs
+
+> module load python3/3.5.2 ipython/4.2.0-py3.5
+> pyvenv /g/data1/dg9/SENTINEL-1_BURSTS/virtual_envs/S1_Frames_VDI/py3.5.2
+> source /g/data1/dg9/SENTINEL-1_BURSTS/virtual_envs/S1_Frames_VDI/py3.5.2/bin/activate
+> pip install --upgrade pip setuptools
+> pip install -r vdi_vm_requirements.txt
+
+
+### Access virtual machine
+
+Open VDI
+
+> module load python3/3.5.2 ipython/4.2.0-py3.5
+> source /g/data1/dg9/SENTINEL-1_BURSTS/virtual_envs/S1_Frames_VDI/py3.5.2/bin/activate
+
+
+
+
+
