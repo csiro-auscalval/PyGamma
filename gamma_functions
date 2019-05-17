@@ -72,6 +72,7 @@ function proc_variables {
     alks=`grep ^AZIMUTH_LOOKS= $proc_file | cut -d "=" -f 2`
 
     # Interferogram processing method
+    unwrap_method=`grep ^UNWRAP_METHOD= $proc_file | cut -d "=" -f 2`
     process_method=`grep ^PROCESS_METHOD= $proc_file | cut -d "=" -f 2`
     master_scene=`grep ^REF_MASTER_SCENE= $proc_file | cut -d "=" -f 2`
     min_connection=`grep ^MIN_CONNECT= $proc_file | cut -d "=" -f 2`
@@ -94,9 +95,15 @@ function proc_variables {
     coregister=`grep ^COREGISTER_SLAVES= $proc_file | cut -d "=" -f 2`
     do_ifgs=`grep ^PROCESS_IFGS= $proc_file | cut -d "=" -f 2`
     do_post=`grep ^POST_PROCESS= $proc_file | cut -d "=" -f 2`
+    add_do_raw=`grep ^ADD_EXTRACT_RAW_DATA= $proc_file | cut -d "=" -f 2`
+    add_do_slc=`grep ^ADD_DO_SLC= $proc_file | cut -d "=" -f 2`
+    add_coregister=`grep ^ADD_COREGISTER_SLAVES= $proc_file | cut -d "=" -f 2`
+    add_do_ifgs=`grep ^ADD_PROCESS_IFGS= $proc_file | cut -d "=" -f 2`
+    add_do_post=`grep ^ADD_POST_PROCESS= $proc_file | cut -d "=" -f 2`
 
     # Sentinel-1 specific steps
     do_s1_subset=`grep ^DO_S1_BURST_SUBSET= $proc_file | cut -d "=" -f 2`
+    add_do_s1_subset=`grep ^ADD_S1_BURST_SUBSET= $proc_file | cut -d "=" -f 2`
     swath1=`grep ^SWATH1= $proc_file | cut -d "=" -f 2`
     swath2=`grep ^SWATH2= $proc_file | cut -d "=" -f 2`
     swath3=`grep ^SWATH3= $proc_file | cut -d "=" -f 2`
@@ -228,6 +235,19 @@ function pbs_job_dirs {
     kml_manual_dir=$manual_dir/kml_jobs
     co_slc_manual_dir=$manual_dir/coreg_slc_jobs
     ifg_manual_dir=$manual_dir/ifg_jobs
+
+    add_extract_raw_batch_dir=$batch_dir/add_extract_raw_jobs
+    add_slc_batch_dir=$batch_dir/add_slc_jobs
+    add_ml_batch_dir=$batch_dir/add_ml_slc_jobs
+    add_base_batch_dir=$batch_dir/add_baseline_jobs
+    add_co_slc_batch_dir=$batch_dir/add_coreg_slc_jobs
+    add_ifg_batch_dir=$batch_dir/add_ifg_jobs
+    add_extract_raw_manual_dir=$manual_dir/add_extract_raw_jobs
+    add_slc_manual_dir=$manual_dir/add_slc_jobs
+    add_ml_manual_dir=$manual_dir/add_ml_slc_jobs
+    add_base_manual_dir=$manual_dir/add_baseline_jobs
+    add_co_slc_manual_dir=$manual_dir/add_coreg_slc_jobs
+    add_ifg_manual_dir=$manual_dir/add_ifg_jobs
 }
 
 ## Sentinel-1 specific PBS job directories
@@ -236,6 +256,8 @@ function s1_pbs_job_dirs {
     resize_manual_dir=$manual_dir/resize_S1_slc_jobs
     subset_batch_dir=$batch_dir/subset_S1_slc_jobs
     subset_manual_dir=$manual_dir/subset_S1_slc_jobs
+    add_subset_batch_dir=$batch_dir/add_subset_S1_slc_jobs
+    add_subset_manual_dir=$manual_dir/add_subset_S1_slc_jobs
 }
 
 ## Set final file locations for processing
@@ -249,6 +271,10 @@ function final_file_loc {
     s1_frame_resize_master=`grep ^RESIZE_MASTER: $s1_file_list | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'`
     remove_slc_list=$list_dir/`grep ^REMOVE_SLC_LIST= $proc_file | cut -d "=" -f 2`
     remove_ifg_list=$list_dir/`grep ^REMOVE_IFG_LIST= $proc_file | cut -d "=" -f 2`
+    add_scene_list=$list_dir/`grep ^ADD_SCENE_LIST= $proc_file | cut -d "=" -f 2`
+    add_slave_list=$list_dir/`grep ^ADD_SLAVE_LIST= $proc_file | cut -d "=" -f 2`
+    add_ifg_list=$list_dir/`grep ^ADD_IFG_LIST= $proc_file | cut -d "=" -f 2`
+    add_s1_file_list=$list_dir/`grep ^ADD_S1_FILE_LIST= $proc_file | cut -d "=" -f 2`
 }
 
 ## Print processing details to screen (when running from head node)
@@ -548,6 +574,7 @@ function slave_file_names {
     slave_snr=$r_master_slave_name.snr
     slave_stat=$slave_dir/$slave"_image_stat.txt"
     slave_check_file=$results_dir/$track"_slave_coreg_results"
+    add_slave_check_file=$results_dir/$track"_add_slave_coreg_results"
 }
 
 ## Sentinel-1 slave coregistration file names
@@ -640,6 +667,7 @@ function ifg_file_names {
     ifg_flat_cc10_mask=$master_slave_name"_flat10_cc_mask.ras"
     ifg_gcp=$master_slave_name.gcp
     ifg_gcp_ph=$master_slave_name.gcp_ph
+    ifg_corr_flag=$master_slave_name"_branch-cut_corr.flag"
     ifg_mask=$master_slave_name"_mask.ras"
     ifg_mask_thin=$master_slave_name"_mask_thin.ras"
     ifg_off=$master_slave_name"_off.par"
@@ -785,7 +813,7 @@ function single_job {
     echo \#\PBS -l wd >> $job
     echo \#\PBS -W umask=017 >> $job
     echo \#\PBS -P $nci_project >> $job
-    if [ $pbs_job_prefix == 'init_base' -o $pbs_job_prefix == 'prec_base' ]; then  ## needs python3 to activate baselines script
+    if [ $pbs_job_prefix == 'init_base' -o $pbs_job_prefix == 'prec_base' -o $pbs_job_prefix == 'add_init_base' -o $pbs_job_prefix == 'add_prec_base' ]; then  ## needs python3 to activate baselines script
 	echo \#\PBS -l "software=python" >> $job
     else
 	:
@@ -800,7 +828,7 @@ function single_job {
     echo "export OMP_NUM_THREADS="$cpu >> $job
     echo -e "\n" >> $job
 
-    if [ $pbs_job_prefix == 'init_base' -o $pbs_job_prefix == 'prec_base' ]; then  ## needs python3 to activate baselines script
+    if [ $pbs_job_prefix == 'init_base' -o $pbs_job_prefix == 'prec_base' -o $pbs_job_prefix == 'add_init_base' -o $pbs_job_prefix == 'add_prec_base' ]; then  ## needs python3 to activate baselines script
 	echo python3 ~/repo/gamma_insar/$script $proc_file1 $script_type >> $job
     else
         echo ~/repo/gamma_insar/$script $proc_file1 $script_type >> $job

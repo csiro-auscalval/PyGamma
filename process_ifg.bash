@@ -308,7 +308,7 @@ FLAT()
 	percent=0.00001
 	ccthr1=0.7 # use as integer to enable subtraction in loop
 	while (( $(echo "$percent < 0.09" | bc -l) )); do
-	    rascc_mask $ifg_flat_cc10 - $width10 1 1 0 1 1 $ccthr1 0 - 0.$ccthr1 - - 1 temp.ras
+	    rascc_mask $ifg_flat_cc10 - $width10 1 1 0 1 1 $ccthr1 0 - 0.$ccthr1 - - 1 temp.ras # do not add 'GM' to front of command, loop won't work properly
 	    convert temp.ras -fill black +opaque "rgb(255,255,255)" -format %c histogram:info: > list
 	    if grep -q "white" list; then
 		none=`grep "black" list | cut -d ':' -f1`
@@ -418,54 +418,108 @@ UNW()
     fi
     cd $ifg_dir
 
-    ## Produce unwrapping validity mask based on smoothed coherence
-    GM rascc_mask $ifg_filt_cc - $ifg_width 1 1 0 1 1 $ifg_coh_thres 0 - - - - 1 $ifg_mask
+    # Branch-cut unwrapping
+    if [ $unwrap_method == branch ]; then
 
-    ## Use arbitrary mlook threshold of 4 to decide whether to thin data for unwrapping or not
-    if [ $looks -le 4 ]; then
+        # 1. Mask low correlation areas (orange)
+        #      - create initial flagfile based on coherence threshold
+        #      - low correlation areas identified (low SNR)   
+	GM corr_flag $ifg_filt_cc $ifg_corr_flag $ifg_width $ifg_coh_thres 
 
-         ## Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser network which can be interpoolated and then used as a model for unwrapping the full interferogram
-	thres_1=`echo $ifg_coh_thres + 0.2 | bc`
-	thres_max=`echo $thres_1 + 0.2 | bc`
-        #if [ $thres_max -gt 1 ]; then
-        #    echo " "
-        #    echo "MASK THINNING MAXIMUM THRESHOLD GREATER THAN ONE. Modify coherence threshold in proc file."
-        #    echo " "
-        #    exit 1
-        #else
-        #    :
-        #fi
-	GM rascc_mask_thinning $ifg_mask $ifg_filt_cc $ifg_width $ifg_mask_thin 3 $ifg_coh_thres $thres_1 $thres_max
+        # 2. Generate neutrons (using master scene's intensity image) (white)
+        #      - neutron is placed in flag file if the intensity is 'neutron_thres' times the average image intensity
+        #      - reduces search area size around residues for generating branches and creates dense network of branch cuts
+	GM neutron $r_master_mli $ifg_corr_flag $ifg_width 6
 
-        ## Unwrapping with validity mask
-	GM mcf $ifg_filt $ifg_filt_cc $ifg_mask_thin $ifg_unw_thin $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
+        # 3. Determine phase residues (blue and red)
+        #      - residues are areas of discontinuities in the wrapped phase field
+        #      - use of 'cc' does not consider phases in low coherence areas
+	GM residue_cc $ifg_filt $ifg_corr_flag $ifg_width
 
-        ## Interpolate sparse unwrapped points to give unwrapping model
-	GM interp_ad $ifg_unw_thin $ifg_unw_model $ifg_width 32 8 16 2
+        # 4. Use marked areas (low SNR, neutrons, residues) to construct branch cuts (yellow)
+        #      - cuts are drawn between residues (regardless of +/- sign)
+        #      - cuts are not crossed during phase unwrapping
+	GM tree_cc $ifg_corr_flag $ifg_width 64
 
-        ## Use model to unwrap filtered interferogram
-	GM unw_model $ifg_filt $ifg_unw_model temp $ifg_width $ifg_refrg $ifg_refaz 0.0
+        # 5. Unwrap interferogram
+        #      - starts at user-defined location (default is image centre) and continued by region growing for the entire area connected 
+        #        to the starting location avoiding low correlation areas and without crossing neutral trees.
+        #      - start unwrapping at pixel location which has high coherence and lies within an area of high coherence (dark area in flag file).
+	GM grasses $ifg_filt $ifg_corr_flag $ifg_unw $ifg_width - - - - - -
 
-        if [ $clean_up == yes ]; then
-            ## clean up unnecessary files
-            rm -f $ifg_unw_thin $ifg_unw_model
-        fi
+    # MCF unwrapping
+    elif [ $unwrap_method == mcf ]; then
+       
+        # Produce unwrapping validity mask based on smoothed coherence (branch-cut automatically masks low cc areas)
+	GM rascc_mask $ifg_filt_cc - $ifg_width 1 1 0 1 1 $ifg_coh_thres 0 - - - - 1 $ifg_mask
 
+        # Use arbitrary mlook threshold of 4 to decide whether to thin data for unwrapping or not
+	if [ $looks -le 4 ]; then
+             # Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser network which can be interpoolated and then used as a model for unwrapping the full interferogram
+	    thres_1=`echo $ifg_coh_thres + 0.2 | bc`
+	    thres_max=`echo $thres_1 + 0.2 | bc`
+            #if [ $thres_max -gt 1 ]; then
+            #    echo " "
+            #    echo "MASK THINNING MAXIMUM THRESHOLD GREATER THAN ONE. Modify coherence threshold in proc file."
+            #    echo " "
+            #    exit 1
+            #else
+            #    :
+            #fi
+   	    GM rascc_mask_thinning $ifg_mask $ifg_filt_cc $ifg_width $ifg_mask_thin 3 $ifg_coh_thres $thres_1 $thres_max
+
+            # Unwrapping with validity mask
+	    GM mcf $ifg_filt $ifg_filt_cc $ifg_mask_thin $ifg_unw_thin $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
+
+            # Interpolate sparse unwrapped points to give unwrapping model
+	    GM interp_ad $ifg_unw_thin $ifg_unw_model $ifg_width 32 8 16 2
+
+            # Use model to unwrap filtered interferogram
+	    GM unw_model $ifg_filt $ifg_unw_model temp_unw $ifg_width $ifg_refrg $ifg_refaz 0.0
+
+            if [ $clean_up == yes ]; then
+                # clean up unnecessary files
+		rm -f $ifg_unw_thin $ifg_unw_model
+            fi
+	else
+            # Unwrap the full interferogram without masking
+            GM mcf $ifg_filt - - temp_unw $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
+	fi
+        # Mask unwrapped interferogram for low coherence areas below threshold (branch-cut does this automatically)
+	if [ $ifg_unw_mask_flag == yes ]; then
+            GM mask_data temp_unw $ifg_width $ifg_unw $ifg_mask 0
+            rm -f temp
+	else
+            mv temp_unw $ifg_unw
+	fi
     else
-        ## Unwrap the full interferogram without masking
-        GM mcf $ifg_filt - - temp $ifg_width 1 - - - - $ifg_patch_r $ifg_patch_az - $ifg_refrg $ifg_refaz 1
+	:
     fi
-
-    if [ $ifg_unw_mask_flag == yes ]; then
-        ## Mask unwrapped interferogram for low coherence areas below threshold
-        GM mask_data temp $ifg_width $ifg_unw $ifg_mask 0
-        rm -f temp
-    else
-        mv temp $ifg_unw
-    fi
-
+    
     ## Convert unwrapped phase in radians to a LOS displacement in metres
     GM dispmap $ifg_unw $rdc_dem $r_master_slc_par $ifg_off $ifg_unw_disp 0
+
+name=20180914-20180926
+ifg_unw=$name"_VV_4rlks_06cc.unw"
+ifg_unw_disp=$name"_VV_4rlks_06cc_disp.unw"
+ifg_unw_disp_geocode_out=$name"_VV_4rlks_eqa_06cc_disp.unw"
+ifg_off=$name"_VV_4rlks_off.par"
+
+rdc_dem=/g/data1a/dg9/INSAR_ANALYSIS/WA_EQ_SEPT2018/S1/GAMMA/T090D_F00/DEM/20180926_VV_4rlks_rdc.dem
+r_master_slc_par=/g/data1a/dg9/INSAR_ANALYSIS/WA_EQ_SEPT2018/S1/GAMMA/T090D_F00/SLC/20180926/r20180926_VV.slc.par
+dem_diff=/g/data1a/dg9/INSAR_ANALYSIS/WA_EQ_SEPT2018/S1/GAMMA/T090D_F00/DEM/diff_20180926_VV_4rlks.par
+eqa_dem_par=/g/data1a/dg9/INSAR_ANALYSIS/WA_EQ_SEPT2018/S1/GAMMA/T090D_F00/DEM/20180926_VV_4rlks_eqa.dem.par
+dem_lt_fine=/g/data1a/dg9/INSAR_ANALYSIS/WA_EQ_SEPT2018/S1/GAMMA/T090D_F00/DEM/20180926_VV_4rlks_eqa_to_rdc.lt
+width_in=`grep range_samp_1: $dem_diff | awk '{print $2}'`
+width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
+
+
+
+dispmap $ifg_unw $rdc_dem $r_master_slc_par $ifg_off $ifg_unw_disp 0
+geocode_back $ifg_unw_disp $width_in $dem_lt_fine $ifg_unw_disp_geocode_out $width_out - 1 0 - -
+data2geotiff $eqa_dem_par $ifg_unw_disp_geocode_out 2 $ifg_unw_disp_geocode_out.tif
+
+
 }
 
 

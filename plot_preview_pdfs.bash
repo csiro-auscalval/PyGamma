@@ -18,6 +18,8 @@ display_usage() {
     echo "*                  - add full Sentinel-1 processing, including resizing and   *"
     echo "*                     subsetting by bursts                                    *"
     echo "*                  - remove GA processing option                              *"
+    echo "*         Sarah Lawrie @ GA       26/03/2019, v1.1                            *"
+    echo "*             -  Add 'add scenes' functionality to workflow                   *"
     echo "*******************************************************************************"
     echo -e "Usage: plot_preview_pdfs.bash [proc_file] [type]"
     }
@@ -57,7 +59,7 @@ function plot_pdfs {
     local image_list=$1
     local header=$2
     local pdf_name=$3
- 
+    
     ## Split image_files into 36 image chunks
     num_imgs=`cat $image_list | sed '/^\s*$/d' | wc -l`
     split -dl 36 $image_list $image_list"_"
@@ -469,16 +471,16 @@ EOF
             # create PDF
 	    ps2raster -Tf $psfile
 
-    fi
-done < $image_files
+	fi
+    done < $image_files
 
 # Combine all PDFs into one PDF
-ps2raster -TF -F$pdf_name *.pdf
+    ps2raster -TF -F$pdf_name *.pdf
 
-mv $pdf_name.pdf $pdf_dir
+    mv $pdf_name.pdf $pdf_dir
 
 # Clean up files
-rm -rf $image_list*.ps $image_list*.pdf "all_"$image_list gmt.* $image_list"_"* image_files.list
+    rm -rf $image_list*.ps $image_list*.pdf "all_"$image_list gmt.* $image_list"_"* image_files.list
 }
 
 
@@ -501,6 +503,7 @@ if [ $type == 'slc' ]; then
     header="SLCs"
     pdf_name=$prefix"_SLCs"
     plot_pdfs slc_images $header $pdf_name
+
 elif [ $type == 'subset_slc' ]; then
     while read scene; do
 	slc_file_names
@@ -558,6 +561,75 @@ elif [ $type == 'ifg' ]; then
 	pdf_name=$prefix"_"$rlks"rlks_filt_cc"
 	plot_pdfs filt_cc_images $header $pdf_name
     fi
+
+elif [ $type == 'add_slc' ]; then
+    while read scene; do
+	slc_file_names
+	image=$slc_png
+	echo $image >> slc_images
+    done < $add_scene_list
+    header="Add_SLCs"
+    pdf_name=$prefix"_add_SLCs"
+    plot_pdfs slc_images $header $pdf_name
+
+elif [ $type == 'add_subset_slc' ]; then
+    while read scene; do
+	slc_file_names
+	image=$slc_png
+	echo $image >> subset_slc_images
+    done < $add_scene_list
+    header="Subsetted_SLCs"
+    pdf_name=$prefix"_subsetted_add_SLCs"
+    plot_pdfs subset_slc_images $header $pdf_name
+
+elif [ $type == 'add_ifg' ]; then
+    while read ifg; do
+	echo $ifg
+	master=`echo $ifg | awk 'BEGIN {FS=","} ; {print $1}'`
+	slave=`echo $ifg | awk 'BEGIN {FS=","} ; {print $2}'`
+	ifg_file_names
+	if [ -e $ifg_unw_geocode_png ]; then
+	    echo $ifg_unw_geocode_png >> unw_ifg_images
+	fi
+	if [ -e $ifg_flat_geocode_png ]; then
+	    echo $ifg_flat_geocode_png >> flat_ifg_images
+	fi
+	if [ -e $ifg_filt_geocode_png ]; then
+	    echo $ifg_filt_geocode_png >> filt_ifg_images
+	fi
+	if [ -e $ifg_flat_cc_geocode_png ]; then
+	    echo $ifg_flat_cc_geocode_png >> flat_cc_images
+	fi
+	if [ -e $ifg_filt_cc_geocode_png ]; then
+	    echo $ifg_filt_cc_geocode_png >> filt_cc_images
+	fi
+    done < $add_ifg_list
+    if [ -e unw_ifg_images ]; then
+	header="Add_Unwrapped_Ifgs"
+	pdf_name=$prefix"_"$rlks"rlks_unw_add_ifgs"
+	plot_pdfs unw_ifg_images $header $pdf_name
+    fi
+    if [ -e flat_ifg_images ]; then
+	header="Add_Flattened_Ifgs"
+	pdf_name=$prefix"_"$rlks"rlks_flat_add_ifgs"
+	plot_pdfs flat_ifg_images $header $pdf_name
+    fi
+    if [ -e filt_ifg_images ]; then
+	header="Add_Filtered_Ifgs"
+	pdf_name=$prefix"_"$rlks"rlks_filt_add_ifgs"
+	plot_pdfs filt_ifg_images $header $pdf_name
+    fi
+    if [ -e flat_cc_images ]; then
+	header="Add_Flattened_Coherence"
+	pdf_name=$prefix"_"$rlks"rlks_flat_add_cc"
+	plot_pdfs flat_cc_images $header $pdf_name
+    fi
+    if [ -e filt_cc_images ]; then
+	header="Add_Filtered_Coherence"
+	pdf_name=$prefix"_"$rlks"rlks_filt_add_cc"
+	plot_pdfs filt_cc_images $header $pdf_name
+    fi
+
 else
     echo "type not recognised"
 fi
@@ -565,15 +637,4 @@ fi
 
 # script end 
 ####################
-
-
-
-
-
-
-
-
-
-
-
 

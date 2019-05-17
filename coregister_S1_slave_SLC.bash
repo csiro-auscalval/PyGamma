@@ -325,28 +325,29 @@ name=`ls *eqa*gamma0.png`
 GM kml_map $name $eqa_dem_par ${name/.png}.kml
 rm -f $slave_gamma0_eqa_bmp
 
-## geocode sigma0 mli
-cp $r_slave_mli $slave_sigma0 
+## Geocode sigma0 mli
+cp $r_slave_mli $slave_sigma0
 GM geocode_back $slave_sigma0 $master_mli_width $dem_lt_fine $slave_sigma0_eqa $dem_width - 0 0 - - 
+GM data2geotiff $eqa_dem_par $slave_sigma0_eqa 2 $slave_sigma0_eqa_geo 0.0
 
 
 ### Clean up temp files
-#rm -rf $slave_lt.tmp.?
-#rm -rf $slave_lt_masked
-#rm -rf $slave_ref_iter.?
-#rm -rf $slave_diff_par.?
-#rm -rf $slave_lt.tmp.?
-#rm -rf $slave_snr
-#rm -rf $slave_offs
-#rm -rf $slave_doff
-#rm -rf $slave_lt
-#rm -rf $slave_az_ovr_poly
-#rm -rf $slave_az_ovr
-#rm -rf $slave_off_start
-#rm -rf $slave_lt_az_ovr
-#rm -rf $slave_az_ovr_ras
-#rm -rf *.off.az_ovr.?.out
-#rm -rf *.off.az_ovr.?
+rm -rf $slave_lt.tmp.?
+rm -rf $slave_lt_masked
+rm -rf $slave_ref_iter.?
+rm -rf $slave_diff_par.?
+rm -rf $slave_lt.tmp.?
+rm -rf $slave_snr
+rm -rf $slave_offs
+rm -rf $slave_doff
+rm -rf $slave_lt
+rm -rf $slave_az_ovr_poly
+rm -rf $slave_az_ovr
+rm -rf $slave_off_start
+rm -rf $slave_lt_az_ovr
+rm -rf $slave_az_ovr_ras
+rm -rf *.off.az_ovr.?.out
+rm -rf *.off.az_ovr.?
 
 
 # script end

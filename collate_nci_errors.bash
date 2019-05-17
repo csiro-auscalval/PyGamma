@@ -38,6 +38,8 @@ display_usage() {
     echo "*                  - remove GA processing option                              *"
     echo "*         Sarah Lawrie @ GA       13/09/2018, v2.1                            *"
     echo "*             -  Add automatic GAMMA DEM generation from scene extent         *"
+    echo "*         Sarah Lawrie @ GA       26/03/2019, v2.2                            *"
+    echo "*             -  Add 'add scenes' functionality to workflow                   *"
     echo "*******************************************************************************"
     echo -e "Usage: collate_nci_errors.bash [proc_file] [type]"
     }
@@ -192,6 +194,63 @@ elif [ $type -eq 13 ]; then
     list=$error_dir/post_ifg_errors
     dir=$batch_dir/post_ifg_jobs
     err_job=post_ifg.e* 
+    single_err_job $list $dir $err_job
+
+## Additional raw data extraction errors
+elif [ $type -eq 14 ]; then
+    list=$error_dir/add_extract_raw_errors
+    dir=$batch_dir/add_extract_raw_jobs
+    multi_err_job $list $dir 
+
+## Additional full SLC creation errors
+elif [ $type -eq 15 ]; then
+    list=$error_dir/add_slc_creation_errors
+    dir=$batch_dir/add_slc_jobs  
+    multi_err_job $list $dir 
+   
+## Multi-look additional SLC errors
+elif [ $type -eq 16 ]; then
+    list=$error_dir/add_multi-look_slc_errors
+    dir=$batch_dir/add_ml_slc_jobs
+    multi_err_job $list $dir 
+
+## Baseline estimation errors
+elif [ $type -eq 17 ]; then
+    list=$error_dir/add_init_baseline_errors
+    dir=$batch_dir/add_baseline_jobs
+    err_job=add_init_base.e*
+    single_err_job $list $dir $err_job
+
+## Subset Sentinel-1 additional SLC errors
+elif [ $type -eq 18 ]; then
+    list=$error_dir/add_subset_S1_slc_errors
+    dir=$batch_dir/add_subset_S1_slc_jobs
+    multi_err_job $list $dir 
+
+## Coregister additional SLC errors
+elif [ $type -eq 19 ]; then
+    list=$error_dir/add_coreg_slc_errors
+    dir=$batch_dir/add_coreg_slc_jobs
+    multi_err_job $list $dir 
+
+## Additional interferogram errors
+elif [ $type -eq 20 ]; then
+    list=$error_dir/add_ifg_errors
+    dir=$batch_dir/add_ifg_jobs
+    multi_err_job $list $dir 
+
+## Baseline estimation errors
+elif [ $type -eq 21 ]; then
+    list=$error_dir/add_prec_baseline_errors
+    dir=$batch_dir/add_baseline_jobs
+    err_job=add_prec_base.e*
+    single_err_job $list $dir $err_job
+
+## Post processing errors
+elif [ $type -eq 22 ]; then
+    list=$error_dir/add_post_ifg_errors
+    dir=$batch_dir/add_post_ifg_jobs
+    err_job=add_post_ifg.e* 
     single_err_job $list $dir $err_job
 
 else
