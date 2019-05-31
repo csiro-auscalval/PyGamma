@@ -66,6 +66,7 @@ fi
 # Read TxxxX_slave_coreg_results file and check that all slaves have been processed
 echo Slave date, Average and Standard Deviation of burst offsets in the three swaths:
 while read slave; do
+  check3=0
   # get the line number of current slave in slave_check_file
   start_line=`grep -n $slave $slave_check_file | cut -f1 -d:`
   iterations=0 # number of iterations given in az_ovr_iterations
@@ -103,17 +104,20 @@ while read slave; do
       # the last records for IW1, IW2 and IW3 are used to calculate the standard deviation:
       if [ $IW1_average == "0.0" ]; then
         echo "WARNING "$slave": Average of swath IW1 is zero, coregistration might be wrong"
+        check3=1;
       elif [ $IW2_average == "0.0" ]; then
         echo "WARNING "$slave": Average of swath IW2 is zero, coregistration might be wrong"
+        check3=1;
       elif [ $IW3_average == "0.0" ]; then
         echo "WARNING "$slave": Average of swath IW3 is zero, coregistration might be wrong"
+        check3=1;
       fi
       average=`echo "scale=5 ; ($IW1_average + $IW2_average + $IW3_average)/3" | bc -l`
       std_dev=`echo "scale=5 ; sqrt((($IW1_average - $average)^2+($IW2_average - $average)^2+($IW3_average - $average)^2)/3)" | bc -l`
       echo $slave $average $std_dev
       check1=`echo $std_dev'>'0.2 | bc -l`
       check2=`echo ${average#-}'>'0.4 | bc -l`
-      if [ $check0 -eq 1 -o $check1 -eq 1 -o $check2 -eq 1 ]; then
+      if [ $check0 -eq 1 -o $check1 -eq 1 -o $check2 -eq 1 -o $check3 -eq 1 ]; then
         # calculate difference in time to master (used to prioritise jobs later)
         date_diff=`echo $(( ($(date --date=$master_scene +%s) - $(date --date=$slave +%s) )/(60*60*24) ))`
         echo $slave ${date_diff#-} >> $rerun_slave_list

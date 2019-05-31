@@ -262,7 +262,7 @@ while [[ "$daz10000" -gt 5 || "$daz10000" -lt -5 ]] && [ "$it" -le "$slave_niter
       if [ $slave -lt $master_scene ]; then
         coreg_pos=$(($slave_pos+1))
         coreg_slave=`head -n $coreg_pos $slave_list | tail -1`
-      elif [ $rerun_slave -gt $master_scene ]; then
+      elif [ $slave -gt $master_scene ]; then
         coreg_pos=$(($slave_pos-1))
         coreg_slave=`head -n $coreg_pos $slave_list | tail -1`
       fi
