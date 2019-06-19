@@ -35,16 +35,21 @@ PRE_PROC_DIR=pre_proc_files
 
     # Sentinel-1 only, other lists will be automatically created using this list:
 S1_FILE_LIST=S1_T<track_num><A/D>_F<frame_num>_<polar>_scene_stack.txt
+ADD_S1_FILE_LIST=S1_T<track_num><A/D>_F<frame_num>_<polar>_scene_stack_add_scenes.txt
 
 SCENE_LIST=scenes.list
 SLAVE_LIST=slaves.list
 IFG_LIST=ifgs.list
+ADD_SCENE_LIST=add_scenes.list
+ADD_SLAVE_LIST=add_slaves.list
+ADD_IFG_LIST=add_ifgs.list
+
     # manually created for other sensors that use frames (not Sentinel-1)
 FRAME_LIST=frame.list
     # list for removing scene/s from lists (ie. for SLCs that don't work)
 REMOVE_SLC_LIST=remove_slcs.list
     # list for removing ifgs from post processing (i.e. ifgs that have errors: burst issues, unw errors, large atmosphere)
-REMOVE_IFG_LIST=remove_lfgs.list
+REMOVE_IFG_LIST=remove_ifgs.list
 
 
 -----PROJECT DIRECTORY & TRACK--------------------------------------------------------------------------
@@ -110,6 +115,8 @@ AZIMUTH_LOOKS=auto
 
     # Options: chain (use daisy-chain), sbas (use reference master) or single (use single master)
 PROCESS_METHOD=sbas
+    # Unwrapping method: branch (uses branch-cut), mcf (minimum cost flow)
+UNWRAP_METHOD=mcf
     # Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated, S1 will use resize ref scene if set to auto
 REF_MASTER_SCENE=auto
     # thresholds for minimum and maximum number of SBAS connections
@@ -139,6 +146,16 @@ USE_EXT_IMAGE=no
 COREGISTER_SLAVES=yes
 PROCESS_IFGS=yes
 POST_PROCESS=yes
+
+    -----ADD NEW SCENES TO PROCESSED DATASET-----
+ADD_EXTRACT_RAW_DATA=no
+ADD_DO_SLC=no
+    # Sentinel-1 subset
+ADD_S1_BURST_SUBSET=no
+
+ADD_COREGISTER_SLAVES=no
+ADD_PROCESS_IFGS=no
+ADD_POST_PROCESS=no
 
 
 -----POST PROCESSING PROCESSING METHOD------------------------------------------------------------------

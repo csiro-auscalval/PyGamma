@@ -9,9 +9,9 @@ display_usage() {
     echo "*                         only those zip files which haven't previously had   *"
     echo "*                         metadata extracted.                                 *"
     echo "*                                                                             *"
-    echo "* input:  [config_file]   name of config file (e.g. S1_burst_config)          *"
+    echo "*      Designed to be executed by 'run_S1_bursts' script only                 *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       13/02/2019, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       13/03/2019, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: create_S1_zipfile_list.bash [config_file]"
     }
@@ -26,7 +26,6 @@ config_file=$1
 
 # Load generic variables
 source ~/repo/gamma_insar/S1_FRAME_CREATION/S1_burst_functions $config_file
-variables
 
 
 # create list of zip files for Sentinel-1 downloaded files

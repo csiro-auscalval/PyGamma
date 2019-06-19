@@ -7,10 +7,9 @@ display_usage() {
     echo "*                            GAMMA program 'S1_burstloc' and general          *"
     echo "*                            metadata.                                        *"
     echo "*                                                                             *"
-    echo "* input:  [config_file]   name of config file (e.g. S1_burst_config)          *"
-    echo "*         [file_list]     list of zip files                                   *"
+    echo "*      Designed to be executed by 'run_S1_bursts' script only                 *"
     echo "*                                                                             *"
-    echo "* author: Sarah Lawrie @ GA       15/02/2019, v1.0                            *"
+    echo "* author: Sarah Lawrie @ GA       13/03/2019, v1.0                            *"
     echo "*******************************************************************************"
     echo -e "Usage: extract_S1_burst_metadata.bash [config_file] [file_list]"
     }
@@ -26,7 +25,7 @@ file_list=$2
 
 # Load generic variables
 source ~/repo/gamma_insar/S1_FRAME_CREATION/S1_burst_functions $config_file
-variables
+
 
 # Load GAMMA to access GAMMA programs
 source $gamma_file

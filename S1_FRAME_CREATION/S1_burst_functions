@@ -1,42 +1,47 @@
 #!/bin/bash
 
-## Functions for Sentinel-1 metadata. Extracts burst coordinates and creates archive lists
+## Variables for 'run_S1_bursts' script.
 
+
+# variables need to be outside a function so python scripts can read variables  
 config_file=$1
 
-function variables {
-    mode=`grep ^MODE= $config_file | cut -d "=" -f 2`
-    date=`grep ^TODAY_DATE= $config_file | cut -d "=" -f 2`
-    type=`grep ^TYPE= $config_file | cut -d "=" -f 2`
+mode=`grep ^MODE= $config_file | cut -d "=" -f 2`
+date=`grep ^TODAY_DATE= $config_file | cut -d "=" -f 2`
+type=`grep ^TYPE= $config_file | cut -d "=" -f 2`
 
-    gamma_file=`grep ^GAMMA_CONFIG= $config_file | cut -d "=" -f 2`
-    proj_dir=`grep ^PROJ_DIR= $config_file | cut -d "=" -f 2`
-    cop_dir=`grep ^SAR_DIR= $config_file | cut -d "=" -f 2`
-    sar_dir=$cop_dir/$type
-    archive_dir=$proj_dir/ARCHIVE_TRACKS
-    master_dir=$proj_dir/MASTER_BURSTS
-    shp_dir=$proj_dir/SHAPEFILES
-    processing_dir=$proj_dir/processing
-    zip_dir=$processing_dir/input_zip_lists
+gamma_file=`grep ^GAMMA_CONFIG= $config_file | cut -d "=" -f 2`
+proj_dir=`grep ^PROJ_DIR= $config_file | cut -d "=" -f 2`
+cop_dir=`grep ^SAR_DIR= $config_file | cut -d "=" -f 2`
+sar_dir=$cop_dir/$type
+archive_dir=$proj_dir/ARCHIVE_TRACKS
+master_dir=$proj_dir/MASTER_BURSTS
+shp_dir=$proj_dir/SHAPEFILES
+processing_dir=$proj_dir/processing
+zip_dir=$processing_dir/input_zip_lists
 
-    input_list_dir=$zip_dir/$date"_S1_archive_"$type"_zip_lists"
-    list_dir=$zip_dir/$date"_S1_archive_"$type"_zip_lists"
-    zip_list=$list_dir/"zip_list_"$mode"_"$type"_"$date
+input_list_dir=$zip_dir/$date"_S1_archive_"$type"_zip_lists"
+list_dir=$zip_dir/$date"_S1_archive_"$type"_zip_lists"
+zip_list=$list_dir/"zip_list_"$mode"_"$type"_"$date
 
-    split_dir=$list_dir/"split_"$mode"_"$type"_lists"
-    split_name="input_S1_"$mode"_"$type"_list_"
-    split_list=$split_dir/input_split_list
+split_dir=$list_dir/"split_"$mode"_"$type"_lists"
+split_name="input_"$mode"_"$type"_list_"
+split_list=$split_dir/input_split_list
 
-    burst_dir=$processing_dir/burst_metadata
-    ind_burst_dir=$burst_dir/ind_burst_metadata
-    pbs_dir=$processing_dir/pbs_jobs
+burst_dir=$processing_dir/burst_metadata
+ind_burst_dir=$burst_dir/ind_burst_metadata
+pbs_dir=$processing_dir/pbs_jobs
 
-    compare_zip=`grep ^ZIP_COMPARE= $config_file | cut -d "=" -f 2`
-    compare_dir=`grep ^COMPARE_DIR= $config_file | cut -d "=" -f 2`
+compare_zip=`grep ^ZIP_COMPARE= $config_file | cut -d "=" -f 2`
+compare_dir=`grep ^COMPARE_DIR= $config_file | cut -d "=" -f 2`
 
-    create_zip_list=`grep ^ZIP_LIST= $config_file | cut -d "=" -f 2`
-    extract_metadata=`grep ^EXTRACT_METADATA= $config_file | cut -d "=" -f 2`
-    create_archive=`grep ^CREATE_ARCHIVE_LIST= $config_file | cut -d "=" -f 2`
-    create_shp=`grep ^CREATE_SHP= $config_file | cut -d "=" -f 2`
+create_zip_list=`grep ^ZIP_LIST= $config_file | cut -d "=" -f 2`
+extract_metadata=`grep ^EXTRACT_METADATA= $config_file | cut -d "=" -f 2`
+create_archive=`grep ^CREATE_ARCHIVE= $config_file | cut -d "=" -f 2`
+
+
+# function for python to read bash variables (for dataframe and shapefile creation)
+function python_variables {
+    echo $archive_dir
+    echo $shp_dir
 }
-

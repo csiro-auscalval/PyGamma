@@ -38,16 +38,18 @@
 *                  - add full Sentinel-1 processing, including resizing and   *
 *                     subsetting by bursts                                    *
 *                  - remove GA processing option                              *
+*         Sarah Lawrie @ GA       26/03/2019, v1.1                            *
+*             -  Add 'add scenes' functionality to workflow                   *
 *******************************************************************************
 """
 
 
 # import modules
-import sys
 import os
 import math
 import numpy as np
 from datetime import datetime, date, timedelta
+import difflib
 
 # enable other matplotlib libraries to work properly when running from a PBS job
 import matplotlib
@@ -282,7 +284,8 @@ def create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, \
     bdiff = abs(bdiff_all)
     # calculate Bdopp differences
     X, Y = np.meshgrid(np.array(Bdopp), np.array(Bdopp))
-    doppdiff = abs(X-Y)
+    doppdiff_all = X - Y
+    doppdiff = abs(doppdiff_all)
     # calculate Btemp differences in days (ddiff) for all possible IFG comb.
     dates_diff_days = [0] * num_scenes
     i = 0
@@ -327,14 +330,14 @@ def create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, \
                 # get index of scene with maximum correlation
                 rho_max_ix = np.argmax(rho[i, temp_ix])
                 # check if value is not subject to total decorrelation
+                j = temp_ix[rho_max_ix]
                 if rho[i, rho_max_ix] > 0:
-                    j = temp_ix[rho_max_ix]
                     # set value in ix2 to True for this scene
                     ix2[i, j] = True
                     ix2[j, i] = True
                 else:
-                    print("Connection between scene", i, "and scene", j, "\
-                    possible (total decorrelation)")
+                    print("connection between scene", i, "and scene", j, "\
+                    not possible (total decorrelation)")
         ntest = ntest + 1
 
 
@@ -378,9 +381,11 @@ def create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, \
 
     # plot Bperps of final connections
     Bperps_sbas = bdiff_all[ix]
+    ddiff_sbas = ddiff[ix]
+    doppdiff_sbas = doppdiff_all[ix]
 
     # return values
-    return epoch1, epoch2, Bperps_sbas
+    return epoch1, epoch2, Bperps_sbas, ddiff_sbas, doppdiff_sbas
 
 
 
@@ -512,4 +517,30 @@ def plot_baseline_time_sbas(epochs, Bperps, epoch1, epoch2, filename):
     plt.savefig(savepath, orientation="landscape", transparent=False,
                 format="png", papertype="a4")
     return
+
+
+## determine new scenes/slaves original list and new list (for adding scenes to already processed dataset)
+def differences(org_file, new_file, out_file):
+    out_file = []
+    for line in difflib.unified_diff(org_file, new_file):
+        if line.startswith('+2'):
+            line2 = line.replace('+','')
+            out_file.append(line2)
+
+    return out_file
+
+
+## determine new ifgs original list and new list (for adding scenes to already processed dataset)
+def ifg_differences(org_file, new_file, out_add_file, out_remove_file):
+    out_add_file = []
+    out_remove_file = []
+    for line in difflib.unified_diff(org_file, new_file):
+        if line.startswith('+2'):
+            line2 = line.replace('+','')
+            out_add_file.append(line2)
+        elif line.startswith('-2'):
+            line2 = line.replace('-','')
+            out_remove_file.append(line2)
+
+    return out_add_file, out_remove_file
 

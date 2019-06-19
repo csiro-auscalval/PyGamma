@@ -24,6 +24,8 @@ display_usage() {
     echo "*                  - add full Sentinel-1 processing, including resizing and   *"
     echo "*                     subsetting by bursts                                    *"
     echo "*                  - remove GA processing option                              *"
+    echo "*         Sarah Lawrie @ GA       26/03/2019, v2.1                            *"
+    echo "*             -  Add 'add scenes' functionality to workflow                   *"
     echo "*******************************************************************************"
     echo -e "Usage: post_ifg_processing.bash [proc_file]"
     }
@@ -70,6 +72,22 @@ mkdir -p $geotiff_unw_ifg
 mkdir -p $geotiff_flat_cc
 mkdir -p $geotiff_filt_cc
 
+if [ $add_do_post == yes ]; then
+    in_ifg_list=$add_ifg_list
+    in_slave_list=$add_slave_list
+else
+    in_ifg_list=$ifg_list
+    in_slave_list=$slave_list
+
+    dem_master_names
+    dem_file_names
+    ln -s $dem_master_gamma0_eqa_geo $geotiff_slc
+    ln -s $dem_master_sigma0_eqa_geo $geotiff_slc
+    ln -s $eqa_dem_geo $geotiff_dem
+    ln -s $dem_lv_theta_geo $geotiff_dem
+    ln -s $dem_lv_phi_geo $geotiff_dem
+fi
+
 while read list; do
     if [ ! -z $list ]; then
         master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
@@ -81,24 +99,15 @@ while read list; do
 	ln -s $ifg_flat_cc_geocode_out.tif $geotiff_flat_cc
 	ln -s $ifg_filt_cc_geocode_out.tif $geotiff_filt_cc
     fi
-done < $ifg_list
+done < $in_ifg_list
 fi
-
-dem_master_names
-dem_file_names
-ln -s $dem_master_gamma0_eqa_geo $geotiff_slc
-ln -s $dem_master_sigma0_eqa_geo $geotiff_slc
-ln -s $eqa_dem_geo $geotiff_dem
-ln -s $dem_lv_theta_geo $geotiff_dem
-ln -s $dem_lv_phi_geo $geotiff_dem
-
 while read list; do
     if [ ! -z $list ]; then
         slave=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
         slave_file_names
         ln -s $slave_gamma0_eqa_geo $slave_sigma0_eqa_geo $geotiff_slc
     fi
-done < $slave_list
+done < $in_slave_list
 
 
 if [ $post_method == 'stamps' ]; then
@@ -118,6 +127,7 @@ if [ $post_method == 'stamps' ]; then
     cp $rdc_dem .
     # rename sar_latlon for compatibility with mt_prep
     mv *sar_latlon.txt sar_latlon.txt
+    
 
     ## MLI files
     cd $stamps_rslc_dir
@@ -149,7 +159,6 @@ if [ $post_method == 'stamps' ]; then
     else
 	:
     fi
-
     # Exclude any problem interferograms
     while read pair; do
 	master=`echo $pair | awk 'BEGIN {FS=","} ; {print $1}'`
@@ -189,7 +198,22 @@ if [ $post_method == 'stamps' ]; then
 
 
 elif [ $post_method == 'pymode' ]; then
-   ## interferogram files
+    if [ $add_do_post == yes ]; then
+	in_ifg_list=$add_ifg_list
+    else
+	in_ifg_list=$ifg_list
+
+        ## DEM files
+	dem_master_names
+	dem_file_names
+	cp $r_dem_master_slc_par .
+	cp $eqa_dem .
+	cp $eqa_dem_par .
+	cp $dem_lv_theta .
+	cp $dem_lv_phi .
+    fi
+
+    ## interferogram files
     while read list; do
         if [ ! -z $list ]; then
             master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
@@ -199,61 +223,60 @@ elif [ $post_method == 'pymode' ]; then
 	    cp $ifg_unw_geocode_out.tif .
 	    cp $ifg_flat_geocode_out .
         fi
-    done < $ifg_list
-
-    ## DEM files
-    dem_master_names
-    dem_file_names
-    cp $r_dem_master_slc_par .
-    cp $eqa_dem .
-    cp $eqa_dem_par .
-    cp $dem_lv_theta .
-    cp $dem_lv_phi .
+    done < $in_ifg_list
 
 
 
 elif [ $post_method == 'pyrate' ]; then
     cd $post_dir
-    ## DEM files
-    dem_file_names
-#    cp $eqa_dem . # Not currently used in PyRate
-    cp $eqa_dem_par .
-#    cp $dem_lv_theta . # Not currently used in PyRate
-#    cp $dem_lv_phi . # Not currently used in PyRate
-#    ls * > dem_list
 
-    ## SLC par files
-    dem_master_names
-    cp $r_dem_master_slc_par .
+    if [ $add_do_post == yes ]; then
+	in_ifg_list=$add_ifg_list
+	in_slave_list=$add_slave_list
+    else
+	in_ifg_list=$ifg_list
+	in_slave_list=$slave_list
 
+        ## DEM files
+	dem_file_names
+        cp $eqa_dem . # Not currently used in PyRate
+	cp $eqa_dem_par .
+        cp $dem_lv_theta . # Not currently used in PyRate
+        cp $dem_lv_phi . # Not currently used in PyRate
+
+        ## SLC master par files
+	dem_master_names
+	cp $r_dem_master_slc_par .
+    fi
+ 
     while read list; do
         if [ ! -z $list ]; then
             slave=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
             slave_file_names
             cp $r_slave_slc_par .
         fi
-    done < $slave_list
+    done < $in_slave_list
 
     ## Unwrapped interferogram files
-   # while read list; do
-   #     if [ ! -z $list ]; then
-   #         master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-   #         slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-#	    ifg_file_names
-#	    cp $ifg_unw_geocode_out .
-#        fi
-#    done < $ifg_list
+    while read list; do
+        if [ ! -z $list ]; then
+            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+	    ifg_file_names
+	    cp $ifg_unw_geocode_out .
+        fi
+    done < $in_ifg_list
 
     ## Flattened coherence files - not currently used in PyRate
-#    while read list; do
-#        if [ ! -z $list ]; then
-#            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
-#            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
-#	    ifg_file_names
-#	    cp $ifg_flat_cc_geocode_out .
-#	    cp $ifg_dir/ifg.rsc .
-#        fi
-#    done < $ifg_list
+    while read list; do
+        if [ ! -z $list ]; then
+            master=`echo $list | awk 'BEGIN {FS=","} ; {print $1}'`
+            slave=`echo $list | awk 'BEGIN {FS=","} ; {print $2}'`
+	    ifg_file_names
+	    cp $ifg_flat_cc_geocode_out .
+	    cp $ifg_dir/ifg.rsc .
+        fi
+    done < $in_ifg_list
 
 else
     :
