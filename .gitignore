@@ -3,3 +3,4 @@
 *.log 
 job*.bash
 job*.bash*.o*
+*.swp
