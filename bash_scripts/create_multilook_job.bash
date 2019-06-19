@@ -107,8 +107,8 @@ else
         depend_job=`sed s/.r-man2// $slc_batch_dir/$pbs_job_prefix3"_job_id"`
         depend_type=afterok
     elif [[ $rlks =~ ^-?[0-9]+$ ]] && [[ $alks =~ ^-?[0-9]+$ ]]; then
-        depend_job=`sed s/.r-man2// $slc_batch_dir/"all_"$pbs_job_prefix"job_ids"`
-        depend_type=afterok
+        depend_job=0
+        depend_type=-
     else
     :
     fi

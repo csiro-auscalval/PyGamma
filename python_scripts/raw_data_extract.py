@@ -163,7 +163,7 @@ class S1DataDownload:
         pol = self.polarization.lower()
 
         source_m_paths = fnmatch.filter(self.archive.namelist(), '*measurement/*{}*'.format(pol))
-        source_a_paths = fnmatch.filter(self.archive.namelist(), '*annotation/s1a-*{}*'.format(pol))
+        source_a_paths = fnmatch.filter(self.archive.namelist(), '*annotation/*{}*'.format(pol))
         source_c_paths = fnmatch.filter(self.archive.namelist(), '*/calibration/*{}*'.format(pol))
 
         manifest_path = fnmatch.filter(self.archive.namelist(), '*.safe')[0]

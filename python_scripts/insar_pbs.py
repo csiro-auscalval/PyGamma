@@ -68,11 +68,7 @@ module load openmpi/2.1.1
 
 source /g/data/u46/users/pd1813/INSAR/test_bulk_pbs/insar.env
 
-n=1
-export OMP_NUM_THREADS=$n
-export NUM_PROCS=$(($PBS_NCPUS / $n))
-
-mpirun -np $(($PBS_NCPUS / $n)) -x $((OMP_NUM_THREADS)) -map-by ppr:$(($PBS_NCPUS / 2)):socket:PE=$(($OMP_NUM_THREADS)) --report-bindings --oversubscribe python3 /g/data/u46/users/pd1813/INSAR/INSAR_DEV_BULK_PROCESS/gamma_insar/python_scripts/raw_data_extract.py {proc_file}
+mpirun python3 /g/data/u46/users/pd1813/INSAR/INSAR_DEV_BULK_PROCESS/gamma_insar/python_scripts/raw_data_extract.py {proc_file}
 """)
 
 PBS_RESOURCES = ("""#!/bin/bash
@@ -314,10 +310,10 @@ def _parser():
 
     parser.add_argument("--retry", type=int, help="How many retry to be performed before per job"
                                                   "terminating the job",
-                        default=2, required=False)
+                        default=7, required=False)
 
     parser.add_argument("--num_batch", type=int, help="Number of batch jobs to be generated",
-                        default=5, required=False)
+                        default=2, required=False)
 
     parser.add_argument("--test", action='store_true', help="mock the job submission to PBS queue")
 

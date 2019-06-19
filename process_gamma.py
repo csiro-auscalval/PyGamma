@@ -564,7 +564,7 @@ class CompletionCheck(luigi.Task):
 
     def output(self):
         inputs = self.input()
-        return luigi.LocalTarget(pjoin(dirname(inputs['check_processifgs'].path), 'Process_Complete_status_logs.out'))
+        return luigi.LocalTarget(pjoin(dirname(inputs['processifgs'].path), 'Process_Complete_status_logs.out'))
 
     def run(self):
         STATUS_LOGGER.info('check full stack job completion')
@@ -649,20 +649,24 @@ class Workflow(luigi.Task):
         processifgs = ProcessInterFerograms(proc_file_path=self.proc_file_path,
                                             upstream_task={'check_coregslaves': check_coregslaves})
 
-        check_processifgs = CheckInterFerograms(proc_file_path=self.proc_file_path,
-                                                upstream_task={'processifgs': processifgs,
-                                                               'ifg_errors': ifg_errors})
+        # check_processifgs = CheckInterFerograms(proc_file_path=self.proc_file_path,
+        #                                         upstream_task={'processifgs': processifgs,
+        #                                                        'ifg_errors': ifg_errors})
 
-        completioncheck = CompletionCheck(upstream_task={'check_processifgs': check_processifgs})
+        completioncheck = CompletionCheck(upstream_task={'processifgs': processifgs,
+                                                         'ifg_errors': ifg_errors})
 
         yield completioncheck
-        
 
     def output(self):
         path_name = get_path(self.proc_file_path)
         return luigi.LocalTarget(pjoin(path_name['checkpoint_dir'], 'final_status_logs.out'))
 
     def run(self):
+        path_name = get_path(self.proc_file_path)
+        if path_name['clean_up'] == 'yes':
+            clean_ifgdir(ifg_path=path_name['ifg_dir'])
+            clean_demdir(dem_path=path_name['dem_dir'])
 
         with self.output().open('w') as f:
             f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
@@ -749,6 +753,7 @@ class ARD(luigi.Task):
             proc_file1 = pjoin(self.proc_dir, proc_name)
 
             if not exists(proc_file1):
+                exit()
                 STATUS_LOGGER.info('{} does not exist, used auto generated proc file'.format(proc_name)) 
                 kwargs = {'s1_file_list': s1_file,
                           'outdir': pjoin(self.outdir),
@@ -771,6 +776,7 @@ class ARD(luigi.Task):
 
                 with open(proc_file1, 'w') as src:
                     src.writelines(proc_data) 
+
             print(self.s1_file_list)
             print(proc_file1)
 
