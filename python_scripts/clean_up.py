@@ -7,7 +7,7 @@ import shutil
 import numpy
 import argparse
 
-from python_scripts.constant import Wildcards
+from python_scripts.constant import Wildcards, SlcFilenames, MliFilenames
 from python_scripts.initialize_proc_file import get_path
 
 
@@ -17,6 +17,20 @@ def clean_rawdatadir(raw_data_path):
     """
     if exists(raw_data_path):
         shutil.rmtree(raw_data_path)
+
+
+def clean_coreg_scene(slc_path, scene, pol, rlks):
+    """
+    Deletes files that were created during co-registration steps
+    from slc scene directory
+    """
+    if exists(slc_path):
+        slc_files = [item.value.format(scene_date=scene, pol=pol) for item in SlcFilenames]
+        mli_files = [item.value.format(scene_date=scene, pol=pol, rlks=rlks) for item in MliFilenames]
+
+        for item in os.listdir(pjoin(slc_path, scene)):
+            if item not in slc_files + mli_files:
+                os.remove(pjoin(slc_path, scene, item))
 
 
 def clean_slcdir(slc_path, patterns=None):
@@ -175,7 +189,7 @@ def main():
 
 if __name__ == '__main__':
     """
-    To clean up the files in after a debugging process 
-       
+    To clean up the files in after a debugging process
+
     """
     main()

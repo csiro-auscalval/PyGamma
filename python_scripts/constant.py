@@ -12,6 +12,31 @@ S1_SOURCE_DIR_FMT = '{y}/{y}-{m}/{g}/{f}'
 DATE_FMT = '*{dt}*'
 
 
+class SlcFilenames(Enum):
+    """SLC filenames """
+    SLC_FILENAME = '{scene_date}_{pol}.slc'
+    SLC_PAR_FILENAME = '{scene_date}_{pol}.slc.par'
+    SLC_TAB_FILENAME = '{scene_date}_{pol}_tab'
+
+    SLC_IW1_FILENAME = '{scene_date}_{pol}_IW1.slc'
+    SLC_IW1_PAR_FILENAME = '{scene_date}_{pol}_IW1.slc.par'
+    SLC_IW1_TOPS_PAR_FILENAME = '{scene_date}_{pol}_IW1.slc.TOPS_par'
+
+    SLC_IW2_FILENAME = '{scene_date}_{pol}_IW2.slc'
+    SLC_IW2_PAR_FILENAME = '{scene_date}_{pol}_IW2.slc.par'
+    SLC_IW2_TOPS_PAR_FILENAME = '{scene_date}_{pol}_IW2.slc.TOPS_par'
+
+    SLC_IW3_FILENAME = '{scene_date}_{pol}_IW3.slc'
+    SLC_IW3_PAR_FILENAME = '{scene_date}_{pol}_IW3.slc.par'
+    SLC_IW3_TOPS_PAR_FILENAME = '{scene_date}_{pol}_IW3.slc.TOPS_par'
+
+
+class MliFilenames(Enum):
+    """ MLI filenames """
+    MLI_FILENAME = '{scene_date}_{pol}_{rlks}rlks.mli'
+    MLI_PAR_FILENAME = '{scene_date}_{pol}_{rlks}rlks.mli.par'
+
+
 class Wildcards(Enum):
     """
     Defines the wildcard patterns which are used in finding files with
