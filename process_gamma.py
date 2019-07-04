@@ -13,14 +13,16 @@ import traceback
 from structlog import wrap_logger
 from structlog.processors import JSONRenderer
 
+import python_scripts.coreg_utils as coreg_utils
 from python_scripts.initialize_proc_file import get_path
 from python_scripts.check_status import checkgammadem, checkfullslc, checkmultilook, \
      checkbaseline, checkdemmaster, checkcoregslaves, checkifgs
 from python_scripts.insar_pbs import PBS_SINGLE_JOB_TEMPLATE
 from python_scripts.proc_template import PROC_FILE_TEMPLATE
 from python_scripts.clean_up import clean_rawdatadir, clean_slcdir, clean_ifgdir, \
-     clean_gammademdir, clean_demdir, clean_checkpoints
-
+     clean_gammademdir, clean_demdir, clean_checkpoints, clean_coreg_scene
+from python_scripts.constants import SCENE_DATE_FMT, COREG_JOB_FILE_FMT,
+     COREG_JOB_ERROR_FILE_FMT
 
 ERROR_LOGGER = wrap_logger(logging.getLogger('errors'),
                            processors=[JSONRenderer(indent=1, sort_keys=True)])
@@ -426,6 +428,179 @@ class CheckDemMaster(luigi.Task):
                 f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
+class ListParameter(luigi.Parameter):
+    """ Converts luigi parameters separated by comma to a list. """
+    def parse(self, arguments):
+        return arguments.split(',')
+
+
+class MastersDynamicCoregistration(luigi.Task):
+    """ Runs the  co-registration task to select secondary masters.
+        The input parameter temporal_threshold is of 'int'.
+        The input parameter scenes should be a list of scenes.
+        The input parameter tag is 'str' type.
+    """
+    temporal_threshold = luigi.IntParameter()
+    scenes = luigi.ListParameter(default=[])
+    tag = luigi.Parameter()
+    output_path = luigi.Parameter()
+    coreg_slc_job_dir = luigi.Parameter()
+    polarization = luigi.Parameter()
+    range_looks = luigi.Parameter()
+    slc_path = luigi.Parameter()
+
+    def output(self):
+        return luigi.LocalTarget(pjoin(output_path, 'Dynamic_Master_Coregistration_{}.log'
+                                                     .format(self.tag)))
+
+    def run(self):
+        scenes = self.scenes
+        if not scenes or len(scenes) < 2:
+            ERROR_LOGGER.error('There should be more than two scenes to co-register')
+
+        # Initial master is first scene in list
+        master_idx = 0
+        max_slave_idx = None
+        task_complete = False
+        master_list = [scenes[master_idx]]
+
+        while not task_complete:
+            task_success = False
+            slave_idx, task_complete = coregristration_candidates(
+                scenes, master_idx, self.temporal_threshold, max_slave_idx)
+
+            if not slave_idx or task_complete:
+                break
+
+            master = scenes[master_idx]
+            slave = scenes[slave_idx]
+
+            coreg_job_file = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_FILE_FMT.format(master=master, slave=slave))
+            coreg_error_log = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_ERROR_FILE_FMT.format(master=master, slave=slave))
+            with open(coreg_job_file, 'w') as fid:
+                pbs = COREGISTRATION_JOB_TEMPLATE.format(master=master, slave=slave, error_file=coreg_error_log)
+                fid.writelines(pbs)
+
+            task1 = ExternalFileChecker(coreg_error_log)
+
+            if not task1.complete():
+                cmd = ['qsub', '{}'.format(coreg_job_file)]
+                os.chdir(dirname(coreg_job_file))
+                subprocess.check_call(cmd)
+                yield task1
+            else:
+                with task1.output().open() as in_fid:
+                    lines = in_fid.readlines()
+                    # TODO find better checks to determine if coregistration succeeded or not
+                    seg_faults = [True for line in lines if 'Segmentation fault' in line]
+                    if not seg_faults:
+                        task_success = True
+
+            if task_success:
+                master_idx = slave_idx
+                max_slave_idx = None
+                master_list.append(scenes[master_idx])
+            else:
+                max_slave_idx = slave_idx - 1
+                if max_slave_idx == master_idx:
+                    break
+
+        if not task_complete:
+            ERROR_LOGGER.error("Unable to perform co-registration task")
+
+        with self.output().open('w') as fid:
+            for master in master_list:
+                fid.write(master + '\n')
+
+
+class SlavesDynamicCoregistration(luigi.Task):
+    """ Runs the slave co-registration task using secondary masters.
+        The input parameter scenes should be a list of scenes.
+        The input parameter master should a 'str' in '%Y%m%d' format.
+    """
+    scenes = luigi.ListParameter(default=[])
+    master = luigi.Parameter()
+    tag = luigi.Parameter()
+    output_path = luigi.Parameter()
+    coreg_slc_job_dir = luigi.Parameter()
+    polarization = luigi.Parameter()
+    range_looks = luigi.Parameter()
+    slc_path = luigi.Parameter()
+
+    def output(self):
+        return luigi.LocalTarget(pjoin(self.output_path, 'coregistration_{}.log'.format(self.tag)))
+
+    def run(self):
+        scenes_list = self.scenes
+        master = self.master
+        task_complete = False
+
+        if not scenes_list:
+            task_complete = True
+
+        def __slave_coregistration(master_scene, slave_scene):
+            job_file = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_FILE_FMT.format(master=master_scene, slave=slave_scene))
+            error_log = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_ERROR_FILE_FMT.format(master=master_scene,
+                                                                                       slave=slave_scene))
+            if not exists(job_file):
+                with open(job_file, 'w') as job_fid:
+                    pbs = COREGISTRATION_JOB_TEMPLATE.format(master=master_scene, slave=slave_scene,
+                                                             error_file=error_log)
+                    job_fid.write(pbs)
+
+                STATUS_LOGGER.info('submitting slave co-registration task with  master: {} and slave: {}'
+                                   .format(master_scene, slave_scene))
+
+                cmd = ['qsub', '{}'.format(job_file)]
+                os.chdir(dirname(job_file))
+                subprocess.check_call(cmd)
+
+            return ExternalFileChecker(error_log)
+
+        while not task_complete:
+            slave_tasks = [__slave_coregistration(master, scene) for scene in scenes_list]
+            if slave_tasks:
+                if not all([task.complete() for task in slave_tasks]):
+                    yield slave_tasks
+                else:
+                    failed_tasks = []
+                    for coreg_task in slave_tasks:
+                        if coreg_task.complete():
+                            with coreg_task.output().open() as in_fid:
+                                for line in in_fid:
+                                    if "Segmentation fault" in line:
+                                        failed_tasks.append(coreg_task)
+                    if failed_tasks:
+                        # new scene_list(failed scenes) and master(closest to previous master) are computed
+                        failed_scenes_list = []
+                        for failed_task in failed_tasks:
+                            # TODO clean files associated with failed co-registration scene from SLC directory
+                            filename = failed_task.filename
+                            failed_scenes_list.append(basename(filename).split('.')[0].split('_')[1])
+
+                        # clean files associated with failed co-registration scene from SLC directory
+                        for scene in failed_scenes_list:
+                            clean_coreg_scene(self.slc_path, scene, self.polarization, self.range_looks)
+
+                        masters = [scene for scene in scenes_list if scene not in failed_scenes_list]
+                        diff = [abs(parse_date(ms) - parse_date(master)) for ms in masters]
+                        master = masters[diff.index(min(diff))]
+                        scenes_list = failed_scenes_list
+                    else:
+                        task_complete = True
+            else:
+                STATUS_LOGGER.info('No scenes available to co-register with master {}'.format(self.master))
+                task_complete = True
+                break
+
+        if not task_complete:
+            STATUS_LOGGER.info('failed to coregister slaves {} with master {}'.format(str(self.scenes), self.master)
+
+        with self.output().open('w') as out_fid:
+            out_fid.write('secondary master:{master}{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S'),
+                                                                 master=self.master))
+
+
 class CoregisterSlaves(luigi.Task):
     """
     Runs the master-slaves co-registration task
@@ -739,22 +914,22 @@ class ARD(luigi.Task):
                 os.makedirs(self.outdir)
             if not exists(self.workdir):
                 os.makedirs(self.workdir)
-            
-            if not exists(self.s1_file_list): 
+
+            if not exists(self.s1_file_list):
                 ERROR_LOGGER.error('{} does not exist'.format(self.s1_file_list))
-                return 
+                return
 
             s1_file = basename(self.s1_file_list)
             file_strings = s1_file.split('_')
             print(file_strings)
             track, frame, polarization = file_strings[1], file_strings[2], file_strings[3]
-            
+
             proc_name = '{}_{}.proc'.format(track, frame)
             proc_file1 = pjoin(self.proc_dir, proc_name)
 
             if not exists(proc_file1):
                 exit()
-                STATUS_LOGGER.info('{} does not exist, used auto generated proc file'.format(proc_name)) 
+                STATUS_LOGGER.info('{} does not exist, used auto generated proc file'.format(proc_name))
                 kwargs = {'s1_file_list': s1_file,
                           'outdir': pjoin(self.outdir),
                           'project': self.project,
@@ -775,7 +950,7 @@ class ARD(luigi.Task):
                 proc_file1 = pjoin(self.workdir, proc_name)
 
                 with open(proc_file1, 'w') as src:
-                    src.writelines(proc_data) 
+                    src.writelines(proc_data)
 
             print(self.s1_file_list)
             print(proc_file1)
