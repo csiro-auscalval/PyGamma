@@ -2,6 +2,8 @@
 
 import os
 from os.path import join as pjoin, isdir, basename, dirname, exists
+import shutil
+
 import logging
 import subprocess
 import datetime
@@ -9,6 +11,7 @@ import signal
 import numpy
 import luigi
 import traceback
+import re
 
 from structlog import wrap_logger
 from structlog.processors import JSONRenderer
@@ -17,12 +20,11 @@ import python_scripts.coreg_utils as coreg_utils
 from python_scripts.initialize_proc_file import get_path
 from python_scripts.check_status import checkgammadem, checkfullslc, checkmultilook, \
      checkbaseline, checkdemmaster, checkcoregslaves, checkifgs
-from python_scripts.insar_pbs import PBS_SINGLE_JOB_TEMPLATE
+from python_scripts.template_pbs import PBS_SINGLE_JOB_TEMPLATE, COREGISTRATION_JOB_TEMPLATE
 from python_scripts.proc_template import PROC_FILE_TEMPLATE
 from python_scripts.clean_up import clean_rawdatadir, clean_slcdir, clean_ifgdir, \
      clean_gammademdir, clean_demdir, clean_checkpoints, clean_coreg_scene
-from python_scripts.constants import SCENE_DATE_FMT, COREG_JOB_FILE_FMT,
-     COREG_JOB_ERROR_FILE_FMT
+from python_scripts.constant import SCENE_DATE_FMT, COREG_JOB_FILE_FMT, COREG_JOB_ERROR_FILE_FMT
 
 ERROR_LOGGER = wrap_logger(logging.getLogger('errors'),
                            processors=[JSONRenderer(indent=1, sort_keys=True)])
@@ -429,29 +431,33 @@ class CheckDemMaster(luigi.Task):
 
 
 class ListParameter(luigi.Parameter):
-    """ Converts luigi parameters separated by comma to a list. """
+    """
+    Converts luigi parameters separated by comma to a list.
+     """
     def parse(self, arguments):
         return arguments.split(',')
 
 
-class MastersDynamicCoregistration(luigi.Task):
-    """ Runs the  co-registration task to select secondary masters.
-        The input parameter temporal_threshold is of 'int'.
-        The input parameter scenes should be a list of scenes.
-        The input parameter tag is 'str' type.
+class SecondaryMastersDynamicCoregistration(luigi.Task):
+    """
+    Runs the  co-registration task to select secondary masters.
     """
     temporal_threshold = luigi.IntParameter()
     scenes = luigi.ListParameter(default=[])
     tag = luigi.Parameter()
-    output_path = luigi.Parameter()
-    coreg_slc_job_dir = luigi.Parameter()
+    coreg_slc_jobs_dir = luigi.Parameter()
     polarization = luigi.Parameter()
     range_looks = luigi.Parameter()
     slc_path = luigi.Parameter()
+    project = luigi.Parameter()
+    ncpus = luigi.IntParameter()
+    memory = luigi.IntParameter()
+    queue = luigi.Parameter()
+    hours = luigi.IntParameter()
 
     def output(self):
-        return luigi.LocalTarget(pjoin(output_path, 'Dynamic_Master_Coregistration_{}.log'
-                                                     .format(self.tag)))
+        return luigi.LocalTarget(pjoin(self.coreg_slc_jobs_dir,
+                                       'Dynamic_Master_Coregistration_{}_logs.out'.format(self.tag)))
 
     def run(self):
         scenes = self.scenes
@@ -466,7 +472,7 @@ class MastersDynamicCoregistration(luigi.Task):
 
         while not task_complete:
             task_success = False
-            slave_idx, task_complete = coregristration_candidates(
+            slave_idx, task_complete = coreg_utils.coregristration_candidates(
                 scenes, master_idx, self.temporal_threshold, max_slave_idx)
 
             if not slave_idx or task_complete:
@@ -476,9 +482,20 @@ class MastersDynamicCoregistration(luigi.Task):
             slave = scenes[slave_idx]
 
             coreg_job_file = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_FILE_FMT.format(master=master, slave=slave))
-            coreg_error_log = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_ERROR_FILE_FMT.format(master=master, slave=slave))
+            coreg_error_log = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_ERROR_FILE_FMT.format(master=master,
+                                                                                             slave=slave))
+
             with open(coreg_job_file, 'w') as fid:
-                pbs = COREGISTRATION_JOB_TEMPLATE.format(master=master, slave=slave, error_file=coreg_error_log)
+                kwargs = {'master': master,
+                          'slave': slave,
+                          'error_file': coreg_error_log,
+                          'project': self.project,
+                          'ncpus': self.ncpus,
+                          'memory': self.memory,
+                          'hours': self.hours,
+                          'queue': self.queue}
+
+                pbs = COREGISTRATION_JOB_TEMPLATE.format(**kwargs)
                 fid.writelines(pbs)
 
             task1 = ExternalFileChecker(coreg_error_log)
@@ -506,46 +523,129 @@ class MastersDynamicCoregistration(luigi.Task):
                     break
 
         if not task_complete:
-            ERROR_LOGGER.error("Unable to perform co-registration task")
+            ERROR_LOGGER.error("Unable to perform secondary master {m} co-registration task".format(m=master))
 
         with self.output().open('w') as fid:
             for master in master_list:
                 fid.write(master + '\n')
 
 
+class CoregisterSecondaryMasters(luigi.Task):
+    """
+    Runs the secondary master co-registration task.
+    """
+    proc_file_path = luigi.Parameter()
+    upstream_task = luigi.Parameter
+
+    def requires(self):
+        return self.upstream_task
+
+    def output(self):
+        inputs = self.input()
+        return luigi.LocalTarget(pjoin(dirname(inputs['check_coregmaster'].path),
+                                       'Secondary_Masters_Coregistration_logs.out'))
+
+    def run(self):
+
+        STATUS_LOGGER.info('Co-registering secondary masters')
+        path_name = get_path(self.proc_file_path)
+        path_name = get_path(pjoin(path_name['proj_dir'], basename(self.proc_file_path)))
+
+        # get master scene name from the proc file
+        primary_master = path_name['master_scene']
+
+        # read scenes list for the stack
+        with open(path_name['scenes_list'], 'r') as in_fid:
+            scenes = [line.rstrip() for line in in_fid.readlines() if not line.isspace()]
+
+        scenes_datetime = [coreg_utils.parse_date(scene) for scene in scenes]
+        primary_master_date = coreg_utils.parse_date(primary_master)
+
+        # set scenes before master scenes in descending order with master scene as a starting scene
+        before_master = [scenes[idx] for idx, scene in enumerate(scenes_datetime)
+                         if scene < primary_master_date]
+        before_master.reverse()
+        before_master.insert(0, primary_master)
+
+        # set scenes after master scenes in ascending order with master scene as a starting scene
+        after_master = [scenes[idx] for idx, scene in enumerate(scenes_datetime)
+                        if scene > primary_master_date]
+        after_master.insert(0, primary_master)
+
+        # create two dynamic tasks which can be run simultaneously
+        tasks = [SecondaryMastersDynamicCoregistration(scenes=before_master,
+                                                       tag='before',
+                                                       coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
+                                                       polarization=path_name['polarization'],
+                                                       range_looks=path_name['range_looks'],
+                                                       slc_path=path_name['slc_dir']),
+                 SecondaryMastersDynamicCoregistration(scenes=after_master,
+                                                       tag='after',
+                                                       coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
+                                                       polarization=path_name['polarization'],
+                                                       range_looks=path_name['range_looks'],
+                                                       slc_path=path_name['slc_dir'])]
+        yield tasks
+
+        master_list = []
+        for task in tasks:
+            if not task.complete():
+                ERROR_LOGGER.error("Master co-registration task not complete")
+            with task.output().open() as in_fid:
+                for line in in_fid:
+                    if not line.isspace():
+                        master_list.append(line.rstrip())
+
+        with self.output().open('w') as out_fid:
+            for master in master_list:
+                out_fid.write(master + '\n')
+
+
 class SlavesDynamicCoregistration(luigi.Task):
-    """ Runs the slave co-registration task using secondary masters.
-        The input parameter scenes should be a list of scenes.
-        The input parameter master should a 'str' in '%Y%m%d' format.
+    """
+    Runs the slave co-registration task using secondary masters.
     """
     scenes = luigi.ListParameter(default=[])
     master = luigi.Parameter()
     tag = luigi.Parameter()
-    output_path = luigi.Parameter()
-    coreg_slc_job_dir = luigi.Parameter()
+    coreg_slc_jobs_dir = luigi.Parameter()
     polarization = luigi.Parameter()
     range_looks = luigi.Parameter()
     slc_path = luigi.Parameter()
+    project = luigi.Parameter()
+    ncpus = luigi.IntParameter()
+    memory = luigi.IntParameter()
+    queue = luigi.Parameter()
+    hours = luigi.IntParameter()
 
     def output(self):
-        return luigi.LocalTarget(pjoin(self.output_path, 'coregistration_{}.log'.format(self.tag)))
+        return luigi.LocalTarget(pjoin(self.coreg_slc_jobs_dir,
+                                       'Dynamic_Slave_Coregistration_{}_logs.out'.format(self.tag)))
 
     def run(self):
         scenes_list = self.scenes
         master = self.master
-        task_complete = False
-
-        if not scenes_list:
-            task_complete = True
+        used_masters = []
+        failed_scenes = None
 
         def __slave_coregistration(master_scene, slave_scene):
-            job_file = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_FILE_FMT.format(master=master_scene, slave=slave_scene))
-            error_log = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_ERROR_FILE_FMT.format(master=master_scene,
-                                                                                       slave=slave_scene))
+            job_file = pjoin(self.coreg_slc_jobs_dir,
+                             COREG_JOB_FILE_FMT.format(master=master_scene, slave=slave_scene))
+            error_log = pjoin(self.coreg_slc_jobs_dir,
+                              COREG_JOB_ERROR_FILE_FMT.format(master=master_scene, slave=slave_scene))
+
             if not exists(job_file):
                 with open(job_file, 'w') as job_fid:
-                    pbs = COREGISTRATION_JOB_TEMPLATE.format(master=master_scene, slave=slave_scene,
-                                                             error_file=error_log)
+                    kwargs = {'master': master_scene,
+                              'slave': slave_scene,
+                              'error_file': error_log,
+                              'project': self.project,
+                              'ncpus': self.ncpus,
+                              'memory': self.memory,
+                              'hours': self.hours,
+                              'queue': self.queue}
+
+                    pbs = COREGISTRATION_JOB_TEMPLATE.format(**kwargs)
                     job_fid.write(pbs)
 
                 STATUS_LOGGER.info('submitting slave co-registration task with  master: {} and slave: {}'
@@ -554,80 +654,156 @@ class SlavesDynamicCoregistration(luigi.Task):
                 cmd = ['qsub', '{}'.format(job_file)]
                 os.chdir(dirname(job_file))
                 subprocess.check_call(cmd)
-
             return ExternalFileChecker(error_log)
 
-        while not task_complete:
+        while True:
+            # add every new master to used_masters to exclude while selecting new master
+            used_masters.append(master)
             slave_tasks = [__slave_coregistration(master, scene) for scene in scenes_list]
-            if slave_tasks:
-                if not all([task.complete() for task in slave_tasks]):
-                    yield slave_tasks
-                else:
-                    failed_tasks = []
-                    for coreg_task in slave_tasks:
-                        if coreg_task.complete():
-                            with coreg_task.output().open() as in_fid:
-                                for line in in_fid:
-                                    if "Segmentation fault" in line:
-                                        failed_tasks.append(coreg_task)
-                    if failed_tasks:
-                        # new scene_list(failed scenes) and master(closest to previous master) are computed
-                        failed_scenes_list = []
-                        for failed_task in failed_tasks:
-                            # TODO clean files associated with failed co-registration scene from SLC directory
-                            filename = failed_task.filename
-                            failed_scenes_list.append(basename(filename).split('.')[0].split('_')[1])
 
-                        # clean files associated with failed co-registration scene from SLC directory
-                        for scene in failed_scenes_list:
-                            clean_coreg_scene(self.slc_path, scene, self.polarization, self.range_looks)
-
-                        masters = [scene for scene in scenes_list if scene not in failed_scenes_list]
-                        diff = [abs(parse_date(ms) - parse_date(master)) for ms in masters]
-                        master = masters[diff.index(min(diff))]
-                        scenes_list = failed_scenes_list
-                    else:
-                        task_complete = True
-            else:
+            if not slave_tasks:
                 STATUS_LOGGER.info('No scenes available to co-register with master {}'.format(self.master))
-                task_complete = True
                 break
 
-        if not task_complete:
-            STATUS_LOGGER.info('failed to coregister slaves {} with master {}'.format(str(self.scenes), self.master)
+            if not all([task.complete() for task in slave_tasks]):
+                yield slave_tasks
+            else:
+                failed_tasks = []
+                for coreg_task in slave_tasks:
+                    with coreg_task.output().open() as in_fid:
+                        lines = in_fid.readlines()
+                        # TODO find better checks to determine if coregistration succeeded or not
+                        seg_faults = [True for line in lines if 'Segmentation fault' in line]
+                        if seg_faults:
+                            failed_tasks.append(coreg_task)
+
+                if not failed_tasks:
+                    break
+
+                # new scene_list(failed scenes) and master(closest to previous master) are computed
+                failed_scenes_list = [basename(task.filename).split('.')[0].split('_')[1] for task in failed_tasks]
+
+                # clean files associated with failed co-registration scene from SLC directory
+                for scene in failed_scenes_list:
+                    clean_coreg_scene(self.slc_path, scene, self.polarization, self.range_looks)
+
+                # co-register the failed scenes with the successful scenes closet to the master
+                masters = [scene for scene in self.scenes if scene not in failed_scenes_list + used_masters]
+                if not masters:
+                    failed_scenes = failed_scenes_list
+                    STATUS_LOGGER.info('failed to co-register slaves {}'.format(str(failed_scenes)))
+                    break
+
+                diff = [abs(coreg_utils.parse_date(ms) - coreg_utils.parse_date(master)) for ms in masters]
+                master = masters[diff.index(min(diff))]
+                scenes_list = failed_scenes_list
 
         with self.output().open('w') as out_fid:
-            out_fid.write('secondary master:{master}{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S'),
-                                                                 master=self.master))
+            if failed_scenes:
+                for failed_scene in failed_scenes:
+                    out_fid.write(failed_scene + '\n')
 
 
 class CoregisterSlaves(luigi.Task):
     """
-    Runs the master-slaves co-registration task
+    Runs co-registration of slaves tasks.
     """
     proc_file_path = luigi.Parameter()
     upstream_task = luigi.Parameter()
 
     def requires(self):
-
         return self.upstream_task
 
     def output(self):
-
         inputs = self.input()
-        return luigi.LocalTarget(pjoin(dirname(inputs['check_coregmaster'].path), 'Coregister_slaves_status_logs.out'))
+        return luigi.LocalTarget(pjoin(dirname(inputs['coreg_secondary_masters'].path),
+                                       'Slave_Coregistration_logs.out'))
 
     def run(self):
-        STATUS_LOGGER.info('co-register master-slaves task')
+
+        STATUS_LOGGER.info('Co-registering master-slave')
         path_name = get_path(self.proc_file_path)
         path_name = get_path(pjoin(path_name['proj_dir'], basename(self.proc_file_path)))
 
-        args = (["bash", "coregister_slave_to_master_job.bash",
-                 "%s" % pjoin(path_name['proj_dir'], basename(self.proc_file_path))])
-        subprocess.check_call(args)
+        # get master scene name from the proc file
+        primary_master = path_name['master_scene']
 
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        # read scenes list for the stack
+        with open(path_name['scenes_list'], 'r') as in_fid:
+            scenes = [line.rstrip() for line in in_fid.readlines() if not line.isspace()]
+
+        if primary_master in scenes:
+            scenes.remove(primary_master)
+
+        # read secondary master lists from upstream tasks
+        with self.input().open('r') as in_fid:
+            secondary_masters_list = list(set([line.rstrip() for line in in_fid.readlines() if not line.isspace()]))
+
+        # get a dict with secondary master as a key and scenes to be co-registered as values
+        # for secondary masters before and after primary master
+        before_master_slaves = coreg_utils.coreg_candidates_before_master_scene(self.scenes,
+                                                                                secondary_masters_list, primary_master)
+        after_master_slaves = coreg_utils.coreg_candidates_after_master_scene(self.scenes,
+                                                                              secondary_masters_list, primary_master)
+
+        slave_task_list = []
+        for secondary_master in before_master_slaves:
+            slave_task_list.append(SlavesDynamicCoregistration(scenes=before_master_slaves[secondary_master],
+                                                               master=secondary_master,
+                                                               tag='before_{}'.format(secondary_master),
+                                                               coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
+                                                               polarization=path_name['polarization'],
+                                                               range_looks=path_name['range_looks'],
+                                                               slc_path=path_name['slc_dir']))
+        for secondary_master in after_master_slaves:
+            slave_task_list.append(SlavesDynamicCoregistration(scenes=after_master_slaves[secondary_master],
+                                                               master=secondary_master,
+                                                               tag='after_{}'.format(secondary_master),
+                                                               coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
+                                                               polarization=path_name['polarization'],
+                                                               range_looks=path_name['range_looks'],
+                                                               slc_path=path_name['slc_dir']))
+        if slave_task_list:
+            yield slave_task_list
+
+        # collect failed scenes from tasks in slave_task_list
+        failed_scenes = []
+        for task in slave_task_list:
+            with task.output().open() as in_fid:
+                for line in in_fid:
+                    if re.match(r'[0-9]{8}', line):
+                        failed_scenes.append(line.rstrip())
+
+        if not exists(path_name['ifgs_list']):
+            ERROR_LOGGER.error('ifg list does not exist')
+
+        if failed_scenes:
+            # keep a copy of old ifg list for the record
+            old_ifg_list = pjoin(dirname(path_name['ifgs_list']), 'old_ifgs.list')
+            if exists(old_ifg_list):
+                os.remove(old_ifg_list)
+            os.rename(path_name['ifgs_list'], old_ifg_list)
+
+            # get ifg connections lists computed during baseline computation
+            with open(old_ifg_list, 'r') as in_fid:
+                ifg_list = [line.rstrip().split(',') for line in in_fid.readlines()]
+
+            # remove scenes failed at co-registration from ifg list and clean
+            # slc directory for that failed scenes
+            for scene in failed_scenes:
+                shutil.rmtree(pjoin(path_name['slc_dir'], scene))
+                for ifg in ifg_list:
+                    if scene in ifg:
+                        ifg_list.remove(ifg)
+
+            # write ifg list with failed scenes removed
+            with open(path_name['ifgs_list'], 'w') as out_fid:
+                for ifg in ifg_list:
+                    out_fid.write('{},{}'.format(ifg[0], ifg[1]))
+                    out_fid.write('\n')
+
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CheckCoregSlave(luigi.Task):
@@ -638,11 +814,9 @@ class CheckCoregSlave(luigi.Task):
     upstream_task = luigi.Parameter()
 
     def requires(self):
-
         return self.upstream_task
 
     def output(self):
-
         inputs = self.input()
         return luigi.LocalTarget(pjoin(dirname(inputs['coregslaves'].path), 'Check_coreg_slaves_status_logs.out'))
 
@@ -767,7 +941,6 @@ class Workflow(luigi.Task):
         init_baseline_errors = ExternalFileChecker(path_name['init_baseline_errors'])
         create_dem_errors = ExternalFileChecker(path_name['create_dem_errors'])
         coreg_dem_errors = ExternalFileChecker(path_name['coreg_dem_errors'])
-        coreg_slc_errors = ExternalFileChecker(path_name['coreg_slc_errors'])
         ifg_errors = ExternalFileChecker(path_name['ifg_errors'])
 
         # upstream tasks
@@ -814,19 +987,17 @@ class Workflow(luigi.Task):
                                            upstream_task={'coregmaster': coregmaster,
                                                           'coreg_dem_error': coreg_dem_errors})
 
+        coreg_secondary_masters = CoregisterSecondaryMasters(proc_file_path=self.proc_file_path,
+                                                             upstream_tasks={'check_coregmaster': check_coregmaster})
+
         coregslaves = CoregisterSlaves(proc_file_path=self.proc_file_path,
-                                       upstream_task={'check_coregmaster': check_coregmaster})
+                                       upstream_task={'coreg_secondary_masters': coreg_secondary_masters})
 
         check_coregslaves = CheckCoregSlave(proc_file_path=self.proc_file_path,
-                                            upstream_task={'coregslaves': coregslaves,
-                                                           'coreg_slc_errors': coreg_slc_errors})
+                                            upstream_task={'coregslaves': coregslaves})
 
         processifgs = ProcessInterFerograms(proc_file_path=self.proc_file_path,
                                             upstream_task={'check_coregslaves': check_coregslaves})
-
-        # check_processifgs = CheckInterFerograms(proc_file_path=self.proc_file_path,
-        #                                         upstream_task={'processifgs': processifgs,
-        #                                                        'ifg_errors': ifg_errors})
 
         completioncheck = CompletionCheck(upstream_task={'processifgs': processifgs,
                                                          'ifg_errors': ifg_errors})

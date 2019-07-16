@@ -255,6 +255,7 @@ while [[ "$daz10000" -gt 5 || "$daz10000" -lt -5 ]] && [ "$it" -le "$slave_niter
     # coregister to nearest slave if list_idx is given
     if [ $list_idx == "-" ]; then # coregister to master
       S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev > $slave_off.az_ovr.$it.out
+
     elif [ $list_idx == "0" ]; then # coregister to adjacent slave
       # get slave position in slaves.list
       slave_pos=`grep -n $slave $slave_list | cut -f1 -d:`
@@ -267,6 +268,12 @@ while [[ "$daz10000" -gt 5 || "$daz10000" -lt -5 ]] && [ "$it" -le "$slave_niter
       fi
       r_coreg_slave_tab=$slc_dir/$coreg_slave/r$coreg_slave"_"$polar"_tab"
       S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
+
+    elif [ $list_idx -gt "10000000" ]; then # coregister to given scene (list_idx)
+        coreg_slave=$list_idx
+        r_coreg_slave_tab=$slc_dir/$coreg_slave/r$coreg_slave"_"$polar"_tab"
+        S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
+
     else # coregister to slave image with short temporal baseline
       #  take the first/last slave of the previous list for coregistration
       prev_list_idx=$(($list_idx-1))

@@ -51,25 +51,6 @@ usage:{
     --test (if you want to mock the pbs submission)
     }
 """
-PBS_SINGLE_JOB_TEMPLATE = ("""#!/bin/bash
-#PBS -P {project}
-#PBS -q {queue}
-#PBS -l other=gdata1
-#PBS -l walltime={hours}:00:00
-#PBS -l mem={memory}GB
-#PBS -l ncpus={ncpus}
-#PBS -l jobfs=5GB
-#PBS -W umask=017
-#PBS -l wd
-#PBS -l software=python
-
-module load mpi4py/3.0.0-py3
-module load openmpi/2.1.1
-
-source /g/data/u46/users/pd1813/INSAR/test_bulk_pbs/insar.env
-
-mpirun python3 /g/data/u46/users/pd1813/INSAR/INSAR_DEV_BULK_PROCESS/gamma_insar/python_scripts/raw_data_extract.py {proc_file}
-""")
 
 PBS_RESOURCES = ("""#!/bin/bash
 #PBS -P {project}

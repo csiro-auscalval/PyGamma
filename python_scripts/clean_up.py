@@ -27,10 +27,12 @@ def clean_coreg_scene(slc_path, scene, pol, rlks):
     if exists(slc_path):
         slc_files = [item.value.format(scene_date=scene, pol=pol) for item in SlcFilenames]
         mli_files = [item.value.format(scene_date=scene, pol=pol, rlks=rlks) for item in MliFilenames]
-
-        for item in os.listdir(pjoin(slc_path, scene)):
-            if item not in slc_files + mli_files:
-                os.remove(pjoin(slc_path, scene, item))
+        try:
+            for item in os.listdir(pjoin(slc_path, scene)):
+                if item not in slc_files + mli_files:
+                    os.remove(pjoin(slc_path, scene, item))
+        except FileNotFoundError:
+            pass
 
 
 def clean_slcdir(slc_path, patterns=None):
@@ -174,7 +176,6 @@ def _parser():
     formatter = argparse.ArgumentDefaultsHelpFormatter
     parser = argparse.ArgumentParser(description=description,
                                      formatter_class=formatter)
-
     parser.add_argument("--proc_file", required=True)
 
     return parser
@@ -190,6 +191,5 @@ def main():
 if __name__ == '__main__':
     """
     To clean up the files in after a debugging process
-
     """
     main()

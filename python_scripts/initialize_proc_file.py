@@ -64,7 +64,8 @@ def get_path(proc_file):
                 pathname_dict['polarization'] = line.split('=')[1].strip()
             if line.startswith('S1_ORBITS='):
                 pathname_dict['s1_orbits'] = line.split('=')[1].strip()
-
+            if line.startswith('RANGE_LOOKS='):
+                pathname_dict['range_looks'] = line.split('=')[1].strip()
 
         # Project directories
         proj_dir1 = pjoin(nci_path, "INSAR_ANALYSIS", project, sensor, "GAMMA")
