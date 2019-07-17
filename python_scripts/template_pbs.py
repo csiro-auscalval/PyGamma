@@ -33,9 +33,5 @@ COREGISTRATION_JOB_TEMPLATE = ("""#!/bin/bash
 
 export OMP_NUM_THREADS=4
 
-#/home/547/pd1813/repo/gamma_insar/coregister_S1_slave_SLC.bash /g/data/dz56/INSAR_ARD/VV/INSAR_ANALYSIS/VICTORIA/S1/GAMMA/T45D_F19.proc {slave} {master}
-sleep 1m
-
->&2 echo "this dummy job {master} {slave}"
->&2 echo "Segmentation fault in this dummy job {master} {slave}"
+/home/547/pd1813/repo/gamma_insar/coregister_S1_slave_SLC.bash {proc_file} {slave} {master}
 """)

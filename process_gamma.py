@@ -445,6 +445,7 @@ class SecondaryMastersDynamicCoregistration(luigi.Task):
     temporal_threshold = luigi.IntParameter()
     scenes = luigi.ListParameter(default=[])
     tag = luigi.Parameter()
+    proc_file = luigi.Parameter()
     coreg_slc_jobs_dir = luigi.Parameter()
     polarization = luigi.Parameter()
     range_looks = luigi.Parameter()
@@ -488,6 +489,7 @@ class SecondaryMastersDynamicCoregistration(luigi.Task):
             with open(coreg_job_file, 'w') as fid:
                 kwargs = {'master': master,
                           'slave': slave,
+                          'proc_file': self.proc_file,
                           'error_file': coreg_error_log,
                           'project': self.project,
                           'ncpus': self.ncpus,
@@ -575,12 +577,14 @@ class CoregisterSecondaryMasters(luigi.Task):
         # create two dynamic tasks which can be run simultaneously
         tasks = [SecondaryMastersDynamicCoregistration(scenes=before_master,
                                                        tag='before',
+                                                       proc_file=self.proc_file_path,
                                                        coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
                                                        polarization=path_name['polarization'],
                                                        range_looks=path_name['range_looks'],
                                                        slc_path=path_name['slc_dir']),
                  SecondaryMastersDynamicCoregistration(scenes=after_master,
                                                        tag='after',
+                                                       prof_file=self.proc_file_path,
                                                        coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
                                                        polarization=path_name['polarization'],
                                                        range_looks=path_name['range_looks'],
@@ -608,6 +612,7 @@ class SlavesDynamicCoregistration(luigi.Task):
     scenes = luigi.ListParameter(default=[])
     master = luigi.Parameter()
     tag = luigi.Parameter()
+    proc_file = luigi.Parameter()
     coreg_slc_jobs_dir = luigi.Parameter()
     polarization = luigi.Parameter()
     range_looks = luigi.Parameter()
@@ -638,6 +643,7 @@ class SlavesDynamicCoregistration(luigi.Task):
                 with open(job_file, 'w') as job_fid:
                     kwargs = {'master': master_scene,
                               'slave': slave_scene,
+                              'proc_file': self.proc_file,
                               'error_file': error_log,
                               'project': self.project,
                               'ncpus': self.ncpus,
@@ -751,6 +757,7 @@ class CoregisterSlaves(luigi.Task):
             slave_task_list.append(SlavesDynamicCoregistration(scenes=before_master_slaves[secondary_master],
                                                                master=secondary_master,
                                                                tag='before_{}'.format(secondary_master),
+                                                               proc_file=self.proc_file_path,
                                                                coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
                                                                polarization=path_name['polarization'],
                                                                range_looks=path_name['range_looks'],
@@ -759,6 +766,7 @@ class CoregisterSlaves(luigi.Task):
             slave_task_list.append(SlavesDynamicCoregistration(scenes=after_master_slaves[secondary_master],
                                                                master=secondary_master,
                                                                tag='after_{}'.format(secondary_master),
+                                                               proc_file=self.proc_file_path,
                                                                coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
                                                                polarization=path_name['polarization'],
                                                                range_looks=path_name['range_looks'],
