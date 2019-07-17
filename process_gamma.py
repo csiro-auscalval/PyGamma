@@ -537,7 +537,7 @@ class CoregisterSecondaryMasters(luigi.Task):
     Runs the secondary master co-registration task.
     """
     proc_file_path = luigi.Parameter()
-    upstream_task = luigi.Parameter
+    upstream_task = luigi.Parameter()
 
     def requires(self):
         return self.upstream_task
