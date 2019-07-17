@@ -996,7 +996,7 @@ class Workflow(luigi.Task):
                                                           'coreg_dem_error': coreg_dem_errors})
 
         coreg_secondary_masters = CoregisterSecondaryMasters(proc_file_path=self.proc_file_path,
-                                                             upstream_tasks={'check_coregmaster': check_coregmaster})
+                                                             upstream_task={'check_coregmaster': check_coregmaster})
 
         coregslaves = CoregisterSlaves(proc_file_path=self.proc_file_path,
                                        upstream_task={'coreg_secondary_masters': coreg_secondary_masters})
