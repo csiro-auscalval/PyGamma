@@ -1,17 +1,16 @@
 #!/usr/bin/python3
 
 import os
-from os.path import join as pjoin, isdir, basename, dirname, exists
+from os.path import join as pjoin, basename, dirname, exists
 import shutil
-
 import logging
 import subprocess
 import datetime
 import signal
-import numpy
-import luigi
 import traceback
 import re
+import numpy
+import luigi
 
 from structlog import wrap_logger
 from structlog.processors import JSONRenderer
@@ -24,7 +23,7 @@ from python_scripts.template_pbs import PBS_SINGLE_JOB_TEMPLATE, COREGISTRATION_
 from python_scripts.proc_template import PROC_FILE_TEMPLATE
 from python_scripts.clean_up import clean_rawdatadir, clean_slcdir, clean_ifgdir, \
      clean_gammademdir, clean_demdir, clean_checkpoints, clean_coreg_scene
-from python_scripts.constant import SCENE_DATE_FMT, COREG_JOB_FILE_FMT, COREG_JOB_ERROR_FILE_FMT
+from python_scripts.constant import COREG_JOB_FILE_FMT, COREG_JOB_ERROR_FILE_FMT
 
 ERROR_LOGGER = wrap_logger(logging.getLogger('errors'),
                            processors=[JSONRenderer(indent=1, sort_keys=True)])
@@ -117,8 +116,8 @@ class RawDataExtract(luigi.Task):
             fid.writelines(pbs)
         os.chdir(dirname(raw_jobs))
         subprocess.check_call(['qsub', '{}'.format(raw_jobs)])
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CreateGammaDem(luigi.Task):
@@ -146,8 +145,8 @@ class CreateGammaDem(luigi.Task):
                  "%s" % pjoin(path_name['proj_dir'], basename(self.proc_file_path))])
         subprocess.check_call(args)
 
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CheckGammaDem(luigi.Task):
@@ -177,8 +176,8 @@ class CheckGammaDem(luigi.Task):
         complete_status = checkgammadem(**kwargs)
 
         if complete_status:
-            with self.output().open('w') as f:
-                f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+            with self.output().open('w') as out_fid:
+                out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CreateFullSlc(luigi.Task):
@@ -206,8 +205,8 @@ class CreateFullSlc(luigi.Task):
                  "%s" % pjoin(path_name['proj_dir'], basename(self.proc_file_path))])
         subprocess.check_call(args)
 
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CheckFullSlc(luigi.Task):
@@ -240,8 +239,8 @@ class CheckFullSlc(luigi.Task):
             if path_name['clean_up'] == 'yes':
                 clean_rawdatadir(raw_data_path=path_name['raw_data_dir'])
 
-            with self.output().open('w') as f:
-                f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+            with self.output().open('w') as out_fid:
+                out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CreateMultilook(luigi.Task):
@@ -270,8 +269,8 @@ class CreateMultilook(luigi.Task):
 
         subprocess.check_call(args)
 
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CheckMultilook(luigi.Task):
@@ -300,9 +299,8 @@ class CheckMultilook(luigi.Task):
         complete_status = checkmultilook(**kwargs)
 
         if complete_status:
-
-            with self.output().open('w') as f:
-                f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+            with self.output().open('w') as out_fid:
+                out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CalcInitialBaseline(luigi.Task):
@@ -330,8 +328,8 @@ class CalcInitialBaseline(luigi.Task):
                  "%s" % pjoin(path_name['proj_dir'], basename(self.proc_file_path))])
         subprocess.check_call(args)
 
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CheckBaseline(luigi.Task):
@@ -360,8 +358,8 @@ class CheckBaseline(luigi.Task):
         complete_status = checkbaseline(**kwargs)
 
         if complete_status:
-            with self.output().open('w') as f:
-                f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+            with self.output().open('w') as out_fid:
+                out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CoregisterDemMaster(luigi.Task):
@@ -390,8 +388,8 @@ class CoregisterDemMaster(luigi.Task):
                  "%s" % pjoin(path_name['proj_dir'], basename(self.proc_file_path))])
         subprocess.check_call(args)
 
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CheckDemMaster(luigi.Task):
@@ -426,8 +424,8 @@ class CheckDemMaster(luigi.Task):
             if path_name['clean_up'] == 'yes':
                 clean_gammademdir(gamma_dem_path=path_name['gamma_dem'], track_frame=path_name['track_frame'])
 
-            with self.output().open('w') as f:
-                f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+            with self.output().open('w') as out_fid:
+                out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class ListParameter(luigi.Parameter):
@@ -527,9 +525,9 @@ class SecondaryMastersDynamicCoregistration(luigi.Task):
         if not task_complete:
             ERROR_LOGGER.error("Unable to perform secondary master {m} co-registration task".format(m=master))
 
-        with self.output().open('w') as fid:
+        with self.output().open('w') as out_fid:
             for master in master_list:
-                fid.write(master + '\n')
+                out_fid.write(master + '\n')
 
 
 class CoregisterSecondaryMasters(luigi.Task):
@@ -743,13 +741,13 @@ class CoregisterSlaves(luigi.Task):
 
         # read secondary master lists from upstream tasks
         with self.input().open('r') as in_fid:
-            secondary_masters_list = list(set([line.rstrip() for line in in_fid.readlines() if not line.isspace()]))
+            secondary_masters_list = list({line.rstrip() for line in in_fid.readlines() if not line.isspace()})
 
         # get a dict with secondary master as a key and scenes to be co-registered as values
         # for secondary masters before and after primary master
-        before_master_slaves = coreg_utils.coreg_candidates_before_master_scene(self.scenes,
+        before_master_slaves = coreg_utils.coreg_candidates_before_master_scene(scenes,
                                                                                 secondary_masters_list, primary_master)
-        after_master_slaves = coreg_utils.coreg_candidates_after_master_scene(self.scenes,
+        after_master_slaves = coreg_utils.coreg_candidates_after_master_scene(scenes,
                                                                               secondary_masters_list, primary_master)
 
         slave_task_list = []
@@ -842,8 +840,8 @@ class CheckCoregSlave(luigi.Task):
             if path_name['clean_up'] == 'yes':
                 clean_slcdir(slc_path=kwargs['slc_path'])
 
-            with self.output().open('w') as f:
-                f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+            with self.output().open('w') as out_fid:
+                out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class ProcessInterFerograms(luigi.Task):
@@ -871,8 +869,8 @@ class ProcessInterFerograms(luigi.Task):
                  "%s" % pjoin(path_name['proj_dir'], basename(self.proc_file_path))])
         subprocess.check_call(args)
 
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CheckInterFerograms(luigi.Task):
@@ -905,8 +903,8 @@ class CheckInterFerograms(luigi.Task):
                 clean_ifgdir(ifg_path=kwargs['ifg_path'])
                 clean_demdir(dem_path=path_name['dem_dir'])
 
-            with self.output().open('w') as f:
-                f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+            with self.output().open('w') as out_fid:
+                out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class CompletionCheck(luigi.Task):
@@ -925,8 +923,8 @@ class CompletionCheck(luigi.Task):
 
     def run(self):
         STATUS_LOGGER.info('check full stack job completion')
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class Workflow(luigi.Task):
@@ -1022,8 +1020,8 @@ class Workflow(luigi.Task):
             clean_ifgdir(ifg_path=path_name['ifg_dir'])
             clean_demdir(dem_path=path_name['dem_dir'])
 
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 class ARD(luigi.Task):
@@ -1150,8 +1148,8 @@ class ARD(luigi.Task):
         return luigi.LocalTarget(out_name)
 
     def run(self):
-        with self.output().open('w') as f:
-            f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+        with self.output().open('w') as out_fid:
+            out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
 
 if __name__ == '__name__':
