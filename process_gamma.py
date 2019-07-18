@@ -483,6 +483,10 @@ class SecondaryMastersDynamicCoregistration(luigi.Task):
             coreg_job_file = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_FILE_FMT.format(master=master, slave=slave))
             coreg_error_log = pjoin(self.coreg_slc_jobs_dir, COREG_JOB_ERROR_FILE_FMT.format(master=master,
                                                                                              slave=slave))
+            # if primary master (scenes[0]) is selected as master to be coregistered with then
+            # master is just '-' to conform with requirements in coregister_S1_slave_SLC.bash requirements
+            if master == scenes[0]:
+                master = '-'
 
             with open(coreg_job_file, 'w') as fid:
                 kwargs = {'master': master,
@@ -523,7 +527,8 @@ class SecondaryMastersDynamicCoregistration(luigi.Task):
                     break
 
         if not task_complete:
-            ERROR_LOGGER.error("Unable to perform secondary master {m} co-registration task".format(m=master))
+            ERROR_LOGGER.error("Unable to perform secondary master {m} co-registration task"
+                               .format(m=scenes[master_idx]))
 
         with self.output().open('w') as out_fid:
             for master in master_list:
@@ -575,14 +580,16 @@ class CoregisterSecondaryMasters(luigi.Task):
         # create two dynamic tasks which can be run simultaneously
         tasks = [SecondaryMastersDynamicCoregistration(scenes=before_master,
                                                        tag='before',
-                                                       proc_file=self.proc_file_path,
+                                                       proc_file=pjoin(path_name['proj_dir'],
+                                                                       basename(self.proc_file_path)),
                                                        coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
                                                        polarization=path_name['polarization'],
                                                        range_looks=path_name['range_looks'],
                                                        slc_path=path_name['slc_dir']),
                  SecondaryMastersDynamicCoregistration(scenes=after_master,
                                                        tag='after',
-                                                       prof_file=self.proc_file_path,
+                                                       proc_file=pjoin(path_name['proj_dir'],
+                                                                       basename(self.proc_file_path)),
                                                        coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
                                                        polarization=path_name['polarization'],
                                                        range_looks=path_name['range_looks'],
@@ -608,6 +615,7 @@ class SlavesDynamicCoregistration(luigi.Task):
     Runs the slave co-registration task using secondary masters.
     """
     scenes = luigi.ListParameter(default=[])
+    primary_master = luigi.Parameter()
     master = luigi.Parameter()
     tag = luigi.Parameter()
     proc_file = luigi.Parameter()
@@ -636,6 +644,9 @@ class SlavesDynamicCoregistration(luigi.Task):
                              COREG_JOB_FILE_FMT.format(master=master_scene, slave=slave_scene))
             error_log = pjoin(self.coreg_slc_jobs_dir,
                               COREG_JOB_ERROR_FILE_FMT.format(master=master_scene, slave=slave_scene))
+
+            if master_scene == self.primary_master:
+                master_scene = '-'
 
             if not exists(job_file):
                 with open(job_file, 'w') as job_fid:
@@ -666,7 +677,7 @@ class SlavesDynamicCoregistration(luigi.Task):
             slave_tasks = [__slave_coregistration(master, scene) for scene in scenes_list]
 
             if not slave_tasks:
-                STATUS_LOGGER.info('No scenes available to co-register with master {}'.format(self.master))
+                STATUS_LOGGER.info('No slaves co-register with master {} {}'.format(self.tag, self.master))
                 break
 
             if not all([task.complete() for task in slave_tasks]):
@@ -731,7 +742,6 @@ class CoregisterSlaves(luigi.Task):
 
         # get master scene name from the proc file
         primary_master = path_name['master_scene']
-
         # read scenes list for the stack
         with open(path_name['scenes_list'], 'r') as in_fid:
             scenes = [line.rstrip() for line in in_fid.readlines() if not line.isspace()]
@@ -740,7 +750,7 @@ class CoregisterSlaves(luigi.Task):
             scenes.remove(primary_master)
 
         # read secondary master lists from upstream tasks
-        with self.input().open('r') as in_fid:
+        with self.input()['coreg_secondary_masters'].open() as in_fid:
             secondary_masters_list = list({line.rstrip() for line in in_fid.readlines() if not line.isspace()})
 
         # get a dict with secondary master as a key and scenes to be co-registered as values
@@ -753,18 +763,22 @@ class CoregisterSlaves(luigi.Task):
         slave_task_list = []
         for secondary_master in before_master_slaves:
             slave_task_list.append(SlavesDynamicCoregistration(scenes=before_master_slaves[secondary_master],
+                                                               primary_master=primary_master,
                                                                master=secondary_master,
                                                                tag='before_{}'.format(secondary_master),
-                                                               proc_file=self.proc_file_path,
+                                                               proc_file=pjoin(path_name['proj_dir'],
+                                                                               basename(self.proc_file_path)),
                                                                coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
                                                                polarization=path_name['polarization'],
                                                                range_looks=path_name['range_looks'],
                                                                slc_path=path_name['slc_dir']))
         for secondary_master in after_master_slaves:
             slave_task_list.append(SlavesDynamicCoregistration(scenes=after_master_slaves[secondary_master],
+                                                               primary_master=primary_master,
                                                                master=secondary_master,
                                                                tag='after_{}'.format(secondary_master),
-                                                               proc_file=self.proc_file_path,
+                                                               proc_file=pjoin(path_name['proj_dir'],
+                                                                               basename(self.proc_file_path)),
                                                                coreg_slc_jobs_dir=path_name['coreg_slc_jobs_dir'],
                                                                polarization=path_name['polarization'],
                                                                range_looks=path_name['range_looks'],

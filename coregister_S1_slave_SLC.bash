@@ -257,15 +257,18 @@ while [[ "$daz10000" -gt 5 || "$daz10000" -lt -5 ]] && [ "$it" -le "$slave_niter
       S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev > $slave_off.az_ovr.$it.out
 
     elif [ $list_idx == "0" ]; then # coregister to adjacent slave
+
       # get slave position in slaves.list
       slave_pos=`grep -n $slave $slave_list | cut -f1 -d:`
       if [ $slave -lt $master_scene ]; then
         coreg_pos=$(($slave_pos+1))
         coreg_slave=`head -n $coreg_pos $slave_list | tail -1`
+
       elif [ $rerun_slave -gt $master_scene ]; then
         coreg_pos=$(($slave_pos-1))
         coreg_slave=`head -n $coreg_pos $slave_list | tail -1`
       fi
+
       r_coreg_slave_tab=$slc_dir/$coreg_slave/r$coreg_slave"_"$polar"_tab"
       S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
 

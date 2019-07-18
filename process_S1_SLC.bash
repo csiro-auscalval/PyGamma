@@ -218,7 +218,7 @@ function orbits {
 # Subset to frame extent
 function frame_subset {
     # Create burst tab file
-    if [ $add_do_slc == yes ]; then
+    if [ $add_do_slc == 'yes' ]; then
 	list=$list_dir/add_frame_subset_list
     else
 	list=$list_dir/frame_subset_list
@@ -463,7 +463,7 @@ if [ $type == 'slc' ]; then
         mosaic_slc
 	orbits
         # check if frame scene has 12 bursts, if not need to resize
-	if [ $add_do_slc == yes ]; then
+	if [ $add_do_slc == 'yes' ]; then
 	    complete_frame=`grep -m1 $scene $list_dir/add_frame_subset_list | awk '{print $5}'`
 	else
 	    complete_frame=`grep -m1 $scene $list_dir/frame_subset_list | awk '{print $5}'`
