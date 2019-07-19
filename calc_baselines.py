@@ -27,8 +27,6 @@
 *                  - add full Sentinel-1 processing, including resizing and   *
 *                     subsetting by bursts                                    *
 *                  - remove GA processing option                              *
-*         Sarah Lawrie @ GA       26/03/2019, v1.1                            *
-*             -  Add 'add scenes' functionality to workflow                   *
 *******************************************************************************
    Usage: calc_baselines.py [proc_file] [type]
 """
@@ -40,12 +38,10 @@ import math
 from datetime import datetime, date
 import numpy as np
 import operator
-from shutil import copyfile, rmtree, move
+from shutil import copyfile
 import fileinput
 
-
 import calc_baselines_functions as cbf
-
 
 # Input parameters
 proc_file = sys.argv[1]
@@ -77,21 +73,11 @@ for line in open(proc_file):
     if line.startswith('SCENE_LIST='):
         scene_list = line.split('=')[1].strip()
     if line.startswith('SLAVE_LIST='):
-        slave_list = line.split('=')[1].strip()
+       slave_list = line.split('=')[1].strip()
     if line.startswith('IFG_LIST='):
-        ifg_list = line.split('=')[1].strip()
-    if line.startswith('REMOVE_IFG_LIST='):
-        remove_ifg_list = line.split('=')[1].strip()
-    if line.startswith('ADD_DO_SLC='):
-        add_scenes = line.split('=')[1].strip()
-    if line.startswith('ADD_SCENE_LIST='):
-        add_scene_list = line.split('=')[1].strip()
-    if line.startswith('ADD_SLAVE_LIST='):
-        add_slave_list = line.split('=')[1].strip()
-    if line.startswith('ADD_IFG_LIST='):
-        add_ifg_list = line.split('=')[1].strip()
+       ifg_list = line.split('=')[1].strip()
     if line.startswith('POLARISATION='):
-        polar = line.split('=')[1].strip()
+       polar = line.split('=')[1].strip()
     if line.startswith('PROCESS_METHOD='):
         method = line.split('=')[1].strip()
     if line.startswith('REF_MASTER_SCENE='):
@@ -109,7 +95,6 @@ if sensor == "S1":
     track_name = "%s_%s"%(track,frame)
     track_dir =  os.path.join(proj_dir, track_name)
 else:
-    track_name = track
     track_dir = os.path.join(proj_dir, track)
 
 slc_dir = os.path.join(proj_dir, track_dir, slc_dir1)
@@ -129,13 +114,7 @@ if not os.path.exists(base_dir):
 scenes_list = os.path.join(list_dir, scene_list)
 slaves_list = os.path.join(list_dir, slave_list)
 ifgs_list = os.path.join(list_dir, ifg_list)
-remove_ifgs_list = os.path.join(list_dir, remove_ifg_list)
-add_scenes_list = os.path.join(list_dir, add_scene_list)
-add_slaves_list = os.path.join(list_dir, add_slave_list)
-add_ifgs_list = os.path.join(list_dir, add_ifg_list)
-slaves_list_org=os.path.join(list_dir,"slaves.list_org")
-ifgs_list_org=os.path.join(list_dir,"ifgs.list_org")
-ifgs_list_post_remove=os.path.join(list_dir,"ifgs.list_post_remove_ifgs")
+
 
 
 
@@ -167,30 +146,27 @@ if type == 'initial':
 
     # Initial master selection for plot
     if master1 == 'auto':
-        if sensor =='S1':
-            pass # reference master updated by process_gamma script
+        master_initial = dates[index_min]
+        master = master_initial
+
+        # read and write master to proc file
+        proc_file_backup = os.path.join(pre_proc_dir, track + ".proc_pre_init_baseline")
+        if os.path.isfile(proc_file) and os.access(proc_file, os.R_OK):
+            copyfile(proc_file, proc_file_backup)
+            replace = { "REF_MASTER_SCENE=auto" : "REF_MASTER_SCENE="+str(master.strftime("%Y%m%d")) }
+            for line in fileinput.input(proc_file, inplace=True):
+                line = line.rstrip('\r\n')
+                print(replace.get(line, line))
+
+            # reference master date to text file
+            outfile = open(os.path.join(results_dir, track + "_DEM_ref_master_results"), "w")
+            outfile.write('DEM REFERENCE MASTER SCENE' + '\n')
+            outfile.write(' ' + '\n')
+            outfile.write('%s\n' % (str(master.strftime("%Y%m%d"))))
+            outfile.close
         else:
-            master_initial = dates[index_min]
-            master = master_initial
-
-            # read and write master to proc file
-            proc_file_backup = os.path.join(pre_proc_dir, track_dir + ".proc_pre_init_baseline")
-            if os.path.isfile(proc_file) and os.access(proc_file, os.R_OK):
-                copyfile(proc_file, proc_file_backup)
-                replace = { "REF_MASTER_SCENE=auto" : "REF_MASTER_SCENE="+str(master.strftime("%Y%m%d")) }
-                for line in fileinput.input(proc_file, inplace=True):
-                    line = line.rstrip('\r\n')
-                    print(replace.get(line, line))
-
-                # reference master date to text file
-                outfile = open(os.path.join(results_dir, track_dir + "_DEM_ref_master_results"), "w")
-                outfile.write('DEM REFERENCE MASTER SCENE' + '\n')
-                outfile.write(' ' + '\n')
-                outfile.write('%s\n' % (str(master.strftime("%Y%m%d"))))
-                outfile.close
-            else:
-                print("ERROR: Can't read file", proc_file)
-                sys.exit()
+            print("ERROR: Can't read file", proc_file)
+            sys.exit()
     else:
         master = datetime.strptime(master1, "%Y%m%d")
 
@@ -234,7 +210,6 @@ if type == 'initial':
 
         slc_dl[scn_idx] = make_slc_data(fDC, t_min, t_max, lat, lon, r1, inc, f, Br, Ba, t, xyz)
         scn_idx = scn_idx + 1
-
 
     # Read orbit data an calculate Bperp for all masters
     # selected master is saved for later usage
@@ -307,12 +282,15 @@ if type == 'initial':
     # Setup the slaves list and calculate Doppler Centroid differences
     slaves = list(dates)
     slaves.remove(master)
+    slaves_list_backup = os.path.join(list_dir, slave_list + "_backup")
 
-    # backup existing slave list if adding scenes to already processed dataset
-    if add_scenes == "yes":
-        slaves_list_org = os.path.join(list_dir, slave_list + "_org")
-        os.rename(slaves_list, slaves_list_org)
-
+    # Check if slaves.list file exists and has already be renamed
+    if os.path.isfile(slaves_list):
+        if os.path.isfile(slaves_list_backup):
+            pass
+        else:
+            # save existing slaves.list to slaves_backup.list
+            copyfile(slaves_list, slaves_list_backup)
     # save dates of slaves to slaves.list
     outfile = open(slaves_list, "w")
     counter = 0
@@ -328,113 +306,73 @@ if type == 'initial':
     Bdopp.insert(master_ix, 0.0)
     outfile.close
 
-    # backup baseline files created for already processed dataset
-    if add_scenes == "yes":
-        initial_plot_file = os.path.join(base_dir, track_name + "_baseline_master_" + master.strftime("%Y%m%d") + "_initial.txt")
-        initial_plot_file_new = os.path.join(base_dir, track_name + "_baseline_master_" + master.strftime("%Y%m%d") + "_initial_org.txt")
-        initial_plot = os.path.join(base_dir, track_name + "_baseline_master_" + master.strftime("%Y%m%d") + "_initial_plot.png")
-        initial_plot_new = os.path.join(base_dir, track_name + "_baseline_master_" + master.strftime("%Y%m%d") + "_initial_plot_org.png")
-        move(initial_plot_file, initial_plot_file_new)
-        move(initial_plot, initial_plot_new)
-
-        if method == 'sbas':
-            sbas_para_file = os.path.join(base_dir, track_name + "_SBAS_parameters.txt")
-            sbas_para_file_new = os.path.join(base_dir, track_name + "_SBAS_parameters_org.txt")
-            sbas_connt_file = os.path.join(base_dir, track_name + "_SBAS_connections.txt")
-            sbas_connt_file_new = os.path.join(base_dir, track_name + "_SBAS_connections_org.txt")
-            sbas_net_file = os.path.join(base_dir, track_name + "_baseline_SBAS_network.txt")
-            sbas_net_file_new = os.path.join(base_dir, track_name + "_baseline_SBAS_network_org.txt")
-            sbas_plot = os.path.join(base_dir, track_name + "_baseline_SBAS_network_plot.png")
-            sbas_plot_new = os.path.join(base_dir, track_name + "_baseline_SBAS_network_plot_org.png")
-            move(sbas_para_file, sbas_para_file_new)
-            move(sbas_connt_file, sbas_connt_file_new)
-            move(sbas_net_file, sbas_net_file_new)
-            move(sbas_plot, sbas_plot_new)
-
     # Plot dates and Bperps for selected master
-    filename = os.path.join(base_dir, track_name + "_baseline_master_" + master.strftime("%Y%m%d") + "_initial_plot")
+    filename = os.path.join(base_dir, track + "_baseline_master_" + master.strftime("%Y%m%d") + "initial_plot")
     cbf.plot_baseline_time_sm(np.array(dates), Bperps, master_ix, filename)
 
     # Output epochs, Bperps and Bdopp to text file
-    outfile = open(os.path.join(base_dir, track_name + "_baseline_master_" + master.strftime("%Y%m%d") + "_initial.txt"), "w")
-    outfile.write('Epoch   Date[yyyy-mm-dd]   Bperp[m]    DCdiff[Hz]' + '\n')
-    outfile.write('-------------------------------------------------' + '\n')
+    outfile = open(os.path.join(base_dir, track + "_epoch_dop_cent.txt"), "w")
+    outfile.write('Epoch   Date[yyyy-mm-dd]   Bperp[m]   DC diff.[Hz]' + '\n')
+    outfile.write('-----------------------------------------------------' + '\n')
     epoch = 1
     for line, Bperp, dopp in zip(dates, Bperps, Bdopp):
-        outfile.write('%5d  %16s  %9.1f %13.1f\n' % (epoch, line.strftime("%Y-%m-%d"), Bperp, dopp))
+        outfile.write('%5d %16s %9.1f %13.1f\n' % (epoch, line.strftime("%Y-%m-%d"), Bperp, dopp))
         epoch = epoch + 1
     outfile.close
 
 
-    # create add slaves list if adding scenes to already processed dataset
-    if add_scenes == "yes":
-        org_slaves = []
-        with open(slaves_list_org) as f:
-            org_slaves = f.read().splitlines()
-
-        new_slaves = []
-        with open(slaves_list) as f:
-            new_slaves = f.read().splitlines()
-
-        add_slaves = list(set(new_slaves) - set(org_slaves))
-        outfile = open(add_slaves_list, "w")
-        for slave in add_slaves:
-            outfile.write(slave + "\n")
-
-        outfile.close
- 
-    ## Backup existing ifg list if adding scenes to already processed dataset
-    if add_scenes == "yes":
-        ifgs_list_org = os.path.join(list_dir, ifg_list + "_org")
-        os.rename(ifgs_list, ifgs_list_org)
-
-
-    ##### Create Single Master Interferogram List ##### 
+    ##### Create Single Master Interferogram List #####
 
     if method == 'single':
-        # write new ifgs.list
-        outfile = open(ifgs_list, "w")
-        # epoch indices (needed later for add_ifgs functionality)
-        epoch1 = []
-        epoch2 = []
-        for slave in slaves:
-            outfile.write(master.strftime("%Y%m%d") + "," + slave.strftime("%Y%m%d") + "\n")
-            # epoch1 is mas_ix
-            epoch1.append(mas_ix)
-            # get the index of slave for epoch2
-            epoch2.append(dates.index(slave))
-        outfile.close
+        ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
+
+        # Check if ifgs.list file exists and has already be renamed
+        if os.path.isfile(ifgs_list):
+            # save existing ifgs.list to ifgs_backup.list
+            copyfile(ifgs_list, ifgs_list_backup)
+            if os.path.isfile(ifgs_list_backup):
+                pass
+        else:
+            # write new ifgs.list
+            outfile = open(ifgs_list, "w")
+            for slave in slaves:
+                outfile.write(master.strftime("%Y%m%d") + "," + slave.strftime("%Y%m%d") + "\n")
+            outfile.close
 
 
     ##### Create Daisy-chained Interferogram List #####
 
     elif method == 'chain':
-        # create temporary list for numbering each scene
-        nums = range(0, num_scenes)
+        ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
 
-        # create temporary scene list with dates in yyyymmdd format
-        scenes = []
-        for scene in dates:
-            in_scene = scene.strftime("%Y%m%d")
-            scenes.append(in_scene)
+        # Check if ifgs.list file exists and has already be renamed
+        if os.path.isfile(ifgs_list):
+            # save existing ifgs.list to ifgs_backup.list
+            copyfile(ifgs_list, ifgs_list_backup)
+            if os.path.isfile(ifgs_list_backup):
+                pass
+        else:
+            # create temporary list for numbering each scene
+            nums = range(0, num_scenes)
 
-        # join lists
-        merged = []
-        for idx, i  in enumerate(scenes):
-            merged.append( (nums[idx], i) )
+            # create temporary scene list with dates in yyyymmdd format
+            scenes = []
+            for scene in dates:
+                in_scene = scene.strftime("%Y%m%d")
+                scenes.append(in_scene)
 
-        # write new ifgs.list
-        outfile = open(ifgs_list, "w")
-        # epoch indices (needed later for add_ifgs functionality)
-        epoch1 = []
-        epoch2 = []
-        for num, scene in merged:
-            num1 = num + 1
-            if num1 < len(scenes):
-                outfile.write(scene + "," + scenes[num1] + "\n")
-                epoch1.append(dates.index(datetime.strptime(scene, "%Y%m%d")))
-                epoch2.append(dates.index(datetime.strptime(scenes[num1], "%Y%m%d")))
-        outfile.close
+            # join lists
+            merged = []
+            for idx, i  in enumerate(scenes):
+                merged.append( (nums[idx], i) )
+
+            # write new ifgs.list
+            outfile = open(ifgs_list, "w")
+            for num, scene in merged:
+                num1 = num + 1
+                if num1 < len(scenes):
+                    outfile.write(scene + "," + scenes[num1] + "\n")
+            outfile.close
 
 
     ##### Coherence-based SBAS Network Calculation and Interferogram List #####
@@ -480,7 +418,7 @@ if type == 'initial':
         # reduced max threshold for Sentinel-1 because of small repeat time
 
         # Output SBAS network parameters
-        outfile = open(os.path.join(base_dir, track_name + "_SBAS_parameters.txt"), "w")
+        outfile = open(os.path.join(base_dir, track + "_SBAS_parameters.txt"), "w")
         outfile.write('Parameters for generation of SBAS network' + '\n')
         outfile.write('-----------------------------------------' + '\n')
         outfile.write('Minimum number of connections: ' '%d\n' % (nmin))
@@ -492,58 +430,39 @@ if type == 'initial':
         outfile.close
 
         # create the SBAS network
-        outfile = os.path.join(base_dir, track_name + "_SBAS_connections.txt")
-        epoch1, epoch2, Bperps_sbas, ddiff_sbas, doppdiff_sbas = cbf.create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, Bperp_max, Ba, coh_thres, nmin, nmax, outfile)
+        outfile = os.path.join(base_dir, track + "_SBAS_connections.txt")
+        epoch1, epoch2, Bperps_sbas = cbf.create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, Bperp_max, Ba, coh_thres, nmin, nmax, outfile)
         # note that epoch1 and epoch2 contain the indices of valid connections
 
         # plot selected connections
-        filename = os.path.join(base_dir, track_name + "_baseline_SBAS_network_plot")
+        filename = os.path.join(base_dir, track + "_baseline_SBAS_network_plot")
         cbf.plot_baseline_time_sbas(np.array(dates), Bperps, epoch1, epoch2, filename)
 
         # save dates of connections to ifgs.list
-        # write new ifgs.list
-        outfile = open(ifgs_list, "w")
-        for epo1, epo2 in zip(epoch1, epoch2):
-            outfile.write(dates[epo1].strftime("%Y%m%d") + "," + dates[epo2].strftime("%Y%m%d") + "\n")
-        outfile.close
+        ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
+        # Check if ifgs.list file exists and has already be renamed
+        if os.path.isfile(ifgs_list):
+            # save existing ifgs.list to ifgs_backup.list
+            copyfile(ifgs_list, ifgs_list_backup)
+            if os.path.isfile(ifgs_list_backup):
+                pass
+        else:
+            # write new ifgs.list
+            outfile = open(ifgs_list, "w")
+            for epo1, epo2 in zip(epoch1, epoch2):
+                outfile.write(dates[epo1].strftime("%Y%m%d") + "," + dates[epo2].strftime("%Y%m%d") + "\n")
+            outfile.close
 
         # save dates and Bperps of connection to ./TxxxX/baseline_plot_output.txt
-        outfile = open(os.path.join(base_dir, track_name + "_baseline_SBAS_network.txt"), "w")
-        outfile.write("Date1[yyyy-mm-dd]   Date2[yyyy-mm-dd]   DateDiff[d]   Bperp[m]   DCdiff[Hz]\n")
-        outfile.write("---------------------------------------------------------------------------\n")
-        for epochA, epochB, Bperp, ddiff, doppdiff in zip(epoch1, epoch2, Bperps_sbas, ddiff_sbas, doppdiff_sbas):
-            outfile.write("%16s    %16s   %11d  %9.1f    %9.1f\n" % (dates[epochA].strftime("%Y-%m-%d"), dates[epochB].strftime("%Y-%m-%d"), ddiff, Bperp, doppdiff))
+        outfile = open(os.path.join(base_dir, track + "_baseline_plot_output.txt"), "w")
+        outfile.write("Date1[yyyy-mm-dd]   Date2[yyyy-mm-dd]   Bperp[m]\n")
+        outfile.write("-----------------------------------------------------\n")
+        for epochA, epochB, Bperp, in zip(epoch1, epoch2, Bperps_sbas):
+            outfile.write("%17s    %17s   %9.1f\n" % (dates[epochA].strftime("%Y-%m-%d"), dates[epochB].strftime("%Y-%m-%d"), Bperp))
         outfile.close
 
     else:
         pass
-
-
-    ### Create add ifgs list if adding scenes to already processed dataset
-    if add_scenes == "yes":        
-        org_ifgs = []
-        with open(ifgs_list_org) as f:
-            org_ifgs = f.read().splitlines()
-
-        new_ifgs = []
-        with open(ifgs_list) as f:
-            new_ifgs = f.read().splitlines()
-        
-        removed_ifgs = []
-        with open(remove_ifgs_list) as f:
-            removed_ifgs = f.read().splitlines()
-    
-        # identify new ifgs to process and ifgs no longer required due to new network with additional scenes
-        add_ifgs = list(set(new_ifgs) - set(org_ifgs))
-
-        # remove previously removed ifgs from list
-        final_ifgs = list(set(add_ifgs) - set(removed_ifgs))
-        outfile = open(add_ifgs_list, "w")
-        for ifg in final_ifgs:
-            outfile.write(ifg + "\n")
-
-        outfile.close
-
 
 
 ################ PRECISION BASELINE CALCULATION ####################
@@ -603,7 +522,7 @@ elif type == 'precision':
         i = i + 1
 
     # read initial baseline estimates (based on orbits only) and compare
-    filename = os.path.join(base_dir, track_name + "_baseline_plot_output.txt")
+    filename = os.path.join(base_dir, track + "_baseline_plot_output.txt")
 
     if os.path.isfile(filename) and os.access(filename, os.R_OK):
         f = open(filename)
@@ -629,7 +548,7 @@ elif type == 'precision':
 
         # compare epoch connections to find identical epochs and
         # save dates and Bperps of connection to ./TxxxX/baseline_comparison.txt
-        outfile = open(os.path.join(base_dir, track_name + "_baseline_comparison.txt"), "w")
+        outfile = open(os.path.join(base_dir, track + "_baseline_comparison.txt"), "w")
         outfile.write("Date1 [yyyy-mm-dd]   Date2 [yyyy-mm-dd]   init. Bperp [m]   final Bperp [m]   Difference [m]\n")
         outfile.write("--------------------------------------------------------------------------------------------\n")
         counter = 0
@@ -692,9 +611,8 @@ elif type == 'precision':
     epochbperp = cbf.epoch_baselines(epochs,Bperp_prec,epoch1_ix,epoch2_ix, master_ix)
 
     # plot scene connections using precision baselines
-    filename = os.path.join(base_dir, track_name + "_baseline_SBAS_network_final_plot")
+    filename = os.path.join(base_dir, track + "_baseline_SBAS_network_final_plot")
     cbf.plot_baseline_time_sbas(np.array(epochs), epochbperp, epoch1_ix, epoch2_ix, filename)
 
 else:
     pass
-

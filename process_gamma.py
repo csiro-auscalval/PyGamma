@@ -760,9 +760,9 @@ class CoregisterSlaves(luigi.Task):
         after_master_slaves = coreg_utils.coreg_candidates_after_master_scene(scenes,
                                                                               secondary_masters_list, primary_master)
 
-        slave_task_list = []
+        slave_tasks = []
         for secondary_master in before_master_slaves:
-            slave_task_list.append(SlavesDynamicCoregistration(scenes=before_master_slaves[secondary_master],
+            slave_tasks.append(SlavesDynamicCoregistration(scenes=before_master_slaves[secondary_master],
                                                                primary_master=primary_master,
                                                                master=secondary_master,
                                                                tag='before_{}'.format(secondary_master),
@@ -773,7 +773,7 @@ class CoregisterSlaves(luigi.Task):
                                                                range_looks=path_name['range_looks'],
                                                                slc_path=path_name['slc_dir']))
         for secondary_master in after_master_slaves:
-            slave_task_list.append(SlavesDynamicCoregistration(scenes=after_master_slaves[secondary_master],
+            slave_tasks.append(SlavesDynamicCoregistration(scenes=after_master_slaves[secondary_master],
                                                                primary_master=primary_master,
                                                                master=secondary_master,
                                                                tag='after_{}'.format(secondary_master),
@@ -783,12 +783,12 @@ class CoregisterSlaves(luigi.Task):
                                                                polarization=path_name['polarization'],
                                                                range_looks=path_name['range_looks'],
                                                                slc_path=path_name['slc_dir']))
-        if slave_task_list:
-            yield slave_task_list
+
+        yield slave_tasks
 
         # collect failed scenes from tasks in slave_task_list
         failed_scenes = []
-        for task in slave_task_list:
+        for task in slave_tasks:
             with task.output().open() as in_fid:
                 for line in in_fid:
                     if re.match(r'[0-9]{8}', line):
@@ -875,7 +875,7 @@ class ProcessInterFerograms(luigi.Task):
         return luigi.LocalTarget(pjoin(dirname(inputs['check_coregslaves'].path), 'Process_IFGs_status_logs.out'))
 
     def run(self):
-        STATUS_LOGGER.info('processing inter-ferograms task')
+        STATUS_LOGGER.info('processing interferogram task')
         path_name = get_path(self.proc_file_path)
         path_name = get_path(pjoin(path_name['proj_dir'], basename(self.proc_file_path)))
 
