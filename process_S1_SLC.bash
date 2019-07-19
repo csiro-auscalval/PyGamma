@@ -142,7 +142,7 @@ function concat {
 	echo " "
 	echo "Concatenate files to produce single frame SLC ..."
 	echo " "
-	paste vi  par_list tops_list > lists
+	paste slc_list par_list tops_list > lists
 	head -n 3 lists > fr_tab1
 	tail -3 lists > fr_tab2	
 	GM SLC_cat_ScanSAR fr_tab1 fr_tab2 $slc_tab
