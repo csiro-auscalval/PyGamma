@@ -142,7 +142,7 @@ function concat {
 	echo " "
 	echo "Concatenate files to produce single frame SLC ..."
 	echo " "
-	paste vi  par_list tops_list > lists
+	paste slc_list par_list tops_list > lists
 	head -n 3 lists > fr_tab1
 	tail -3 lists > fr_tab2	
 	GM SLC_cat_ScanSAR fr_tab1 fr_tab2 $slc_tab
@@ -218,11 +218,7 @@ function orbits {
 # Subset to frame extent
 function frame_subset {
     # Create burst tab file
-    if [ $add_do_slc == 'yes' ]; then
-	list=$list_dir/add_frame_subset_list
-    else
 	list=$list_dir/frame_subset_list
-    fi
     sed -n "/$scene/p" $list > temp1
     awk '{print $3"\t"$4}' temp1 > burst_tab
 
@@ -459,15 +455,10 @@ if [ $type == 'slc' ]; then
 	slc_list 
 	read_raw_data
 	concat
-        phase_shift
-        mosaic_slc
+    phase_shift
+    mosaic_slc
 	orbits
-        # check if frame scene has 12 bursts, if not need to resize
-	if [ $add_do_slc == 'yes' ]; then
-	    complete_frame=`grep -m1 $scene $list_dir/add_frame_subset_list | awk '{print $5}'`
-	else
-	    complete_frame=`grep -m1 $scene $list_dir/frame_subset_list | awk '{print $5}'`
-	fi
+	complete_frame=`grep -m1 $scene $list_dir/frame_subset_list | awk '{print $5}'`
 	if [ $scene == $s1_frame_resize_master ]; then
 	    frame_subset
  	elif [ "$scene" != "$s1_frame_resize_master" ] && [ $complete_frame == 'yes' ]; then

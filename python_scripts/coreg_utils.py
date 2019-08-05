@@ -14,6 +14,9 @@ def coregristration_candidates(scenes, master_idx, threshold,
     Returns slave scene index  to be co-registered with master scene and
     checks if co-registration of scenes are complete or not.
     """
+    if master_idx == len(scenes)-1:
+        return None, True
+
     slave_idx = None
     is_complete = False
     _master_date = parse_date(scenes[master_idx])
@@ -27,6 +30,9 @@ def coregristration_candidates(scenes, master_idx, threshold,
 
     if slave_idx and slave_idx == len(scenes) - 1:
         is_complete = True
+
+    if not slave_idx and idx < len(scenes) - 1:
+        slave_idx = idx
 
     return slave_idx, is_complete
 

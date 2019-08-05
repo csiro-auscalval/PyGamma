@@ -61,7 +61,6 @@ class InitialSetup(luigi.Task):
     s1_file_list = luigi.Parameter()
 
     def output(self):
-
         path_name = get_path(self.proc_file_path)
         return luigi.LocalTarget(pjoin(path_name['checkpoint_dir'], 'InitialSetup_status_logs.out'))
 
@@ -84,11 +83,9 @@ class RawDataExtract(luigi.Task):
     upstream_task = luigi.Parameter()
 
     def requires(self):
-
         return self.upstream_task
 
     def output(self):
-
         inputs = self.input()
         return luigi.LocalTarget(pjoin(dirname(inputs['initialsetup'].path), 'RawDataExtract_status_logs.out'))
 
@@ -97,25 +94,25 @@ class RawDataExtract(luigi.Task):
         path_name = get_path(self.proc_file_path)
         path_name = get_path(pjoin(path_name['proj_dir'], basename(self.proc_file_path)))
 
-        with open(path_name['download_list'], 'r') as src:
-            raw_download_lists = src.readlines()
+        if not exists(path_name['extract_raw_errors']):
+            with open(path_name['download_list'], 'r') as src:
+                raw_download_lists = src.readlines()
+            ncpus = 16
+            walltime = int(numpy.ceil(((len(raw_download_lists) / (ncpus - 1)) * 15.0) / 60.))
+            raw_jobs = pjoin(path_name['extract_raw_jobs_dir'], 'raw_job.bash')
+            with open(raw_jobs, 'w') as fid:
+                kwargs = {'project': 'dg9',
+                          'queue': 'express',
+                          'hours': walltime,
+                          'ncpus': ncpus,
+                          'memory': 32,
+                          'proc_file': pjoin(path_name['proj_dir'], basename(self.proc_file_path))}
 
-        ncpus = 16
-        walltime = int(numpy.ceil(((len(raw_download_lists) / (ncpus-1)) * 15.0)/60.))
-        raw_jobs = pjoin(path_name['extract_raw_jobs_dir'], 'raw_job.bash')
+                pbs = PBS_SINGLE_JOB_TEMPLATE.format(**kwargs)
+                fid.writelines(pbs)
+            os.chdir(dirname(raw_jobs))
+            subprocess.check_call(['qsub', '{}'.format(raw_jobs)])
 
-        with open(raw_jobs, 'w') as fid:
-            kwargs = {'project': 'dg9',
-                      'queue': 'express',
-                      'hours': walltime,
-                      'ncpus': ncpus,
-                      'memory': 32,
-                      'proc_file': pjoin(path_name['proj_dir'], basename(self.proc_file_path))}
-
-            pbs = PBS_SINGLE_JOB_TEMPLATE.format(**kwargs)
-            fid.writelines(pbs)
-        os.chdir(dirname(raw_jobs))
-        subprocess.check_call(['qsub', '{}'.format(raw_jobs)])
         with self.output().open('w') as out_fid:
             out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
@@ -217,11 +214,9 @@ class CheckFullSlc(luigi.Task):
     upstream_task = luigi.Parameter()
 
     def requires(self):
-
         return self.upstream_task
 
     def output(self):
-
         inputs = self.input()
         return luigi.LocalTarget(pjoin(dirname(inputs['createfullslc'].path), 'Check_createfullslc_status_logs.out'))
 
@@ -233,12 +228,9 @@ class CheckFullSlc(luigi.Task):
         kwargs = {'slc_path': path_name['slc_dir']}
 
         complete_status = checkfullslc(**kwargs)
-
         if complete_status:
-
             if path_name['clean_up'] == 'yes':
                 clean_rawdatadir(raw_data_path=path_name['raw_data_dir'])
-
             with self.output().open('w') as out_fid:
                 out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
@@ -251,11 +243,9 @@ class CreateMultilook(luigi.Task):
     upstream_task = luigi.Parameter()
 
     def requires(self):
-
         return self.upstream_task
 
     def output(self):
-
         inputs = self.input()
         return luigi.LocalTarget(pjoin(dirname(inputs['check_fullslc'].path), 'CreateMultilook_status_logs.out'))
 
@@ -281,11 +271,9 @@ class CheckMultilook(luigi.Task):
     upstream_task = luigi.Parameter()
 
     def requires(self):
-
         return self.upstream_task
 
     def output(self):
-
         inputs = self.input()
         return luigi.LocalTarget(pjoin(dirname(inputs['multilook'].path), 'Check_multilook_status_logs.out'))
 
@@ -297,7 +285,6 @@ class CheckMultilook(luigi.Task):
         kwargs = {'slc_path': path_name['slc_dir']}
 
         complete_status = checkmultilook(**kwargs)
-
         if complete_status:
             with self.output().open('w') as out_fid:
                 out_fid.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
@@ -505,6 +492,8 @@ class SecondaryMastersDynamicCoregistration(luigi.Task):
             task1 = ExternalFileChecker(coreg_error_log)
 
             if not task1.complete():
+                # clean slave SLC directory before co-registration
+                clean_coreg_scene(self.slc_path, slave, self.polarization, self.range_looks)
                 cmd = ['qsub', '{}'.format(coreg_job_file)]
                 os.chdir(dirname(coreg_job_file))
                 subprocess.check_call(cmd)
@@ -649,6 +638,9 @@ class SlavesDynamicCoregistration(luigi.Task):
                 master_scene = '-'
 
             if not exists(job_file):
+                # clean files for slave_scene from SLC directory
+                clean_coreg_scene(self.slc_path, slave_scene, self.polarization, self.range_looks)
+
                 with open(job_file, 'w') as job_fid:
                     kwargs = {'master': master_scene,
                               'slave': slave_scene,
@@ -697,10 +689,6 @@ class SlavesDynamicCoregistration(luigi.Task):
 
                 # new scene_list(failed scenes) and master(closest to previous master) are computed
                 failed_scenes_list = [basename(task.filename).split('.')[0].split('_')[1] for task in failed_tasks]
-
-                # clean files associated with failed co-registration scene from SLC directory
-                for scene in failed_scenes_list:
-                    clean_coreg_scene(self.slc_path, scene, self.polarization, self.range_looks)
 
                 # co-register the failed scenes with the successful scenes closet to the master
                 masters = [scene for scene in self.scenes if scene not in failed_scenes_list + used_masters]
@@ -1112,7 +1100,6 @@ class ARD(luigi.Task):
 
             s1_file = basename(self.s1_file_list)
             file_strings = s1_file.split('_')
-            print(file_strings)
             track, frame, polarization = file_strings[1], file_strings[2], file_strings[3]
 
             proc_name = '{}_{}.proc'.format(track, frame)
@@ -1143,11 +1130,7 @@ class ARD(luigi.Task):
                 with open(proc_file1, 'w') as src:
                     src.writelines(proc_data)
 
-            print(self.s1_file_list)
-            print(proc_file1)
-
             if self.restart_process:
-
                 path_name = get_path(proc_file1)
                 proc_file1 = pjoin(path_name['proj_dir'], proc_name)
                 path_name = get_path(proc_file1)

@@ -32,6 +32,5 @@ COREGISTRATION_JOB_TEMPLATE = ("""#!/bin/bash
 #PBS -e {error_file}
 
 export OMP_NUM_THREADS=4
-
 /home/547/pd1813/repo/gamma_insar/coregister_S1_slave_SLC.bash {proc_file} {slave} {master}
 """)
