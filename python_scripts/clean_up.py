@@ -25,8 +25,13 @@ def clean_coreg_scene(slc_path, scene, pol, rlks):
     from slc scene directory
     """
     if exists(slc_path):
-        slc_files = [item.value.format(scene_date=scene, pol=pol) for item in SlcFilenames]
-        mli_files = [item.value.format(scene_date=scene, pol=pol, rlks=rlks) for item in MliFilenames]
+        slc_files = [
+            item.value.format(scene_date=scene, pol=pol) for item in SlcFilenames
+        ]
+        mli_files = [
+            item.value.format(scene_date=scene, pol=pol, rlks=rlks)
+            for item in MliFilenames
+        ]
         try:
             for item in os.listdir(pjoin(slc_path, scene)):
                 if item not in slc_files + mli_files:
@@ -46,17 +51,26 @@ def clean_slcdir(slc_path, patterns=None):
         for scene in os.listdir(slc_path):
             scene_dir = pjoin(slc_path, scene)
             # delete the files set by wildcard patterns
-            files_list = get_wildcard_match_files(dirs_path=scene_dir, wildcards=patterns)
+            files_list = get_wildcard_match_files(
+                dirs_path=scene_dir, wildcards=patterns
+            )
             _del_files(file_dir=scene_dir, files_list=files_list)
 
             # get all the remaining files in slc scene directory
-            files_list = get_wildcard_match_files(dirs_path=scene_dir, wildcards=Wildcards.ALL_TYPE.value)
+            files_list = get_wildcard_match_files(
+                dirs_path=scene_dir, wildcards=Wildcards.ALL_TYPE.value
+            )
 
             # set the patterns for files that needs saved
-            save_patterns = [Wildcards.GAMMA0_TYPE.value, Wildcards.RADAR_CODED_TYPE.value]
+            save_patterns = [
+                Wildcards.GAMMA0_TYPE.value,
+                Wildcards.RADAR_CODED_TYPE.value,
+            ]
 
             # get the save files associated with save patterns
-            save_files = get_wildcard_match_files(dirs_path=scene_dir, wildcards=save_patterns)
+            save_files = get_wildcard_match_files(
+                dirs_path=scene_dir, wildcards=save_patterns
+            )
 
             # get the del file lists (files which are not in save files)
             del_files_list = [item for item in files_list if item not in save_files]
@@ -70,15 +84,21 @@ def clean_ifgdir(ifg_path, patterns=None):
     Deletes files associated with wildcard patterns from ifg directory.
     """
     if not patterns:
-        patterns = [Wildcards.FLT_TYPE.value, Wildcards.MODEL_UNW_TYPE.value, Wildcards.SIM_UNW_TYPE.value,
-                    Wildcards.THIN_UNW_TYPE.value]
+        patterns = [
+            Wildcards.FLT_TYPE.value,
+            Wildcards.MODEL_UNW_TYPE.value,
+            Wildcards.SIM_UNW_TYPE.value,
+            Wildcards.THIN_UNW_TYPE.value,
+        ]
 
     if exists(ifg_path):
         for scene_conn in os.listdir(ifg_path):
             scene_conn_dir = pjoin(ifg_path, scene_conn)
 
             # delete the files set by wildcard patterns
-            files_list = get_wildcard_match_files(dirs_path=scene_conn_dir, wildcards=patterns)
+            files_list = get_wildcard_match_files(
+                dirs_path=scene_conn_dir, wildcards=patterns
+            )
             _del_files(file_dir=scene_conn_dir, files_list=files_list)
 
 
@@ -87,14 +107,18 @@ def clean_gammademdir(gamma_dem_path, track_frame=None):
     Deletes files associated with wildcard patterns from gamma dem directory.
     """
     if track_frame:
-        patterns = [Wildcards.TRACK_DEM_TYPE.value.format(track_frame=track_frame),
-                    Wildcards.TRACK_DEM_PAR_TYPE.value.format(track_frame=track_frame),
-                    Wildcards.TRACK_DEM_PNG_TYPE.value]
+        patterns = [
+            Wildcards.TRACK_DEM_TYPE.value.format(track_frame=track_frame),
+            Wildcards.TRACK_DEM_PAR_TYPE.value.format(track_frame=track_frame),
+            Wildcards.TRACK_DEM_PNG_TYPE.value,
+        ]
     else:
         patterns = None
 
     if exists(gamma_dem_path):
-        files_list = get_wildcard_match_files(dirs_path=gamma_dem_path, wildcards=patterns)
+        files_list = get_wildcard_match_files(
+            dirs_path=gamma_dem_path, wildcards=patterns
+        )
         _del_files(file_dir=gamma_dem_path, files_list=files_list)
 
 
@@ -103,8 +127,12 @@ def clean_demdir(dem_path, patterns=None):
     Deletes files associated with wildcard patterns from DEM directory
     """
     if not patterns:
-        patterns = [Wildcards.CCP_TYPE.value, Wildcards.SIM_TYPE.value, Wildcards.PIX_TYPE.value,
-                    Wildcards.RDC_TYPE.value]
+        patterns = [
+            Wildcards.CCP_TYPE.value,
+            Wildcards.SIM_TYPE.value,
+            Wildcards.PIX_TYPE.value,
+            Wildcards.RDC_TYPE.value,
+        ]
 
     if exists(dem_path):
         files_list = get_wildcard_match_files(dirs_path=dem_path, wildcards=patterns)
@@ -127,7 +155,9 @@ def clean_checkpoints(checkpoint_path, patterns=None):
             _del_files(file_dir=checkpoint_path, files_list=del_file)
 
         else:
-            files_list = get_wildcard_match_files(dirs_path=checkpoint_path, wildcards=patterns)
+            files_list = get_wildcard_match_files(
+                dirs_path=checkpoint_path, wildcards=patterns
+            )
             _del_files(file_dir=checkpoint_path, files_list=files_list)
 
 
@@ -162,20 +192,23 @@ def run(proc_file):
     """ clean default clean up files if processing was run without clean up option """
     path_name = get_path(proc_file)
 
-    clean_rawdatadir(raw_data_path=path_name['raw_data_dir'])
-    clean_gammademdir(gamma_dem_path=path_name['gamma_dem'], track_frame=path_name['track_frame'])
-    clean_slcdir(slc_path=path_name['slc_dir'])
-    clean_ifgdir(ifg_path=path_name['ifg_dir'])
-    clean_demdir(dem_path=path_name['dem_dir'])
+    clean_rawdatadir(raw_data_path=path_name["raw_data_dir"])
+    clean_gammademdir(
+        gamma_dem_path=path_name["gamma_dem"], track_frame=path_name["track_frame"]
+    )
+    clean_slcdir(slc_path=path_name["slc_dir"])
+    clean_ifgdir(ifg_path=path_name["ifg_dir"])
+    clean_demdir(dem_path=path_name["dem_dir"])
 
 
 def _parser():
     """ Argument parser. """
-    description = "clean up of default clean up files within the insar project directory"
+    description = (
+        "clean up of default clean up files within the insar project directory"
+    )
 
     formatter = argparse.ArgumentDefaultsHelpFormatter
-    parser = argparse.ArgumentParser(description=description,
-                                     formatter_class=formatter)
+    parser = argparse.ArgumentParser(description=description, formatter_class=formatter)
     parser.add_argument("--proc_file", required=True)
 
     return parser
@@ -188,7 +221,7 @@ def main():
     run(args.proc_file)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     """
     To clean up the files in after a debugging process
     """

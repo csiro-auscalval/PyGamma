@@ -8,12 +8,14 @@ import logging
 from structlog import wrap_logger
 from structlog.processors import JSONRenderer
 
-from python_scripts.constant import Wildcards, MatchStrings, FolderNames,  ErrorMessages
+from python_scripts.constant import Wildcards, MatchStrings, FolderNames, ErrorMessages
 
-STATUS_LOGGER = wrap_logger(logging.getLogger('status'),
-                            processors=[JSONRenderer(indent=1, sort_keys=True)])
-ERROR_LOGGER = wrap_logger(logging.getLogger('errors'),
-                           processors=[JSONRenderer(indent=1, sort_keys=True)])
+STATUS_LOGGER = wrap_logger(
+    logging.getLogger("status"), processors=[JSONRenderer(indent=1, sort_keys=True)]
+)
+ERROR_LOGGER = wrap_logger(
+    logging.getLogger("errors"), processors=[JSONRenderer(indent=1, sort_keys=True)]
+)
 
 
 def checkgammadem(gamma_dem_path, track_frame):
@@ -41,7 +43,9 @@ def checkgammadem(gamma_dem_path, track_frame):
     if all(item in gamma_dem_files for item in [dem_file, dem_par_file]):
         complete_status = True
     else:
-        error = '{f1} or {f2} missing from the gamma dem directory'.format(f1=dem_file, f2=dem_par_file)
+        error = "{f1} or {f2} missing from the gamma dem directory".format(
+            f1=dem_file, f2=dem_par_file
+        )
         ERROR_LOGGER.error(error)
         complete_status = False
 
@@ -91,7 +95,9 @@ def checkfullslc(slc_path):
         complete_status = True
     else:
         failed_slc = [scenes[i] for i, e in enumerate(slc_status) if e is False]
-        error = 'Following {slc} error.log does not have expected file size of 0 B'.format(slc=failed_slc)
+        error = "Following {slc} error.log does not have expected file size of 0 B".format(
+            slc=failed_slc
+        )
         ERROR_LOGGER.error(error)
         complete_status = False
 
@@ -143,7 +149,9 @@ def checkmultilook(slc_path):
         complete_status = True
     else:
         failed_mli = [scenes[i] for i, e in enumerate(mli_status) if e is False]
-        error = 'Following {mli} scenes does not have expected file size greater than 0 B'.format(mli=failed_mli)
+        error = "Following {mli} scenes does not have expected file size greater than 0 B".format(
+            mli=failed_mli
+        )
         ERROR_LOGGER.error(error)
         complete_status = False
 
@@ -164,7 +172,7 @@ def checkbaseline(ifgs_list_path):
     # checks if ifg list exists and if its contents are not
     # just blank space
     connections = []
-    with open(ifgs_list_path, 'r') as f:
+    with open(ifgs_list_path, "r") as f:
         lines = f.readlines()
         for line in lines:
             if line.isspace():
@@ -175,7 +183,9 @@ def checkbaseline(ifgs_list_path):
     # checks if any connection are present in ifg lists
     # which is expected for if baseline calculation was carried out
     if not connections:
-        error = '{ifg} does not have any scene connections'.format(ifg=basename(ifgs_list_path))
+        error = "{ifg} does not have any scene connections".format(
+            ifg=basename(ifgs_list_path)
+        )
         ERROR_LOGGER.error(error)
         complete_status = False
     else:
@@ -208,34 +218,55 @@ def checkdemmaster(dem_path, slc_path, master_scene):
     dem_files = [f for f in os.listdir(dem_path)]
 
     # get the dem and slc error log
-    dem_error_log = pjoin(dem_path, fnmatch.filter(dem_files, Wildcards.DEM_ERROR_LOG_TYPE.value)[0])
-    slc_error_log = pjoin(master_scene_path, fnmatch.filter(slc_files, Wildcards.SLC_ERROR_LOG_TYPE.value)[0])
+    dem_error_log = pjoin(
+        dem_path, fnmatch.filter(dem_files, Wildcards.DEM_ERROR_LOG_TYPE.value)[0]
+    )
+    slc_error_log = pjoin(
+        master_scene_path,
+        fnmatch.filter(slc_files, Wildcards.SLC_ERROR_LOG_TYPE.value)[0],
+    )
 
     # get radar coded mli and par file, and rdc sim file,
-    r_mli_file = pjoin(master_scene_path, fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_TYPE.value)[0])
-    r_mli_par_file = pjoin(master_scene_path, fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_PAR_TYPE.value)[0])
-    rdc_sim_file = pjoin(dem_path, fnmatch.filter(dem_files, Wildcards.RDC_SIM_TYPE.value)[0])
+    r_mli_file = pjoin(
+        master_scene_path,
+        fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_TYPE.value)[0],
+    )
+    r_mli_par_file = pjoin(
+        master_scene_path,
+        fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_PAR_TYPE.value)[0],
+    )
+    rdc_sim_file = pjoin(
+        dem_path, fnmatch.filter(dem_files, Wildcards.RDC_SIM_TYPE.value)[0]
+    )
 
     # perform slc error log checks
     slc_error_log_size = getsize(slc_error_log)
     if slc_error_log_size > 0:
-        error = ErrorMessages.ERROR_LOG_MSGS.value.format(f=slc_error_log, s=slc_error_log_size, d=0)
+        error = ErrorMessages.ERROR_LOG_MSGS.value.format(
+            f=slc_error_log, s=slc_error_log_size, d=0
+        )
         ERROR_LOGGER.error(error)
         return False
 
     # perform dem error log checks
     dem_error_log_size = getsize(dem_error_log)
     if dem_error_log_size > 450:
-        with open(dem_error_log, 'r') as src:
+        with open(dem_error_log, "r") as src:
             lines = src.readlines()
             for line in lines:
-                if line.isspace() or line.startswith((MatchStrings.DEM_USAGE_NOTE.value,
-                                                      MatchStrings.DEM_SCENE_TITLE.value,
-                                                      MatchStrings.DEM_WARNING.value,
-                                                      MatchStrings.DEM_ISP.value)):
+                if line.isspace() or line.startswith(
+                    (
+                        MatchStrings.DEM_USAGE_NOTE.value,
+                        MatchStrings.DEM_SCENE_TITLE.value,
+                        MatchStrings.DEM_WARNING.value,
+                        MatchStrings.DEM_ISP.value,
+                    )
+                ):
                     pass
                 else:
-                    error = ErrorMessages.ERROR_CONTENT_MSGS.value.format(f=basename(dem_error_log), s=line.strip())
+                    error = ErrorMessages.ERROR_CONTENT_MSGS.value.format(
+                        f=basename(dem_error_log), s=line.strip()
+                    )
                     ERROR_LOGGER.error(error)
                     return False
 
@@ -243,7 +274,9 @@ def checkdemmaster(dem_path, slc_path, master_scene):
     rdc_sim_file_size = getsize(rdc_sim_file)
 
     if rdc_sim_file_size == 0:
-        error = ErrorMessages.MLI_FILE_SIZE_ERROR_MSGS.value.format(s=rdc_sim_file_size, f=rdc_sim_file)
+        error = ErrorMessages.MLI_FILE_SIZE_ERROR_MSGS.value.format(
+            s=rdc_sim_file_size, f=rdc_sim_file
+        )
         ERROR_LOGGER.error(error)
         return False
 
@@ -255,13 +288,13 @@ def checkdemmaster(dem_path, slc_path, master_scene):
     ranges, azimuths, expected_rmli_size = 0, 0, 0
     if r_mli_file_size > 0:
 
-        with open(r_mli_par_file, 'r') as src:
+        with open(r_mli_par_file, "r") as src:
             lines = src.readlines()
             for line in lines:
                 if line.startswith(MatchStrings.SLC_RANGE_SAMPLES.value):
-                    ranges = int(line.split(':')[1])
+                    ranges = int(line.split(":")[1])
                 if line.startswith(MatchStrings.SLC_AZIMUTH_LINES.value):
-                    azimuths = int(line.split(':')[1])
+                    azimuths = int(line.split(":")[1])
 
                 line_azimuth = ranges * azimuths
                 if line_azimuth > 0:
@@ -270,13 +303,14 @@ def checkdemmaster(dem_path, slc_path, master_scene):
 
         # check if file size are same
         if expected_rmli_size != r_mli_file_size:
-            error = ErrorMessages.ERROR_LOG_MSGS.value.format(f=r_mli_file, s=expected_rmli_size,
-                                                              d=r_mli_file_size)
+            error = ErrorMessages.ERROR_LOG_MSGS.value.format(
+                f=r_mli_file, s=expected_rmli_size, d=r_mli_file_size
+            )
             ERROR_LOGGER.error(error)
             return False
         else:
             return True
-    else: 
+    else:
         return False
 
 
@@ -311,27 +345,37 @@ def checkcoregslaves(slc_path, master_scene):
             slc_files = [f for f in os.listdir(scene_dir)]
 
             # get error log file
-            slc_error_log = pjoin(scene_dir, fnmatch.filter(slc_files, Wildcards.SLC_ERROR_LOG_TYPE.value)[0])
+            slc_error_log = pjoin(
+                scene_dir,
+                fnmatch.filter(slc_files, Wildcards.SLC_ERROR_LOG_TYPE.value)[0],
+            )
 
             # get radar coded mli and par file,
-            r_mli_file = pjoin(scene_dir, fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_TYPE.value)[0])
-            r_mli_par_file = pjoin(scene_dir, fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_PAR_TYPE.value)[0])
+            r_mli_file = pjoin(
+                scene_dir,
+                fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_TYPE.value)[0],
+            )
+            r_mli_par_file = pjoin(
+                scene_dir,
+                fnmatch.filter(slc_files, Wildcards.RADAR_CODED_MLI_PAR_TYPE.value)[0],
+            )
 
             # perform slc error log checks
             slc_error_log_size = getsize(slc_error_log)
             if slc_error_log_size > 0:
-                with open(slc_error_log, 'r') as src:
+                with open(slc_error_log, "r") as src:
                     lines = src.readlines()
                     for line in lines:
                         if not line.isspace():
-                            error1 = ErrorMessages.ERROR_CONTENT_MSGS.value.format(f=basename(slc_error_log),
-                                                                                   s=line.strip())
+                            error1 = ErrorMessages.ERROR_CONTENT_MSGS.value.format(
+                                f=basename(slc_error_log), s=line.strip()
+                            )
 
-                            error2 = ErrorMessages.ERROR_LOG_MSGS.value.format(f=slc_error_log,
-                                                                               s=slc_error_log_size,
-                                                                               d=0)
-                            errors['error1'] = error1
-                            errors['error2'] = error2
+                            error2 = ErrorMessages.ERROR_LOG_MSGS.value.format(
+                                f=slc_error_log, s=slc_error_log_size, d=0
+                            )
+                            errors["error1"] = error1
+                            errors["error2"] = error2
                             flag = False
 
             # check on r_mli file
@@ -341,24 +385,25 @@ def checkcoregslaves(slc_path, master_scene):
             # additional check for to see if file size is same as expected file size
             ranges, azimuths, expected_rmli_size = 0, 0, 0
             if r_mli_file_size > 0:
-                with open(r_mli_par_file, 'r') as src:
+                with open(r_mli_par_file, "r") as src:
                     lines = src.readlines()
                     for line in lines:
                         if line.startswith(MatchStrings.SLC_RANGE_SAMPLES.value):
-                            ranges = int(line.split(':')[1])
+                            ranges = int(line.split(":")[1])
                         if line.startswith(MatchStrings.SLC_AZIMUTH_LINES.value):
-                            azimuths = int(line.split(':')[1])
+                            azimuths = int(line.split(":")[1])
                         line_azimuth = ranges * azimuths
                         if line_azimuth > 0:
                             expected_rmli_size = line_azimuth * 4
                             break
                 # check if file size are same
                 if expected_rmli_size != r_mli_file_size:
-                    error3 = ErrorMessages.ERROR_LOG_MSGS.value.format(f=r_mli_file, s=expected_rmli_size,
-                                                                       d=r_mli_file_size)
-                    errors['error3'] = error3
+                    error3 = ErrorMessages.ERROR_LOG_MSGS.value.format(
+                        f=r_mli_file, s=expected_rmli_size, d=r_mli_file_size
+                    )
+                    errors["error3"] = error3
                     flag = False
-            else: 
+            else:
                 flag = False
             # collect individual scene's error and flag status
             scene_error_msgs[scene] = errors
@@ -402,43 +447,54 @@ def checkifgs(ifg_path):
         ifg_files = [f for f in os.listdir(scene_dir)]
 
         # get error log file
-        ifg_error_log = pjoin(scene_dir, fnmatch.filter(ifg_files, Wildcards.SLC_ERROR_LOG_TYPE.value)[0])
+        ifg_error_log = pjoin(
+            scene_dir, fnmatch.filter(ifg_files, Wildcards.SLC_ERROR_LOG_TYPE.value)[0]
+        )
 
         # get flatten ifg, off_par and eqa_unw files
-        flat_file = pjoin(scene_dir, fnmatch.filter(ifg_files, Wildcards.INT_FLAT_TYPE.value)[0])
-        eqa_unw_file = pjoin(scene_dir, fnmatch.filter(ifg_files, Wildcards.EQA_UNW_TYPE.value)[0])
+        flat_file = pjoin(
+            scene_dir, fnmatch.filter(ifg_files, Wildcards.INT_FLAT_TYPE.value)[0]
+        )
+        eqa_unw_file = pjoin(
+            scene_dir, fnmatch.filter(ifg_files, Wildcards.EQA_UNW_TYPE.value)[0]
+        )
 
         # perform slc error log checks
         ifg_error_log_size = getsize(ifg_error_log)
         if ifg_error_log_size > 0:
-            with open(ifg_error_log, 'r') as src:
+            with open(ifg_error_log, "r") as src:
                 lines = src.readlines()
                 for line in lines:
                     if not line.isspace():
-                        error1 = ErrorMessages.ERROR_CONTENT_MSGS.value.format(f=basename(ifg_error_log),
-                                                                               s=line.strip())
+                        error1 = ErrorMessages.ERROR_CONTENT_MSGS.value.format(
+                            f=basename(ifg_error_log), s=line.strip()
+                        )
 
-                        error2 = ErrorMessages.ERROR_LOG_MSGS.value.format(f=ifg_error_log,
-                                                                           s=ifg_error_log_size,
-                                                                           d=0)
-                        errors['error1'] = error1
-                        errors['error2'] = error2
+                        error2 = ErrorMessages.ERROR_LOG_MSGS.value.format(
+                            f=ifg_error_log, s=ifg_error_log_size, d=0
+                        )
+                        errors["error1"] = error1
+                        errors["error2"] = error2
                         flag = False
 
         flat_file_size = getsize(flat_file)
         if flat_file_size > 0:
             pass
         else:
-            error3 = ErrorMessages.MLI_FILE_SIZE_ERROR_MSGS.value.format(f=flat_file, s=flat_file_size)
-            errors['error3'] = error3
+            error3 = ErrorMessages.MLI_FILE_SIZE_ERROR_MSGS.value.format(
+                f=flat_file, s=flat_file_size
+            )
+            errors["error3"] = error3
             flag = False
 
         eqa_unw_file_size = getsize(eqa_unw_file)
         if eqa_unw_file_size > 0:
             pass
         else:
-            error4 = ErrorMessages.MLI_FILE_SIZE_ERROR_MSGS.value.format(f=eqa_unw_file, s=eqa_unw_file_size)
-            errors['error4'] = error4
+            error4 = ErrorMessages.MLI_FILE_SIZE_ERROR_MSGS.value.format(
+                f=eqa_unw_file, s=eqa_unw_file_size
+            )
+            errors["error4"] = error4
             flag = False
 
         # collect individual scene's error and flag status

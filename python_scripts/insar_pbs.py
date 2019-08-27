@@ -52,7 +52,7 @@ usage:{
     }
 """
 
-PBS_RESOURCES = ("""#!/bin/bash
+PBS_RESOURCES = """#!/bin/bash
 #PBS -P {project}
 #PBS -q {queue}
 #PBS -l other=gdata1
@@ -64,9 +64,9 @@ PBS_RESOURCES = ("""#!/bin/bash
 #PBS -l wd
 #PBS -v NJOBS,NJOB,JOB_IDX
 #PBS -l software=python
-""")
+"""
 
-PBS_TEMPLATE = (r"""{pbs_resources}
+PBS_TEMPLATE = r"""{pbs_resources}
 
 # NJOBS is the total number of retry per job in a sequence of jobs (defaults to 1)
 
@@ -150,11 +150,13 @@ if [ $errstat -ne 0 ]; then
 fi
 
     
-""")
+"""
 
-FMT1 = 'job{jobid}.bash'
-FMT2 = 'level1-{jobid}.txt'
-RESTART_ARD_FMT = "--module process_gamma ARD --checkpoint-patterns {checkpoint_patterns}"
+FMT1 = "job{jobid}.bash"
+FMT2 = "level1-{jobid}.txt"
+RESTART_ARD_FMT = (
+    "--module process_gamma ARD --checkpoint-patterns {checkpoint_patterns}"
+)
 ARD_FMT = "--module process_gamma ARD"
 
 
@@ -164,13 +166,14 @@ def scatter(iterable, n):
     """
 
     q, r = len(iterable) // n, len(iterable) % n
-    res = (iterable[i * q + min(i, r):(i + 1) * q + min(i + 1, r)]
-           for i in range(n))
+    res = (iterable[i * q + min(i, r) : (i + 1) * q + min(i + 1, r)] for i in range(n))
 
     return list(res)
 
 
-def _gen_pbs(scattered_tasklist, options, env, omp_num_threads, workdir, outdir, pbs_resource):
+def _gen_pbs(
+    scattered_tasklist, options, env, omp_num_threads, workdir, outdir, pbs_resource
+):
     """
     Generates a pbs scripts
     """
@@ -181,20 +184,27 @@ def _gen_pbs(scattered_tasklist, options, env, omp_num_threads, workdir, outdir,
         jobid = uuid.uuid4().hex[0:6]
         print(workdir)
         print(jobid)
-        job_dir = pjoin(workdir, 'jobid-{}'.format(jobid))
+        job_dir = pjoin(workdir, "jobid-{}".format(jobid))
         print(job_dir)
         if not exists(job_dir):
             os.makedirs(job_dir)
 
         out_fname = pjoin(job_dir, FMT2.format(jobid=jobid))
-        with open(out_fname, 'w') as src:
+        with open(out_fname, "w") as src:
             src.writelines(block)
 
-        pbs = PBS_TEMPLATE.format(pbs_resources=pbs_resource, options=options, omp_num_threads=omp_num_threads,
-                                  env=env, s1_download_list=basename(out_fname), outdir=outdir, workdir=job_dir)
+        pbs = PBS_TEMPLATE.format(
+            pbs_resources=pbs_resource,
+            options=options,
+            omp_num_threads=omp_num_threads,
+            env=env,
+            s1_download_list=basename(out_fname),
+            outdir=outdir,
+            workdir=job_dir,
+        )
 
         out_fname = pjoin(job_dir, FMT1.format(jobid=jobid))
-        with open(out_fname, 'w') as src:
+        with open(out_fname, "w") as src:
             src.writelines(pbs)
 
         pbs_scripts.append(out_fname)
@@ -210,93 +220,164 @@ def _submit_pbs(pbs_scripts, retry, test):
         print(scripts)
         if test:
             time.sleep(1)
-            print("qsub -v NJOBS={retry} {job}".format(retry=retry, job=basename(scripts)))
+            print(
+                "qsub -v NJOBS={retry} {job}".format(retry=retry, job=basename(scripts))
+            )
         else:
             time.sleep(1)
             os.chdir(dirname(scripts))
-            subprocess.call(['qsub', '-v', 'NJOBS={retry}'.format(retry=retry), basename(scripts)])
+            subprocess.call(
+                ["qsub", "-v", "NJOBS={retry}".format(retry=retry), basename(scripts)]
+            )
 
 
-def run(taskfile, checkpoint_patterns, workdir, outdir, env, total_ncpus, total_memory,
-        omp_num_threads, project, queue, hours, email, retry, num_batch, test):
+def run(
+    taskfile,
+    checkpoint_patterns,
+    workdir,
+    outdir,
+    env,
+    total_ncpus,
+    total_memory,
+    omp_num_threads,
+    project,
+    queue,
+    hours,
+    email,
+    retry,
+    num_batch,
+    test,
+):
     """
     colsolidates batch processing job script creation and submission of pbs jobs
     """
-    with open(taskfile, 'r') as src:
+    with open(taskfile, "r") as src:
         tasklist = src.readlines()
 
     num_batch = num_batch
 
     scattered_tasklist = scatter(tasklist, num_batch)
 
-    pbs_resources = PBS_RESOURCES.format(project=project, queue=queue, hours=hours, memory=total_memory,
-                                         ncpus=total_ncpus, email=email)
+    pbs_resources = PBS_RESOURCES.format(
+        project=project,
+        queue=queue,
+        hours=hours,
+        memory=total_memory,
+        ncpus=total_ncpus,
+        email=email,
+    )
     if checkpoint_patterns:
         options = RESTART_ARD_FMT.format(checkpoint_patterns=checkpoint_patterns)
     else:
         options = ARD_FMT
 
-    pbs_scripts = _gen_pbs(scattered_tasklist, options, env, omp_num_threads, workdir, outdir, pbs_resources)
+    pbs_scripts = _gen_pbs(
+        scattered_tasklist,
+        options,
+        env,
+        omp_num_threads,
+        workdir,
+        outdir,
+        pbs_resources,
+    )
     _submit_pbs(pbs_scripts, retry, test)
 
 
 def _parser():
     """ Argument parser. """
-    description = ("Equally partition a jobs into batches and submit each batch"
-                   "into the PBS queue.")
+    description = (
+        "Equally partition a jobs into batches and submit each batch"
+        "into the PBS queue."
+    )
 
     formatter = argparse.ArgumentDefaultsHelpFormatter
-    parser = argparse.ArgumentParser(description=description,
-                                     formatter_class=formatter)
+    parser = argparse.ArgumentParser(description=description, formatter_class=formatter)
 
-    parser.add_argument("--taskfile", help="The file containing the list of "
-                                           "tasks to be performed",
-                        required=True)
+    parser.add_argument(
+        "--taskfile",
+        help="The file containing the list of " "tasks to be performed",
+        required=True,
+    )
 
-    parser.add_argument("--checkpoint_patterns", help="The wildcard patterns used "
-                                                      "in cleanup of check point files",
-                        required=False, default=None)
+    parser.add_argument(
+        "--checkpoint_patterns",
+        help="The wildcard patterns used " "in cleanup of check point files",
+        required=False,
+        default=None,
+    )
 
-    parser.add_argument("--workdir", help="The base working and scripts output directory.",
-                        required=True)
+    parser.add_argument(
+        "--workdir",
+        help="The base working and scripts output directory.",
+        required=True,
+    )
 
-    parser.add_argument("--outdir", help="The output directory for processed data",
-                        required=True)
+    parser.add_argument(
+        "--outdir", help="The output directory for processed data", required=True
+    )
 
-    parser.add_argument("--env", help="Environment script to source.",
-                        required=True)
+    parser.add_argument("--env", help="Environment script to source.", required=True)
 
-    parser.add_argument("--total_ncpus", type=int, help="The total number of cpus per job"
-                                                        "required if known",
-                        default=1, required=False)
+    parser.add_argument(
+        "--total_ncpus",
+        type=int,
+        help="The total number of cpus per job" "required if known",
+        default=1,
+        required=False,
+    )
 
-    parser.add_argument("--total_memory", type=int, help="Total memory required if known",
-                        default=8, required=False)
+    parser.add_argument(
+        "--total_memory",
+        type=int,
+        help="Total memory required if known",
+        default=8,
+        required=False,
+    )
 
-    parser.add_argument("--omp_num_threads", type=int,
-                        help="The number of threads for each job",
-                        default=1, required=False)
+    parser.add_argument(
+        "--omp_num_threads",
+        type=int,
+        help="The number of threads for each job",
+        default=1,
+        required=False,
+    )
 
-    parser.add_argument("--project", help="Project code to run under.",
-                        required=True)
+    parser.add_argument("--project", help="Project code to run under.", required=True)
 
-    parser.add_argument("--queue", help="Queue to submit the job into",
-                        default="express", required=False)
+    parser.add_argument(
+        "--queue",
+        help="Queue to submit the job into",
+        default="express",
+        required=False,
+    )
 
-    parser.add_argument("--hours", help="Job walltime in hours.",
-                        default=24, required=False)
+    parser.add_argument(
+        "--hours", help="Job walltime in hours.", default=24, required=False
+    )
 
-    parser.add_argument("--email", help="Notification email address.",
-                        default="your.name@something.com")
+    parser.add_argument(
+        "--email", help="Notification email address.", default="your.name@something.com"
+    )
 
-    parser.add_argument("--retry", type=int, help="How many retry to be performed before per job"
-                                                  "terminating the job",
-                        default=7, required=False)
+    parser.add_argument(
+        "--retry",
+        type=int,
+        help="How many retry to be performed before per job" "terminating the job",
+        default=7,
+        required=False,
+    )
 
-    parser.add_argument("--num_batch", type=int, help="Number of batch jobs to be generated",
-                        default=2, required=False)
+    parser.add_argument(
+        "--num_batch",
+        type=int,
+        help="Number of batch jobs to be generated",
+        default=2,
+        required=False,
+    )
 
-    parser.add_argument("--test", action='store_true', help="mock the job submission to PBS queue")
+    parser.add_argument(
+        "--test", action="store_true", help="mock the job submission to PBS queue"
+    )
 
     return parser
 
@@ -305,10 +386,24 @@ def main():
     """ Main execution. """
     parser = _parser()
     args = parser.parse_args()
-    run(args.taskfile, args.checkpoint_patterns, args.workdir, args.outdir,
-        args.env, args.total_ncpus, args.total_memory, args.omp_num_threads,
-        args.project, args.queue, args.hours, args.email, args.retry, args.num_batch, args.test)
+    run(
+        args.taskfile,
+        args.checkpoint_patterns,
+        args.workdir,
+        args.outdir,
+        args.env,
+        args.total_ncpus,
+        args.total_memory,
+        args.omp_num_threads,
+        args.project,
+        args.queue,
+        args.hours,
+        args.email,
+        args.retry,
+        args.num_batch,
+        args.test,
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
