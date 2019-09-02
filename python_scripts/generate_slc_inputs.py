@@ -133,7 +133,7 @@ def generate_slc_inputs(
         slc_df = archive.select(
             tables_join_string=tables_join_string,
             orbit=orbit,
-            spatial_subset=spatial_subset,
+            spatial_subset=Vector(spatial_subset),
             columns=columns,
             min_date_arg=min_date_arg,
             max_date_arg=max_date_arg,
