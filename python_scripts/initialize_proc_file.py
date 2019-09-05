@@ -1,17 +1,20 @@
 #!/usr/bin/python3
 
-from os.path import join as pjoin, exists
+import os
+from os.path import exists, join as pjoin
 
 
 def get_path(proc_file):
     """
-    :param proc_file:
-        A 'proc_file'
+    A method to access paths within InSAR processing directory structure.
+
+    :param proc_file: A 'Path' to a proc file.
+
     :return:
         A 'dict' containing the path names for required processing
         workflow from a which is derived from a 'proc file'
     """
-    pathname_dict = {}
+    pathname_dict = dict()
 
     if not exists(proc_file):
         raise IOError
@@ -34,6 +37,8 @@ def get_path(proc_file):
                 slc_dir1 = line.split("=")[1].strip()
             if line.startswith("DEM_DIR="):
                 dem_dir1 = line.split("=")[1].strip()
+            if line.startswith("PDF_DIR"):
+                pdf_dir1 = line.split("=")[1].strip()
             if line.startswith("INT_DIR="):
                 int_dir1 = line.split("=")[1].strip()
             if line.startswith("REF_MASTER_SCENE="):
@@ -46,6 +51,8 @@ def get_path(proc_file):
                 error_dir1 = line.split("=")[1].strip()
             if line.startswith("BATCH_JOB_DIR="):
                 batch_job_dir1 = line.split("=")[1].strip()
+            if line.startswith("MANUAL_JOB_DIR="):
+                manual_job_dir1 = line.split("=")[1].strip()
             if line.startswith("RAW_DATA_DIR="):
                 raw_data_dir1 = line.split("=")[1].strip()
             if line.startswith("LIST_DIR="):
@@ -93,6 +100,12 @@ def get_path(proc_file):
         pathname_dict["batch_job_dir"] = pjoin(
             proj_dir1, pathname_dict["track_frame"], batch_job_dir1
         )
+        pathname_dict["pdf_dir"] = pjoin(
+            proj_dir1, pathname_dict["track_frame"], pdf_dir1
+        )
+        pathname_dict["manual_job_dir"] = pjoin(
+            proj_dir1, pathname_dict["track_frame"], manual_job_dir1
+        )
         pathname_dict["raw_data_dir"] = pjoin(
             proj_dir1, raw_data_dir1, pathname_dict["track"], pathname_dict["frame"]
         )
@@ -124,11 +137,43 @@ def get_path(proc_file):
         pathname_dict["ml_slc_jobs_dir"] = pjoin(
             pathname_dict["batch_job_dir"], "ml_slc_jobs"
         )
+        pathname_dict["slc_jobs_dir"] = pjoin(
+            pathname_dict["batch_job_dir"], "slc_jobs"
+        )
         pathname_dict["resize_S1_slc_jobs_dir"] = pjoin(
             pathname_dict["batch_job_dir"], "resize_S1_slc_jobs"
         )
         pathname_dict["subset_S1_slc_jobs_dir"] = pjoin(
             pathname_dict["batch_job_dir"], "subset_S1_slc_jobs"
+        )
+
+        # manual jobs directories
+        pathname_dict["manual_extract_raw_jobs_dir"] = pjoin(
+            pathname_dict["manual_job_dir"], "extract_raw_jobs"
+        )
+        pathname_dict["manual_baseline_jobs_dir"] = pjoin(
+            pathname_dict["manual_job_dir"], "baseline_jobs"
+        )
+        pathname_dict["manual_dem_jobs_dir"] = pjoin(
+            pathname_dict["manual_job_dir"], "dem_jobs"
+        )
+        pathname_dict["manual_coreg_slc_jobs_dir"] = pjoin(
+            pathname_dict["manual_job_dir"], "coreg_slc_jobs"
+        )
+        pathname_dict["manual_ifg_jobs_dir"] = pjoin(
+            pathname_dict["manual_job_dir"], "ifg_jobs"
+        )
+        pathname_dict["manual_ml_slc_jobs_dir"] = pjoin(
+            pathname_dict["manual_job_dir"], "ml_slc_jobs"
+        )
+        pathname_dict["manual_slc_jobs_dir"] = pjoin(
+            pathname_dict["manual_job_dir"], "slc_jobs"
+        )
+        pathname_dict["manual_resize_S1_slc_jobs_dir"] = pjoin(
+            pathname_dict["manual_job_dir"], "resize_S1_slc_jobs"
+        )
+        pathname_dict["manual_subset_S1_slc_jobs_dir"] = pjoin(
+            pathname_dict["manual_job_dir"], "subset_S1_slc_jobs"
         )
 
         # Lists
@@ -142,6 +187,7 @@ def get_path(proc_file):
 
         # error list files
         error_dir = pjoin(proj_dir1, pathname_dict["track_frame"], error_dir1)
+        pathname_dict['error_dir'] = error_dir
         pathname_dict["extract_raw_errors"] = pjoin(error_dir, "extract_raw_errors")
         pathname_dict["create_dem_errors"] = pjoin(error_dir, "create_dem_errors")
         pathname_dict["slc_creation_errors"] = pjoin(error_dir, "slc_creation_errors")
@@ -165,3 +211,59 @@ def get_path(proc_file):
         pathname_dict["post_ifg_errors"] = pjoin(error_dir, "post_ifg_errors")
 
     return pathname_dict
+
+
+def directories_setup(proc_file):
+    """
+    A method to setup required directories for InSAR processing.
+
+    :param proc_file: A 'Path' to a proc file.
+    """
+    dir_names = [
+        "proj_dir",
+        "checkpoint_dir",
+        "list_dir",
+        "dem_dir",
+        "track_dir",
+        "slc_dir",
+        "ifg_dir",
+        "pdf_dir",
+        "batch_job_dir",
+        "raw_data_dir",
+        "base_dir",
+        "pre_proc_dir",
+        "results_dir",
+        "gamma_dem",
+        "error_dir",
+        "extract_raw_jobs_dir",
+        "baseline_jobs_dir",
+        "batch_job_dir",
+        "dem_jobs_dir",
+        "ifg_jobs_dir",
+        "coreg_slc_jobs_dir",
+        "ml_slc_jobs_dir",
+        "resize_S1_slc_jobs_dir",
+        "subset_S1_slc_jobs_dir",
+        "slc_jobs_dir",
+        "manual_extract_raw_jobs_dir",
+        "manual_baseline_jobs_dir",
+        "manual_job_dir",
+        "manual_dem_jobs_dir",
+        "manual_ifg_jobs_dir",
+        "manual_coreg_slc_jobs_dir",
+        "manual_ml_slc_jobs_dir",
+        "manual_resize_S1_slc_jobs_dir",
+        "manual_subset_S1_slc_jobs_dir",
+        "manual_slc_jobs_dir"
+    ]
+
+    # make directory if it does not exist
+    dir_dict = get_path(proc_file)
+    for dir_name in dir_names:
+        if not exists(dir_dict[dir_name]):
+            os.makedirs(dir_dict[dir_name], 0o744)
+
+
+if __name__ == "__main__":
+    proc_file = "/g/data/u46/users/pd1813/INSAR/test_insar/T45D_F19.proc"
+    directories_setup(proc_file)

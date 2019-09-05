@@ -2,13 +2,15 @@
 
 import logging
 import os
+from os.path import join as pjoin
 import re
 import subprocess
 import tempfile
 import xml.etree.ElementTree as etree
 import zipfile as zf
-from datetime import datetime
+import datetime
 from io import BytesIO
+import fnmatch
 
 import geopandas as gpd
 import numpy as np
@@ -17,7 +19,7 @@ import shapely.wkt
 import yaml
 from shapely.geometry import Polygon, box
 from shapely.ops import cascaded_union
-from spatialist import sqlite3, sqlite_setup, Vector
+from spatialist import Vector, sqlite3, sqlite_setup
 from xml_util import getNamespaces
 
 logging.basicConfig(filename="ingestion_status.log", level=logging.INFO)
@@ -31,11 +33,10 @@ class SlcMetadata:
     """
     Metadata extraction class to scrap slc metadata from a sentinel-1 slc scene.
     """
-
     def __init__(self, scene):
         """ a default class constructor """
+
         self.scene = os.path.realpath(scene)
-        self.manifest = "manifest.safe"
         self.pattern = (
             r"^(?P<sensor>S1[AB])_"
             r"(?P<beam>S1|S2|S3|S4|S5|S6|IW|EW|WV|EN|N1|N2|N3|N4|N5|N6|IM)_"
@@ -62,8 +63,6 @@ class SlcMetadata:
             r"(?P<id>[0-9]{3})"
             r"\.xml$"
         )
-        self.archive_files = None
-
         if not re.match(self.pattern, os.path.basename(self.scene)):
             logging.info(
                 "{} does not match s1 filename pattern".format(
@@ -71,14 +70,28 @@ class SlcMetadata:
                 )
             )
 
+        self.date_fmt = "%Y%m%d"
+        self.dt_fmt_1 = "%Y-%m-%d %H:%M:%S.%f"
+        self.dt_fmt_2 = "%Y%m%dT%H%M%S"
+        self.dt_fmt_3 = "%Y-%m-%dT%H:%M:%S.%f"
+
+        manifest_file_list = self.find_archive_files("manifest.safe")
+        assert len(manifest_file_list) == 1
+        self.manifest_file = manifest_file_list[0]
+
+        self.archive_files = None
+
+        self.slc_metadata = self.metadata_manifest_safe()
+
+        for item in self.slc_metadata:
+            setattr(self, item, self.slc_metadata[item])
+
     def get_metadata(self):
         """ Consolidates meta data manifest safe file and annotation/swath xmls from a slc archive. """
 
         metadata = dict()
-        manifest_file = self.find_archive_files(self.manifest)
-        assert len(manifest_file) == 1
 
-        metadata["properties"] = self.metadata_manifest_safe(manifest_file[0])
+        metadata["properties"] = self.slc_metadata
 
         annotation_xmls = self.find_archive_files(self.pattern_ds)
         assert len(annotation_xmls) > 0
@@ -91,15 +104,13 @@ class SlcMetadata:
 
         return metadata
 
-    def metadata_manifest_safe(self, manifest_file):
+    def metadata_manifest_safe(self):
         """ Extracts metadata from a manifest safe file for a slc. """
 
         def __parse_datetime(dt):
-            return datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S.%f").strftime(
-                "%Y-%m-%d %H:%M:%S.%f"
-            )
+            return datetime.datetime.strptime(dt, self.dt_fmt_3).strftime(self.dt_fmt_1)
 
-        manifest_obj = self.extract_archive_member(manifest_file, obj=True)
+        manifest_obj = self.extract_archive_member(self.manifest_file, obj=True)
         meta = dict()
         with manifest_obj as obj:
             manifest = obj.getvalue()
@@ -284,10 +295,96 @@ class SlcMetadata:
             return None
 
 
+class S1DataDownload(SlcMetadata):
+    """
+    A class to download an slc data from a sentinel-1 archive.
+    """
+
+    def __init__(self, slc_scene, polarization, s1_orbits_poeorb_path, s1_orbits_resorb_path):
+        """a default class constructor."""
+        self.raw_data_path = slc_scene
+        self.polarization = polarization
+        self.s1_orbits_poeorb_path = s1_orbits_poeorb_path
+        self.s1_orbits_resorb_path = s1_orbits_resorb_path
+        super(S1DataDownload, self).__init__(self.raw_data_path)
+
+    def get_poeorb_orbit_file(self):
+        """A method to download precise orbit file for a slc scene."""
+
+        poeorb_path = os.path.join(
+            self.s1_orbits_poeorb_path, self.sensor
+        )
+        orbit_files = [p_file for p_file in os.listdir(poeorb_path)]
+        start_datetime = datetime.datetime.strptime(
+            self.acquisition_start_time, self.dt_fmt_1
+        )
+        start_date = (start_datetime - datetime.timedelta(days=1)).strftime(
+            self.date_fmt
+        )
+        end_date = (start_datetime + datetime.timedelta(days=1)).strftime(self.date_fmt)
+
+        acq_orbit_file = fnmatch.filter(
+            orbit_files, "*V{}*_{}*.EOF".format(start_date, end_date)
+        )
+
+        if not acq_orbit_file:
+            return
+        if len(acq_orbit_file) > 1:
+            acq_orbit_file = sorted(
+                acq_orbit_file,
+                key=lambda x: datetime.datetime.strptime(
+                    x.split("_")[5], self.dt_fmt_2
+                ),
+            )
+        return pjoin(poeorb_path, acq_orbit_file[-1])
+
+    def get_resorb_orbit_file(self):
+        """A method to download restitution orbit file for a slc scene."""
+
+        def __start_strptime(dt):
+            return datetime.datetime.strptime(dt, "V{}".format(self.dt_fmt_2))
+
+        def __stop_strptime(dt):
+            return datetime.datetime.strptime(dt, "{}.EOF".format(self.dt_fmt_2))
+
+        resorb_path = pjoin(self.s1_orbits_resorb_path, self.sensor)
+        orbit_files = [orbit_file for orbit_file in os.listdir(resorb_path)]
+        start_datetime = datetime.datetime.strptime(
+            self.acquisition_start_time, self.dt_fmt_1
+        )
+        end_datetime = datetime.datetime.strptime(
+            self.acquisition_stop_time, self.dt_fmt_1
+        )
+        acq_date = start_datetime.strftime(self.date_fmt)
+
+        acq_orbit_file = fnmatch.filter(
+            orbit_files, "*V{d}*_{d}*.EOF".format(d=acq_date)
+        )
+
+        acq_orbit_file = [
+            orbit_file
+            for orbit_file in acq_orbit_file
+            if start_datetime >= __start_strptime(orbit_file.split("_")[6])
+            and end_datetime <= __stop_strptime(orbit_file.split("_")[7])
+        ]
+
+        if not acq_orbit_file:
+            return
+        if len(acq_orbit_file) > 1:
+            acq_orbit_file = sorted(
+                acq_orbit_file,
+                key=lambda x: datetime.datetime.strptime(
+                    x.split("_")[5], self.dt_fmt_2
+                ),
+            )
+
+        return pjoin(resorb_path, acq_orbit_file[-1])
+
+
 class Archive:
     """
     A class to create a light-weight sqlite database to archive slc metadata and
-    facilitate a automated query into a database.
+    facilitate an automated query into a database.
     """
 
     def __init__(self, dbfile):
@@ -722,14 +819,19 @@ class Archive:
             # spatial query checks selects data only if centroid of burst extent is
             # inside a sptial vector. Spatial subset should be a instance of a Vector
             if isinstance(spatial_subset, Vector):
-                wkt_string = cascaded_union([shapely.wkt.loads(extent) for extent in
-                                             spatial_subset.convert2wkt(set3D=False)])
+                wkt_string = cascaded_union(
+                    [
+                        shapely.wkt.loads(extent)
+                        for extent in spatial_subset.convert2wkt(set3D=False)
+                    ]
+                )
                 arg_format.append(
                     "st_within(Centroid(bursts_metadata.burst_extent), GeomFromText('{}', 4326)) = 1".format(
                         wkt_string
                     )
                 )
-
+            print(wkt_string)
+            exit()
         if min_date_arg:
             arg_format.append(min_date_arg)
         if max_date_arg:
@@ -754,7 +856,6 @@ class Archive:
         )
         if slc_df.empty:
             return
-
         return slc_df
 
     def select_duplicates(self):
@@ -824,3 +925,12 @@ class SlcFrame:
         """ Returns a geo-pandas data frame for a frame_name. """
         gpd_df = self.generate_frame_polygon()
         return gpd_df.loc[gpd_df["frame"] == frame_name]
+
+
+if __name__ == "__main__":
+    slc = "/g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC/2019/2019-06/30S145E-35S150E//S1A_IW_SLC__1SDV_20190630T193933_20190630T194000_027913_0326C8_0037.zip"
+    poeorb_path = "/g/data/fj7/Copernicus/Sentinel-1/POEORB"
+    resorb_path = "/g/data/fj7/Copernicus/Sentinel-1/RESORB"
+    s1_obj = S1DataDownload(slc, "VV", poeorb_path, resorb_path)
+    f = s1_obj.get_resorb_orbit_file()
+    print(f)

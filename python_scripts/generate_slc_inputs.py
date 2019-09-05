@@ -1,13 +1,16 @@
 #!/usr/bin/python3
+import os
 from pathlib import Path
 from datetime import datetime
 
+import shapely.wkt
+import geopandas as gpd
 import pandas as pd
 from spatialist import Vector
 from s1_slc_metadata import Archive
 
 
-def __slc_df_dict_format(df):
+def __slc_df_dict_format(df, master_grid_df):
     """A helper function for munging a pandas data to form slc input dict.
 
     :param df: A pandas data frame
@@ -57,6 +60,25 @@ def __slc_df_dict_format(df):
     }
 
     """
+
+    def __get_burst_overlap(slc_df, swath_name):
+        """a helper method to check if bursts overlaps within the buffered master burst."""
+        master_swath_df = master_grid_df[master_grid_df.swath == swath_name]
+        burst_overlaps = []
+        gpd_slc = gpd.GeoDataFrame(
+            slc_df, crs={"init": "epsg:4326"},
+            geometry=slc_df["AsText(bursts_metadata.burst_extent)"].map(shapely.wkt.loads)
+        )
+
+        for burst_num in master_swath_df.burst_num:
+
+            burst_geom = master_swath_df[master_swath_df.burst_num == burst_num]["geometry"].values[0]
+            burst_geom = burst_geom.buffer(+0.02, cap_style=2, join_style=2)
+            for idx, row in gpd_slc.iterrows():
+                if burst_geom.contains(row['geometry']):
+                    burst_overlaps.append(row['burst_number'])
+        return burst_overlaps
+
     polarizations = df.polarization.unique()
     swaths = df.swath.unique()
     pol_dict = dict()
@@ -87,7 +109,7 @@ def generate_slc_inputs(
     end_date: datetime,
     orbit: str,
 ):
-    """A method to query sqlite database and generate slc input dict.
+    """A ethod to query sqlite database and generate slc input dict.
 
     :param dbfile: A path to sqlite database
     :param spatial_subset: A path to a vector shape file
@@ -138,7 +160,7 @@ def generate_slc_inputs(
             min_date_arg=min_date_arg,
             max_date_arg=max_date_arg,
         )
-
+        slc_df.to_csv('{}.csv'.format(os.path.basename(spatial_subset)[:-4]))
         slc_df["acquisition_start_time"] = pd.to_datetime(
             slc_df["acquisition_start_time"]
         )
@@ -149,7 +171,8 @@ def generate_slc_inputs(
         if unique_dates:
             return {
                 dt.strftime("%Y-%m-%d"): __slc_df_dict_format(
-                    slc_df[slc_df.acquisition_start_time.map(pd.Timestamp.date) == dt]
+                    slc_df[slc_df.acquisition_start_time.map(pd.Timestamp.date) == dt],
+                    gpd.read_file(spatial_subset)
                 )
                 for dt in unique_dates
             }
@@ -158,11 +181,11 @@ def generate_slc_inputs(
 
 if __name__ == "__main__":
     database_name = "/g/data/u46/users/pd1813/INSAR/s1_slc_database.db"
-    shapefile = "/g/data/u46/users/pd1813/INSAR/shape_files/grid_vectors/T002D_F19S.shp"
-    start_date = datetime(2019, 1, 6)
-    end_date = datetime(2019, 1, 7)
-    print(end_date)
+    shapefile = "/g/data/u46/users/pd1813/INSAR/shape_files/grid_vectors/T045D_F28S.shp"
+    start_date = datetime(2015, 3, 1)
+    end_date = datetime(2015, 3, 2)
     inputs = generate_slc_inputs(
         database_name, shapefile, start_date, end_date, orbit="D"
     )
     print(inputs)
+
