@@ -11,6 +11,7 @@ import zipfile as zf
 import datetime
 from io import BytesIO
 import fnmatch
+import shutil
 
 import geopandas as gpd
 import numpy as np
@@ -33,6 +34,7 @@ class SlcMetadata:
     """
     Metadata extraction class to scrap slc metadata from a sentinel-1 slc scene.
     """
+
     def __init__(self, scene):
         """ a default class constructor """
 
@@ -279,20 +281,60 @@ class SlcMetadata:
         ]
         return match_names
 
-    def extract_archive_member(self, target_file, outdir=None, obj=False):
-        """ Extracts a content of a target file from a slc zip archive as an object or a file"""
+    def extract_archive_member(self, target_file, outdir=None, obj=False, retry=None):
+        """Extracts a content of a target file from a slc zip archive as an object or a file.
 
-        with zf.ZipFile(self.scene, "r") as archive:
+        :param target_file: A 'Path' to file in a slc zip archive
+        :param outdir: A 'Path' to directory where extracted file will be saved
+        :param obj: A 'bol' parameter to indicate to return either object (True) or write to a file (False)
+        :param retry: A 'bol' parameter to indicate if downloads need to be retried
+        :return: A file object or None
+        """
+        archive = zf.ZipFile(self.scene, "r")
+
+        def __archive_download(name_outfile):
             if obj:
                 file_obj = BytesIO()
                 file_obj.write(archive.read(target_file))
                 file_obj.seek(0)
                 return file_obj
-            if outdir:
-                outfile = os.path.join(outdir, os.path.basename(target_file))
-            with open(outfile, "wb") as out_fid:
+
+            with open(name_outfile, "wb") as out_fid:
                 out_fid.write(archive.read(target_file))
-            return None
+            return outfile
+
+        outfile = os.path.basename(target_file)
+        if outdir:
+            if not os.path.exists(outdir):
+                os.makedirs(outdir)
+
+            outfile = os.path.join(outdir, os.path.basename(target_file))
+
+        if retry is None:
+            return __archive_download(outfile)
+
+        source_size = archive.getinfo(target_file).file_size
+        if os.path.exists(outfile):
+            if os.path.getsize(outfile) == source_size:
+                return
+
+        retry_count = 0
+        while retry_count < retry:
+            if retry_count > 0:
+                logging.info(
+                    "retry download number {}/3: {}".format(
+                        retry_count, os.path.basename(target_file)
+                    )
+                )
+
+            if os.path.getsize(__archive_download(outfile)) != source_size:
+                retry_count += 1
+            else:
+                break
+            if retry_count == retry:
+                logging.error(
+                    "download failed for {}".format(os.path.basename(target_file))
+                )
 
 
 class S1DataDownload(SlcMetadata):
@@ -300,20 +342,22 @@ class S1DataDownload(SlcMetadata):
     A class to download an slc data from a sentinel-1 archive.
     """
 
-    def __init__(self, slc_scene, polarization, s1_orbits_poeorb_path, s1_orbits_resorb_path):
+    def __init__(
+        self, slc_scene, polarization, s1_orbits_poeorb_path, s1_orbits_resorb_path
+    ):
         """a default class constructor."""
         self.raw_data_path = slc_scene
         self.polarization = polarization
         self.s1_orbits_poeorb_path = s1_orbits_poeorb_path
         self.s1_orbits_resorb_path = s1_orbits_resorb_path
+
         super(S1DataDownload, self).__init__(self.raw_data_path)
+        self.archive_name_list()
 
     def get_poeorb_orbit_file(self):
         """A method to download precise orbit file for a slc scene."""
 
-        poeorb_path = os.path.join(
-            self.s1_orbits_poeorb_path, self.sensor
-        )
+        poeorb_path = os.path.join(self.s1_orbits_poeorb_path, self.sensor)
         orbit_files = [p_file for p_file in os.listdir(poeorb_path)]
         start_datetime = datetime.datetime.strptime(
             self.acquisition_start_time, self.dt_fmt_1
@@ -379,6 +423,48 @@ class S1DataDownload(SlcMetadata):
             )
 
         return pjoin(resorb_path, acq_orbit_file[-1])
+
+    def slc_download(self, output_dir=None, retry=3):
+        """A method to download slc raw data."""
+
+        download_files_patterns = [
+            "*measurement/*{}*".format(self.polarization.lower()),
+            "*annotation/*{}*".format(self.polarization.lower()),
+            "*/calibration/*{}*".format(self.polarization.lower()),
+            "*/preview/quick-look.png",
+            "*/preview/map-overlay.kml",
+        ]
+
+        def __archive_download(target_file):
+            """ A helper method to download target file from archive"""
+            out_dir = os.path.dirname(target_file)
+            if output_dir:
+                out_dir = os.path.join(output_dir, out_dir)
+            self.extract_archive_member(target_file, outdir=out_dir, retry=retry)
+
+        # download files from slc archive (zip) file
+        files_download = sum([fnmatch.filter(self.archive_files, pattern) for pattern in download_files_patterns], [])
+        files_download.append(self.manifest_file)
+        for fp in files_download:
+            __archive_download(fp)
+
+        # get a base slc directory where files will be downloaded
+        base_dir = os.path.commonprefix(files_download)
+        if output_dir:
+            base_dir = os.path.join(output_dir, base_dir)
+
+        # download orbit files with precise orbit as first choice
+        orbit_source_file = self.get_poeorb_orbit_file()
+        orbit_destination_file = os.path.join(base_dir, os.path.basename(orbit_source_file))
+
+        if not orbit_source_file:
+            orbit_source_file = self.get_resorb_orbit_file()
+            if not orbit_source_file:
+                logging.error('no orbit files found for {}'.format(os.path.basename(self.scene)))
+            orbit_destination_file = os.path.join(base_dir, os.path.basename(orbit_source_file))
+
+        if not os.path.exists(orbit_destination_file):
+            shutil.copyfile(orbit_source_file, orbit_destination_file)
 
 
 class Archive:
@@ -817,7 +903,7 @@ class Archive:
 
         if spatial_subset:
             # spatial query checks selects data only if centroid of burst extent is
-            # inside a sptial vector. Spatial subset should be a instance of a Vector
+            # inside a spatial vector. Spatial subset should be a instance of a Vector
             if isinstance(spatial_subset, Vector):
                 wkt_string = cascaded_union(
                     [
@@ -830,8 +916,7 @@ class Archive:
                         wkt_string
                     )
                 )
-            print(wkt_string)
-            exit()
+
         if min_date_arg:
             arg_format.append(min_date_arg)
         if max_date_arg:
@@ -932,5 +1017,6 @@ if __name__ == "__main__":
     poeorb_path = "/g/data/fj7/Copernicus/Sentinel-1/POEORB"
     resorb_path = "/g/data/fj7/Copernicus/Sentinel-1/RESORB"
     s1_obj = S1DataDownload(slc, "VV", poeorb_path, resorb_path)
-    f = s1_obj.get_resorb_orbit_file()
-    print(f)
+    s1_obj.slc_download(output_dir='/g/data/u46/users/pd1813/INSAR/temp_raw_data')
+    # f = s1_obj.get_resorb_orbit_file()
+    # print(f)

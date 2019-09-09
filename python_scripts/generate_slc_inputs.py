@@ -109,7 +109,7 @@ def generate_slc_inputs(
     end_date: datetime,
     orbit: str,
 ):
-    """A ethod to query sqlite database and generate slc input dict.
+    """A method to query sqlite database and generate slc input dict.
 
     :param dbfile: A path to sqlite database
     :param spatial_subset: A path to a vector shape file
