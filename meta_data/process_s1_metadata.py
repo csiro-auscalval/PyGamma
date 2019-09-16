@@ -7,6 +7,7 @@ import logging
 from multiprocessing import Pool as ProcessPool
 from typing import Optional
 from pathlib import Path
+from datetime import datetime
 
 import pandas as pd
 import geopandas as gpd
@@ -106,6 +107,8 @@ def _query(
     frame_num: int,
     frame_object: SlcFrame,
     query_args: Optional[dict] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     columns_name: Optional[str] = None,
 ):
 
@@ -131,24 +134,35 @@ def _query(
         )
     )
 
+    min_date_arg = max_date_arg = None
+    if start_date:
+        min_date_arg = '{}.acquisition_start_time>=Datetime("{}")'.format(archive.slc_table_name, start_date)
+
+    if end_date:
+        max_date_arg = '{}.acquisition_start_time<=Datetime("{}")'.format(archive.slc_table_name, end_date)
+
     return archive.select(
         tables_join_string,
         args=query_args,
+        min_date_arg=min_date_arg,
+        max_date_arg=max_date_arg,
         columns=columns_name,
         frame_num=frame_num,
         frame_obj=frame_object,
     )
 
 
-def process_grid_definition(
+def grid_definition(
     dbfile: Path,
     out_dir: Path,
     rel_orbit: int,
-    hemisphere: Optional[str] = "S",
-    sensor: Optional[str] = None,
-    orbits: Optional[str] = "D",
-    latitude_width: Optional[float] = 1.25,
-    latitude_buffer: Optional[float] = 0.01,
+    hemisphere: str,
+    sensor: str,
+    orbits: str,
+    latitude_width: float,
+    latitude_buffer: float,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     frame_numbers: Optional[list] = [i + 1 for i in range(50)],
 ):
     def __frame_def():
@@ -158,10 +172,13 @@ def process_grid_definition(
         }
         if sensor:
             bursts_query_args["slc_metadata.sensor"] = sensor
+
         gpd_df = _query(
             archive=archive,
             frame_num=frame_num,
             frame_object=frame_obj,
+            start_date=start_date,
+            end_date=end_date,
             query_args=bursts_query_args,
         )
 
@@ -202,7 +219,6 @@ def process_grid_definition(
             grid_shapefile = os.path.join(
                 out_dir, "{}_{}.shp".format(grid_track, grid_frame)
             )
-            print(grid_shapefile)
             grid_gpd = __frame_def()
             if grid_gpd is not None:
                 grid_gpd.to_file(grid_shapefile, driver="ESRI Shapefile")
@@ -303,7 +319,7 @@ def grid_adjustment(
                 key=lambda tup: tup[1],
                 reverse=True,
             )
-        except AttributeError as e:
+        except AttributeError as err:
             raise AttributeError
 
         for idx, burst in enumerate(sorted_bursts):
@@ -419,7 +435,7 @@ if __name__ == "__main__":
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
             try:
-                process_grid_definition(database_name, out_dir, rel_orbit, sensor=sensor)
+                grid_definition(database_name, out_dir, rel_orbit, sensor=sensor)
             except:
                 pass
     # ------------------generate frame definition---------------
