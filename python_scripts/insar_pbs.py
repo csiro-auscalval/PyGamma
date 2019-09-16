@@ -249,7 +249,7 @@ def run(
     test,
 ):
     """
-    colsolidates batch processing job script creation and submission of pbs jobs
+    consolidates batch processing job script creation and submission of pbs jobs
     """
     with open(taskfile, "r") as src:
         tasklist = src.readlines()

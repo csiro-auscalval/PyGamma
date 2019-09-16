@@ -36,7 +36,6 @@ PRE_PROC_DIR=pre_proc_files
 
 -----INPUT TEXT FILES-----------------------------------------------------------------------------------
 S1_FILE_LIST={s1_file_list}
-
 SCENE_LIST=scenes.list
 SLAVE_LIST=slaves.list
 IFG_LIST=ifgs.list
@@ -53,8 +52,8 @@ FRAME={frame}
 
 -----RAW DATA & DEM LOCATION ON MDSS--------------------------------------------------------------------
 
-    # Sentinel-1 - if AOI within Australia, GAMMA DEM will be produced automatically. 
-                 - if AOI elsewhere,a  manual GAMMA DEM will need to first be created and MDSS_DEM_tar 
+    # Sentinel-1 - if AOI within Australia, GAMMA DEM will be produced automatically.
+                 - if AOI elsewhere,a  manual GAMMA DEM will need to first be created and MDSS_DEM_tar
                    details required.
                  - data downloaded directly from S1_PATH and S1_ORBITS.
 

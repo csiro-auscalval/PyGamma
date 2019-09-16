@@ -19,7 +19,7 @@ import numpy as np
 from xml_util import getNamespaces
 from spatialist import sqlite_setup, crsConvert, sqlite3, ogr2ogr, Vector, bbox
 
-logging.basicConfig(filename="ingestion_status.log", level=logging.INFO)
+_LOG = logging.getLogger(__name__)
 
 S1_BURSTLOC = (
     "/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20181130/ISP/bin/S1_burstloc"
@@ -64,7 +64,7 @@ class SlcMetadata:
         self.archive_files = None
 
         if not re.match(self.pattern, os.path.basename(self.scene)):
-            logging.info(
+            _LOG.info(
                 "{} does not match s1 filename pattern".format(
                     os.path.basename(self.scene)
                 )
@@ -635,7 +635,7 @@ class Archive:
             if str(err) == "UNIQUE constraint failed: {}.id".format(
                 self.slc_table_name
             ):
-                logging.info(
+                _LOG.info(
                     "{} already ingested into the database".format(
                         os.path.basename(yaml_file)
                     )
@@ -652,7 +652,7 @@ class Archive:
                 if str(err) == "UNIQUE constraint failed: {}.swath_name".format(
                     self.swath_table_name
                 ):
-                    logging.info(
+                    _LOG.info(
                         "{} duplicates is detected".format(os.path.basename(yaml_file))
                     )
                     self.archive_duplicate(yaml_file)
@@ -690,12 +690,14 @@ class Archive:
     def select(
         self,
         tables_join_string,
-        orbit,
-        spatial_subset=None,
+        orbit=None,
         args=None,
         min_date_arg=None,
         max_date_arg=None,
         columns=None,
+        frame_num=None,
+        shapefile_name=None,
+        frame_obj=None,
     ):
         """ returns geo-pandas data frame of from the database of selected SLC. """
 
@@ -712,12 +714,22 @@ class Archive:
         else:
             arg_format = []
 
-        arg_format.append("{}.orbit='{}'".format(self.slc_table_name, orbit))
+        if orbit:
+            arg_format.append("{}.orbit='{}'".format(self.slc_table_name, orbit))
 
-        if spatial_subset:
+        if frame_num:
+            if frame_obj is None:
+                frame = SlcFrame()
+            else:
+                frame = frame_obj
+
+            gpd_frame = frame.get_frame_extent(frame_num)
+            if gpd_frame.empty:
+                return
+            extent = gpd_frame["extent"].values[0]
             arg_format.append(
                 "st_intersects(GeomFromText('{}', 4326), bursts_metadata.burst_extent) = 1".format(
-                    spatial_subset
+                    extent
                 )
             )
 
@@ -754,6 +766,8 @@ class Archive:
                 shapely.wkt.loads
             ),
         )
+        if shapefile_name:
+            geopandas_df.to_file(shapefile_name, driver="ESRI Shapefile")
 
         return geopandas_df
 
@@ -805,7 +819,7 @@ class SlcFrame:
             end_lats = np.array(end_lats) * -1.0
 
         df = pd.DataFrame()
-        df["frame"] = ["Frame_{:02}".format(i + 1) for i in range(len(start_lats) - 1)]
+        df["frame_num"] = [i + 1 for i in range(len(start_lats) - 1)]
         df["extent"] = [
             box(self.start_lon, start_lat, self.end_lon, end_lats[idx]).wkt
             for idx, start_lat in enumerate(start_lats[:-1])
@@ -816,9 +830,10 @@ class SlcFrame:
 
         if shapefile_name:
             geopandas_df.to_file(shapefile_name, driver="ESRI Shapefile")
+
         return geopandas_df
 
-    def get_frame_extent(self, frame_name):
+    def get_frame_extent(self, frame_num):
         """ returns a geo-pandas data frame for a frame_name. """
         gpd_df = self.generate_frame_polygon()
-        return gpd_df.loc[gpd_df["frame"] == frame_name]
+        return gpd_df.loc[gpd_df["frame_num"] == frame_num]

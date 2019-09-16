@@ -21,9 +21,9 @@ import yaml
 from shapely.geometry import Polygon, box
 from shapely.ops import cascaded_union
 from spatialist import Vector, sqlite3, sqlite_setup
-from xml_util import getNamespaces
+from python_scripts.xml_util import getNamespaces
 
-logging.basicConfig(filename="ingestion_status.log", level=logging.INFO)
+_LOG = logging.getLogger(__name__)
 
 S1_BURSTLOC = (
     "/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20181130/ISP/bin/S1_burstloc"
@@ -66,7 +66,7 @@ class SlcMetadata:
             r"\.xml$"
         )
         if not re.match(self.pattern, os.path.basename(self.scene)):
-            logging.info(
+            _LOG.info(
                 "{} does not match s1 filename pattern".format(
                     os.path.basename(self.scene)
                 )
@@ -321,9 +321,9 @@ class SlcMetadata:
         retry_count = 0
         while retry_count < retry:
             if retry_count > 0:
-                logging.info(
-                    "retry download number {}/3: {}".format(
-                        retry_count, os.path.basename(target_file)
+                _LOG.info(
+                    "retry download number {}/{}: {}".format(
+                        retry_count, os.path.basename(target_file, str(retry))
                     )
                 )
 
@@ -332,7 +332,7 @@ class SlcMetadata:
             else:
                 break
             if retry_count == retry:
-                logging.error(
+                _LOG.error(
                     "download failed for {}".format(os.path.basename(target_file))
                 )
 
@@ -357,8 +357,8 @@ class S1DataDownload(SlcMetadata):
     def get_poeorb_orbit_file(self):
         """A method to download precise orbit file for a slc scene."""
 
-        poeorb_path = os.path.join(self.s1_orbits_poeorb_path, self.sensor)
-        orbit_files = [p_file for p_file in os.listdir(poeorb_path)]
+        _poeorb_path = os.path.join(self.s1_orbits_poeorb_path, self.sensor)
+        orbit_files = [p_file for p_file in os.listdir(_poeorb_path)]
         start_datetime = datetime.datetime.strptime(
             self.acquisition_start_time, self.dt_fmt_1
         )
@@ -380,7 +380,7 @@ class S1DataDownload(SlcMetadata):
                     x.split("_")[5], self.dt_fmt_2
                 ),
             )
-        return pjoin(poeorb_path, acq_orbit_file[-1])
+        return pjoin(_poeorb_path, acq_orbit_file[-1])
 
     def get_resorb_orbit_file(self):
         """A method to download restitution orbit file for a slc scene."""
@@ -391,8 +391,8 @@ class S1DataDownload(SlcMetadata):
         def __stop_strptime(dt):
             return datetime.datetime.strptime(dt, "{}.EOF".format(self.dt_fmt_2))
 
-        resorb_path = pjoin(self.s1_orbits_resorb_path, self.sensor)
-        orbit_files = [orbit_file for orbit_file in os.listdir(resorb_path)]
+        _resorb_path = pjoin(self.s1_orbits_resorb_path, self.sensor)
+        orbit_files = [orbit_file for orbit_file in os.listdir(_resorb_path)]
         start_datetime = datetime.datetime.strptime(
             self.acquisition_start_time, self.dt_fmt_1
         )
@@ -422,7 +422,7 @@ class S1DataDownload(SlcMetadata):
                 ),
             )
 
-        return pjoin(resorb_path, acq_orbit_file[-1])
+        return pjoin(_resorb_path, acq_orbit_file[-1])
 
     def slc_download(self, output_dir=None, retry=3):
         """A method to download slc raw data."""
@@ -443,7 +443,13 @@ class S1DataDownload(SlcMetadata):
             self.extract_archive_member(target_file, outdir=out_dir, retry=retry)
 
         # download files from slc archive (zip) file
-        files_download = sum([fnmatch.filter(self.archive_files, pattern) for pattern in download_files_patterns], [])
+        files_download = sum(
+            [
+                fnmatch.filter(self.archive_files, pattern)
+                for pattern in download_files_patterns
+            ],
+            [],
+        )
         files_download.append(self.manifest_file)
         for fp in files_download:
             __archive_download(fp)
@@ -455,13 +461,19 @@ class S1DataDownload(SlcMetadata):
 
         # download orbit files with precise orbit as first choice
         orbit_source_file = self.get_poeorb_orbit_file()
-        orbit_destination_file = os.path.join(base_dir, os.path.basename(orbit_source_file))
+        orbit_destination_file = os.path.join(
+            base_dir, os.path.basename(orbit_source_file)
+        )
 
         if not orbit_source_file:
             orbit_source_file = self.get_resorb_orbit_file()
             if not orbit_source_file:
-                logging.error('no orbit files found for {}'.format(os.path.basename(self.scene)))
-            orbit_destination_file = os.path.join(base_dir, os.path.basename(orbit_source_file))
+                _LOG.error(
+                    "no orbit files found for {}".format(os.path.basename(self.scene))
+                )
+            orbit_destination_file = os.path.join(
+                base_dir, os.path.basename(orbit_source_file)
+            )
 
         if not os.path.exists(orbit_destination_file):
             shutil.copyfile(orbit_source_file, orbit_destination_file)
@@ -819,7 +831,7 @@ class Archive:
             if str(err) == "UNIQUE constraint failed: {}.id".format(
                 self.slc_table_name
             ):
-                logging.info(
+                _LOG.info(
                     "{} already ingested into the database".format(
                         os.path.basename(yaml_file)
                     )
@@ -836,7 +848,7 @@ class Archive:
                 if str(err) == "UNIQUE constraint failed: {}.swath_name".format(
                     self.swath_table_name
                 ):
-                    logging.info(
+                    _LOG.info(
                         "{} duplicates is detected".format(os.path.basename(yaml_file))
                     )
                     self.archive_duplicate(yaml_file)
@@ -878,6 +890,7 @@ class Archive:
         self,
         tables_join_string,
         orbit,
+        track,
         spatial_subset=None,
         args=None,
         min_date_arg=None,
@@ -900,6 +913,7 @@ class Archive:
             arg_format = []
 
         arg_format.append("{}.orbit='{}'".format(self.slc_table_name, orbit))
+        arg_format.append("{}.orbitNumber_rel= {}".format(self.slc_table_name, track))
 
         if spatial_subset:
             # spatial query checks selects data only if centroid of burst extent is
@@ -1007,7 +1021,7 @@ class SlcFrame:
         return geopandas_df
 
     def get_frame_extent(self, frame_name):
-        """ Returns a geo-pandas data frame for a frame_name. """
+        """ Returns a geo-pandas data frame for a frame_name."""
         gpd_df = self.generate_frame_polygon()
         return gpd_df.loc[gpd_df["frame"] == frame_name]
 
@@ -1017,6 +1031,6 @@ if __name__ == "__main__":
     poeorb_path = "/g/data/fj7/Copernicus/Sentinel-1/POEORB"
     resorb_path = "/g/data/fj7/Copernicus/Sentinel-1/RESORB"
     s1_obj = S1DataDownload(slc, "VV", poeorb_path, resorb_path)
-    s1_obj.slc_download(output_dir='/g/data/u46/users/pd1813/INSAR/temp_raw_data')
+    s1_obj.slc_download(output_dir="/g/data/u46/users/pd1813/INSAR/temp_raw_data")
     # f = s1_obj.get_resorb_orbit_file()
     # print(f)

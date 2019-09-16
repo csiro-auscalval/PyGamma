@@ -213,7 +213,7 @@ def get_path(proc_file):
     return pathname_dict
 
 
-def directories_setup(proc_file):
+def setup_folders(proc_file):
     """
     A method to setup required directories for InSAR processing.
 

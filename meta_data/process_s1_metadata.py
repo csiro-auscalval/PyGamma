@@ -1,0 +1,432 @@
+#!/usr/bin/python3
+
+import os
+import re
+import uuid
+import logging
+from multiprocessing import Pool as ProcessPool
+from typing import Optional
+from pathlib import Path
+
+import pandas as pd
+import geopandas as gpd
+import shapely.wkt
+from shapely.geometry import Polygon
+from shapely.ops import cascaded_union
+import yaml
+from s1_slc_metadata import Archive, SlcFrame, SlcMetadata
+from spatialist.ancillary import finder
+
+_LOG = logging.getLogger(__name__)
+
+
+class DummyPool:
+    def __enter__(self):
+        return self
+
+    @staticmethod
+    def starmap(func, args):
+        return [func(*arg) for arg in args]
+
+
+def pool(processes):
+    if not processes:
+        return DummyPool()
+    return ProcessPool(processes=processes)
+
+
+def generate_slc_yaml(year=None, month=None, s1_dir=None, out_dir=None):
+    path1 = os.path.join(
+        s1_dir, "{:04}".format(year), "{:04}-{:02}".format(year, month)
+    )
+    if not os.path.exists(path1):
+        return
+
+    for grid in os.listdir(path1):
+        if not re.match(r"[0-9]", grid):
+            continue
+        else:
+            s1_path = os.path.join(path1, grid)
+            scenes_s1 = finder(
+                str(s1_path), [r"^S1[AB]_IW_SLC.*\.zip"], regex=True, recursive=True
+            )
+            for scene in scenes_s1:
+                scene_obj = SlcMetadata(scene)
+                slc_metadata = scene_obj.get_metadata()
+                slc_metadata["id"] = str(uuid.uuid4())
+                slc_metadata["product"] = {
+                    "name": "ESA_S1_{}".format(slc_metadata["properties"]["product"]),
+                    "url": scene_obj.scene,
+                }
+                if not os.path.exists(out_dir):
+                    os.makedirs(out_dir)
+                with open(
+                    os.path.join(
+                        out_dir, "{}.yaml".format(os.path.basename(scene)[:-4])
+                    ),
+                    "w",
+                ) as out_fid:
+                    yaml.dump(slc_metadata, out_fid)
+
+
+def process_yaml_generation(years=None, nprocs=1, s1_dir=None, out_dir=None):
+    if not years:
+        return
+    with pool(processes=nprocs) as proc:
+        proc.starmap(
+            generate_slc_yaml,
+            [(year, mnt, s1_dir, out_dir) for year in years for mnt in range(1, 13)],
+        )
+
+
+def swath_bursts_extents(bursts_df, swt, buf=0.01):
+
+    df_subset = bursts_df[(bursts_df.swath == swt) & (bursts_df.polarization == "VV")]
+    geoms = df_subset["geometry"]
+    points = gpd.GeoSeries([geom.centroid for geom in geoms])
+
+    pts = points.buffer(buf)
+    mp = pts.unary_union
+    centroids = []
+    if isinstance(mp, Polygon):
+        centroids.append(mp.centroid)
+    else:
+        _ = [centroids.append(p.centroid) for p in mp.geoms]
+
+    return [
+        cascaded_union(
+            [geom for geom in geoms if centroid.buffer(buf).intersects(geom.centroid)]
+        )
+        for centroid in centroids
+    ]
+
+
+def _query(
+    archive: Archive,
+    frame_num: int,
+    frame_object: SlcFrame,
+    query_args: Optional[dict] = None,
+    columns_name: Optional[str] = None,
+):
+
+    """ A helper method to query into a database"""
+
+    if columns_name is None:
+        columns = [
+            "{}.burst_number".format(archive.bursts_table_name),
+            "{}.sensor".format(archive.slc_table_name),
+            "{}.burst_extent".format(archive.bursts_table_name),
+            "{}.swath_name".format(archive.swath_table_name),
+            "{}.swath".format(archive.bursts_table_name),
+            "{}.orbit".format(archive.slc_table_name),
+            "{}.polarization".format(archive.bursts_table_name),
+            "{}.acquisition_start_time".format(archive.slc_table_name),
+            "{}.url".format(archive.slc_table_name),
+        ]
+
+    tables_join_string = (
+        "{0} INNER JOIN {1} on {0}.swath_name = {1}.swath_name INNER JOIN {2} "
+        "on {2}.id = {1}.id".format(
+            archive.bursts_table_name, archive.swath_table_name, archive.slc_table_name
+        )
+    )
+
+    return archive.select(
+        tables_join_string,
+        args=query_args,
+        columns=columns_name,
+        frame_num=frame_num,
+        frame_obj=frame_object,
+    )
+
+
+def process_grid_definition(
+    dbfile: Path,
+    out_dir: Path,
+    rel_orbit: int,
+    hemisphere: Optional[str] = "S",
+    sensor: Optional[str] = None,
+    orbits: Optional[str] = "D",
+    latitude_width: Optional[float] = 1.25,
+    latitude_buffer: Optional[float] = 0.01,
+    frame_numbers: Optional[list] = [i + 1 for i in range(50)],
+):
+    def __frame_def():
+        bursts_query_args = {
+            "bursts_metadata.relative_orbit": rel_orbit,
+            "slc_metadata.orbit": orbits,
+        }
+        if sensor:
+            bursts_query_args["slc_metadata.sensor"] = sensor
+        gpd_df = _query(
+            archive=archive,
+            frame_num=frame_num,
+            frame_object=frame_obj,
+            query_args=bursts_query_args,
+        )
+
+        if gpd_df is not None:
+            grid_df = pd.DataFrame()
+            swaths = gpd_df.swath.unique()
+            for swath in swaths:
+                bursts_extents = swath_bursts_extents(gpd_df, swath)
+                sorted_extents = sorted(
+                    [(burst, burst.centroid.y) for burst in bursts_extents],
+                    key=lambda tup: tup[1],
+                    reverse=True,
+                )
+                for idx, extent in enumerate(sorted_extents):
+                    grid_df = grid_df.append(
+                        {
+                            "track": grid_track,
+                            "frame": grid_frame,
+                            "swath": swath,
+                            "burst_num": idx + 1,
+                            "extent": extent[0].wkt,
+                        },
+                        ignore_index=True,
+                    )
+            return gpd.GeoDataFrame(
+                grid_df,
+                crs={"init": "epsg:4326"},
+                geometry=grid_df["extent"].map(shapely.wkt.loads),
+            )
+
+    with Archive(dbfile) as archive:
+        if not os.path.exists(out_dir):
+            os.mkdir(out_dir)
+        for frame_num in frame_numbers:
+            frame_obj = SlcFrame(width_lat=latitude_width, buffer_lat=latitude_buffer)
+            grid_track = "T{:03}{}".format(rel_orbit, orbits)
+            grid_frame = "F{:02}{}".format(frame_num, hemisphere)
+            grid_shapefile = os.path.join(
+                out_dir, "{}_{}.shp".format(grid_track, grid_frame)
+            )
+            print(grid_shapefile)
+            grid_gpd = __frame_def()
+            if grid_gpd is not None:
+                grid_gpd.to_file(grid_shapefile, driver="ESRI Shapefile")
+
+
+def grid_adjustment(
+    in_grid_shapefile: Path,
+    out_grid_shapefile: Path,
+    track: str,
+    frame: str,
+    grid_before_shapefile: Optional[Path] = None,
+    grid_after_shapefile: Optional[Path] = None,
+):
+    """
+    this method performs a grid adjustment by removing first burst in swath 1
+    and last burst from swath 3. Depending on the availability of grid before
+    or after the grid that is being adjusted, a) if grid the before the current
+    grid is available, then the last overlapping burst from grid before is
+    added to current grid in swath 3, b) if grid after the current grid is
+    available, then the first overlapping burst from grid after is added to the
+    current grid in swath 1. c) Finally, one burst from each swath from the
+    start (geographic north) of the grid are removed (this was deemed appropriate
+    after observing the adjusted grid that there was minimum of two overlaps
+    betweeen the grids in each swaths. The requirement is to have at least one
+    bursts overlap to allow mosiacing in the post processing).
+    """
+
+    gpd_df = gpd.read_file(in_grid_shapefile)
+    swaths = gpd_df.swath.unique()
+
+    # only grid with all three swaths will be processed
+    if len(swaths) != 3:
+        raise ValueError
+
+    iw1_df = gpd_df[gpd_df.swath == "IW1"].copy()
+    iw2_df = gpd_df[gpd_df.swath == "IW2"].copy()
+    iw3_df = gpd_df[gpd_df.swath == "IW3"].copy()
+
+    # from swath 1 remove first burst number
+    iw1_new = iw1_df.drop(
+        iw1_df[iw1_df.burst_num == min(iw1_df.burst_num.values)].index
+    )
+
+    # from swath 3 remove last burst number
+    iw3_new = iw3_df.drop(
+        iw3_df[iw3_df.burst_num == max(iw3_df.burst_num.values)].index
+    )
+
+    # if grid exists before the current grid then add the last overlapping burst
+    # from grid before to the current grid in swath 3
+    if grid_before_shapefile:
+        iw3_extents = cascaded_union([geom for geom in iw3_new.geometry])
+        gpd_before = gpd.read_file(grid_before_shapefile)
+        iw3_before = gpd_before[gpd_before.swath == "IW3"].copy()
+        bursts_numbers = list(iw3_before.burst_num.values)
+
+        for idx, row in iw3_before.iterrows():
+            row_centroid = row.geometry.centroid
+            if iw3_extents.contains(row_centroid):
+                bursts_numbers.remove(row.burst_num)
+
+        if bursts_numbers:
+            iw3_new = iw3_new.append(
+                iw3_before[iw3_before.burst_num == max(bursts_numbers)],
+                ignore_index=True,
+            )
+
+    # if grid after exists before the current grid then add first overlapping burst
+    # from grid after to the current grid in swath 1
+    if grid_after_shapefile:
+        iw1_extents = cascaded_union([geom for geom in iw1_new.geometry])
+        gpd_after = gpd.read_file(grid_after_shapefile)
+        iw1_after = gpd_after[gpd_after.swath == "IW1"].copy()
+        bursts_numbers = list(iw1_after.burst_num.values)
+
+        for idx, row in iw1_after.iterrows():
+            row_centroid = row.geometry.centroid
+            if iw1_extents.contains(row_centroid):
+                bursts_numbers.remove(row.burst_num)
+        if bursts_numbers:
+            iw1_new = iw1_new.append(
+                iw1_after[iw1_after.burst_num == min(bursts_numbers)], ignore_index=True
+            )
+
+    grid_df = pd.DataFrame()
+
+    # remove one bursts each in swaths to minimise overlaps
+    for df in [iw1_new, iw2_df, iw3_new]:
+        iw_df = pd.DataFrame()
+        for idx, row in df.iterrows():
+            if row.geometry.centroid.y != max(
+                [geom.centroid.y for geom in df.geometry]
+            ):
+                iw_df = iw_df.append(row, ignore_index=True)
+        try:
+            sorted_bursts = sorted(
+                [(geom, geom.centroid.y) for geom in iw_df.geometry],
+                key=lambda tup: tup[1],
+                reverse=True,
+            )
+        except AttributeError as e:
+            raise AttributeError
+
+        for idx, burst in enumerate(sorted_bursts):
+            grid_df = grid_df.append(
+                {
+                    "track": track,
+                    "frame": frame,
+                    "swath": iw_df.swath.unique()[0],
+                    "burst_num": idx + 1,
+                    "extent": burst[0].wkt,
+                },
+                ignore_index=True,
+            )
+    new_gpd_df = gpd.GeoDataFrame(
+        grid_df,
+        crs={"init": "epsg:4326"},
+        geometry=grid_df["extent"].map(shapely.wkt.loads),
+    )
+    new_gpd_df.to_file(out_grid_shapefile, driver="ESRI Shapefile")
+
+
+def process_grid_adjustment(in_dir: Path, out_dir: Path):
+    """
+    A method to bulk process grid adjustment from given in_dir.
+    grid shapefile is expected to be in format "<track>_<frame>.shp (eg: T002_F20S.shp)"
+    """
+
+    for item in os.listdir(in_dir):
+        if not item.endswith(".shp"):
+            continue
+
+        name_pcs = item.split("_")
+        track = name_pcs[0]
+        frame = os.path.splitext(name_pcs[1])[0]
+        frame_num = int(re.findall(r"\d+", frame)[0])
+
+        frame_before = "{}_F{:02}S.shp".format(track, frame_num - 1)
+        frame_after = "{}_F{:02}S.shp".format(name_pcs[0], frame_num + 1)
+
+        grid_before_name = os.path.join(in_dir, frame_before)
+        grid_after_name = os.path.join(in_dir, frame_after)
+
+        if not os.path.exists(grid_before_name):
+            grid_before_name = None
+        if not os.path.exists(grid_after_name):
+            grid_after_name = None
+
+        try:
+            grid_adjustment(
+                os.path.join(in_dir, item),
+                os.path.join(out_dir, item),
+                track=track,
+                frame=frame,
+                grid_before_shapefile=grid_before_name,
+                grid_after_shapefile=grid_after_name,
+            )
+        except ValueError:
+            _LOG.error("{} does not have data in all three swaths".format(item))
+        except AttributeError:
+            _LOG.error(
+                "{} does not have data a swath dataframe after adjustment".format(item)
+            )
+
+
+def s1_slc_ingestion(dbfile, yaml_dir):
+    for yaml_file in os.listdir(yaml_dir):
+        archive = Archive(dbfile)
+        archive.archive_scene(os.path.join(yaml_dir, yaml_file))
+
+
+if __name__ == "__main__":
+
+    # -------------------yaml generation---------------------
+    # process_yaml_generation(years=[2014, 2015, 2016, 2017, 2018, 2019],
+    #                         nprocs=16,
+    #                         out_dir='output-directory-to-store-Sentinel1-yamls',
+    #                         s1_dir='/g/data1/fj7/Copernicus/Sentinel-1/C-SAR/SLC/')
+
+    # -----------------metadata ingestion into database-----------------
+    # yaml_dir = "/g/data/u46/users/pd1813/INSAR/temp_yaml"
+    # database_name_new = "/g/data/u46/users/pd1813/INSAR/s1_slc_database.db"
+    # s1_slc_ingestion(database_name, yaml_dir)
+
+    # -------------processing grid definition-------------------------
+    database_name = "/g/data/u46/users/pd1813/INSAR/s1_slc_database.db"
+    grid_outdir = "/g/data/u46/users/pd1813/INSAR/shape_files/to_delete_frames"
+    rel_orbits = [
+        2,
+        16,
+        17,
+        31,
+        45,
+        46,
+        60,
+        61,
+        74,
+        75,
+        89,
+        90,
+        104,
+        118,
+        119,
+        133,
+        134,
+        147,
+        148,
+        162,
+        163,
+    ]
+    for sensor in ['S1A', 'S1B']:
+        for rel_orbit in rel_orbits:
+            out_dir = os.path.join(grid_outdir, sensor)
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+            try:
+                process_grid_definition(database_name, out_dir, rel_orbit, sensor=sensor)
+            except:
+                pass
+    # ------------------generate frame definition---------------
+    # frame_obj = SlcFrame(width_lat=1.35, buffer_lat=0.01)
+    # frame_obj.generate_frame_polygon(shapefile_name='Frame_lat_width_1.35_buff_0.01.shp')
+
+    # ------------grid adjustment--------------
+    # queried_grid_location = "/g/data/u46/users/pd1813/INSAR/shape_files/grid_vectors"
+    # adjusted_grid_location = "/g/data/u46/users/pd1813/INSAR/shape_files/adjusted_test"
+    # process_grid_adjustment(queried_grid_location, adjusted_grid_location)

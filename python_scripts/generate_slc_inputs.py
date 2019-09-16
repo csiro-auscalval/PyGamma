@@ -7,7 +7,7 @@ import shapely.wkt
 import geopandas as gpd
 import pandas as pd
 from spatialist import Vector
-from s1_slc_metadata import Archive
+from python_scripts.s1_slc_metadata import Archive
 
 
 def __slc_df_dict_format(df, master_grid_df):
@@ -102,12 +102,14 @@ def __slc_df_dict_format(df, master_grid_df):
     return pol_dict
 
 
-def generate_slc_inputs(
+def query_slc_inputs(
     dbfile: Path,
     spatial_subset: Path,
     start_date: datetime,
     end_date: datetime,
     orbit: str,
+    track: int,
+    return_dataframe: bool = True
 ):
     """A method to query sqlite database and generate slc input dict.
 
@@ -116,6 +118,7 @@ def generate_slc_inputs(
     :param start_date: A datetime object
     :param end_date: A datetime object
     :param orbit: A 'str' type, sentinel-1 acquisition orbit type
+    :param track: A 'int' type, sentinel-1 relative orbit number (track)
 
     :return:
         Returns a dict type of slc input field values for all unique date queried
@@ -142,11 +145,14 @@ def generate_slc_inputs(
 
         columns = [
             "{}.burst_number".format(archive.bursts_table_name),
+            "{}.total_bursts".format(archive.swath_table_name),
             "{}.burst_extent".format(archive.bursts_table_name),
             "{}.swath_name".format(archive.swath_table_name),
             "{}.id".format(archive.swath_table_name),
             "{}.swath".format(archive.bursts_table_name),
             "{}.orbit".format(archive.slc_table_name),
+            "{}.orbitNumber_rel".format(archive.slc_table_name),
+            "{}.sensor".format(archive.slc_table_name),
             "{}.polarization".format(archive.bursts_table_name),
             "{}.acquisition_start_time".format(archive.slc_table_name),
             "{}.url".format(archive.slc_table_name),
@@ -155,6 +161,7 @@ def generate_slc_inputs(
         slc_df = archive.select(
             tables_join_string=tables_join_string,
             orbit=orbit,
+            track=track,
             spatial_subset=Vector(spatial_subset),
             columns=columns,
             min_date_arg=min_date_arg,
@@ -164,6 +171,10 @@ def generate_slc_inputs(
         slc_df["acquisition_start_time"] = pd.to_datetime(
             slc_df["acquisition_start_time"]
         )
+
+        if return_dataframe:
+            return slc_df
+
         unique_dates = [
             dt for dt in slc_df.acquisition_start_time.map(pd.Timestamp.date).unique()
         ]
@@ -184,8 +195,8 @@ if __name__ == "__main__":
     shapefile = "/g/data/u46/users/pd1813/INSAR/shape_files/grid_vectors/T045D_F28S.shp"
     start_date = datetime(2015, 3, 1)
     end_date = datetime(2015, 3, 2)
-    inputs = generate_slc_inputs(
-        database_name, shapefile, start_date, end_date, orbit="D"
+    inputs = query_slc_inputs(
+        database_name, shapefile, start_date, end_date, 'D', 45
     )
     print(inputs)
 

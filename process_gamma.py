@@ -1,53 +1,45 @@
 #!/usr/bin/python3
 
 import os
-from os.path import join as pjoin, basename, dirname, exists
+from os.path import basename, dirname, exists, join as pjoin, splitext
 import shutil
-import logging
 import subprocess
 import datetime
 import signal
 import traceback
 import re
+
 import numpy
 import luigi
-
-from structlog import wrap_logger
-from structlog.processors import JSONRenderer
-
+import pandas as pd
+from python_scripts import generate_slc_inputs
 import python_scripts.coreg_utils as coreg_utils
-from python_scripts.initialize_proc_file import get_path
+from python_scripts.initialize_proc_file import get_path, setup_folders
 from python_scripts.check_status import (
-    checkgammadem,
-    checkfullslc,
-    checkmultilook,
     checkbaseline,
-    checkdemmaster,
     checkcoregslaves,
+    checkdemmaster,
+    checkfullslc,
+    checkgammadem,
     checkifgs,
+    checkmultilook,
 )
 from python_scripts.template_pbs import (
-    PBS_SINGLE_JOB_TEMPLATE,
     COREGISTRATION_JOB_TEMPLATE,
+    PBS_SINGLE_JOB_TEMPLATE,
 )
 from python_scripts.proc_template import PROC_FILE_TEMPLATE
 from python_scripts.clean_up import (
-    clean_rawdatadir,
-    clean_slcdir,
-    clean_ifgdir,
-    clean_gammademdir,
-    clean_demdir,
     clean_checkpoints,
     clean_coreg_scene,
+    clean_demdir,
+    clean_gammademdir,
+    clean_ifgdir,
+    clean_rawdatadir,
+    clean_slcdir,
 )
-from python_scripts.constant import COREG_JOB_FILE_FMT, COREG_JOB_ERROR_FILE_FMT
-
-ERROR_LOGGER = wrap_logger(
-    logging.getLogger("errors"), processors=[JSONRenderer(indent=1, sort_keys=True)]
-)
-STATUS_LOGGER = wrap_logger(
-    logging.getLogger("status"), processors=[JSONRenderer(indent=1, sort_keys=True)]
-)
+from python_scripts.constant import COREG_JOB_ERROR_FILE_FMT, COREG_JOB_FILE_FMT
+from python_scripts.logs import ERROR_LOGGER, STATUS_LOGGER
 
 
 @luigi.Task.event_handler(luigi.Event.FAILURE)
@@ -81,7 +73,11 @@ class InitialSetup(luigi.Task):
     """
 
     proc_file_path = luigi.Parameter()
+    start_date = luigi.Parameter()
+    end_date = luigi.Parameter()
     s1_file_list = luigi.Parameter()
+    database_name = luigi.Parameter()
+    orbit = luigi.Parameter()
 
     def output(self):
         path_name = get_path(self.proc_file_path)
@@ -91,14 +87,59 @@ class InitialSetup(luigi.Task):
 
     def run(self):
         STATUS_LOGGER.info("initial setup task")
-        args = [
-            "bash",
-            "initial_setup_job.bash",
-            "%s" % self.proc_file_path,
-            "%s" % self.s1_file_list,
-        ]
-        subprocess.check_call(args)
+        setup_folders(self.proc_file_path)
 
+        # copy the 'proc file' to a proj directory where some of InSAR workflow are hard coded to look at
+        path_name = get_path(self.proc_file_path)
+        shutil.copyfile(
+            self.proc_file_path,
+            pjoin(path_name["proj_dir"], basename(self.proc_file_path)),
+        )
+
+        # get the relative orbit number, which is int value of the numeric part of the track name
+        rel_orbit = int(re.findall(r'\d+', path_name['track'])[0])
+
+        # query database for slc input files
+        results_df = generate_slc_inputs.query_slc_inputs(
+            self.database_name,
+            self.s1_file_list,
+            self.start_date,
+            self.end_date,
+            self.orbit,
+            rel_orbit,
+        )
+
+        # perform check to assert returned queried results are for rel orbits
+        assert results_df.orbitNumber_rel.unique()[0] == rel_orbit
+
+        # subset data frame for a specific polarization
+        pol_subset_df = results_df[results_df.polarization == path_name['polarization']]
+
+        # create unique date scenes list file
+        unique_dates = [dt for dt in pol_subset_df.acquisition_start_time.map(pd.Timestamp.date).unique()]
+        data_dict = dict()
+
+        for dt in unique_dates:
+            pol_dt_subset_df = pol_subset_df[pol_subset_df.acquisition_start_time.map(pd.Timestamp.date) == dt]
+            swaths = pol_dt_subset_df.swath.unique()
+            # check that all three swaths present for a given date
+            assert len(swaths) == 3
+            swath_dict = dict()
+            for swath in swaths:
+                swath_df = pol_dt_subset_df[pol_dt_subset_df.swath == swath]
+                slc_ids = swath_df.id.unique()
+                slc_dict = dict()
+                for _id in slc_ids:
+                    slc_df = swath_df[swath_df.id == _id]
+                    slc_dict[_id] = {'burst_number': list(slc_df.burst_number.values),
+                                     'acquisition_datetime': slc_df.acquisition_start_time.unique()[0],
+                                     'url': slc_df.url.unique()[0],
+                                     'total_bursts': slc_df.total_bursts.unique()[0]}
+                swath_dict[swath] = slc_dict
+            data_dict[dt] = swath_dict
+        print(data_dict)
+
+        # create download list for specific polarizations
         with self.output().open("w") as f:
             f.write(
                 "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
@@ -131,31 +172,6 @@ class RawDataExtract(luigi.Task):
         path_name = get_path(
             pjoin(path_name["proj_dir"], basename(self.proc_file_path))
         )
-
-        if not exists(path_name["extract_raw_errors"]):
-            with open(path_name["download_list"], "r") as src:
-                raw_download_lists = src.readlines()
-            ncpus = 16
-            walltime = int(
-                numpy.ceil(((len(raw_download_lists) / (ncpus - 1)) * 15.0) / 60.0)
-            )
-            raw_jobs = pjoin(path_name["extract_raw_jobs_dir"], "raw_job.bash")
-            with open(raw_jobs, "w") as fid:
-                kwargs = {
-                    "project": "dg9",
-                    "queue": "express",
-                    "hours": walltime,
-                    "ncpus": ncpus,
-                    "memory": 32,
-                    "proc_file": pjoin(
-                        path_name["proj_dir"], basename(self.proc_file_path)
-                    ),
-                }
-
-                pbs = PBS_SINGLE_JOB_TEMPLATE.format(**kwargs)
-                fid.writelines(pbs)
-            os.chdir(dirname(raw_jobs))
-            subprocess.check_call(["qsub", "{}".format(raw_jobs)])
 
         with self.output().open("w") as out_fid:
             out_fid.write(
@@ -1252,14 +1268,16 @@ class Workflow(luigi.Task):
 
     proc_file_path = luigi.Parameter()
     s1_file_list = luigi.Parameter()
+    start_date = luigi.DateParameter()
+    end_date = luigi.DateParameter()
 
     def requires(self):
 
         path_name = get_path(self.proc_file_path)
 
         # external file checker tasks
-        scenes_list = ExternalFileChecker(path_name["scenes_list"])
-        extract_raw_errors = ExternalFileChecker(path_name["extract_raw_errors"])
+        # scenes_list = ExternalFileChecker(path_name["scenes_list"])
+        # extract_raw_errors = ExternalFileChecker(path_name["extract_raw_errors"])
         slc_creation_errors = ExternalFileChecker(path_name["slc_creation_errors"])
         multi_look_slc_errors = ExternalFileChecker(path_name["multi-look_slc_errors"])
         init_baseline_errors = ExternalFileChecker(path_name["init_baseline_errors"])
@@ -1270,21 +1288,21 @@ class Workflow(luigi.Task):
         # upstream tasks
 
         initialsetup = InitialSetup(
-            proc_file_path=self.proc_file_path, s1_file_list=self.s1_file_list
+            proc_file_path=self.proc_file_path,
+            s1_file_list=self.s1_file_list,
+            start_date=self.start_date,
+            end_date=self.end_date,
         )
 
         rawdataextract = RawDataExtract(
             proc_file_path=self.proc_file_path,
             s1_file_list=self.s1_file_list,
-            upstream_task={"initialsetup": initialsetup, "scene_list": scenes_list},
+            upstream_task={"initialsetup": initialsetup},
         )
 
         createfullslc = CreateFullSlc(
             proc_file_path=self.proc_file_path,
-            upstream_task={
-                "rawdataextract": rawdataextract,
-                "extract_raw_errors": extract_raw_errors,
-            },
+            upstream_task={"rawdataextract": rawdataextract},
         )
 
         check_fullslc = CheckFullSlc(
@@ -1297,10 +1315,7 @@ class Workflow(luigi.Task):
 
         creategammadem = CreateGammaDem(
             proc_file_path=self.proc_file_path,
-            upstream_task={
-                "rawdataextract": rawdataextract,
-                "extract_raw_errors": extract_raw_errors,
-            },
+            upstream_task={"rawdataextract": rawdataextract},
         )
 
         check_creategammadem = CheckGammaDem(
@@ -1370,7 +1385,7 @@ class Workflow(luigi.Task):
             upstream_task={"processifgs": processifgs, "ifg_errors": ifg_errors}
         )
 
-        yield completioncheck
+        yield rawdataextract
 
     def output(self):
         path_name = get_path(self.proc_file_path)
@@ -1433,6 +1448,8 @@ class ARD(luigi.Task):
     """
 
     s1_file_list = luigi.Parameter(significant=False)
+    start_date = luigi.DateParameter(significant=False)
+    end_date = luigi.DateParameter(significant=False)
     project = luigi.Parameter(significant=False)
     gamma_config = luigi.Parameter(significant=False)
     polarization = luigi.Parameter(default="VV", significant=False)
@@ -1452,71 +1469,60 @@ class ARD(luigi.Task):
 
     def requires(self):
 
-        if exists(self.s1_file_list):
+        if not exists(self.s1_file_list):
+            ERROR_LOGGER.error("{} does not exist".format(self.s1_file_list))
+            raise FileNotFoundError
 
-            if not exists(self.outdir):
-                os.makedirs(self.outdir)
-            if not exists(self.workdir):
-                os.makedirs(self.workdir)
+        if not exists(self.outdir):
+            os.makedirs(self.outdir)
+        if not exists(self.workdir):
+            os.makedirs(self.workdir)
 
-            if not exists(self.s1_file_list):
-                ERROR_LOGGER.error("{} does not exist".format(self.s1_file_list))
-                return
+        s1_file = basename(self.s1_file_list)
+        file_strings = s1_file.split("_")
+        track, frame = (file_strings[0], splitext(file_strings[1])[0])
 
-            s1_file = basename(self.s1_file_list)
-            file_strings = s1_file.split("_")
-            track, frame, polarization = (
-                file_strings[1],
-                file_strings[2],
-                file_strings[3],
-            )
+        kwargs = {
+            "s1_file_list": s1_file,
+            "outdir": self.outdir,
+            "project": self.project,
+            "track": track,
+            "gamma_config": self.gamma_config,
+            "frame": frame,
+            "polarization": self.polarization,
+            "multilook": self.multilook,
+            "extract_raw_data": self.extract_raw_data,
+            "do_slc": self.do_slc,
+            "coregister_dem": self.coregister_dem,
+            "coregister_slaves": self.coregister_slaves,
+            "process_ifgs": self.process_ifgs,
+            "process_geotiff": self.process_geotiff,
+            "clean_up": self.clean_up,
+        }
 
-            proc_name = "{}_{}.proc".format(track, frame)
-            proc_file1 = pjoin(self.proc_dir, proc_name)
+        filename_proc = pjoin(self.workdir, "{}_{}.proc".format(track, frame))
+        proc_data = PROC_FILE_TEMPLATE.format(**kwargs)
 
-            if not exists(proc_file1):
-                exit()
-                STATUS_LOGGER.info(
-                    "{} does not exist, used auto generated proc file".format(proc_name)
+        with open(filename_proc, "w") as src:
+            src.writelines(proc_data)
+
+        if self.restart_process:
+            path_name = get_path(filename_proc)
+            proc_file1 = pjoin(path_name["proj_dir"], filename_proc)
+            path_name = get_path(proc_file1)
+
+            if not exists(pjoin(path_name["checkpoint_dir"], "final_status_logs.out")):
+                clean_checkpoints(
+                    checkpoint_path=path_name["checkpoint_dir"],
+                    patterns=self.checkpoint_patterns,
                 )
-                kwargs = {
-                    "s1_file_list": s1_file,
-                    "outdir": pjoin(self.outdir),
-                    "project": self.project,
-                    "track": track,
-                    "gamma_config": self.gamma_config,
-                    "frame": frame,
-                    "polarization": polarization,
-                    "multilook": self.multilook,
-                    "extract_raw_data": self.extract_raw_data,
-                    "do_slc": self.do_slc,
-                    "coregister_dem": self.coregister_dem,
-                    "coregister_slaves": self.coregister_slaves,
-                    "process_ifgs": self.process_ifgs,
-                    "process_geotiff": self.process_geotiff,
-                    "clean_up": self.clean_up,
-                }
 
-                proc_data = PROC_FILE_TEMPLATE.format(**kwargs)
-                proc_file1 = pjoin(self.workdir, proc_name)
-
-                with open(proc_file1, "w") as src:
-                    src.writelines(proc_data)
-
-            if self.restart_process:
-                path_name = get_path(proc_file1)
-                proc_file1 = pjoin(path_name["proj_dir"], proc_name)
-                path_name = get_path(proc_file1)
-
-                if not exists(
-                    pjoin(path_name["checkpoint_dir"], "final_status_logs.out")
-                ):
-                    clean_checkpoints(
-                        checkpoint_path=path_name["checkpoint_dir"],
-                        patterns=self.checkpoint_patterns,
-                    )
-
-            yield Workflow(proc_file_path=proc_file1, s1_file_list=self.s1_file_list)
+        yield Workflow(
+            proc_file_path=filename_proc,
+            s1_file_list=self.s1_file_list,
+            start_date=self.start_date,
+            end_date=self.end_date,
+        )
 
     def output(self):
         out_name = pjoin(self.workdir, "{f}.out".format(f=basename(self.s1_file_list)))
