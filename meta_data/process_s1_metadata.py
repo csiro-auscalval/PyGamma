@@ -16,7 +16,7 @@ from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 import yaml
 from s1_slc_metadata import Archive, SlcFrame, SlcMetadata
-from spatialist.ancillary import finder
+
 
 _LOG = logging.getLogger(__name__)
 
@@ -36,53 +36,59 @@ def pool(processes):
     return ProcessPool(processes=processes)
 
 
-def generate_slc_yaml(year=None, month=None, s1_dir=None, out_dir=None):
-    path1 = os.path.join(
-        s1_dir, "{:04}".format(year), "{:04}-{:02}".format(year, month)
-    )
-    if not os.path.exists(path1):
-        return
+def generate_slc_metadata(slc_scene, outdir=None, yaml_file=False):
+    """
+    This method extracts slc metadata from scene
+    :param slc_scene: A 'Path' to slc scene
+    :param outdir: A 'Path' to store yaml_file
+    :param yaml_file: flag to write a yaml file with slc metadata
 
-    for grid in os.listdir(path1):
-        if not re.match(r"[0-9]", grid):
-            continue
-        else:
-            s1_path = os.path.join(path1, grid)
-            scenes_s1 = finder(
-                str(s1_path), [r"^S1[AB]_IW_SLC.*\.zip"], regex=True, recursive=True
-            )
-            for scene in scenes_s1:
-                scene_obj = SlcMetadata(scene)
-                slc_metadata = scene_obj.get_metadata()
-                slc_metadata["id"] = str(uuid.uuid4())
-                slc_metadata["product"] = {
-                    "name": "ESA_S1_{}".format(slc_metadata["properties"]["product"]),
-                    "url": scene_obj.scene,
-                }
-                if not os.path.exists(out_dir):
-                    os.makedirs(out_dir)
-                with open(
-                    os.path.join(
-                        out_dir, "{}.yaml".format(os.path.basename(scene)[:-4])
-                    ),
-                    "w",
-                ) as out_fid:
-                    yaml.dump(slc_metadata, out_fid)
+    :return:
+        A 'dict' with slc metadata if not yaml_file else
+        dumps to a yaml_file.
+    """
+    scene_obj = SlcMetadata(slc_scene)
+    try:
+        slc_metadata = scene_obj.get_metadata()
+    except ValueError as err:
+        raise ValueError(err)
+    except AssertionError as err:
+        raise AssertionError(err)
 
+    slc_metadata["id"] = str(uuid.uuid4())
+    slc_metadata["product"] = {
+        "name": "ESA_S1_{}".format(slc_metadata["properties"]["product"]),
+        "url": scene_obj.scene,
+    }
 
-def process_yaml_generation(years=None, nprocs=1, s1_dir=None, out_dir=None):
-    if not years:
-        return
-    with pool(processes=nprocs) as proc:
-        proc.starmap(
-            generate_slc_yaml,
-            [(year, mnt, s1_dir, out_dir) for year in years for mnt in range(1, 13)],
-        )
+    if not yaml_file:
+        return slc_metadata
+
+    if outdir is None:
+        outdir = os.getcwd()
+    else:
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+    with open(
+        os.path.join(outdir, "{}.yaml".format(os.path.basename(slc_scene)[:-4])), "w"
+    ) as out_fid:
+        yaml.dump(slc_metadata, out_fid)
 
 
-def swath_bursts_extents(bursts_df, swt, buf=0.01):
+def swath_bursts_extents(bursts_df, swt, buf=0.01, pol="VV"):
+    """
+    Method to form extents from overlapping bursts which are
+    within 0.01 degree buffer of their centroid values.
+    :param bursts_df: geo-pandas data frame with burst information
+    :param swt: name of the swath to subset this operations
+    :param buf: buffer value to form buffer around the centroid point
+    :param pol: name of polarization to subset this operation
 
-    df_subset = bursts_df[(bursts_df.swath == swt) & (bursts_df.polarization == "VV")]
+    :return:
+        A list of polygons formed as a result of this operation.
+    """
+
+    df_subset = bursts_df[(bursts_df.swath == swt) & (bursts_df.polarization == pol)]
     geoms = df_subset["geometry"]
     points = gpd.GeoSeries([geom.centroid for geom in geoms])
 
@@ -92,8 +98,8 @@ def swath_bursts_extents(bursts_df, swt, buf=0.01):
     if isinstance(mp, Polygon):
         centroids.append(mp.centroid)
     else:
-        _ = [centroids.append(p.centroid) for p in mp.geoms]
-
+        for geom in mp.gepms:
+            centroids.append(geom.centroid)
     return [
         cascaded_union(
             [geom for geom in geoms if centroid.buffer(buf).intersects(geom.centroid)]
@@ -102,7 +108,7 @@ def swath_bursts_extents(bursts_df, swt, buf=0.01):
     ]
 
 
-def _query(
+def db_query(
     archive: Archive,
     frame_num: int,
     frame_object: SlcFrame,
@@ -111,11 +117,10 @@ def _query(
     end_date: Optional[datetime] = None,
     columns_name: Optional[str] = None,
 ):
-
     """ A helper method to query into a database"""
 
     if columns_name is None:
-        columns = [
+        columns_name = [
             "{}.burst_number".format(archive.bursts_table_name),
             "{}.sensor".format(archive.slc_table_name),
             "{}.burst_extent".format(archive.bursts_table_name),
@@ -136,10 +141,14 @@ def _query(
 
     min_date_arg = max_date_arg = None
     if start_date:
-        min_date_arg = '{}.acquisition_start_time>=Datetime("{}")'.format(archive.slc_table_name, start_date)
+        min_date_arg = '{}.acquisition_start_time>=Datetime("{}")'.format(
+            archive.slc_table_name, start_date
+        )
 
     if end_date:
-        max_date_arg = '{}.acquisition_start_time<=Datetime("{}")'.format(archive.slc_table_name, end_date)
+        max_date_arg = '{}.acquisition_start_time<=Datetime("{}")'.format(
+            archive.slc_table_name, end_date
+        )
 
     return archive.select(
         tables_join_string,
@@ -173,7 +182,7 @@ def grid_definition(
         if sensor:
             bursts_query_args["slc_metadata.sensor"] = sensor
 
-        gpd_df = _query(
+        gpd_df = db_query(
             archive=archive,
             frame_num=frame_num,
             frame_object=frame_obj,
@@ -429,7 +438,7 @@ if __name__ == "__main__":
         162,
         163,
     ]
-    for sensor in ['S1A', 'S1B']:
+    for sensor in ["S1A", "S1B"]:
         for rel_orbit in rel_orbits:
             out_dir = os.path.join(grid_outdir, sensor)
             if not os.path.exists(out_dir):

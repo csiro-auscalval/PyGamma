@@ -4,3 +4,4 @@
 job*.bash
 job*.bash*.o*
 *.swp
+*/__pycache__/* 

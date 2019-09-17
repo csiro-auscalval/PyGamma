@@ -74,10 +74,11 @@ class SlcMetadata:
         """ consolidates meta data manifest safe file and annotation/swath xmls from a slc archive. """
 
         metadata = dict()
-        manifest_file = self.find_archive_files(self.manifest)
-        assert len(manifest_file) == 1
-
-        metadata["properties"] = self.metadata_manifest_safe(manifest_file[0])
+        try:
+            manifest_file = self.find_archive_files(self.manifest)
+            metadata["properties"] = self.metadata_manifest_safe(manifest_file[0])
+        except ValueError as err:
+            raise ValueError(err)
 
         annotation_xmls = self.find_archive_files(self.pattern_ds)
         assert len(annotation_xmls) > 0
@@ -383,7 +384,7 @@ class Archive:
             )
 
         cursor.execute(
-            "CREATE TABLE if not exists {} (id TEXT, url TEXT)".format(
+            "CREATE TABLE if not exists {} (id TEXT PRIMARY KEY, url TEXT)".format(
                 self.duplicate_table_name
             )
         )
@@ -435,11 +436,6 @@ class Archive:
         """ sets slc file locations if slc metadata exists. """
         if self.metadata:
             return self.metadata["product"]["url"]
-
-    def load_metadata(self, yaml_file):
-        """ loads the contents of metadata from slc yaml file"""
-        with open(yaml_file, "r") as out_fid:
-            self.metadata = yaml.load(out_fid)
 
     @staticmethod
     def get_corners(lats, lons):
@@ -622,22 +618,27 @@ class Archive:
 
         return insert_string, tuple(insertion_values)
 
-    def archive_scene(self, yaml_file):
-        """ archives a slc scene and its associated metadata from a yaml file into a database"""
+    def archive_scene(self, metadata):
+        """ archives a slc scene and its associated metadata (dict or a yaml file) into a database"""
+        if type(metadata) == dict:
+            self.metadata = metadata
+        else:
+            with open(metadata, "r") as src:
+                self.metadata = yaml.safe_load(src)
+            raise TypeError("metadata should of of type dict or a yaml file")
 
-        self.load_metadata(yaml_file)
         cursor = self.conn.cursor()
-        slc_str, slc_vals = self.prepare_slc_metadata_insertion()
+        slc_str, slc_values = self.prepare_slc_metadata_insertion()
 
         try:
-            cursor.execute(slc_str, slc_vals)
+            cursor.execute(slc_str, slc_values)
         except sqlite3.IntegrityError as err:
             if str(err) == "UNIQUE constraint failed: {}.id".format(
                 self.slc_table_name
             ):
                 _LOG.info(
-                    "{} already ingested into the database".format(
-                        os.path.basename(yaml_file)
+                    "slc id: {} already ingested into the database".format(
+                        self.metadata["id"]
                     )
                 )
                 return
@@ -653,29 +654,41 @@ class Archive:
                     self.swath_table_name
                 ):
                     _LOG.info(
-                        "{} duplicates is detected".format(os.path.basename(yaml_file))
+                        "slc id: {} duplicates is detected".format(self.metadata["id"])
                     )
-                    self.archive_duplicate(yaml_file)
+                    self.archive_duplicate()
                     return
                 else:
                     raise err
 
             burst_keys = self.get_burst_names(measurement)
             for burst_key in burst_keys:
-                burst_str, burst_vals = self.prepare_burst_metadata_insertion(
+                burst_str, burst_values = self.prepare_burst_metadata_insertion(
                     measurement, burst_key
                 )
-                cursor.execute(burst_str, burst_vals)
+                cursor.execute(burst_str, burst_values)
         self.conn.commit()
 
-    def archive_duplicate(self, yaml_file):
+    def archive_duplicate(self):
         """ archive duplicate slc scenes. """
-        self.load_metadata(yaml_file)
         cursor = self.conn.cursor()
-        cursor.execute(
-            "INSERT INTO slc_duplicates(id, url) VALUES(?, ?)",
-            (self.product_id, self.file_location),
-        )
+        try:
+            cursor.execute(
+                "INSERT INTO slc_duplicates(id, url) VALUES(?, ?)",
+                (os.path.basename(self.file_location), self.file_location),
+            )
+        except sqlite3.IntegrityError as err:
+            if str(err) == "UNIQUE constraint failed: {}.id".format(
+                self.duplicate_table_name
+            ):
+                _LOG.info(
+                    "{} already detected in slc_duplicate table".format(
+                        os.path.basename(self.file_location)
+                    )
+                )
+            else:
+                raise err
+
         self.conn.commit()
 
     def __enter__(self):
