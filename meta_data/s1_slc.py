@@ -4,20 +4,22 @@ import os
 from io import BytesIO
 import logging
 from datetime import datetime
+from typing import Optional, List, Union, Dict, Type
+from pathlib import Path
 import re
 import subprocess
 import tempfile
 import xml.etree.ElementTree as etree
+import zipfile as zf
+
 import geopandas as gpd
 import shapely.wkt
 from shapely.geometry import Polygon, box
-import zipfile as zf
 import yaml
 import pandas as pd
-
 import numpy as np
 from xml_util import getNamespaces
-from spatialist import sqlite_setup, crsConvert, sqlite3, ogr2ogr, Vector, bbox
+from spatialist import sqlite3, sqlite_setup
 
 _LOG = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ class SlcMetadata:
     Metadata extraction class to scrap slc metadata from a sentinel-1 slc scene.
     """
 
-    def __init__(self, scene):
+    def __init__(self, scene: Path) -> None:
         """ a default class constructor """
         self.scene = os.path.realpath(scene)
         self.manifest = "manifest.safe"
@@ -91,10 +93,10 @@ class SlcMetadata:
 
         return metadata
 
-    def metadata_manifest_safe(self, manifest_file):
+    def metadata_manifest_safe(self, manifest_file: Path):
         """ extracts metadata from a manifest safe file for a slc. """
 
-        def __parse_datetime(dt):
+        def _parse_datetime(dt):
             return datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S.%f").strftime(
                 "%Y-%m-%d %H:%M:%S.%f"
             )
@@ -106,10 +108,10 @@ class SlcMetadata:
             namespaces = getNamespaces(manifest)
             tree = etree.fromstring(manifest)
             meta["acquisition_mode"] = tree.find(".//s1sarl1:mode", namespaces).text
-            meta["acquisition_start_time"] = __parse_datetime(
+            meta["acquisition_start_time"] = _parse_datetime(
                 tree.find(".//safe:startTime", namespaces).text
             )
-            meta["acquisition_stop_time"] = __parse_datetime(
+            meta["acquisition_stop_time"] = _parse_datetime(
                 tree.find(".//safe:stopTime", namespaces).text
             )
             meta["coordinates"] = [
@@ -184,14 +186,14 @@ class SlcMetadata:
 
         return meta
 
-    def metadata_swath(self, xml_file):
+    def metadata_swath(self, xml_file: Path):
         """ extracts swath and bursts metadata from a xml file for a swath in slc scene. """
 
         swath_meta = dict()
         swath_obj = self.extract_archive_member(xml_file, obj=True)
 
-        def __metadata_burst(xml_path):
-            def __parse_s1_burstloc(in_str):
+        def _metadata_burst(xml_path):
+            def _parse_s1_burstloc(in_str):
                 burst_info = dict()
                 lines = in_str.split("\n")
                 for line in lines:
@@ -220,7 +222,7 @@ class SlcMetadata:
                 self.extract_archive_member(xml_file, outdir=tmp_dir)
                 cmd = [S1_BURSTLOC, os.path.join(tmp_dir, os.path.basename(xml_path))]
                 out_str = subprocess.check_output(cmd).decode()
-                return __parse_s1_burstloc(out_str)
+                return _parse_s1_burstloc(out_str)
 
         with swath_obj as obj:
             ann_tree = etree.fromstring(obj.read())
@@ -247,7 +249,7 @@ class SlcMetadata:
                 ann_tree.find(".//projection").text.replace(" ", "_").upper()
             )
 
-        burst_meta = __metadata_burst(xml_file)
+        burst_meta = _metadata_burst(xml_file)
 
         return {**swath_meta, **burst_meta}
 
@@ -257,7 +259,7 @@ class SlcMetadata:
         with zf.ZipFile(self.scene, "r") as archive:
             self.archive_files = archive.namelist()
 
-    def find_archive_files(self, pattern):
+    def find_archive_files(self, pattern: str):
         """ returns a matching name from a archive_file for given pattern. """
 
         self.archive_name_list()
@@ -268,7 +270,12 @@ class SlcMetadata:
         ]
         return match_names
 
-    def extract_archive_member(self, target_file, outdir=None, obj=False):
+    def extract_archive_member(
+        self,
+        target_file: Path,
+        outdir: Optional[Path] = None,
+        obj: Optional[bool] = False,
+    ):
         """ extracts a content of a target file from a slc zip archive as an object or a file"""
 
         with zf.ZipFile(self.scene, "r") as archive:
@@ -290,7 +297,7 @@ class Archive:
     facilitate a automated query into a database.
     """
 
-    def __init__(self, dbfile):
+    def __init__(self, dbfile: Path) -> None:
         """ a default class constructor"""
 
         self.dbfile = dbfile
@@ -391,7 +398,7 @@ class Archive:
         self.conn.commit()
 
     @property
-    def primary_fieldnames(self):
+    def primary_fieldnames(self) :
         """ sets primary fieldnames if slc metadata exists. """
         if self.metadata:
             return {
@@ -438,7 +445,7 @@ class Archive:
             return self.metadata["product"]["url"]
 
     @staticmethod
-    def get_corners(lats, lons):
+    def get_corners(lats: List[float], lons: List[float]):
         """ returns coorner from given latitudes and longitudes. """
         return {
             "xmin": min(lons),
@@ -447,11 +454,11 @@ class Archive:
             "ymax": max(lats),
         }
 
-    def get_measurement_fieldnames(self, measurement_key):
+    def get_measurement_fieldnames(self, measurement_key: str):
         """ returns all the measurement fieldnames for a slc scene. """
         return {k for k, v in self.metadata["measurements"][measurement_key].items()}
 
-    def get_measurement_metadata(self, measurement_key):
+    def get_measurement_metadata(self, measurement_key: str):
         """ returns metadata associated with all slc measurement field names. """
         return {
             mk: mv for mk, mv in self.metadata["measurements"][measurement_key].items()
@@ -467,7 +474,7 @@ class Archive:
         ).wkt
         return slc_metadata
 
-    def get_burst_names(self, measurement_key):
+    def get_burst_names(self, measurement_key: str):
         """ returns all the bursts contained within a given swath measurement. """
         return [
             burst
@@ -476,7 +483,7 @@ class Archive:
         ]
 
     @staticmethod
-    def encode_string(string, encoding="utf-8"):
+    def encode_string(string: str, encoding: Optional[str] = "utf-8"):
         """ encode binary values into a string. """
         if not isinstance(string, str):
             return string.encode(encoding)
@@ -513,7 +520,7 @@ class Archive:
         cursor.execute('SELECT * FROM sqlite_master WHERE type="table"')
         return sorted([self.encode_string(x[1]) for x in cursor.fetchall()])
 
-    def get_colnames(self, table_name):
+    def get_colnames(self, table_name: str):
         """ returns column names for a given table name. """
         cursor = self.conn.cursor()
         cursor.execute("PRAGMA table_info({})".format(table_name))
@@ -555,7 +562,7 @@ class Archive:
 
         return insert_string, tuple(insertion_values)
 
-    def prepare_swath_metadata_insertion(self, measurement_key):
+    def prepare_swath_metadata_insertion(self, measurement_key: str):
         """ prepares swath metadata to be inserted into a database. """
         measurement_metadata = self.get_swath_bursts_metadata(measurement_key)
         col_names = self.get_colnames(self.swath_table_name)
@@ -582,7 +589,7 @@ class Archive:
 
         return insert_string, tuple(insertion_values)
 
-    def prepare_burst_metadata_insertion(self, measurement_key, burst_key):
+    def prepare_burst_metadata_insertion(self, measurement_key: str, burst_key: str):
         """ prepares a burst metadata to be inserted into a database. """
         burst_metadata = self.get_swath_bursts_metadata(measurement_key, burst_key)
         col_names = self.get_colnames(self.bursts_table_name)
@@ -618,7 +625,7 @@ class Archive:
 
         return insert_string, tuple(insertion_values)
 
-    def archive_scene(self, metadata):
+    def archive_scene(self, metadata: Union[dict, str]):
         """ archives a slc scene and its associated metadata (dict or a yaml file) into a database"""
         if type(metadata) == dict:
             self.metadata = metadata
@@ -702,15 +709,15 @@ class Archive:
 
     def select(
         self,
-        tables_join_string,
-        orbit=None,
-        args=None,
-        min_date_arg=None,
-        max_date_arg=None,
-        columns=None,
-        frame_num=None,
-        shapefile_name=None,
-        frame_obj=None,
+        tables_join_string: str,
+        orbit: Optional[str] = None,
+        args: Optional[str] = None,
+        min_date_arg: Optional[str] = None,
+        max_date_arg: Optional[str] = None,
+        columns: Optional[List[str]] = None,
+        frame_num: Optional[int] = None,
+        shapefile_name: Optional[Path] = None,
+        frame_obj: Optional[Type['SlcFrame']] = None,
     ):
         """ returns geo-pandas data frame of from the database of selected SLC. """
 
@@ -801,7 +808,7 @@ class SlcFrame:
         of 0.0 to 50 in the southern hemisphere and longitude 100 to 179.0.
     """
 
-    def __init__(self, width_lat=None, buffer_lat=None):
+    def __init__(self, width_lat: Optional[float] = None, buffer_lat: Optional[float] = None) -> None:
         self.southern_hemisphere = True
         self.start_lat = 0.0
         self.end_lat = 50.0
@@ -816,7 +823,7 @@ class SlcFrame:
         else:
             self.buffer_lat = buffer_lat
 
-    def generate_frame_polygon(self, shapefile_name=None):
+    def generate_frame_polygon(self, shapefile_name: Optional[Path] = None):
         """ generates a frame with associated extent for the frame definition defined in class constructor. """
         latitudes = [
             i
@@ -846,7 +853,7 @@ class SlcFrame:
 
         return geopandas_df
 
-    def get_frame_extent(self, frame_num):
+    def get_frame_extent(self, frame_num: int):
         """ returns a geo-pandas data frame for a frame_name. """
         gpd_df = self.generate_frame_polygon()
         return gpd_df.loc[gpd_df["frame_num"] == frame_num]

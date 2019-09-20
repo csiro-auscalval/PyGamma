@@ -4,7 +4,6 @@ import os
 import re
 import uuid
 import logging
-from multiprocessing import Pool as ProcessPool
 from typing import Optional
 from pathlib import Path
 from datetime import datetime
@@ -17,26 +16,14 @@ from shapely.ops import cascaded_union
 import yaml
 from s1_slc import Archive, SlcFrame, SlcMetadata
 
-
 _LOG = logging.getLogger(__name__)
 
 
-class DummyPool:
-    def __enter__(self):
-        return self
-
-    @staticmethod
-    def starmap(func, args):
-        return [func(*arg) for arg in args]
-
-
-def pool(processes):
-    if not processes:
-        return DummyPool()
-    return ProcessPool(processes=processes)
-
-
-def generate_slc_metadata(slc_scene, outdir=None, yaml_file=False):
+def generate_slc_metadata(
+    slc_scene: Path,
+    outdir: Optional[Path] = None,
+    yaml_file: Optional[bool] = False,
+):
     """
     This method extracts slc metadata from scene
     :param slc_scene: A 'Path' to slc scene
@@ -174,7 +161,7 @@ def grid_definition(
     end_date: Optional[datetime] = None,
     frame_numbers: Optional[list] = [i + 1 for i in range(50)],
 ):
-    def __frame_def():
+    def _frame_def():
         bursts_query_args = {
             "bursts_metadata.relative_orbit": rel_orbit,
             "slc_metadata.orbit": orbits,
@@ -228,7 +215,7 @@ def grid_definition(
             grid_shapefile = os.path.join(
                 out_dir, "{}_{}.shp".format(grid_track, grid_frame)
             )
-            grid_gpd = __frame_def()
+            grid_gpd = _frame_def()
             if grid_gpd is not None:
                 grid_gpd.to_file(grid_shapefile, driver="ESRI Shapefile")
 
@@ -391,67 +378,3 @@ def process_grid_adjustment(in_dir: Path, out_dir: Path):
             _LOG.error(
                 "{} does not have data a swath dataframe after adjustment".format(item)
             )
-
-
-def s1_slc_ingestion(dbfile, yaml_dir):
-    for yaml_file in os.listdir(yaml_dir):
-        archive = Archive(dbfile)
-        archive.archive_scene(os.path.join(yaml_dir, yaml_file))
-
-
-if __name__ == "__main__":
-
-    # -------------------yaml generation---------------------
-    # process_yaml_generation(years=[2014, 2015, 2016, 2017, 2018, 2019],
-    #                         nprocs=16,
-    #                         out_dir='output-directory-to-store-Sentinel1-yamls',
-    #                         s1_dir='/g/data1/fj7/Copernicus/Sentinel-1/C-SAR/SLC/')
-
-    # -----------------metadata ingestion into database-----------------
-    # yaml_dir = "/g/data/u46/users/pd1813/INSAR/temp_yaml"
-    # database_name_new = "/g/data/u46/users/pd1813/INSAR/s1_slc_database.db"
-    # s1_slc_ingestion(database_name, yaml_dir)
-
-    # -------------processing grid definition-------------------------
-    database_name = "/g/data/u46/users/pd1813/INSAR/s1_slc_database.db"
-    grid_outdir = "/g/data/u46/users/pd1813/INSAR/shape_files/to_delete_frames"
-    rel_orbits = [
-        2,
-        16,
-        17,
-        31,
-        45,
-        46,
-        60,
-        61,
-        74,
-        75,
-        89,
-        90,
-        104,
-        118,
-        119,
-        133,
-        134,
-        147,
-        148,
-        162,
-        163,
-    ]
-    for sensor in ["S1A", "S1B"]:
-        for rel_orbit in rel_orbits:
-            out_dir = os.path.join(grid_outdir, sensor)
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-            try:
-                grid_definition(database_name, out_dir, rel_orbit, sensor=sensor)
-            except:
-                pass
-    # ------------------generate frame definition---------------
-    # frame_obj = SlcFrame(width_lat=1.35, buffer_lat=0.01)
-    # frame_obj.generate_frame_polygon(shapefile_name='Frame_lat_width_1.35_buff_0.01.shp')
-
-    # ------------grid adjustment--------------
-    # queried_grid_location = "/g/data/u46/users/pd1813/INSAR/shape_files/grid_vectors"
-    # adjusted_grid_location = "/g/data/u46/users/pd1813/INSAR/shape_files/adjusted_test"
-    # process_grid_adjustment(queried_grid_location, adjusted_grid_location)

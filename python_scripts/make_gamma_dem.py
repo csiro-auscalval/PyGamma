@@ -31,12 +31,16 @@ def create_gamma_dem(gamma_dem_dir, dem_img, track, frame, shapefile, buffer_wid
 
     def __get_bounds():
         if isinstance(vector_object, Vector):
-            return cascaded_union(
-                [
-                    shapely.wkt.loads(extent)
-                    for extent in vector_object.convert2wkt(set3D=False)
-                ]
-            ).buffer(buffer_width, cap_style=2, join_style=2).bounds
+            return (
+                cascaded_union(
+                    [
+                        shapely.wkt.loads(extent)
+                        for extent in vector_object.convert2wkt(set3D=False)
+                    ]
+                )
+                .buffer(buffer_width, cap_style=2, join_style=2)
+                .bounds
+            )
 
     with tempfile.TemporaryDirectory() as tmpdir:
 

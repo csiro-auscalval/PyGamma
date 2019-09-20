@@ -2,21 +2,17 @@
 
 import os
 from typing import Optional
-from os.path import join as pjoin, splitext, split, exists, isdir
+from os.path import exists, isdir, join as pjoin, split, splitext
 from pathlib import Path
 import datetime
 import re
 import math
 import logging
+
 import click
-
 from spatialist.ancillary import finder
-
-from s1_gridding_utils import grid_adjustment
-from s1_gridding_utils import grid_definition
-from s1_gridding_utils import generate_slc_metadata
+from s1_gridding_utils import generate_slc_metadata, grid_adjustment, grid_definition
 from s1_slc import Archive
-
 
 _LOG = logging.getLogger(__name__)
 GRID_NAME_FMT = "{track}_{frame}{ext}"
@@ -71,7 +67,7 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
     from grid_definition method.
     """
 
-    def __get_required_grids(vector_file, vector_file_dir):
+    def _get_required_grids(vector_file, vector_file_dir):
         if re.match(pattern, vector_file):
             name_pcs = re.split(r"[_](?=[ADF])", vector_file)
             track = name_pcs[0]
@@ -95,10 +91,10 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
 
         raise ValueError
 
-    def __process_adjustment(in_path):
+    def _process_adjustment(in_path):
         dir_name, file_name = split(in_path)
         try:
-            track, frame, grid_before_path, grid_after_path = __get_required_grids(
+            track, frame, grid_before_path, grid_after_path = _get_required_grids(
                 file_name, dir_name
             )
         except ValueError as err:
@@ -126,7 +122,7 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
 
     if not isdir(input_path):
         if input_path.endswith(".shp"):
-            __process_adjustment(input_path)
+            _process_adjustment(input_path)
             return
         _LOG.error("{} is not of type .shp file".format(os.path.basename(input_path)))
         raise TypeError
@@ -134,7 +130,7 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
     for fid in os.listdir(input_path):
         in_file = pjoin(input_path, fid)
         if in_file.endswith(".shp"):
-            __process_adjustment(in_file)
+            _process_adjustment(in_file)
         else:
             _LOG.info("{} is not of type .shp file".format(fid))
 
@@ -264,7 +260,7 @@ def process_slc_injestion(
     database_name: click.Path, year: int, month: int, slc_dir: click.Path
 ):
     """
-    Method to injest slc scenes into the database
+    Method to ingest slc scenes into the database
     """
     month_dir = pjoin(slc_dir, "{:04}".format(year), "{:04}-{:02}".format(year, month))
     try:

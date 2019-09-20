@@ -1,9 +1,11 @@
 #!/usr/bin/python3
 
 import logging
+from typing import Optional
 import os
 from os.path import join as pjoin
 import re
+from pathlib import Path
 import subprocess
 import tempfile
 import xml.etree.ElementTree as etree
@@ -51,7 +53,7 @@ class SlcMetadata:
             r"(?P<orbitNumber>[0-9]{6})_"
             r"(?P<dataTakeID>[0-9A-F]{6})_"
             r"(?P<productIdentifier>[0-9A-F]{4})"
-            r"\.SAFE$"
+            r"(?P<extension>.SAFE|.zip)$"
         )
 
         self.pattern_ds = (
@@ -292,7 +294,7 @@ class SlcMetadata:
         """
         archive = zf.ZipFile(self.scene, "r")
 
-        def __archive_download(name_outfile):
+        def _archive_download(name_outfile):
             if obj:
                 file_obj = BytesIO()
                 file_obj.write(archive.read(target_file))
@@ -311,7 +313,7 @@ class SlcMetadata:
             outfile = os.path.join(outdir, os.path.basename(target_file))
 
         if retry is None:
-            return __archive_download(outfile)
+            return _archive_download(outfile)
 
         source_size = archive.getinfo(target_file).file_size
         if os.path.exists(outfile):
@@ -327,7 +329,7 @@ class SlcMetadata:
                     )
                 )
 
-            if os.path.getsize(__archive_download(outfile)) != source_size:
+            if os.path.getsize(_archive_download(outfile)) != source_size:
                 retry_count += 1
             else:
                 break
@@ -343,8 +345,12 @@ class S1DataDownload(SlcMetadata):
     """
 
     def __init__(
-        self, slc_scene, polarization, s1_orbits_poeorb_path, s1_orbits_resorb_path
-    ):
+        self,
+        slc_scene: Path,
+        polarization: str,
+        s1_orbits_poeorb_path: Path,
+        s1_orbits_resorb_path: Path,
+    ) -> None:
         """a default class constructor."""
         self.raw_data_path = slc_scene
         self.polarization = polarization
@@ -424,7 +430,7 @@ class S1DataDownload(SlcMetadata):
 
         return pjoin(_resorb_path, acq_orbit_file[-1])
 
-    def slc_download(self, output_dir=None, retry=3):
+    def slc_download(self, output_dir: Optional[Path] = None, retry: Optional[int] = 3):
         """A method to download slc raw data."""
 
         download_files_patterns = [
@@ -435,7 +441,7 @@ class S1DataDownload(SlcMetadata):
             "*/preview/map-overlay.kml",
         ]
 
-        def __archive_download(target_file):
+        def _archive_download(target_file):
             """ A helper method to download target file from archive"""
             out_dir = os.path.dirname(target_file)
             if output_dir:
@@ -452,7 +458,7 @@ class S1DataDownload(SlcMetadata):
         )
         files_download.append(self.manifest_file)
         for fp in files_download:
-            __archive_download(fp)
+            _archive_download(fp)
 
         # get a base slc directory where files will be downloaded
         base_dir = os.path.commonprefix(files_download)

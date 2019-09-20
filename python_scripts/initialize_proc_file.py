@@ -184,10 +184,11 @@ def get_path(proc_file):
             pathname_dict["list_dir"], "download_list"
         )
         pathname_dict["s1_file_list"] = pjoin(pathname_dict["list_dir"], s1_file_list)
+        pathname_dict["slc_input"] = pjoin(pathname_dict["list_dir"], "slc_input.csv")
 
         # error list files
         error_dir = pjoin(proj_dir1, pathname_dict["track_frame"], error_dir1)
-        pathname_dict['error_dir'] = error_dir
+        pathname_dict["error_dir"] = error_dir
         pathname_dict["extract_raw_errors"] = pjoin(error_dir, "extract_raw_errors")
         pathname_dict["create_dem_errors"] = pjoin(error_dir, "create_dem_errors")
         pathname_dict["slc_creation_errors"] = pjoin(error_dir, "slc_creation_errors")
@@ -254,7 +255,7 @@ def setup_folders(proc_file):
         "manual_ml_slc_jobs_dir",
         "manual_resize_S1_slc_jobs_dir",
         "manual_subset_S1_slc_jobs_dir",
-        "manual_slc_jobs_dir"
+        "manual_slc_jobs_dir",
     ]
 
     # make directory if it does not exist

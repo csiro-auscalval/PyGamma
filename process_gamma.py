@@ -13,6 +13,7 @@ import numpy
 import luigi
 import pandas as pd
 from python_scripts import generate_slc_inputs
+from python_scripts.s1_slc_metadata import S1DataDownload
 import python_scripts.coreg_utils as coreg_utils
 from python_scripts.initialize_proc_file import get_path, setup_folders
 from python_scripts.check_status import (
@@ -89,57 +90,61 @@ class InitialSetup(luigi.Task):
         STATUS_LOGGER.info("initial setup task")
         setup_folders(self.proc_file_path)
 
-        # copy the 'proc file' to a proj directory where some of InSAR workflow are hard coded to look at
         path_name = get_path(self.proc_file_path)
+
+        # copy the 'proc file' to a proj directory where some of InSAR workflow are hard coded to look at
         shutil.copyfile(
             self.proc_file_path,
             pjoin(path_name["proj_dir"], basename(self.proc_file_path)),
         )
 
         # get the relative orbit number, which is int value of the numeric part of the track name
-        rel_orbit = int(re.findall(r'\d+', path_name['track'])[0])
+        rel_orbit = int(re.findall(r"\d+", path_name["track"])[0])
 
-        # query database for slc input files
-        results_df = generate_slc_inputs.query_slc_inputs(
+        # get slc input information
+        slc_input_results = generate_slc_inputs.query_slc_inputs(
             self.database_name,
             self.s1_file_list,
             self.start_date,
             self.end_date,
             self.orbit,
             rel_orbit,
+            path_name["polarization"],
         )
 
-        # perform check to assert returned queried results are for rel orbits
-        assert results_df.orbitNumber_rel.unique()[0] == rel_orbit
+        generate_slc_inputs.generate_lists(slc_input_results, path_name)
 
-        # subset data frame for a specific polarization
-        pol_subset_df = results_df[results_df.polarization == path_name['polarization']]
+        with self.output().open("w") as f:
+            f.write(
+                "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+            )
 
-        # create unique date scenes list file
-        unique_dates = [dt for dt in pol_subset_df.acquisition_start_time.map(pd.Timestamp.date).unique()]
-        data_dict = dict()
 
-        for dt in unique_dates:
-            pol_dt_subset_df = pol_subset_df[pol_subset_df.acquisition_start_time.map(pd.Timestamp.date) == dt]
-            swaths = pol_dt_subset_df.swath.unique()
-            # check that all three swaths present for a given date
-            assert len(swaths) == 3
-            swath_dict = dict()
-            for swath in swaths:
-                swath_df = pol_dt_subset_df[pol_dt_subset_df.swath == swath]
-                slc_ids = swath_df.id.unique()
-                slc_dict = dict()
-                for _id in slc_ids:
-                    slc_df = swath_df[swath_df.id == _id]
-                    slc_dict[_id] = {'burst_number': list(slc_df.burst_number.values),
-                                     'acquisition_datetime': slc_df.acquisition_start_time.unique()[0],
-                                     'url': slc_df.url.unique()[0],
-                                     'total_bursts': slc_df.total_bursts.unique()[0]}
-                swath_dict[swath] = slc_dict
-            data_dict[dt] = swath_dict
-        print(data_dict)
+class SlcDataDownload(luigi.Task):
+    """
+    Runs single slc scene extraction task
+    """
 
-        # create download list for specific polarizations
+    slc_scene = luigi.Parameter()
+    download_jobs_dir = luigi.Parameter()
+    poeorb_path = luigi.Parameter()
+    resorb_path = luigi.Parameter()
+    output_dir = luigi.Parameter()
+    polarization = luigi.Parameter()
+
+    def output(self):
+        return luigi.LocalTarget(
+            pjoin(
+                self.download_jobs_dir, "{}_logs.out".format(basename(self.slc_scene))
+            )
+        )
+
+    def run(self):
+        download_obj = S1DataDownload(
+            self.slc_scene, self.polarization, self.poeorb_path, self.resorb_path
+        )
+        download_obj.slc_download(self.output_dir)
+
         with self.output().open("w") as f:
             f.write(
                 "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
@@ -154,6 +159,8 @@ class RawDataExtract(luigi.Task):
     proc_file_path = luigi.Parameter()
     s1_file_list = luigi.Parameter()
     upstream_task = luigi.Parameter()
+    poeorb_path = luigi.Parameter()
+    resorb_path = luigi.Parameter()
 
     def requires(self):
         return self.upstream_task
@@ -172,6 +179,24 @@ class RawDataExtract(luigi.Task):
         path_name = get_path(
             pjoin(path_name["proj_dir"], basename(self.proc_file_path))
         )
+
+        download_tasks = []
+
+        with open(path_name["download_list"], "r") as src:
+            slc_scenes = src.readlines()
+            for slc_scene in slc_scenes:
+                scene_date = basename(slc_scene).split("_")[5].split("T")[0]
+                download_tasks.append(
+                    SlcDataDownload(
+                        slc_scene=slc_scene.rstrip(),
+                        polarization=path_name["polarization"],
+                        download_jobs_dir=path_name["extract_raw_jobs_dir"],
+                        poeorb_path=self.poeorb_path,
+                        resorb_path=self.resorb_path,
+                        output_dir=pjoin(path_name["raw_data_dir"], scene_date),
+                    )
+                )
+        yield download_tasks
 
         with self.output().open("w") as out_fid:
             out_fid.write(

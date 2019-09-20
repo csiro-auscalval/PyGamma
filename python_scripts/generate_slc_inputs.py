@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 from datetime import datetime
+import re
 
 import shapely.wkt
 import geopandas as gpd
@@ -10,96 +11,106 @@ from spatialist import Vector
 from python_scripts.s1_slc_metadata import Archive
 
 
-def __slc_df_dict_format(df, master_grid_df):
-    """A helper function for munging a pandas data to form slc input dict.
-
-    :param df: A pandas data frame
-
-    :return:
-    A dict: A sample dict
-    {   "VH": {
-            "IW1": {
-                "48b33e9e-b4cf-4443-8e99-8239ba6bbda6": {
-                    "burst_nums": [1],
-                    "acquisition_datetime": numpy.datetime("2019-01-06T20:34:32.136277000"),
-                    "url": "< path to slc zip file>"
-                },
-                "fc5493c9-7665-49aa-a879-d09bfed0dcba": {
-                    "burst_nums": [3, 6, 8, 10, 5, 2, 9, 7, 4],
-                    "acquisition_datetime": numpy.datetime("2019-01-06T20:34:04.554823000"),
-                    "url": "< path to slc zip file>"
-            },
-            "IW2": {
-                "48b33e9e-b4cf-4443-8e99-8239ba6bbda6": {
-                    "burst_nums": [1],
-                    "acquisition_datetime": numpy.datetime("2019-01-06T20:34:32.136277000"),
-                    "url": "< path to slc zip file>"
-                },
-                "fc5493c9-7665-49aa-a879-d09bfed0dcba": {
-                    "burst_nums": [3, 6, 8, 10, 5, 2, 9, 7, 4],
-                    "acquisition_datetime": numpy.datetime("2019-01-06T20:34:04.554823000"),
-                    "url": "< path to slc zip file>"
-                }
-            },
-            "IW3": {
-                "48b33e9e-b4cf-4443-8e99-8239ba6bbda6": {
-                    "burst_nums": [2, 1],
-                    "acquisition_datetime": numpy.datetime("2019-01-06T20:34:32.136277000"),
-                    "url": "< path to slc zip file>"
-                },
-                "fc5493c9-7665-49aa-a879-d09bfed0dcba": {
-                    "burst_nums": [3, 6, 8, 10, 5, 9, 7, 4],
-                    "acquisition_datetime": numpy.datetime("2019-01-06T20:34:04.554823000"),
-                    "url": "< path to slc zip file>"
-                }
-            }
-        },
-        "VV": {
-                ...
-              }
-    }
+def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: dict) -> dict:
 
     """
+    Check if input data and  master bursts to determine bursts overlaps
+    and inserts a missing burst information into the input_data.
+   """
+    for dt_key, dt_val in input_data.items():
+        for swath, swath_val in dt_val.items():
+            master_swath_subset = master_df[master_df.swath == swath]
 
-    def __get_burst_overlap(slc_df, swath_name):
-        """a helper method to check if bursts overlaps within the buffered master burst."""
-        master_swath_df = master_grid_df[master_grid_df.swath == swath_name]
-        burst_overlaps = []
-        gpd_slc = gpd.GeoDataFrame(
-            slc_df, crs={"init": "epsg:4326"},
-            geometry=slc_df["AsText(bursts_metadata.burst_extent)"].map(shapely.wkt.loads)
-        )
+            swath_centroids = [
+                geom.centroid
+                for _id in swath_val
+                for geom in swath_val[_id]["burst_extent"]
+            ]
 
-        for burst_num in master_swath_df.burst_num:
+            # check if master bursts contains the centroids to determine missing bursts
+            contained_bursts = []
+            for idx, row in master_swath_subset.iterrows():
+                for centroid in swath_centroids:
+                    if row.geometry.contains(centroid):
+                        contained_bursts.append(row.burst_num)
+            # insert the missing bursts information (set difference between contained bursts and master bursts numbers)
+            input_data[dt_key][swath]["missing_master_bursts"] = set(
+                master_swath_subset.burst_num.values
+            ) - set(contained_bursts)
 
-            burst_geom = master_swath_df[master_swath_df.burst_num == burst_num]["geometry"].values[0]
-            burst_geom = burst_geom.buffer(+0.02, cap_style=2, join_style=2)
-            for idx, row in gpd_slc.iterrows():
-                if burst_geom.contains(row['geometry']):
-                    burst_overlaps.append(row['burst_number'])
-        return burst_overlaps
+    return input_data
 
-    polarizations = df.polarization.unique()
-    swaths = df.swath.unique()
-    pol_dict = dict()
-    for pol in polarizations:
-        swath_dict = dict()
-        for swath in swaths:
-            swath_subset = df[(df.swath == swath) & (df.polarization == pol)].copy()
-            slc_ids = swath_subset.id.unique()
-            slc_dict = dict()
-            for slc_id in slc_ids:
-                slc_subset = swath_subset[swath_subset.id == slc_id]
-                slc_dict[slc_id] = {
-                    "burst_nums": list(slc_subset.burst_number.values),
-                    "acquisition_datetime": slc_subset.acquisition_start_time.unique()[
-                        0
-                    ],
-                    "url": slc_subset.url.unique()[0],
-                }
-            swath_dict[swath] = slc_dict
-        pol_dict[pol] = swath_dict
-    return pol_dict
+
+def _check_slc_input_data(
+    results_df: pd.DataFrame,
+    master_df: gpd.GeoDataFrame,
+    rel_orbit: int,
+    polarization: str,
+) -> dict:
+    """
+    Method to check supplied dataframe has required data to form slc input.
+    """
+
+    # perform check to assert returned queried results are for rel orbits
+    assert results_df.orbitNumber_rel.unique()[0] == rel_orbit
+
+    # subset data frame for a specific polarization
+    pol_subset_df = results_df[results_df.polarization == polarization]
+
+    # create unique date scenes list file
+    unique_dates = [
+        dt
+        for dt in pol_subset_df.acquisition_start_time.map(pd.Timestamp.date).unique()
+    ]
+    data_dict = dict()
+
+    # package input data into a dict according to a unique dates in a swath
+    for dt in unique_dates:
+        try:
+            pol_dt_subset_df = pol_subset_df[
+                pol_subset_df.acquisition_start_time.map(pd.Timestamp.date) == dt
+            ]
+            swaths = pol_dt_subset_df.swath.unique()
+
+            # check that all three swaths present for a given date
+            assert len(swaths) == 3
+
+            swath_dict = dict()
+            for swath in swaths:
+                swath_df = pol_dt_subset_df[pol_dt_subset_df.swath == swath]
+
+                # check swath bursts are only composed from one sensor for unique date
+                sensor = list(set(swath_df.sensor.values))
+                assert len(sensor) == 1
+
+                slc_ids = swath_df.id.unique()
+                slc_dict = dict()
+                for _id in slc_ids:
+                    slc_df = swath_df[swath_df.id == _id]
+                    slc_gpd = gpd.GeoDataFrame(
+                        slc_df,
+                        crs={"init": "epsg:4326"},
+                        geometry=slc_df["AsText(bursts_metadata.burst_extent)"].map(
+                            shapely.wkt.loads
+                        ),
+                    )
+                    slc_dict[_id] = {
+                        "burst_number": list(slc_gpd.burst_number.values),
+                        "burst_extent": list(slc_gpd.geometry.values),
+                        "sensor": sensor[0],
+                        "acquisition_datetime": slc_df.acquisition_start_time.unique()[
+                            0
+                        ],
+                        "url": slc_gpd.url.unique()[0],
+                        "total_bursts": slc_gpd.total_bursts.unique()[0],
+                    }
+                swath_dict[swath] = slc_dict
+            data_dict[dt] = swath_dict
+
+        except AssertionError as err:
+            _LOG.info("slc scene date {}: {}".format(dt.strftime("%Y-%m-%d"), err))
+
+    return _check_frame_bursts(master_df, data_dict)
 
 
 def query_slc_inputs(
@@ -109,17 +120,17 @@ def query_slc_inputs(
     end_date: datetime,
     orbit: str,
     track: int,
-    return_dataframe: bool = True
-):
+    polarization: str,
+) -> dict:
     """A method to query sqlite database and generate slc input dict.
 
-    :param dbfile: A path to sqlite database
-    :param spatial_subset: A path to a vector shape file
-    :param start_date: A datetime object
-    :param end_date: A datetime object
-    :param orbit: A 'str' type, sentinel-1 acquisition orbit type
-    :param track: A 'int' type, sentinel-1 relative orbit number (track)
-
+    :param dbfile: sqlite database
+    :param spatial_subset: a vector shape file
+    :param start_date: query start date
+    :param end_date: query end date
+    :param orbit: sentinel-1 acquisition orbit type
+    :param track: sentinel-1 relative orbit number (track)
+    :param polarization: slc polarization
     :return:
         Returns a dict type of slc input field values for all unique date queried
         from a dbfile between start_date and end_date (inclusive of the end dates)
@@ -167,36 +178,77 @@ def query_slc_inputs(
             min_date_arg=min_date_arg,
             max_date_arg=max_date_arg,
         )
-        slc_df.to_csv('{}.csv'.format(os.path.basename(spatial_subset)[:-4]))
-        slc_df["acquisition_start_time"] = pd.to_datetime(
-            slc_df["acquisition_start_time"]
-        )
+        try:
+            slc_df["acquisition_start_time"] = pd.to_datetime(
+                slc_df["acquisition_start_time"]
+            )
 
-        if return_dataframe:
-            return slc_df
+            #  check quried results against master dataframe to form slc inputs
+            return _check_slc_input_data(
+                slc_df, gpd.read_file(spatial_subset), track, polarization
+            )
 
-        unique_dates = [
-            dt for dt in slc_df.acquisition_start_time.map(pd.Timestamp.date).unique()
-        ]
-
-        if unique_dates:
-            return {
-                dt.strftime("%Y-%m-%d"): __slc_df_dict_format(
-                    slc_df[slc_df.acquisition_start_time.map(pd.Timestamp.date) == dt],
-                    gpd.read_file(spatial_subset)
-                )
-                for dt in unique_dates
-            }
-        return None
+        except (AttributeError, AssertionError) as err:
+            raise err
 
 
-if __name__ == "__main__":
-    database_name = "/g/data/u46/users/pd1813/INSAR/s1_slc_database.db"
-    shapefile = "/g/data/u46/users/pd1813/INSAR/shape_files/grid_vectors/T045D_F28S.shp"
-    start_date = datetime(2015, 3, 1)
-    end_date = datetime(2015, 3, 2)
-    inputs = query_slc_inputs(
-        database_name, shapefile, start_date, end_date, 'D', 45
+def _write_list(data: list, fid: Path) -> None:
+    """helper method to write files"""
+    with open(fid, "w") as out_fid:
+        for line in data:
+            out_fid.write(line + "\n")
+
+
+def generate_lists(slc_data_input: dict, path_name: dict, to_csv: bool = True) -> None:
+    """Write list of text files: download.list, scenes.list, frame_subset_list. """
+
+    _regx_uuid = r"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}"
+    _swath_keys = ["IW1", "IW2", "IW3"]
+    _missing_master_bursts_key = "missing_master_bursts"
+
+    def _get_scene_data(scene_dt):
+        return slc_data_input[scene_dt]
+
+    def _get_swath_data(scene_dt, swath):
+        return slc_data_input[scene_dt][swath]
+
+    def _get_id_data(scene_dt, swath, _id):
+        return slc_data_input[scene_dt][swath][_id]
+
+    scene_dates = sorted([dt for dt in slc_data_input])
+
+    # create dataframe and store slc details
+    slc_input_df = pd.DataFrame()
+
+    for dt in scene_dates:
+        for swath in _swath_keys:
+            missing_master_bursts = list(
+                _get_id_data(dt, swath, _missing_master_bursts_key)
+            )
+            for slc_id, slc_val in _get_swath_data(dt, swath).items():
+                if re.match(_regx_uuid, slc_id):
+                    slc_input_df = slc_input_df.append(
+                        {
+                            "date": dt,
+                            "swath": swath,
+                            "burst_number": slc_val["burst_number"],
+                            "sensor": slc_val["sensor"],
+                            "url": slc_val["url"],
+                            "total_bursts": slc_val["total_bursts"],
+                            "acquistion_datetime": slc_val["acquisition_datetime"],
+                            "missing_master_bursts": missing_master_bursts,
+                        },
+                        ignore_index=True,
+                    )
+    if to_csv:
+        slc_input_df.to_csv(path_name["slc_input"])
+
+    unique_dates = sorted(slc_input_df.date.unique())
+
+    # write scene list
+    _write_list(
+        [dt.strftime("%Y%m%d") for dt in unique_dates], path_name["scenes_list"]
     )
-    print(inputs)
 
+    # write download list
+    _write_list(slc_input_df.url.unique(), path_name["download_list"])
