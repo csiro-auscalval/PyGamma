@@ -112,9 +112,11 @@ while read slave; do
         echo "WARNING "$slave": Average of swath IW3 is zero, coregistration might be wrong"
         check3=1;
       fi
-      average=`echo "scale=5 ; ($IW1_average + $IW2_average + $IW3_average)/3" | bc -l`
-      std_dev=`echo "scale=5 ; sqrt((($IW1_average - $average)^2+($IW2_average - $average)^2+($IW3_average - $average)^2)/3)" | bc -l`
-      echo $slave $average $std_dev
+      average=`echo "scale=12 ; ($IW1_average + $IW2_average + $IW3_average)/3" | bc -l`
+      std_dev=`echo "scale=12 ; sqrt((($IW1_average - $average)^2+($IW2_average - $average)^2+($IW3_average - $average)^2)/3)" | bc -l`
+      # average=`printf %.5f $average`
+      # std_dev=`printf %.5f $std_dev`
+      printf "%s %7.4f %7.4f\n" $slave $average $std_dev
       check1=`echo $std_dev'>'0.2 | bc -l`
       check2=`echo ${average#-}'>'0.4 | bc -l`
       if [ $check0 -eq 1 -o $check1 -eq 1 -o $check2 -eq 1 -o $check3 -eq 1 ]; then

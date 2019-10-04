@@ -104,12 +104,12 @@ echo " " >> $burst_file
 while read file; do
     par=`echo $file | awk '{print $2}'`
     tops=`echo $file | awk '{print $3}'`
-    SLC_burst_corners $par $tops > temp1
+    ScanSAR_burst_corners $par $tops > temp1
     swath=`awk 'NR==7 {print $6}' temp1`
     echo "Swath: "$swath >> $burst_file
     start=`grep start_time: $par | awk '{print $2}'`
     echo "   start time: "$start >> $burst_file
-    bursts=`awk 'NR==8 {print $7}' temp1`
+    bursts=`awk 'NR==8 {print $6}' temp1`
     echo "   total bursts: "$bursts >> $burst_file
     echo "Num     Upper_Right                     Upper_left                      Lower_Left                      Lower_Right" >> $burst_file
     tail -n +10 temp1 > temp2

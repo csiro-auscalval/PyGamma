@@ -25,7 +25,7 @@ display_usage() {
     }
 
 if [ $# -lt 1 ]
-then 
+then
     display_usage
     exit 1
 fi
@@ -47,7 +47,7 @@ final_file_loc
 source $config_file
 
 # Print processing summary to .o & .e files
-PBS_processing_details $project $track 
+PBS_processing_details $project $track
 
 ######################################################################
 
@@ -73,14 +73,14 @@ if [ $rlks == "auto" -a $alks == "auto" ]; then
     while read scene; do
 	slc_file_names
 	let counter=counter+1
-	
+
         # Grep information on latitude and longitude and save into txt file to be used for offset calculations
 	azsp=`grep azimuth_pixel_spacing $slc_par | awk '{print $2}'`
 	rgsp=`grep range_pixel_spacing $slc_par | awk '{print $2}'`
 	rg=`grep center_range_slc $slc_par | awk '{print $2}'`
 	se=`grep sar_to_earth_center $slc_par | awk '{print $2}'`
 	re=`grep earth_radius_below_sensor $slc_par | awk '{print $2}'`
-	
+
         # calculate incidence angle using law of cosine
 	inc_a=`echo "scale=6; ($se^2-$re^2-$rg^2)/(2*$re*$rg)" | bc -l`
 
@@ -125,7 +125,7 @@ if [ $rlks == "auto" -a $alks == "auto" ]; then
 	az_ml_factor=-
     fi
 
-    # update proc file with ref scene 
+    # update proc file with ref scene
     cp $proc_file temp1
     sed -i "s/RANGE_LOOKS=auto/RANGE_LOOKS=$rlks/g" temp1
     sed -i "s/AZIMUTH_LOOKS=auto/AZIMUTH_LOOKS=$alks/g" temp1
@@ -144,7 +144,7 @@ if [ $rlks == "auto" -a $alks == "auto" ]; then
 else
     :
 fi
-# script end 
+# script end
 ####################
 
 
