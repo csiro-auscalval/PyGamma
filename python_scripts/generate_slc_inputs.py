@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
 import re
@@ -9,6 +10,8 @@ import geopandas as gpd
 import pandas as pd
 from spatialist import Vector
 from python_scripts.s1_slc_metadata import Archive
+
+_LOG = logging.getLogger(__name__)
 
 
 def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: dict) -> dict:
@@ -183,7 +186,7 @@ def query_slc_inputs(
                 slc_df["acquisition_start_time"]
             )
 
-            #  check quried results against master dataframe to form slc inputs
+            #  check queried results against master dataframe to form slc inputs
             return _check_slc_input_data(
                 slc_df, gpd.read_file(spatial_subset), track, polarization
             )
