@@ -108,13 +108,19 @@ class SlcMetadata:
 
         return metadata
 
-    def metadata_manifest_safe(self):
+    def metadata_manifest_safe(self, manifest_file=None):
         """ Extracts metadata from a manifest safe file for a slc. """
 
         def __parse_datetime(dt):
             return datetime.datetime.strptime(dt, self.dt_fmt_3).strftime(self.dt_fmt_1)
 
-        manifest_obj = self.extract_archive_member(self.manifest_file, obj=True)
+        if manifest_file is None:
+            manifest_obj = self.extract_archive_member(self.manifest_file, obj=True)
+        else:
+            file_obj = BytesIO()
+            file_obj.write(manifest_file.read())
+            manifest_obj = file_obj.seek(0)
+        
         meta = dict()
         with manifest_obj as obj:
             manifest = obj.getvalue()
