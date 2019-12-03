@@ -3,6 +3,7 @@
 import os
 import signal
 import subprocess
+import contextlib
 
 import logging
 
@@ -12,6 +13,21 @@ os.environ["CPL_ZIP_ENCODING"] = "UTF-8"
 
 # NOTE
 # run_command function is directly copied from https://github.com/OpenDataCubePipelines/eugl/blob/master/eugl/fmask.py
+
+
+@contextlib.contextmanager
+def working_directory(path):
+    """
+    context manager to change to working directory and back to
+    previous directory
+    """
+    pre_cwd = os.getcwd()
+    os.chdir(path)
+
+    try:
+        yield
+    finally:
+        os.chdir(pre_cwd)
 
 
 class CommandError(RuntimeError):
