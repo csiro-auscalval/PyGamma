@@ -2,6 +2,7 @@
 
 import os
 from os.path import basename, dirname, exists, join as pjoin, splitext
+from pathlib import Path
 import shutil
 import subprocess
 import datetime
@@ -11,28 +12,13 @@ import re
 
 import luigi
 from python_scripts import generate_slc_inputs
+from python_scripts.make_gamma_dem import create_gamma_dem
+from python_scripts.calc_multilook_values import multilook, caculate_mean_look_values
+from python_scripts.process_s1_slc import SlcProcess
 from python_scripts.s1_slc_metadata import S1DataDownload
 from python_scripts.initialize_proc_file import get_path, setup_folders
-from python_scripts.check_status import (
-    checkbaseline,
-    checkcoregslaves,
-    checkdemmaster,
-    checkfullslc,
-    checkgammadem,
-    checkifgs,
-    checkmultilook,
-)
-
 from python_scripts.proc_template import PROC_FILE_TEMPLATE
-from python_scripts.clean_up import (
-    clean_checkpoints,
-    clean_coreg_scene,
-    clean_demdir,
-    clean_gammademdir,
-    clean_ifgdir,
-    clean_rawdatadir,
-    clean_slcdir,
-)
+
 from python_scripts.logs import ERROR_LOGGER, STATUS_LOGGER
 
 
@@ -167,7 +153,7 @@ class RawDataExtract(luigi.Task):
         )
 
     def run(self):
-        STATUS_LOGGER.info("raw data extract task")s
+        STATUS_LOGGER.info("raw data extract task")
         path_name = get_path(self.proc_file_path)
         path_name = get_path(
             pjoin(path_name["proj_dir"], basename(self.proc_file_path))
@@ -204,6 +190,8 @@ class CreateGammaDem(luigi.Task):
 
     proc_file_path = luigi.Parameter()
     upstream_task = luigi.Parameter()
+    s1_file_list = luigi.Parameter()
+    dem_img = luigi.Parameter()
 
     def requires(self):
 
@@ -225,12 +213,14 @@ class CreateGammaDem(luigi.Task):
             pjoin(path_name["proj_dir"], basename(self.proc_file_path))
         )
 
-        args = [
-            "bash",
-            "create_dem_job.bash",
-            "%s" % pjoin(path_name["proj_dir"], basename(self.proc_file_path)),
-        ]
-        subprocess.check_call(args)
+        kwargs = {
+            "gamma_dem_dir": path_name["gamma_dem"],
+            "dem_img": self.dem_img,
+            "track_frame": path_name["track_frame"],
+            "shapefile": self.s1_file_list,
+        }
+
+        create_gamma_dem(**kwargs)
 
         with self.output().open("w") as out_fid:
             out_fid.write(
@@ -238,48 +228,31 @@ class CreateGammaDem(luigi.Task):
             )
 
 
-class CheckGammaDem(luigi.Task):
+class ProcessSlc(luigi.Task):
     """
-    Runs the checking task on the create gamma dem task
+    Runs single slc processing task
     """
-
-    proc_file_path = luigi.Parameter()
-    upstream_task = luigi.Parameter()
-
-    def requires(self):
-
-        return self.upstream_task
+    scene_date = luigi.Parameter()
+    raw_path = luigi.Parameter()
+    polarization = luigi.Parameter()
+    burst_data = luigi.Parameter()
+    slc_dir = luigi.Parameter()
+    slc_jobs_dir = luigi.Parameter()
 
     def output(self):
-
-        inputs = self.input()
         return luigi.LocalTarget(
             pjoin(
-                dirname(inputs["creategammadem"].path), "Check_GammaDem_status_logs.out"
+                self.slc_jobs_dir, '{}_slc_logs.out'.format(self.scene_date)
             )
         )
 
     def run(self):
-        STATUS_LOGGER.info("check gamma dem task")
-        path_name = get_path(self.proc_file_path)
-        path_name = get_path(
-            pjoin(path_name["proj_dir"], basename(self.proc_file_path))
-        )
-
-        kwargs = {
-            "track_frame": path_name["track_frame"],
-            "gamma_dem_path": path_name["gamma_dem"],
-        }
-
-        complete_status = checkgammadem(**kwargs)
-
-        if complete_status:
-            with self.output().open("w") as out_fid:
-                out_fid.write(
-                    "{dt}".format(
-                        dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-                    )
-                )
+        slc_job = SlcProcess(self.raw_path, self.slc_dir, self.polarization, self.scene_date, self.burst_data)
+        slc_job.main()
+        with self.output().open("w") as f:
+            f.write(
+                "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+            )
 
 
 class CreateFullSlc(luigi.Task):
@@ -309,12 +282,23 @@ class CreateFullSlc(luigi.Task):
             pjoin(path_name["proj_dir"], basename(self.proc_file_path))
         )
 
-        args = [
-            "bash",
-            "create_full_slc_job.bash",
-            "%s" % pjoin(path_name["proj_dir"], basename(self.proc_file_path)),
-        ]
-        subprocess.check_call(args)
+        slc_tasks = []
+
+        with open(path_name["scenes_list"], "r") as src:
+            slc_scenes = [scene.rstrip() for scene in src.readlines()]
+            for slc_scene in slc_scenes:
+                slc_tasks.append(
+                    ProcessSlc(
+                        scene_date=slc_scene,
+                        raw_path=path_name["raw_data_dir"],
+                        polarization=path_name["polarization"],
+                        burst_data=pjoin(path_name["list_dir"], "slc_input.csv"),
+                        slc_dir=path_name["slc_dir"],
+                        slc_jobs_dir=path_name["slc_jobs_dir"]
+                    )
+                )
+
+        yield slc_tasks
 
         with self.output().open("w") as out_fid:
             out_fid.write(
@@ -322,44 +306,30 @@ class CreateFullSlc(luigi.Task):
             )
 
 
-class CheckFullSlc(luigi.Task):
+class Multilook(luigi.Task):
     """
-    Runs the checking task on the create full slc task
+    Runs single slc processing task
     """
-    proc_file_path = luigi.Parameter()
-    upstream_task = luigi.Parameter()
-
-    def requires(self):
-        return self.upstream_task
+    slc = luigi.Parameter()
+    slc_par = luigi.Parameter()
+    rlks = luigi.IntParameter()
+    alks = luigi.IntParameter()
+    ml_jobs_dir = luigi.Parameter()
 
     def output(self):
-        inputs = self.input()
         return luigi.LocalTarget(
             pjoin(
-                dirname(inputs["createfullslc"].path),
-                "Check_createfullslc_status_logs.out",
+                self.ml_jobs_dir, '{}_ml_logs.out'.format(basename(self.slc))
             )
         )
 
     def run(self):
-        STATUS_LOGGER.info("check full slc task")
-        path_name = get_path(self.proc_file_path)
-        path_name = get_path(
-            pjoin(path_name["proj_dir"], basename(self.proc_file_path))
-        )
 
-        kwargs = {"slc_path": path_name["slc_dir"]}
-
-        complete_status = checkfullslc(**kwargs)
-        if complete_status:
-            if path_name["clean_up"] == "yes":
-                clean_rawdatadir(raw_data_path=path_name["raw_data_dir"])
-            with self.output().open("w") as out_fid:
-                out_fid.write(
-                    "{dt}".format(
-                        dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-                    )
-                )
+        multilook(Path(self.slc), Path(self.slc_par), self.rlks, self.alks)
+        with self.output().open("w") as f:
+            f.write(
+                "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+            )
 
 
 class CreateMultilook(luigi.Task):
@@ -369,6 +339,7 @@ class CreateMultilook(luigi.Task):
 
     proc_file_path = luigi.Parameter()
     upstream_task = luigi.Parameter()
+    multi_look = luigi.IntParameter()
 
     def requires(self):
         return self.upstream_task
@@ -377,7 +348,7 @@ class CreateMultilook(luigi.Task):
         inputs = self.input()
         return luigi.LocalTarget(
             pjoin(
-                dirname(inputs["check_fullslc"].path), "CreateMultilook_status_logs.out"
+                dirname(inputs["createfullslc"].path), "CreateMultilook_status_logs.out"
             )
         )
 
@@ -388,54 +359,38 @@ class CreateMultilook(luigi.Task):
             pjoin(path_name["proj_dir"], basename(self.proc_file_path))
         )
 
-        args = [
-            "bash",
-            "create_multilook_job.bash",
-            "%s" % pjoin(path_name["proj_dir"], basename(self.proc_file_path)),
-        ]
+        # calculate the mean range and azimuth look values
+        slc_par_files = []
+        with open(path_name["scenes_list"], "r") as src:
+            slc_scenes = [scene.rstrip() for scene in src.readlines()]
+            for slc_scene in slc_scenes:
+                slc_par = pjoin(path_name["slc_dir"], slc_scene, "{}_{}.slc.par".format(
+                    slc_scene, path_name["polarization"],
+                )
+                                      )
+                if not exists(slc_par):
+                    raise FileNotFoundError(f"missing {slc_par} file")
+                slc_par_files.append(Path(slc_par))
+        rlks, alks, *_ = caculate_mean_look_values(slc_par_files, self.multi_look)
 
-        subprocess.check_call(args)
-
+        # multi-look jobs run
+        ml_jobs = []
+        for slc_par in slc_par_files:
+            slc = slc_par.with_suffix("")
+            ml_jobs.append(
+                Multilook(
+                    slc=slc,
+                    slc_par=slc_par,
+                    rlks=rlks,
+                    alks=alks,
+                    ml_jobs_dir=path_name["ml_slc_jobs_dir"]
+                )
+            )
+        yield ml_jobs
         with self.output().open("w") as out_fid:
             out_fid.write(
                 "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
             )
-
-
-class CheckMultilook(luigi.Task):
-    """
-    Runs the checking task on the multilook task
-    """
-
-    proc_file_path = luigi.Parameter()
-    upstream_task = luigi.Parameter()
-
-    def requires(self):
-        return self.upstream_task
-
-    def output(self):
-        inputs = self.input()
-        return luigi.LocalTarget(
-            pjoin(dirname(inputs["multilook"].path), "Check_multilook_status_logs.out")
-        )
-
-    def run(self):
-        STATUS_LOGGER.info("check multi-look task")
-        path_name = get_path(self.proc_file_path)
-        path_name = get_path(
-            pjoin(path_name["proj_dir"], basename(self.proc_file_path))
-        )
-
-        kwargs = {"slc_path": path_name["slc_dir"]}
-
-        complete_status = checkmultilook(**kwargs)
-        if complete_status:
-            with self.output().open("w") as out_fid:
-                out_fid.write(
-                    "{dt}".format(
-                        dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-                    )
-                )
 
 
 class CalcInitialBaseline(luigi.Task):
@@ -455,7 +410,7 @@ class CalcInitialBaseline(luigi.Task):
         inputs = self.input()
         return luigi.LocalTarget(
             pjoin(
-                dirname(inputs["check_multilook"].path),
+                dirname(inputs["multilook"].path),
                 "CalcInitialBaseline_status_logs.out",
             )
         )
@@ -474,51 +429,11 @@ class CalcInitialBaseline(luigi.Task):
         ]
         subprocess.check_call(args)
 
+        exit()
         with self.output().open("w") as out_fid:
             out_fid.write(
                 "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
             )
-
-
-class CheckBaseline(luigi.Task):
-    """
-    Runs the checking task on the calc baseline task
-    """
-
-    proc_file_path = luigi.Parameter()
-    upstream_task = luigi.Parameter()
-
-    def requires(self):
-
-        return self.upstream_task
-
-    def output(self):
-
-        inputs = self.input()
-        return luigi.LocalTarget(
-            pjoin(
-                dirname(inputs["calcbaseline"].path), "Check_baseline_status_logs.out"
-            )
-        )
-
-    def run(self):
-        STATUS_LOGGER.info("check baseline task")
-        path_name = get_path(self.proc_file_path)
-        path_name = get_path(
-            pjoin(path_name["proj_dir"], basename(self.proc_file_path))
-        )
-
-        kwargs = {"ifgs_list_path": path_name["ifgs_list"]}
-
-        complete_status = checkbaseline(**kwargs)
-
-        if complete_status:
-            with self.output().open("w") as out_fid:
-                out_fid.write(
-                    "{dt}".format(
-                        dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-                    )
-                )
 
 
 class CoregisterDemMaster(luigi.Task):
@@ -563,58 +478,6 @@ class CoregisterDemMaster(luigi.Task):
             )
 
 
-class CheckDemMaster(luigi.Task):
-    """
-    Runs the checking task on the dem-master scene co-registration task
-    """
-
-    proc_file_path = luigi.Parameter()
-    upstream_task = luigi.Parameter()
-
-    def requires(self):
-
-        return self.upstream_task
-
-    def output(self):
-
-        inputs = self.input()
-        return luigi.LocalTarget(
-            pjoin(
-                dirname(inputs["coregmaster"].path), "Check_DemMaster_status_logs.out"
-            )
-        )
-
-    def run(self):
-
-        STATUS_LOGGER.info("check master-dem co-registration task")
-        path_name = get_path(self.proc_file_path)
-        path_name = get_path(
-            pjoin(path_name["proj_dir"], basename(self.proc_file_path))
-        )
-
-        kwargs = {
-            "slc_path": path_name["slc_dir"],
-            "master_scene": path_name["master_scene"],
-            "dem_path": path_name["dem_dir"],
-        }
-
-        complete_status = checkdemmaster(**kwargs)
-
-        if complete_status:
-            if path_name["clean_up"] == "yes":
-                clean_gammademdir(
-                    gamma_dem_path=path_name["gamma_dem"],
-                    track_frame=path_name["track_frame"],
-                )
-
-            with self.output().open("w") as out_fid:
-                out_fid.write(
-                    "{dt}".format(
-                        dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-                    )
-                )
-
-
 class CoregisterSlaves(luigi.Task):
     """
     Runs the master-slaves co-registration task
@@ -627,7 +490,7 @@ class CoregisterSlaves(luigi.Task):
 
     def output(self):
         inputs = self.input()
-        return luigi.LocalTarget(pjoin(dirname(inputs['check_coregmaster'].path), 'Coregister_slaves_status_logs.out'))
+        return luigi.LocalTarget(pjoin(dirname(inputs['coregmaster'].path), 'Coregister_slaves_status_logs.out'))
 
     def run(self):
 
@@ -641,52 +504,6 @@ class CoregisterSlaves(luigi.Task):
 
         with self.output().open('w') as f:
             f.write('{dt}'.format(dt=datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
-
-
-class CheckCoregSlave(luigi.Task):
-    """
-    Runs the checking task on the master-slaves scene co-registration task
-    """
-
-    proc_file_path = luigi.Parameter()
-    upstream_task = luigi.Parameter()
-
-    def requires(self):
-        return self.upstream_task
-
-    def output(self):
-        inputs = self.input()
-        return luigi.LocalTarget(
-            pjoin(
-                dirname(inputs["coregslaves"].path),
-                "Check_coreg_slaves_status_logs.out",
-            )
-        )
-
-    def run(self):
-        STATUS_LOGGER.info("check co-register master-slaves task")
-        path_name = get_path(self.proc_file_path)
-        path_name = get_path(
-            pjoin(path_name["proj_dir"], basename(self.proc_file_path))
-        )
-
-        kwargs = {
-            "slc_path": path_name["slc_dir"],
-            "master_scene": path_name["master_scene"],
-        }
-
-        complete_status = checkcoregslaves(**kwargs)
-
-        if complete_status:
-            if path_name["clean_up"] == "yes":
-                clean_slcdir(slc_path=kwargs["slc_path"])
-
-            with self.output().open("w") as out_fid:
-                out_fid.write(
-                    "{dt}".format(
-                        dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-                    )
-                )
 
 
 class CompletionCheck(luigi.Task):
@@ -704,7 +521,7 @@ class CompletionCheck(luigi.Task):
         inputs = self.input()
         return luigi.LocalTarget(
             pjoin(
-                dirname(inputs["processifgs"].path), "Process_Complete_status_logs.out"
+                dirname(inputs["coregslaves"].path), "Process_Complete_status_logs.out"
             )
         )
 
@@ -728,21 +545,7 @@ class Workflow(luigi.Task):
     end_date = luigi.DateParameter()
 
     def requires(self):
-
-        path_name = get_path(self.proc_file_path)
-
-        # external file checker tasks
-        # scenes_list = ExternalFileChecker(path_name["scenes_list"])
-        # extract_raw_errors = ExternalFileChecker(path_name["extract_raw_errors"])
-        slc_creation_errors = ExternalFileChecker(path_name["slc_creation_errors"])
-        multi_look_slc_errors = ExternalFileChecker(path_name["multi-look_slc_errors"])
-        init_baseline_errors = ExternalFileChecker(path_name["init_baseline_errors"])
-        create_dem_errors = ExternalFileChecker(path_name["create_dem_errors"])
-        coreg_dem_errors = ExternalFileChecker(path_name["coreg_dem_errors"])
-        ifg_errors = ExternalFileChecker(path_name["ifg_errors"])
-
         # upstream tasks
-
         initialsetup = InitialSetup(
             proc_file_path=self.proc_file_path,
             s1_file_list=self.s1_file_list,
@@ -761,77 +564,38 @@ class Workflow(luigi.Task):
             upstream_task={"rawdataextract": rawdataextract},
         )
 
-        check_fullslc = CheckFullSlc(
-            proc_file_path=self.proc_file_path,
-            upstream_task={
-                "createfullslc": createfullslc,
-                "slc_creation_errors": slc_creation_errors,
-            },
-        )
-
         creategammadem = CreateGammaDem(
             proc_file_path=self.proc_file_path,
             upstream_task={"rawdataextract": rawdataextract},
-        )
-
-        check_creategammadem = CheckGammaDem(
-            proc_file_path=self.proc_file_path,
-            upstream_task={
-                "creategammadem": creategammadem,
-                "create_dem_errors": create_dem_errors,
-            },
+            s1_file_list=self.s1_file_list,
         )
 
         multilook = CreateMultilook(
             proc_file_path=self.proc_file_path,
-            upstream_task={"check_fullslc": check_fullslc},
-        )
-
-        check_multilook = CheckMultilook(
-            proc_file_path=self.proc_file_path,
-            upstream_task={
-                "multilook": multilook,
-                "multi-look_slc_errors": multi_look_slc_errors,
-            },
+            upstream_task={"createfullslc": createfullslc},
         )
 
         calcbaseline = CalcInitialBaseline(
             proc_file_path=self.proc_file_path,
-            upstream_task={"check_multilook": check_multilook},
+            upstream_task={"multilook": multilook},
         )
 
         coregmaster = CoregisterDemMaster(
             proc_file_path=self.proc_file_path,
-            upstream_task={
-                "calcbaseline": calcbaseline,
-                "init_baseline_errors": init_baseline_errors,
-                "check_creategammadem": check_creategammadem,
-            },
-        )
-
-        check_coregmaster = CheckDemMaster(
-            proc_file_path=self.proc_file_path,
-            upstream_task={
-                "coregmaster": coregmaster,
-                "coreg_dem_error": coreg_dem_errors,
-            },
+            upstream_task={"calcbaseline": calcbaseline,
+                           "creategammadem": creategammadem},
         )
 
         coregslaves = CoregisterSlaves(
             proc_file_path=self.proc_file_path,
-            upstream_task={"check_coregmasters": check_coregmaster},
-        )
-
-        check_coregslaves = CheckCoregSlave(
-            proc_file_path=self.proc_file_path,
-            upstream_task={"coregslaves": coregslaves},
+            upstream_task={"coregmaster": coregmaster},
         )
 
         completioncheck = CompletionCheck(
-            upstream_task={"processifgs": check_coregslaves, "coreg_errors": ifg_errors}
+            upstream_task={"coregslaves": coregslaves}
         )
 
-        yield rawdataextract
+        yield calcbaseline
 
     def output(self):
         path_name = get_path(self.proc_file_path)
@@ -840,10 +604,6 @@ class Workflow(luigi.Task):
         )
 
     def run(self):
-        path_name = get_path(self.proc_file_path)
-        if path_name["clean_up"] == "yes":
-            clean_ifgdir(ifg_path=path_name["ifg_dir"])
-            clean_demdir(dem_path=path_name["dem_dir"])
 
         with self.output().open("w") as out_fid:
             out_fid.write(
@@ -899,7 +659,7 @@ class ARD(luigi.Task):
     project = luigi.Parameter(significant=False)
     gamma_config = luigi.Parameter(significant=False)
     polarization = luigi.Parameter(default="VV", significant=False)
-    multilook = luigi.IntParameter(default=1, significant=False)
+    multi_look = luigi.IntParameter(default=1, significant=False)
     extract_raw_data = luigi.Parameter(default="yes", significant=False)
     do_slc = luigi.Parameter(default="yes", significant=False)
     coregister_dem = luigi.Parameter(default="yes", significant=False)
@@ -936,7 +696,7 @@ class ARD(luigi.Task):
             "gamma_config": self.gamma_config,
             "frame": frame,
             "polarization": self.polarization,
-            "multilook": self.multilook,
+            "multi_look": self.multi_look,
             "extract_raw_data": self.extract_raw_data,
             "do_slc": self.do_slc,
             "coregister_dem": self.coregister_dem,
@@ -951,17 +711,6 @@ class ARD(luigi.Task):
 
         with open(filename_proc, "w") as src:
             src.writelines(proc_data)
-
-        if self.restart_process:
-            path_name = get_path(filename_proc)
-            proc_file1 = pjoin(path_name["proj_dir"], filename_proc)
-            path_name = get_path(proc_file1)
-
-            if not exists(pjoin(path_name["checkpoint_dir"], "final_status_logs.out")):
-                clean_checkpoints(
-                    checkpoint_path=path_name["checkpoint_dir"],
-                    patterns=self.checkpoint_patterns,
-                )
 
         yield Workflow(
             proc_file_path=filename_proc,
