@@ -8,20 +8,18 @@ import shapely.wkt
 from shapely.ops import cascaded_union
 import rasterio
 from spatialist import Vector
-from subprocess_utils import run_command
+from python_scripts.subprocess_utils import run_command
 
 
-def create_gamma_dem(gamma_dem_dir, dem_img, track, frame, shapefile, buffer_width=0.3):
+def create_gamma_dem(gamma_dem_dir, dem_img, track_frame, shapefile, buffer_width=0.3):
     """
     Automatically creates a DEM and par file for use with GAMMA.
     :param gamma_dem_dir:
         A directory to where gamma dem and par file will be written
     :param dem_img:
         A DEM from where gamma dem will be extracted from
-    :param track:
-        A track name
-    :param frame:
-        A frame name
+    :param track_frame:
+        A track and frame name
     :param shapefile:
         A 'Path' to a shapefile
     :param buffer:
@@ -29,7 +27,7 @@ def create_gamma_dem(gamma_dem_dir, dem_img, track, frame, shapefile, buffer_wid
     """
     vector_object = Vector(shapefile)
 
-    def __get_bounds():
+    def _get_bounds():
         if isinstance(vector_object, Vector):
             return (
                 cascaded_union(
@@ -44,10 +42,10 @@ def create_gamma_dem(gamma_dem_dir, dem_img, track, frame, shapefile, buffer_wid
 
     with tempfile.TemporaryDirectory() as tmpdir:
 
-        min_lon, min_lat, max_lon, max_lat = __get_bounds()
+        min_lon, min_lat, max_lon, max_lat = _get_bounds()
 
         # subset dem_img for the area of interest as a geotiff format
-        outfile = "{}_{}_temp.tif".format(track, frame)
+        outfile = "{}_temp.tif".format(track_frame)
         command = [
             "gdal_translate",
             "-projwin",
@@ -68,7 +66,7 @@ def create_gamma_dem(gamma_dem_dir, dem_img, track, frame, shapefile, buffer_wid
             data[mask] = 0.0001
             profile = src.profile
             profile.update(nodata=None)
-            outfile_new = pjoin(tmpdir, "{}_{}.tif".format(track, frame))
+            outfile_new = pjoin(tmpdir, "{}.tif".format(track_frame))
             with rasterio.open(outfile_new, "w", **profile) as dst:
                 dst.write(data, 1)
 
@@ -76,8 +74,8 @@ def create_gamma_dem(gamma_dem_dir, dem_img, track, frame, shapefile, buffer_wid
             command = [
                 "dem_import",
                 outfile_new,
-                "{}_{}.dem".format(track, frame),
-                "{}_{}.dem.par".format(track, frame),
+                "{}.dem".format(track_frame),
+                "{}.dem.par".format(track_frame),
                 "0",
                 "1",
                 "-",
@@ -91,7 +89,7 @@ def create_gamma_dem(gamma_dem_dir, dem_img, track, frame, shapefile, buffer_wid
             run_command(command, gamma_dem_dir)
 
             # create a preview of dem file
-            dem_png_file = "{}_{}_dem_preview.png".format(track, frame)
+            dem_png_file = "{}_dem_preview.png".format(track_frame)
             command = [
                 "gdal_translate",
                 "-of",
