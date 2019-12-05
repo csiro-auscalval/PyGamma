@@ -95,7 +95,7 @@ PALSAR2_TYPE=
 -----MULTI-LOOK VALUES----------------------------------------------------------------------------------
 
     # For full resolution (with square pixels), set to 1
-MULTI-LOOK={multilook}
+MULTI-LOOK={multi_look}
     # Leave as 'auto' if not pre-selecting, it will then be auto calculated and updated
 RANGE_LOOKS=auto
 AZIMUTH_LOOKS=auto
