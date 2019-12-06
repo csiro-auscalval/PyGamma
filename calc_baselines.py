@@ -50,50 +50,50 @@ type = sys.argv[2]
 
 # Extract variables from proc file (not using ConfigParser, as config file not in right format)
 for line in open(proc_file):
-    if line.startswith('NCI_PATH='):
-        nci_path = line.split('=')[1].strip()
-    if line.startswith('PROJECT='):
-        project = line.split('=')[1].strip()
-    if line.startswith('SENSOR='):
-        sensor = line.split('=')[1].strip()
-    if line.startswith('TRACK='):
-        track = line.split('=')[1].strip()
-    if line.startswith('FRAME='):
-        frame = line.split('=')[1].strip()
-    if line.startswith('SLC_DIR='):
-        slc_dir1 = line.split('=')[1].strip()
-    if line.startswith('INT_DIR='):
-        int_dir1 = line.split('=')[1].strip()
-    if line.startswith('BASE_DIR='):
-        base_dir1 = line.split('=')[1].strip()
-    if line.startswith('LIST_DIR='):
-        list_dir1 = line.split('=')[1].strip()
-    if line.startswith('PRE_PROC_DIR='):
-        pre_proc_dir1 = line.split('=')[1].strip()
-    if line.startswith('SCENE_LIST='):
-        scene_list = line.split('=')[1].strip()
-    if line.startswith('SLAVE_LIST='):
-       slave_list = line.split('=')[1].strip()
-    if line.startswith('IFG_LIST='):
-       ifg_list = line.split('=')[1].strip()
-    if line.startswith('POLARISATION='):
-       polar = line.split('=')[1].strip()
-    if line.startswith('PROCESS_METHOD='):
-        method = line.split('=')[1].strip()
-    if line.startswith('REF_MASTER_SCENE='):
-        master1 = line.split('=')[1].strip()
-    if line.startswith('RANGE_LOOKS='):
-        rlks = line.split('=')[1].strip()
-    if line.startswith('MIN_CONNECT='):
-        nmin = int(line.split('=')[1].strip())
-    if line.startswith('MAX_CONNECT='):
-        nmax = int(line.split('=')[1].strip())
+    if line.startswith("NCI_PATH="):
+        nci_path = line.split("=")[1].strip()
+    if line.startswith("PROJECT="):
+        project = line.split("=")[1].strip()
+    if line.startswith("SENSOR="):
+        sensor = line.split("=")[1].strip()
+    if line.startswith("TRACK="):
+        track = line.split("=")[1].strip()
+    if line.startswith("FRAME="):
+        frame = line.split("=")[1].strip()
+    if line.startswith("SLC_DIR="):
+        slc_dir1 = line.split("=")[1].strip()
+    if line.startswith("INT_DIR="):
+        int_dir1 = line.split("=")[1].strip()
+    if line.startswith("BASE_DIR="):
+        base_dir1 = line.split("=")[1].strip()
+    if line.startswith("LIST_DIR="):
+        list_dir1 = line.split("=")[1].strip()
+    if line.startswith("PRE_PROC_DIR="):
+        pre_proc_dir1 = line.split("=")[1].strip()
+    if line.startswith("SCENE_LIST="):
+        scene_list = line.split("=")[1].strip()
+    if line.startswith("SLAVE_LIST="):
+        slave_list = line.split("=")[1].strip()
+    if line.startswith("IFG_LIST="):
+        ifg_list = line.split("=")[1].strip()
+    if line.startswith("POLARISATION="):
+        polar = line.split("=")[1].strip()
+    if line.startswith("PROCESS_METHOD="):
+        method = line.split("=")[1].strip()
+    if line.startswith("REF_MASTER_SCENE="):
+        master1 = line.split("=")[1].strip()
+    if line.startswith("RANGE_LOOKS="):
+        rlks = line.split("=")[1].strip()
+    if line.startswith("MIN_CONNECT="):
+        nmin = int(line.split("=")[1].strip())
+    if line.startswith("MAX_CONNECT="):
+        nmax = int(line.split("=")[1].strip())
 
 # Project directories
 proj_dir = os.path.join(nci_path, "INSAR_ANALYSIS", project, sensor, "GAMMA")
 if sensor == "S1":
-    track_name = "%s_%s"%(track,frame)
-    track_dir =  os.path.join(proj_dir, track_name)
+    track_name = "%s_%s" % (track, frame)
+    track_dir = os.path.join(proj_dir, track_name)
 else:
     track_dir = os.path.join(proj_dir, track)
 
@@ -116,11 +116,9 @@ slaves_list = os.path.join(list_dir, slave_list)
 ifgs_list = os.path.join(list_dir, ifg_list)
 
 
-
-
 ################ INITIAL BASELINE CALCULATION ####################
 
-if type == 'initial':
+if type == "initial":
 
     # Read scenes.list and convert date strings to datetime objects
     if os.path.isfile(scenes_list) and os.access(scenes_list, os.R_OK):
@@ -135,7 +133,7 @@ if type == 'initial':
         sys.exit()
 
     # Get the central point in time (average of first and last date)
-    date_centre = min(dates) + (max(dates) - min(dates))/2
+    date_centre = min(dates) + (max(dates) - min(dates)) / 2
     dates_diff = [0] * (num_scenes)
     i = 0
     for line in dates:
@@ -145,7 +143,7 @@ if type == 'initial':
     index_min = np.argmin(dates_diff)
 
     # Initial master selection for plot
-    if master1 == 'auto':
+    if master1 == "auto":
         master_initial = dates[index_min]
         master = master_initial
 
@@ -153,16 +151,21 @@ if type == 'initial':
         proc_file_backup = os.path.join(pre_proc_dir, track + ".proc_pre_init_baseline")
         if os.path.isfile(proc_file) and os.access(proc_file, os.R_OK):
             copyfile(proc_file, proc_file_backup)
-            replace = { "REF_MASTER_SCENE=auto" : "REF_MASTER_SCENE="+str(master.strftime("%Y%m%d")) }
+            replace = {
+                "REF_MASTER_SCENE=auto": "REF_MASTER_SCENE="
+                + str(master.strftime("%Y%m%d"))
+            }
             for line in fileinput.input(proc_file, inplace=True):
-                line = line.rstrip('\r\n')
+                line = line.rstrip("\r\n")
                 print(replace.get(line, line))
 
             # reference master date to text file
-            outfile = open(os.path.join(results_dir, track + "_DEM_ref_master_results"), "w")
-            outfile.write('DEM REFERENCE MASTER SCENE' + '\n')
-            outfile.write(' ' + '\n')
-            outfile.write('%s\n' % (str(master.strftime("%Y%m%d"))))
+            outfile = open(
+                os.path.join(results_dir, track + "_DEM_ref_master_results"), "w"
+            )
+            outfile.write("DEM REFERENCE MASTER SCENE" + "\n")
+            outfile.write(" " + "\n")
+            outfile.write("%s\n" % (str(master.strftime("%Y%m%d"))))
             outfile.close
         else:
             print("ERROR: Can't read file", proc_file)
@@ -170,11 +173,24 @@ if type == 'initial':
     else:
         master = datetime.strptime(master1, "%Y%m%d")
 
-
     # Perform the loop over all scenes
     class SLC_data(object):
         # The class "constructor" - It's actually an initializer
-        def __init__(self, fDC=0, t_min=0, t_max=0, lat=0, lon=0, r1=0, inc=0, f=0, Br=0, Ba=0, t=[], xyz=[[],[]]):
+        def __init__(
+            self,
+            fDC=0,
+            t_min=0,
+            t_max=0,
+            lat=0,
+            lon=0,
+            r1=0,
+            inc=0,
+            f=0,
+            Br=0,
+            Ba=0,
+            t=[],
+            xyz=[[], []],
+        ):
             self.fDC = fDC
             self.t_min = t_min
             self.t_max = t_max
@@ -186,21 +202,24 @@ if type == 'initial':
             self.Br = Br
             self.Ba = Ba
             self.t = t
-            self.xyz = xyz # list of variable length
+            self.xyz = xyz  # list of variable length
 
     def make_slc_data(fDC, t_min, t_max, lat, lon, r1, inc, f, Br, Ba, t, xyz):
         slc_data = SLC_data(fDC, t_min, t_max, lat, lon, r1, inc, f, Br, Ba, t, xyz)
         return slc_data
 
-
     # Read all slc.par files and save relevant parameters in the object SLC_data
-    scn_idx = 0;
+    scn_idx = 0
     # initialise slc_data object
     init = SLC_data()
     # list of slc_data objects
     slc_dl = [init for i in range(num_scenes)]
     for scene in dates:
-        slc_par = os.path.join(slc_dir, scene.strftime("%Y%m%d"), scene.strftime("%Y%m%d") + "_" + polar + ".slc.par")
+        slc_par = os.path.join(
+            slc_dir,
+            scene.strftime("%Y%m%d"),
+            scene.strftime("%Y%m%d") + "_" + polar + ".slc.par",
+        )
         if os.path.isfile(slc_par) and os.access(slc_par, os.R_OK):
             fDC, t, xyz = cbf.read_orbits(slc_par)
             t_min, t_max, lat, lon, r1, inc, f, Br, Ba = cbf.read_master_info(slc_par)
@@ -208,13 +227,15 @@ if type == 'initial':
             print("ERROR: Can't read file", slc_par)
             sys.exit()
 
-        slc_dl[scn_idx] = make_slc_data(fDC, t_min, t_max, lat, lon, r1, inc, f, Br, Ba, t, xyz)
+        slc_dl[scn_idx] = make_slc_data(
+            fDC, t_min, t_max, lat, lon, r1, inc, f, Br, Ba, t, xyz
+        )
         scn_idx = scn_idx + 1
 
     # Read orbit data an calculate Bperp for all masters
     # selected master is saved for later usage
     master_sel = master
-    relBperps = np.zeros((num_scenes, num_scenes-1))
+    relBperps = np.zeros((num_scenes, num_scenes - 1))
     count_mas = 0
     # repeat baseline calculation
     for master in dates:
@@ -226,32 +247,36 @@ if type == 'initial':
         P = cbf.llh2xyz(slc_dl[mas_ix].lat, slc_dl[mas_ix].lon, 0)
         # calculate satellite position for master scene
         t = list(slc_dl[mas_ix].t)
-        M = cbf.calc_orbit_pos(t, slc_dl[mas_ix].t_min, slc_dl[mas_ix].t_max, slc_dl[mas_ix].xyz, P)
+        M = cbf.calc_orbit_pos(
+            t, slc_dl[mas_ix].t_min, slc_dl[mas_ix].t_max, slc_dl[mas_ix].xyz, P
+        )
         # perpendicular baselines of slaves w.r.t master
-        Bperps = [0] * (num_scenes-1)
+        Bperps = [0] * (num_scenes - 1)
         # loop through all slaves and calculate Bperp and Bdopp
         counter = 0
         for slave in slaves:
             sla_ix = dates.index(slave)
             # calculate satellite position for slave scene
             t = list(slc_dl[sla_ix].t)
-            S = cbf.calc_orbit_pos(t, slc_dl[mas_ix].t_min, slc_dl[mas_ix].t_max, slc_dl[sla_ix].xyz, P)
-            R1 = M-P
-            R2 = S-P
-            B = np.linalg.norm(M-S)
+            S = cbf.calc_orbit_pos(
+                t, slc_dl[mas_ix].t_min, slc_dl[mas_ix].t_max, slc_dl[sla_ix].xyz, P
+            )
+            R1 = M - P
+            R2 = S - P
+            B = np.linalg.norm(M - S)
             Bpar = np.linalg.norm(R1) - np.linalg.norm(R2)
-            Bperp = math.sqrt(B**2 - Bpar**2)
+            Bperp = math.sqrt(B ** 2 - Bpar ** 2)
             # sign of Bperp
             temp1 = np.dot(M, R1)
             temp2 = np.linalg.norm(M) * np.linalg.norm(R1)
-            theta1 = math.acos(temp1/temp2)
+            theta1 = math.acos(temp1 / temp2)
             temp1 = np.dot(M, R2)
             temp2 = np.linalg.norm(M) * np.linalg.norm(R2)
-            theta2 = math.acos(temp1/temp2)
+            theta2 = math.acos(temp1 / temp2)
             if theta1 < theta2:
                 Bperp = -Bperp
             Bperps[counter] = Bperp
-            counter = counter+1
+            counter = counter + 1
         # add master to Bperp list (Bperp=0)
         Bperps.insert(mas_ix, 0.0)
         count_rel = -1
@@ -262,7 +287,6 @@ if type == 'initial':
             count_rel = count_rel + 1
         count_mas = count_mas + 1
 
-
     # Use median values of relative baselines
     relBperps_median = np.median(relBperps, axis=0)
     # re-calculate baselines w.r.t. selected master
@@ -270,14 +294,13 @@ if type == 'initial':
     master_ix = dates.index(master)
     sum_rel = 0
     Bperps[master_ix] = 0.0
-    for i in range(master_ix-1, -1, -1):
+    for i in range(master_ix - 1, -1, -1):
         sum_rel = sum_rel - relBperps_median[i]
         Bperps[i] = sum_rel
     sum_rel = 0
-    for i in range(master_ix+1, num_scenes):
-        sum_rel = sum_rel + relBperps_median[i-1]
+    for i in range(master_ix + 1, num_scenes):
+        sum_rel = sum_rel + relBperps_median[i - 1]
         Bperps[i] = sum_rel
-
 
     # Setup the slaves list and calculate Doppler Centroid differences
     slaves = list(dates)
@@ -295,35 +318,39 @@ if type == 'initial':
     outfile = open(slaves_list, "w")
     counter = 0
     # doppler centroid frequency (fDC) differences of slaves w.r.t. master
-    Bdopp = [0] * (num_scenes-1)
+    Bdopp = [0] * (num_scenes - 1)
     for slave in slaves:
         # write slave.list
         outfile.write(slave.strftime("%Y%m%d") + "\n")
         # calc fDC
         slave_ix = dates.index(slave)
         Bdopp[counter] = slc_dl[slave_ix].fDC - slc_dl[master_ix].fDC
-        counter = counter+1
+        counter = counter + 1
     Bdopp.insert(master_ix, 0.0)
     outfile.close
 
     # Plot dates and Bperps for selected master
-    filename = os.path.join(base_dir, track + "_baseline_master_" + master.strftime("%Y%m%d") + "initial_plot")
+    filename = os.path.join(
+        base_dir,
+        track + "_baseline_master_" + master.strftime("%Y%m%d") + "initial_plot",
+    )
     cbf.plot_baseline_time_sm(np.array(dates), Bperps, master_ix, filename)
 
     # Output epochs, Bperps and Bdopp to text file
     outfile = open(os.path.join(base_dir, track + "_epoch_dop_cent.txt"), "w")
-    outfile.write('Epoch   Date[yyyy-mm-dd]   Bperp[m]   DC diff.[Hz]' + '\n')
-    outfile.write('-----------------------------------------------------' + '\n')
+    outfile.write("Epoch   Date[yyyy-mm-dd]   Bperp[m]   DC diff.[Hz]" + "\n")
+    outfile.write("-----------------------------------------------------" + "\n")
     epoch = 1
     for line, Bperp, dopp in zip(dates, Bperps, Bdopp):
-        outfile.write('%5d %16s %9.1f %13.1f\n' % (epoch, line.strftime("%Y-%m-%d"), Bperp, dopp))
+        outfile.write(
+            "%5d %16s %9.1f %13.1f\n" % (epoch, line.strftime("%Y-%m-%d"), Bperp, dopp)
+        )
         epoch = epoch + 1
     outfile.close
 
-
     ##### Create Single Master Interferogram List #####
 
-    if method == 'single':
+    if method == "single":
         ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
 
         # Check if ifgs.list file exists and has already be renamed
@@ -336,13 +363,14 @@ if type == 'initial':
             # write new ifgs.list
             outfile = open(ifgs_list, "w")
             for slave in slaves:
-                outfile.write(master.strftime("%Y%m%d") + "," + slave.strftime("%Y%m%d") + "\n")
+                outfile.write(
+                    master.strftime("%Y%m%d") + "," + slave.strftime("%Y%m%d") + "\n"
+                )
             outfile.close
-
 
     ##### Create Daisy-chained Interferogram List #####
 
-    elif method == 'chain':
+    elif method == "chain":
         ifgs_list_backup = os.path.join(list_dir, ifg_list + "_backup")
 
         # Check if ifgs.list file exists and has already be renamed
@@ -363,8 +391,8 @@ if type == 'initial':
 
             # join lists
             merged = []
-            for idx, i  in enumerate(scenes):
-                merged.append( (nums[idx], i) )
+            for idx, i in enumerate(scenes):
+                merged.append((nums[idx], i))
 
             # write new ifgs.list
             outfile = open(ifgs_list, "w")
@@ -374,10 +402,9 @@ if type == 'initial':
                     outfile.write(scene + "," + scenes[num1] + "\n")
             outfile.close
 
-
     ##### Coherence-based SBAS Network Calculation and Interferogram List #####
 
-    elif method == 'sbas':
+    elif method == "sbas":
 
         # extract further information from SLC_data object for selected master
         Br = slc_dl[master_ix].Br
@@ -389,7 +416,7 @@ if type == 'initial':
         Ba = slc_dl[master_ix].Ba
 
         # calculate critical baseline Bperp_max from Eq. 4.4.11 in Hanssen (2001)
-        Bperp_max = Br/f*r1*math.tan(inc/180*math.pi)
+        Bperp_max = Br / f * r1 * math.tan(inc / 180 * math.pi)
 
         # Btemp_max: total temporal decorrelation, use different values for L-band,
         #            C-band and X-band
@@ -405,7 +432,11 @@ if type == 'initial':
         elif sensor == "TSX" or sensor == "CSK":
             Btemp_max = 1095.75
         else:
-            print("Sensor", sensor, "is not added yet. Default C-band parameters are used.")
+            print(
+                "Sensor",
+                sensor,
+                "is not added yet. Default C-band parameters are used.",
+            )
             Btemp_max = 1826.25
 
         # linear decorrelation model for Btemp, Bperp, Bdopp is used (Eq. 2.1 & 2.2 in Kampes (2005) along with a coherence threshold:
@@ -419,19 +450,37 @@ if type == 'initial':
 
         # Output SBAS network parameters
         outfile = open(os.path.join(base_dir, track + "_SBAS_parameters.txt"), "w")
-        outfile.write('Parameters for generation of SBAS network' + '\n')
-        outfile.write('-----------------------------------------' + '\n')
-        outfile.write('Minimum number of connections: ' '%d\n' % (nmin))
-        outfile.write('Maximum number of connections: ' '%d\n' % (nmax))
-        outfile.write('Maximum Btemp: ' '%d' ' days (' '%d' ' years)\n' % (Btemp_max, Btemp_max/365))
-        outfile.write('Maximum Bperp: ' '%d' ' m\n' % (Bperp_max))
-        outfile.write('Maximum DC diff.: ' '%d' ' Hz\n' % (Ba))
-        outfile.write('Coherence Threshold: ' '%s\n' % (coh_thres))
+        outfile.write("Parameters for generation of SBAS network" + "\n")
+        outfile.write("-----------------------------------------" + "\n")
+        outfile.write("Minimum number of connections: " "%d\n" % (nmin))
+        outfile.write("Maximum number of connections: " "%d\n" % (nmax))
+        outfile.write(
+            "Maximum Btemp: "
+            "%d"
+            " days ("
+            "%d"
+            " years)\n" % (Btemp_max, Btemp_max / 365)
+        )
+        outfile.write("Maximum Bperp: " "%d" " m\n" % (Bperp_max))
+        outfile.write("Maximum DC diff.: " "%d" " Hz\n" % (Ba))
+        outfile.write("Coherence Threshold: " "%s\n" % (coh_thres))
         outfile.close
 
         # create the SBAS network
         outfile = os.path.join(base_dir, track + "_SBAS_connections.txt")
-        epoch1, epoch2, Bperps_sbas = cbf.create_sb_network(dates, Bperps, Bdopp, master_ix, Btemp_max, Bperp_max, Ba, coh_thres, nmin, nmax, outfile)
+        epoch1, epoch2, Bperps_sbas = cbf.create_sb_network(
+            dates,
+            Bperps,
+            Bdopp,
+            master_ix,
+            Btemp_max,
+            Bperp_max,
+            Ba,
+            coh_thres,
+            nmin,
+            nmax,
+            outfile,
+        )
         # note that epoch1 and epoch2 contain the indices of valid connections
 
         # plot selected connections
@@ -450,15 +499,27 @@ if type == 'initial':
             # write new ifgs.list
             outfile = open(ifgs_list, "w")
             for epo1, epo2 in zip(epoch1, epoch2):
-                outfile.write(dates[epo1].strftime("%Y%m%d") + "," + dates[epo2].strftime("%Y%m%d") + "\n")
+                outfile.write(
+                    dates[epo1].strftime("%Y%m%d")
+                    + ","
+                    + dates[epo2].strftime("%Y%m%d")
+                    + "\n"
+                )
             outfile.close
 
         # save dates and Bperps of connection to ./TxxxX/baseline_plot_output.txt
         outfile = open(os.path.join(base_dir, track + "_baseline_plot_output.txt"), "w")
         outfile.write("Date1[yyyy-mm-dd]   Date2[yyyy-mm-dd]   Bperp[m]\n")
         outfile.write("-----------------------------------------------------\n")
-        for epochA, epochB, Bperp, in zip(epoch1, epoch2, Bperps_sbas):
-            outfile.write("%17s    %17s   %9.1f\n" % (dates[epochA].strftime("%Y-%m-%d"), dates[epochB].strftime("%Y-%m-%d"), Bperp))
+        for epochA, epochB, Bperp in zip(epoch1, epoch2, Bperps_sbas):
+            outfile.write(
+                "%17s    %17s   %9.1f\n"
+                % (
+                    dates[epochA].strftime("%Y-%m-%d"),
+                    dates[epochB].strftime("%Y-%m-%d"),
+                    Bperp,
+                )
+            )
         outfile.close
 
     else:
@@ -467,11 +528,15 @@ if type == 'initial':
 
 ################ PRECISION BASELINE CALCULATION ####################
 
-elif type == 'precision':
+elif type == "precision":
 
     # Read master r*mli.par file and calculate look angle for centre pixel
     # open file and read relevant lines
-    f = open(os.path.join(slc_dir, master1, "r" + master1 + "_" + polar + "_" + rlks + "rlks.mli.par"))
+    f = open(
+        os.path.join(
+            slc_dir, master1, "r" + master1 + "_" + polar + "_" + rlks + "rlks.mli.par"
+        )
+    )
     lines = f.readlines()
     # loop through all lines of slc.par file and find relevant records
     for line in lines:
@@ -483,7 +548,7 @@ elif type == 'precision':
             re = float(line[31:45])
 
     # look angle resulting from law cosines for general triangles
-    la = math.acos((se**2 + crg**2 - re**2)/(2 * se * crg))
+    la = math.acos((se ** 2 + crg ** 2 - re ** 2) / (2 * se * crg))
 
     if os.path.isfile(ifgs_list) and os.access(ifgs_list, os.R_OK):
         print("File", ifgs_list, "exists and is readable")
@@ -491,9 +556,9 @@ elif type == 'precision':
         dates = f.readlines()
         dates[:] = [line.rstrip("\n") for line in dates]
         epoch1 = list(dates)
-        epoch1[:] = [line.split(",",1)[0] for line in epoch1]
+        epoch1[:] = [line.split(",", 1)[0] for line in epoch1]
         epoch2 = list(dates)
-        epoch2[:] = [line.split(",",1)[1] for line in epoch2]
+        epoch2[:] = [line.split(",", 1)[1] for line in epoch2]
         num_ifgs = len(dates)
     else:
         print("ERROR: Can't read file", ifgs_list)
@@ -505,7 +570,11 @@ elif type == 'precision':
     Bperp_prec = [0] * num_ifgs
     # loop through all IFGs
     for epochA, epochB in zip(epoch1, epoch2):
-        filename = os.path.join(int_dir, epochA + "-" + epochB, epochA + "-" + epochB + "_" + polar + "_" + rlks + "rlks_base.par")
+        filename = os.path.join(
+            int_dir,
+            epochA + "-" + epochB,
+            epochA + "-" + epochB + "_" + polar + "_" + rlks + "rlks_base.par",
+        )
         if os.path.isfile(filename) and os.access(filename, os.R_OK):
             f = open(filename)
             lines = f.readlines()
@@ -517,7 +586,11 @@ elif type == 'precision':
                     Bperp_prec[i] = baseC * math.cos(la) - baseN * math.sin(la)
             # counter for Bperp
         else:
-            print("ERROR: Can't read file " + filename + ". IFG does not exist or is corrupt.")
+            print(
+                "ERROR: Can't read file "
+                + filename
+                + ". IFG does not exist or is corrupt."
+            )
             Bperp_prec[i] = "nan"
         i = i + 1
 
@@ -542,15 +615,22 @@ elif type == 'precision':
         epoch12_init = [" "] * num_ifgs_init
         i = 0
         for line in epoch12_init:
-            epoch12_init[i] = datetime.strftime(epoch1_init[i], "%Y%m%d") + "," + datetime.strftime(epoch2_init[i], "%Y%m%d")
+            epoch12_init[i] = (
+                datetime.strftime(epoch1_init[i], "%Y%m%d")
+                + ","
+                + datetime.strftime(epoch2_init[i], "%Y%m%d")
+            )
             i = i + 1
-
 
         # compare epoch connections to find identical epochs and
         # save dates and Bperps of connection to ./TxxxX/baseline_comparison.txt
         outfile = open(os.path.join(base_dir, track + "_baseline_comparison.txt"), "w")
-        outfile.write("Date1 [yyyy-mm-dd]   Date2 [yyyy-mm-dd]   init. Bperp [m]   final Bperp [m]   Difference [m]\n")
-        outfile.write("--------------------------------------------------------------------------------------------\n")
+        outfile.write(
+            "Date1 [yyyy-mm-dd]   Date2 [yyyy-mm-dd]   init. Bperp [m]   final Bperp [m]   Difference [m]\n"
+        )
+        outfile.write(
+            "--------------------------------------------------------------------------------------------\n"
+        )
         counter = 0
         diff_sum_abs = 0
         diff_min = 0
@@ -558,7 +638,7 @@ elif type == 'precision':
         # loop through both lists with inital and final epoch connections
         for i in range(num_ifgs_init):
             for j in range(num_ifgs):
-                if epoch12_init[i] == dates[j] and not(Bperp_prec[j] == "nan"):
+                if epoch12_init[i] == dates[j] and not (Bperp_prec[j] == "nan"):
                     diff = Bperp_init[i] - Bperp_prec[j]
                     # calculate some statistics on Bperp differences
                     diff_sum_abs = diff_sum_abs + abs(diff)
@@ -567,16 +647,31 @@ elif type == 'precision':
                     if diff > diff_max:
                         diff_max = diff
                     # write Bperps to file
-                    outfile.write("%17s    %17s         %9.1f         %9.1f    %9.1f\n" % (epoch1_init[i].strftime("%Y-%m-%d"), epoch2_init[i].strftime("%Y-%m-%d"), Bperp_init[i], Bperp_prec[j], diff))
+                    outfile.write(
+                        "%17s    %17s         %9.1f         %9.1f    %9.1f\n"
+                        % (
+                            epoch1_init[i].strftime("%Y-%m-%d"),
+                            epoch2_init[i].strftime("%Y-%m-%d"),
+                            Bperp_init[i],
+                            Bperp_prec[j],
+                            diff,
+                        )
+                    )
                     counter = counter + 1
         outfile.close
-        print(str(counter) + " identical epoch connections written to " + filename + ".")
+        print(
+            str(counter) + " identical epoch connections written to " + filename + "."
+        )
         print()
-        print("Mean absolute difference: %9.1f" % (diff_sum_abs/counter))
+        print("Mean absolute difference: %9.1f" % (diff_sum_abs / counter))
         print("Minimum difference: %9.1f" % diff_min)
         print("Maximum difference: %9.1f" % diff_max)
     else:
-        print("Cannot compare precise Bperps to initial Bperps. File", filename, "does not exist.")
+        print(
+            "Cannot compare precise Bperps to initial Bperps. File",
+            filename,
+            "does not exist.",
+        )
 
     # retrieve epoch inidices
     # list of all epochs
@@ -595,8 +690,8 @@ elif type == 'precision':
         epo2_ix[temp] = counter
         counter = counter + 1
     # convert numpy array to list of integer indices
-    epoch1_ix = [ int(epo) for epo in epo1_ix ]
-    epoch2_ix = [ int(epo) for epo in epo2_ix ]
+    epoch1_ix = [int(epo) for epo in epo1_ix]
+    epoch2_ix = [int(epo) for epo in epo2_ix]
 
     # delete connections which don't exist (Bperp_prec is set to "nan")
     del_idx = np.where(np.array(Bperp_prec) == "nan")[0]
@@ -608,11 +703,15 @@ elif type == 'precision':
     # convert to datetime object (needed for epoch_baselines and for plotting)
     epochs[:] = [datetime.strptime(epo, "%Y%m%d") for epo in epochs]
     # re-calculate Bprep_prec w.r.t. SM constellation
-    epochbperp = cbf.epoch_baselines(epochs,Bperp_prec,epoch1_ix,epoch2_ix, master_ix)
+    epochbperp = cbf.epoch_baselines(
+        epochs, Bperp_prec, epoch1_ix, epoch2_ix, master_ix
+    )
 
     # plot scene connections using precision baselines
     filename = os.path.join(base_dir, track + "_baseline_SBAS_network_final_plot")
-    cbf.plot_baseline_time_sbas(np.array(epochs), epochbperp, epoch1_ix, epoch2_ix, filename)
+    cbf.plot_baseline_time_sbas(
+        np.array(epochs), epochbperp, epoch1_ix, epoch2_ix, filename
+    )
 
 else:
     pass
