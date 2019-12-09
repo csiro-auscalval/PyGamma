@@ -90,7 +90,7 @@ class BaselineProcess:
         self.master_scene = master_scene
         self.polarization = polarization
         self.slc_dates = self.list_slc_dates()
-
+        print(self.slc_dates)
         # select the mater to be center date is None
         if self.master_scene is None:
             self.master_scene = self.slc_dates[int(len(self.slc_dates) / 2)]
@@ -108,35 +108,36 @@ class BaselineProcess:
         return sorted(slc_dates, reverse=False)
 
     def compute_perpendicular_baseline(self):
+        slc_par_list = [item.as_posix() for item in self.slc_par_list]
         def _match_par(scene_date: datetime.date):
             _date_str = "{:04}{:02}{:02}".format(scene_date.year, scene_date.month, scene_date.day)
             _par = fnmatch.filter(
-                self.slc_par_list, "*{}_{}.slc.par".format(scene_date.strftime("%Y%m%d"), self.polarization.upper())
+                slc_par_list, "*{}_{}.slc.par".format(scene_date.strftime("%Y%m%d"), self.polarization.upper())
             )
 
             if len(_par) != 1:
                 raise IndexError(f"{scene_date} has {len(_par)} match. match must be only 1 file")
-            return _par[0]
+            return Path(_par[0])
 
         relBperps = np.zeros((len(self.slc_dates), len(self.slc_dates) - 1))
 
         for m_idx, master_date in enumerate(self.slc_dates):
             m_data = ParFileParser(Path(_match_par(master_date)))
             m_P = self.llh2xyz(m_data.slc_par_params.lat, m_data.slc_par_params.lon, 0.0)
-            m_M = self.cal_orbit_pos(
+            m_M = self.calc_orbit_pos(
                 m_data.orbit_par_params.t,
                 m_data.slc_par_params.tmin,
                 m_data.slc_par_params.tmax,
                 m_data.orbit_par_params.xyz,
-                m_P)
+                m_P
             )
             R1 = m_M - m_P
-            slaves = self.slc_dates
+            slaves = self.slc_dates[:]
             slaves.pop(m_idx)
             Bperps = []
             for s_idx, slave_date in enumerate(slaves):
                 s_data = ParFileParser(Path(_match_par(slave_date)))
-                s_M = self.cal_orbit_pos(
+                s_M = self.calc_orbit_pos(
                     s_data.orbit_par_params.t,
                     m_data.slc_par_params.tmin,
                     m_data.slc_par_params.tmax,
@@ -149,7 +150,7 @@ class BaselineProcess:
                 Bperp = math.sqrt(B**2 - Bpar**2)
                 temp1 = np.dot(m_M, R1)
                 temp2 = np.linalg.norm(m_M) * np.linalg.norm(R1)
-                theta1 = match.acos(temp1 / temp2)
+                theta1 = math.acos(temp1 / temp2)
                 temp1 = np.dot(m_M, R2)
                 temp2 = np.linalg.norm(m_M) * np.linalg.norm(R2)
                 theta2 = math.acos(temp1 / temp2)
@@ -165,7 +166,8 @@ class BaselineProcess:
 
                 Bperp_temp = Bperp
                 count_rel += 1
-        realBperps_median = np.median(relBperps, axis=0)
+        relBperps_median = np.median(relBperps, axis=0)
+        print(self.slc_dates)
         m_idx = self.slc_dates.index(self.master_scene)
         sum_rel = 0
         Bperps[m_idx] = 0.0
@@ -174,10 +176,10 @@ class BaselineProcess:
             Bperps[i] = sum_rel
         sum_rel = 0
         for i in range(m_idx + 1, len(self.slc_dates)):
-            sum_rel += relBPerps_median[i-1]
+            sum_rel += relBperps_median[i-1]
             Bperps[i] = sum_rel
 
-        slaves = self.slc_dates
+        slaves = self.slc_dates[:]
         slaves.pop(m_idx)
 
         Bdopp = []
@@ -187,7 +189,7 @@ class BaselineProcess:
             Bdopp.append(s_data.orbit_par_params.fDC - m_data.orbit_par_params.fDC)
         Bdopp.insert(m_idx, 0.0)
 
-        return {dt: Bperps[idx], Bdopp[idx] for idx, dt in enumerate(self.slc_dates)}
+        return {dt: (Bperps[idx], Bdopp[idx]) for idx, dt in enumerate(self.slc_dates)}
 
 
     @staticmethod
@@ -210,24 +212,25 @@ class BaselineProcess:
 
         return np.array((x, y, z))
 
-    @staticmethod
-    def normalise(xs, a, b):
-        """Normalises data from a given interval [a;b] to [-2;2]"""
-        # initialise loop (return values will be same length as X)
-        i = 0
-        ys = xs
-        # perform normalization for each value in X
-        for x in xs:
-            ys[i] = (x - a) / (b - a) * 4 - 2
-            i = i + 1
-        return ys
 
     @staticmethod
-    def calc_orbit_pos(self, t, t_min, t_max, xyz, xyz_centre):
+    def calc_orbit_pos(t, t_min, t_max, xyz, xyz_centre):
         """Calculate the in-orbit position for the time of scene centre acquisition"""
         # normalise time vector to the interval [-2 2]
         n = len(t)
-        t = self.normalise(t, t_min, t_max)
+
+        def norm(xs, a, b):
+            """Normalises data from a given interval [a;b] to [-2;2]"""
+            # initialise loop (return values will be same length as X)
+            i = 0
+            ys = xs
+            # perform normalization for each value in X
+            for x in xs:
+                ys[i] = (x - a) / (b - a) * 4 - 2
+                i = i + 1
+            return ys
+
+        t = norm(t, t_min, t_max)
         deg = min(5, n - 1)
         # split xyz orbit vector as poly1d works with 1d polynomials only
         x = [row[0] for row in xyz]
@@ -534,8 +537,9 @@ class BaselineProcess:
         return
 
     def main(self):
-        self.compute_perpendicular_baseline()
-        pass
+        baseline_data = self.compute_perpendicular_baseline()
+        for key, val in baseline_data.items():
+            print(key, val)
 
 
 
@@ -548,10 +552,12 @@ if __name__ == "__main__":
     slc_par = []
     with open("/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/par_files.txt", "r") as fid:
         lines = fid.readlines()
-        for item in lines:
+        for line in lines:
             fp = Path("/g/data/dz56/INSAR_ARD/REPROCESSED/VV/INSAR_ANALYSIS/VICTORIA/S1/GAMMA/T45D_F19/SLC").joinpath(line.rstrip())
-            print(fp)
-    exit()
+            if fp.stem.startswith("r"):
+                continue
+            slc_par.append(fp)
+
     pol = "VV"
-    baseline = BaselineProcess(slc_par, pol)
+    baseline = BaselineProcess(slc_par, pol, master_scene="20170101)
     baseline.main()
