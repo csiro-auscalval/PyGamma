@@ -12,6 +12,7 @@ import re
 
 import luigi
 from python_scripts import generate_slc_inputs
+from python_scripts.calc_baseline_new import BaselineProcess
 from python_scripts.make_gamma_dem import create_gamma_dem
 from python_scripts.calc_multilook_values import multilook, caculate_mean_look_values
 from python_scripts.process_s1_slc import SlcProcess
@@ -422,14 +423,25 @@ class CalcInitialBaseline(luigi.Task):
             pjoin(path_name["proj_dir"], basename(self.proc_file_path))
         )
 
-        args = [
-            "bash",
-            "calc_init_baseline_job.bash",
-            "%s" % pjoin(path_name["proj_dir"], basename(self.proc_file_path)),
-        ]
-        subprocess.check_call(args)
+        slc_par_files = []
+        with open(path_name["scenes_list"], "r") as src:
+            slc_scenes = [scene.rstrip() for scene in src.readlines()]
+            for slc_scene in slc_scenes:
+                slc_par = pjoin(path_name["slc_dir"], slc_scene, "{}_{}.slc.par".format(
+                    slc_scene, path_name["polarization"],
+                )
+                                      )
+                if not exists(slc_par):
+                    raise FileNotFoundError(f"missing {slc_par} file")
+                slc_par_files.append(Path(slc_par))
 
-        exit()
+        baseline = BaselineProcess(
+            slc_par_files,
+            path_name["polarization"],
+            outdir=Path(path_name["list_dir"])
+        )
+        baseline.sbas_list()
+
         with self.output().open("w") as out_fid:
             out_fid.write(
                 "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
