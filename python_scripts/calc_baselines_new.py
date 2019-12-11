@@ -19,7 +19,7 @@ import numpy as np
 _LOG = logging.getLogger(__name__)
 
 
-class ParFileParser:
+class SlcParFileParser:
     def __init__(self, par_file: Path):
         self.par_file = par_file
         self.par_params = None
@@ -86,7 +86,7 @@ class BaselineProcess:
         scene_list: Optional[Path] = None,
         master_scene: Optional[datetime.date] = None,
         outdir: Optional[Path] = None,
-    ):
+    ) -> None:
         self.slc_par_list = slc_par_list
         self.scenes_list = scene_list
         self.master_scene = master_scene
@@ -138,7 +138,7 @@ class BaselineProcess:
         relBperps = np.zeros((len(self.slc_dates), len(self.slc_dates) - 1))
 
         for m_idx, master_date in enumerate(self.slc_dates):
-            m_data = ParFileParser(Path(self._match_par(master_date)))
+            m_data = SlcParFileParser(Path(self._match_par(master_date)))
             m_P = self.llh2xyz(
                 m_data.slc_par_params.lat, m_data.slc_par_params.lon, 0.0
             )
@@ -154,7 +154,7 @@ class BaselineProcess:
             slaves.pop(m_idx)
             Bperps = []
             for s_idx, slave_date in enumerate(slaves):
-                s_data = ParFileParser(Path(self._match_par(slave_date)))
+                s_data = SlcParFileParser(Path(self._match_par(slave_date)))
                 s_M = self.calc_orbit_pos(
                     s_data.orbit_par_params.t,
                     m_data.slc_par_params.tmin,
@@ -200,9 +200,9 @@ class BaselineProcess:
         slaves.pop(m_idx)
 
         Bdopp = []
-        m_data = ParFileParser(Path(self._match_par(self.master_scene)))
+        m_data = SlcParFileParser(Path(self._match_par(self.master_scene)))
         for idx, slave in enumerate(slaves):
-            s_data = ParFileParser(Path(self._match_par(slave)))
+            s_data = SlcParFileParser(Path(self._match_par(slave)))
             Bdopp.append(s_data.orbit_par_params.fDC - m_data.orbit_par_params.fDC)
         Bdopp.insert(m_idx, 0.0)
 
@@ -219,19 +219,15 @@ class BaselineProcess:
         """Coherence-based SBAS Network calculation and Integerogram List"""
         bperps, bdopp = self.compute_perpendicular_baseline()
         m_idx = self.slc_dates.index(self.master_scene)
-        m_data = ParFileParser(Path(self._match_par(self.master_scene)))
+        m_data = SlcParFileParser(Path(self._match_par(self.master_scene)))
 
-        par_params = namedtuple(
-            "slc_par_params",
-            ["tmin", "tmax", "lat", "lon", "r1", "inc", "f", "Br", "Ba"],
-        )
         bperp_max = (
             (m_data.slc_par_params.Br / m_data.slc_par_params.f)
             * m_data.slc_par_params.r1
             * math.tan(m_data.slc_par_params.inc / 180. * math.pi)
         )
 
-        epoch1, epoch2, Bperps_sbas = self.create_sb_network(
+        epoch1, epoch2, bperps_sbas = self.create_sb_network(
             self.slc_dates,
             bperps,
             bdopp,
@@ -260,7 +256,7 @@ class BaselineProcess:
         master: datetime.date, slaves: List[datetime.date], outfile: Path
     ) -> None:
         """ Create single Master Interferogram List"""
-        with open(outfile, "w") as fid:
+        with open(outfile.as_posix(), "w") as fid:
             for slave in slaves:
                 fid.wrte(
                     master.strftime("%Y%m%d") + "," + slave.strftime("%Y%m%d") + "\n"
@@ -271,8 +267,8 @@ class BaselineProcess:
         """ Create Daisy-chained Interferogram List"""
         nums = range(0, len(scenes))
         _scenes = [sc.strftime("%Y%m%d") for sc in scenes]
-        merged = [(nums[idx], scene) for scene in _scenes]
-        with open(outfile, "w") as fid:
+        merged = [(nums[idx], scene) for idx, scene in enumerate(_scenes)]
+        with open(outfile.as_posix(), "w") as fid:
             for num, scene in merged:
                 num1 = num + 1
                 if num1 < len(_scenes):
@@ -453,7 +449,12 @@ class BaselineProcess:
 
             # keep connections according to nmin even if rho is below threshold
             ntest = 1
+
+            if num_scenes < nmin:
+                nmin = num_scenes - 1
+
             while ntest < nmin + 0.5:
+
                 for i in range(0, num_scenes):
                     # find scenes with no connections (1st), one connection (2nd), ...
                     if np.sum(ix2[i]) < ntest - 0.5:
