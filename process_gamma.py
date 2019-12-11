@@ -12,7 +12,8 @@ import re
 
 import luigi
 from python_scripts import generate_slc_inputs
-from python_scripts.calc_baseline_new import BaselineProcess
+from python_scripts.calc_baselines_new import BaselineProcess
+from python_scripts.coregister_dem import CoregisterDem
 from python_scripts.make_gamma_dem import create_gamma_dem
 from python_scripts.calc_multilook_values import multilook, caculate_mean_look_values
 from python_scripts.process_s1_slc import SlcProcess
@@ -36,6 +37,15 @@ def on_failure(task, exception):
 
     pid = int(os.getpid())
     os.kill(pid, signal.SIGTERM)
+
+
+def calculate_master(scenes_list) -> str:
+    with open(scenes_list, "r") as src:
+        slc_dates = [
+            datetime.datetime.strptime(scene.strip(), "%Y%m%d").date()
+            for scene in src.readlines()
+        ]
+        return sorted(slc_dates, reverse=True)[int(len(slc_dates) / 2)]
 
 
 class ExternalFileChecker(luigi.ExternalTask):
@@ -398,7 +408,6 @@ class CalcInitialBaseline(luigi.Task):
     """
     Runs calculation of initial baseline task
     """
-
     proc_file_path = luigi.Parameter()
     upstream_task = luigi.Parameter()
 
@@ -438,7 +447,8 @@ class CalcInitialBaseline(luigi.Task):
         baseline = BaselineProcess(
             slc_par_files,
             path_name["polarization"],
-            outdir=Path(path_name["list_dir"])
+            outdir=Path(path_name["list_dir"]),
+            master_scene=calculate_master(path_name["scenes_list"])
         )
         baseline.sbas_list()
 
@@ -452,7 +462,6 @@ class CoregisterDemMaster(luigi.Task):
     """
     Runs co-registration of DEM and master scene
     """
-
     proc_file_path = luigi.Parameter()
     upstream_task = luigi.Parameter()
 
@@ -477,12 +486,28 @@ class CoregisterDemMaster(luigi.Task):
             pjoin(path_name["proj_dir"], basename(self.proc_file_path))
         )
 
-        args = [
-            "bash",
-            "coregister_dem_to_master_job.bash",
-            "%s" % pjoin(path_name["proj_dir"], basename(self.proc_file_path)),
-        ]
-        subprocess.check_call(args)
+        master_scene = calculate_master(path_name["scenes_list"])
+
+        master_slc = pjoin(Path(path_name["slc_dir"]),
+            master_scene.strftime("%Y%m%d"),
+            "{}_{}.slc".format(master_scene.strftime("%Y%m%d"),
+            path_name["polarization"]
+        )
+        )
+        master_slc_par = Path(master_slc).with_suffix(".slc.par")
+        dem = Path(path_name['gamma_dem']).joinpath(f"{path_name['track_frame']}.dem")
+        dem_par = dem.with_suffix(dem.suffix + ".par")
+
+        coreg = CoregisterDem(
+            rlks=4,
+            alks=1,
+            dem=dem,
+            slc=Path(master_slc),
+            dem_par=dem_par,
+            slc_par=master_slc_par,
+            outdir=Path(path_name['dem_dir'])
+        )
+        coreg.main()
 
         with self.output().open("w") as out_fid:
             out_fid.write(
@@ -607,7 +632,7 @@ class Workflow(luigi.Task):
             upstream_task={"coregslaves": coregslaves}
         )
 
-        yield calcbaseline
+        yield coregmaster
 
     def output(self):
         path_name = get_path(self.proc_file_path)
