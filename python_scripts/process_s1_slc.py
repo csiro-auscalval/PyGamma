@@ -248,7 +248,6 @@ class SlcProcess:
 
     def frame_subset(self):
         df = pd.read_csv(self.burst_data)
-        self.acquisition_date = datetime.date(2018, 1, 8)
         df["acquistion_datetime"] = pd.to_datetime(df["acquistion_datetime"])
         df["date"] = df["acquistion_datetime"].apply(lambda x: pd.Timestamp(x).date())
         df_subset = df[df["date"] == self.acquisition_date]
