@@ -588,7 +588,8 @@ class CoregisterDem:
                 "0",
                 "1",
                 "1",
-                "100." "-",
+                "100.",
+                "-",
                 "-",
                 "-",
                 self.seamask.as_posix(),
@@ -859,7 +860,6 @@ class CoregisterDem:
     def main(self):
         self.outdir.mkdir(exist_ok=True)
         with working_directory(self.outdir):
-            pass
             self.copy_slc()
             self.over_sample()
             self.gen_dem_rdc()
