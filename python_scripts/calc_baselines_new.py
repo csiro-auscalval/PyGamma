@@ -133,7 +133,6 @@ class BaselineProcess:
         return Path(_par[0])
 
     def compute_perpendicular_baseline(self):
-        # slc_par_list = [item.as_posix() for item in self.slc_par_list]
 
         relBperps = np.zeros((len(self.slc_dates), len(self.slc_dates) - 1))
 
