@@ -9,7 +9,6 @@ import logging
 from pathlib import Path
 from python_scripts.subprocess_utils import working_directory, run_command
 
-
 _LOG = logging.getLogger(__name__)
 
 
@@ -816,7 +815,7 @@ class CoregisterDem:
             self.dem_offsets,
             self.dem_coffs,
             self.dem_coffsets,
-            self.dem_lt_rought,
+            self.dem_lt_rough,
             self.dem_master_gamma0_eqa_bmp
         ]:
             if item.exists():
@@ -860,11 +859,11 @@ class CoregisterDem:
     def main(self):
         self.outdir.mkdir(exist_ok=True)
         with working_directory(self.outdir):
-            # self.copy_slc()
-            # self.over_sample()
-            # self.gen_dem_rdc()
-            # self.create_diff_par()
-            # self.offset_calc()
-            # self.geocode()
+            pass
+            self.copy_slc()
+            self.over_sample()
+            self.gen_dem_rdc()
+            self.create_diff_par()
+            self.offset_calc()
+            self.geocode()
             self.look_vector()
-            exit()
