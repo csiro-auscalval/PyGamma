@@ -11,6 +11,7 @@ import traceback
 import re
 
 import luigi
+import luigi.configuration
 from python_scripts import generate_slc_inputs
 from python_scripts.calc_baselines_new import BaselineProcess
 from python_scripts.coregister_dem import CoregisterDem
@@ -20,7 +21,7 @@ from python_scripts.process_s1_slc import SlcProcess
 from python_scripts.s1_slc_metadata import S1DataDownload
 from python_scripts.initialize_proc_file import get_path, setup_folders
 from python_scripts.proc_template import PROC_FILE_TEMPLATE
-
+from python_scripts.subprocess_utils import environ
 from python_scripts.logs import ERROR_LOGGER, STATUS_LOGGER
 
 
@@ -232,7 +233,6 @@ class CreateGammaDem(luigi.Task):
         }
 
         create_gamma_dem(**kwargs)
-
         with self.output().open("w") as out_fid:
             out_fid.write(
                 "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
@@ -405,6 +405,8 @@ class CreateMultilook(luigi.Task):
             )
         yield ml_jobs
         with self.output().open("w") as out_fid:
+            out_fid.write("rlks:\t {}".format(str(rlks)))
+            out_fid.write("alks:\t {}".format(str(alks)))
             out_fid.write(
                 "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
             )
@@ -494,8 +496,18 @@ class CoregisterDemMaster(luigi.Task):
             pjoin(path_name["proj_dir"], basename(self.proc_file_path))
         )
 
-        master_scene = calculate_master(path_name["scenes_list"])
+        with open(
+            pjoin(
+                dirname(self.input()["calcbaseline"].path), "CreateMultilook_status_logs.out"
+            ), "r"
+        ) as src:
+            for line in src.readlines():
+                if line.startswith("rlks"):
+                    rlks = int(line.strip().split(':')[1])
+                if line.startswith("alks"):
+                    alks = int(line.strip().split(':')[1])
 
+        master_scene = calculate_master(path_name["scenes_list"])
         master_slc = pjoin(
             Path(path_name["slc_dir"]),
             master_scene.strftime("%Y%m%d"),
@@ -508,15 +520,18 @@ class CoregisterDemMaster(luigi.Task):
         dem_par = dem.with_suffix(dem.suffix + ".par")
 
         coreg = CoregisterDem(
-            rlks=4,
-            alks=1,
+            rlks=rlks,
+            alks=alks,
             dem=dem,
             slc=Path(master_slc),
             dem_par=dem_par,
             slc_par=master_slc_par,
             outdir=Path(path_name["dem_dir"]),
         )
-        coreg.main()
+
+        # runs with multi-threads and returns to initial setting
+        with environ({'OMP_NUM_THREADS': '4'}):
+            coreg.main()
 
         with self.output().open("w") as out_fid:
             out_fid.write(
