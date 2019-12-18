@@ -103,7 +103,7 @@ class CommandError(RuntimeError):
 # NOTE
 # run_command function is directly copied from https://github.com/OpenDataCubePipelines/eugl/blob/master/eugl/fmask.py
 
-def run_command(command, work_dir, timeout=None, command_name=None):
+def run_command(command, work_dir, timeout=None, command_name=None, return_stdout=False):
     """
     A simple utility to execute a subprocess command.
     Raises a CalledProcessError for backwards compatibility
@@ -120,16 +120,16 @@ def run_command(command, work_dir, timeout=None, command_name=None):
     timed_out = False
 
     try:
-        stdout, stderr = _proc.communicate(timeout=timeout)
+        _stdout, _stderr = _proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
         # see https://stackoverflow.com/questions/36952245/subprocess-timeout-failure
         os.killpg(os.getpgid(_proc.pid), signal.SIGTERM)
-        stdout, stderr = _proc.communicate()
+        _stdout, _stderr = _proc.communicate()
         timed_out = True
 
     if _proc.returncode != 0:
-        _LOG.error(stderr.decode("utf-8"))
-        _LOG.info(stdout.decode("utf-8"))
+        _LOG.error(_stderr.decode("utf-8"))
+        _LOG.info(_stdout.decode("utf-8"))
 
         if command_name is None:
             command_name = str(command)
@@ -142,4 +142,6 @@ def run_command(command, work_dir, timeout=None, command_name=None):
                 % (command_name, str(_proc.returncode))
             )
     else:
-        _LOG.debug(stdout.decode("utf-8"))
+        _LOG.debug(_stdout.decode("utf-8"))
+        if return_stdout:
+            return _stdout.decode("utf-8")

@@ -120,7 +120,7 @@ class SlcMetadata:
             file_obj = BytesIO()
             file_obj.write(manifest_file.read())
             manifest_obj = file_obj.seek(0)
-        
+
         meta = dict()
         with manifest_obj as obj:
             manifest = obj.getvalue()
@@ -436,16 +436,28 @@ class S1DataDownload(SlcMetadata):
 
         return pjoin(_resorb_path, acq_orbit_file[-1])
 
-    def slc_download(self, output_dir: Optional[Path] = None, retry: Optional[int] = 3):
+    def slc_download(
+        self,
+        output_dir: Optional[Path] = None,
+        retry: Optional[int] = 3,
+        polarizations: Optional[str] = None,
+    ):
         """A method to download slc raw data."""
 
-        download_files_patterns = [
-            "*measurement/*{}*".format(self.polarization.lower()),
-            "*annotation/*{}*".format(self.polarization.lower()),
-            "*/calibration/*{}*".format(self.polarization.lower()),
-            "*/preview/quick-look.png",
-            "*/preview/map-overlay.kml",
-        ]
+        if polarizations is None:
+            polarizations = list(self.polarization)
+
+        download_files_patterns = sum(
+            [
+                [
+                    f"*measurement/*{pol.lower()}*",
+                    f"*annotation/*{pol.lower()}*",
+                    f"*/calibration/*{pol.lower()}*",
+                ]
+                for pol in polarizations
+            ],
+            [],
+        )
 
         def _archive_download(target_file):
             """ A helper method to download target file from archive"""

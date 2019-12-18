@@ -158,42 +158,6 @@ def checkmultilook(slc_path):
     return complete_status
 
 
-def checkbaseline(ifgs_list_path):
-    """
-    Checks if baseline calculation is carried out or not
-    Check implemented is to check if ifg list exists and its contents
-    is not blank
-    :param ifgs_list_path:
-        A 'path' to ifgs list
-
-    :return:
-        complete_status = True if all checks pass else raises an error
-    """
-    # checks if ifg list exists and if its contents are not
-    # just blank space
-    connections = []
-    with open(ifgs_list_path, "r") as f:
-        lines = f.readlines()
-        for line in lines:
-            if line.isspace():
-                pass
-            else:
-                connections.append(line.strip())
-
-    # checks if any connection are present in ifg lists
-    # which is expected for if baseline calculation was carried out
-    if not connections:
-        error = "{ifg} does not have any scene connections".format(
-            ifg=basename(ifgs_list_path)
-        )
-        ERROR_LOGGER.error(error)
-        complete_status = False
-    else:
-        complete_status = True
-
-    return complete_status
-
-
 def checkdemmaster(dem_path, slc_path, master_scene):
     """
     Checks if master scene and DEM co-registration is correctly performed
