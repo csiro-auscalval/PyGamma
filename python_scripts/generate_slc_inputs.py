@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-import os
+
+from typling import List, Union
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -123,7 +124,7 @@ def query_slc_inputs(
     end_date: datetime,
     orbit: str,
     track: int,
-    polarization: str,
+    polarization: List[str],
 ) -> dict:
     """A method to query sqlite database and generate slc input dict.
 
@@ -187,9 +188,11 @@ def query_slc_inputs(
             )
 
             #  check queried results against master dataframe to form slc inputs
-            return _check_slc_input_data(
-                slc_df, gpd.read_file(spatial_subset), track, polarization
-            )
+            return {
+                pol: _check_slc_input_data(
+                    slc_df, gpd.read_file(spatial_subset), track, pol)
+                for pol in polarization
+            }
 
         except (AttributeError, AssertionError) as err:
             raise err
@@ -202,7 +205,12 @@ def _write_list(data: list, fid: Path) -> None:
             out_fid.write(line + "\n")
 
 
-def generate_lists(slc_data_input: dict, path_name: dict, to_csv: bool = True) -> None:
+def generate_lists(
+    slc_data_input: dict,
+    out_csv_file: Union[Path, str],
+    scenes_list: Union[Path, str],
+    download_list: Union[Path, str]
+) -> None:
     """Write list of text files: download.list, scenes.list, frame_subset_list. """
 
     _regx_uuid = r"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}"
@@ -243,15 +251,13 @@ def generate_lists(slc_data_input: dict, path_name: dict, to_csv: bool = True) -
                         },
                         ignore_index=True,
                     )
-    if to_csv:
-        slc_input_df.to_csv(path_name["slc_input"])
 
-    unique_dates = sorted(slc_input_df.date.unique())
+    slc_input_df.to_csv(out_csv_file)
 
     # write scene list
+    unique_dates = sorted(slc_input_df.date.unique())
     _write_list(
-        [dt.strftime("%Y%m%d") for dt in unique_dates], path_name["scenes_list"]
+        [dt.strftime("%Y%m%d") for dt in unique_dates], scenes_list
     )
-
     # write download list
-    _write_list(slc_input_df.url.unique(), path_name["download_list"])
+    _write_list(slc_input_df.url.unique(), download_list)

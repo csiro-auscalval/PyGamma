@@ -76,7 +76,8 @@ class CoregisterDem:
         dem_window: Optional[Tuple[int, int]] = (256, 256),
         dem_snr: Optional[float] = 0.15,
         dem_rad_max: Optional[int] = 4,
-        outdir: Optional[Path] = None,
+        dem_outdir: Optional[Path] = None,
+        slc_outdir: Optional[Path] = None
     ) -> None:
         self.alks = alks
         self.rlks = rlks
@@ -84,9 +85,12 @@ class CoregisterDem:
         self.slc = slc
         self.dem_par = dem_par
         self.slc_par = slc_par
-        self.outdir = outdir
-        if self.outdir is None:
-            self.outdir = Path(os.getcwd())
+        self.dem_outdir = dem_outdir
+        self.slc_outdir = slc_outdir
+        if self.dem_outdir is None:
+            self.dem_outdir = Path(os.getcwd())
+        if self.slc_outdir is None:
+            self.slc_outdir = Path(self.slc).parent
 
         self.dem_patch_window = dem_patch_window
         self.dem_rpos = dem_rpos
@@ -100,39 +104,45 @@ class CoregisterDem:
         if self.rlks > 1:
             self.adjust_dem_parameter()
 
+        self.dem_master_slc = self.slc
+        self.dem_master_slc_par = self.slc_par
+
         self.dem_ovr = None
         self.dem_width = None
         self.r_dem_master_mli_width = None
         self.r_dem_master_mli_length = None
-        self.dem_files = self.dem_filenames()
-        self.dem_masters = self.dem_master_names()
+        self.dem_files = self.dem_filenames(
+            dem_prefix=f"{self.slc.stem}_{self.rlks}rlks",
+            outdir=self.dem_outdir
+        )
+        self.dem_masters = self.dem_master_names(
+            slc_prefix=f"{self.slc.stem}_{self.rlks}rlks",
+            r_slc_prefix=f"r{self.slc.stem}",
+            outdir=self.slc_outdir
+        )
         for _key, val in {**self.dem_files, **self.dem_masters}.items():
             print(_key, val)
             setattr(self, _key, val)
 
-    def dem_master_names(self):
+    @staticmethod
+    def dem_master_names(slc_prefix: str, r_slc_prefix: str, outdir: Path):
         attrs = dict()
-        attrs["dem_master_dir"] = self.slc.parent
-
-        slc_prefix = f"{self.slc.stem}_{self.rlks}rlks"
-        attrs["dem_master_slc"] = self.slc
-        attrs["dem_master_slc_par"] = self.slc_par
-        attrs["dem_master_mli"] = self.outdir.joinpath(f"{slc_prefix}.mli")
+        attrs["dem_master_mli"] = outdir.joinpath(f"{slc_prefix}.mli")
         attrs["dem_master_mli_par"] = attrs["dem_master_mli"].with_suffix(
             attrs["dem_master_mli"].suffix + ".par"
         )
-        attrs["dem_master_sigma0"] = self.outdir.joinpath(f"{slc_prefix}.sigma0")
-        attrs["dem_master_sigma0_eqa"] = self.outdir.joinpath(
+        attrs["dem_master_sigma0"] = outdir.joinpath(f"{slc_prefix}.sigma0")
+        attrs["dem_master_sigma0_eqa"] = outdir.joinpath(
             f"{slc_prefix}_eqa.sigma0"
         )
         attrs["dem_master_sigma0_eqa_geo"] = attrs["dem_master_sigma0_eqa"].with_suffix(
             attrs["dem_master_sigma0_eqa"].suffix + ".tif"
         )
-        attrs["dem_master_gamma0"] = self.outdir.joinpath(f"{slc_prefix}.gamma0")
+        attrs["dem_master_gamma0"] = outdir.joinpath(f"{slc_prefix}.gamma0")
         attrs["dem_master_gamma0_bmp"] = attrs["dem_master_gamma0"].with_suffix(
             attrs["dem_master_gamma0"].suffix + ".bmp"
         )
-        attrs["dem_master_gamma0_eqa"] = self.outdir.joinpath(
+        attrs["dem_master_gamma0_eqa"] = outdir.joinpath(
             f"{slc_prefix}_eqa.gamma0"
         )
         attrs["dem_master_gamma0_eqa_bmp"] = attrs["dem_master_gamma0_eqa"].with_suffix(
@@ -141,10 +151,11 @@ class CoregisterDem:
         attrs["dem_master_gamma0_eqa_geo"] = attrs["dem_master_gamma0_eqa"].with_suffix(
             attrs["dem_master_gamma0_eqa"].suffix + ".tif"
         )
-        attrs["r_dem_master_slc"] = self.outdir.joinpath(f"r{self.slc.name}")
-        attrs["r_dem_master_slc_par"] = self.outdir.joinpath(f"r{self.slc_par.name}")
-        attrs["r_dem_master_mli"] = self.outdir.joinpath(
-            "r{}_{}rlks.mli".format(self.slc.stem, str(self.rlks))
+
+        attrs["r_dem_master_slc"] = outdir.joinpath(f"{r_slc_prefix}.slc")
+        attrs["r_dem_master_slc_par"] = outdir.joinpath(f"{r_slc_prefix}.slc.par")
+        attrs["r_dem_master_mli"] = outdir.joinpath(
+            "r{}.mli".format(slc_prefix)
         )
         attrs["r_dem_master_mli_par"] = attrs["r_dem_master_mli"].with_suffix(
             attrs["r_dem_master_mli"].suffix + ".par"
@@ -154,56 +165,54 @@ class CoregisterDem:
         )
         return attrs
 
-    def dem_filenames(self):
+    @staticmethod
+    def dem_filenames(dem_prefix: str, outdir: Path):
         attrs = dict()
-        attrs["dem"] = self.dem
-        attrs["dem_par"] = self.dem_par
-        dem_prefix = f"{self.slc.stem}_{self.rlks}rlks"
-        attrs["dem_diff"] = self.outdir.joinpath(f"diff_{dem_prefix}.par")
-        attrs["rdc_dem"] = self.outdir.joinpath(f"{dem_prefix}_rdc.dem")
-        attrs["eqa_dem"] = self.outdir.joinpath(f"{dem_prefix}_eqa.dem")
+        attrs["dem_diff"] = outdir.joinpath(f"diff_{dem_prefix}.par")
+        attrs["rdc_dem"] = outdir.joinpath(f"{dem_prefix}_rdc.dem")
+        attrs["eqa_dem"] = outdir.joinpath(f"{dem_prefix}_eqa.dem")
         attrs["eqa_dem_par"] = attrs["eqa_dem"].with_suffix(
             attrs["eqa_dem"].suffix + ".par"
         )
         attrs["eqa_dem_geo"] = attrs["eqa_dem"].with_suffix(
             attrs["eqa_dem"].suffix + ".tif"
         )
-        attrs["dem_lt_rough"] = self.outdir.joinpath(
+        attrs["dem_lt_rough"] = outdir.joinpath(
             f"{dem_prefix}_rough_eqa_to_rdc.lt"
         )
-        attrs["dem_eqa_sim_sar"] = self.outdir.joinpath(f"{dem_prefix}_eqa.sim")
-        attrs["dem_loc_inc"] = self.outdir.joinpath(f"{dem_prefix}_eqa.linc")
-        attrs["dem_lsmap"] = self.outdir.joinpath(f"{dem_prefix}_eqa.lsmap")
-        attrs["seamask"] = self.outdir.joinpath(f"{dem_prefix}_eqa_seamask.tif")
-        attrs["dem_lt_fine"] = self.outdir.joinpath(f"{dem_prefix}_eqa_to_rdc.lt")
-        attrs["dem_eqa_sim_sar"] = self.outdir.joinpath(f"{dem_prefix}_eqa.sim")
-        attrs["dem_rdc_sim_sar"] = self.outdir.joinpath(f"{dem_prefix}_rdc.sim")
-        attrs["dem_rdc_inc"] = self.outdir.joinpath(f"{dem_prefix}_rdc.linc")
-        attrs["ellip_pix_sigma0"] = self.outdir.joinpath(
+        attrs["dem_eqa_sim_sar"] = outdir.joinpath(f"{dem_prefix}_eqa.sim")
+        attrs["dem_loc_inc"] = outdir.joinpath(f"{dem_prefix}_eqa.linc")
+        attrs["dem_lsmap"] = outdir.joinpath(f"{dem_prefix}_eqa.lsmap")
+        attrs["seamask"] = outdir.joinpath(f"{dem_prefix}_eqa_seamask.tif")
+        attrs["dem_lt_fine"] = outdir.joinpath(f"{dem_prefix}_eqa_to_rdc.lt")
+        attrs["dem_eqa_sim_sar"] = outdir.joinpath(f"{dem_prefix}_eqa.sim")
+        attrs["dem_rdc_sim_sar"] = outdir.joinpath(f"{dem_prefix}_rdc.sim")
+        attrs["dem_rdc_inc"] = outdir.joinpath(f"{dem_prefix}_rdc.linc")
+        attrs["ellip_pix_sigma0"] = outdir.joinpath(
             f"{dem_prefix}_ellip_pix_sigma0"
         )
-        attrs["dem_pix_gam"] = self.outdir.joinpath(f"{dem_prefix}_rdc_pix_gamma0")
+        attrs["dem_pix_gam"] = outdir.joinpath(f"{dem_prefix}_rdc_pix_gamma0")
         attrs["dem_pix_gam_bmp"] = attrs["dem_pix_gam"].with_suffix(".bmp")
-        attrs["dem_off"] = self.outdir.joinpath(f"{dem_prefix}.off")
-        attrs["dem_offs"] = self.outdir.joinpath(f"{dem_prefix}.offs")
-        attrs["dem_ccp"] = self.outdir.joinpath(f"{dem_prefix}.ccp")
-        attrs["dem_offsets"] = self.outdir.joinpath(f"{dem_prefix}.offsets")
-        attrs["dem_coffs"] = self.outdir.joinpath(f"{dem_prefix}.coffs")
-        attrs["dem_coffsets"] = self.outdir.joinpath(f"{dem_prefix}.coffsets")
-        attrs["dem_lv_theta"] = self.outdir.joinpath(f"{dem_prefix}_eqa.lv_theta")
-        attrs["dem_lv_phi"] = self.outdir.joinpath(f"{dem_prefix}_eqa.lv_phi")
+        attrs["dem_off"] = outdir.joinpath(f"{dem_prefix}.off")
+        attrs["dem_offs"] = outdir.joinpath(f"{dem_prefix}.offs")
+        attrs["dem_ccp"] = outdir.joinpath(f"{dem_prefix}.ccp")
+        attrs["dem_offsets"] = outdir.joinpath(f"{dem_prefix}.offsets")
+        attrs["dem_coffs"] = outdir.joinpath(f"{dem_prefix}.coffs")
+        attrs["dem_coffsets"] = outdir.joinpath(f"{dem_prefix}.coffsets")
+        attrs["dem_lv_theta"] = outdir.joinpath(f"{dem_prefix}_eqa.lv_theta")
+        attrs["dem_lv_phi"] = outdir.joinpath(f"{dem_prefix}_eqa.lv_phi")
         attrs["dem_lv_theta_geo"] = attrs["dem_lv_theta"].with_suffix(
             attrs["dem_lv_theta"].suffix + ".tif"
         )
         attrs["dem_lv_phi_geo"] = attrs["dem_lv_phi"].with_suffix(
             attrs["dem_lv_phi"].suffix + ".tif"
         )
-        attrs["ext_image_flt"] = self.outdir.joinpath(f"{dem_prefix}_ext_img_sar.flt")
-        attrs["ext_image_init_sar"] = self.outdir.joinpath(
+        attrs["ext_image_flt"] = outdir.joinpath(f"{dem_prefix}_ext_img_sar.flt")
+        attrs["ext_image_init_sar"] = outdir.joinpath(
             f"{dem_prefix}_ext_img_init.sar"
         )
-        attrs["ext_image_sar"] = self.outdir.joinpath(f"{dem_prefix}_ext_img.sar")
-        attrs["dem_check_file"] = self.outdir.joinpath(
+        attrs["ext_image_sar"] = outdir.joinpath(f"{dem_prefix}_ext_img.sar")
+        attrs["dem_check_file"] = outdir.joinpath(
             f"{dem_prefix}_DEM_coreg_results"
         )
 
@@ -647,7 +656,7 @@ class CoregisterDem:
             command = [
                 "convert",
                 rdc_dem_bmp.as_posix(),
-                self.outdir.joinpath(self.rdc_dem.stem).with_suffix(".png").as_posix(),
+                self.dem_outdir.joinpath(self.rdc_dem.stem).with_suffix(".png").as_posix(),
             ]
             run_command(command, os.getcwd())
 
@@ -858,8 +867,8 @@ class CoregisterDem:
         run_command(command, os.getcwd())
 
     def main(self):
-        self.outdir.mkdir(exist_ok=True)
-        with working_directory(self.outdir):
+        self.dem_outdir.mkdir(exist_ok=True)
+        with working_directory(self.dem_outdir):
             self.copy_slc()
             self.over_sample()
             self.gen_dem_rdc()

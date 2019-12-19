@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import logging
-from typing import Optional
+from typing import Optional, List
 import os
 from os.path import join as pjoin
 import re
@@ -353,7 +353,7 @@ class S1DataDownload(SlcMetadata):
     def __init__(
         self,
         slc_scene: Path,
-        polarization: str,
+        polarization: List[str],
         s1_orbits_poeorb_path: Path,
         s1_orbits_resorb_path: Path,
     ) -> None:
@@ -440,12 +440,12 @@ class S1DataDownload(SlcMetadata):
         self,
         output_dir: Optional[Path] = None,
         retry: Optional[int] = 3,
-        polarizations: Optional[str] = None,
+        polarizations: Optional[List[str]] = None,
     ):
         """A method to download slc raw data."""
 
         if polarizations is None:
-            polarizations = list(self.polarization)
+            polarizations = self.polarization
 
         download_files_patterns = sum(
             [

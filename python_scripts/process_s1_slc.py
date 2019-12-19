@@ -3,7 +3,7 @@
 import os
 import re
 from collections import namedtuple
-from typing import Optional
+from typing import Optional, Union
 import tempfile
 import logging
 from pathlib import Path
@@ -19,12 +19,12 @@ _LOG = logging.getLogger(__name__)
 class SlcProcess:
     def __init__(
         self,
-        raw_data_dir: Path,
-        slc_output_dir: Path,
+        raw_data_dir: Union[Path, str],
+        slc_output_dir: Union[Path, str],
         polarization: str,
         scene_date: str,
-        burst_data: Path,
-        ref_master_tab: Optional[Path] = None,
+        burst_data: Union[Path, str],
+        ref_master_tab: Optional[Union[Path, str]] = None,
     ):
         self.raw_data_dir = Path(raw_data_dir)
         self.output_dir = Path(slc_output_dir)
