@@ -20,7 +20,6 @@ from python_scripts.make_gamma_dem import create_gamma_dem
 from python_scripts.calc_multilook_values import multilook, caculate_mean_look_values
 from python_scripts.process_s1_slc import SlcProcess
 from python_scripts.s1_slc_metadata import S1DataDownload
-from python_scripts.initialize_proc_file import get_path, setup_folders
 from python_scripts.proc_template import PROC_FILE_TEMPLATE
 from python_scripts.subprocess_utils import environ
 from python_scripts.logs import ERROR_LOGGER, STATUS_LOGGER
@@ -119,7 +118,7 @@ class InitialSetup(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{uuid.uuid4()}_brust_data.csv")
+            Path(self.workdir).joinpath(f"{uuid.uuid4()}_initialsetup_status_logs.out")
         )
 
     def run(self):
@@ -180,7 +179,6 @@ class CreateGammaDem(luigi.Task):
     """
 
     upstream_task = luigi.Parameter()
-    vector_file  = luigi.Parameter()
     dem_img = luigi.Parameter()
 
     def requires(self):
@@ -195,8 +193,6 @@ class CreateGammaDem(luigi.Task):
 
     def run(self):
         STATUS_LOGGER.info("create gamma dem task")
-        path_name = get_path(self.proc_file_path)
-
         kwargs = {
             "gamma_dem_dir": Path(self.outdir).joinpath("gamma_dem"),
             "dem_img": self.dem_img,
@@ -541,12 +537,9 @@ class CreateCoregisterSlaves(luigi.Task):
         )
 
     def run(self):
-
         STATUS_LOGGER.info("co-register master-slaves task")
-        path_name = get_path(self.proc_file_path)
 
         slc_scenes = get_scenes(self.burst_data_csv)
-
         master_scene = self.master_scene
         if master_scene is None:
             master_scene = calculate_master(slc_scenes)
@@ -652,40 +645,27 @@ class Workflow(luigi.Task):
             track=self.track,
             frame=self.frame,
             outdir=self.outdir,
-            workdir=self.workdir
-        )
-
-        rawdataextract = RawDataExtract(
-            proc_file_path=self.proc_file_path,
-            s1_file_list=self.s1_file_list,
-            upstream_task={"initialsetup": initialsetup},
-            polarization=self.polarization
+            workdir=self.workdir,
+            burst_data_csv=pjoin(self.outdir, f"{self.track}_{self.frame}_burst_data.csv")
         )
 
         createfullslc = CreateFullSlc(
-            proc_file_path=self.proc_file_path,
-            upstream_task={"rawdataextract": rawdataextract},
-            polarization=self.polarization
+            upstream_task={"initialsetup": initialsetup},
         )
 
         creategammadem = CreateGammaDem(
-            proc_file_path=self.proc_file_path,
-            upstream_task={"rawdataextract": rawdataextract},
-            s1_file_list=self.s1_file_list,
+            upstream_task={"initial_setup": initialsetup},
         )
 
         multilook = CreateMultilook(
-            proc_file_path=self.proc_file_path,
             upstream_task={"createfullslc": createfullslc},
-            polarization=self.polarization
         )
 
         calcbaseline = CalcInitialBaseline(
-            proc_file_path=self.proc_file_path, upstream_task={"multilook": multilook}
+            upstream_task={"multilook": multilook}
         )
 
         coregmaster = CoregisterDemMaster(
-            proc_file_path=self.proc_file_path,
             upstream_task={
                 "calcbaseline": calcbaseline,
                 "creategammadem": creategammadem,
@@ -693,7 +673,6 @@ class Workflow(luigi.Task):
         )
 
         coregslaves = CreateCoregisterSlaves(
-            proc_file_path=self.proc_file_path,
             upstream_task={"coregmaster": coregmaster},
         )
 
@@ -706,15 +685,12 @@ class Workflow(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            pjoin(path_name["checkpoint_dir"], "final_status_logs.out")
+            Path(self.workdir, f"{uuid.uuid4()_final_status_logs.out")
         )
 
     def run(self):
-
         with self.output().open("w") as out_fid:
-            out_fid.write(
-                "{dt}".format(dt=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
-            )
+            out_fid.write("")
 
 
 class ARD(luigi.Task):
