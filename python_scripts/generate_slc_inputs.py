@@ -205,13 +205,11 @@ def _write_list(data: list, fid: Path) -> None:
             out_fid.write(line + "\n")
 
 
-def generate_lists(
+def slc_inputs(
     slc_data_input: dict,
-    out_csv_file: Union[Path, str],
-    scenes_list: Union[Path, str],
-    download_list: Union[Path, str]
-) -> None:
-    """Write list of text files: download.list, scenes.list, frame_subset_list. """
+) -> pd.DataFrame:
+    """Returns the required parameters for SLC processing using GAMMA
+    """
 
     _regx_uuid = r"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}"
     _swath_keys = ["IW1", "IW2", "IW3"]
@@ -246,18 +244,10 @@ def generate_lists(
                             "sensor": slc_val["sensor"],
                             "url": slc_val["url"],
                             "total_bursts": slc_val["total_bursts"],
+                            "polarization": slc_val["polarization"],
                             "acquistion_datetime": slc_val["acquisition_datetime"],
                             "missing_master_bursts": missing_master_bursts,
                         },
                         ignore_index=True,
                     )
-
-    slc_input_df.to_csv(out_csv_file)
-
-    # write scene list
-    unique_dates = sorted(slc_input_df.date.unique())
-    _write_list(
-        [dt.strftime("%Y%m%d") for dt in unique_dates], scenes_list
-    )
-    # write download list
-    _write_list(slc_input_df.url.unique(), download_list)
+    return slc_input_df

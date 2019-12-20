@@ -250,7 +250,7 @@ class SlcProcess:
         df = pd.read_csv(self.burst_data)
         df["acquistion_datetime"] = pd.to_datetime(df["acquistion_datetime"])
         df["date"] = df["acquistion_datetime"].apply(lambda x: pd.Timestamp(x).date())
-        df_subset = df[df["date"] == self.acquisition_date]
+        df_subset = df[(df["date"] == self.acquisition_date) & (df["polarization"] == self.polarization)]
         tabs_param = dict()
         complete_frame = True
 
