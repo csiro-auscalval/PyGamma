@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from typling import List, Union
+from typing import List, Union
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -105,6 +105,7 @@ def _check_slc_input_data(
                         "acquisition_datetime": slc_df.acquisition_start_time.unique()[
                             0
                         ],
+                        "polarization": polarization,
                         "url": slc_gpd.url.unique()[0],
                         "total_bursts": slc_gpd.total_bursts.unique()[0],
                     }

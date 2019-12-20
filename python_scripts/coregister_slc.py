@@ -9,7 +9,7 @@ import re
 import logging
 import shutil
 
-from python_scripts.subprocess_tils import working_directory, run_command
+from python_scripts.subprocess_utils import working_directory, run_command
 
 _LOG = logging.getLogger(__name__)
 
@@ -596,7 +596,7 @@ class CoregisterSlc:
             ]
             run_command(command, temp_dir.as_posix())
             command = [
-                "data2geotiff"
+                "data2geotiff",
                 self.eqa_dem_par.as_posix(),
                 slave_gamma0_eqa.as_posix(),
                 "2",
@@ -608,3 +608,11 @@ class CoregisterSlc:
     def main(self):
         """main method to execute methods needed to product master-slave coregistration"""
         with working_directory(self.out_dir):
+            self.set_tab_files()
+            self.get_lookup()
+            self.reduce_offset()
+            self.coarse_registration()
+            self.resample_full()
+            self.multi_look()
+            self.generate_normalised_backscatter()
+

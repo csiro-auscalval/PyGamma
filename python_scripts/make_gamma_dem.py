@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
 from os.path import join as pjoin
+from pathlib import Path
+from typing import Optional, Union
 import tempfile
 
 import shapely
@@ -11,7 +13,13 @@ from spatialist import Vector
 from python_scripts.subprocess_utils import run_command
 
 
-def create_gamma_dem(gamma_dem_dir, dem_img, track_frame, shapefile, buffer_width=0.3):
+def create_gamma_dem(
+    gamma_dem_dir: Union[Path, str],
+    dem_img: Union[Path, str],
+    track_frame: str,
+    shapefile: Union[Path, str],
+    buffer_width: Optional[float] = 0.3
+    ) -> None:
     """
     Automatically creates a DEM and par file for use with GAMMA.
     :param gamma_dem_dir:
@@ -102,14 +110,3 @@ def create_gamma_dem(gamma_dem_dir, dem_img, track_frame, shapefile, buffer_widt
             ]
             run_command(command, gamma_dem_dir)
 
-
-if __name__ == "__main__":
-    kwargs = {
-        "gamma_dem_dir": "/g/data/u46/users/pd1813/INSAR/test_insar/",
-        "dem_img": "/g/data1/dg9/MASTER_DEM/GAMMA_DEM_SRTM_1as_mosaic.img",
-        "track": "T045D",
-        "frame": "F20S",
-        "shapefile": "/g/data/u46/users/pd1813/INSAR/shape_files/grid_vectors/T045D_F20S.shp",
-    }
-
-    create_gamma_dem(**kwargs)
