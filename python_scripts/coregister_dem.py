@@ -311,7 +311,7 @@ class CoregisterDem:
 
         # generate initial geocoding look-up-table and simulated SAR image
         command = [
-            "gc_map",
+            "gc_map1",
             self.r_dem_master_mli_par.as_posix(),
             "-",
             self.dem_par.as_posix(),
@@ -392,7 +392,6 @@ class CoregisterDem:
     def create_diff_par(self):
         """Fine coregistration of master MLI and simulated SAR image"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            temp_dir = "/g/data1a/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/"
             return_file = Path(temp_dir).joinpath("returns")
             with open(return_file, "w") as fid:
                 fid.write("" + "\n")

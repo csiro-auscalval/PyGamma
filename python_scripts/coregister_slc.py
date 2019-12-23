@@ -174,7 +174,7 @@ class CoregisterSlc:
         """Determine lookup table based on orbit data and DEM"""
         self.slave_lt = outfile
         if outfile is None:
-            self.slave_lt = self.outdir.joinpath(f"{self.master_slave_prefix}.lt")
+            self.slave_lt = self.out_dir.joinpath(f"{self.master_slave_prefix}.lt")
         command = [
             "rdc_trans",
             self.r_dem_master_mli_par.as_posix(),
@@ -269,7 +269,7 @@ class CoregisterSlc:
 
         _LOG.info("Iterative improvement of refinement offset using matching")
         # create slave offset
-        if not self.slave_off.exits():
+        if self.slave_off is None:
             self.slave_off = self.out_dir.joinpath(f"{self.master_slave_prefix}.off")
 
         command = [
@@ -289,13 +289,13 @@ class CoregisterSlc:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir)
 
-            slave_doff = Path(f"{self.master_slave_prefix}.doff")
-            slave_offs = Path(f"{self.master_slave_prefix}.offs")
-            slave_snr = Path(f"{self.master_slave_prefix}.snr")
-            slave_diff_par = Path(f"{self.master_slave_prefix}.diff_par")
+            slave_doff = temp_dir.joinpath(f"{self.master_slave_prefix}.doff")
+            slave_offs = temp_dir.joinpath(f"{self.master_slave_prefix}.offs")
+            slave_snr = temp_dir.joinpath(f"{self.master_slave_prefix}.snr")
+            slave_diff_par = temp_dir.joinpath(f"{self.master_slave_prefix}.diff_par")
 
             while abs(d_azimuth) > max_azimuth_threshold and iteration < max_iteration:
-                slave_off_start = f"{self.slave_off.name}.start"
+                slave_off_start = temp_dir.joinpath(f"{self.slave_off.name}.start")
                 shutil.copy(self.slave_off, slave_off_start)
 
                 # resample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials for refinement
@@ -308,25 +308,23 @@ class CoregisterSlc:
                     self.slave_lt.as_posix(),
                     self.r_dem_master_mli_par.as_posix(),
                     self.slave_mli_par.as_posix(),
-                    slave_off_start,
+                    slave_off_start.as_posix(),
                     self.r_slave_slc_tab.as_posix(),
                     self.r_slave_slc.as_posix(),
                     self.r_slave_slc_par.as_posix()
                 ]
-
+                print(command)
                 run_command(command, temp_dir.as_posix())
 
                 # create offset
                 if slave_doff.exists():
                     os.remove(slave_doff)
 
-                _master_sample = self.master_sample_size()
-
                 command = [
                     "create_offset",
                     self.r_dem_master_slc_par.as_posix(),
                     self.slc_slave_par.as_posix(),
-                    slave_doff.as_posi(),
+                    slave_doff.as_posix(),
                     "1",
                     str(self.rlks),
                     str(self.alks),
@@ -377,26 +375,27 @@ class CoregisterSlc:
                     "[-+]?[0-9]*\.?[0-9]+",
                     self._grep_stdout(_std_output, "final model fit std. dev. (samples) range:")
                 )
-
+                
                 # look-up table refinement
                 # determine range and azimuth corrections for look-up table (in mli pixels)
                 doff_vals = self._grep_offset_parameter(slave_doff)
-                d_azimuth = doff_vals["azimuth_offset_polynomial"][0]
-                d_range = doff_vals["range_offset_polynomial"][0]
-                d_azimuth_mli = d_azimuth / self.alks
-                d_range_mli = d_range / self.rlks
+                d_azimuth = float(doff_vals["azimuth_offset_polynomial"][0])
+                d_range = float(doff_vals["range_offset_polynomial"][0])
+                d_azimuth_mli = float(d_azimuth) / self.alks
+                d_range_mli = float(d_range) / self.rlks
+                print(d_azimuth, d_range, d_azimuth_mli, d_range_mli)
 
                 _LOG.info(
                     f"matching iteration {iteration + 1}\n"
-                    f"daz:\t{d_azimuth}\n "
-                    f"dr:\t{d_range}\n "
-                    f"daz_mli:\t{d_azimuth_mli}\n "
-                    f"dr_mli:\t{d_range_mli}"
+                    f"daz:\t{d_azimuth:0.6f}\n "
+                    f"dr:\t{d_range:0.6f}\n "
+                    f"daz_mli:\t{d_azimuth_mli:0.6f}\n "
+                    f"dr_mli:\t{d_range_mli:0.6f}"
                 )
                 _LOG.info (
                     f"matching iteration {iteration + 1} standard deviation\n"
-                    f"azimuth stdev:\t {azimuth_stdev}\n"
-                    f"range stdev:\t {range_stdev}"
+                    f"azimuth stdev:\t {float(azimuth_stdev):0.6f}\n"
+                    f"range stdev:\t {float(range_stdev):0.6f}"
                 )
 
                 if slave_diff_par.exists():
@@ -435,14 +434,14 @@ class CoregisterSlc:
                 shutil.copy(self.slave_lt, _slave_lt)
 
                 command = [
-                    "gc_map_file",
+                    "gc_map_fine",
                     _slave_lt.as_posix(),
                     str(self.master_sample.mli_width_end),
                     slave_diff_par.as_posix(),
-                    self.slave_lt.as_posix,
+                    self.slave_lt.as_posix(),
                     "1"
                 ]
-                run_command(command, temp_dir)
+                run_command(command, temp_dir.as_posix())
                 iteration += 1
 
             # TODO this needs to be removed once fine co-registration step is implemented
@@ -547,7 +546,7 @@ class CoregisterSlc:
                 "-",
                 "-",
                 "-",
-                temp_bmp
+                temp_bmp.as_posix()
             ]
             run_command(command, temp_dir.as_posix())
 
@@ -580,7 +579,7 @@ class CoregisterSlc:
             run_command(command, temp_dir.as_posix())
 
             # geocode sigma0 mli
-            slave_sigma0_eqa = slave_gamma0_eqa.with_suffix(".sigma0"),
+            slave_sigma0_eqa = slave_gamma0_eqa.with_suffix(".sigma0")
             command = [
                 "geocode_back",
                 self.r_slave_mli.as_posix(),

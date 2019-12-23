@@ -93,8 +93,8 @@ class SlcDataDownload(luigi.Task):
         download_obj = S1DataDownload(
             self.slc_scene, self.polarization, self.poeorb_path, self.resorb_path
         )
-        if not Path(self.output_dir).exists():
-            os.makedirs(self.output_dir)
+        
+        os.makedirs(self.output_dir, exist_ok=True)
 
         download_obj.slc_download(self.output_dir)
 
@@ -153,8 +153,8 @@ class InitialSetup(luigi.Task):
 
         # download slc data
         download_dir = Path(self.outdir).joinpath("RAW_DATA")
-        if not download_dir.exists():
-            os.makedirs(download_dir)
+        
+        os.makedirs(download_dir, exist_ok=True)
 
         download_list = slc_inputs_df.url.unique()
         download_tasks = []
@@ -195,8 +195,9 @@ class CreateGammaDem(luigi.Task):
     def run(self):
         STATUS_LOGGER.info("create gamma dem task")
         gamma_dem_dir = Path(self.outdir).joinpath("GAMMA_DEM")
-        if not gamma_dem_dir.exists(): 
-            os.makedirs(gamma_dem_dir)
+        
+        os.makedirs(gamma_dem_dir, exist_ok=True)
+        
         kwargs = {
             "gamma_dem_dir": gamma_dem_dir,
             "dem_img": self.dem_img,
@@ -246,8 +247,6 @@ class CreateFullSlc(luigi.Task):
     """
 
     def output(self):
-
-        inputs = self.input()
         return luigi.LocalTarget(
             Path(self.workdir).joinpath(f"{self.track}_{self.frame}_createfullslc_status_logs.out")
         )
@@ -257,8 +256,8 @@ class CreateFullSlc(luigi.Task):
 
         slc_scenes = get_scenes(self.burst_data_csv)
         slc_dir = Path(self.outdir).joinpath("SLC")
-        if not slc_dir.exists(): 
-            os.makedirs(slc_dir)
+        
+        os.makedirs(slc_dir, exist_ok=True)
 
         slc_tasks = []
         for slc_scene in slc_scenes:
@@ -277,7 +276,7 @@ class CreateFullSlc(luigi.Task):
         yield slc_tasks
 
         with self.output().open("w") as out_fid:
-            outdir.write("")
+            out_fid.write("")
 
 
 class Multilook(luigi.Task):
@@ -332,11 +331,11 @@ class CreateMultilook(luigi.Task):
                 )
                 if not exists(slc_par):
                     raise FileNotFoundError(f"missing {slc_par} file")
-            slc_par_files.append(Path(slc_par))
+                slc_par_files.append(Path(slc_par))
 
         # range and azimuth looks are only computed from VV polarization
         rlks, alks, *_ = caculate_mean_look_values(
-            [_par for _par in slc_par_files if "VV" in _par],
+            [_par for _par in slc_par_files if "VV" in _par.stem],
             self.multi_look
         )
 
@@ -355,7 +354,7 @@ class CreateMultilook(luigi.Task):
             )
         yield ml_jobs
         with self.output().open("w") as out_fid:
-            out_fid.write("rlks:\t {}".format(str(rlks)))
+            out_fid.write("rlks:\t {}\n".format(str(rlks)))
             out_fid.write("alks:\t {}".format(str(alks)))
 
 
@@ -443,7 +442,7 @@ class CoregisterDemMaster(luigi.Task):
         )
 
         master_slc_par = Path(master_slc).with_suffix(".slc.par")
-        dem = Path(self.outdir).joinpath("gamma_dem").joinpath(f"{self.track}_{self.frame}.dem")
+        dem = Path(self.outdir).joinpath("GAMMA_DEM").joinpath(f"{self.track}_{self.frame}.dem")
         dem_par = dem.with_suffix(dem.suffix + ".par")
 
         coreg = CoregisterDem(
@@ -453,11 +452,11 @@ class CoregisterDemMaster(luigi.Task):
             slc=Path(master_slc),
             dem_par=dem_par,
             slc_par=master_slc_par,
-            outdir=Path(self.outdir).joinpath("DEM"),
+            dem_outdir=Path(self.outdir).joinpath("DEM"),
         )
 
         # runs with multi-threads and returns to initial setting
-        with environ({'OMP_NUM_THREADS': '4'}):
+        with environ({'OMP_NUM_THREADS': '8'}):
             coreg.main()
 
         with self.output().open("w") as out_fid:
@@ -471,19 +470,19 @@ class CoregisterSlave(luigi.Task):
     slc_master = luigi.Parameter()
     slc_slave = luigi.Parameter()
     slave_mli = luigi.Parameter()
-    rlks = luigi.IntParameter()
-    alks = luigi.IntParameter()
+    range_looks = luigi.IntParameter()
+    azimuth_looks = luigi.IntParameter()
     ellip_pix_sigma0 = luigi.Parameter()
     dem_pix_gamma0 = luigi.Parameter()
     r_dem_master_mli = luigi.Parameter()
     rdc_dem = luigi.Parameter()
     eqa_dem_par = luigi.Parameter()
     dem_lt_fine = luigi.Parameter()
-    workdir = luigi.Parameter()
+    work_dir = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{Path(self.slc_master).stem}_{Path(self.slc_slave).stem}_coreg_logs.out")
+            Path(self.work_dir).joinpath(f"{Path(self.slc_master).stem}_{Path(self.slc_slave).stem}_coreg_logs.out")
         )
 
     def run(self):
@@ -492,8 +491,8 @@ class CoregisterSlave(luigi.Task):
             slc_master=Path(self.slc_master),
             slc_slave=Path(self.slc_slave),
             slave_mli=Path(self.slave_mli),
-            range_looks=int(self.rlks),
-            azimuth_looks=int(self.alks),
+            range_looks=int(self.range_looks),
+            azimuth_looks=int(self.azimuth_looks),
             ellip_pix_sigma0=Path(self.ellip_pix_sigma0),
             dem_pix_gamma0=Path(self.dem_pix_gamma0),
             r_dem_master_mli=Path(self.r_dem_master_mli),
@@ -560,18 +559,29 @@ class CreateCoregisterSlaves(luigi.Task):
         )
         kwargs = {
             'slc_master': slc_master_dir.joinpath(f"{master_slc_prefix}.slc"),
-            'rlk': rlks,
-            'alks': alks,
+            'range_looks': rlks,
+            'azimuth_looks': alks,
             'ellip_pix_sigma0': dem_filenames['ellip_pix_sigma0'],
             'dem_pix_gamma0': dem_filenames['dem_pix_gam'],
             'r_dem_master_mli': dem_master_names['r_dem_master_mli'],
             'rdc_dem': dem_filenames['rdc_dem'],
             'eqa_dem_par': dem_filenames['eqa_dem_par'],
             'dem_lt_fine': dem_filenames['dem_lt_fine'],
-            'workdir': Path(self.outdir)
+            'work_dir': Path(self.outdir)
         }
 
         slave_coreg_jobs = []
+        
+        # need to account for master scene with polarization different than 
+        # the one used in coregistration of dem and master scene 
+        master_pol_coreg = set(list(self.polarization)) - set([self.master_scene_polarization.upper()])
+        for pol in master_pol_coreg: 
+            master_slc_prefix = f"{master_scene}_{pol.upper()}"
+            kwargs['slc_slave'] = slc_master_dir.joinpath(f"{master_slc_prefix}.slc")
+            kwargs['slave_mli'] = slc_master_dir.joinpath(f"{master_slc_prefix}_{rlks}rlks.mli")
+            slave_coreg_jobs.append(CoregisterSlave(**kwargs))
+        
+        # slave coregisration
         slc_scenes.remove(master_scene)
         for slc_scene in slc_scenes:
             slave_dir = Path(self.outdir).joinpath("SLC").joinpath(slc_scene)
@@ -579,7 +589,7 @@ class CreateCoregisterSlaves(luigi.Task):
                 slave_slc_prefix = f"{slc_scene}_{pol.upper()}"
                 kwargs['slc_slave'] = slave_dir.joinpath(f"{slave_slc_prefix}.slc")
                 kwargs['slave_mli'] = slave_dir.joinpath(f"{slave_slc_prefix}_{rlks}rlks.mli")
-                slave_coreg_jobs.append(CoregisterSlc(**kwargs))
+                slave_coreg_jobs.append(CoregisterSlave(**kwargs))
 
         yield slave_coreg_jobs
 
@@ -633,10 +643,8 @@ class ARD(luigi.WrapperTask):
         outdir = Path(self.outdir).joinpath(track_frame)
         workdir = Path(self.workdir).joinpath(track_frame)
 
-        if not outdir.exists():
-            os.makedirs(outdir)
-        if not workdir.exists():
-            os.makedirs(workdir)
+        os.makedirs(outdir, exist_ok=True)
+        os.makedirs(workdir, exist_ok=True)
         
         kwargs = {
             'vector_file': self.vector_file,
