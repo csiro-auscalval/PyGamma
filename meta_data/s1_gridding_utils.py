@@ -20,9 +20,7 @@ _LOG = logging.getLogger(__name__)
 
 
 def generate_slc_metadata(
-    slc_scene: Path,
-    outdir: Optional[Path] = None,
-    yaml_file: Optional[bool] = False,
+    slc_scene: Path, outdir: Optional[Path] = None, yaml_file: Optional[bool] = False
 ):
     """
     This method extracts slc metadata from scene

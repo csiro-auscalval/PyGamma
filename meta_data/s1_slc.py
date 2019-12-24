@@ -4,7 +4,7 @@ import os
 from io import BytesIO
 import logging
 from datetime import datetime
-from typing import Optional, List, Union, Dict, Type
+from typing import List, Optional, Type, Union
 from pathlib import Path
 import re
 import subprocess
@@ -398,7 +398,7 @@ class Archive:
         self.conn.commit()
 
     @property
-    def primary_fieldnames(self) :
+    def primary_fieldnames(self):
         """ sets primary fieldnames if slc metadata exists. """
         if self.metadata:
             return {
@@ -717,7 +717,7 @@ class Archive:
         columns: Optional[List[str]] = None,
         frame_num: Optional[int] = None,
         shapefile_name: Optional[Path] = None,
-        frame_obj: Optional[Type['SlcFrame']] = None,
+        frame_obj: Optional[Type["SlcFrame"]] = None,
     ):
         """ returns geo-pandas data frame of from the database of selected SLC. """
 
@@ -808,7 +808,9 @@ class SlcFrame:
         of 0.0 to 50 in the southern hemisphere and longitude 100 to 179.0.
     """
 
-    def __init__(self, width_lat: Optional[float] = None, buffer_lat: Optional[float] = None) -> None:
+    def __init__(
+        self, width_lat: Optional[float] = None, buffer_lat: Optional[float] = None
+    ) -> None:
         self.southern_hemisphere = True
         self.start_lat = 0.0
         self.end_lat = 50.0

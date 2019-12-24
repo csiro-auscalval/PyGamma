@@ -11,8 +11,8 @@ import logging
 
 import click
 from spatialist.ancillary import finder
-from s1_gridding_utils import generate_slc_metadata, grid_adjustment, grid_definition
-from s1_slc import Archive
+from .s1_gridding_utils import generate_slc_metadata, grid_adjustment, grid_definition
+from .s1_slc import Archive
 
 _LOG = logging.getLogger(__name__)
 GRID_NAME_FMT = "{track}_{frame}{ext}"
