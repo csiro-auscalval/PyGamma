@@ -15,9 +15,9 @@ from mpi4py import MPI
 
 import xml.etree.ElementTree as ET
 
-from python_scripts.initialize_proc_file import get_path
-from python_scripts.constant import SAFE_FMT, S1_SOURCE_DIR_FMT, DATE_FMT
-from python_scripts.constant import Wildcards, MatchStrings, FolderNames, ErrorMessages
+from .initialize_proc_file import get_path
+from .constant import SAFE_FMT, S1_SOURCE_DIR_FMT, DATE_FMT
+from .constant import Wildcards, MatchStrings, FolderNames, ErrorMessages
 
 STATUS_LOGGER = wrap_logger(
     logging.getLogger("status"), processors=[JSONRenderer(indent=1, sort_keys=True)]

@@ -11,17 +11,16 @@ import luigi
 import luigi.configuration
 from luigi.util import requires
 import pandas as pd
-from python_scripts import generate_slc_inputs
-from python_scripts.coregister_slc import CoregisterSlc
-from python_scripts.calc_baselines_new import BaselineProcess
-from python_scripts.coregister_dem import CoregisterDem
-from python_scripts.make_gamma_dem import create_gamma_dem
-from python_scripts.calc_multilook_values import multilook, caculate_mean_look_values
-from python_scripts.process_s1_slc import SlcProcess
-from python_scripts.s1_slc_metadata import S1DataDownload
-from python_scripts.proc_template import PROC_FILE_TEMPLATE
-from python_scripts.subprocess_utils import environ
-from python_scripts.logs import ERROR_LOGGER, STATUS_LOGGER
+from .. import generate_slc_inputs
+from ..coregister_slc import CoregisterSlc
+from ..calc_baselines_new import BaselineProcess
+from ..coregister_dem import CoregisterDem
+from ..make_gamma_dem import create_gamma_dem
+from ..calc_multilook_values import multilook, caculate_mean_look_values
+from ..process_s1_slc import SlcProcess
+from ..s1_slc_metadata import S1DataDownload
+from ..subprocess_utils import environ
+from ..logs import ERROR_LOGGER, STATUS_LOGGER
 
 
 @luigi.Task.event_handler(luigi.Event.FAILURE)

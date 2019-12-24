@@ -1,14 +1,14 @@
 #!/usr/bin/python3
 
 import os
-from os.path import join as pjoin, basename, getsize, splitext, exists, isdir
+from os.path import basename, getsize, join as pjoin
 import fnmatch
 import logging
 
 from structlog import wrap_logger
 from structlog.processors import JSONRenderer
 
-from python_scripts.constant import Wildcards, MatchStrings, FolderNames, ErrorMessages
+from .constant import ErrorMessages, MatchStrings, Wildcards
 
 STATUS_LOGGER = wrap_logger(
     logging.getLogger("status"), processors=[JSONRenderer(indent=1, sort_keys=True)]

@@ -1,6 +1,7 @@
 #!/usr/bin/python
+
 import datetime
-from python_scripts.constant import SCENE_DATE_FMT
+from .constant import SCENE_DATE_FMT
 
 
 def parse_date(scene_name):

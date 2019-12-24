@@ -1,12 +1,11 @@
 #!/usr/bin/python3
 
 import logging
-from typing import Optional, List
+from typing import List, Optional
 import os
 from os.path import join as pjoin
 import re
 from pathlib import Path
-import subprocess
 import tempfile
 import xml.etree.ElementTree as etree
 import zipfile as zf
@@ -23,13 +22,11 @@ import yaml
 from shapely.geometry import Polygon, box
 from shapely.ops import cascaded_union
 from spatialist import Vector, sqlite3, sqlite_setup
-from python_scripts.xml_util import getNamespaces
+import py_gamma as gamma_program
+
+from .xml_util import getNamespaces
 
 _LOG = logging.getLogger(__name__)
-
-S1_BURSTLOC = (
-    "/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20181130/ISP/bin/S1_burstloc"
-)
 
 
 class SlcMetadata:
@@ -239,9 +236,12 @@ class SlcMetadata:
 
             with tempfile.TemporaryDirectory() as tmp_dir:
                 self.extract_archive_member(xml_file, outdir=tmp_dir)
-                cmd = [S1_BURSTLOC, os.path.join(tmp_dir, os.path.basename(xml_path))]
-                out_str = subprocess.check_output(cmd).decode()
-                return __parse_s1_burstloc(out_str)
+                std_out = Path(tmp_dir).joinpath("stdout.log")
+                gamma_program.S1_burstloc(
+                    os.path.join(tmp_dir, os.path.basename(xml_path)),
+                    logf=std_out.as_posix()
+                )
+                return __parse_s1_burstloc(std_out)
 
         with swath_obj as obj:
             ann_tree = etree.fromstring(obj.read())

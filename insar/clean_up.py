@@ -7,8 +7,8 @@ import shutil
 import numpy
 import argparse
 
-from python_scripts.constant import Wildcards, SlcFilenames, MliFilenames
-from python_scripts.initialize_proc_file import get_path
+from .constant import Wildcards, SlcFilenames, MliFilenames
+from .initialize_proc_file import get_path
 
 
 def clean_rawdatadir(raw_data_path):

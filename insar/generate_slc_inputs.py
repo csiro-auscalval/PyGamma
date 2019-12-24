@@ -10,7 +10,7 @@ import shapely.wkt
 import geopandas as gpd
 import pandas as pd
 from spatialist import Vector
-from python_scripts.s1_slc_metadata import Archive
+from .s1_slc_metadata import Archive
 
 _LOG = logging.getLogger(__name__)
 

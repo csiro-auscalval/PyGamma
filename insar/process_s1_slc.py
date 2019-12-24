@@ -12,8 +12,8 @@ import datetime
 import pandas as pd
 
 import py_gamma as gamma_program
-from python_scripts.constant import SlcFilenames
-from python_scripts.subprocess_utils import working_directory, run_command
+from .constant import SlcFilenames
+from .subprocess_utils import working_directory, run_command
 
 
 _LOG = logging.getLogger(__name__)
