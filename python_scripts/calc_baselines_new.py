@@ -223,7 +223,7 @@ class BaselineProcess:
         bperp_max = (
             (m_data.slc_par_params.Br / m_data.slc_par_params.f)
             * m_data.slc_par_params.r1
-            * math.tan(m_data.slc_par_params.inc / 180. * math.pi)
+            * math.tan(m_data.slc_par_params.inc / 180.0 * math.pi)
         )
 
         epoch1, epoch2, bperps_sbas = self.create_sb_network(
@@ -237,7 +237,7 @@ class BaselineProcess:
             coreg_threshold,
             nmin,
             nmax,
-            Path(self.outdir).joinpath("sbas_connection.txt")
+            Path(self.outdir).joinpath("sbas_connection.txt"),
         )
 
         if outfile is None:
@@ -247,7 +247,9 @@ class BaselineProcess:
             for ep1, ep2 in zip(epoch1, epoch2):
                 fid.write(
                     self.slc_dates[ep1].strftime("%Y%m%d")
-                    + "," + self.slc_dates[ep2].strftime("%Y%m%d") + "\n"
+                    + ","
+                    + self.slc_dates[ep2].strftime("%Y%m%d")
+                    + "\n"
                 )
 
     @staticmethod
@@ -712,5 +714,12 @@ if __name__ == "__main__":
             slc_par.append(fp)
 
     pol = "VV"
-    baseline = BaselineProcess(slc_par, pol, master_scene=datetime.date(2017, 1, 1), outdir=Path("/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/"))
+    baseline = BaselineProcess(
+        slc_par,
+        pol,
+        master_scene=datetime.date(2017, 1, 1),
+        outdir=Path(
+            "/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/"
+        ),
+    )
     baseline.sbas_list()

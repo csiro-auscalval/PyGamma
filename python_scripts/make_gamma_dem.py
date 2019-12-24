@@ -10,6 +10,9 @@ import shapely.wkt
 from shapely.ops import cascaded_union
 import rasterio
 from spatialist import Vector
+
+import py_gamma as gamma_program
+
 from python_scripts.subprocess_utils import run_command
 
 
@@ -18,8 +21,9 @@ def create_gamma_dem(
     dem_img: Union[Path, str],
     track_frame: str,
     shapefile: Union[Path, str],
-    buffer_width: Optional[float] = 0.3
-    ) -> None:
+    buffer_width: Optional[float] = 0.3,
+    create_png: Optional[bool] = False,
+) -> None:
     """
     Automatically creates a DEM and par file for use with GAMMA.
     :param gamma_dem_dir:
@@ -30,8 +34,10 @@ def create_gamma_dem(
         A track and frame name
     :param shapefile:
         A 'Path' to a shapefile
-    :param buffer:
+    :param buffer_wdith:
         Additional buffer to include in a subset of shapefile extent
+    :param create_png:
+        A flag to create preview of dem
     """
     vector_object = Vector(shapefile)
 
@@ -79,13 +85,12 @@ def create_gamma_dem(
                 dst.write(data, 1)
 
             # dem_import function is a call to GAMMA software which creates a gamma compatible DEM
-            command = [
-                "dem_import",
+            gamma_program.dem_import(
                 outfile_new,
                 "{}.dem".format(track_frame),
                 "{}.dem.par".format(track_frame),
-                "0",
-                "1",
+                0,
+                1,
                 "-",
                 "-",
                 "-",
@@ -93,20 +98,19 @@ def create_gamma_dem(
                 "-",
                 "-",
                 "-",
-            ]
-            run_command(command, gamma_dem_dir)
+            )
 
             # create a preview of dem file
-            dem_png_file = "{}_dem_preview.png".format(track_frame)
-            command = [
-                "gdal_translate",
-                "-of",
-                "PNG",
-                "-outsize",
-                "10%",
-                "10%",
-                outfile_new,
-                dem_png_file,
-            ]
-            run_command(command, gamma_dem_dir)
-
+            if create_png:
+                dem_png_file = "{}_dem_preview.png".format(track_frame)
+                command = [
+                    "gdal_translate",
+                    "-of",
+                    "PNG",
+                    "-outsize",
+                    "10%",
+                    "10%",
+                    outfile_new,
+                    dem_png_file,
+                ]
+                run_command(command, gamma_dem_dir)

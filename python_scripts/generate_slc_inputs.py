@@ -191,7 +191,8 @@ def query_slc_inputs(
             #  check queried results against master dataframe to form slc inputs
             return {
                 pol: _check_slc_input_data(
-                    slc_df, gpd.read_file(spatial_subset), track, pol)
+                    slc_df, gpd.read_file(spatial_subset), track, pol
+                )
                 for pol in polarization
             }
 
@@ -206,9 +207,7 @@ def _write_list(data: list, fid: Path) -> None:
             out_fid.write(line + "\n")
 
 
-def slc_inputs(
-    slc_data_input: dict,
-) -> pd.DataFrame:
+def slc_inputs(slc_data_input: dict,) -> pd.DataFrame:
     """Returns the required parameters for SLC processing using GAMMA
     """
 

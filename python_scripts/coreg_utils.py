@@ -20,7 +20,7 @@ def coregristration_candidates(scenes, master_idx, threshold, max_slave_idx=None
     is_complete = False
     _master_date = parse_date(scenes[master_idx])
 
-    for idx, scene in enumerate(scenes[master_idx + 1:], master_idx + 1):
+    for idx, scene in enumerate(scenes[master_idx + 1 :], master_idx + 1):
         if max_slave_idx and idx > max_slave_idx:
             break
         if abs((parse_date(scene) - _master_date).days) > threshold:

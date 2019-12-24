@@ -7,6 +7,8 @@ from typing import Optional, Tuple
 import shutil
 import logging
 from pathlib import Path
+
+import py_gamma as gamma_program
 from python_scripts.subprocess_utils import working_directory, run_command
 
 _LOG = logging.getLogger(__name__)
@@ -15,47 +17,28 @@ _LOG = logging.getLogger(__name__)
 class SlcParFileParser:
     def __init__(self, par_file: Path):
         self.par_file = par_file
-        self.par_params = None
-        with open(self.par_file.as_posix(), "r") as fid:
-            tmp_dict = dict()
-            lines = fid.readlines()
-            for line in lines:
-                vals = line.strip().split(":")
-                try:
-                    tmp_dict[vals[0]] = [v for v in vals[1].split()]
-                except IndexError:
-                    pass
-        self.par_params = tmp_dict
+        self.par_vals = gamma_program.ParFile(self.par_file)
 
     @property
     def slc_par_params(self):
         par_params = namedtuple("slc_par_params", ["range_samples", "azimuth_lines"])
         return par_params(
-            int(self.par_params["range_samples"][0]),
-            int(self.par_params["azimuth_lines"][0]),
+            self.par_vals.get_value("range_samples", dtype=int, index=0),
+            self.par_vals.get_value("azimuth_lines", dtype=int, index=0),
         )
 
 
 class DemParFileParser:
     def __init__(self, par_file: Path):
         self.par_file = par_file
-        self.par_params = None
-        with open(self.par_file.as_posix(), "r") as fid:
-            tmp_dict = dict()
-            lines = fid.readlines()
-            for line in lines:
-                vals = line.strip().split(":")
-                try:
-                    tmp_dict[vals[0]] = [v for v in vals[1].split()]
-                except IndexError:
-                    pass
-        self.par_params = tmp_dict
+        self.dem_par_params = gamma_program.ParFile(self.par_file)
 
     @property
     def dem_par_params(self):
         par_params = namedtuple("dem_par_params", ["post_lon", "width"])
         return par_params(
-            float(self.par_params["post_lon"][0]), int(self.par_params["width"][0])
+            self.dem_par_params.get_value("post_lon", dtype=float, index=0),
+            self.dem_par_params.get_value("width", dtype=int, index=0),
         )
 
 
@@ -77,7 +60,7 @@ class CoregisterDem:
         dem_snr: Optional[float] = 0.15,
         dem_rad_max: Optional[int] = 4,
         dem_outdir: Optional[Path] = None,
-        slc_outdir: Optional[Path] = None
+        slc_outdir: Optional[Path] = None,
     ) -> None:
         self.alks = alks
         self.rlks = rlks
@@ -112,13 +95,12 @@ class CoregisterDem:
         self.r_dem_master_mli_width = None
         self.r_dem_master_mli_length = None
         self.dem_files = self.dem_filenames(
-            dem_prefix=f"{self.slc.stem}_{self.rlks}rlks",
-            outdir=self.dem_outdir
+            dem_prefix=f"{self.slc.stem}_{self.rlks}rlks", outdir=self.dem_outdir
         )
         self.dem_masters = self.dem_master_names(
             slc_prefix=f"{self.slc.stem}_{self.rlks}rlks",
             r_slc_prefix=f"r{self.slc.stem}",
-            outdir=self.slc_outdir
+            outdir=self.slc_outdir,
         )
         for _key, val in {**self.dem_files, **self.dem_masters}.items():
             print(_key, val)
@@ -132,9 +114,7 @@ class CoregisterDem:
             attrs["dem_master_mli"].suffix + ".par"
         )
         attrs["dem_master_sigma0"] = outdir.joinpath(f"{slc_prefix}.sigma0")
-        attrs["dem_master_sigma0_eqa"] = outdir.joinpath(
-            f"{slc_prefix}_eqa.sigma0"
-        )
+        attrs["dem_master_sigma0_eqa"] = outdir.joinpath(f"{slc_prefix}_eqa.sigma0")
         attrs["dem_master_sigma0_eqa_geo"] = attrs["dem_master_sigma0_eqa"].with_suffix(
             attrs["dem_master_sigma0_eqa"].suffix + ".tif"
         )
@@ -142,9 +122,7 @@ class CoregisterDem:
         attrs["dem_master_gamma0_bmp"] = attrs["dem_master_gamma0"].with_suffix(
             attrs["dem_master_gamma0"].suffix + ".bmp"
         )
-        attrs["dem_master_gamma0_eqa"] = outdir.joinpath(
-            f"{slc_prefix}_eqa.gamma0"
-        )
+        attrs["dem_master_gamma0_eqa"] = outdir.joinpath(f"{slc_prefix}_eqa.gamma0")
         attrs["dem_master_gamma0_eqa_bmp"] = attrs["dem_master_gamma0_eqa"].with_suffix(
             attrs["dem_master_gamma0_eqa"].suffix + ".bmp"
         )
@@ -154,9 +132,7 @@ class CoregisterDem:
 
         attrs["r_dem_master_slc"] = outdir.joinpath(f"{r_slc_prefix}.slc")
         attrs["r_dem_master_slc_par"] = outdir.joinpath(f"{r_slc_prefix}.slc.par")
-        attrs["r_dem_master_mli"] = outdir.joinpath(
-            "r{}.mli".format(slc_prefix)
-        )
+        attrs["r_dem_master_mli"] = outdir.joinpath("r{}.mli".format(slc_prefix))
         attrs["r_dem_master_mli_par"] = attrs["r_dem_master_mli"].with_suffix(
             attrs["r_dem_master_mli"].suffix + ".par"
         )
@@ -177,9 +153,7 @@ class CoregisterDem:
         attrs["eqa_dem_geo"] = attrs["eqa_dem"].with_suffix(
             attrs["eqa_dem"].suffix + ".tif"
         )
-        attrs["dem_lt_rough"] = outdir.joinpath(
-            f"{dem_prefix}_rough_eqa_to_rdc.lt"
-        )
+        attrs["dem_lt_rough"] = outdir.joinpath(f"{dem_prefix}_rough_eqa_to_rdc.lt")
         attrs["dem_eqa_sim_sar"] = outdir.joinpath(f"{dem_prefix}_eqa.sim")
         attrs["dem_loc_inc"] = outdir.joinpath(f"{dem_prefix}_eqa.linc")
         attrs["dem_lsmap"] = outdir.joinpath(f"{dem_prefix}_eqa.lsmap")
@@ -188,9 +162,7 @@ class CoregisterDem:
         attrs["dem_eqa_sim_sar"] = outdir.joinpath(f"{dem_prefix}_eqa.sim")
         attrs["dem_rdc_sim_sar"] = outdir.joinpath(f"{dem_prefix}_rdc.sim")
         attrs["dem_rdc_inc"] = outdir.joinpath(f"{dem_prefix}_rdc.linc")
-        attrs["ellip_pix_sigma0"] = outdir.joinpath(
-            f"{dem_prefix}_ellip_pix_sigma0"
-        )
+        attrs["ellip_pix_sigma0"] = outdir.joinpath(f"{dem_prefix}_ellip_pix_sigma0")
         attrs["dem_pix_gam"] = outdir.joinpath(f"{dem_prefix}_rdc_pix_gamma0")
         attrs["dem_pix_gam_bmp"] = attrs["dem_pix_gam"].with_suffix(".bmp")
         attrs["dem_off"] = outdir.joinpath(f"{dem_prefix}.off")
@@ -208,13 +180,9 @@ class CoregisterDem:
             attrs["dem_lv_phi"].suffix + ".tif"
         )
         attrs["ext_image_flt"] = outdir.joinpath(f"{dem_prefix}_ext_img_sar.flt")
-        attrs["ext_image_init_sar"] = outdir.joinpath(
-            f"{dem_prefix}_ext_img_init.sar"
-        )
+        attrs["ext_image_init_sar"] = outdir.joinpath(f"{dem_prefix}_ext_img_init.sar")
         attrs["ext_image_sar"] = outdir.joinpath(f"{dem_prefix}_ext_img.sar")
-        attrs["dem_check_file"] = outdir.joinpath(
-            f"{dem_prefix}_DEM_coreg_results"
-        )
+        attrs["dem_check_file"] = outdir.joinpath(f"{dem_prefix}_DEM_coreg_results")
 
         return attrs
 
@@ -255,45 +223,40 @@ class CoregisterDem:
 
     def copy_slc(self, raster_out: Optional[bool] = True) -> None:
         """Copy SLC with options for data format conversion"""
-        command = [
-            "SLC_copy",
+
+        gamma_program.SLC_copy(
             self.dem_master_slc.as_posix(),
             self.dem_master_slc_par.as_posix(),
             self.r_dem_master_slc.as_posix(),
             self.r_dem_master_slc_par.as_posix(),
-            "1",
+            1,
             "-",
-        ]
-        run_command(command, os.getcwd())
+        )
 
-        command = [
-            "multi_look",
+        gamma_program.multi_look(
             self.r_dem_master_slc.as_posix(),
             self.r_dem_master_slc_par.as_posix(),
             self.r_dem_master_mli.as_posix(),
             self.r_dem_master_mli_par.as_posix(),
-            str(self.rlks),
-            str(self.alks),
-            "0",
-        ]
-        run_command(command, os.getcwd())
+            self.rlks,
+            self.alks,
+            0,
+        )
 
         if raster_out:
             params = SlcParFileParser(self.r_dem_master_mli_par)
-            command = [
-                "raspwr",
+            gamma_program.raspwr(
                 self.r_dem_master_mli.as_posix(),
-                str(params.slc_par_params.range_samples),
-                "1",
-                "0",
-                "20",
-                "20",
-                "1.0",
-                "0.35",
-                "1",
+                params.slc_par_params.range_samples,
+                1,
+                0,
+                20,
+                20,
+                1.0,
+                0.35,
+                1,
                 self.r_dem_master_mli_bmp.as_posix(),
-            ]
-            run_command(command, os.getcwd())
+            )
 
     def over_sample(self):
         """Returns oversampling factor for DEM coregistration"""
@@ -310,8 +273,7 @@ class CoregisterDem:
         """Generate DEM coregistered to slc in rdc geometry"""
 
         # generate initial geocoding look-up-table and simulated SAR image
-        command = [
-            "gc_map1",
+        gamma_program.gc_map1(
             self.r_dem_master_mli_par.as_posix(),
             "-",
             self.dem_par.as_posix(),
@@ -319,8 +281,8 @@ class CoregisterDem:
             self.eqa_dem_par.as_posix(),
             self.eqa_dem.as_posix(),
             self.dem_lt_rough.as_posix(),
-            str(self.dem_ovr),
-            str(self.dem_ovr),
+            self.dem_ovr,
+            self.dem_ovr,
             self.dem_eqa_sim_sar.as_posix(),
             "-",
             "-",
@@ -328,14 +290,12 @@ class CoregisterDem:
             "-",
             "-",
             self.dem_lsmap.as_posix(),
-            "8",
-            "2",
-        ]
-        run_command(command, os.getcwd())
+            8,
+            2,
+        )
 
         # generate initial gamma0 pixel normalisation area image in radar geometry
-        command = [
-            "pixel_area",
+        gamma_program.pixel_area(
             self.r_dem_master_mli_par.as_posix(),
             self.eqa_dem_par.as_posix(),
             self.eqa_dem.as_posix(),
@@ -344,50 +304,48 @@ class CoregisterDem:
             self.dem_loc_inc.as_posix(),
             "_",
             self.dem_pix_gam.as_posix(),
-        ]
-        run_command(command, os.getcwd())
+        )
 
-        if any(item is None for item in [self.r_dem_master_mli_width,
-                                         self.r_dem_master_mli_length,
-                                         self.dem_width
-                                         ]
-               ):
+        if any(
+            item is None
+            for item in [
+                self.r_dem_master_mli_width,
+                self.r_dem_master_mli_length,
+                self.dem_width,
+            ]
+        ):
             self._set_attrs()
 
         if use_external_image:
             # transform simulated SAR intensity image to radar geometry
-            command = [
-                "map_trans",
+            gamma_program.map_trans(
                 self.dem_par.as_posix(),
                 self.ext_image.as_posix(),
                 self.eqa_dem_par.as_posix(),
                 self.ext_image_flt.as_posix(),
-                "1",
-                "1",
-                "1",
-                "0",
+                1,
+                1,
+                1,
+                0,
                 "-",
-            ]
-            run_command(command, os.getcwd())
+            )
 
             # transform external image to radar geometry
-            command = [
-                "geocode",
+            gamma_program.geocode(
                 self.dem_lt_rought.as_posix(),
                 self.ext_image_flt.as_posix(),
-                str(self.dem_width),
+                self.dem_width,
                 self.ext_image_init_sar.as_posix(),
-                str(self.r_dem_master_mli_width),
-                str(self.r_dem_master_mli_length),
-                "1",
-                "0",
+                self.r_dem_master_mli_width,
+                self.r_dem_master_mli_length,
+                1,
+                0,
                 "-",
                 "-",
-                "2",
-                "4",
+                2,
+                4,
                 "-",
-            ]
-            run_command(command, os.getcwd())
+            )
 
     def create_diff_par(self):
         """Fine coregistration of master MLI and simulated SAR image"""
@@ -400,49 +358,46 @@ class CoregisterDem:
                 fid.write("{} {}\n".format(*self.dem_window))
                 fid.write("{}".format(self.dem_snr))
 
-            command = [
-                "create_diff_par",
+            gamma_program.create_diff_par(
                 self.r_dem_master_mli_par.as_posix(),
                 "-",
                 self.dem_diff.as_posix(),
-                "1",
-                "<",
-                str(return_file),
-            ]
-            run_command(command, os.getcwd())
+                1,
+                cin=return_file.as_posix(),
+            )
 
     def offset_calc(
         self, npoly: Optional[int] = 1, use_external_image: Optional[bool] = False
     ):
         """offset computation"""
         # set parameters
-        if any(item is None for item in [self.r_dem_master_mli_width,
-                                         self.r_dem_master_mli_length,
-                                         self.dem_width
-                                         ]
-               ):
+        if any(
+            item is None
+            for item in [
+                self.r_dem_master_mli_width,
+                self.r_dem_master_mli_length,
+                self.dem_width,
+            ]
+        ):
             self._set_attrs()
 
         # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than simulated SAR image in offset calculation
-        command = [
-            "init_offsetm",
+        gamma_program.init_offsetm(
             self.dem_pix_gam.as_posix(),
             self.r_dem_master_mli.as_posix(),
             self.dem_diff.as_posix(),
-            "1",
-            "1",
-            str(self.dem_rpos),
-            str(self.dem_azpos),
+            1,
+            1,
+            self.dem_rpos,
+            self.dem_azpos,
             "-",
             "-",
-            str(self.dem_snr),
-            str(self.dem_patch_window),
-            "1",
-        ]
-        run_command(command, os.getcwd())
+            self.dem_snr,
+            self.dem_patch_window,
+            1,
+        )
 
-        command = [
-            "offset_pwrm",
+        gamma_program.offset_pwrm(
             self.dem_pix_gam.as_posix(),
             self.r_dem_master_mli.as_posix(),
             self.dem_diff.as_posix(),
@@ -451,45 +406,39 @@ class CoregisterDem:
             "-",
             "-",
             self.dem_offsets.as_posix(),
-            "2",
+            2,
             "-",
             "-",
             "-",
-        ]
-        run_command(command, os.getcwd())
+        )
 
-        command = [
-            "offset_fitm",
+        gamma_program.offset_fitm(
             self.dem_offs.as_posix(),
             self.dem_ccp.as_posix(),
             self.dem_diff.as_posix(),
             self.dem_coffs.as_posix(),
             self.dem_coffsets.as_posix(),
             "-",
-            str(npoly),
-        ]
-        run_command(command, os.getcwd())
+            npoly,
+        )
 
-        # refinement of initial geocoding look-up-table
+        # refinement of initial geo-coding look-up-table
         ref_flg = 1
         if use_external_image:
             ref_flg = 0
 
-        command = [
-            "gc_map_fine",
+        gamma_program.gc_map_fine(
             self.dem_lt_rough.as_posix(),
-            str(self.dem_width),
+            self.dem_width,
             self.dem_diff.as_posix(),
             self.dem_lt_fine.as_posix(),
-            str(ref_flg),
-        ]
-        run_command(command, os.getcwd())
+            ref_flg,
+        )
 
         # generate refined gamma0 pixel normalization area image in radar geometry
         with tempfile.TemporaryDirectory() as temp_dir:
             pix = Path(temp_dir).joinpath("pix")
-            command = [
-                "pixel_area",
+            gamma_program.pixel_area(
                 self.r_dem_master_mli_par.as_posix(),
                 self.eqa_dem_par.as_posix(),
                 self.eqa_dem.as_posix(),
@@ -498,325 +447,293 @@ class CoregisterDem:
                 self.dem_loc_inc.as_posix(),
                 "-",
                 pix.as_posix(),
-            ]
-            run_command(command, os.getcwd())
+            )
 
             # interpolate holes
-            command = [
-                "interp_ad",
+            gamma_program.interp_ad(
                 pix.as_posix(),
                 self.dem_pix_gam.as_posix(),
-                str(self.r_dem_master_mli_width),
+                self.r_dem_master_mli_width,
                 "-",
                 "-",
                 "-",
-                "2",
-                "2",
-                "1",
-            ]
-            run_command(command, os.getcwd())
+                2,
+                2,
+                1,
+            )
 
             # obtain ellipsoid-based ground range sigma0 pixel reference area
             sigma0 = Path(temp_dir).joinpath("sigma0")
-            command = [
-                "radcal_MLI",
+            gamma_program.radcal_MLI(
                 self.r_dem_master_mli.as_posix(),
                 self.r_dem_master_mli_par.as_posix(),
                 "-",
                 sigma0.as_posix(),
                 "-",
-                "0",
-                "0",
-                "1",
+                0,
+                0,
+                1,
                 "-",
                 "-",
                 self.ellip_pix_sigma0.as_posix(),
-            ]
-            run_command(command, os.getcwd())
+            )
 
             # Generate Gamma0 backscatter image for master scene according to equation
             # in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
             temp1 = Path(temp_dir).joinpath("temp1")
-            command = [
-                "float_math",
+            gamma_program.float_math(
                 self.r_dem_master_mli.as_posix(),
                 self.ellip_pix_sigma0.as_posix(),
                 temp1.as_posix(),
-                str(self.r_dem_master_mli_width),
-                "2",
-            ]
-            run_command(command, os.getcwd())
-            command = [
-                "float_math",
+                self.r_dem_master_mli_width,
+                2,
+            )
+            gamma_program.float_math(
                 temp1.as_posix(),
                 self.dem_pix_gam.as_posix(),
                 self.dem_master_gamma0.as_posix(),
-                str(self.r_dem_master_mli_width),
-                "3",
-            ]
-            run_command(command, os.getcwd())
+                self.r_dem_master_mli_width,
+                3,
+            )
 
             # create raster for comparison with master mli raster
-            command = [
-                "raspwr",
+            gamma_program.raspwr(
                 self.dem_master_gamma0.as_posix(),
-                str(self.r_dem_master_mli_width),
-                "1",
-                "0",
-                "20",
-                "20",
-                "1.",
-                ".35",
-                "1",
+                self.r_dem_master_mli_width,
+                1,
+                0,
+                20,
+                20,
+                1.0,
+                0.35,
+                1,
                 self.dem_master_gamma0_bmp.as_posix(),
-            ]
-            run_command(command, os.getcwd())
+            )
 
             # make sea-mask based on DEM zero values
             temp = Path(temp_dir).joinpath("temp")
-            command = [
-                "replace_values",
+            gamma_program.replace_values(
                 self.eqa_dem.as_posix(),
-                "0.0001",
-                "0",
+                0.0001,
+                0,
                 temp.as_posix(),
-                str(self.dem_width),
-                "0",
-                "2",
-                "1",
-            ]
-            run_command(command, os.getcwd())
-            command = [
-                "rashgt",
+                self.dem_width,
+                0,
+                2,
+                1,
+            )
+
+            gamma_program.rashgt(
                 temp.as_posix(),
                 "-",
-                str(self.dem_width),
-                "1",
-                "1",
-                "0",
-                "1",
-                "1",
-                "100.",
+                self.dem_width,
+                1,
+                1,
+                0,
+                1,
+                1,
+                100.0,
                 "-",
                 "-",
                 "-",
                 self.seamask.as_posix(),
-            ]
-            run_command(command, os.getcwd())
+            )
 
     def geocode(self, use_external_image: Optional[bool] = False):
         """geocode tasks"""
 
         # set parameters
-        if any(item is None for item in [self.r_dem_master_mli_width,
-                                         self.r_dem_master_mli_length,
-                                         self.dem_width
-                                         ]
-               ):
+        if any(
+            item is None
+            for item in [
+                self.r_dem_master_mli_width,
+                self.r_dem_master_mli_length,
+                self.dem_width,
+            ]
+        ):
             self._set_attrs()
 
         # geocode map geometry DEM to radar geometry
-        command = [
-            "geocode",
+        gamma_program.geocode(
             self.dem_lt_fine.as_posix(),
             self.eqa_dem.as_posix(),
-            str(self.dem_width),
+            self.dem_width,
             self.rdc_dem.as_posix(),
-            str(self.r_dem_master_mli_width),
-            str(self.r_dem_master_mli_length),
-            "1",
-            "0",
+            self.r_dem_master_mli_width,
+            self.r_dem_master_mli_length,
+            1,
+            0,
             "-",
             "-",
-            "2",
-            str(self.dem_rad_max),
+            2,
+            self.dem_rad_max,
             "-",
-        ]
-        run_command(command, os.getcwd())
+        )
         with tempfile.TemporaryDirectory() as temp_dir:
             rdc_dem_bmp = Path(temp_dir).joinpath("rdc_dem.bmp")
-            command = [
-                "rashgt",
+            gamma_program.rashgt(
                 self.rdc_dem.as_posix(),
                 self.r_dem_master_mli.as_posix(),
-                str(self.r_dem_master_mli_width),
-                "1",
-                "1",
-                "0",
-                "20",
-                "20",
-                "500.",
-                "1.",
-                ".35",
-                "1",
+                self.r_dem_master_mli_width,
+                1,
+                1,
+                0,
+                20,
+                20,
+                500.0,
+                1.0,
+                0.35,
+                1,
                 rdc_dem_bmp.as_posix(),
-            ]
-            run_command(command, os.getcwd())
+            )
+
             command = [
                 "convert",
                 rdc_dem_bmp.as_posix(),
-                self.dem_outdir.joinpath(self.rdc_dem.stem).with_suffix(".png").as_posix(),
+                self.dem_outdir.joinpath(self.rdc_dem.stem)
+                .with_suffix(".png")
+                .as_posix(),
             ]
             run_command(command, os.getcwd())
 
         # Geocode simulated SAR intensity image to radar geometry
-        command = [
-            "geocode",
+        gamma_program.geocode(
             self.dem_lt_fine.as_posix(),
             self.dem_eqa_sim_sar.as_posix(),
-            str(self.dem_width),
+            self.dem_width,
             self.dem_rdc_sim_sar.as_posix(),
-            str(self.r_dem_master_mli_width),
-            str(self.r_dem_master_mli_length),
-            "0",
-            "0",
+            self.r_dem_master_mli_width,
+            self.r_dem_master_mli_length,
+            0,
+            0,
             "-",
             "-",
-            "2",
-            str(self.dem_rad_max),
+            2,
+            self.dem_rad_max,
             "-",
-        ]
-        run_command(command, os.getcwd())
+        )
 
         # Geocode local incidence angle image to radar geometry
-        command = [
+        gamma_program.geocode(
             "geocode",
             self.dem_lt_fine.as_posix(),
             self.dem_loc_inc.as_posix(),
-            str(self.dem_width),
+            self.dem_width,
             self.dem_rdc_inc.as_posix(),
-            str(self.r_dem_master_mli_width),
-            str(self.r_dem_master_mli_length),
-            "0",
-            "0",
+            self.r_dem_master_mli_width,
+            self.r_dem_master_mli_length,
+            0,
+            0,
             "-",
             "-",
-            "2",
-            str(self.dem_rad_max),
+            2,
+            self.dem_rad_max,
             "-",
-        ]
-        run_command(command, os.getcwd())
+        )
 
         # Geocode external image to radar geometry
         if use_external_image:
-            command = [
-                "geocode",
+            gamma_program.geocode(
                 self.dem_lt_fine.as_posix(),
                 self.ext_image_flt.as_posix(),
-                str(self.dem_width),
+                self.dem_width,
                 self.ext_image_sar.as_posix(),
-                str(self.r_dem_master_mli_width),
-                str(self.r_dem_master_mli_length),
-                "0",
-                "0",
+                self.r_dem_master_mli_width,
+                self.r_dem_master_mli_length,
+                0,
+                0,
                 "-",
                 "-",
-                "2",
-                str(self.dem_rad_max),
+                2,
+                self.dem_rad_max,
                 "-",
-            ]
-            run_command(command, os.getcwd())
+            )
 
         # Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
-        command = [
-            "geocode_back",
+        gamma_program.geocode_back(
             self.dem_master_gamma0.as_posix(),
-            str(self.r_dem_master_mli_width),
+            self.r_dem_master_mli_width,
             self.dem_lt_fine.as_posix(),
             self.dem_master_gamma0_eqa.as_posix(),
-            str(self.dem_width),
+            self.dem_width,
             "-",
-            "5",
-            "0",
+            5,
+            0,
             "-",
             "-",
-            "5",
-        ]
-        run_command(command, os.getcwd())
+            5,
+        )
 
         # make quick-look png image
-        command = [
-            "raspwr",
+        gamma_program.raspwr(
             self.dem_master_gamma0_eqa.as_posix(),
-            str(self.dem_width),
-            "1",
-            "0",
-            "20",
-            "20",
+            self.dem_width,
+            1,
+            0,
+            20,
+            20,
             "-",
             "-",
             "-",
-            self.dem_master_gamma0_eqa_bmp.as_posix()
-        ]
-        run_command(command, os.getcwd())
+            self.dem_master_gamma0_eqa_bmp.as_posix(),
+        )
 
         command = [
             "convert",
             self.dem_master_gamma0_eqa_bmp.as_posix(),
             "-transparent",
             "black",
-            self.dem_master_gamma0_eqa_bmp.with_suffix(".png").as_posix()
+            self.dem_master_gamma0_eqa_bmp.with_suffix(".png").as_posix(),
         ]
         run_command(command, os.getcwd())
 
         # geotiff gamma0 file
-        command = [
-            "data2geotiff",
+        gamma_program.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.dem_master_gamma0_eqa.as_posix(),
-            "2",
+            2,
             self.dem_master_gamma0_eqa_geo.as_posix(),
-            "0.0"
-        ]
-        run_command(command, os.getcwd())
+            0.0,
+        )
 
         # geocode and geotif sigma0 mli
         shutil.copyfile(self.r_dem_master_mli, self.dem_master_sigma0)
 
-        command = [
-            "geocode_back",
+        gamma_program.geocode_back(
             self.dem_master_sigma0.as_posix(),
-            str(self.r_dem_master_mli_width),
+            self.r_dem_master_mli_width,
             self.dem_lt_fine.as_posix(),
             self.dem_master_sigma0_eqa.as_posix(),
-            str(self.dem_width),
+            self.dem_width,
             "-",
-            "0",
-            "0",
+            0,
+            0,
             "-",
-            "-"
-        ]
-        run_command(command, os.getcwd())
+            "-",
+        )
 
-        command = [
-            "data2geotiff",
+        gamma_program.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.dem_master_sigma0_eqa.as_posix(),
-            "2",
+            2,
             self.dem_master_sigma0_eqa_geo.as_posix(),
-            "0.0"
-        ]
-        run_command(command, os.getcwd())
+            0.0,
+        )
 
         # geotiff DEM
-        command = [
-            "data2geotiff",
+        gamma_program.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.eqa_dem.as_posix(),
-            "2",
+            2,
             self.eqa_dem_geo.as_posix(),
-            "0.0"
-        ]
-        run_command(command, os.getcwd())
-
+            0.0,
+        )
         # create kml
-        command = [
-            "kml_map",
+        gamma_program.kml_map(
             self.dem_master_gamma0_eqa_bmp.with_suffix(".png").as_posix(),
             self.eqa_dem_par.as_posix(),
-            self.dem_master_gamma0_eqa_bmp.with_suffix(".kml").as_posix()
-        ]
-        run_command(command, os.getcwd())
+            self.dem_master_gamma0_eqa_bmp.with_suffix(".kml").as_posix(),
+        )
 
         # clean up now redundant files
         for item in [
@@ -825,7 +742,7 @@ class CoregisterDem:
             self.dem_coffs,
             self.dem_coffsets,
             self.dem_lt_rough,
-            self.dem_master_gamma0_eqa_bmp
+            self.dem_master_gamma0_eqa_bmp,
         ]:
             if item.exists():
                 # os.remove(item)
@@ -833,37 +750,31 @@ class CoregisterDem:
 
     def look_vector(self):
         """create look vector files"""
-        command = [
-            "look_vector",
+        gamma_program.look_vector(
             self.r_dem_master_slc_par.as_posix(),
             "-",
             self.eqa_dem_par.as_posix(),
             self.eqa_dem.as_posix(),
             self.dem_lv_theta.as_posix(),
-            self.dem_lv_phi.as_posix()
-        ]
-        run_command(command, os.getcwd())
+            self.dem_lv_phi.as_posix(),
+        )
 
         # geocode look vectors
-        command = [
-            "data2geotiff",
+        gamma_program.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.dem_lv_theta.as_posix(),
-            "2",
+            2,
             self.dem_lv_theta_geo.as_posix(),
-            "0.0"
-        ]
-        run_command(command, os.getcwd())
+            0.0,
+        )
 
-        command = [
-            "data2geotiff",
+        gamma_program.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.dem_lv_phi.as_posix(),
-            "2",
+            2,
             self.dem_lv_phi_geo.as_posix(),
-            "0.0"
-        ]
-        run_command(command, os.getcwd())
+            0.0,
+        )
 
     def main(self):
         self.dem_outdir.mkdir(exist_ok=True)

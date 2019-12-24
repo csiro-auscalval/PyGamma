@@ -44,6 +44,7 @@ class WithConfig(object):
         @functools.wraps(fun)
         def wrapper(*args, **kwargs):
             import luigi.configuration
+
             orig_conf = luigi.configuration.LuigiConfigParser.instance()
             new_conf = luigi.configuration.LuigiConfigParser()
             luigi.configuration.LuigiConfigParser._instance = new_conf
@@ -57,6 +58,7 @@ class WithConfig(object):
                 return fun(*args, **kwargs)
             finally:
                 luigi.configuration.LuigiConfigParser._instance = orig_conf
+
         return wrapper
 
 
@@ -103,7 +105,10 @@ class CommandError(RuntimeError):
 # NOTE
 # run_command function is directly copied from https://github.com/OpenDataCubePipelines/eugl/blob/master/eugl/fmask.py
 
-def run_command(command, work_dir, timeout=None, command_name=None, return_stdout=False):
+
+def run_command(
+    command, work_dir, timeout=None, command_name=None, return_stdout=False
+):
     """
     A simple utility to execute a subprocess command.
     Raises a CalledProcessError for backwards compatibility

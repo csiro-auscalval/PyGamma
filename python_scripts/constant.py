@@ -18,21 +18,14 @@ COREG_JOB_ERROR_FILE_FMT = "{master}_{slave}.error"
 class SlcFilenames(Enum):
     """SLC filenames """
 
-    SLC_FILENAME = "{scene_date}_{pol}.slc"
-    SLC_PAR_FILENAME = "{scene_date}_{pol}.slc.par"
-    SLC_TAB_FILENAME = "{scene_date}_{pol}_tab"
+    SLC_FILENAME = "{}_{}.slc"
+    SLC_PAR_FILENAME = "{}_{}.slc.par"
+    SLC_TOPS_PAR_FILENAME = "{}_{}.slc.TOPS_par"
+    SLC_TAB_FILENAME = "{}_{}_tab"
 
-    SLC_IW1_FILENAME = "{scene_date}_{pol}_IW1.slc"
-    SLC_IW1_PAR_FILENAME = "{scene_date}_{pol}_IW1.slc.par"
-    SLC_IW1_TOPS_PAR_FILENAME = "{scene_date}_{pol}_IW1.slc.TOPS_par"
-
-    SLC_IW2_FILENAME = "{scene_date}_{pol}_IW2.slc"
-    SLC_IW2_PAR_FILENAME = "{scene_date}_{pol}_IW2.slc.par"
-    SLC_IW2_TOPS_PAR_FILENAME = "{scene_date}_{pol}_IW2.slc.TOPS_par"
-
-    SLC_IW3_FILENAME = "{scene_date}_{pol}_IW3.slc"
-    SLC_IW3_PAR_FILENAME = "{scene_date}_{pol}_IW3.slc.par"
-    SLC_IW3_TOPS_PAR_FILENAME = "{scene_date}_{pol}_IW3.slc.TOPS_par"
+    SLC_IW_FILENAME = "{}_{}_iw{}.slc"
+    SLC_IW_PAR_FILENAME = "{}_{}_iw{}.slc.par"
+    SLC_IW_TOPS_PAR_FILENAME = "{}_{}_iw{}.slc.TOPS_par"
 
 
 class MliFilenames(Enum):

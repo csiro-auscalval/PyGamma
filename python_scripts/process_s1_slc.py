@@ -11,6 +11,8 @@ import shutil
 import datetime
 import pandas as pd
 
+import py_gamma as gamma_program
+from python_scripts.constant import SlcFilenames
 from python_scripts.subprocess_utils import working_directory, run_command
 
 
@@ -49,22 +51,30 @@ class SlcProcess:
         self.temp_slc = []
 
     def swath_tab_names(self, swath, pre_fix):
-        swath_par = "{}_{}_iw{}.slc.par"
-        swath_tops_par = "{}_{}_iw{}.slc.TOPS_par"
-        swath_slc = "{}_{}_iw{}.slc"
-        swath_tab = namedtuple('swath_tab', ['slc', 'par', 'tops_par'])
-        return swath_tab(swath_slc.format(pre_fix, self.polarization.upper(), swath),
-                         swath_par.format(pre_fix, self.polarization.upper(), swath),
-                         swath_tops_par.format(pre_fix, self.polarization.upper(), swath))
+        swath_tab = namedtuple("swath_tab", ["slc", "par", "tops_par"])
+        return swath_tab(
+            SlcFilenames.SLC_IW_FILENAME.value.format(
+                pre_fix, self.polarization.upper(), swath
+            ),
+            SlcFilenames.SLC_IW_PAR_FILENAME.value.format(
+                pre_fix, self.polarization.upper(), swath
+            ),
+            SlcFilenames.SLC_IW_TOPS_PAR_FILENAME.value.format(
+                pre_fix, self.polarization.upper(), swath
+            ),
+        )
 
     def slc_tab_names(self, pre_fix):
-        _slc = "{}_{}.slc"
-        slc_par = "{}_{}.slc.par"
-        slc_tops_par = "{}_{}.slc.TOPS_par"
-        slc_tab = namedtuple('slc_tab', ['slc', 'par', 'tops_par'])
-        return slc_tab(_slc.format(pre_fix, self.polarization.upper()),
-                       slc_par.format(pre_fix, self.polarization.upper()),
-                       slc_tops_par.format(pre_fix, self.polarization.upper()))
+        slc_tab = namedtuple("slc_tab", ["slc", "par", "tops_par"])
+        return slc_tab(
+            SlcFilenames.SLC_FILENAME.value.format(pre_fix, self.polarization.upper()),
+            SlcFilenames.SLC_PAR_FILENAME.value.format(
+                pre_fix, self.polarization.upper()
+            ),
+            SlcFilenames.SLC_TOPS_PAR_FILENAME.value.format(
+                pre_fix, self.polarization.upper()
+            ),
+        )
 
     def slc_safe_files(self):
         safe_files = [
@@ -90,7 +100,9 @@ class SlcProcess:
                 raw_files = [
                     list(
                         save_file.glob(
-                            val.format(swath=swath, polarization=self.polarization.lower())
+                            val.format(
+                                swath=swath, polarization=self.polarization.lower()
+                            )
                         )
                     )[0].as_posix()
                     for key, val in self.raw_files_patterns.items()
@@ -101,8 +113,7 @@ class SlcProcess:
                 _concat_tabs[_id][swath]["par"] = tab_names.par
                 _concat_tabs[_id][swath]["tops_par"] = tab_names.tops_par
 
-                command = [
-                    "par_S1_SLC",
+                gamma_program.par_S1_SLC(
                     raw_files[0],
                     raw_files[1],
                     raw_files[2],
@@ -110,13 +121,10 @@ class SlcProcess:
                     tab_names.par,
                     tab_names.slc,
                     tab_names.tops_par,
-                    "0",
+                    0,
                     "-",
                     "-",
-                ]
-                run_command(command, os.getcwd())
-                
-
+                )
                 # assign orbit file name
                 self.orbit_file = raw_files[4]
 
@@ -183,14 +191,10 @@ class SlcProcess:
                 slc_tab3 = tmpdir.joinpath(f"slc_tab3_{idx}")
                 self._write_tabs(slc_tab3, _id=slc_prefix)
 
-                command = [
-                    "SLC_cat_ScanSAR",
-                    slc_tab1.as_posix(),
-                    slc_tab2.as_posix(),
-                    slc_tab3.as_posix(),
-                ]
-                run_command(command, os.getcwd())
-
+                # concat sequential ScanSAR burst SLC images
+                gamma_program.SLC_cat_ScanSAR(
+                    slc_tab1.as_posix(), slc_tab2.as_posix(), slc_tab3.as_posix()
+                )
                 # assign slc_tab3 to slc_tab1 to perform series of concatenation
                 slc_tab1 = slc_tab3
 
@@ -217,42 +221,43 @@ class SlcProcess:
             if self.acquisition_date < self.phase_shift_date:
                 slc_dir = Path(os.getcwd())
                 tab_names = self.swath_tab_names(swath, self.slc_prefix)
-                command = [
-                    "SLC_phase_shift",
-                    slc_dir.joinpath(tab_names.slc).as_posix(),
-                    slc_dir.joinpath(tab_names.par).as_posix(),
-                    tab_names.slc,
-                    tab_names.par,
-                    "-1.25",
-                ]
-                run_command(command, tmpdir.as_posix())
 
-                # replace iw1 slc with phase corrected files
-                shutil.move(tmpdir.joinpath(tab_names.slc), slc_dir.joinpath(tab_names.slc))
-                shutil.move(tmpdir.joinpath(tab_names.par), slc_dir.joinpath(tab_names.par))
+                with working_directory(tmpdir):
+                    gamma_program.SLC_phase_shift(
+                        slc_dir.joinpath(tab_names.slc).as_posix(),
+                        slc_dir.joinpath(tab_names.par).as_posix(),
+                        tab_names.slc,
+                        tab_names.par,
+                        -1.25,
+                    )
+                    # replace iw1 slc with phase corrected files
+                    shutil.move(
+                        tmpdir.joinpath(tab_names.slc), slc_dir.joinpath(tab_names.slc)
+                    )
+                    shutil.move(
+                        tmpdir.joinpath(tab_names.par), slc_dir.joinpath(tab_names.par)
+                    )
 
-    def mosiac_slc(self, rlks=12, alks=2):
+    def mosiac_slc(self, rlks: Optional[int] = 12, alks: Optional[int] = 2):
+        """Calculate SLC mosaic of Sentinel-1 TOPS burst SLC data"""
         slc_tab = self.slc_tab_names(self.slc_prefix)
-        command = [
-            "SLC_mosaic_S1_TOPS",
-            self.slc_tab.as_posix(),
-            slc_tab.slc,
-            slc_tab.par,
-            str(rlks),
-            str(alks),
-        ]
-        run_command(command, os.getcwd())
+        gamma_program.SLC_mosaic_S1_TOPS(
+            self.slc_tab.as_posix(), slc_tab.slc, slc_tab.par, rlks, alks
+        )
 
     def orbits(self):
+        """Extract Sentinel-1 OPOD state vectors and copy into the ISP image parameter file"""
         slc_tab = self.slc_tab_names(self.slc_prefix)
-        command = ["S1_OPOD_vec", slc_tab.par, self.orbit_file]
-        run_command(command, os.getcwd())
+        gamma_program.S1_OPOD_vec(slc_tab.par, self.orbit_file)
 
     def frame_subset(self):
         df = pd.read_csv(self.burst_data)
         df["acquistion_datetime"] = pd.to_datetime(df["acquistion_datetime"])
         df["date"] = df["acquistion_datetime"].apply(lambda x: pd.Timestamp(x).date())
-        df_subset = df[(df["date"] == self.acquisition_date) & (df["polarization"] == self.polarization)]
+        df_subset = df[
+            (df["date"] == self.acquisition_date)
+            & (df["polarization"] == self.polarization)
+        ]
         tabs_param = dict()
         complete_frame = True
 
@@ -302,14 +307,9 @@ class SlcProcess:
             self._write_tabs(sub_slc_out, _id=self.slc_prefix, slc_data_dir=tmpdir)
 
             # run the subset
-            command = [
-                "SLC_copy_ScanSAR",
-                sub_slc_in.as_posix(),
-                sub_slc_out.as_posix(),
-                burst_tab.as_posix(),
-                "0",
-            ]
-            run_command(command, os.getcwd())
+            gamma_program.SLC_copy_ScanSAR(
+                sub_slc_in.as_posix(), sub_slc_out.as_posix(), burst_tab.as_posix(), 0
+            )
 
             # replace concatenate slc with burst-subset of concatenated slc
             for swath in [1, 2, 3]:
@@ -331,25 +331,16 @@ class SlcProcess:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             burst_tab = tmpdir.joinpath("burst_tab").as_posix()
-            command = [
-                "S1_BURST_tab",
-                ref_slc_tab.as_posix(),
-                full_slc_tab.as_posix(),
-                burst_tab,
-            ]
-            run_command(command, os.getcwd())
+            gamma_program.S1_BURST_tab(
+                ref_slc_tab.as_posix(), full_slc_tab.as_posix(), burst_tab
+            )
 
             # write output in a temp directory
             resize_slc_tab = tmpdir.joinpath("sub_slc_output_tab")
             self._write_tabs(resize_slc_tab, _id=self.slc_prefix, slc_data_dir=tmpdir)
-
-            command = [
-                "SLC_copy_ScanSAR",
-                full_slc_tab.as_posix(),
-                resize_slc_tab.as_posix(),
-                burst_tab,
-            ]
-            run_command(command, os.getcwd())
+            gamma_program.SLC_copy_ScanSAR(
+                full_slc_tab.as_posix(), resize_slc_tab.as_posix(), burst_tab
+            )
 
             # replace full slc with resized slc
             for swath in [1, 2, 3]:
@@ -359,46 +350,46 @@ class SlcProcess:
 
     def burst_images(self):
         """make a quick look of .png files for each swath and mosiac slc"""
+
         def _make_png(tab_names):
-            range_samples = None
-            azimuth_lines = None
-            with open(tab_names.par, 'r') as src:
-                lines = src.readlines()
-                for line in lines:
-                    if line.startswith("range_samples:"):
-                        range_samples = int(line.split(':')[1].strip())
-                    if line.startswith("azimuth_lines:"):
-                        azimuth_lines = int(line.split(':')[1].strip())
-                    if range_samples is not None and azimuth_lines is not None:
-                        break
 
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    tmpdir = Path(tmpdir)
-                    bmp_file = tmpdir.joinpath("{}".format(tab_names.slc)).with_suffix(".bmp").as_posix()
-                    command = [
-                        "rasSLC",
-                        tab_names.slc,
-                        str(range_samples),
-                        '1',
-                        str(azimuth_lines),
-                        "50",
-                        "20",
-                        "-",
-                        "-",
-                        "1",
-                        "0",
-                        "0",
-                        bmp_file
-                    ]
-                    run_command(command, os.getcwd())
-                    command = [
-                        "convert",
-                        bmp_file,
-                        Path(tab_names.slc).with_suffix(".png").as_posix()
-                    ]
-                    run_command(command, os.getcwd())
+            _par_vals = gamma_program.ParFile(tab_names.par)
+            range_samples = _par_vals.get_value("range_samples", dtype=int, index=0)
+            azimuth_lines = _par_vals.get_value("azimuth_lines", dtype=int, index=0)
 
-        tab_names_list = [self.swath_tab_names(swath, self.slc_prefix) for swath in [1, 2, 3]]
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_dir = Path(temp_dir)
+                bmp_file = (
+                    temp_dir.joinpath("{}".format(tab_names.slc))
+                    .with_suffix(".bmp")
+                    .as_posix()
+                )
+                gamma_program.rasSLC(
+                    tab_names.slc,
+                    range_samples,
+                    1,
+                    azimuth_lines,
+                    50,
+                    20,
+                    "-",
+                    "-",
+                    1,
+                    0,
+                    0,
+                    bmp_file,
+                )
+
+                # convert bmp file to png quick look iamge file
+                command = [
+                    "convert",
+                    bmp_file,
+                    Path(tab_names.slc).with_suffix(".png").as_posix(),
+                ]
+                run_command(command, os.getcwd())
+
+        tab_names_list = [
+            self.swath_tab_names(swath, self.slc_prefix) for swath in [1, 2, 3]
+        ]
         tab_names_list.append(self.slc_tab_names(self.slc_prefix))
         for tab in tab_names_list:
             _make_png(tab)

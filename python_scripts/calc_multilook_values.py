@@ -1,39 +1,33 @@
 #! /usr/bin/env python
 
 import math
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 from pathlib import Path
+import logging
+import py_gamma as gamma_program
+
+from python_scripts.constant import MliFilenames
 from python_scripts.subprocess_utils import run_command
 
+_LOG = logging.getLogger(__name__)
 
-def calculate_slc_look_values(slc_par_file: Path):
+
+def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:
     """calculates the range and azimuth look values """
-    with open(slc_par_file, 'r') as src:
-        lines = src.readlines()
-        for line in lines:
-            if line.startswith("azimuth_pixel_spacing"):
-                azsp = float(line.split()[1])
-            if line.startswith("range_pixel_spacing"):
-                rgsp = float(line.split()[1])
-            if line.startswith("center_range_slc"):
-                rg = float(line.split()[1])
-            if line.startswith("sar_to_earth_center"):
-                se = float(line.split()[1])
-            if line.startswith("earth_radius_below_sensor"):
-                re = float(line.split()[1])
+    if isinstance(slc_par_file, Path):
+        slc_par_file = slc_par_file.as_posix()
 
-        inc_a = (se**2 - re**2 - rg**2) / (2 * re * rg)
+    _par_vals = gamma_program.ParFile(slc_par_file)
+    azsp = _par_vals.get_value("azimuth_pixel_spacing", dtype=float, index=0)
+    rgsp = _par_vals.get_value("range_pixel_spacing", dtype=float, index=0)
+    rg = _par_vals.get_value("center_range_slc", dtype=float, index=0)
+    se = _par_vals.get_value("sar_to_earth_center", dtype=float, index=0)
+    re = _par_vals.get_value("earth_radius_below_sensor", dtype=float, index=0)
 
-        if inc_a == 0.0:
-            inc = math.atan(1.0) * 2.0
-        elif -1.0 <= inc_a < 0.0:
-            inc = math.atan(1.0) * 4.0 - math.atan(math.sqrt((1.0 / (inc_a**2)) - 1.0))
-        elif 0.0 < inc_a <= 1.0:
-            inc = math.atan(math.sqrt((1.0 / inc_a**2) - 1.0))
-        else:
-            raise ValueError("input out of range")
+    inc_a = (se ** 2 - re ** 2 - rg ** 2) / (2 * re * rg)
+    inc = math.acos(inc_a)
 
-        return azsp, rgsp, inc
+    return azsp, rgsp, inc
 
 
 def caculate_mean_look_values(slc_par_files: List, multi_look: int) -> Tuple:
@@ -67,10 +61,30 @@ def caculate_mean_look_values(slc_par_files: List, multi_look: int) -> Tuple:
     return rlks, alks, mean_azsp, mean_grrgsp, mean_inc_deg
 
 
-def multilook(slc: Path, slc_par: Path, rlks: int, alks: int, outdir: Optional[Path] = None):
+def multilook(
+    slc: Union[Path, str],
+    slc_par: Union[Path, str],
+    rlks: int,
+    alks: int,
+    outdir: Optional[Path] = None,
+) -> None:
+    """ calculate a multi-look indensity (MLI) image from an SLC image"""
 
-    mli = '{}_{}rlks.mli'.format(slc.stem, str(rlks))
-    mli_par = '{}.par'.format(mli)
+    if not isinstance(slc, Path):
+        slc = Path(slc)
+
+    if not isinstance(slc_par, Path):
+        slc_par = Path(slc_par)
+
+    try:
+        scene_date, pol = slc.stem.split("_")
+    except ValueError as err:
+        err_msg = f"{slc.stem} needs to be in scene_date_polarization format"
+        _LOG.error(err_msg)
+        raise err
+
+    mli = MliFilenames.MLI_FILENAME.value.format(scene_date, pol, str(rlks))
+    mli_par = MliFilenames.MLI_PAR_FILENAME.value.format(scene_date, pol, str(rlks))
     work_dir = slc.parent
 
     if outdir is not None:
@@ -78,15 +92,8 @@ def multilook(slc: Path, slc_par: Path, rlks: int, alks: int, outdir: Optional[P
         mli_par = outdir.joinpath(mli_par)
         work_dir = outdir
 
-    command = [
-        "multi_look",
-        slc.as_posix(),
-        slc_par.as_posix(),
-        mli,
-        mli_par,
-        str(rlks),
-        str(alks),
-        "0"
-    ]
+    gamma_program.multi_look(
+        slc.as_posix(), slc_par.as_posix(), mli, mli_par, rlks, alks, 0
+    )
 
     run_command(command, work_dir.as_posix())
