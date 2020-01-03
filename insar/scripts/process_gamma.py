@@ -389,8 +389,8 @@ class CalcInitialBaseline(luigi.Task):
         baseline = BaselineProcess(
             slc_par_files,
             self.master_scene_polarization,
+            master_scene=calculate_master(slc_scenes)
             outdir=Path(self.outdir),
-            master_scene=calculate_master(slc_scenes),
         )
         baseline.sbas_list()
 
