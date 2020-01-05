@@ -7,17 +7,16 @@ import logging
 import py_gamma as gamma_program
 
 from .constant import MliFilenames
-from .subprocess_utils import run_command
+from .subprocess_utils import working_directory
 
 _LOG = logging.getLogger(__name__)
 
 
 def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:
-    """calculates the range and azimuth look values """
-    if isinstance(slc_par_file, Path):
-        slc_par_file = slc_par_file.as_posix()
+    """Calculates the range and azimuth look values."""
 
-    _par_vals = gamma_program.ParFile(slc_par_file)
+    _par_vals = gamma_program.ParFile(Path(slc_par_file).as_posix())
+    
     azsp = _par_vals.get_value("azimuth_pixel_spacing", dtype=float, index=0)
     rgsp = _par_vals.get_value("range_pixel_spacing", dtype=float, index=0)
     rg = _par_vals.get_value("center_range_slc", dtype=float, index=0)
@@ -31,7 +30,16 @@ def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:
 
 
 def caculate_mean_look_values(slc_par_files: List, multi_look: int) -> Tuple:
-    """calculate mean slc look (range, azimuth, and incidence) angles from temporal stack"""
+    """Calculate mean slc look (range, azimuth, and incidence) angles from a temporal stack.
+    
+    :param slc_par_files: 
+        A List of full paths of slc parameter files. 
+    :param multi_look: 
+        Multi-look value.
+
+    :returns: 
+        Tuple of (range look, azimuth look, mean_grrgsp, mean_inc_deg)
+    """
 
     total_azsp, total_rgsp, total_inc = 0.0, 0.0, 0.0
     multi_look = int(multi_look)
@@ -68,20 +76,29 @@ def multilook(
     alks: int,
     outdir: Optional[Path] = None,
 ) -> None:
-    """ calculate a multi-look indensity (MLI) image from an SLC image"""
+    """Calculate a multi-look indensity (MLI) image from an SLC image.
+    
+    :param slc: 
+        A full path to SLC image file. 
+    :param slc_par: 
+        A full path to SLC image parameter file. 
+    :param rlks: 
+        Range look value. 
+    :param alks: 
+        Azimuth look value. 
+    :param outdir: 
+        An Optional path of an output director. Otherwise parent director 
+        of 'slc' file is default output directory.
+    """
 
-    if not isinstance(slc, Path):
-        slc = Path(slc)
-
-    if not isinstance(slc_par, Path):
-        slc_par = Path(slc_par)
+    slc = Path(slc)
+    slc_par = Path(slc_par)
 
     try:
         scene_date, pol = slc.stem.split("_")
     except ValueError as err:
         err_msg = f"{slc.stem} needs to be in scene_date_polarization format"
-        _LOG.error(err_msg)
-        raise err
+        raise ValueError(err_msg)
 
     mli = MliFilenames.MLI_FILENAME.value.format(scene_date, pol, str(rlks))
     mli_par = MliFilenames.MLI_PAR_FILENAME.value.format(scene_date, pol, str(rlks))
@@ -91,9 +108,9 @@ def multilook(
         mli = outdir.joinpath(mli)
         mli_par = outdir.joinpath(mli_par)
         work_dir = outdir
+    
+    with working_directory(workdir.as_posix()): 
+        gamma_program.multi_look(
+            slc.as_posix(), slc_par.as_posix(), mli, mli_par, rlks, alks, 0
+        )
 
-    gamma_program.multi_look(
-        slc.as_posix(), slc_par.as_posix(), mli, mli_par, rlks, alks, 0
-    )
-
-    run_command(command, work_dir.as_posix())
