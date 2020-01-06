@@ -1,6 +1,6 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 
-from typing import List, Union
+from typing import List, Union, Dict
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -15,12 +15,21 @@ from .s1_slc_metadata import Archive
 _LOG = logging.getLogger(__name__)
 
 
-def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: dict) -> dict:
+def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: Dict) -> Dict:
+    """Check missing master SLC bursts. 
 
-    """
-    Check if input data and  master bursts to determine bursts overlaps
+    Compares input data and master bursts to determine bursts overlaps
     and inserts a missing burst information into the input_data.
-   """
+
+    :param master_df: 
+        A geopandas dataframe with master SLC informations. 
+    :param input_data: 
+        An input slc data with burst informations needed to form a full frame.
+
+    :returns: 
+        Input data with addition of missing master bursts number. 
+    """
+
     for dt_key, dt_val in input_data.items():
         for swath, swath_val in dt_val.items():
             master_swath_subset = master_df[master_df.swath == swath]
@@ -37,7 +46,8 @@ def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: dict) -> dict:
                 for centroid in swath_centroids:
                     if row.geometry.contains(centroid):
                         contained_bursts.append(row.burst_num)
-            # insert the missing bursts information (set difference between contained bursts and master bursts numbers)
+            
+            # insert the missing bursts information into input_data
             input_data[dt_key][swath]["missing_master_bursts"] = set(
                 master_swath_subset.burst_num.values
             ) - set(contained_bursts)
@@ -50,9 +60,27 @@ def _check_slc_input_data(
     master_df: gpd.GeoDataFrame,
     rel_orbit: int,
     polarization: str,
-) -> dict:
+) -> Dict:
     """
-    Method to check supplied dataframe has required data to form slc input.
+    Checks if input (results_df) has required data to form a full SLC.
+    
+    This method checks if scenes are able to a form full slc and returns the 
+    parameters needed for only scenes that are able to form full slc. This
+    method will only log information of scenes that cannot form full SLC 
+    and not raise error. Implementation needs to be changed, if failed scenes
+    need to be handled separately. 
+
+    :param results_df: 
+        An input dataframe with queried attribute results from SLC input database.
+    :param master_df: 
+        Attributes of a vector file (frame) used in querying SLC database.
+    :param rel_orbits: 
+        Sentinel-1 relative orbit used in vector file framing.
+    :param polarization: 
+        A polarization subset the data while checking full frame.
+
+    :returns:
+        A dict with information of slc scenes to form full SLC.
     """
 
     # perform check to assert returned queried results are for rel orbits
@@ -113,35 +141,44 @@ def _check_slc_input_data(
             data_dict[dt] = swath_dict
 
         except AssertionError as err:
+            # only log the information for scenes not available to form compute frame.
             _LOG.info("slc scene date {}: {}".format(dt.strftime("%Y-%m-%d"), err))
-
+            
     return _check_frame_bursts(master_df, data_dict)
 
 
 def query_slc_inputs(
-    dbfile: Path,
-    spatial_subset: Path,
+    dbfile: Union[Path, str],
+    spatial_subset: Union[Path, str],
     start_date: datetime,
     end_date: datetime,
     orbit: str,
     track: int,
     polarization: List[str],
-) -> dict:
+) -> Dict:
     """A method to query sqlite database and generate slc input dict.
 
-    :param dbfile: sqlite database
-    :param spatial_subset: a vector shape file
-    :param start_date: query start date
-    :param end_date: query end date
-    :param orbit: sentinel-1 acquisition orbit type
-    :param track: sentinel-1 relative orbit number (track)
-    :param polarization: slc polarization
+    :param dbfile: 
+        A full path to a sqlite database with SLC metadata including burst
+        informations needed to process SLC.
+    :param spatial_subset: 
+        A full path to frame (vector shape file) spatial extent.
+    :param start_date: 
+        A start date to begin database query of SLC acquisition.
+    :param end_date: 
+        An end date to stop database query of SLC acquisition. 
+    :param orbit: 
+        Sentinel-1 acquisition orbit type (A: Ascending, D: Descending).
+    :param track: 
+        Sentinel-1 relative orbit number (track). 
+    :param polarization: 
+        List of polarization to query SLC data for.
+
     :return:
-        Returns a dict type of slc input field values for all unique date queried
+        Returns slc input field values for all unique date queried
         from a dbfile between start_date and end_date (inclusive of the end dates)
         for area within a spatial_subset if data is in the database. Else returns
         None.
-
     """
     with Archive(dbfile) as archive:
         tables_join_string = (
@@ -200,15 +237,23 @@ def query_slc_inputs(
             raise err
 
 
-def _write_list(data: list, fid: Path) -> None:
-    """helper method to write files"""
-    with open(fid, "w") as out_fid:
+def _write_list(data: List, fid: Union[Path, str]) -> None:
+    """Helper method to write files."""
+
+    with open(Path(fid_.as_posix(), "w") as out_fid:
         for line in data:
             out_fid.write(line + "\n")
 
 
-def slc_inputs(slc_data_input: dict,) -> pd.DataFrame:
-    """Returns the required parameters for SLC processing using GAMMA
+def slc_inputs(slc_data_input: Dict) -> pd.DataFrame:
+    """
+    Subsets SLC query results to a required parameters for SLC processing using GAMMA SOFTWARE.
+
+    :param slc_data_input: 
+        SLC input data that were queried from the database.
+    
+    :returns: 
+        A dataframe with sub-set of queried attributes needed to form SLC.
     """
 
     _regx_uuid = r"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}"
