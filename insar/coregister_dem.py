@@ -1,9 +1,9 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 
 import os
 import tempfile
 from collections import namedtuple
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union, Dict
 import shutil
 import logging
 from pathlib import Path
@@ -15,12 +15,21 @@ _LOG = logging.getLogger(__name__)
 
 
 class SlcParFileParser:
-    def __init__(self, par_file: Path):
-        self.par_file = par_file
+    def __init__(self, par_file: Union[Path, str]) -> None:
+        """
+        Convenient access fields for SLC image parameter properties.
+
+        :param par_file: 
+            A full path to a SLC parameter file.
+        """
+        self.par_file = Path(par_file).as_posix()
         self.par_vals = gamma_program.ParFile(self.par_file)
 
     @property
     def slc_par_params(self):
+        """
+        Convenient SLC parameter access method needed for SLC-DEM co-registration.
+        """
         par_params = namedtuple("slc_par_params", ["range_samples", "azimuth_lines"])
         return par_params(
             self.par_vals.get_value("range_samples", dtype=int, index=0),
@@ -29,12 +38,21 @@ class SlcParFileParser:
 
 
 class DemParFileParser:
-    def __init__(self, par_file: Path):
-        self.par_file = par_file
+    def __init__(self, par_file: Union[Path, str]) -> None:
+        """
+        Convenient access fileds for DEM image parameter properties.
+
+        :param par_file: 
+            A full path to a DEM parameter file.
+        """
+        self.par_file = Path(par_file).as_posix()
         self.dem_par_params = gamma_program.ParFile(self.par_file)
 
     @property
     def dem_par_params(self):
+        """
+        Convenient DEM parameter access method need for SLC-DEM co-registration.
+        """
         par_params = namedtuple("dem_par_params", ["post_lon", "width"])
         return par_params(
             self.dem_par_params.get_value("post_lon", dtype=float, index=0),
@@ -47,10 +65,10 @@ class CoregisterDem:
         self,
         rlks: int,
         alks: int,
-        dem: Path,
-        slc: Path,
-        dem_par: Path,
-        slc_par: Path,
+        dem: Union[Path, str],
+        slc: Union[Path, str],
+        dem_par: Union[Path, str],
+        slc_par: Union[Path, str],
         dem_patch_window: Optional[int] = 1024,
         dem_rpos: Optional[int] = None,
         dem_azpos: Optional[int] = None,
@@ -59,15 +77,56 @@ class CoregisterDem:
         dem_window: Optional[Tuple[int, int]] = (256, 256),
         dem_snr: Optional[float] = 0.15,
         dem_rad_max: Optional[int] = 4,
-        dem_outdir: Optional[Path] = None,
-        slc_outdir: Optional[Path] = None,
+        dem_outdir: Optional[Union[Path, str]] = None,
+        slc_outdir: Optional[Union[Path, str]] = None,
+        ext_image_flt: Optional[Union[Path, str]] = None,
     ) -> None:
+        """
+        Generates DEM coregistered to SLC image in radar geometry.
+
+        :param rlks: 
+            A range look value. 
+        :param alks: 
+            An azimuth look value. 
+        :param dem: 
+            A full path to a DEM image file. 
+        :param slc: 
+            A full path to a SLC image file. 
+        :param dem_par: 
+            A full path to a DEM parameter file. 
+        :param slc_par: 
+            A full path to a SLC parameter file. 
+        :param dem_patch_window: 
+            An Optional DEM patch window size. 
+        :param r_pos: 
+            An Optional range 'rpos' value. 
+        :param azpos: 
+            An Optional azimuth 'azpos' value.
+        :param dem_offset: 
+            An Optional dem offset value. 
+        :param dem offset measure: 
+            An Optional dem offset measure value. 
+        :param dem_window: 
+            An Optional dem window value. 
+        :param dem_snr: 
+            An Optional dem signal-to-noise ratio value. 
+        :param dem_rad_max: 
+            An Optional dem rad max value. 
+        :param dem_outdir: 
+            An Optional full path to store dem files. 
+        :param slc_outdir: 
+            An Optional full path to store SLC files.
+        :param ext_image_flt: 
+            An Optional full path to an external image filter to be used in co-registration. 
+        """
+
         self.alks = alks
         self.rlks = rlks
         self.dem = dem
         self.slc = slc
-        self.dem_par = dem_par
-        self.slc_par = slc_par
+        self.dem_par = Path(dem_par)
+        self.slc_par = Path(slc_par)
+        self.ext_image_flt = Path(ext_image_flt)
         self.dem_outdir = dem_outdir
         self.slc_outdir = slc_outdir
         if self.dem_outdir is None:
@@ -84,6 +143,7 @@ class CoregisterDem:
         self.dem_snr = dem_snr
         self.dem_rad_max = dem_rad_max
 
+        # adjust dem parameters for range looks greater than 1 
         if self.rlks > 1:
             self.adjust_dem_parameter()
 
@@ -102,12 +162,27 @@ class CoregisterDem:
             r_slc_prefix=f"r{self.slc.stem}",
             outdir=self.slc_outdir,
         )
+
+        # set more class attributes needed for DEM-SLC co-registration 
         for _key, val in {**self.dem_files, **self.dem_masters}.items():
-            print(_key, val)
             setattr(self, _key, val)
 
     @staticmethod
-    def dem_master_names(slc_prefix: str, r_slc_prefix: str, outdir: Path):
+    def dem_master_names(slc_prefix: str, r_slc_prefix: str, outdir: Union[Path, str]) -> Dict:
+        """
+        Collate DEM master file names used need in CoregisterDem class.
+
+        :param slc_prefix: 
+            A pre_fix of SLC image file. 
+        :param r_slc_prefix: 
+            A prefix of radar coded SLC image file. 
+        :param outdir:
+            A full path to store DEM co-registered SLC files.
+        
+        :returns: 
+            Dict with SLC file names and paths needed in CoregisterDem class.
+        """
+
         attrs = dict()
         attrs["dem_master_mli"] = outdir.joinpath(f"{slc_prefix}.mli")
         attrs["dem_master_mli_par"] = attrs["dem_master_mli"].with_suffix(
@@ -142,7 +217,19 @@ class CoregisterDem:
         return attrs
 
     @staticmethod
-    def dem_filenames(dem_prefix: str, outdir: Path):
+    def dem_filenames(dem_prefix: str, outdir: Path) -> Dict:
+        """
+        Collate DEM file names used need in CoregisterDem class.
+
+        :param dem_prefix: 
+            A pre_fix of dem file name. 
+        :param outdir:
+            A full path to store DEM files generated during dem coregistration.
+        
+        :returns: 
+            Dict with DEM file names and paths needed in CoregisterDem class.
+        """
+
         attrs = dict()
         attrs["dem_diff"] = outdir.joinpath(f"diff_{dem_prefix}.par")
         attrs["rdc_dem"] = outdir.joinpath(f"{dem_prefix}_rdc.dem")
@@ -179,14 +266,23 @@ class CoregisterDem:
         attrs["dem_lv_phi_geo"] = attrs["dem_lv_phi"].with_suffix(
             attrs["dem_lv_phi"].suffix + ".tif"
         )
+        
+        # external image parameters to be used in co-registration
         attrs["ext_image_flt"] = outdir.joinpath(f"{dem_prefix}_ext_img_sar.flt")
+        if self.ext_image_flt is not None:
+            os.symlink(self.ext_image_flt, attrs["ext_image_flt"])
+
         attrs["ext_image_init_sar"] = outdir.joinpath(f"{dem_prefix}_ext_img_init.sar")
         attrs["ext_image_sar"] = outdir.joinpath(f"{dem_prefix}_ext_img.sar")
         attrs["dem_check_file"] = outdir.joinpath(f"{dem_prefix}_DEM_coreg_results")
 
         return attrs
 
-    def _set_attrs(self):
+    def _set_attrs(self) -> None:
+        """
+        Internal class dem master attributes setter.
+        """
+
         if self.r_dem_master_mli_width is None:
             mli_par = SlcParFileParser(self.r_dem_master_mli_par)
             self.r_dem_master_mli_width = mli_par.slc_par_params.range_samples
@@ -196,7 +292,11 @@ class CoregisterDem:
             eqa_dem_params = DemParFileParser(self.eqa_dem_par)
             self.dem_width = eqa_dem_params.dem_par_params.width
 
-    def adjust_dem_parameter(self):
+    def adjust_dem_parameter(self) -> None:
+        """
+        Function to adjust the DEM parameters. 
+        """
+
         self.dem_window[0] = int(self.dem_window[0] / self.rlks)
         if self.dem_window[0] < 8:
             win1 = round(self.dem_window[0] * self.rlks) * 2
@@ -222,8 +322,16 @@ class CoregisterDem:
             self.dem_azpos = int(self.dem_azpos / self.rlks)
 
     def copy_slc(self, raster_out: Optional[bool] = True) -> None:
-        """Copy SLC with options for data format conversion"""
-
+        """
+        Copy SLC with options for data format conversion. 
+        
+        :param raster_out: 
+            An Optional flag to output raster files. 
+        """
+        
+        # copy SLC image file to new file r_dem_master_slc.
+        # TODO this step seems redundant if we can directly use SLC image file to 
+        # multi-look. (Confirm with InSAR geodesy Team)
         gamma_program.SLC_copy(
             self.dem_master_slc.as_posix(),
             self.dem_master_slc_par.as_posix(),
@@ -232,7 +340,8 @@ class CoregisterDem:
             1,
             "-",
         )
-
+        
+        # multi-look SLC image file
         gamma_program.multi_look(
             self.r_dem_master_slc.as_posix(),
             self.r_dem_master_slc_par.as_posix(),
@@ -242,7 +351,10 @@ class CoregisterDem:
             self.alks,
             0,
         )
-
+        
+        # output raster image of multi-looked SLC image file if needed
+        # TODO only useful for visual debugging phase. 
+        # This is redundant in production phase (Consult InSAR team and remove)
         if raster_out:
             params = SlcParFileParser(self.r_dem_master_mli_par)
             gamma_program.raspwr(
@@ -258,19 +370,29 @@ class CoregisterDem:
                 self.r_dem_master_mli_bmp.as_posix(),
             )
 
-    def over_sample(self):
-        """Returns oversampling factor for DEM coregistration"""
+    def over_sample(self) -> None:
+        """Returns oversampling factor for DEM coregistration."""
+
         params = DemParFileParser(self.dem_par)
         post_lon = params.dem_par_params.post_lon
+
+        # 0.4 arc second or smaller DEMs resolution
         if post_lon <= 0.00011111:
             self.dem_ovr = 1
+        # greater than 0.4 or less then 3 arc seconds DEMs resolution
         elif 0.00011111 < post_lon < 0.0008333:
             self.dem_ovr = 4
+        # other DEMs resolution
         else:
             self.dem_ovr = 8
 
-    def gen_dem_rdc(self, use_external_image: Optional[bool] = False):
-        """Generate DEM coregistered to slc in rdc geometry"""
+    def gen_dem_rdc(self, use_external_image: Optional[bool] = False) -> None:
+        """
+        Generate DEM coregistered to slc in rdc geometry.
+        
+        :param use_external_image: 
+            An Optional parameter to set use of external image for co-registration.
+        """
 
         # generate initial geocoding look-up-table and simulated SAR image
         gamma_program.gc_map1(
@@ -305,7 +427,8 @@ class CoregisterDem:
             "_",
             self.dem_pix_gam.as_posix(),
         )
-
+        
+        # any of the dem master mli size is not set. Set the dem size attributes. 
         if any(
             item is None
             for item in [
@@ -347,8 +470,8 @@ class CoregisterDem:
                 "-",
             )
 
-    def create_diff_par(self):
-        """Fine coregistration of master MLI and simulated SAR image"""
+    def create_diff_par(self) -> None:
+        """Fine coregistration of master MLI and simulated SAR image."""
         with tempfile.TemporaryDirectory() as temp_dir:
             return_file = Path(temp_dir).joinpath("returns")
             with open(return_file, "w") as fid:
@@ -368,8 +491,15 @@ class CoregisterDem:
 
     def offset_calc(
         self, npoly: Optional[int] = 1, use_external_image: Optional[bool] = False
-    ):
-        """offset computation"""
+    ) -> None:
+        """Offset computation. (Need more information from InSAR team).
+
+        :param npoly: 
+            An Optional nth order polynomial term. Otherwise set to default for 
+            Sentinel-1 acquisitions.
+        :param use_external_image: 
+            An Optional parameter to set use of external image for co-registration.
+        """
         # set parameters
         if any(
             item is None
@@ -540,7 +670,12 @@ class CoregisterDem:
             )
 
     def geocode(self, use_external_image: Optional[bool] = False):
-        """geocode tasks"""
+        """
+        Method to geocode image files to radar geometry.
+        
+        :param use_external_image:
+            An Optional external image is to be used for co-registration.
+        """
 
         # set parameters
         if any(
@@ -749,7 +884,9 @@ class CoregisterDem:
                 pass
 
     def look_vector(self):
-        """create look vector files"""
+        """Create look vector files."""
+
+        # create angles look vector image
         gamma_program.look_vector(
             self.r_dem_master_slc_par.as_posix(),
             "-",
@@ -759,7 +896,7 @@ class CoregisterDem:
             self.dem_lv_phi.as_posix(),
         )
 
-        # geocode look vectors
+        # convert look vector files to geotiff file
         gamma_program.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.dem_lv_theta.as_posix(),
@@ -767,7 +904,7 @@ class CoregisterDem:
             self.dem_lv_theta_geo.as_posix(),
             0.0,
         )
-
+        
         gamma_program.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.dem_lv_phi.as_posix(),
@@ -777,6 +914,8 @@ class CoregisterDem:
         )
 
     def main(self):
+        """Main method to execute SLC-DEM coregistration task in sequence."""
+
         self.dem_outdir.mkdir(exist_ok=True)
         with working_directory(self.dem_outdir):
             self.copy_slc()
