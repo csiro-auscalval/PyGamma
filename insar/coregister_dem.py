@@ -870,7 +870,7 @@ class CoregisterDem:
             self.dem_master_gamma0_eqa_bmp.with_suffix(".kml").as_posix(),
         )
 
-        # clean up now redundant files
+        # clean up now intermittent redundant files. 
         for item in [
             self.dem_offs,
             self.dem_offsets,
@@ -879,6 +879,7 @@ class CoregisterDem:
             self.dem_lt_rough,
             self.dem_master_gamma0_eqa_bmp,
         ]:
+            # TODO uncomment remove comment in production phase.
             if item.exists():
                 # os.remove(item)
                 pass
