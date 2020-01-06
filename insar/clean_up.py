@@ -1,55 +1,80 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 
 import os
+from typing import Union, List, Optional
 from os.path import join as pjoin, exists, getmtime
+from pathlib import Path 
+
 import fnmatch
 import shutil
 import numpy
-import argparse
 
 from .constant import Wildcards, SlcFilenames, MliFilenames
 from .initialize_proc_file import get_path
 
 
-def clean_rawdatadir(raw_data_path):
+def clean_rawdatadir(raw_data_path: Union[Path, str]) -> None:
     """
     Deletes all files in the raw data directory.
+
+    :param raw_data_path: 
+        A full path to raw data path. 
     """
-    if exists(raw_data_path):
+    if Path(raw_data_path).exists():
         shutil.rmtree(raw_data_path)
 
 
-def clean_coreg_scene(slc_path, scene, pol, rlks):
+def clean_coreg_scene(
+    slc_path: Union[Path, str], 
+    scene: str,
+    pol: str, 
+    rlks:int
+    ) -> None:
     """
     Deletes files that were created during co-registration steps
-    from slc scene directory
+
+    :param slc_path: 
+        A full path to slc directory. 
+    :param scene: 
+        A string formatted ('YYYYMMDD') SLC scene data.
+    :param pol: 
+        Polarization of a SLC image.
+    :param rlks: 
+        A range look value used in formatting the mli filenames.
     """
-    if exists(slc_path):
+
+    slc_path = Path(slc_path)
+    if slc_path.exists():
         slc_files = [
-            item.value.format(scene_date=scene, pol=pol) for item in SlcFilenames
+            item.value.format(scene, pol) for item in SlcFilenames
+            if "IW" not in item
         ]
         mli_files = [
             item.value.format(scene_date=scene, pol=pol, rlks=rlks)
             for item in MliFilenames
         ]
-        try:
-            for item in os.listdir(pjoin(slc_path, scene)):
-                if item not in slc_files + mli_files:
-                    os.remove(pjoin(slc_path, scene, item))
-        except FileNotFoundError:
-            pass
+        for fp in slc_path.joinpath(scene).iterdir():
+            if fp.name not in slc_files + mli_files:
+                fp.unlink()
 
 
-def clean_slcdir(slc_path, patterns=None):
+def clean_slcdir(slc_path: Union[Path, str], patterns: Optional[List[str]] = None) -> None:
     """
     Deletes files associated with wildcard patterns from slc directory.
+
+    :param slc_path: 
+        A full path to a slc base directory. 
+    :param patterns: 
+        A List with wildcard patterns to match files to delete.
     """
+
     if not patterns:
         patterns = [Wildcards.SWATH_TYPE.value, Wildcards.SCENE_CONNECTION_TYPE.value]
+    
+    slc_path = Path(slc_path)
 
-    if exists(slc_path):
-        for scene in os.listdir(slc_path):
-            scene_dir = pjoin(slc_path, scene)
+    if slc_path.exists():
+        for scene_dir in slc_path.iterdir():
             # delete the files set by wildcard patterns
             files_list = get_wildcard_match_files(
                 dirs_path=scene_dir, wildcards=patterns
@@ -79,10 +104,16 @@ def clean_slcdir(slc_path, patterns=None):
             _del_files(file_dir=scene_dir, files_list=del_files_list)
 
 
-def clean_ifgdir(ifg_path, patterns=None):
+def clean_ifgdir(ifg_path: Union[Path, str], patterns: Optional[List[str]] = None) -> None:
     """
     Deletes files associated with wildcard patterns from ifg directory.
+
+    :param ifg_path: 
+        A full path to a base path of ifg directory. 
+    :param patterns:
+        A List with wildcard patterns to match files to delete.
     """
+
     if not patterns:
         patterns = [
             Wildcards.FLT_TYPE.value,
@@ -90,21 +121,25 @@ def clean_ifgdir(ifg_path, patterns=None):
             Wildcards.SIM_UNW_TYPE.value,
             Wildcards.THIN_UNW_TYPE.value,
         ]
-
-    if exists(ifg_path):
-        for scene_conn in os.listdir(ifg_path):
-            scene_conn_dir = pjoin(ifg_path, scene_conn)
-
+    
+    ifg_path = Path(ifg_path)
+    if ifg_path.exists():
+        for scene_dir in ifg_path.iterdir():
             # delete the files set by wildcard patterns
             files_list = get_wildcard_match_files(
-                dirs_path=scene_conn_dir, wildcards=patterns
+                dirs_path=scene_dir, wildcards=patterns
             )
-            _del_files(file_dir=scene_conn_dir, files_list=files_list)
+            _del_files(file_dir=scene_dir, files_list=files_list)
 
 
-def clean_gammademdir(gamma_dem_path, track_frame=None):
+def clean_gammademdir(gamma_dem_path: Union[Path, str], track_frame=None):
     """
     Deletes files associated with wildcard patterns from gamma dem directory.
+    
+    :param gamma_dem_path: 
+        A full path to a gamma dem directory. 
+    :param patterns:
+        A List with wildcard patterns to match files to delete.
     """
     if track_frame:
         patterns = [
@@ -114,8 +149,9 @@ def clean_gammademdir(gamma_dem_path, track_frame=None):
         ]
     else:
         patterns = None
-
-    if exists(gamma_dem_path):
+    
+    gamma_dem_path = Path(gamma_dem_path)
+    if gamma_dem_path.exists():
         files_list = get_wildcard_match_files(
             dirs_path=gamma_dem_path, wildcards=patterns
         )
@@ -125,6 +161,11 @@ def clean_gammademdir(gamma_dem_path, track_frame=None):
 def clean_demdir(dem_path, patterns=None):
     """
     Deletes files associated with wildcard patterns from DEM directory
+    
+    :param dem_path: 
+        A full path to a DEM directory. 
+    :param patterns:
+        A List with wildcard patterns to match files to delete.
     """
     if not patterns:
         patterns = [
@@ -134,95 +175,40 @@ def clean_demdir(dem_path, patterns=None):
             Wildcards.RDC_TYPE.value,
         ]
 
-    if exists(dem_path):
-        files_list = get_wildcard_match_files(dirs_path=dem_path, wildcards=patterns)
-        _del_files(file_dir=dem_path, files_list=files_list)
+    if Path(dem_path).exists():
+        files_list = get_wildcard_match_files(dirs_path=Path(dem_path), wildcards=patterns)
+        _del_files(file_dir=Path(dem_path), files_list=files_list)
 
 
-def clean_checkpoints(checkpoint_path, patterns=None):
+def get_wildcard_match_files(dirs_path: Union[Path, str], wildcards: Optional[str] = None) -> None:
     """
-    Deletes the last check point file if pattern is None
-    else deletes files associated with patterns
+    Returns files associated with wildcard patterns from directory 'dirs_path'
+    
+    :param dirs_path: 
+        A full path to a  directory. 
+    :param patterns:
+        A List with wildcard patterns to match files to delete.
     """
-    if exists(checkpoint_path):
-        if not patterns:
-            time_lists, checkpoint_files = [], []
-            for item in os.listdir(checkpoint_path):
-                checkpoint_files.append(item)
-                time_lists.append(getmtime(pjoin(checkpoint_path, item)))
 
-            del_file = [checkpoint_files[numpy.argmax(time_lists)]]
-            _del_files(file_dir=checkpoint_path, files_list=del_file)
-
-        else:
-            files_list = get_wildcard_match_files(
-                dirs_path=checkpoint_path, wildcards=patterns
-            )
-            _del_files(file_dir=checkpoint_path, files_list=files_list)
-
-
-def get_wildcard_match_files(dirs_path, wildcards=None):
-    """
-    returns files associated with wildcard patterns from directory 'dirs_path'
-    """
     files_list = []
-    if exists(dirs_path):
-        all_files = [f for f in os.listdir(dirs_path)]
+    if Path(dirs_path).exists():
+        all_files = [fp.name for fp in Path(dirs_path).iterdir()]
 
-    for pattern in wildcards:
+    if wildcards is not None:
         match_files = fnmatch.filter(all_files, pattern)
         if match_files:
             files_list.append(match_files)
-
-    return [item for sublist in files_list for item in sublist]
+        return sum(files_list, [])
+    return None
 
 
 def _del_files(file_dir=None, files_list=None):
     """
     Deletes all files in 'files_list' from the directory 'file_dir'
     """
-    if files_list:
+    if files_list is not None:
         for item in files_list:
-            if exists(pjoin(file_dir, item)):
-                # print('deleting file: {}'.format(item))
-                os.remove(pjoin(file_dir, item))
+            Path(file_dir).joinpath(item).unlink() 
 
 
-def run(proc_file):
-    """ clean default clean up files if processing was run without clean up option """
-    path_name = get_path(proc_file)
 
-    clean_rawdatadir(raw_data_path=path_name["raw_data_dir"])
-    clean_gammademdir(
-        gamma_dem_path=path_name["gamma_dem"], track_frame=path_name["track_frame"]
-    )
-    clean_slcdir(slc_path=path_name["slc_dir"])
-    clean_ifgdir(ifg_path=path_name["ifg_dir"])
-    clean_demdir(dem_path=path_name["dem_dir"])
-
-
-def _parser():
-    """ Argument parser. """
-    description = (
-        "clean up of default clean up files within the insar project directory"
-    )
-
-    formatter = argparse.ArgumentDefaultsHelpFormatter
-    parser = argparse.ArgumentParser(description=description, formatter_class=formatter)
-    parser.add_argument("--proc_file", required=True)
-
-    return parser
-
-
-def main():
-    """ Main execution. """
-    parser = _parser()
-    args = parser.parse_args()
-    run(args.proc_file)
-
-
-if __name__ == "__main__":
-    """
-    To clean up the files in after a debugging process
-    """
-    main()
