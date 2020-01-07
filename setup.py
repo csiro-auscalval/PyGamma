@@ -1,8 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-"""The setup script."""
-
+"""
+Setup gamma_insar
+"""
 from setuptools import setup, find_packages
+
+import versioneer
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -10,15 +13,16 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['Click>=7.0', ]
+with open('requirements.txt') as requirement_file:
+    requirements = [r.strip() for r in requirement_file.readlines()]
 
-setup_requirements = [ ]
+setup_requirements = ['pytest-runner']
 
-test_requirements = [ ]
+test_requirements = ['pytest']
 
 setup(
-    author="Geoscience Australia ",
-    author_email='passang.dorji@ga.gov.au',
+    author="The insar authors ",
+    author_email='earth.observation@ga.gov.au',
     python_requires='>=3.5',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
@@ -34,20 +38,21 @@ setup(
     description="Sentinel-1 SLC to backscatter processing tool using GAMMA SOFTWARE",
     entry_points={
         'console_scripts': [
-            'insar=insar.cli:main',
+            'insar=gamma_insar.insar.scripts.process_gamma:run'
         ],
     },
     install_requires=requirements,
     license="Apache Software License 2.0",
     long_description=readme + '\n\n' + history,
     include_package_data=True,
-    keywords='insar',
-    name='insar',
-    packages=find_packages(include=['insar', 'insar.*']),
+    keywords='gamma insar',
+    name='gamma_insar',
+    packages=find_packages(include=['gamma_insar', 'gamma_insar.*']),
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
-    url='https://github.com/passangd/insar',
-    version='0.1.0',
+    url='git@github.com:GeoscienceAustralia/gamma_insar.git',
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     zip_safe=False,
 )

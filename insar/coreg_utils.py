@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import datetime
 from .constant import SCENE_DATE_FMT
@@ -21,7 +21,7 @@ def coregristration_candidates(scenes, master_idx, threshold, max_slave_idx=None
     is_complete = False
     _master_date = parse_date(scenes[master_idx])
 
-    for idx, scene in enumerate(scenes[master_idx + 1 :], master_idx + 1):
+    for idx, scene in enumerate(scenes[master_idx + 1:], master_idx + 1):
         if max_slave_idx and idx > max_slave_idx:
             break
         if abs((parse_date(scene) - _master_date).days) > threshold:
@@ -75,6 +75,7 @@ def coreg_candidates_after_master_scene(scenes, masters_list, main_master):
 def coreg_candidates_before_master_scene(scenes, masters_list, main_master):
     """
     Return co-registration pairs for scenes before main master scene's date.
+
     :param scenes: list of scenes strings in '%Y%m%d' format.
     :param masters: list of master scenes strings in '%Y%m%d format.
     :return coregistration_scenes: dict with master(key) and scenes(value)

@@ -6,8 +6,8 @@
 import unittest
 from click.testing import CliRunner
 
-from insar import insar
-from insar import cli
+from gamma_insar import insar
+from gamma_insar import cli
 
 
 class TestInsar(unittest.TestCase):
@@ -27,7 +27,7 @@ class TestInsar(unittest.TestCase):
         runner = CliRunner()
         result = runner.invoke(cli.main)
         assert result.exit_code == 0
-        assert 'insar.cli.main' in result.output
+        assert 'gamma_insar.cli.main' in result.output
         help_result = runner.invoke(cli.main, ['--help'])
         assert help_result.exit_code == 0
         assert '--help  Show this message and exit.' in help_result.output

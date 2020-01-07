@@ -1,53 +1,44 @@
 #!/usr/bin/env python
 
-import os
-from typing import Union, List, Optional
-from os.path import join as pjoin, exists, getmtime
-from pathlib import Path 
-
 import fnmatch
 import shutil
-import numpy
+from pathlib import Path
+from typing import Union, List, Optional
 
-from .constant import Wildcards, SlcFilenames, MliFilenames
-from .initialize_proc_file import get_path
+from gamma_insar.insar.constant import Wildcards, SlcFilenames, MliFilenames
 
 
 def clean_rawdatadir(raw_data_path: Union[Path, str]) -> None:
     """
     Deletes all files in the raw data directory.
 
-    :param raw_data_path: 
-        A full path to raw data path. 
+    :param raw_data_path:
+        A full path to raw data path.
     """
     if Path(raw_data_path).exists():
         shutil.rmtree(raw_data_path)
 
 
 def clean_coreg_scene(
-    slc_path: Union[Path, str], 
-    scene: str,
-    pol: str, 
-    rlks:int
-    ) -> None:
+    slc_path: Union[Path, str], scene: str, pol: str, rlks: int
+) -> None:
     """
     Deletes files that were created during co-registration steps
 
-    :param slc_path: 
-        A full path to slc directory. 
-    :param scene: 
+    :param slc_path:
+        A full path to slc directory.
+    :param scene:
         A string formatted ('YYYYMMDD') SLC scene data.
-    :param pol: 
+    :param pol:
         Polarization of a SLC image.
-    :param rlks: 
+    :param rlks:
         A range look value used in formatting the mli filenames.
     """
 
     slc_path = Path(slc_path)
     if slc_path.exists():
         slc_files = [
-            item.value.format(scene, pol) for item in SlcFilenames
-            if "IW" not in item
+            item.value.format(scene, pol) for item in SlcFilenames if "IW" not in item
         ]
         mli_files = [
             item.value.format(scene_date=scene, pol=pol, rlks=rlks)
@@ -58,19 +49,21 @@ def clean_coreg_scene(
                 fp.unlink()
 
 
-def clean_slcdir(slc_path: Union[Path, str], patterns: Optional[List[str]] = None) -> None:
+def clean_slcdir(
+    slc_path: Union[Path, str], patterns: Optional[List[str]] = None
+) -> None:
     """
     Deletes files associated with wildcard patterns from slc directory.
 
-    :param slc_path: 
-        A full path to a slc base directory. 
-    :param patterns: 
+    :param slc_path:
+        A full path to a slc base directory.
+    :param patterns:
         A List with wildcard patterns to match files to delete.
     """
 
     if not patterns:
         patterns = [Wildcards.SWATH_TYPE.value, Wildcards.SCENE_CONNECTION_TYPE.value]
-    
+
     slc_path = Path(slc_path)
 
     if slc_path.exists():
@@ -104,12 +97,14 @@ def clean_slcdir(slc_path: Union[Path, str], patterns: Optional[List[str]] = Non
             _del_files(file_dir=scene_dir, files_list=del_files_list)
 
 
-def clean_ifgdir(ifg_path: Union[Path, str], patterns: Optional[List[str]] = None) -> None:
+def clean_ifgdir(
+    ifg_path: Union[Path, str], patterns: Optional[List[str]] = None
+) -> None:
     """
     Deletes files associated with wildcard patterns from ifg directory.
 
-    :param ifg_path: 
-        A full path to a base path of ifg directory. 
+    :param ifg_path:
+        A full path to a base path of ifg directory.
     :param patterns:
         A List with wildcard patterns to match files to delete.
     """
@@ -121,7 +116,7 @@ def clean_ifgdir(ifg_path: Union[Path, str], patterns: Optional[List[str]] = Non
             Wildcards.SIM_UNW_TYPE.value,
             Wildcards.THIN_UNW_TYPE.value,
         ]
-    
+
     ifg_path = Path(ifg_path)
     if ifg_path.exists():
         for scene_dir in ifg_path.iterdir():
@@ -132,14 +127,14 @@ def clean_ifgdir(ifg_path: Union[Path, str], patterns: Optional[List[str]] = Non
             _del_files(file_dir=scene_dir, files_list=files_list)
 
 
-def clean_gammademdir(gamma_dem_path: Union[Path, str], track_frame=None):
+def clean_gammademdir(gamma_dem_path: Union[Path, str], track_frame=None) -> None:
     """
     Deletes files associated with wildcard patterns from gamma dem directory.
-    
-    :param gamma_dem_path: 
-        A full path to a gamma dem directory. 
-    :param patterns:
-        A List with wildcard patterns to match files to delete.
+
+    :param gamma_dem_path:
+        A full path to a gamma dem directory.
+    :param track_frame:
+        A track_frame name to match files to delete.
     """
     if track_frame:
         patterns = [
@@ -149,7 +144,7 @@ def clean_gammademdir(gamma_dem_path: Union[Path, str], track_frame=None):
         ]
     else:
         patterns = None
-    
+
     gamma_dem_path = Path(gamma_dem_path)
     if gamma_dem_path.exists():
         files_list = get_wildcard_match_files(
@@ -158,12 +153,14 @@ def clean_gammademdir(gamma_dem_path: Union[Path, str], track_frame=None):
         _del_files(file_dir=gamma_dem_path, files_list=files_list)
 
 
-def clean_demdir(dem_path, patterns=None):
+def clean_demdir(
+    dem_path: Union[Path, str], patterns: Optional[List[str]] = None
+) -> None:
     """
     Deletes files associated with wildcard patterns from DEM directory
-    
-    :param dem_path: 
-        A full path to a DEM directory. 
+
+    :param dem_path:
+        A full path to a DEM directory.
     :param patterns:
         A List with wildcard patterns to match files to delete.
     """
@@ -176,28 +173,34 @@ def clean_demdir(dem_path, patterns=None):
         ]
 
     if Path(dem_path).exists():
-        files_list = get_wildcard_match_files(dirs_path=Path(dem_path), wildcards=patterns)
+        files_list = get_wildcard_match_files(
+            dirs_path=Path(dem_path), wildcards=patterns
+        )
         _del_files(file_dir=Path(dem_path), files_list=files_list)
 
 
-def get_wildcard_match_files(dirs_path: Union[Path, str], wildcards: Optional[str] = None) -> None:
+def get_wildcard_match_files(
+    dirs_path: Union[Path, str], wildcards: Optional[List[str]] = None
+) -> Union[None, List]:
     """
     Returns files associated with wildcard patterns from directory 'dirs_path'
-    
-    :param dirs_path: 
-        A full path to a  directory. 
-    :param patterns:
+
+    :param dirs_path:
+        A full path to a  directory.
+    :param wildcards:
         A List with wildcard patterns to match files to delete.
     """
 
     files_list = []
-    if Path(dirs_path).exists():
-        all_files = [fp.name for fp in Path(dirs_path).iterdir()]
+    if not Path(dirs_path).exists():
+        return None
 
+    all_files = [fp.name for fp in Path(dirs_path).iterdir()]
     if wildcards is not None:
-        match_files = fnmatch.filter(all_files, pattern)
-        if match_files:
-            files_list.append(match_files)
+        for pattern in wildcards:
+            match_files = fnmatch.filter(all_files, pattern)
+            if match_files:
+                files_list.append(match_files)
         return sum(files_list, [])
     return None
 
@@ -208,7 +211,4 @@ def _del_files(file_dir=None, files_list=None):
     """
     if files_list is not None:
         for item in files_list:
-            Path(file_dir).joinpath(item).unlink() 
-
-
-
+            Path(file_dir).joinpath(item).unlink()

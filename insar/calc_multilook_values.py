@@ -16,7 +16,7 @@ def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:
     """Calculates the range and azimuth look values."""
 
     _par_vals = gamma_program.ParFile(Path(slc_par_file).as_posix())
-    
+
     azsp = _par_vals.get_value("azimuth_pixel_spacing", dtype=float, index=0)
     rgsp = _par_vals.get_value("range_pixel_spacing", dtype=float, index=0)
     rg = _par_vals.get_value("center_range_slc", dtype=float, index=0)
@@ -29,15 +29,15 @@ def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:
     return azsp, rgsp, inc
 
 
-def caculate_mean_look_values(slc_par_files: List, multi_look: int) -> Tuple:
+def calculate_mean_look_values(slc_par_files: List, multi_look: int) -> Tuple:
     """Calculate mean slc look (range, azimuth, and incidence) angles from a temporal stack.
-    
-    :param slc_par_files: 
-        A List of full paths of slc parameter files. 
-    :param multi_look: 
+
+    :param slc_par_files:
+        A List of full paths of slc parameter files.
+    :param multi_look:
         Multi-look value.
 
-    :returns: 
+    :returns:
         Tuple of (range look, azimuth look, mean_grrgsp, mean_inc_deg)
     """
 
@@ -77,17 +77,17 @@ def multilook(
     outdir: Optional[Path] = None,
 ) -> None:
     """Calculate a multi-look indensity (MLI) image from an SLC image.
-    
-    :param slc: 
-        A full path to SLC image file. 
-    :param slc_par: 
-        A full path to SLC image parameter file. 
-    :param rlks: 
-        Range look value. 
-    :param alks: 
-        Azimuth look value. 
-    :param outdir: 
-        An Optional path of an output director. Otherwise parent director 
+
+    :param slc:
+        A full path to SLC image file.
+    :param slc_par:
+        A full path to SLC image parameter file.
+    :param rlks:
+        Range look value.
+    :param alks:
+        Azimuth look value.
+    :param outdir:
+        An Optional path of an output director. Otherwise parent director
         of 'slc' file is default output directory.
     """
 
@@ -108,8 +108,8 @@ def multilook(
         mli = outdir.joinpath(mli)
         mli_par = outdir.joinpath(mli_par)
         work_dir = outdir
-    
-    with working_directory(workdir.as_posix()): 
+
+    with working_directory(work_dir.as_posix()):
         gamma_program.multi_look(
             slc.as_posix(), slc_par.as_posix(), mli, mli_par, rlks, alks, 0
         )

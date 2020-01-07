@@ -1,26 +1,28 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 
-import os
-from os.path import basename, dirname, exists, join as pjoin, splitext
-from pathlib import Path
 import datetime
+import os
+import re
 import signal
 import traceback
-import re
+from os.path import exists, join as pjoin, splitext
+from pathlib import Path
+
 import luigi
 import luigi.configuration
-from luigi.util import requires
 import pandas as pd
-from .. import generate_slc_inputs
-from ..coregister_slc import CoregisterSlc
-from ..calc_baselines_new import BaselineProcess
-from ..coregister_dem import CoregisterDem
-from ..make_gamma_dem import create_gamma_dem
-from ..calc_multilook_values import multilook, caculate_mean_look_values
-from ..process_s1_slc import SlcProcess
-from ..s1_slc_metadata import S1DataDownload
-from ..subprocess_utils import environ
-from ..logs import ERROR_LOGGER, STATUS_LOGGER
+from luigi.util import requires
+
+from gamma_insar.insar.generate_slc_inputs import query_slc_inputs, slc_inputs
+from gamma_insar.insar.calc_baselines_new import BaselineProcess
+from gamma_insar.insar.calc_multilook_values import multilook, calculate_mean_look_values
+from gamma_insar.insar.coregister_dem import CoregisterDem
+from gamma_insar.insar.coregister_slc import CoregisterSlc
+from gamma_insar.insar.logs import ERROR_LOGGER, STATUS_LOGGER
+from gamma_insar.insar.make_gamma_dem import create_gamma_dem
+from gamma_insar.insar.process_s1_slc import SlcProcess
+from gamma_insar.insar.s1_slc_metadata import S1DataDownload
+from gamma_insar.insar.subprocess_utils import environ
 
 
 @luigi.Task.event_handler(luigi.Event.FAILURE)
@@ -40,18 +42,19 @@ def on_failure(task, exception):
 
 def get_scenes(burst_data_csv):
     df = pd.read_csv(burst_data_csv)
-    
-    return [
-            datetime.datetime.strptime(_dt, "%Y-%m-%d").strftime("%Y%m%d") 
-            for _dt in sorted(df.date.unique())
-            ]
 
-def calculate_master(scenes_list) -> str:
-        slc_dates = [
-            datetime.datetime.strptime(scene.strip(), "%Y%m%d").date()
-            for scene in scenes_list
-        ]
-        return sorted(slc_dates, reverse=True)[int(len(slc_dates) / 2)]
+    return [
+        datetime.datetime.strptime(_dt, "%Y-%m-%d").strftime("%Y%m%d")
+        for _dt in sorted(df.date.unique())
+    ]
+
+
+def calculate_master(scenes_list) -> datetime:
+    slc_dates = [
+        datetime.datetime.strptime(scene.strip(), "%Y%m%d").date()
+        for scene in scenes_list
+    ]
+    return sorted(slc_dates, reverse=True)[int(len(slc_dates) / 2)]
 
 
 class ExternalFileChecker(luigi.ExternalTask):
@@ -60,13 +63,14 @@ class ExternalFileChecker(luigi.ExternalTask):
     filename = luigi.Parameter()
 
     def output(self):
-        return luigi.LocalTarget(self.filename)
+        return luigi.LocalTarget(str(self.filename))
 
 
 class ListParameter(luigi.Parameter):
     """
     Converts luigi parameters separated by comma to a list.
      """
+
     def parse(self, arguments):
         return arguments.split(",")
 
@@ -85,18 +89,20 @@ class SlcDataDownload(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{Path(self.slc_scene).stem}_slc_download.out")
+            Path(str(self.workdir)).joinpath(f"{Path(str(self.slc_scene)).stem}_slc_download.out")
         )
 
     def run(self):
         download_obj = S1DataDownload(
-            self.slc_scene, self.polarization, self.poeorb_path, self.resorb_path
+            Path(str(self.slc_scene)),
+            list(self.polarization),
+            Path(str(self.poeorb_path)),
+            Path(str(self.resorb_path))
         )
-        
-        os.makedirs(self.output_dir, exist_ok=True)
 
-        download_obj.slc_download(self.output_dir)
+        os.makedirs(str(self.output_dir), exist_ok=True)
 
+        download_obj.slc_download(Path(str(self.output_dir)))
         with self.output().open("w") as f:
             f.write("")
 
@@ -106,53 +112,56 @@ class InitialSetup(luigi.Task):
     Runs the initial setup of insar processing workflow by
     creating required directories and file lists
     """
+
     start_date = luigi.Parameter()
     end_date = luigi.Parameter()
     vector_file = luigi.Parameter()
     database_name = luigi.Parameter()
     orbit = luigi.Parameter()
-    polarization = luigi.ListParameter(default=['VV'])
+    polarization = luigi.ListParameter(default=["VV"])
     track = luigi.Parameter()
     frame = luigi.Parameter()
     outdir = luigi.Parameter()
     workdir = luigi.Parameter()
     burst_data_csv = luigi.Parameter()
-    poeorb_path = luigi.Parameter() 
-    resorb_path = luigi.Parameter() 
+    poeorb_path = luigi.Parameter()
+    resorb_path = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{self.track}_{self.frame}_initialsetup_status_logs.out")
+            Path(str(self.workdir)).joinpath(
+                f"{self.track}_{self.frame}_initialsetup_status_logs.out"
+            )
         )
 
     def run(self):
         STATUS_LOGGER.info("initial setup task")
         # get the relative orbit number, which is int value of the numeric part of the track name
-        rel_orbit = int(re.findall(r"\d+", self.track)[0])
+        rel_orbit = int(re.findall(r"\d+", str(self.track))[0])
 
         # get slc input information
-        slc_query_results = generate_slc_inputs.query_slc_inputs(
-            self.database_name,
-            self.vector_file,
+        slc_query_results = query_slc_inputs(
+            str(self.database_name),
+            str(self.vector_file),
             self.start_date,
             self.end_date,
-            self.orbit,
+            str(self.orbit),
             rel_orbit,
-            self.polarization,
+            list(self.polarization),
         )
-        
+
         # here scenes_list and download_list are overwritten for each polarization
         # IW products in conflict-free mode products VV and VH polarization over land
         slc_inputs_df = pd.concat(
             [
-                generate_slc_inputs.slc_inputs(slc_query_results[pol])
-                for pol in self.polarization
+                slc_inputs(slc_query_results[pol])
+                for pol in list(self.polarization)
             ]
         )
 
         # download slc data
-        download_dir = Path(self.outdir).joinpath("RAW_DATA")
-        
+        download_dir = Path(str(self.outdir)).joinpath("RAW_DATA")
+
         os.makedirs(download_dir, exist_ok=True)
 
         download_list = slc_inputs_df.url.unique()
@@ -183,20 +192,23 @@ class CreateGammaDem(luigi.Task):
     """
     Runs create gamma dem task
     """
+
     dem_img = luigi.Parameter()
 
     def output(self):
 
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{self.track}_{self.frame}_creategammadem_status_logs.out")
+            Path(self.workdir).joinpath(
+                f"{self.track}_{self.frame}_creategammadem_status_logs.out"
+            )
         )
 
     def run(self):
         STATUS_LOGGER.info("create gamma dem task")
         gamma_dem_dir = Path(self.outdir).joinpath("GAMMA_DEM")
-        
+
         os.makedirs(gamma_dem_dir, exist_ok=True)
-        
+
         kwargs = {
             "gamma_dem_dir": gamma_dem_dir,
             "dem_img": self.dem_img,
@@ -223,16 +235,18 @@ class ProcessSlc(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{self.scene_date}_{self.polarization}_slc_logs.out")
+            Path(str(self.workdir)).joinpath(
+                f"{self.scene_date}_{self.polarization}_slc_logs.out"
+            )
         )
 
     def run(self):
         slc_job = SlcProcess(
-            self.raw_path,
-            self.slc_dir,
-            self.polarization,
-            self.scene_date,
-            self.burst_data,
+            str(self.raw_path),
+            str(self.slc_dir),
+            str(self.polarization),
+            str(self.scene_date),
+            str(self.burst_data),
         )
         slc_job.main()
         with self.output().open("w") as f:
@@ -247,7 +261,9 @@ class CreateFullSlc(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{self.track}_{self.frame}_createfullslc_status_logs.out")
+            Path(self.workdir).joinpath(
+                f"{self.track}_{self.frame}_createfullslc_status_logs.out"
+            )
         )
 
     def run(self):
@@ -255,7 +271,7 @@ class CreateFullSlc(luigi.Task):
 
         slc_scenes = get_scenes(self.burst_data_csv)
         slc_dir = Path(self.outdir).joinpath("SLC")
-        
+
         os.makedirs(slc_dir, exist_ok=True)
 
         slc_tasks = []
@@ -291,12 +307,11 @@ class Multilook(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{Path(self.slc).stem}_ml_logs.out")
+            Path(str(self.workdir)).joinpath(f"{Path(str(self.slc)).stem}_ml_logs.out")
         )
 
     def run(self):
-
-        multilook(Path(self.slc), Path(self.slc_par), self.rlks, self.alks)
+        multilook(Path(str(self.slc)), Path(str(self.slc_par)), int(str(self.rlks)), int(str(self.alks)))
         with self.output().open("w") as f:
             f.write("")
 
@@ -311,7 +326,9 @@ class CreateMultilook(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{self.track}_{self.frame}_createmultilook_status_logs.out")
+            Path(self.workdir).joinpath(
+                f"{self.track}_{self.frame}_createmultilook_status_logs.out"
+            )
         )
 
     def run(self):
@@ -333,9 +350,8 @@ class CreateMultilook(luigi.Task):
                 slc_par_files.append(Path(slc_par))
 
         # range and azimuth looks are only computed from VV polarization
-        rlks, alks, *_ = caculate_mean_look_values(
-            [_par for _par in slc_par_files if "VV" in _par.stem],
-            self.multi_look
+        rlks, alks, *_ = calculate_mean_look_values(
+            [_par for _par in slc_par_files if "VV" in _par.stem], int(str(self.multi_look))
         )
 
         # multi-look jobs run
@@ -344,11 +360,7 @@ class CreateMultilook(luigi.Task):
             slc = slc_par.with_suffix("")
             ml_jobs.append(
                 Multilook(
-                    slc=slc,
-                    slc_par=slc_par,
-                    rlks=rlks,
-                    alks=alks,
-                    workdir=self.workdir,
+                    slc=slc, slc_par=slc_par, rlks=rlks, alks=alks, workdir=self.workdir
                 )
             )
         yield ml_jobs
@@ -362,12 +374,15 @@ class CalcInitialBaseline(luigi.Task):
     """
     Runs calculation of initial baseline task
     """
+
     master_scene_polarization = luigi.Parameter(default="VV")
 
     def output(self):
 
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{self.track}_{self.frame}_calcinitialbaseline_status_logs.out")
+            Path(self.workdir).joinpath(
+                f"{self.track}_{self.frame}_calcinitialbaseline_status_logs.out"
+            )
         )
 
     def run(self):
@@ -388,8 +403,8 @@ class CalcInitialBaseline(luigi.Task):
 
         baseline = BaselineProcess(
             slc_par_files,
-            self.master_scene_polarization,
-            master_scene=calculate_master(slc_scenes)
+            str(self.master_scene_polarization),
+            master_scene=calculate_master(slc_scenes),
             outdir=Path(self.outdir),
         )
         baseline.sbas_list()
@@ -404,13 +419,15 @@ class CoregisterDemMaster(luigi.Task):
     Runs co-registration of DEM and master scene
     """
 
-    master_scene_polarization = luigi.Parameter(default='VV')
+    master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
 
     def output(self):
 
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{self.track}_{self.frame}_coregisterdemmaster_status_logs.out")
+            Path(self.workdir).joinpath(
+                f"{self.track}_{self.frame}_coregisterdemmaster_status_logs.out"
+            )
         )
 
     def run(self):
@@ -418,13 +435,15 @@ class CoregisterDemMaster(luigi.Task):
 
         # glob a multi-look file and read range and azimuth values computed before
         # TODO need better mechanism to pass parameter between tasks
-        ml_file = Path(self.workdir).joinpath(f"{self.track}_{self.frame}_createmultilook_status_logs.out")
+        ml_file = Path(self.workdir).joinpath(
+            f"{self.track}_{self.frame}_createmultilook_status_logs.out"
+        )
         with open(ml_file, "r") as src:
             for line in src.readlines():
                 if line.startswith("rlks"):
-                    rlks = int(line.strip().split(':')[1])
+                    rlks = int(line.strip().split(":")[1])
                 if line.startswith("alks"):
-                    alks = int(line.strip().split(':')[1])
+                    alks = int(line.strip().split(":")[1])
 
         master_scene = self.master_scene
         if master_scene is None:
@@ -441,7 +460,11 @@ class CoregisterDemMaster(luigi.Task):
         )
 
         master_slc_par = Path(master_slc).with_suffix(".slc.par")
-        dem = Path(self.outdir).joinpath("GAMMA_DEM").joinpath(f"{self.track}_{self.frame}.dem")
+        dem = (
+            Path(self.outdir)
+            .joinpath("GAMMA_DEM")
+            .joinpath(f"{self.track}_{self.frame}.dem")
+        )
         dem_par = dem.with_suffix(dem.suffix + ".par")
 
         coreg = CoregisterDem(
@@ -455,7 +478,7 @@ class CoregisterDemMaster(luigi.Task):
         )
 
         # runs with multi-threads and returns to initial setting
-        with environ({'OMP_NUM_THREADS': '8'}):
+        with environ({"OMP_NUM_THREADS": "8"}):
             coreg.main()
 
         with self.output().open("w") as out_fid:
@@ -466,6 +489,7 @@ class CoregisterSlave(luigi.Task):
     """
     Runs the master-slave co-registration task
     """
+
     slc_master = luigi.Parameter()
     slc_slave = luigi.Parameter()
     slave_mli = luigi.Parameter()
@@ -481,27 +505,29 @@ class CoregisterSlave(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.work_dir).joinpath(f"{Path(self.slc_master).stem}_{Path(self.slc_slave).stem}_coreg_logs.out")
+            Path(str(self.work_dir)).joinpath(
+                f"{Path(str(self.slc_master)).stem}_{Path(str(self.slc_slave)).stem}_coreg_logs.out"
+            )
         )
 
     def run(self):
 
         coreg_slave = CoregisterSlc(
-            slc_master=Path(self.slc_master),
-            slc_slave=Path(self.slc_slave),
-            slave_mli=Path(self.slave_mli),
-            range_looks=int(self.range_looks),
-            azimuth_looks=int(self.azimuth_looks),
-            ellip_pix_sigma0=Path(self.ellip_pix_sigma0),
-            dem_pix_gamma0=Path(self.dem_pix_gamma0),
-            r_dem_master_mli=Path(self.r_dem_master_mli),
-            rdc_dem=Path(self.rdc_dem),
-            eqa_dem_par=Path(self.eqa_dem_par),
-            dem_lt_fine=Path(self.dem_lt_fine),
+            slc_master=Path(str(self.slc_master)),
+            slc_slave=Path(str(self.slc_slave)),
+            slave_mli=Path(str(self.slave_mli)),
+            range_looks=int(str(self.range_looks)),
+            azimuth_looks=int(str(self.azimuth_looks)),
+            ellip_pix_sigma0=Path(str(self.ellip_pix_sigma0)),
+            dem_pix_gamma0=Path(str(self.dem_pix_gamma0)),
+            r_dem_master_mli=Path(str(self.r_dem_master_mli)),
+            rdc_dem=Path(str(self.rdc_dem)),
+            eqa_dem_par=Path(str(self.eqa_dem_par)),
+            dem_lt_fine=Path(str(self.dem_lt_fine)),
         )
-        
+
         # runs with multi-threads and returns to initial setting
-        with environ({'OMP_NUM_THREADS': '4'}):
+        with environ({"OMP_NUM_THREADS": "4"}):
             coreg_slave.main()
 
         with self.output().open("w") as f:
@@ -514,13 +540,15 @@ class CreateCoregisterSlaves(luigi.Task):
     Runs the master-slaves co-registration tasks
     """
 
-    master_scene_polarization = luigi.Parameter(default='VV')
+    master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
 
     def output(self):
         inputs = self.input()
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(f"{self.track}_{self.frame}_coregister_slaves_status_logs.out")
+            Path(self.workdir).joinpath(
+                f"{self.track}_{self.frame}_coregister_slaves_status_logs.out"
+            )
         )
 
     def run(self):
@@ -532,62 +560,69 @@ class CreateCoregisterSlaves(luigi.Task):
             master_scene = calculate_master(slc_scenes)
 
         # get range and azimuth looked values
-        ml_file = Path(self.workdir).joinpath(f"{self.track}_{self.frame}_createmultilook_status_logs.out")
+        ml_file = Path(self.workdir).joinpath(
+            f"{self.track}_{self.frame}_createmultilook_status_logs.out"
+        )
         with open(ml_file, "r") as src:
             for line in src.readlines():
                 if line.startswith("rlks"):
-                    rlks = int(line.strip().split(':')[1])
+                    rlks = int(line.strip().split(":")[1])
                 if line.startswith("alks"):
-                    alks = int(line.strip().split(':')[1])
+                    alks = int(line.strip().split(":")[1])
 
-        master_scene = master_scene.strftime('%Y%m%d')
-        master_slc_prefix = f"{master_scene}_{self.master_scene_polarization.upper()}"
+        master_scene = master_scene.strftime("%Y%m%d")
+        master_slc_prefix = f"{master_scene}_{str(self.master_scene_polarization).upper()}"
         master_slc_rlks_prefix = f"{master_slc_prefix}_{rlks}rlks"
         r_dem_master_slc_prefix = f"r{master_slc_prefix}"
 
         dem_dir = Path(self.outdir).joinpath("DEM")
         dem_filenames = CoregisterDem.dem_filenames(
-            dem_prefix=master_slc_rlks_prefix,
-            outdir=dem_dir
+            dem_prefix=master_slc_rlks_prefix, outdir=dem_dir
         )
         slc_master_dir = Path(pjoin(self.outdir, "SLC", master_scene))
         dem_master_names = CoregisterDem.dem_master_names(
             slc_prefix=master_slc_rlks_prefix,
             r_slc_prefix=r_dem_master_slc_prefix,
-            outdir=slc_master_dir
+            outdir=slc_master_dir,
         )
         kwargs = {
-            'slc_master': slc_master_dir.joinpath(f"{master_slc_prefix}.slc"),
-            'range_looks': rlks,
-            'azimuth_looks': alks,
-            'ellip_pix_sigma0': dem_filenames['ellip_pix_sigma0'],
-            'dem_pix_gamma0': dem_filenames['dem_pix_gam'],
-            'r_dem_master_mli': dem_master_names['r_dem_master_mli'],
-            'rdc_dem': dem_filenames['rdc_dem'],
-            'eqa_dem_par': dem_filenames['eqa_dem_par'],
-            'dem_lt_fine': dem_filenames['dem_lt_fine'],
-            'work_dir': Path(self.outdir)
+            "slc_master": slc_master_dir.joinpath(f"{master_slc_prefix}.slc"),
+            "range_looks": rlks,
+            "azimuth_looks": alks,
+            "ellip_pix_sigma0": dem_filenames["ellip_pix_sigma0"],
+            "dem_pix_gamma0": dem_filenames["dem_pix_gam"],
+            "r_dem_master_mli": dem_master_names["r_dem_master_mli"],
+            "rdc_dem": dem_filenames["rdc_dem"],
+            "eqa_dem_par": dem_filenames["eqa_dem_par"],
+            "dem_lt_fine": dem_filenames["dem_lt_fine"],
+            "work_dir": Path(self.outdir),
         }
 
         slave_coreg_jobs = []
-        
-        # need to account for master scene with polarization different than 
-        # the one used in coregistration of dem and master scene 
-        master_pol_coreg = set(list(self.polarization)) - set([self.master_scene_polarization.upper()])
-        for pol in master_pol_coreg: 
+
+        # need to account for master scene with polarization different than
+        # the one used in coregistration of dem and master scene
+        master_pol_coreg = set(list(self.polarization)) - {
+            str(self.master_scene_polarization).upper()
+        }
+        for pol in master_pol_coreg:
             master_slc_prefix = f"{master_scene}_{pol.upper()}"
-            kwargs['slc_slave'] = slc_master_dir.joinpath(f"{master_slc_prefix}.slc")
-            kwargs['slave_mli'] = slc_master_dir.joinpath(f"{master_slc_prefix}_{rlks}rlks.mli")
+            kwargs["slc_slave"] = slc_master_dir.joinpath(f"{master_slc_prefix}.slc")
+            kwargs["slave_mli"] = slc_master_dir.joinpath(
+                f"{master_slc_prefix}_{rlks}rlks.mli"
+            )
             slave_coreg_jobs.append(CoregisterSlave(**kwargs))
-        
+
         # slave coregisration
         slc_scenes.remove(master_scene)
         for slc_scene in slc_scenes:
             slave_dir = Path(self.outdir).joinpath("SLC").joinpath(slc_scene)
             for pol in self.polarization:
                 slave_slc_prefix = f"{slc_scene}_{pol.upper()}"
-                kwargs['slc_slave'] = slave_dir.joinpath(f"{slave_slc_prefix}.slc")
-                kwargs['slave_mli'] = slave_dir.joinpath(f"{slave_slc_prefix}_{rlks}rlks.mli")
+                kwargs["slc_slave"] = slave_dir.joinpath(f"{slave_slc_prefix}.slc")
+                kwargs["slave_mli"] = slave_dir.joinpath(
+                    f"{slave_slc_prefix}_{rlks}rlks.mli"
+                )
                 slave_coreg_jobs.append(CoregisterSlave(**kwargs))
 
         yield slave_coreg_jobs
@@ -623,48 +658,51 @@ class ARD(luigi.WrapperTask):
     outdir = luigi.Parameter(significant=False)
     workdir = luigi.Parameter(significant=False)
     database_name = luigi.Parameter()
-    orbit = luigi.Parameter() 
-    dem_img = luigi.Parameter() 
-    multi_look = luigi.Parameter() 
-    poeorb_path = luigi.Parameter() 
-    resorb_path = luigi.Parameter() 
+    orbit = luigi.Parameter()
+    dem_img = luigi.Parameter()
+    multi_look = luigi.Parameter()
+    poeorb_path = luigi.Parameter()
+    resorb_path = luigi.Parameter()
 
     def requires(self):
-        if not exists(self.vector_file):
+        if not Path(str(self.vector_file)).exists():
             ERROR_LOGGER.error(f"{self.vector_file} does not exist")
             raise FileNotFoundError
-        
 
-        track_frame = Path(self.vector_file).stem
+        track_frame = Path(str(self.vector_file)).stem
         file_strings = track_frame.split("_")
         track, frame = (file_strings[0], splitext(file_strings[1])[0])
-        
-        outdir = Path(self.outdir).joinpath(track_frame)
-        workdir = Path(self.workdir).joinpath(track_frame)
+
+        outdir = Path(str(self.outdir)).joinpath(track_frame)
+        workdir = Path(str(self.workdir)).joinpath(track_frame)
 
         os.makedirs(outdir, exist_ok=True)
         os.makedirs(workdir, exist_ok=True)
-        
+
         kwargs = {
-            'vector_file': self.vector_file,
-            'start_date': self.start_date,
-            'end_date': self.end_date,
-            'database_name': self.database_name,
-            'polarization': self.polarization,
-            'track': track,
-            'frame': frame,
-            'outdir': outdir,
-            'workdir': workdir,
-            'orbit': self.orbit,
-            'dem_img': self.dem_img,
-            'poeorb_path': self.poeorb_path,
-            'resorb_path': self.resorb_path,
-            'multi_look': self.multi_look,
-            'burst_data_csv': pjoin(outdir, f"{track_frame}_burst_data.csv")
+            "vector_file": self.vector_file,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "database_name": self.database_name,
+            "polarization": self.polarization,
+            "track": track,
+            "frame": frame,
+            "outdir": outdir,
+            "workdir": workdir,
+            "orbit": self.orbit,
+            "dem_img": self.dem_img,
+            "poeorb_path": self.poeorb_path,
+            "resorb_path": self.resorb_path,
+            "multi_look": self.multi_look,
+            "burst_data_csv": pjoin(outdir, f"{track_frame}_burst_data.csv"),
         }
 
         yield CreateCoregisterSlaves(**kwargs)
 
 
+def run():
+    luigi.build([ARD])
+
+
 if __name__ == "__name__":
-    luigi.run()
+    run()

@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 
 import os
 from typing import Optional, Union
@@ -19,28 +19,28 @@ _LOG = logging.getLogger(__name__)
 class SlcParFileParser:
     def __init__(self, par_file: Path):
         self.par_file = par_file
-        self.par_vals = gamma_program.ParFile(self.par_file)
 
     @property
     def slc_par_params(self):
+        slc_par_params = gamma_program.ParFile(self.par_file)
         par_params = namedtuple("slc_par_params", ["range_samples", "azimuth_lines"])
         return par_params(
-            self.par_vals.get_value("range_samples", dtype=int, index=0),
-            self.par_vals.get_value("azimuth_lines", dtype=int, index=0),
+            slc_par_params.get_value("range_samples", dtype=int, index=0),
+            slc_par_params.get_value("azimuth_lines", dtype=int, index=0),
         )
 
 
 class DemParFileParser:
     def __init__(self, par_file: Path):
         self.par_file = par_file
-        self.dem_par_params = gamma_program.ParFile(self.par_file)
 
     @property
     def dem_par_params(self):
+        dem_par_params = gamma_program.ParFile(self.par_file)
         par_params = namedtuple("dem_par_params", ["post_lon", "width"])
         return par_params(
-            self.dem_par_params.get_value("post_lon", dtype=float, index=0),
-            self.dem_par_params.get_value("width", dtype=int, index=0),
+            dem_par_params.get_value("post_lon", dtype=float, index=0),
+            dem_par_params.get_value("width", dtype=int, index=0),
         )
 
 

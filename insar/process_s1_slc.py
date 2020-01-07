@@ -29,26 +29,26 @@ class SlcProcess:
         burst_data: Union[Path, str],
         ref_master_tab: Optional[Union[Path, str]] = None,
     ) -> None:
-        """A full SLC creation for Sentinel-1 IW swath data. 
+        """A full SLC creation for Sentinel-1 IW swath data.
 
-        A full SLC image is created using Interferometric-Wide (IW) 
+        A full SLC image is created using Interferometric-Wide (IW)
         swath data as an input. The three sub-swaths (IW1, IW2, IW3)
-        are mosiacked into a single SLC and subsets SLC by bursts 
-        after full SLC creation. 
+        are mosiacked into a single SLC and subsets SLC by bursts
+        after full SLC creation.
 
-        :param raw_data_dir: 
+        :param raw_data_dir:
             A full path to a raw data_dir that contains SLC SAFE files.
-        :param slc_output_dir: 
-            A full path to a output directory to store full SLC files. 
-        :param polarization: 
+        :param slc_output_dir:
+            A full path to a output directory to store full SLC files.
+        :param polarization:
             A polarization of an SLC file to be used [choice: 'VV' or 'VH']
-        :param scene_date: 
+        :param scene_date:
             A date ('YYYYMMDD') formated string of SLC acquisiton date.
-        :param burst_data: 
-            A full path to a csv file containing burst informations needed 
-            to subset to form full SLC. 
-        param ref_master_tab: 
-            An Optional full path to a reference master slc tab file. 
+        :param burst_data:
+            A full path to a csv file containing burst informations needed
+            to subset to form full SLC.
+        param ref_master_tab:
+            An Optional full path to a reference master slc tab file.
         """
 
         self.raw_data_dir = Path(raw_data_dir)
@@ -163,23 +163,23 @@ class SlcProcess:
                     self.temp_slc.append(item)
         self.slc_tabs_params = _concat_tabs
 
-    def _write_tabs(self, 
-        slc_tab_file: Union[Path, str], 
-        tab_params: Optional[Dict] = None, 
-        _id: Optional[str] = None, 
-        slc_data_dir: Optional[Union[Path, str] = None
+    def _write_tabs(self,
+        slc_tab_file: Union[Path, str],
+        tab_params: Optional[Dict] = None,
+        _id: Optional[str] = None,
+        slc_data_dir: Optional[Union[Path, str]] = None
     ) -> None:
         """
         Writes tab files needed in SlcProcess.
 
-        :param slc_tab_file: 
-            A full path of an slc tab file. 
-        :param tab_params: 
+        :param slc_tab_file:
+            A full path of an slc tab file.
+        :param tab_params:
             An Optional tab params to write SLC tab file content.
-        :param _id: 
+        :param _id:
             An Optional parameter to form SLC tab names if tab_params is None.
-        :param slc_data_dir: 
-            An Optional parameter to prepend (slc, par, tops_par) filenames to 
+        :param slc_data_dir:
+            An Optional parameter to prepend (slc, par, tops_par) filenames to
             form full path.
         """
 
@@ -188,7 +188,6 @@ class SlcProcess:
                 f"{slc_tab_file.name} exits, skipping writing of slc tab parameters"
             )
             return
-
         with open(slc_tab_file, "w") as fid:
             for swath in [1, 2, 3]:
                 if tab_params is None:
@@ -266,12 +265,12 @@ class SlcProcess:
 
     def phase_shift(self, swath: Optional[int] = 1) -> None:
         """Perform phase shift correction.
-        
-        Phase shift-correction is needed for Sentinel-1 IW1 swath data collected 
+
+        Phase shift-correction is needed for Sentinel-1 IW1 swath data collected
         before 15th March, 2015.
 
-        :param swath: 
-            Optional swath number to perform phase shift on. Otherwise, IW-1 is 
+        :param swath:
+            Optional swath number to perform phase shift on. Otherwise, IW-1 is
             corrected for the scenes acquired before 15th March, 2015.
         """
 
@@ -300,9 +299,9 @@ class SlcProcess:
     def mosiac_slc(self, rlks: Optional[int] = 12, alks: Optional[int] = 2) -> None:
         """
         Calculate SLC mosaic of Sentinel-1 TOPS burst SLC data.
-        
-        :param rlks: 
-            An Optional range look value. Otherwise default rlks is used. 
+
+        :param rlks:
+            An Optional range look value. Otherwise default rlks is used.
         :param alks:
             An Optional azimuth look value. Otherwise default alks is used.
         """
@@ -314,15 +313,15 @@ class SlcProcess:
 
     def orbits(self):
         """Extract Sentinel-1 OPOD state vectors and copy into the ISP image parameter file"""
-        
+
         slc_tab = self.slc_tab_names(self.slc_prefix)
         gamma_program.S1_OPOD_vec(slc_tab.par, self.orbit_file)
 
     def frame_subset(self):
         """Subset frames to form full SLC frame of a vector file.
-       
-        Full Frame is formed after sub-setting burst data listed in 
-        the self.burst_data needed to form a full frame. 
+
+        Full Frame is formed after sub-setting burst data listed in
+        the self.burst_data needed to form a full frame.
         """
 
         df = pd.read_csv(self.burst_data)
@@ -403,10 +402,10 @@ class SlcProcess:
     def frame_resize(self, ref_slc_tab: Path, full_slc_tab: Path) -> None:
         """
         Resizes the full slc to the reference slc.
-        
-        :param ref_slc_tab: 
-            A full path to a reference slc tab file. 
-        :param full_slc_tab: 
+
+        :param ref_slc_tab:
+            A full path to a reference slc tab file.
+        :param full_slc_tab:
             A full path to a slc_tab file to be resized.
         """
 
@@ -438,7 +437,7 @@ class SlcProcess:
             _par_vals = gamma_program.ParFile(tab_names.par)
             range_samples = _par_vals.get_value("range_samples", dtype=int, index=0)
             azimuth_lines = _par_vals.get_value("azimuth_lines", dtype=int, index=0)
-            
+
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_dir = Path(temp_dir)
                 bmp_file = (
@@ -477,7 +476,7 @@ class SlcProcess:
             _make_png(tab)
 
     def main(self, write_png=True):
-        """Main method to execute SLC processing sqeuence need to produce SLC."""
+        """Main method to execute SLC processing sequence need to produce SLC."""
         work_dir = self.output_dir.joinpath(self.scene_date)
         work_dir.mkdir(exist_ok=True)
         with working_directory(work_dir):

@@ -4,7 +4,7 @@ import os
 import math
 import re
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 from collections import namedtuple
 import datetime
 from datetime import timedelta
@@ -23,11 +23,11 @@ class SlcParFileParser:
     def __init__(self, par_file: Path) -> None:
         """
         Convenient access fields for SLC image parameter properties.
-        
-        :param par_file: 
-            A full path to a parameter file.  
+
+        :param par_file:
+            A full path to a parameter file.
         """
-        
+
         self.par_file = par_file
         self.par_params = None
         with open(self.par_file.as_posix(), "r") as fid:
@@ -71,7 +71,7 @@ class SlcParFileParser:
     @property
     def orbit_par_params(self):
         """
-        Covenient orbit parameter access method needed for baseline calculation. 
+        Covenient orbit parameter access method needed for baseline calculation.
         """
 
         orbit_params = namedtuple("orbit_par_params", ["fDC", "t", "xyz"])
@@ -103,21 +103,21 @@ class BaselineProcess:
         outdir: Optional[Path] = None,
     ) -> None:
         """
-        Calculate initial and percision baselines for SLC image stack. 
+        Calculate initial and precision baselines for SLC image stack.
 
         Provides access to functionality to generate Interferometric-pair List
         using sbas_list, single_master_list and daisy_chain_list methods.
 
-        :param slc_par_list: 
-            List of Paths of a slc parameter file. 
-        :param polarization: 
+        :param slc_par_list:
+            List of Paths of a slc parameter file.
+        :param polarization:
             A polarization of slc scenes. SLC parameter list  must be of  same polarization.
         :param master_scene:
-            Acquisition date of a master SLC scene. 
-        :param scene_list: 
-            Optional scene_list file path containing the slc acquistion dates in 'YYYYMMDD' format. 
+            Acquisition date of a master SLC scene.
+        :param scene_list:
+            Optional scene_list file path containing the slc acquisition dates in 'YYYYMMDD' format.
             Otherwise, slc acquisition dates will be parsed from parameter file in the slc_par_list.
-        :param outdir: 
+        :param outdir:
             Optional baseline results output path. Otherwise, outdir will be current working directory.
         """
 
@@ -134,13 +134,12 @@ class BaselineProcess:
         if self.outdir is None:
             self.outdir = os.getcwd()
 
-
     def list_slc_dates(self):
         """
-        Returns sorted (ascending) dates for a SLC stack. 
+        Returns sorted (ascending) dates for a SLC stack.
 
-        Dates are parsed from scenes_list (dates in 'YYYYMMDD' format) if scene list exists. 
-        Else the dates are parsed from slc_parameter list, first regex pattern "[0-9]{8} 
+        Dates are parsed from scenes_list (dates in 'YYYYMMDD' format) if scene list exists.
+        Else the dates are parsed from slc_parameter list, first regex pattern "[0-9]{8}
         match is attributed as slc_scene dates.
         """
 
@@ -187,7 +186,7 @@ class BaselineProcess:
         """
 
         relBperps = np.zeros((len(self.slc_dates), len(self.slc_dates) - 1))
-        
+
         # compute baseline for treating each slc scene as a master slc
         for m_idx, master_date in enumerate(self.slc_dates):
             m_data = SlcParFileParser(Path(self._match_par(master_date)))
@@ -271,7 +270,7 @@ class BaselineProcess:
         """
         Coherence-based SBAS Network calculation and Integerogram List.
         """
-        
+
         bperps, bdopp = self.compute_perpendicular_baseline()
         m_idx = self.slc_dates.index(self.master_scene)
         m_data = SlcParFileParser(Path(self._match_par(self.master_scene)))
@@ -315,17 +314,17 @@ class BaselineProcess:
         """
         Create single Master Interferogram List.
 
-        :param master: 
-            Acquisition date for slc master scene. 
-        :param slaves: 
+        :param master:
+            Acquisition date for slc master scene.
+        :param slaves:
             List of acquisition date for slaves slc scenes.
-        :param outfile: 
+        :param outfile:
             A full path of an outfile to write interferometric-pair list
         """
 
         with open(outfile.as_posix(), "w") as fid:
             for slave in slaves:
-                fid.wrte(
+                fid.write(
                     master.strftime("%Y%m%d") + "," + slave.strftime("%Y%m%d") + "\n"
                 )
 
@@ -333,10 +332,10 @@ class BaselineProcess:
     def daisy_chain_list(scenes: List[datetime.date], outfile: Path) -> None:
         """
         Create Daisy-chained Interferogram List.
-        
-        :param scenes: 
-            List of acquisition dates for slc scenes. 
-        :param outfile: 
+
+        :param scenes:
+            List of acquisition dates for slc scenes.
+        :param outfile:
             A full path of an outfile to write inteferometric-par list
         """
 
@@ -347,21 +346,21 @@ class BaselineProcess:
             for num, scene in merged:
                 num1 = num + 1
                 if num1 < len(_scenes):
-                    fid.write(scene + "," + scens[num1] + "\n")
+                    fid.write(scene + "," + _scenes[num1] + "\n")
 
     @staticmethod
     def llh2xyz(latitude: float, longitude: float, height: float) -> np.ndarray:
         """
         Transform latitude, longitude, height to state vector position x, y, z.
 
-        :param latitude: 
+        :param latitude:
             A latitude geographical coordinate (in decimal degrees).
-        :param longitude: 
-            A longitude geographical coordinate (in decimal degrees). 
-        :param height: 
+        :param longitude:
+            A longitude geographical coordinate (in decimal degrees).
+        :param height:
             Heigh in units (m)
 
-        :returns: 
+        :returns:
             transformed coordinate in x, y, z units.
         """
         _a = 6378137
@@ -383,30 +382,30 @@ class BaselineProcess:
 
     @staticmethod
     def calc_orbit_pos(
-        t: List[float], 
-        t_min: float, 
-        t_max: float, 
-        xyz: List[List[float]], 
+        t: List[float],
+        t_min: float,
+        t_max: float,
+        xyz: List[List[float]],
         xyz_centre: np.ndarray):
         """
         Calculate the in-orbit position for the time of scene centre acquisition.
 
-        :param t: 
-            List of time of state vectors. 
-        :param t_min: 
+        :param t:
+            List of time of state vectors.
+        :param t_min:
             start time in slc parameter file.
-        :param t_max: 
+        :param t_max:
             start time + (azimuth_lines - 1.) / slc_parameter['prf']
-        :param xyz: 
-            List of state vector position from slc parameter file. 
-        :param xyz_centre: 
+        :param xyz:
+            List of state vector position from slc parameter file.
+        :param xyz_centre:
             Centre geographical coordinate (latitude, longitude) and height transformed
             in state vector position.
-        
+
         :returns:
-            Oribit position (x, y, z)        
+            Oribit position (x, y, z)
         """
-        
+
         # normalise time vector to the interval [-2 2]
         n = len(t)
 
@@ -460,15 +459,15 @@ class BaselineProcess:
     def epoch_baselines(epochs, bperp, masidx, slvidx, supermaster):
         """Determine relative perpendicular baselines of epochs from interferometric baselines.
 
-        :param epochs: 
+        :param epochs:
             List of epoch dates.
-        :param bperp: 
+        :param bperp:
             List of interferogram absolute perpendicular baselines.
-        :param masidx: 
+        :param masidx:
             List of master indices from get_index.
-        :param slvidx: 
+        :param slvidx:
             List of slave indices from get_index.
-        :param supermaster: 
+        :param supermaster:
             Epoch to set relative bperp to zero (integer).
 
         returns:
@@ -511,32 +510,32 @@ class BaselineProcess:
         coh_thres: float ,
         nmin: int,
         nmax: int,
-        outfile1; Path,
+        outfile1: Union[Path, str],
     ) -> Tuple:
         """
-        Creates SBAS network for slc scenes. 
+        Creates SBAS network for slc scenes.
 
-        :param dates: 
+        :param dates:
             List of slc acquisition dates sorted (ascending).
-        :param Bperps: 
+        :param Bperps:
             List of perpendicular baselines w.r.t master slc..
-        :param Bdopp: 
-            List of doppler centroid frequency (fDC) difference w.r.t to master slc. 
-        :param master_idx: 
+        :param Bdopp:
+            List of doppler centroid frequency (fDC) difference w.r.t to master slc.
+        :param master_idx:
             index of master scene in the list of slc dates.
         :param Btemp_max:
             Maximum Btemp(total decorrelation).
-        :param Bperp_max: 
+        :param Bperp_max:
             Maximum Bperp(total decorrelation).
-        :param coh_thres: 
+        :param coh_thres:
             Coherence threshold for selection of combinations.
         :param nmin:
-            Minimum number of connection per epoch. 
-        :param nmax: 
+            Minimum number of connection per epoch.
+        :param nmax:
             Maximum number of connection per epoch.
 
         :returns: (epoch1, epoch2, Bperbs_sbas)
-            Lists of epoch1 and epoch2 to form interferometric-pair in sbas list. 
+            Lists of epoch1 and epoch2 to form interferometric-pair in sbas list.
             Bperps_sbas: perpendicular baselines of sbas-interferogram list.
         """
 
