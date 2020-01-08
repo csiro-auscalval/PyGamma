@@ -2,9 +2,9 @@
 #
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
-SPHINXBUILD   = python -msphinx
-SPHINXPROJ    = insar
+SPHINXOPTS    ?=
+SPHINXBUILD   ?= sphinx-build
+SPHINXPROJ    = gamma_insar
 SOURCEDIR     = .
 BUILDDIR      = _build
 
