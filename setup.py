@@ -44,7 +44,7 @@ setup(
     description="Sentinel-1 SLC to backscatter processing tool using GAMMA SOFTWARE",
     entry_points={
         'console_scripts': [
-            'insar=gamma_insar.insar.scripts.process_gamma:run'
+            'gamma_insar=insar.scripts.process_gamma:run'
         ],
     },
     install_requires=[

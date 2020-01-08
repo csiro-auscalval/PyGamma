@@ -701,7 +701,7 @@ class ARD(luigi.WrapperTask):
 
 
 def run():
-    luigi.build([ARD])
+    luigi.run()
 
 
 if __name__ == "__name__":
