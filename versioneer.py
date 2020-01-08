@@ -1488,6 +1488,7 @@ def get_versions(verbose=False):
         pass
 
     from_vcs_f = handlers.get("pieces_from_vcs")
+
     if from_vcs_f:
         try:
             pieces = from_vcs_f(cfg.tag_prefix, root, verbose)

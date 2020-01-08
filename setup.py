@@ -9,9 +9,9 @@ from setuptools import setup, find_packages
 
 import versioneer
 
-HERE = Path(__file__).parrent
+HERE = Path(__file__).parent
 
-README = (HERE / "README.md").read_next()
+README = (HERE / "README.md").read_text()
 
 # with open('requirements.txt') as requirement_file:
 #     requirements = [r.strip() for r in requirement_file.readlines()]
