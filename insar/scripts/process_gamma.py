@@ -13,16 +13,16 @@ import luigi.configuration
 import pandas as pd
 from luigi.util import requires
 
-from gamma_insar.insar.generate_slc_inputs import query_slc_inputs, slc_inputs
-from gamma_insar.insar.calc_baselines_new import BaselineProcess
-from gamma_insar.insar.calc_multilook_values import multilook, calculate_mean_look_values
-from gamma_insar.insar.coregister_dem import CoregisterDem
-from gamma_insar.insar.coregister_slc import CoregisterSlc
-from gamma_insar.insar.logs import ERROR_LOGGER, STATUS_LOGGER
-from gamma_insar.insar.make_gamma_dem import create_gamma_dem
-from gamma_insar.insar.process_s1_slc import SlcProcess
-from gamma_insar.insar.s1_slc_metadata import S1DataDownload
-from gamma_insar.insar.subprocess_utils import environ
+from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
+from insar.calc_baselines_new import BaselineProcess
+from insar.calc_multilook_values import multilook, calculate_mean_look_values
+from insar.coregister_dem import CoregisterDem
+from insar.coregister_slc import CoregisterSlc
+from insar.logs import ERROR_LOGGER, STATUS_LOGGER
+from insar.make_gamma_dem import create_gamma_dem
+from insar.process_s1_slc import SlcProcess
+from insar.s1_slc_metadata import S1DataDownload
+from insar.subprocess_utils import environ
 
 
 @luigi.Task.event_handler(luigi.Event.FAILURE)

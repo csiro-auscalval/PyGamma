@@ -6,8 +6,8 @@ from pathlib import Path
 import logging
 import py_gamma as gamma_program
 
-from .constant import MliFilenames
-from .subprocess_utils import working_directory
+from insar.constant import MliFilenames
+from insar.subprocess_utils import working_directory
 
 _LOG = logging.getLogger(__name__)
 

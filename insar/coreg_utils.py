@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import datetime
-from .constant import SCENE_DATE_FMT
+from insar.constant import SCENE_DATE_FMT
 
 
 def parse_date(scene_name):

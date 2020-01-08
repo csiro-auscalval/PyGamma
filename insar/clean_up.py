@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from typing import Union, List, Optional
 
-from gamma_insar.insar.constant import Wildcards, SlcFilenames, MliFilenames
+from insar.constant import Wildcards, SlcFilenames, MliFilenames
 
 
 def clean_rawdatadir(raw_data_path: Union[Path, str]) -> None:

@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 
 import py_gamma as gamma_program
-from .subprocess_utils import working_directory, run_command
+from insar.subprocess_utils import working_directory, run_command
 
 _LOG = logging.getLogger(__name__)
 

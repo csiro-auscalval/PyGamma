@@ -11,7 +11,7 @@ import pandas as pd
 import shapely.wkt
 from spatialist import Vector
 
-from gamma_insar.insar.s1_slc_metadata import Archive
+from insar.s1_slc_metadata import Archive
 
 _LOG = logging.getLogger(__name__)
 

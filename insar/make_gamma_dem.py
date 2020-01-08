@@ -13,7 +13,7 @@ from spatialist import Vector
 
 import py_gamma as gamma_program
 
-from .subprocess_utils import run_command
+from insar.subprocess_utils import run_command
 
 
 def create_gamma_dem(
