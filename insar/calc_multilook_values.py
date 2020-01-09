@@ -100,8 +100,8 @@ def multilook(
         err_msg = f"{slc.stem} needs to be in scene_date_polarization format"
         raise ValueError(err_msg)
 
-    mli = MliFilenames.MLI_FILENAME.value.format(scene_date, pol, str(rlks))
-    mli_par = MliFilenames.MLI_PAR_FILENAME.value.format(scene_date, pol, str(rlks))
+    mli = MliFilenames.MLI_FILENAME.value.format(scene_date=scene_date, pol=pol, rlks=str(rlks))
+    mli_par = MliFilenames.MLI_PAR_FILENAME.value.format(scene_date=scene_date, pol=pol, rlks=str(rlks))
     work_dir = slc.parent
 
     if outdir is not None:

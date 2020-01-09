@@ -24,7 +24,7 @@ class SlcParFileParser:
         """
         self.par_file = Path(par_file).as_posix()
         self.par_vals = gamma_program.ParFile(self.par_file)
-
+    
     @property
     def slc_par_params(self):
         """
@@ -46,8 +46,8 @@ class DemParFileParser:
             A full path to a DEM parameter file.
         """
         self.par_file = Path(par_file).as_posix()
-        self.dem_par_params = gamma_program.ParFile(self.par_file)
-
+        self.dem_par_vals = gamma_program.ParFile(self.par_file)
+    
     @property
     def dem_par_params(self):
         """
@@ -55,8 +55,8 @@ class DemParFileParser:
         """
         par_params = namedtuple("dem_par_params", ["post_lon", "width"])
         return par_params(
-            self.dem_par_params.get_value("post_lon", dtype=float, index=0),
-            self.dem_par_params.get_value("width", dtype=int, index=0),
+            self.dem_par_vals.get_value("post_lon", dtype=float, index=0),
+            self.dem_par_vals.get_value("width", dtype=int, index=0),
         )
 
 

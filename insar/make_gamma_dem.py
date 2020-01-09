@@ -87,8 +87,8 @@ def create_gamma_dem(
             # dem_import function is a call to GAMMA software which creates a gamma compatible DEM
             gamma_program.dem_import(
                 outfile_new,
-                "{}.dem".format(track_frame),
-                "{}.dem.par".format(track_frame),
+                Path(gamma_dem_dir).joinpath(f"{track_frame}.dem").as_posix(),
+                Path(gamma_dem_dir).joinpath(f"{track_frame}.dem.par").as_posix(),
                 0,
                 1,
                 "-",

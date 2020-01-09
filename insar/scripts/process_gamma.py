@@ -421,6 +421,7 @@ class CoregisterDemMaster(luigi.Task):
 
     master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
+    num_threads = luigi.IntParameter()
 
     def output(self):
 
@@ -478,7 +479,7 @@ class CoregisterDemMaster(luigi.Task):
         )
 
         # runs with multi-threads and returns to initial setting
-        with environ({"OMP_NUM_THREADS": "8"}):
+        with environ({"OMP_NUM_THREADS": str(self.num_threads)}):
             coreg.main()
 
         with self.output().open("w") as out_fid:
@@ -502,6 +503,7 @@ class CoregisterSlave(luigi.Task):
     eqa_dem_par = luigi.Parameter()
     dem_lt_fine = luigi.Parameter()
     work_dir = luigi.Parameter()
+    num_threads = luigi.IntParameter() 
 
     def output(self):
         return luigi.LocalTarget(
@@ -527,7 +529,7 @@ class CoregisterSlave(luigi.Task):
         )
 
         # runs with multi-threads and returns to initial setting
-        with environ({"OMP_NUM_THREADS": "4"}):
+        with environ({"OMP_NUM_THREADS": str(self.num_threads)}):
             coreg_slave.main()
 
         with self.output().open("w") as f:
@@ -542,6 +544,7 @@ class CreateCoregisterSlaves(luigi.Task):
 
     master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
+    num_threads = luigi.IntParameter() 
 
     def output(self):
         inputs = self.input()
@@ -596,6 +599,7 @@ class CreateCoregisterSlaves(luigi.Task):
             "eqa_dem_par": dem_filenames["eqa_dem_par"],
             "dem_lt_fine": dem_filenames["dem_lt_fine"],
             "work_dir": Path(self.outdir),
+            "num_threads": self.num_threads,
         }
 
         slave_coreg_jobs = []
@@ -663,6 +667,7 @@ class ARD(luigi.WrapperTask):
     multi_look = luigi.Parameter()
     poeorb_path = luigi.Parameter()
     resorb_path = luigi.Parameter()
+    num_threads = luigi.Parameter() 
 
     def requires(self):
         if not Path(str(self.vector_file)).exists():
@@ -695,6 +700,7 @@ class ARD(luigi.WrapperTask):
             "resorb_path": self.resorb_path,
             "multi_look": self.multi_look,
             "burst_data_csv": pjoin(outdir, f"{track_frame}_burst_data.csv"),
+            "num_threads": self.num_threads,
         }
 
         yield CreateCoregisterSlaves(**kwargs)
