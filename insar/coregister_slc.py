@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-from typing import Optional, Union
+from typing import Optional, Union, Dict, List
 import tempfile
 from collections import namedtuple
 from pathlib import Path
@@ -17,30 +17,48 @@ _LOG = logging.getLogger(__name__)
 
 
 class SlcParFileParser:
-    def __init__(self, par_file: Path):
-        self.par_file = par_file
+    def __init__(self, par_file: Union[Path, str]) -> None:
+        """
+        Convenient access fields for SLC image parameter properties
+
+        :param par_file:
+            A full path to a SLC image parameter file
+        """
+        self.par_file = Path(par_file).as_posix()
+        self.par_vals = gamma_program.ParFile(self.par_file)
 
     @property
     def slc_par_params(self):
-        slc_par_params = gamma_program.ParFile(self.par_file)
+        """
+        Convenient SLC parameter acess method needed for SLC-SLC co-registration.
+        """
         par_params = namedtuple("slc_par_params", ["range_samples", "azimuth_lines"])
         return par_params(
-            slc_par_params.get_value("range_samples", dtype=int, index=0),
-            slc_par_params.get_value("azimuth_lines", dtype=int, index=0),
+            self.par_vals.get_value("range_samples", dtype=int, index=0),
+            self.par_vals.get_value("azimuth_lines", dtype=int, index=0),
         )
 
 
 class DemParFileParser:
-    def __init__(self, par_file: Path):
-        self.par_file = par_file
+    def __init__(self, par_file: Union[Path, str]) -> None:
+        """
+        Convenient access fields for DEM image parameter properties.
+
+        :param par_file: 
+            A full path to a DEM parameter file.
+        """
+        self.par_file = Path(par_file).as_posix()
+        self.dem_par_vals = gamma_program.ParFile(self.par_file)
 
     @property
     def dem_par_params(self):
-        dem_par_params = gamma_program.ParFile(self.par_file)
+        """
+        Convenient DEM parameter acess method needed for SLC-SLC co-registration.
+        """
         par_params = namedtuple("dem_par_params", ["post_lon", "width"])
         return par_params(
-            dem_par_params.get_value("post_lon", dtype=float, index=0),
-            dem_par_params.get_value("width", dtype=int, index=0),
+            self.dem_par_vals.get_value("post_lon", dtype=float, index=0),
+            self.dem_par_vals.get_value("width", dtype=int, index=0),
         )
 
 
@@ -61,20 +79,32 @@ class CoregisterSlc:
         outdir: Optional[Union[str, Path]] = None,
     ) -> None:
         """
-        Co-registers Sentinel-1 IWS SLC to chosen master SLC geometry.
+        Co-registers Sentinel-1 IW SLC to a chosen master SLC geometry.
 
-        :param slc_master: Full path to a master (reference) SLC
-        :param slc_slave: Full Path to a slave SLC
-        :param slave_mli: Full path to a slave image multi-looked file
-        :param range_looks: range look value
-        :param azimuth_looks: azimuth look value
-        :param ellip_pix_sigma0: sigma0 product generated during master-dem co-registration
-        :param dem_pix_gamma0: gamma0 product generated during master-dem co-registration
-        :param r_dem_master_mli: Full path to a reference multi-looked parameter file
-        :param rdc_dem: Full path to a dem (height map) in RDC of master SLC
-        :param eqa_dem_par: Full path to a eqa dem par generated during master-dem co-registration
-        :param dem_lt_fine: Full path to a eqa_to_rdc look-up table generated during master-dem co-registration
-        :param outdir: Full path to a output directory
+        :param slc_master: 
+            A full path to a master (reference) SLC image file. 
+        :param slc_slave: 
+            A full Path to a slave SLC image file.
+        :param slave_mli: 
+            A full path to a slave image multi-looked image file.
+        :param range_looks: 
+            A range look value.
+        :param azimuth_looks: 
+            An azimuth look value.
+        :param ellip_pix_sigma0: 
+            A full path to a sigma0 product generated during master-dem co-registration.
+        :param dem_pix_gamma0: 
+            A full path to a gamma0 product generated during master-dem co-registration.
+        :param r_dem_master_mli: 
+            A full path to a reference multi-looked image parameter file.
+        :param rdc_dem: 
+            A full path to a dem (height map) in RDC of master SLC.
+        :param eqa_dem_par: 
+            A full path to a eqa dem par generated during master-dem co-registration.
+        :param dem_lt_fine: 
+            A full path to a eqa_to_rdc look-up table generated during master-dem co-registration.
+        :param outdir: 
+            A full path to a output directory.
         """
         self.slc_master = slc_master
         self.slc_slave = slc_slave
@@ -138,7 +168,18 @@ class CoregisterSlc:
 
     @staticmethod
     def swath_tab_names(swath: int, prefix: str) -> namedtuple:
-        """Returns namedtuple swath-slc names"""
+        """
+        Returns namedtuple swath-slc names.
+        
+        :param swath: 
+            An IW swath number.
+        :param prefix: 
+            A prefix of full SLC name.
+
+        :returns: 
+            A namedtuples containing the names of slc, par and tops_par.
+        """
+
         swath_par = f"{prefix}_iw{swath}.slc.par"
         swath_tops_par = f"{prefix}_iw{swath}.slc.TOPS_par"
         swath_slc = f"{prefix}_iw{swath}.slc"
@@ -146,7 +187,8 @@ class CoregisterSlc:
         return swath_tab(swath_slc, swath_par, swath_tops_par)
 
     def set_tab_files(self, out_dir: Optional[Union[Path, str]] = None):
-        """Writes tab files used in slave co-registration"""
+        """Writes tab files used in slave co-registration."""
+        
         if out_dir is None:
             out_dir = self.out_dir
 
@@ -170,7 +212,8 @@ class CoregisterSlc:
         self.r_slave_slc_par = out_dir.joinpath(f"{self.slc_slave.name}.par")
 
     def get_lookup(self, outfile: Optional[Path] = None) -> None:
-        """Determine lookup table based on orbit data and DEM"""
+        """Determine lookup table based on orbit data and DEM."""
+
         self.slave_lt = outfile
         if outfile is None:
             self.slave_lt = self.out_dir.joinpath(f"{self.master_slave_prefix}.lt")
@@ -183,7 +226,7 @@ class CoregisterSlc:
         )
 
     def master_sample_size(self):
-        """Returns the start and end rows and cols"""
+        """Returns the start and end rows and cols."""
         _par_slc = SlcParFileParser(self.r_dem_master_slc_par)
         _par_mli = SlcParFileParser(self.r_dem_master_mli_par)
         sample_size = namedtuple(
@@ -211,7 +254,7 @@ class CoregisterSlc:
         range_offset_max: Optional[int] = 64,
         azimuth_offset_max: Optional[int] = 32,
     ):
-        """Reduce offset estimation to max offset values"""
+        """Reduce offset estimation to max offset values."""
         self.range_step = int(
             (self.master_sample.slc_width_end - self.master_sample.slc_width_start) / 64
         )
@@ -229,7 +272,7 @@ class CoregisterSlc:
         _id: str,
         data_dir: Optional[Union[Path, str]] = None,
     ):
-        """writes a tab file input as required by GAMMA."""
+        """Writes a tab file input as required by GAMMA."""
         with open(tab_file, "w") as fid:
             for swath in [1, 2, 3]:
                 tab_names = self.swath_tab_names(swath, _id)
@@ -244,16 +287,40 @@ class CoregisterSlc:
                 fid.write(_slc + " " + _par + " " + _tops_par + "\n")
 
     @staticmethod
-    def _grep_stdout(std_output: str, match_start_string: str):
-        lines = std_output.split("\n")
-        for line in lines:
-            if line.startswith(match_start_string):
-                return line
+    def _grep_stdout(std_output: Union[Path, str], match_start_string: str) -> str:
+        """
+        A helper method to return matched string from std_out.
+        
+        :param std_output: 
+            A full path to a file containing std output from a shell command.
+        :param mathch_start_string: 
+            A case sensitive string to be scanned in stdout. 
+
+        :returns: 
+            A full string line of the matched string.
+        """
+        with open(Path(std_output).as_posix(), 'r') as fid:
+            lines = fid.readlines()
+            for line in lines:
+                if line.startswith(match_start_string):
+                    return line
 
     @staticmethod
     def _grep_offset_parameter(
         offset_file: Union[Path, str], match_start_string: Optional[str] = None
-    ):
+    ) -> Union[Dict, List]:
+        """
+        Method to read an offset parameter file. 
+
+        :param offset_file: 
+            A full path to a offset parameter file. 
+        :param match_start_string: 
+            An Optional case sensitive string to be search in a dictionary keys.
+
+        :returns: 
+            A full key, values generated from the offset files or a  value
+            that matched the Optional match_start_string key. 
+        """
         with open(offset_file, "r") as fid:
             tmp_dict = dict()
             lines = fid.readlines()
@@ -273,7 +340,7 @@ class CoregisterSlc:
         max_azimuth_threshold: Optional[float] = 0.01,
     ):
         """
-        Performs a coarse co-registration
+        Performs a coarse co-registration.
 
         Iterative improvement of refinement offsets between master SLC and resampled slave RSLC
         using intensity matching (offset_pwr_tracking).
@@ -469,7 +536,7 @@ class CoregisterSlc:
         )
 
     def multi_look(self):
-        """Multi-look co-registered slaves"""
+        """Multi-look co-registered slaves."""
         self.r_slave_mli = self.out_dir.joinpath(f"r{self.slave_mli.name}")
         self.r_slave_mli_par = self.r_slave_mli.with_suffix(".mli.par")
         gamma_program.multi_look(
@@ -483,8 +550,11 @@ class CoregisterSlc:
 
     def generate_normalised_backscatter(self):
         """
+        Normalised radar backscatter. 
+
+
         Generate Gamma0 backscatter image for slave scene according to equation in
-        Section 10.6 of Gamma Geocoding and Image Registration Users Guide
+        Section 10.6 of Gamma Geocoding and Image Registration Users Guide.
         """
         slave_gamma0 = self.out_dir.joinpath(f"{self.slave_mli.stem}.gamma0")
         slave_gamma0_eqa = self.out_dir.joinpath(f"{self.slave_mli.stem}_eqa.gamma0")
@@ -590,7 +660,7 @@ class CoregisterSlc:
                 )
 
     def main(self):
-        """main method to execute methods needed to product master-slave coregistration"""
+        """Main method to execute methods sequence of methods need for master-slave coregistration."""
         with working_directory(self.out_dir):
             self.set_tab_files()
             self.get_lookup()

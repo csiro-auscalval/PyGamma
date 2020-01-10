@@ -68,6 +68,8 @@ def environ(env):
     fully restore previous environment afterwards
     """
     original_env = {key: os.getenv(key) for key in env}
+    print(original_env)
+
     os.environ.update(env)
     try:
         yield

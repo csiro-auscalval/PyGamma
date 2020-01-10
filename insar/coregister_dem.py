@@ -480,13 +480,16 @@ class CoregisterDem:
                 fid.write("{} {}\n".format(*self.dem_window))
                 fid.write("{}".format(self.dem_snr))
 
-            gamma_program.create_diff_par(
+            command = [
+                "create_diff_par",
                 self.r_dem_master_mli_par.as_posix(),
                 "-",
                 self.dem_diff.as_posix(),
-                1,
-                cin=return_file.as_posix(),
-            )
+                "1",
+                "<",
+                return_file.as_posix()
+            ]
+            run_command(command, os.getcwd())
 
     def offset_calc(
         self, npoly: Optional[int] = 1, use_external_image: Optional[bool] = False
@@ -749,7 +752,6 @@ class CoregisterDem:
 
         # Geocode local incidence angle image to radar geometry
         gamma_program.geocode(
-            "geocode",
             self.dem_lt_fine.as_posix(),
             self.dem_loc_inc.as_posix(),
             self.dem_width,
@@ -915,7 +917,7 @@ class CoregisterDem:
 
     def main(self):
         """Main method to execute SLC-DEM coregistration task in sequence."""
-
+        print(os.getenv("OMP_NUM_THREADS"))
         self.dem_outdir.mkdir(exist_ok=True)
         with working_directory(self.dem_outdir):
             self.copy_slc()

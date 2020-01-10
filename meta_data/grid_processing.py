@@ -19,6 +19,7 @@ GRID_NAME_FMT = "{track}_{frame}{ext}"
 
 
 @click.group()
+@click.version_option()
 def cli():
     """
     Command line interface parent group
