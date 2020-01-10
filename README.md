@@ -34,6 +34,8 @@ Linux
 
 ## Usage
 
+The workflow is managed by a luigi-scheduler and parameters can be set in `luigi.cfg` file. 
+
 `gamma_insar': Process SLC data to ARD from the commandline.
 
 	$gamma_insar ARD --help
@@ -61,8 +63,7 @@ Linux
 		   --local-scheduler SCHEDULER		Use only local-scheduler
 
 
+### Example 
+
 `gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --workers <number-of-workers> --local-scheduler` 
-
-
-
 
