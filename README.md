@@ -1,6 +1,6 @@
-## EO Datasets
+## GAMMA-INSAR
 
-A tool process Sentinel-1 SLC to Aanalysis Ready Data using GAMMA SOFTWARE
+A tool to process Sentinel-1 SLC to Aanalysis Ready Data using GAMMA SOFTWARE.
 
 ## Installation
 
@@ -11,17 +11,29 @@ Python 3.6+ is supported.
 ## Operating System tested
 Linux
 
-## GAMMA-SOFTWARE requirements
+## Supported Satellites and Sensors
+*Sentinel-1A/B
 
-GAMMA-SOFTWARE must be installed and PATHS are in appended to a system PATH.
-Only GAMMA-SOFTWARE released after June 2019 are supported. 
-Python wrapper (pygamma) available in GAMMA-SOFTWARE is used in this gamma_insar
-tools. 
-Export the parent directory of pygamma.py file located in GAMMA-SOFTWARE. 
+## Requirements
+*[attrs>=17.4.0]
+*[Click>=7.0]
+*[GDAL>=2.4]
+*[geopandas>=0.4.1]
+*[luigi>=2.8.3]
+*[matplotlib>=3.0.3]
+*[numpy>=1.8]
+*[pandas>-0.24.2]
+*[pyyaml>=3.11]
+*[rasterio>=1,!=1.0.3.post1,!=1.0.3]
+*[structlog>-16.1.0]
+*[shapely>=1.5.13]
+*[spatialist==0.4]
+*[GAMMA-SOFTWARE >= June 2019 release]
+
 `export PYTHONPATH=<path-to-gamma-software>:$PYTHONPATH`
 
 ## Usage
-`gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --workers <number of workers> --local-scheduler` 
+`gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --workers <number-of-workers> --local-scheduler` 
 
 
 
