@@ -18,11 +18,20 @@ from insar.calc_baselines_new import BaselineProcess
 from insar.calc_multilook_values import multilook, calculate_mean_look_values
 from insar.coregister_dem import CoregisterDem
 from insar.coregister_slc import CoregisterSlc
-from insar.logs import ERROR_LOGGER, STATUS_LOGGER
 from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
 from insar.s1_slc_metadata import S1DataDownload
 from insar.subprocess_utils import environ
+from insar.clan_up import clean_rawdatadir, clean_coreg_scene, clean_slcdir
+from insar.logs import ERROR_LOGGER, STATUS_LOGGER
+
+
+__RAW__ = "RAW_DATA" 
+__SLC__ = "SLC" 
+__DEM_GAMMA__ = "GAMMA_DEM"
+__DEM__ = "DEM" 
+__IFG__ = "IFG" 
+__DATE_FMT = "%Y%m%d" 
 
 
 @luigi.Task.event_handler(luigi.Event.FAILURE)
@@ -44,14 +53,14 @@ def get_scenes(burst_data_csv):
     df = pd.read_csv(burst_data_csv)
 
     return [
-        datetime.datetime.strptime(_dt, "%Y-%m-%d").strftime("%Y%m%d")
+        datetime.datetime.strptime(_dt, "%Y-%m-%d").strftime(__DATE_FMT__)
         for _dt in sorted(df.date.unique())
     ]
 
 
 def calculate_master(scenes_list) -> datetime:
     slc_dates = [
-        datetime.datetime.strptime(scene.strip(), "%Y%m%d").date()
+        datetime.datetime.strptime(scene.strip(), __DATE_FMT__).date()
         for scene in scenes_list
     ]
     return sorted(slc_dates, reverse=True)[int(len(slc_dates) / 2)]
@@ -160,7 +169,7 @@ class InitialSetup(luigi.Task):
         )
 
         # download slc data
-        download_dir = Path(str(self.outdir)).joinpath("RAW_DATA")
+        download_dir = Path(str(self.outdir)).joinpath(__RAW__)
 
         os.makedirs(download_dir, exist_ok=True)
 
@@ -205,7 +214,7 @@ class CreateGammaDem(luigi.Task):
 
     def run(self):
         STATUS_LOGGER.info("create gamma dem task")
-        gamma_dem_dir = Path(self.outdir).joinpath("GAMMA_DEM")
+        gamma_dem_dir = Path(self.outdir).joinpath(__DEM_GAMMA__)
 
         os.makedirs(gamma_dem_dir, exist_ok=True)
 
@@ -270,7 +279,7 @@ class CreateFullSlc(luigi.Task):
         STATUS_LOGGER.info("create full slc task")
 
         slc_scenes = get_scenes(self.burst_data_csv)
-        slc_dir = Path(self.outdir).joinpath("SLC")
+        slc_dir = Path(self.outdir).joinpath(__SLC__)
 
         os.makedirs(slc_dir, exist_ok=True)
 
@@ -280,7 +289,7 @@ class CreateFullSlc(luigi.Task):
                 slc_tasks.append(
                     ProcessSlc(
                         scene_date=slc_scene,
-                        raw_path=Path(self.outdir).joinpath("RAW_DATA"),
+                        raw_path=Path(self.outdir).joinpath(__RAW__),
                         polarization=pol,
                         burst_data=self.burst_data_csv,
                         slc_dir=slc_dir,
@@ -289,6 +298,10 @@ class CreateFullSlc(luigi.Task):
                 )
 
         yield slc_tasks
+        
+        # clean up raw data directory
+        if self.cleanup:
+            clean_rawdatadir(Path(self.outdir).joinpath(__RAW__))
 
         with self.output().open("w") as out_fid:
             out_fid.write("")
@@ -341,7 +354,7 @@ class CreateMultilook(luigi.Task):
             for pol in self.polarization:
                 slc_par = pjoin(
                     self.outdir,
-                    "SLC",
+                    __SLC__,
                     slc_scene,
                     "{}_{}.slc.par".format(slc_scene, pol),
                 )
@@ -364,6 +377,8 @@ class CreateMultilook(luigi.Task):
                 )
             )
         yield ml_jobs
+        
+
         with self.output().open("w") as out_fid:
             out_fid.write("rlks:\t {}\n".format(str(rlks)))
             out_fid.write("alks:\t {}".format(str(alks)))
@@ -393,7 +408,7 @@ class CalcInitialBaseline(luigi.Task):
         for slc_scene in slc_scenes:
             slc_par = pjoin(
                 self.outdir,
-                "SLC",
+                __SLC__,
                 slc_scene,
                 "{}_{}.slc.par".format(slc_scene, self.master_scene_polarization),
             )
@@ -453,17 +468,17 @@ class CoregisterDemMaster(luigi.Task):
 
         master_slc = pjoin(
             Path(self.outdir),
-            "SLC",
-            master_scene.strftime("%Y%m%d"),
+            __SLC__,
+            master_scene.strftime(__DATE_FMT__),
             "{}_{}.slc".format(
-                master_scene.strftime("%Y%m%d"), self.master_scene_polarization
+                master_scene.strftime(__DATE_FMT__), self.master_scene_polarization
             ),
         )
 
         master_slc_par = Path(master_slc).with_suffix(".slc.par")
         dem = (
             Path(self.outdir)
-            .joinpath("GAMMA_DEM")
+            .joinpath(__DEM_GAMMA__)
             .joinpath(f"{self.track}_{self.frame}.dem")
         )
         dem_par = dem.with_suffix(dem.suffix + ".par")
@@ -475,12 +490,17 @@ class CoregisterDemMaster(luigi.Task):
             slc=Path(master_slc),
             dem_par=dem_par,
             slc_par=master_slc_par,
-            dem_outdir=Path(self.outdir).joinpath("DEM"),
+            dem_outdir=Path(self.outdir).joinpath(__DEM__),
         )
 
         # runs with multi-threads and returns to initial setting
         with environ({"OMP_NUM_THREADS": self.num_threads}):
             coreg.main()
+
+        # clean up SLC directories 
+        if self.cleanup: 
+            clean_slcdir(Path(self.outdir).joinpath(__SLC__))
+            clean_gammademdir(Path(self.outdir).joinpath(__DEM_GAMMA__),track_frame=f"{self.track}_{self.frame}")
 
         with self.output().open("w") as out_fid:
             out_fid.write("")
@@ -503,7 +523,6 @@ class CoregisterSlave(luigi.Task):
     eqa_dem_par = luigi.Parameter()
     dem_lt_fine = luigi.Parameter()
     work_dir = luigi.Parameter()
-    num_threads = luigi.Parameter() 
 
     def output(self):
         return luigi.LocalTarget(
@@ -529,9 +548,8 @@ class CoregisterSlave(luigi.Task):
         )
 
         # runs with multi-threads and returns to initial setting
-        with environ({"OMP_NUM_THREADS": self.num_threads}):
-            coreg_slave.main()
-
+        coreg_slave.main()
+        
         with self.output().open("w") as f:
             f.write("")
 
@@ -573,16 +591,16 @@ class CreateCoregisterSlaves(luigi.Task):
                 if line.startswith("alks"):
                     alks = int(line.strip().split(":")[1])
 
-        master_scene = master_scene.strftime("%Y%m%d")
+        master_scene = master_scene.strftime(__DATE_FMT__)
         master_slc_prefix = f"{master_scene}_{str(self.master_scene_polarization).upper()}"
         master_slc_rlks_prefix = f"{master_slc_prefix}_{rlks}rlks"
         r_dem_master_slc_prefix = f"r{master_slc_prefix}"
 
-        dem_dir = Path(self.outdir).joinpath("DEM")
+        dem_dir = Path(self.outdir).joinpath(__DEM__)
         dem_filenames = CoregisterDem.dem_filenames(
             dem_prefix=master_slc_rlks_prefix, outdir=dem_dir
         )
-        slc_master_dir = Path(pjoin(self.outdir, "SLC", master_scene))
+        slc_master_dir = Path(pjoin(self.outdir, __SLC__, master_scene))
         dem_master_names = CoregisterDem.dem_master_names(
             slc_prefix=master_slc_rlks_prefix,
             r_slc_prefix=r_dem_master_slc_prefix,
@@ -599,7 +617,6 @@ class CreateCoregisterSlaves(luigi.Task):
             "eqa_dem_par": dem_filenames["eqa_dem_par"],
             "dem_lt_fine": dem_filenames["dem_lt_fine"],
             "work_dir": Path(self.outdir),
-            "num_threads": self.num_threads,
         }
 
         slave_coreg_jobs = []
@@ -620,7 +637,7 @@ class CreateCoregisterSlaves(luigi.Task):
         # slave coregisration
         slc_scenes.remove(master_scene)
         for slc_scene in slc_scenes:
-            slave_dir = Path(self.outdir).joinpath("SLC").joinpath(slc_scene)
+            slave_dir = Path(self.outdir).joinpath(__SLC__).joinpath(slc_scene)
             for pol in self.polarization:
                 slave_slc_prefix = f"{slc_scene}_{pol.upper()}"
                 kwargs["slc_slave"] = slave_dir.joinpath(f"{slave_slc_prefix}.slc")
@@ -630,6 +647,17 @@ class CreateCoregisterSlaves(luigi.Task):
                 slave_coreg_jobs.append(CoregisterSlave(**kwargs))
 
         yield slave_coreg_jobs
+        
+        if self.cleanup: 
+            slc_scenes = slc_scenes.insert(0, master_scene)
+            for scene in slc_scenes: 
+                for pol in self.polarization:
+                    clean_coreg_scene(
+                            Path(self.outdir).joinpath(__SLC__),
+                            scene, 
+                            pol, 
+                            rlks, 
+                    )
 
         with self.output().open("w") as f:
             f.write("")
@@ -701,6 +729,7 @@ class ARD(luigi.WrapperTask):
             "multi_look": self.multi_look,
             "burst_data_csv": pjoin(outdir, f"{track_frame}_burst_data.csv"),
             "num_threads": self.num_threads,
+            "cleanup": self.cleanup
         }
 
         yield CreateCoregisterSlaves(**kwargs)

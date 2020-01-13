@@ -34,33 +34,34 @@ Linux
 
 ## Usage
 
-The workflow is managed by a luigi-scheduler and parameters can be set in `luigi.cfg` file. 
+The workflow is managed by a luigi-scheduler and parameters can be set in `luigi.cfg` file.
 
-`gamma_insar': Process SLC data to ARD from the commandline.
+`gamma_insar`: Process Sentinel-1 SLC data to ARD from the commandline.
 
 	$gamma_insar ARD --help
 
 	usage: gamma_insar ARD
 		   [REQUIRED PARAMETERS]
-		   --vector-file VECTOR_FILE		A full path to a Sentinel-1 tract and frame vector-file 
-		   --start-date START_DATE		A start-date['YYYY-MM-DD'] of SLC data acquisition
-		   --end-date END_DATE			An end-date['YYYY-MM-DD'] of SLC data acquisition
-		   --workdir WORKDIR			A full path to a working directory to output logs
-	           --outdir OUTDIR	 		A full path to an output directory
-		   --polarization POLARIZATION  	Polarizations to be processed [VV|VH]	
-		   --cleanup CLEANUP			A Flag[yes|no] to specify to clean up intermediary files 
-							Highly recommended to cleanup
-		   --database-name DATABASE_NAME	A full path to SLC-metata database with burst informations
-		   --orbit ORBIT			A Sentinel-1 orbit [A|D]
-		   --dem-img DEM_IMG			A full path to a Digital Elevation Model
-		   --multi-look MULTI_LOOK		A multi-look value
-		   --poeorb-path POEORB_PATH		A full path to a directory with precise orbit file
-		   --resorb-path RESORB_PATH		A full path to a directory with restitution orbit file
-		   --num-threads NUM_THREADS		A number of threads to be used Environmental variable 
-							OMP_NUM_THREADS gets modified while GAMMA SOFTWARE is called 
-							for co-registration and inteferograms processing.
-		   --workers WORKERS			Number of workers assigned to a luigi scheduler 
-		   --local-scheduler SCHEDULER		Use only local-scheduler
+		   --vector-file VECTOR_FILE		A full path to a Sentinel-1 tract and frame vector-file.
+		   --start-date START_DATE		A start-date['YYYY-MM-DD'] of SLC data acquisition.
+		   --end-date END_DATE			An end-date['YYYY-MM-DD'] of SLC data acquisition.
+		   --workdir WORKDIR			A full path to a working directory to output logs.
+	           --outdir OUTDIR	 		A full path to an output directory.
+		   --polarization POLARIZATION  	Polarizations to be processed [VV|VH|VV,VH].	
+		   --cleanup CLEANUP			A flag[yes|no] to specify a clean up  of intermediary files. 
+							Highly recommended to cleanup to limit storage during production.
+		   --database-name DATABASE_NAME	A full path to SLC-metata database with burst informations.
+		   --orbit ORBIT			A Sentinel-1 orbit [A|D].
+		   --dem-img DEM_IMG			A full path to a Digital Elevation Model.
+		   --multi-look MULTI_LOOK		A multi-look value.
+		   --poeorb-path POEORB_PATH		A full path to a directory with precise orbit file.
+		   --resorb-path RESORB_PATH		A full path to a directory with restitution orbit file.
+		   --num-threads NUM_THREADS		A number of threads to be used by OPENMP to enable a multi-threadeding in GAMMA SOFTWARE.
+							Environment `OMP_NUM_THREADS` gets modified for the co-registration and 
+							inteferograms processing. Specify 1 for for the default value.
+							Only specify more than 1 if you are certain there is a bottle-neck.
+		   --workers WORKERS			Number of workers assigned to a luigi scheduler.
+		   --local-scheduler SCHEDULER		Use only local-scheduler.
 
 
 ### Example 
