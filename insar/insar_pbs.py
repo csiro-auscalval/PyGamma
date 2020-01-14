@@ -13,152 +13,28 @@ import uuid
 import argparse
 import time
 
-"""
-This pbs submission script divides and submits the total number of jobs 
-into 'n' equally divided batches (set by 'num_batch' param.). For each batch, 
-a pbs job is submitted, which controls the chainning of additional jobs from 
-that batch, if a previous job is completed, if error occurs for that particular 
-job, or retry count per job exceeds (which is defined by user from parameter 'retry'). 
-
-Recommendation for INSAR end-to-end processing is to set the 'retry' to maximum of 2
-with default walltime of 48hrs, and number of batch 'num_batch' to 4. For a single 
-stack end-to-end run usually takes from 4-6 hrs for 50-90 scenes stack in NCI infrastructure. 
-The source code, which executes GAMMA program is designed to spawn maximum of 50 NCI jobs 
-depending on the tasks. Thus, to not exceed the maximum queue limit of 300 per project in  NCI, 
-the 'num_batch' with maximum of 4 would spawn 200 jobs (+/- 20 jobs). 
-
-taskfile <contains the all the 'download.list' file's path to be processed> 
-    content example: /path/to/a/download/file/s1_des_download_half1.list
-                     /path/to/a/download/file/s1_des_download_half2.list
-                     .
-                     .
-                     /path/to/a/download/file/s1_des_download_half10.list
-                    
-usage:{
-    python insar_pbs.py 
-    --taskfile <path to download file list>
-    --env <path to .env file to NCI> 
-    --total_ncpus <number of cpus> 
-    --queue <express or normal>
-    --hours <walltime in hours> 
-    --total_memory <total memory requied in GB> 
-    --workdir <path to a working directory where nci outputs/luigi logs are generated>
-    --outdir <path where processed data is to be stored> 
-    --project <nci project>
-    --track <track>
-    --frame <frame>
-    --num_batch <number batches>
-    --test (if you want to mock the pbs submission)
-    }
-"""
 
 PBS_RESOURCES = """#!/bin/bash
-#PBS -P {project}
+#PBS -P {project_name}
 #PBS -q {queue}
-#PBS -l other=gdata1
-#PBS -l walltime={hours}:00:00
-#PBS -l mem={memory}GB
-#PBS -l ncpus={ncpus}
-#PBS -l jobfs=5GB
-#PBS -W umask=017
+#PBS -l walltime={walltime_hours}:00:00,mem={mem_gb}GB,ncpus={cpu_count}
+#PBS -l jobfs={jobfs_gb}GB
+#PBS -l storage=scratch/{project_name}{storages}
 #PBS -l wd
-#PBS -v NJOBS,NJOB,JOB_IDX
-#PBS -l software=python
+#PBS -j oe
+#PBS -m e
 """
 
 PBS_TEMPLATE = r"""{pbs_resources}
 
-# NJOBS is the total number of retry per job in a sequence of jobs (defaults to 1)
-
 source {env}
 
-export OMP_NUM_THREADS={omp_num_threads}
-s1_download_list={s1_download_list}
-
-# set the default NJOBS to 1 if it is not set
-if [ X$NJOBS == X ]; then
-    export NJOBS=1
-fi
-
-# set the default NJOB to 0 if it is not set
-if [ X$NJOB == X ]; then 
-    export NJOB=0
-fi
-
-# set the default JOB_IDX if it is not set 
-if [ X$JOB_IDX == X ]; then 
-    export JOB_IDX=0
-fi
-    
-export njobs=$NJOBS
-
-# read the content of files into an ARRAY
-IFS=$'\n' read -d '' -r -a JOB_ARRAY < $s1_download_list
-
-job_num=$((${{#JOB_ARRAY[@]}}))
-
-# termination of batch job if all jobs are completed
-if [ $JOB_IDX -ge $job_num ]; then 
-    echo "all jobs are completed for this batch" 
-    exit 0
-fi 
-
-download_file=${{JOB_ARRAY[JOB_IDX]}}
-echo "processing download file $download_file" 
-
-final_status_log="$(basename -- $download_file)"".out"
-
-# Quick termination of job sequence if final output file is found
-# in the working directory 
-if [ -f $final_status_log ]; then
-    echo "$final_status_log exists: terminating the $final_status_log job"
-    export NJOBS=$njobs
-    export NJOB=0
-    export JOB_IDX=$((JOB_IDX+1))
-fi
-
-# Increment the counter to get current job number 
-NJOB=$(($NJOB+1))
-echo "processiing job $NJOB of $NJOBS jobs"
-
-# check if job sequence is complete, if complete reset the variables for next jobs
-if [ $NJOB -ge $NJOBS ]; then
-    export NJOBS=$njobs
-    export NJOB=0
-    export JOB_IDX=$((JOB_IDX+1))
-fi 
-
-qsub -z -W depend=afterany:$PBS_JOBID $PBS_JOBNAME
-
-# check the checkpoint files before commencing the next job if NJOB is greater than 1 
-# Run the job
-if [ $NJOB -gt 1 ]; then 
-    luigi {options} --s1-file-list $download_file --workers 4 --restart-process True --workdir {workdir} --outdir {outdir} --local-scheduler
-
-else
-    luigi {options} --s1-file-list $download_file --workers 4 --workdir {workdir} --outdir {outdir} --local-scheduler
-    
-fi 
-
-errstat=$?
-if [ $errstat -ne 0 ]; then 
-    sleep 5 
-    touch $final_status_log
-    export NJOBS=$njobs
-    export NJOB=0
-    exit $errstat
-fi
-
-    
+gamma_insar ARD --vector-file-list {vector_file_list} --start-date {start_date} --end-date {end_date} --workdir {workdir} --outdir {outdir} --workers {cpu_count} --local-scheduler
 """
 
 FMT1 = "job{jobid}.bash"
-FMT2 = "level1-{jobid}.txt"
-RESTART_ARD_FMT = (
-    "--module process_gamma ARD --checkpoint-patterns {checkpoint_patterns}"
-)
-ARD_FMT = "--module process_gamma ARD"
-
+FMT2 = "input-{jobid}.txt"
+STORAGE = "+gdata/{proj}"
 
 def scatter(iterable, n):
     """
@@ -172,7 +48,14 @@ def scatter(iterable, n):
 
 
 def _gen_pbs(
-    scattered_tasklist, options, env, omp_num_threads, workdir, outdir, pbs_resource
+    scattered_tasklist,
+    env, 
+    workdir, 
+    outdir, 
+    start_date,
+    end_date,
+    pbs_resource,
+    cpu_count,
 ):
     """
     Generates a pbs scripts
@@ -182,10 +65,7 @@ def _gen_pbs(
     for block in scattered_tasklist:
 
         jobid = uuid.uuid4().hex[0:6]
-        print(workdir)
-        print(jobid)
         job_dir = pjoin(workdir, "jobid-{}".format(jobid))
-        print(job_dir)
         if not exists(job_dir):
             os.makedirs(job_dir)
 
@@ -195,12 +75,13 @@ def _gen_pbs(
 
         pbs = PBS_TEMPLATE.format(
             pbs_resources=pbs_resource,
-            options=options,
-            omp_num_threads=omp_num_threads,
             env=env,
-            s1_download_list=basename(out_fname),
-            outdir=outdir,
+            vector_file_list=basename(out_fname),
+            start_date=start_date,
+            end_date=end_date,
             workdir=job_dir,
+            outdir=outdir,
+            cpu_count=cpu_count
         )
 
         out_fname = pjoin(job_dir, FMT1.format(jobid=jobid))
@@ -212,7 +93,7 @@ def _gen_pbs(
     return pbs_scripts
 
 
-def _submit_pbs(pbs_scripts, retry, test):
+def _submit_pbs(pbs_scripts, test):
     """
     Submits a pbs job or mocks if set to test
     """
@@ -221,31 +102,32 @@ def _submit_pbs(pbs_scripts, retry, test):
         if test:
             time.sleep(1)
             print(
-                "qsub -v NJOBS={retry} {job}".format(retry=retry, job=basename(scripts))
+                "qsub {job}".format(job=basename(scripts))
             )
         else:
             time.sleep(1)
             os.chdir(dirname(scripts))
             subprocess.call(
-                ["qsub", "-v", "NJOBS={retry}".format(retry=retry), basename(scripts)]
+                ["qsub", basename(scripts)]
             )
 
 
 def run(
     taskfile,
-    checkpoint_patterns,
+    start_date,
+    end_date,
     workdir,
     outdir,
-    env,
-    total_ncpus,
-    total_memory,
-    omp_num_threads,
-    project,
+    ncpus,
+    memory,
     queue,
     hours,
     email,
-    retry,
-    num_batch,
+    nodes,
+    jobfs,
+    storage,
+    project,
+    env,
     test,
 ):
     """
@@ -253,34 +135,32 @@ def run(
     """
     with open(taskfile, "r") as src:
         tasklist = src.readlines()
+    
 
-    num_batch = num_batch
-
-    scattered_tasklist = scatter(tasklist, num_batch)
-
+    scattered_tasklist = scatter(tasklist, nodes)
+    storage_names = ''.join([STORAGE.format(proj=p) for p in storage]) 
     pbs_resources = PBS_RESOURCES.format(
-        project=project,
+        project_name=project,
         queue=queue,
-        hours=hours,
-        memory=total_memory,
-        ncpus=total_ncpus,
+        walltime_hours=hours,
+        mem_gb=memory,
+        cpu_count=ncpus,
+        jobfs_gb=jobfs,
+        storages=storage_names,
         email=email,
     )
-    if checkpoint_patterns:
-        options = RESTART_ARD_FMT.format(checkpoint_patterns=checkpoint_patterns)
-    else:
-        options = ARD_FMT
-
+    
     pbs_scripts = _gen_pbs(
         scattered_tasklist,
-        options,
         env,
-        omp_num_threads,
         workdir,
         outdir,
+        start_date,
+        end_date,
         pbs_resources,
+        ncpus
     )
-    _submit_pbs(pbs_scripts, retry, test)
+    _submit_pbs(pbs_scripts, test)
 
 
 def _parser():
@@ -298,14 +178,16 @@ def _parser():
         help="The file containing the list of " "tasks to be performed",
         required=True,
     )
-
     parser.add_argument(
-        "--checkpoint_patterns",
-        help="The wildcard patterns used " "in cleanup of check point files",
-        required=False,
-        default=None,
+        "--start-date",
+        help="The start date of SLC acquisition",
+        required=True,
     )
-
+    parser.add_argument(
+        "--end-date",
+        help="The end date of SLC acquisition",
+        required=True
+    )
     parser.add_argument(
         "--workdir",
         help="The base working and scripts output directory.",
@@ -316,38 +198,27 @@ def _parser():
         "--outdir", help="The output directory for processed data", required=True
     )
 
-    parser.add_argument("--env", help="Environment script to source.", required=True)
-
     parser.add_argument(
-        "--total_ncpus",
+        "--ncpus",
         type=int,
         help="The total number of cpus per job" "required if known",
-        default=1,
+        default=48,
         required=False,
     )
 
     parser.add_argument(
-        "--total_memory",
+        "--memory",
         type=int,
-        help="Total memory required if known",
-        default=8,
+        help="Total memory required if per node",
+        default=48*4,
         required=False,
     )
 
-    parser.add_argument(
-        "--omp_num_threads",
-        type=int,
-        help="The number of threads for each job",
-        default=1,
-        required=False,
-    )
-
-    parser.add_argument("--project", help="Project code to run under.", required=True)
 
     parser.add_argument(
         "--queue",
         help="Queue to submit the job into",
-        default="express",
+        default="normal",
         required=False,
     )
 
@@ -360,21 +231,37 @@ def _parser():
     )
 
     parser.add_argument(
-        "--retry",
+        "--nodes",
         type=int,
-        help="How many retry to be performed before per job" "terminating the job",
-        default=7,
+        help="Number of nodes to be requested",
+        default=1,
         required=False,
     )
 
     parser.add_argument(
-        "--num_batch",
-        type=int,
-        help="Number of batch jobs to be generated",
-        default=2,
-        required=False,
+        "--jobfs",
+        help="Jobfs required per node",
+        default=400,
+        required=False
     )
-
+    
+    parser.add_argument(
+        "--storage",
+        nargs='*',
+        help="Project storage you wish to use in PBS jobs",
+        required=True,
+    )
+    
+    parser.add_argument(
+        "--project",
+        help="Project to compute under",
+        required=True,
+    )
+    parser.add_argument(
+        "--env",
+        help="Environment script to source.",
+        required=True,
+    )
     parser.add_argument(
         "--test", action="store_true", help="mock the job submission to PBS queue"
     )
@@ -388,19 +275,20 @@ def main():
     args = parser.parse_args()
     run(
         args.taskfile,
-        args.checkpoint_patterns,
+        args.start_date,
+        args.end_date,
         args.workdir,
         args.outdir,
-        args.env,
-        args.total_ncpus,
-        args.total_memory,
-        args.omp_num_threads,
-        args.project,
+        args.ncpus,
+        args.memory,
         args.queue,
         args.hours,
         args.email,
-        args.retry,
-        args.num_batch,
+        args.nodes,
+        args.jobfs,
+        args.storage,
+        args.project,
+        args.env,
         args.test,
     )
 

@@ -22,7 +22,7 @@ from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
 from insar.s1_slc_metadata import S1DataDownload
 from insar.subprocess_utils import environ
-from insar.clan_up import clean_rawdatadir, clean_coreg_scene, clean_slcdir
+from insar.clean_up import clean_rawdatadir, clean_coreg_scene, clean_slcdir, clean_gammademdir
 from insar.logs import ERROR_LOGGER, STATUS_LOGGER
 
 
@@ -31,7 +31,8 @@ __SLC__ = "SLC"
 __DEM_GAMMA__ = "GAMMA_DEM"
 __DEM__ = "DEM" 
 __IFG__ = "IFG" 
-__DATE_FMT = "%Y%m%d" 
+__DATE_FMT__ = "%Y%m%d" 
+__TRACK_FRAME__ = r"^T[0-9]{3}[A|D]_F[0-9]{2}[S|N]"
 
 
 @luigi.Task.event_handler(luigi.Event.FAILURE)
@@ -44,9 +45,6 @@ def on_failure(task, exception):
         exception=exception.__str__(),
         traceback=traceback.format_exc().splitlines(),
     )
-
-    pid = int(os.getpid())
-    os.kill(pid, signal.SIGTERM)
 
 
 def get_scenes(burst_data_csv):
@@ -135,6 +133,7 @@ class InitialSetup(luigi.Task):
     burst_data_csv = luigi.Parameter()
     poeorb_path = luigi.Parameter()
     resorb_path = luigi.Parameter()
+    cleanup = luigi.Parameter() 
 
     def output(self):
         return luigi.LocalTarget(
@@ -378,7 +377,6 @@ class CreateMultilook(luigi.Task):
             )
         yield ml_jobs
         
-
         with self.output().open("w") as out_fid:
             out_fid.write("rlks:\t {}\n".format(str(rlks)))
             out_fid.write("alks:\t {}".format(str(alks)))
@@ -422,6 +420,9 @@ class CalcInitialBaseline(luigi.Task):
             master_scene=calculate_master(slc_scenes),
             outdir=Path(self.outdir),
         )
+
+        # creates a ifg list based on sbas-network
+        # TODO confirm with InSAR team if sbas-network is the default ifg list?
         baseline.sbas_list()
 
         with self.output().open("w") as out_fid:
@@ -437,6 +438,7 @@ class CoregisterDemMaster(luigi.Task):
     master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
     num_threads = luigi.Parameter()
+    cleanup = luigi.Parameter() 
 
     def output(self):
 
@@ -496,11 +498,6 @@ class CoregisterDemMaster(luigi.Task):
         # runs with multi-threads and returns to initial setting
         with environ({"OMP_NUM_THREADS": self.num_threads}):
             coreg.main()
-
-        # clean up SLC directories 
-        if self.cleanup: 
-            clean_slcdir(Path(self.outdir).joinpath(__SLC__))
-            clean_gammademdir(Path(self.outdir).joinpath(__DEM_GAMMA__),track_frame=f"{self.track}_{self.frame}")
 
         with self.output().open("w") as out_fid:
             out_fid.write("")
@@ -563,6 +560,7 @@ class CreateCoregisterSlaves(luigi.Task):
     master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
     num_threads = luigi.Parameter() 
+    cleanup = luigi.Parameter()
 
     def output(self):
         inputs = self.input()
@@ -648,8 +646,12 @@ class CreateCoregisterSlaves(luigi.Task):
 
         yield slave_coreg_jobs
         
+        # cleanup slc directory after coreg  and gamma dem dir
         if self.cleanup: 
-            slc_scenes = slc_scenes.insert(0, master_scene)
+            clean_slcdir(Path(self.outdir).joinpath(__SLC__))
+            clean_gammademdir(Path(self.outdir).joinpath(__DEM_GAMMA__),track_frame=f"{self.track}_{self.frame}")
+
+            slc_scenes.insert(0, master_scene)
             for scene in slc_scenes: 
                 for pol in self.polarization:
                     clean_coreg_scene(
@@ -682,11 +684,11 @@ class ARD(luigi.WrapperTask):
     }
     """
 
-    vector_file = luigi.Parameter(significant=False)
+    vector_file_list = luigi.Parameter(significant=False)
     start_date = luigi.DateParameter(significant=False)
     end_date = luigi.DateParameter(significant=False)
     polarization = luigi.ListParameter(default=["VV", "VH"], significant=False)
-    cleanup = luigi.Parameter(default="no", significant=False)
+    cleanup = luigi.Parameter(default=True, significant=False)
     outdir = luigi.Parameter(significant=False)
     workdir = luigi.Parameter(significant=False)
     database_name = luigi.Parameter()
@@ -698,41 +700,48 @@ class ARD(luigi.WrapperTask):
     num_threads = luigi.Parameter() 
 
     def requires(self):
-        if not Path(str(self.vector_file)).exists():
-            ERROR_LOGGER.error(f"{self.vector_file} does not exist")
+        if not Path(str(self.vector_file_list)).exists():
+            ERROR_LOGGER.error(f"{self.vector_file_list} does not exist")
             raise FileNotFoundError
 
-        track_frame = Path(str(self.vector_file)).stem
-        file_strings = track_frame.split("_")
-        track, frame = (file_strings[0], splitext(file_strings[1])[0])
+        ard_tasks = []
+        with open(self.vector_file_list, "r") as fid: 
+            vector_files = fid.readlines()
+            for vector_file in vector_files:
+                vector_file = vector_file.rstrip()
+                if not re.match(__TRACK_FRAME__, Path(vector_file).stem): 
+                    STATUS_LOGGER.error(f"{Path(vector_file).stem} should be of {__TRACK_FRAME__} format")
+                    continue 
 
-        outdir = Path(str(self.outdir)).joinpath(track_frame)
-        workdir = Path(str(self.workdir)).joinpath(track_frame)
+                track, frame = Path(vector_file).stem.split('_')
+                outdir = Path(str(self.outdir)).joinpath(f"{track}_{frame}")
+                workdir = Path(str(self.workdir)).joinpath(f"{track}_{frame}")
 
-        os.makedirs(outdir, exist_ok=True)
-        os.makedirs(workdir, exist_ok=True)
+                os.makedirs(outdir, exist_ok=True)
+                os.makedirs(workdir, exist_ok=True)
+                
+                kwargs = {
+                    "vector_file": vector_file,
+                    "start_date": self.start_date,
+                    "end_date": self.end_date,
+                    "database_name": self.database_name,
+                    "polarization": self.polarization,
+                    "track": track,
+                    "frame": frame,
+                    "outdir": outdir,
+                    "workdir": workdir,
+                    "orbit": self.orbit,
+                    "dem_img": self.dem_img,
+                    "poeorb_path": self.poeorb_path,
+                    "resorb_path": self.resorb_path,
+                    "multi_look": self.multi_look,
+                    "burst_data_csv": pjoin(outdir, f"{track}_{frame}_burst_data.csv"),
+                    "num_threads": self.num_threads,
+                    "cleanup": self.cleanup
+                }
 
-        kwargs = {
-            "vector_file": self.vector_file,
-            "start_date": self.start_date,
-            "end_date": self.end_date,
-            "database_name": self.database_name,
-            "polarization": self.polarization,
-            "track": track,
-            "frame": frame,
-            "outdir": outdir,
-            "workdir": workdir,
-            "orbit": self.orbit,
-            "dem_img": self.dem_img,
-            "poeorb_path": self.poeorb_path,
-            "resorb_path": self.resorb_path,
-            "multi_look": self.multi_look,
-            "burst_data_csv": pjoin(outdir, f"{track_frame}_burst_data.csv"),
-            "num_threads": self.num_threads,
-            "cleanup": self.cleanup
-        }
-
-        yield CreateCoregisterSlaves(**kwargs)
+                ard_tasks.append(CreateCoregisterSlaves(**kwargs))
+        yield ard_tasks
 
 
 def run():
