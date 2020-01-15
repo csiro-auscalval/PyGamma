@@ -193,11 +193,9 @@ def _parser():
         help="The base working and scripts output directory.",
         required=True,
     )
-
     parser.add_argument(
         "--outdir", help="The output directory for processed data", required=True
     )
-
     parser.add_argument(
         "--ncpus",
         type=int,
@@ -205,7 +203,6 @@ def _parser():
         default=48,
         required=False,
     )
-
     parser.add_argument(
         "--memory",
         type=int,
@@ -213,23 +210,18 @@ def _parser():
         default=48*4,
         required=False,
     )
-
-
     parser.add_argument(
         "--queue",
         help="Queue to submit the job into",
         default="normal",
         required=False,
     )
-
     parser.add_argument(
         "--hours", help="Job walltime in hours.", default=24, required=False
     )
-
     parser.add_argument(
         "--email", help="Notification email address.", default="your.name@something.com"
     )
-
     parser.add_argument(
         "--nodes",
         type=int,
@@ -237,21 +229,18 @@ def _parser():
         default=1,
         required=False,
     )
-
     parser.add_argument(
         "--jobfs",
         help="Jobfs required per node",
         default=400,
         required=False
     )
-    
     parser.add_argument(
         "--storage",
         nargs='*',
         help="Project storage you wish to use in PBS jobs",
         required=True,
     )
-    
     parser.add_argument(
         "--project",
         help="Project to compute under",
@@ -265,7 +254,6 @@ def _parser():
     parser.add_argument(
         "--test", action="store_true", help="mock the job submission to PBS queue"
     )
-
     return parser
 
 

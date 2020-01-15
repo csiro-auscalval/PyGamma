@@ -32,6 +32,10 @@ Linux
 
 `export PYTHONPATH=<path-to-gamma-software>:$PYTHONPATH`
 
+## NCI Module
+$module use -a /g/data/v10/public/modules/modulefiles /g/data/v10/private/modules/modulefiles 
+$module load gamma-insar
+
 ## Usage
 
 The workflow is managed by a luigi-scheduler and parameters can be set in `luigi.cfg` file.
