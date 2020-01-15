@@ -614,7 +614,7 @@ class CreateCoregisterSlaves(luigi.Task):
             "rdc_dem": dem_filenames["rdc_dem"],
             "eqa_dem_par": dem_filenames["eqa_dem_par"],
             "dem_lt_fine": dem_filenames["dem_lt_fine"],
-            "work_dir": Path(self.outdir),
+            "work_dir": Path(self.workdir),
         }
 
         slave_coreg_jobs = []

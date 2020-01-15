@@ -14,7 +14,7 @@ import shapely.wkt
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 import yaml
-from insar.metadata.s1_slc import Archive, SlcFrame, SlcMetadata
+from insar.meta_data.s1_slc import Archive, SlcFrame, SlcMetadata
 
 _LOG = logging.getLogger(__name__)
 

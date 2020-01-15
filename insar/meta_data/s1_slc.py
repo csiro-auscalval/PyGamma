@@ -142,8 +142,8 @@ class SlcMetadata:
                         int(
                             tree.find(
                                 './/safe:orbitNumber[@type="{0}"]'.format(x), namespaces
-                            ).text
-<F7><F7>                        ),
+                            ).text                      
+                        ),
                     )
                     for x in ["start", "stop"]
                 ]

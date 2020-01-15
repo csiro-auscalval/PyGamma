@@ -19,12 +19,7 @@ README = (HERE / "README.md").read_text()
 setup_requirements = ['pytest-runner']
 
 test_requirements = [
-    "black",
-    "flake8",
     "pytest",
-    "pytest-flake8",
-    "sphinx-autodoc-typehints",
-    "sphinx_rtd_theme",
 ]
 
 setup(

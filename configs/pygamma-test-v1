@@ -21,7 +21,7 @@ module-whatis   "GA insar processing gamma_insar-0.1.0"
 set version	gamma_insar
 
 # base path for gamma_insar module build
-set base	/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/PYGAMMA_BACKSCATTER/gamma_insar_test
+set base	~/.digitalearthau/dea-env/20191127/local
 
 # base path for GAMMA SOFTWARE
 set gamma_base  /g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20191203
@@ -76,8 +76,8 @@ append-path PYTHONPATH $gamma_base
 
 # set pygamma workflow paths
 # change the paths to a location of the gamma_insar module installation
-append-path PATH $base/$version/bin
-prepend-path PYTHONPATH $base/$version/lib/python3.6/site-packages
+append-path PATH $base/bin
+prepend-path PYTHONPATH $base/lib/python3.6/site-packages
 
 if { [ module-info mode remove ] } {
     module load dea/20191127
@@ -88,7 +88,7 @@ if { [ module-info mode remove ] } {
     module load hdf5/1.8.21
     module load gmt/6.0.0
     remove-path PYTHONPATH $gamma_base 
-    remove-path PYTHONPATH $base/$version/lib/python3.6/site-packages
+    remove-path PYTHONPATH $base/lib/python3.6/site-packages
     remove-path $gamma_base/DIFF/bin
     remove-path $gamma_base/DISP/bin
     remove-path $gamma_base/ISP/bin
@@ -101,4 +101,3 @@ if { [ module-info mode remove ] } {
     remove-path $gamma_base/MSP/scripts
 }
 
-setenv LUIGI_CONFIG_PATH $base/$version/configs/luigi.cfg
