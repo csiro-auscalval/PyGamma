@@ -30,7 +30,6 @@ Linux
 * [spatialist==0.4]
 * [GAMMA-SOFTWARE >= June 2019 release]
 
-`export PYTHONPATH=<path-to-gamma-software>:$PYTHONPATH`
 
 ## NCI Module
 	$module use -a /g/data/v10/public/modules/modulefiles /g/data/v10/private/modules/modulefiles 
@@ -39,6 +38,7 @@ Linux
 ## Usage
 
 The workflow is managed by a luigi-scheduler and parameters can be set in `luigi.cfg` file.
+
 
 `gamma_insar`: Process Sentinel-1 SLC data to ARD from the commandline.
 
@@ -70,5 +70,5 @@ The workflow is managed by a luigi-scheduler and parameters can be set in `luigi
 
 ### Example 
 
-`gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --workers <number-of-workers> --local-scheduler` 
+	$gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --workers <number-of-workers> --local-scheduler 
 
