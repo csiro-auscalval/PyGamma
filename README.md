@@ -33,8 +33,8 @@ Linux
 `export PYTHONPATH=<path-to-gamma-software>:$PYTHONPATH`
 
 ## NCI Module
-$module use -a /g/data/v10/public/modules/modulefiles /g/data/v10/private/modules/modulefiles 
-$module load gamma-insar
+	$module use -a /g/data/v10/public/modules/modulefiles /g/data/v10/private/modules/modulefiles 
+	$module load gamma-insar
 
 ## Usage
 
