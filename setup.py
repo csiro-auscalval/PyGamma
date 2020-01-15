@@ -45,8 +45,9 @@ setup(
     entry_points={
         'console_scripts': [
             'gamma_insar=insar.scripts.process_gamma:run',
-            'slc-archive=insar.meta_data.grid_processing:slc_archive_cli',
-            'grid-definition=insar.meta_data.grid_processing:grid_definition_cli'
+            'pbs-submit=insar.scripts.insar_pbs:main',
+            'slc-archive=insar.scripts.grid_processing:slc_archive_cli',
+            'grid-definition=insar.scripts.grid_processing:grid_definition_cli'
         ],
     },
     install_requires=[

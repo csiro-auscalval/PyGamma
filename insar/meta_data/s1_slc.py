@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 
 import os
 from io import BytesIO
@@ -18,14 +18,14 @@ from shapely.geometry import Polygon, box
 import yaml
 import pandas as pd
 import numpy as np
-from xml_util import getNamespaces
+
 from spatialist import sqlite3, sqlite_setup
+import py_gamma as gamma_program
+
+from insar.xml_util import getNamespaces
+
 
 _LOG = logging.getLogger(__name__)
-
-S1_BURSTLOC = (
-    "/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20181130/ISP/bin/S1_burstloc"
-)
 
 
 class SlcMetadata:
@@ -143,7 +143,7 @@ class SlcMetadata:
                             tree.find(
                                 './/safe:orbitNumber[@type="{0}"]'.format(x), namespaces
                             ).text
-                        ),
+<F7><F7>                        ),
                     )
                     for x in ["start", "stop"]
                 ]
@@ -220,9 +220,12 @@ class SlcMetadata:
 
             with tempfile.TemporaryDirectory() as tmp_dir:
                 self.extract_archive_member(xml_file, outdir=tmp_dir)
-                cmd = [S1_BURSTLOC, os.path.join(tmp_dir, os.path.basename(xml_path))]
-                out_str = subprocess.check_output(cmd).decode()
-                return _parse_s1_burstloc(out_str)
+                std_out = Path(tmp_dir).joinpath("stdout.log")
+                gamma_program.S1_burstloc(
+                    os.path.join(tmp_dir, os.path.basename(xml_path)),
+                    logf=std_out.as_posix()
+                )
+                return _parse_s1_burstloc(std_out)
 
         with swath_obj as obj:
             ann_tree = etree.fromstring(obj.read())

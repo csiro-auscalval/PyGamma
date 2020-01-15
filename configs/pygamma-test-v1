@@ -19,7 +19,11 @@ module-whatis   "GA insar processing gamma_insar-0.1.0"
 
 # for Tcl script use only
 set version	gamma_insar
-set base	/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/PYGAMMA_BACKSCATTER
+
+# base path for gamma_insar module build
+set base	/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/PYGAMMA_BACKSCATTER/gamma_insar_test
+
+# base path for GAMMA SOFTWARE
 set gamma_base  /g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20191203
 
 if { ! [is-loaded dea/20191127] } {
@@ -97,4 +101,4 @@ if { [ module-info mode remove ] } {
     remove-path $gamma_base/MSP/scripts
 }
 
-setenv LUIGI_CONFIG_PATH $base/$version/luigi.cfg
+setenv LUIGI_CONFIG_PATH $base/$version/configs/luigi.cfg

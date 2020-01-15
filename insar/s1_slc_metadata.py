@@ -24,7 +24,7 @@ from shapely.ops import cascaded_union
 from spatialist import Vector, sqlite3, sqlite_setup
 import py_gamma as gamma_program
 
-from .xml_util import getNamespaces
+from insar.xml_util import getNamespaces
 
 _LOG = logging.getLogger(__name__)
 
