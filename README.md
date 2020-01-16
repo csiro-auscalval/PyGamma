@@ -28,6 +28,7 @@ Linux
 * [structlog>=16.1.0]
 * [shapely>=1.5.13]
 * [spatialist==0.4]
+* [eodatasets3]
 * [GAMMA-SOFTWARE >= June 2019 release]
 
 

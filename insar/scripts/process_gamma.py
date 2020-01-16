@@ -495,9 +495,7 @@ class CoregisterDemMaster(luigi.Task):
             dem_outdir=Path(self.outdir).joinpath(__DEM__),
         )
 
-        # runs with multi-threads and returns to initial setting
-        with environ({"OMP_NUM_THREADS": self.num_threads}):
-            coreg.main()
+        coreg.main(num_threads=self.num_threads)
 
         with self.output().open("w") as out_fid:
             out_fid.write("")
@@ -544,7 +542,6 @@ class CoregisterSlave(luigi.Task):
             dem_lt_fine=Path(str(self.dem_lt_fine)),
         )
 
-        # runs with multi-threads and returns to initial setting
         coreg_slave.main()
         
         with self.output().open("w") as f:

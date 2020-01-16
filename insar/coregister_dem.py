@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 
 import py_gamma as gamma_program
-from insar.subprocess_utils import working_directory, run_command
+from insar.subprocess_utils import working_directory, run_command, environ
 
 _LOG = logging.getLogger(__name__)
 
@@ -915,15 +915,17 @@ class CoregisterDem:
             0.0,
         )
 
-    def main(self):
+        def main(self, num_threads: Optional[int] = 1):
         """Main method to execute SLC-DEM coregistration task in sequence."""
-        print(os.getenv("OMP_NUM_THREADS"))
+        
         self.dem_outdir.mkdir(exist_ok=True)
-        with working_directory(self.dem_outdir):
-            self.copy_slc()
-            self.over_sample()
-            self.gen_dem_rdc()
-            self.create_diff_par()
-            self.offset_calc()
-            self.geocode()
-            self.look_vector()
+        
+        with environ({"OMP_NUM_THREADS": str(num_threads)}):
+            with working_directory(self.dem_outdir):
+                self.copy_slc()
+                self.over_sample()
+                self.gen_dem_rdc()
+                self.create_diff_par()
+                self.offset_calc()
+                self.geocode()
+                self.look_vector()
