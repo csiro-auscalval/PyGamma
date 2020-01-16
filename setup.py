@@ -61,6 +61,9 @@ setup(
         "spatialist==0.4",
         ""
     ],
+    dependency_links=[
+        'git+https://github.com/GeoscienceAustralia/eo-datasets.git@develop#egg=eodatasets',
+    ]
     license="Apache Software License 2.0",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -72,7 +75,7 @@ setup(
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
-    url='https://github.com/GeoscienceAustralia/gamma_insar/tree/pygamma_workflow',
+    url='https://github.com/GeoscienceAustralia/gamma_insar',
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
 )
