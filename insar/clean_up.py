@@ -38,7 +38,7 @@ def clean_coreg_scene(
     slc_path = Path(slc_path)
     if slc_path.exists():
         slc_files = [
-            item.value.format(scene, pol) for item in SlcFilenames if "IW" not in item
+            item.value.format(scene, pol) for item in SlcFilenames if "iw" not in item.value
         ]
         mli_files = [
             item.value.format(scene_date=scene, pol=pol, rlks=rlks)
@@ -83,6 +83,7 @@ def clean_slcdir(
             save_patterns = [
                 Wildcards.GAMMA0_TYPE.value,
                 Wildcards.RADAR_CODED_TYPE.value,
+                Wildcards.GAMMA0_TYPE.value,
             ]
 
             # get the save files associated with save patterns
