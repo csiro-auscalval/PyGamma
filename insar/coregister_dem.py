@@ -915,7 +915,7 @@ class CoregisterDem:
             0.0,
         )
 
-        def main(self, num_threads: Optional[int] = 1):
+    def main(self, num_threads: Optional[int] = 1):
         """Main method to execute SLC-DEM coregistration task in sequence."""
         
         self.dem_outdir.mkdir(exist_ok=True)
