@@ -37,9 +37,13 @@ def clean_coreg_scene(
 
     slc_path = Path(slc_path)
     if slc_path.exists():
-        slc_files = [
-            item.value.format(scene, pol) for item in SlcFilenames if "iw" not in item.value
-        ]
+        
+        slc_files = []
+        slc_files.append(SlcFilenames.SLC_FILENAME.value.format(scene, pol))
+        slc_files.append(SlcFilenames.SLC_PAR_FILENAME.value.format(scene, pol))
+        slc_files.append(SlcFilenames.SLC_TOPS_PAR_FILENAME.value.format(scene, pol))
+        slc_files.append(SlcFilenames.SLC_TAB_FILENAME.value.format(scene, pol))
+        
         mli_files = [
             item.value.format(scene_date=scene, pol=pol, rlks=rlks)
             for item in MliFilenames
