@@ -193,23 +193,23 @@ class CoregisterSlc:
             out_dir = self.out_dir
 
         # write a slave slc tab file
-        self.slave_slc_tab = out_dir.joinpath("slave_slc_tab")
+        self.slave_slc_tab = out_dir.joinpath(f"{self.slc_slave.stem}_tab")
         self._write_tabs(self.slave_slc_tab, self.slc_slave.stem, self.slc_slave.parent)
 
         # write a re-sampled slave slc tab file
-        self.r_slave_slc_tab = out_dir.joinpath("r_slave_slc_tab")
+        self.r_slave_slc_tab = out_dir.joinpath(f"r_{self.slc_slave.stem}_tab")
         self._write_tabs(
             self.r_slave_slc_tab, f"r{self.slc_slave.stem}", self.slc_slave.parent
         )
 
         # write master slc tab file
-        self.master_slc_tab = out_dir.joinpath("master_slc_tab")
+        self.master_slc_tab = out_dir.joinpath(f"{self.slc_master.stem}_tab")
         self._write_tabs(
             self.master_slc_tab, self.slc_master.stem, self.slc_master.parent
         )
 
         self.r_slave_slc = out_dir.joinpath(f"r{self.slc_slave.name}")
-        self.r_slave_slc_par = out_dir.joinpath(f"{self.slc_slave.name}.par")
+        self.r_slave_slc_par = out_dir.joinpath(f"r{self.slc_slave.name}.par")
 
     def get_lookup(self, outfile: Optional[Path] = None) -> None:
         """Determine lookup table based on orbit data and DEM."""
@@ -302,6 +302,7 @@ class CoregisterSlc:
         with open(Path(std_output).as_posix(), 'r') as fid:
             lines = fid.readlines()
             for line in lines:
+                print(line)
                 if line.startswith(match_start_string):
                     return line
 
