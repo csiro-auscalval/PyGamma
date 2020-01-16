@@ -38,10 +38,11 @@ __TRACK_FRAME__ = r"^T[0-9]{3}[A|D]_F[0-9]{2}[S|N]"
 @luigi.Task.event_handler(luigi.Event.FAILURE)
 def on_failure(task, exception):
     """Capture any Task Failure here."""
-    ERROR_LOGGER.error(
+    ERROR_LOGGER.exception(
         task=task.get_task_family(),
         params=task.to_str_params(),
-        level1=getattr(task, "level1", ""),
+        track=getattr(task, "track", ""),
+        frame=getattr(task, "frame", ""),
         exception=exception.__str__(),
         traceback=traceback.format_exc().splitlines(),
     )
@@ -143,7 +144,8 @@ class InitialSetup(luigi.Task):
         )
 
     def run(self):
-        STATUS_LOGGER.info("initial setup task")
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+        log.info("initial setup task")
         # get the relative orbit number, which is int value of the numeric part of the track name
         rel_orbit = int(re.findall(r"\d+", str(self.track))[0])
 
@@ -212,7 +214,9 @@ class CreateGammaDem(luigi.Task):
         )
 
     def run(self):
-        STATUS_LOGGER.info("create gamma dem task")
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+        log.info("create gamma dem task")
+        
         gamma_dem_dir = Path(self.outdir).joinpath(__DEM_GAMMA__)
 
         os.makedirs(gamma_dem_dir, exist_ok=True)
@@ -275,7 +279,9 @@ class CreateFullSlc(luigi.Task):
         )
 
     def run(self):
-        STATUS_LOGGER.info("create full slc task")
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+        log.info("create full slc task")
+        
 
         slc_scenes = get_scenes(self.burst_data_csv)
         slc_dir = Path(self.outdir).joinpath(__SLC__)
@@ -344,7 +350,9 @@ class CreateMultilook(luigi.Task):
         )
 
     def run(self):
-        STATUS_LOGGER.info("create multi-look task")
+
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+        log.info("create multi-look task")
 
         # calculate the mean range and azimuth look values
         slc_scenes = get_scenes(self.burst_data_csv)
@@ -399,8 +407,9 @@ class CalcInitialBaseline(luigi.Task):
         )
 
     def run(self):
-        STATUS_LOGGER.info("calculate baseline task")
-
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+        log.info("calculate baseline task")
+        
         slc_scenes = get_scenes(self.burst_data_csv)
         slc_par_files = []
         for slc_scene in slc_scenes:
@@ -449,7 +458,8 @@ class CoregisterDemMaster(luigi.Task):
         )
 
     def run(self):
-        STATUS_LOGGER.info("co-register master-dem task")
+         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+         log.info("co-register master-dem task")
 
         # glob a multi-look file and read range and azimuth values computed before
         # TODO need better mechanism to pass parameter between tasks
@@ -568,7 +578,8 @@ class CreateCoregisterSlaves(luigi.Task):
         )
 
     def run(self):
-        STATUS_LOGGER.info("co-register master-slaves task")
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+        log.info("co-register master-slaves task")
 
         slc_scenes = get_scenes(self.burst_data_csv)
         master_scene = self.master_scene
