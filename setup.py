@@ -59,11 +59,9 @@ setup(
         "structlog>=16.1.0",
         "shapely>=1.5.13",
         "spatialist==0.4",
+        "eodatasets3"
         ""
     ],
-    dependency_links=[
-        'git+https://github.com/GeoscienceAustralia/eo-datasets.git@develop#egg=eodatasets',
-    ]
     license="Apache Software License 2.0",
     long_description=README,
     long_description_content_type="text/markdown",
