@@ -22,7 +22,7 @@ from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
 from insar.s1_slc_metadata import S1DataDownload
 from insar.subprocess_utils import environ
-from insar.clean_up import clean_rawdatadir, clean_coreg_scene, clean_slcdir, clean_gammademdir
+from insar.clean_up import clean_rawdatadir, clean_slcdir, clean_gammademdir
 from insar.logs import ERROR_LOGGER, STATUS_LOGGER
 
 
@@ -658,17 +658,7 @@ class CreateCoregisterSlaves(luigi.Task):
         if self.cleanup: 
             clean_slcdir(Path(self.outdir).joinpath(__SLC__))
             clean_gammademdir(Path(self.outdir).joinpath(__DEM_GAMMA__),track_frame=f"{self.track}_{self.frame}")
-
-            slc_scenes.insert(0, master_scene)
-            for scene in slc_scenes: 
-                for pol in self.polarization:
-                    clean_coreg_scene(
-                            Path(self.outdir).joinpath(__SLC__),
-                            scene, 
-                            pol, 
-                            rlks, 
-                    )
-
+        
         with self.output().open("w") as f:
             f.write("")
 
@@ -708,17 +698,15 @@ class ARD(luigi.WrapperTask):
     num_threads = luigi.Parameter() 
 
     def requires(self):
-        if not Path(str(self.vector_file_list)).exists():
-            ERROR_LOGGER.error(f"{self.vector_file_list} does not exist")
-            raise FileNotFoundError
-
+        log = STATUS_LOGGER.bind(vector_file_list=Path(self.vector_file_list).stem)
+        
         ard_tasks = []
         with open(self.vector_file_list, "r") as fid: 
             vector_files = fid.readlines()
             for vector_file in vector_files:
                 vector_file = vector_file.rstrip()
                 if not re.match(__TRACK_FRAME__, Path(vector_file).stem): 
-                    STATUS_LOGGER.error(f"{Path(vector_file).stem} should be of {__TRACK_FRAME__} format")
+                    log.info(f"{Path(vector_file).stem} should be of {__TRACK_FRAME__} format")
                     continue 
 
                 track, frame = Path(vector_file).stem.split('_')

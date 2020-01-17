@@ -19,40 +19,6 @@ def clean_rawdatadir(raw_data_path: Union[Path, str]) -> None:
         shutil.rmtree(raw_data_path)
 
 
-def clean_coreg_scene(
-    slc_path: Union[Path, str], scene: str, pol: str, rlks: int
-) -> None:
-    """
-    Deletes files that were created during co-registration steps
-
-    :param slc_path:
-        A full path to slc directory.
-    :param scene:
-        A string formatted ('YYYYMMDD') SLC scene data.
-    :param pol:
-        Polarization of a SLC image.
-    :param rlks:
-        A range look value used in formatting the mli filenames.
-    """
-
-    slc_path = Path(slc_path)
-    if slc_path.exists():
-        
-        slc_files = []
-        slc_files.append(SlcFilenames.SLC_FILENAME.value.format(scene, pol))
-        slc_files.append(SlcFilenames.SLC_PAR_FILENAME.value.format(scene, pol))
-        slc_files.append(SlcFilenames.SLC_TOPS_PAR_FILENAME.value.format(scene, pol))
-        slc_files.append(SlcFilenames.SLC_TAB_FILENAME.value.format(scene, pol))
-        
-        mli_files = [
-            item.value.format(scene_date=scene, pol=pol, rlks=rlks)
-            for item in MliFilenames
-        ]
-        for fp in slc_path.joinpath(scene).iterdir():
-            if fp.name not in slc_files + mli_files:
-                fp.unlink()
-
-
 def clean_slcdir(
     slc_path: Union[Path, str], patterns: Optional[List[str]] = None
 ) -> None:
@@ -87,7 +53,7 @@ def clean_slcdir(
             save_patterns = [
                 Wildcards.GAMMA0_TYPE.value,
                 Wildcards.RADAR_CODED_TYPE.value,
-                Wildcards.GAMMA0_TYPE.value,
+                Wildcards.SIGMA0_TYPE.value,
             ]
 
             # get the save files associated with save patterns
@@ -216,4 +182,7 @@ def _del_files(file_dir=None, files_list=None):
     """
     if files_list is not None:
         for item in files_list:
-            Path(file_dir).joinpath(item).unlink()
+            try:
+                Path(file_dir).joinpath(item).unlink()
+            except FileNotFoundError: 
+                pass
