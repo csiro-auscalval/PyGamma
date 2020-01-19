@@ -26,12 +26,12 @@ from insar.clean_up import clean_rawdatadir, clean_slcdir, clean_gammademdir
 from insar.logs import ERROR_LOGGER, STATUS_LOGGER
 
 
-__RAW__ = "RAW_DATA" 
-__SLC__ = "SLC" 
+__RAW__ = "RAW_DATA"
+__SLC__ = "SLC"
 __DEM_GAMMA__ = "GAMMA_DEM"
-__DEM__ = "DEM" 
-__IFG__ = "IFG" 
-__DATE_FMT__ = "%Y%m%d" 
+__DEM__ = "DEM"
+__IFG__ = "IFG"
+__DATE_FMT__ = "%Y%m%d"
 __TRACK_FRAME__ = r"^T[0-9]{3}[A|D]_F[0-9]{2}[S|N]"
 
 
@@ -66,7 +66,7 @@ def calculate_master(scenes_list) -> datetime:
 
 
 class ExternalFileChecker(luigi.ExternalTask):
-    """ checks the external dependencies """
+    """checks the external dependencies."""
 
     filename = luigi.Parameter()
 
@@ -75,9 +75,7 @@ class ExternalFileChecker(luigi.ExternalTask):
 
 
 class ListParameter(luigi.Parameter):
-    """
-    Converts luigi parameters separated by comma to a list.
-     """
+    """Converts luigi parameters separated by comma to a list."""
 
     def parse(self, arguments):
         return arguments.split(",")
@@ -134,7 +132,7 @@ class InitialSetup(luigi.Task):
     burst_data_csv = luigi.Parameter()
     poeorb_path = luigi.Parameter()
     resorb_path = luigi.Parameter()
-    cleanup = luigi.Parameter() 
+    cleanup = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget(
@@ -216,7 +214,7 @@ class CreateGammaDem(luigi.Task):
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("create gamma dem task")
-        
+
         gamma_dem_dir = Path(self.outdir).joinpath(__DEM_GAMMA__)
 
         os.makedirs(gamma_dem_dir, exist_ok=True)
@@ -281,7 +279,7 @@ class CreateFullSlc(luigi.Task):
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("create full slc task")
-        
+
 
         slc_scenes = get_scenes(self.burst_data_csv)
         slc_dir = Path(self.outdir).joinpath(__SLC__)
@@ -303,7 +301,7 @@ class CreateFullSlc(luigi.Task):
                 )
 
         yield slc_tasks
-        
+
         # clean up raw data directory
         if self.cleanup:
             clean_rawdatadir(Path(self.outdir).joinpath(__RAW__))
@@ -384,7 +382,7 @@ class CreateMultilook(luigi.Task):
                 )
             )
         yield ml_jobs
-        
+
         with self.output().open("w") as out_fid:
             out_fid.write("rlks:\t {}\n".format(str(rlks)))
             out_fid.write("alks:\t {}".format(str(alks)))
@@ -409,7 +407,7 @@ class CalcInitialBaseline(luigi.Task):
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("calculate baseline task")
-        
+
         slc_scenes = get_scenes(self.burst_data_csv)
         slc_par_files = []
         for slc_scene in slc_scenes:
@@ -447,7 +445,7 @@ class CoregisterDemMaster(luigi.Task):
     master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
     num_threads = luigi.Parameter()
-    cleanup = luigi.Parameter() 
+    cleanup = luigi.Parameter()
 
     def output(self):
 
@@ -458,8 +456,8 @@ class CoregisterDemMaster(luigi.Task):
         )
 
     def run(self):
-         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
-         log.info("co-register master-dem task")
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+        log.info("co-register master-dem task")
 
         # glob a multi-look file and read range and azimuth values computed before
         # TODO need better mechanism to pass parameter between tasks
@@ -553,7 +551,7 @@ class CoregisterSlave(luigi.Task):
         )
 
         coreg_slave.main()
-        
+
         with self.output().open("w") as f:
             f.write("")
 
@@ -566,7 +564,7 @@ class CreateCoregisterSlaves(luigi.Task):
 
     master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
-    num_threads = luigi.Parameter() 
+    num_threads = luigi.Parameter()
     cleanup = luigi.Parameter()
 
     def output(self):
@@ -653,12 +651,12 @@ class CreateCoregisterSlaves(luigi.Task):
                 slave_coreg_jobs.append(CoregisterSlave(**kwargs))
 
         yield slave_coreg_jobs
-        
+
         # cleanup slc directory after coreg  and gamma dem dir
-        if self.cleanup: 
+        if self.cleanup:
             clean_slcdir(Path(self.outdir).joinpath(__SLC__))
             clean_gammademdir(Path(self.outdir).joinpath(__DEM_GAMMA__),track_frame=f"{self.track}_{self.frame}")
-        
+
         with self.output().open("w") as f:
             f.write("")
 
@@ -695,19 +693,19 @@ class ARD(luigi.WrapperTask):
     multi_look = luigi.Parameter()
     poeorb_path = luigi.Parameter()
     resorb_path = luigi.Parameter()
-    num_threads = luigi.Parameter() 
+    num_threads = luigi.Parameter()
 
     def requires(self):
         log = STATUS_LOGGER.bind(vector_file_list=Path(self.vector_file_list).stem)
-        
+
         ard_tasks = []
-        with open(self.vector_file_list, "r") as fid: 
+        with open(self.vector_file_list, "r") as fid:
             vector_files = fid.readlines()
             for vector_file in vector_files:
                 vector_file = vector_file.rstrip()
-                if not re.match(__TRACK_FRAME__, Path(vector_file).stem): 
+                if not re.match(__TRACK_FRAME__, Path(vector_file).stem):
                     log.info(f"{Path(vector_file).stem} should be of {__TRACK_FRAME__} format")
-                    continue 
+                    continue
 
                 track, frame = Path(vector_file).stem.split('_')
                 outdir = Path(str(self.outdir)).joinpath(f"{track}_{frame}")
@@ -715,7 +713,7 @@ class ARD(luigi.WrapperTask):
 
                 os.makedirs(outdir, exist_ok=True)
                 os.makedirs(workdir, exist_ok=True)
-                
+
                 kwargs = {
                     "vector_file": vector_file,
                     "start_date": self.start_date,
