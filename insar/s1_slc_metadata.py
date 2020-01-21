@@ -209,29 +209,30 @@ class SlcMetadata:
         swath_obj = self.extract_archive_member(xml_file, obj=True)
 
         def __metadata_burst(xml_path):
-            def __parse_s1_burstloc(in_str):
+            def __parse_s1_burstloc(log_file):
                 burst_info = dict()
-                lines = in_str.split("\n")
-                for line in lines:
-                    if line.startswith("Burst"):
-                        split_line = line.split()
-                        temp_dict = dict()
-                        temp_dict["burst_num"] = int(split_line[2])
-                        temp_dict["rel_orbit"] = int(split_line[3])
-                        temp_dict["swath"] = split_line[4]
-                        temp_dict["polarization"] = split_line[5]
-                        temp_dict["azimuth_time"] = float(split_line[6])
-                        temp_dict["angle"] = float(split_line[7])
-                        temp_dict["delta_angle"] = float(split_line[8])
-                        temp_dict["coordinate"] = [
-                            [float(split_line[14]), float(split_line[13])],
-                            [float(split_line[16]), float(split_line[15])],
-                            [float(split_line[10]), float(split_line[9])],
-                            [float(split_line[12]), float(split_line[11])],
-                        ]
-                        burst_info[
-                            "burst {}".format(temp_dict["burst_num"])
-                        ] = temp_dict
+                with open(log_file.as_posix(), "r") as fid:
+                    lines = fid.readlines()
+                    for line in lines:
+                        if line.startswith("Burst"):
+                            split_line = line.split()
+                            temp_dict = dict()
+                            temp_dict["burst_num"] = int(split_line[2])
+                            temp_dict["rel_orbit"] = int(split_line[3])
+                            temp_dict["swath"] = split_line[4]
+                            temp_dict["polarization"] = split_line[5]
+                            temp_dict["azimuth_time"] = float(split_line[6])
+                            temp_dict["angle"] = float(split_line[7])
+                            temp_dict["delta_angle"] = float(split_line[8])
+                            temp_dict["coordinate"] = [
+                                [float(split_line[14]), float(split_line[13])],
+                                [float(split_line[16]), float(split_line[15])],
+                                [float(split_line[10]), float(split_line[9])],
+                                [float(split_line[12]), float(split_line[11])],
+                            ]
+                            burst_info[
+                                "burst {}".format(temp_dict["burst_num"])
+                            ] = temp_dict
                 return burst_info
 
             with tempfile.TemporaryDirectory() as tmp_dir:
