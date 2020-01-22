@@ -3,18 +3,11 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to gamma insar's documentation!
-=======================================
+gamma insar
+===========
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+gamma insar is a workflow managers designed to generate SAR/InSAR analysis ready data using 
+`GAMMA SOFTWARE`_
 
+.. _GAMMA SOFTWARE: http://www.gamma-rs.ch/
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
