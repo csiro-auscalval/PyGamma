@@ -86,8 +86,6 @@ if { [ module-info mode remove ] } {
     module unload gdk-pixbuf/2.28.2
     module unload hdf5/1.8.21
     module unload gmt/6.0.0
-    remove-path PYTHONPATH $gamma_base 
-    remove-path PYTHONPATH $base/lib/python3.6/site-packages
     remove-path $gamma_base/DIFF/bin
     remove-path $gamma_base/DISP/bin
     remove-path $gamma_base/ISP/bin
@@ -98,5 +96,7 @@ if { [ module-info mode remove ] } {
     remove-path $gamma_base/ISP/scripts
     remove-path $gamma_base/LAT/scripts
     remove-path $gamma_base/MSP/scripts
+    remove-path PYTHONPATH $gamma_base 
+    remove-path PYTHONPATH $base/lib/python3.6/site-packages
 }
 

@@ -5,6 +5,7 @@ from typing import Tuple, List, Optional, Union, Dict, Iterable
 from pathlib import Path
 import datetime
 import logging
+import re
 
 import attr
 import pandas as pd
@@ -139,12 +140,12 @@ def _get_metadata(par_file: Union[Path, str]) -> Dict:
     return _metadata
 
 
-def _slc_metadata(
+def _slc_files(
     burst_data: Union[Path, str, pd.DataFrame],
     acquisition_date: datetime.date,
 ) -> Iterable[str]:
     """
-    Returns the metdata used in forming Single-Look-Composite image.
+    Returns the SLC files used in forming Single-Look-Composite image.
 
     :param burst_data:
         A burst information data of a whole SLC stack. Either pandas
@@ -178,7 +179,7 @@ def _find_products(
     return matched_files
 
 
-def _write_measurement(
+def _write_measurements(
     p: DatasetAssembler,
     product_list: Iterable[Union[Path, str]],
 ) -> None:
@@ -186,8 +187,19 @@ def _write_measurement(
     Unpack and package the sar and insar products
     """
     for product in product_list:
+        product = Path(product)
+
+        # TODO currently assumes that filename is of
+        # r'^[0-9]{8}_[VV|VH]_*_*.tif'
+        try:
+            _, pol, _, _suffix = product.stem.split('_')
+        except:
+            raise ValueError(f"{product.name} not recognized filename pattern")
+
         p.write_measurement(
-            name
+            f"{pol}_{_suffix}",
+            product,
+            overviews=None
         )
 
 
@@ -230,7 +242,7 @@ class SLC:
             assert len(par_files) == 1
 
             scene_date = datetime.datetime.strptime(slc_scene_path.name, "%Y%m%d").date()
-            slc_urls = _slc_metadata(burst_data, scene_date)
+            slc_urls = _slc_files(burst_data, scene_date)
             yield cls(
                 track=_track,
                 frame=_frame,
@@ -297,7 +309,7 @@ def package(
             p.instrument = common_attrs['instrument']
             p.platform = common_attrs['platform']
             p.product_family = product_attrs['product_family']
-            p.maturity = 'final'
+            p.maturity = 'interim'
             p.region_code = f"{track}{frame}"
             p.producer = "ga.gov.au"
 
@@ -306,9 +318,27 @@ def package(
             p.processed = datetime.datetime.fromtimestamp(slc.par_file.stat().st_mtime)
             p.datetime = ard_slc_metadata['center_time']
 
-            exit()
+            # TODO need better logical mechanism to determine dataset_version
+            p.dataset_version = '1.0.0'
+
+            # not software version
+            software_name, version = Path(gamma_program.__file__).parent.name.split('-')
+            url = "http://www/gamma-rs.ch"
+            p.note_software_version(software_name, url, version)
+
+            for _key, _val in ard_slc_metadata.items():
+                p.properties[f"{product}:{_key}"] = _val
+            # store level-1 SLC metadata as extended user metadata
+            for key, val in esa_metadata_slc.items():
+                p.extend_user_metadata(key, val)
+
+            # find produce files and write
+            _write_measurements(p, _find_products(slc.slc_path, product_attrs['suffixs']))
+            p.done()
+
 
 if __name__ == "__main__":
+    print(Path(gamma_program.__file__).parent.name)
     outdir = '/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow'
     par_file = "/g/data/dz56/INSAR_ARD/BACKSCATTER/T045D_F19S/SLC/20180213/r20180213_VH_4rlks.mli.par"
     burst_data_file = (
