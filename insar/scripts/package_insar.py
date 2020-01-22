@@ -43,11 +43,6 @@ def map_product(product:str) -> Dict:
     return _map_dict[product]
 
 
-def _convert_time(seconds: float, _date: datetime.date) -> datetime.datetime:
-    """Converts decimal time in seconds to datetime since epoch _date"""
-    return
-
-
 def _get_metadata(par_file: Union[Path, str]) -> Dict:
     """
     Returns metadata used in back  product generation.
@@ -197,7 +192,7 @@ def _write_measurements(
             raise ValueError(f"{product.name} not recognized filename pattern")
 
         p.write_measurement(
-            f"{pol}_{_suffix}",
+            f"{_suffix.split('.')[1]}_{pol.lower()}",
             product,
             overviews=None
         )
@@ -224,35 +219,37 @@ class SLC:
         product: str,
     ):
 
-        for slc_scene_path in Path(stack_base_path).joinpath(
-            f"{_track}_{_frame}", map_product(product)['product_base']
-        ).iterdir():
+        if product == 'sar':
+            for slc_scene_path in Path(stack_base_path).joinpath(
+                f"{_track}_{_frame}", map_product(product)['product_base']
+            ).iterdir():
 
-            burst_data = Path(stack_base_path).joinpath(
-                f"{_track}_{_frame}",
-                f"{_track}_{_frame}_burst_data.csv"
-            )
+                burst_data = Path(stack_base_path).joinpath(
+                    f"{_track}_{_frame}",
+                    f"{_track}_{_frame}_burst_data.csv"
+                )
 
-            if not burst_data.exists():
-                raise FileNotFoundError(f"{burst_data} does not exists")
+                if not burst_data.exists():
+                    raise FileNotFoundError(f"{burst_data} does not exists")
 
-            par_files = [
-                item for item in slc_scene_path.glob(f"r{slc_scene_path.name}_{_pol}_*rlks.mli.par")
-            ]
-            assert len(par_files) == 1
+                par_files = [
+                    item for item in slc_scene_path.glob(f"r{slc_scene_path.name}_{_pol}_*rlks.mli.par")
+                ]
+                assert len(par_files) == 1
 
-            scene_date = datetime.datetime.strptime(slc_scene_path.name, "%Y%m%d").date()
-            slc_urls = _slc_files(burst_data, scene_date)
-            yield cls(
-                track=_track,
-                frame=_frame,
-                par_file=par_files[0],
-                slc_path=slc_scene_path,
-                slc_metadata={
-                    Path(_url).stem: generate_slc_metadata(Path(_url)) for _url in slc_urls
-                }
-            )
-
+                scene_date = datetime.datetime.strptime(slc_scene_path.name, "%Y%m%d").date()
+                slc_urls = _slc_files(burst_data, scene_date)
+                yield cls(
+                    track=_track,
+                    frame=_frame,
+                    par_file=par_files[0],
+                    slc_path=slc_scene_path,
+                    slc_metadata={
+                        Path(_url).stem: generate_slc_metadata(Path(_url)) for _url in slc_urls
+                    }
+                )
+        else:
+            raise NotImplementedError(f"packaging of {product} is not implemented")
 
 
 def _slc_attrs(doc: Dict) -> None:
@@ -283,8 +280,8 @@ def package(
     track: str,
     frame: str,
     track_frame_base: Union[Path, str],
-    product: str,
     out_directory: Union[Path, str],
+    product: Optional[str] = PRODUCTS[0]
     polarizations: Optional[List[str]] =["VV", "VH"],
     common_attrs: Optional[Dict] = None
 ) -> None:
@@ -296,6 +293,7 @@ def package(
             Path(out_directory),
             naming_conventions="dea"
         ) as p:
+
             esa_metadata_slc = slc.slc_metadata
             ard_slc_metadata = _get_metadata(slc.par_file)
 
@@ -305,13 +303,16 @@ def package(
                 for _, _meta in esa_metadata_slc.items():
                     common_attrs = _slc_attrs(_meta['properties'])
                     break
+
             product_attrs = map_product(product)
             p.instrument = common_attrs['instrument']
             p.platform = common_attrs['platform']
             p.product_family = product_attrs['product_family']
             p.maturity = 'interim'
-            p.region_code = f"{track}{frame}"
+            p.region_code = f"{int(common_attrs['relative_orbit']):03}{frame}"
             p.producer = "ga.gov.au"
+            p.properties["eo:orbit"] = common_attrs['orbit']
+            p.properties["eo:relative_orbit"] = common_attrs['relative_orbit']
 
             # processed time is determined from the maketime of slc.par_file
             # TODO better mechanism to infer the processed time of files
@@ -328,6 +329,7 @@ def package(
 
             for _key, _val in ard_slc_metadata.items():
                 p.properties[f"{product}:{_key}"] = _val
+
             # store level-1 SLC metadata as extended user metadata
             for key, val in esa_metadata_slc.items():
                 p.extend_user_metadata(key, val)
@@ -338,13 +340,9 @@ def package(
 
 
 if __name__ == "__main__":
-    print(Path(gamma_program.__file__).parent.name)
-    outdir = '/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow'
-    par_file = "/g/data/dz56/INSAR_ARD/BACKSCATTER/T045D_F19S/SLC/20180213/r20180213_VH_4rlks.mli.par"
-    burst_data_file = (
-        "/g/data/dz56/INSAR_ARD/BACKSCATTER/T045D_F19S/T045D_F19S_burst_data.csv"
-    )
-    package("T045D", "F19S", "/g/data/dz56/INSAR_ARD/BACKSCATTER", "sar", outdir)
+
+    outdir = '/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/test_package'
+    package("T045D", "F19S", "/g/data/dz56/INSAR_ARD/BACKSCATTER", outdir)
 
 
 
