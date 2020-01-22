@@ -4,12 +4,11 @@
 ##
 
 proc ModulesHelp { } {
-        global version
-	
+    global version
 	puts stderr " GA insar processing"
 	puts stderr " Version gamma_insar"
-        puts stderr "   Adds to the PATH variable to find the executables and libraries"
-        Version $version
+    puts stderr "   Adds to the PATH variable to find the executables and libraries"
+    Version $version
 "
 }
 
@@ -80,13 +79,13 @@ append-path PATH $base/bin
 prepend-path PYTHONPATH $base/lib/python3.6/site-packages
 
 if { [ module-info mode remove ] } {
-    module load dea/20191127
-    module load fftw3/3.3.8
-    module load gtk/3.16.6
-    module load glib/2.36.4
-    module load gdk-pixbuf/2.28.2
-    module load hdf5/1.8.21
-    module load gmt/6.0.0
+    module unload dea/20191127
+    module unload fftw3/3.3.8
+    module unload gtk/3.16.6
+    module unload glib/2.36.4
+    module unload gdk-pixbuf/2.28.2
+    module unload hdf5/1.8.21
+    module unload gmt/6.0.0
     remove-path PYTHONPATH $gamma_base 
     remove-path PYTHONPATH $base/lib/python3.6/site-packages
     remove-path $gamma_base/DIFF/bin
