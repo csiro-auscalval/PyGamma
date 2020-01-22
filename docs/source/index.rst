@@ -11,3 +11,9 @@ gamma insar is a workflow managers designed to generate SAR/InSAR analysis ready
 
 .. _GAMMA SOFTWARE: http://www.gamma-rs.ch/
 
+API / CLASS
+===========
+
+.. autoclass:: insar.meta_data.Archive
+   :members: 
+   special-members: __init__
