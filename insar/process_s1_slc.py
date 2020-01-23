@@ -29,7 +29,8 @@ class SlcProcess:
         burst_data: Union[Path, str],
         ref_master_tab: Optional[Union[Path, str]] = None,
     ) -> None:
-        """A full SLC creation for Sentinel-1 IW swath data.
+        """
+        A full SLC creation for Sentinel-1 IW swath data.
 
         A full SLC image is created using Interferometric-Wide (IW)
         swath data as an input. The three sub-swaths (IW1, IW2, IW3)

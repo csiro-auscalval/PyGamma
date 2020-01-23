@@ -4,7 +4,7 @@ import os
 from io import BytesIO
 import logging
 from datetime import datetime
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Type, Union, Dict
 from pathlib import Path
 import re
 import subprocess
@@ -34,7 +34,16 @@ class SlcMetadata:
     """
 
     def __init__(self, scene: Path) -> None:
-        """ a default class constructor """
+        """
+        Extracts metadata from a sentinel-1 SLC.
+
+        SLC metadata are extracted from a `manifest safe' file in SLC safe folder
+        and IW SLC burst information are also extracted from annotations/xml files
+        using GAMMA SOFTWARE's sentinel-1 debursting program.
+
+        :param scene:
+            A full path to a SLC save folder.
+        """
         self.scene = os.path.realpath(scene)
         self.manifest = "manifest.safe"
         self.pattern = (
@@ -45,7 +54,7 @@ class SlcMetadata:
             r"(?P<category>S|A)"
             r"(?P<pols>SH|SV|DH|DV|VV|HH|HV|VH)_"
             r"(?P<start>[0-9]{8}T[0-9]{6})_"
-            r"(?P<stop>[0-9]{8}T[0-9]{6})_"
+            r"(?P<stop>[0-iiii9]{8}T[0-9]{6})_"
             r"(?P<orbitNumber>[0-9]{6})_"
             r"(?P<dataTakeID>[0-9A-F]{6})_"
             r"(?P<productIdentifier>[0-9A-F]{4})"
@@ -73,7 +82,7 @@ class SlcMetadata:
             )
 
     def get_metadata(self):
-        """ consolidates meta data manifest safe file and annotation/swath xmls from a slc archive. """
+        """Consolidates metadata  of manifest safe file and annotation/swath xmls from a slc archive."""
 
         metadata = dict()
         try:
@@ -93,8 +102,13 @@ class SlcMetadata:
 
         return metadata
 
-    def metadata_manifest_safe(self, manifest_file: Path):
-        """ extracts metadata from a manifest safe file for a slc. """
+    def metadata_manifest_safe(self, manifest_file: Path) -> Dict:
+        """
+        Extracts metadata from a manifest safe file.
+
+        :param manifest_file:
+            A full path to a manifest safe file.
+        """
 
         def _parse_datetime(dt):
             return datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S.%f").strftime(
@@ -186,8 +200,13 @@ class SlcMetadata:
 
         return meta
 
-    def metadata_swath(self, xml_file: Path):
-        """ extracts swath and bursts metadata from a xml file for a swath in slc scene. """
+    def metadata_swath(self, xml_file: Path) -> Dict:
+        """
+        Extracts swath and bursts information from a xml file.
+
+        :param xml_file:
+            A full path to xml_file.
+        """
 
         swath_meta = dict()
         swath_obj = self.extract_archive_member(xml_file, obj=True)
@@ -258,13 +277,13 @@ class SlcMetadata:
         return {**swath_meta, **burst_meta}
 
     def archive_name_list(self):
-        """ sets archive_files with names in a slc zip archive. """
+        """Sets archive_files with names in a slc zip archive. """
 
         with zf.ZipFile(self.scene, "r") as archive:
             self.archive_files = archive.namelist()
 
     def find_archive_files(self, pattern: str):
-        """ returns a matching name from a archive_file for given pattern. """
+        """Returns a matching name from a archive_file for given pattern. """
 
         self.archive_name_list()
         match_names = [
@@ -279,8 +298,17 @@ class SlcMetadata:
         target_file: Path,
         outdir: Optional[Path] = None,
         obj: Optional[bool] = False,
-    ):
-        """ extracts a content of a target file from a slc zip archive as an object or a file"""
+    ) -> None:
+        """
+        Extracts a content of a target file from a slc zip archive as a byte object or a file.
+
+        :param target_file:
+            A full path of a file to be extracted.
+        :param outdir:
+            A Optional output directory to write a target file.
+        :param obj:
+            A flag to extract file as an byte object or not.
+        """
 
         with zf.ZipFile(self.scene, "r") as archive:
             if obj:
@@ -302,7 +330,16 @@ class Archive:
     """
 
     def __init__(self, dbfile: Path) -> None:
-        """ a default class constructor"""
+        """
+        Injest Sentinel-1 SLC metadata into a sqlite database.
+
+        SLC metadata extracted from a manifest safe file and annotation/xmls are injested
+        into a sqlite database. Also, querries can be carried out into the database to
+        generate SLC informations contained in the database.
+
+        :param dbfile:
+            A full path to a database file.
+        """
 
         self.dbfile = dbfile
         self.conn = sqlite_setup(self.dbfile, ["spatialite"])
@@ -403,7 +440,7 @@ class Archive:
 
     @property
     def primary_fieldnames(self):
-        """ sets primary fieldnames if slc metadata exists. """
+        """Sets primary fieldnames if slc metadata exists."""
         if self.metadata:
             return {
                 **{"id": "id"},
@@ -415,7 +452,7 @@ class Archive:
 
     @property
     def properties_fieldnames(self):
-        """ sets properties fieldnames if slc metadata exists. """
+        """Sets properties fieldnames if slc metadata exists."""
         if self.primary_fieldnames:
             return self.primary_fieldnames["properties"]
 
@@ -427,7 +464,7 @@ class Archive:
 
     @property
     def burst_fieldnames(self):
-        """ sets burst fieldnames if slc metadata exists. """
+        """Sets burst fieldnames if slc metadata exists."""
         if self.measurements:
             return {
                 k
@@ -438,19 +475,20 @@ class Archive:
 
     @property
     def product_id(self):
-        """ sets slc product id if slc metadata exists. """
+        """Sets slc product id if slc metadata exists."""
         if self.metadata:
             return self.metadata["id"]
 
     @property
     def file_location(self):
-        """ sets slc file locations if slc metadata exists. """
+        """Sets slc file locations if slc metadata exists."""
         if self.metadata:
             return self.metadata["product"]["url"]
 
     @staticmethod
     def get_corners(lats: List[float], lons: List[float]):
-        """ returns coorner from given latitudes and longitudes. """
+        """Returns coorner from given latitudes and longitudes."""
+
         return {
             "xmin": min(lons),
             "xmax": max(lons),
@@ -459,17 +497,19 @@ class Archive:
         }
 
     def get_measurement_fieldnames(self, measurement_key: str):
-        """ returns all the measurement fieldnames for a slc scene. """
+        """Returns all the measurement fieldnames for a slc scene."""
+
         return {k for k, v in self.metadata["measurements"][measurement_key].items()}
 
     def get_measurement_metadata(self, measurement_key: str):
-        """ returns metadata associated with all slc measurement field names. """
+        """Returns metadata associated with all slc measurement field names."""
+
         return {
             mk: mv for mk, mv in self.metadata["measurements"][measurement_key].items()
         }
 
     def get_slc_metadata(self):
-        """ returns a slc metadata. """
+        """Returns a slc metadata."""
         slc_metadata = {
             key: self.metadata["properties"][key] for key in self.properties_fieldnames
         }
@@ -479,7 +519,8 @@ class Archive:
         return slc_metadata
 
     def get_burst_names(self, measurement_key: str):
-        """ returns all the bursts contained within a given swath measurement. """
+        """Returns all the bursts contained within a given swath measurement."""
+
         return [
             burst
             for burst in self.get_measurement_fieldnames(measurement_key)
@@ -488,13 +529,13 @@ class Archive:
 
     @staticmethod
     def encode_string(string: str, encoding: Optional[str] = "utf-8"):
-        """ encode binary values into a string. """
+        """Encodes binary values into a string."""
         if not isinstance(string, str):
             return string.encode(encoding)
         return string
 
     def get_swath_bursts_metadata(self, measurement_key, burst_key=None):
-        """ returns measurement or burst metadata. """
+        """Returns measurement or burst metadata."""
         measurement_metadata = self.get_measurement_metadata(measurement_key)
         burst_names = self.get_burst_names(measurement_key)
 
