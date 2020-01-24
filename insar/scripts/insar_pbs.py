@@ -136,7 +136,6 @@ def run(
     """
     with open(taskfile, "r") as src:
         tasklist = src.readlines()
-    
 
     scattered_tasklist = scatter(tasklist, nodes)
     storage_names = ''.join([STORAGE.format(proj=p) for p in storage]) 
