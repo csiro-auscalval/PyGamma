@@ -64,8 +64,17 @@ def grid_definition_cli():
 )
 def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
     """
-    A method to process the grid adjustment for InSAR grid auto-generated grid definition
-    from grid_definition method.
+    A method to process the grid adjustment for InSAR grid auto-generated grid definition.
+
+    This grid adjustment is for bulk grid adjustment process. It assumes that all the
+    grid definition required to perform  resides in input_path and naming conventions
+    are as genrated by grid_definition process. For more user control on individual grid
+    adjustment check metadata.s1_gridding_utils.grid_adjustment.
+
+    :param input_path:
+        A full path to grid-definition input files parent directory.
+    :param out_dir:
+        A full path to a directory to store adjusted grid definition files.
     """
 
     def _get_required_grids(vector_file, vector_file_dir):

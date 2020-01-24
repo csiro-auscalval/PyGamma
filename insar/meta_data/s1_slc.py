@@ -854,21 +854,16 @@ class SlcFrame:
     """
 
     def __init__(
-        self, width_lat: Optional[float] = None, buffer_lat: Optional[float] = None
+        self, width_lat: Optional[float] = 1.1, buffer_lat: Optional[float] = 0.01
     ) -> None:
         self.southern_hemisphere = True
         self.start_lat = 0.0
         self.end_lat = 50.0
         self.start_lon = 100.0
         self.end_lon = 179.0
-        if width_lat is None:
-            self.width_lat = 1.1
-        else:
-            self.width_lat = width_lat
-        if buffer_lat is None:
-            self.buffer_lat = 0.01
-        else:
-            self.buffer_lat = buffer_lat
+
+        self.width_lat = width_lat
+        self.buffer_lat = buffer_lat
 
     def generate_frame_polygon(self, shapefile_name: Optional[Path] = None):
         """ generates a frame with associated extent for the frame definition defined in class constructor. """

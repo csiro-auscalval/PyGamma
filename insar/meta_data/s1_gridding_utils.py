@@ -1,10 +1,10 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 
 import os
 import re
 import uuid
 import logging
-from typing import Optional
+from typing import Optional, Union, Dict, Iterable
 from pathlib import Path
 from datetime import datetime
 
@@ -21,9 +21,10 @@ _LOG = logging.getLogger(__name__)
 
 def generate_slc_metadata(
     slc_scene: Path, outdir: Optional[Path] = None, yaml_file: Optional[bool] = False
-):
+) -> Union[Dict, None]:
     """
-    This method extracts slc metadata from scene
+    This method extracts slc metadata from scene.
+
     :param slc_scene: A 'Path' to slc scene
     :param outdir: A 'Path' to store yaml_file
     :param yaml_file: flag to write a yaml file with slc metadata
@@ -52,18 +53,21 @@ def generate_slc_metadata(
     if outdir is None:
         outdir = os.getcwd()
     else:
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
+        if not os.path.exists(outdir.as_posix()):
+            os.makedirs(outdir.as_posix())
     with open(
-        os.path.join(outdir, "{}.yaml".format(os.path.basename(slc_scene)[:-4])), "w"
+        os.path.join(outdir, "{}.yaml".format(os.path.basename(slc_scene.as_posix())[:-4])), "w"
     ) as out_fid:
         yaml.dump(slc_metadata, out_fid)
 
 
-def swath_bursts_extents(bursts_df, swt, buf=0.01, pol="VV"):
+def swath_bursts_extents(bursts_df, swt, buf=0.01, pol="VV") -> Iterable:
     """
-    Method to form extents from overlapping bursts which are
-    within 0.01 degree buffer of their centroid values.
+    Method to form extents for overlapping bursts.
+
+    Overlapped extents are formed if centroid with 'buf'
+    degree buffer intersects with other centroid.
+
     :param bursts_df: geo-pandas data frame with burst information
     :param swt: name of the swath to subset this operations
     :param buf: buffer value to form buffer around the centroid point
@@ -97,12 +101,32 @@ def db_query(
     archive: Archive,
     frame_num: int,
     frame_object: SlcFrame,
-    query_args: Optional[dict] = None,
+    query_args: Optional[Dict] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     columns_name: Optional[str] = None,
-):
-    """ A helper method to query into a database"""
+) -> gpd.GeoDataFrame:
+    """
+    A helper method to query into a database.
+
+    :param archive:
+        An Archive object initialised with a database.
+    :param frame_num:
+        Frame number associated with a track_frame of spatial query.
+    :param frame_object:
+        Frame definition object.
+    :param query_args:
+        Optional query pair formed of database fieldnames and value to be queried.
+    :param start_date:
+        Optional start date of SLC acquisition to be queried.
+    :param end_date:
+        Optional end date of SLC acquisition to be queried.
+    :param columns_name:
+        field names associated with table in a database to be returned.
+
+    :returns:
+        A queried results from an Archive of a frame associated with the frame number.
+    """
 
     if columns_name is None:
         columns_name = [
@@ -147,18 +171,54 @@ def db_query(
 
 
 def grid_definition(
-    dbfile: Path,
-    out_dir: Path,
+    dbfile: Union[Path, str],
+    out_dir: Union[Path, str],
     rel_orbit: int,
     hemisphere: str,
-    sensor: str,
+    sensor: Union[str, None],
     orbits: str,
     latitude_width: float,
     latitude_buffer: float,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    frame_numbers: Optional[list] = [i + 1 for i in range(50)],
-):
+    frame_numbers: Optional[Iterable] = None,
+) -> None:
+    """
+    Generates a shape file for frame numbers associated with a rel orbit.
+
+    A grid definition generated with available SLC bursts in dbfile for
+    given sensor, orbit for particular relative orbit and frame numbers.
+
+    :param dbfile:
+        A full path to a sqlite database with SLC metadata information.
+    :param out_dir:
+        A full path to store the grid-definition shape files.
+    :param rel_orbit:
+        A Sentinel-1 relative orbit number.
+    :param hemisphere:
+        Southern (S) or northern (N) hemisphere to form a grid.
+    :param sensor:
+        Sentinel-1 (S1A) or (S1B) sensor. If None then both sensor's
+        information are used to form a grid definition.
+    :param orbits:
+        Ascending (A) or descending overpass to form the grid definition.
+    :param latitude_width:
+        How wide the grid should span in latitude (in decimal degrees).
+    :param latitude_buffer:
+        The buffer to include in latitude width to facilitate the overlaps needed
+        between two grids along a relative orbit.
+    :param start_date:
+        Optional start date of acquisition to account in forming a grid definition.
+    :param end_date:
+        Optional end date of acquisition to account in forming a grid definition.
+    :param frame_numbers:
+        Optional frame numbers to generate a grid definition. Default is to generate
+        50 horizontal lines speparated by latitude width + latitude_buffer from equator.
+    """
+
+    if frame_numbers is None:
+        frame_numbers = [i + 1 for i in range(50)]
+
     def _frame_def():
         bursts_query_args = {
             "bursts_metadata.relative_orbit": rel_orbit,
@@ -219,15 +279,17 @@ def grid_definition(
 
 
 def grid_adjustment(
-    in_grid_shapefile: Path,
-    out_grid_shapefile: Path,
+    in_grid_shapefile: Union[Path, str],
+    out_grid_shapefile: Union[Path, str],
     track: str,
     frame: str,
     grid_before_shapefile: Optional[Path] = None,
     grid_after_shapefile: Optional[Path] = None,
 ):
     """
-    this method performs a grid adjustment by removing first burst in swath 1
+    Adjustment of a grid definition.
+
+    This method performs a grid adjustment by removing first burst in swath 1
     and last burst from swath 3. Depending on the availability of grid before
     or after the grid that is being adjusted, a) if grid the before the current
     grid is available, then the last overlapping burst from grid before is
@@ -236,8 +298,25 @@ def grid_adjustment(
     current grid in swath 1. c) Finally, one burst from each swath from the
     start (geographic north) of the grid are removed (this was deemed appropriate
     after observing the adjusted grid that there was minimum of two overlaps
-    betweeen the grids in each swaths. The requirement is to have at least one
-    bursts overlap to allow mosiacing in the post processing).
+    between the grids in each swaths. The requirement is to have at least one
+    bursts overlap to allow mosaic formation in the post processing).
+
+    :param in_grid_shapefile:
+        A full path to a shape file that needs adjustment.
+    :param out_grid_shapefile:
+        A full path to output shapefile.
+    :param track:
+        A track name associated with in_grid_shapefile.
+    :param frame:
+        A frame name associated with in_grid_shapefile.
+    :param grid_before_shapefile:
+        A full path to a shapefile for grid definition before the
+        in_grid_shapefile. The frame number should be one less than
+        the in_grid_shapefile's frame number for descending overpass.
+    :param grid_after_shapefile:
+        A full path to a shapefile for grid definition after the
+        in_grid_shapefile. The frame number should be one more than
+        the in_grid_shapefile's frame number for descending overpass.
     """
 
     gpd_df = gpd.read_file(in_grid_shapefile)
@@ -265,7 +344,7 @@ def grid_adjustment(
     # from grid before to the current grid in swath 3
     if grid_before_shapefile:
         iw3_extents = cascaded_union([geom for geom in iw3_new.geometry])
-        gpd_before = gpd.read_file(grid_before_shapefile)
+        gpd_before = gpd.read_file(Path(grid_before_shapefile).as_posix())
         iw3_before = gpd_before[gpd_before.swath == "IW3"].copy()
         bursts_numbers = list(iw3_before.burst_num.values)
 
@@ -284,7 +363,7 @@ def grid_adjustment(
     # from grid after to the current grid in swath 1
     if grid_after_shapefile:
         iw1_extents = cascaded_union([geom for geom in iw1_new.geometry])
-        gpd_after = gpd.read_file(grid_after_shapefile)
+        gpd_after = gpd.read_file(Path(grid_after_shapefile).as_posix())
         iw1_after = gpd_after[gpd_after.swath == "IW1"].copy()
         bursts_numbers = list(iw1_after.burst_num.values)
 
@@ -314,7 +393,7 @@ def grid_adjustment(
                 reverse=True,
             )
         except AttributeError as err:
-            raise AttributeError
+            raise err
 
         for idx, burst in enumerate(sorted_bursts):
             grid_df = grid_df.append(
@@ -335,36 +414,39 @@ def grid_adjustment(
     new_gpd_df.to_file(out_grid_shapefile, driver="ESRI Shapefile")
 
 
-def process_grid_adjustment(in_dir: Path, out_dir: Path):
+def process_grid_adjustment(
+    in_dir: Union[Path, str],
+    out_dir: Union[Path, str],
+    hemisphere: Optional[str] = 'S'
+):
     """
     A method to bulk process grid adjustment from given in_dir.
     grid shapefile is expected to be in format "<track>_<frame>.shp (eg: T002_F20S.shp)"
     """
+    in_dir = Path(in_dir)
+    out_dir = Path(out_dir)
 
-    for item in os.listdir(in_dir):
-        if not item.endswith(".shp"):
+    for item in in_dir.iterdir():
+        if not item.name.endswith(".shp"):
             continue
 
-        name_pcs = item.split("_")
+        name_pcs = item.name.split("_")
         track = name_pcs[0]
         frame = os.path.splitext(name_pcs[1])[0]
         frame_num = int(re.findall(r"\d+", frame)[0])
 
-        frame_before = "{}_F{:02}S.shp".format(track, frame_num - 1)
-        frame_after = "{}_F{:02}S.shp".format(name_pcs[0], frame_num + 1)
+        grid_before_name = in_dir.joinpath(f"{track}_F{frame_num - 1:02}{hemisphere}.shp")
+        grid_after_name = in_dir.joinpath(f"{track}_F{frame_num + 1:02}{hemisphere}.shp")
 
-        grid_before_name = os.path.join(in_dir, frame_before)
-        grid_after_name = os.path.join(in_dir, frame_after)
-
-        if not os.path.exists(grid_before_name):
+        if not grid_before_name.exists():
             grid_before_name = None
-        if not os.path.exists(grid_after_name):
+        if not grid_after_name.exists():
             grid_after_name = None
 
         try:
             grid_adjustment(
-                os.path.join(in_dir, item),
-                os.path.join(out_dir, item),
+                item,
+                out_dir.joinpath(item),
                 track=track,
                 frame=frame,
                 grid_before_shapefile=grid_before_name,
