@@ -61,10 +61,6 @@ The workflow is managed by a luigi-scheduler and parameters can be set in `luigi
 		   --multi-look MULTI_LOOK		A multi-look value.
 		   --poeorb-path POEORB_PATH		A full path to a directory with precise orbit file.
 		   --resorb-path RESORB_PATH		A full path to a directory with restitution orbit file.
-		   --num-threads NUM_THREADS		A number of threads to be used by OPENMP to enable a multi-threadeding in GAMMA SOFTWARE.
-							Environment `OMP_NUM_THREADS` gets modified for the co-registration and 
-							inteferograms processing. Specify 1 for for the default value.
-							Only specify more than 1 if you are certain there is a bottle-neck.
 		   --workers WORKERS			Number of workers assigned to a luigi scheduler.
 		   --local-scheduler SCHEDULER		Use only local-scheduler.
 
