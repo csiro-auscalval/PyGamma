@@ -444,7 +444,6 @@ class CoregisterDemMaster(luigi.Task):
 
     master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
-    num_threads = luigi.Parameter()
     cleanup = luigi.Parameter()
 
     def output(self):
@@ -503,7 +502,7 @@ class CoregisterDemMaster(luigi.Task):
             dem_outdir=Path(self.outdir).joinpath(__DEM__),
         )
 
-        coreg.main(num_threads=self.num_threads)
+        coreg.main()
 
         with self.output().open("w") as out_fid:
             out_fid.write("")
@@ -564,7 +563,6 @@ class CreateCoregisterSlaves(luigi.Task):
 
     master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
-    num_threads = luigi.Parameter()
     cleanup = luigi.Parameter()
 
     def output(self):
@@ -693,7 +691,6 @@ class ARD(luigi.WrapperTask):
     multi_look = luigi.Parameter()
     poeorb_path = luigi.Parameter()
     resorb_path = luigi.Parameter()
-    num_threads = luigi.Parameter()
 
     def requires(self):
         log = STATUS_LOGGER.bind(vector_file_list=Path(self.vector_file_list).stem)
@@ -730,7 +727,6 @@ class ARD(luigi.WrapperTask):
                     "resorb_path": self.resorb_path,
                     "multi_look": self.multi_look,
                     "burst_data_csv": pjoin(outdir, f"{track}_{frame}_burst_data.csv"),
-                    "num_threads": self.num_threads,
                     "cleanup": self.cleanup
                 }
 

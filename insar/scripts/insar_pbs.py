@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 
 """
 PBS submission scripts.
@@ -35,6 +35,7 @@ gamma_insar ARD --vector-file-list {vector_file_list} --start-date {start_date} 
 FMT1 = "job{jobid}.bash"
 FMT2 = "input-{jobid}.txt"
 STORAGE = "+gdata/{proj}"
+
 
 def scatter(iterable, n):
     """

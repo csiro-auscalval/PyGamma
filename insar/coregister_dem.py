@@ -915,17 +915,15 @@ class CoregisterDem:
             0.0,
         )
 
-    def main(self, num_threads: Optional[int] = 1):
+    def main(self):
         """Main method to execute SLC-DEM coregistration task in sequence."""
         
         self.dem_outdir.mkdir(exist_ok=True)
-        
-        with environ({"OMP_NUM_THREADS": str(num_threads)}):
-            with working_directory(self.dem_outdir):
-                self.copy_slc()
-                self.over_sample()
-                self.gen_dem_rdc()
-                self.create_diff_par()
-                self.offset_calc()
-                self.geocode()
-                self.look_vector()
+        with working_directory(self.dem_outdir):
+            self.copy_slc()
+            self.over_sample()
+            self.gen_dem_rdc()
+            self.create_diff_par()
+            self.offset_calc()
+            self.geocode()
+            self.look_vector()
