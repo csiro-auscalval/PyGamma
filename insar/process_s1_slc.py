@@ -164,11 +164,12 @@ class SlcProcess:
                     self.temp_slc.append(item)
         self.slc_tabs_params = _concat_tabs
 
-    def _write_tabs(self,
+    def _write_tabs(
+        self,
         slc_tab_file: Union[Path, str],
         tab_params: Optional[Dict] = None,
         _id: Optional[str] = None,
-        slc_data_dir: Optional[Union[Path, str]] = None
+        slc_data_dir: Optional[Union[Path, str]] = None,
     ) -> None:
         """
         Writes tab files needed in SlcProcess.
@@ -216,53 +217,78 @@ class SlcProcess:
             start_tabs, *rest_tabs = sorted(
                 self.slc_tabs_params.items(), key=lambda x: x[1]["datetime"]
             )
-            slc_tab1 = None
-            for idx, item in enumerate(rest_tabs):
-                _, _vals_start = start_tabs
-                _, _vals_stop = item
+            _, _vals_start = start_tabs
+            _dt = _vals_start["datetime"]
 
-                _dt = _vals_start["datetime"]
-                if len(rest_tabs) == idx + 1:
-                    slc_prefix = "{:04}{:02}{:02}".format(_dt.year, _dt.month, _dt.day)
-                else:
-                    slc_prefix = "{:04}{:02}{:02}{:02}{:02}{:02}".format(
-                        _dt.year, _dt.month, _dt.day, _dt.hour, _dt.minute, _dt.second
+            if not rest_tabs:
+                self.slc_prefix = "{:04}{:02}{:02}".format(_dt.year, _dt.month, _dt.day)
+                self.slc_tab = Path(os.getcwd()).joinpath(
+                    "{}_{}_tab".format(self.slc_prefix, self.polarization)
+                )
+                for swath in [1, 2, 3]:
+                    _tab_names = self.swath_tab_names(swath, self.slc_prefix)
+                    os.rename(_vals_start[swath]["slc"], _tab_names.slc)
+                    os.rename(_vals_start[swath]["par"], _tab_names.par)
+                    os.rename(_vals_start[swath]["tops_par"], _tab_names.tops_par)
+                self._write_tabs(
+                    self.slc_tab, _id=self.slc_prefix, slc_data_dir=os.getcwd()
+                )
+            else:
+                slc_tab1 = None
+                for idx, item in enumerate(rest_tabs):
+                    _, _vals_stop = item
+                    if len(rest_tabs) == idx + 1:
+                        slc_prefix = "{:04}{:02}{:02}".format(
+                            _dt.year, _dt.month, _dt.day
+                        )
+                    else:
+                        slc_prefix = "{:04}{:02}{:02}{:02}{:02}{:02}".format(
+                            _dt.year,
+                            _dt.month,
+                            _dt.day,
+                            _dt.hour,
+                            _dt.minute,
+                            _dt.second,
+                        )
+
+                    # create slc_tab1 only at the beginning
+                    if slc_tab1 is None:
+                        slc_tab1 = tmpdir.joinpath(f"slc_tab1_{idx}")
+                        self._write_tabs(
+                            slc_tab1, tab_params=_vals_start, slc_data_dir=os.getcwd()
+                        )
+
+                    # create slc_tab2
+                    slc_tab2 = tmpdir.joinpath(f"slc_tab2_{idx}")
+                    self._write_tabs(
+                        slc_tab2, tab_params=_vals_stop, slc_data_dir=os.getcwd()
                     )
 
-                # create slc_tab1 only at the beginning
-                if slc_tab1 is None:
-                    slc_tab1 = tmpdir.joinpath(f"slc_tab1_{idx}")
-                    self._write_tabs(slc_tab1, tab_params=_vals_start)
+                    # create slc_tab3 (merge tab)
+                    slc_tab3 = tmpdir.joinpath(f"slc_tab3_{idx}")
+                    self._write_tabs(slc_tab3, _id=slc_prefix, slc_data_dir=os.getcwd())
 
-                # create slc_tab2
-                slc_tab2 = tmpdir.joinpath(f"slc_tab2_{idx}")
-                self._write_tabs(slc_tab2, tab_params=_vals_stop)
+                    # concat sequential ScanSAR burst SLC images
+                    gamma_program.SLC_cat_ScanSAR(
+                        slc_tab1.as_posix(), slc_tab2.as_posix(), slc_tab3.as_posix()
+                    )
+                    # assign slc_tab3 to slc_tab1 to perform series of concatenation
+                    slc_tab1 = slc_tab3
 
-                # create slc_tab3 (merge tab)
-                slc_tab3 = tmpdir.joinpath(f"slc_tab3_{idx}")
-                self._write_tabs(slc_tab3, _id=slc_prefix)
+                # clean up the temporary slc files after clean up
+                for fp in self.temp_slc:
+                    os.remove(fp)
 
-                # concat sequential ScanSAR burst SLC images
-                gamma_program.SLC_cat_ScanSAR(
-                    slc_tab1.as_posix(), slc_tab2.as_posix(), slc_tab3.as_posix()
+                # prefix for final slc
+                self.slc_prefix = slc_prefix
+
+                # set the slc_tab file name
+                self.slc_tab = shutil.move(
+                    slc_tab3,
+                    Path(os.getcwd()).joinpath(
+                        "{}_{}_tab".format(slc_prefix, self.polarization)
+                    ),
                 )
-                # assign slc_tab3 to slc_tab1 to perform series of concatenation
-                slc_tab1 = slc_tab3
-
-            # clean up the temporary slc files after clean up
-            for fp in self.temp_slc:
-                os.remove(fp)
-
-            # prefix for final slc
-            self.slc_prefix = slc_prefix
-
-            # set the slc_tab file name
-            self.slc_tab = shutil.move(
-                slc_tab3,
-                Path(os.getcwd()).joinpath(
-                    "{}_{}_tab".format(slc_prefix, self.polarization)
-                ),
-            )
 
     def phase_shift(self, swath: Optional[int] = 1) -> None:
         """Perform phase shift correction.
@@ -375,7 +401,9 @@ class SlcProcess:
 
             # write out slc in and out tab files
             sub_slc_in = tmpdir.joinpath("sub_slc_input_tab")
-            self._write_tabs(sub_slc_in, tab_params=tabs_param)
+            self._write_tabs(
+                sub_slc_in, tab_params=tabs_param, slc_data_dir=os.getcwd()
+            )
 
             sub_slc_out = tmpdir.joinpath("sub_slc_output_tab")
             self._write_tabs(sub_slc_out, _id=self.slc_prefix, slc_data_dir=tmpdir)

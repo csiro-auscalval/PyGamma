@@ -3,9 +3,9 @@
 import datetime
 import os
 import re
-import signal
 import traceback
-from os.path import exists, join as pjoin, splitext
+from os.path import exists, join as pjoin
+import shutil
 from pathlib import Path
 
 import luigi
@@ -21,7 +21,6 @@ from insar.coregister_slc import CoregisterSlc
 from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
 from insar.s1_slc_metadata import S1DataDownload
-from insar.subprocess_utils import environ
 from insar.clean_up import clean_rawdatadir, clean_slcdir, clean_gammademdir
 from insar.logs import ERROR_LOGGER, STATUS_LOGGER
 
@@ -50,14 +49,33 @@ def on_failure(task, exception):
 
 def get_scenes(burst_data_csv):
     df = pd.read_csv(burst_data_csv)
+    polarizations = df.polarization.unique()
+    scene_dates = [_dt for _dt in sorted(df.date.unique())]
 
-    return [
-        datetime.datetime.strptime(_dt, "%Y-%m-%d").strftime(__DATE_FMT__)
-        for _dt in sorted(df.date.unique())
-    ]
+    scenes = []
+    frames_data = []
+
+    for _date in scene_dates:
+        df_subset = df[(df["date"] == _date) & (df["polarization"] == polarizations[0])]
+        complete_frame = True
+        for swath in [1, 2, 3]:
+            swath_df = df_subset[df_subset.swath == "IW{}".format(swath)]
+            swath_df = swath_df.sort_values(
+                by="acquistion_datetime", ascending=True
+            )
+            for row in swath_df.itertuples():
+                missing_bursts = row.missing_master_bursts.strip("][")
+                if missing_bursts:
+                    complete_frame = False
+        dt = datetime.datetime.strptime(_date, "%Y-%m-%d").strftime(__DATE_FMT__)
+        frames_data.append((dt, complete_frame, polarizations[0]))
+        scenes.append(dt)
+
+    return scenes, frames_data
 
 
 def calculate_master(scenes_list) -> datetime:
+
     slc_dates = [
         datetime.datetime.strptime(scene.strip(), __DATE_FMT__).date()
         for scene in scenes_list
@@ -158,6 +176,14 @@ class InitialSetup(luigi.Task):
             list(self.polarization),
         )
 
+        if slc_query_results is None:
+            if self.cleanup:
+                shutil.rmtree(self.outdir)
+            raise ValueError(f"Nothing was returned for {self.track}_{self.frame} "
+                             f"start_date: {self.start_date} "
+                             f"end_date: {self.end_date} "
+                             f"orbit: {self.orbit}")
+
         # here scenes_list and download_list are overwritten for each polarization
         # IW products in conflict-free mode products VV and VH polarization over land
         slc_inputs_df = pd.concat(
@@ -242,6 +268,7 @@ class ProcessSlc(luigi.Task):
     burst_data = luigi.Parameter()
     slc_dir = luigi.Parameter()
     workdir = luigi.Parameter()
+    ref_master_tab = luigi.Parameter(default=None)
 
     def output(self):
         return luigi.LocalTarget(
@@ -257,6 +284,7 @@ class ProcessSlc(luigi.Task):
             str(self.polarization),
             str(self.scene_date),
             str(self.burst_data),
+            self.ref_master_tab
         )
         slc_job.main()
         with self.output().open("w") as f:
@@ -280,15 +308,46 @@ class CreateFullSlc(luigi.Task):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("create full slc task")
 
-
-        slc_scenes = get_scenes(self.burst_data_csv)
         slc_dir = Path(self.outdir).joinpath(__SLC__)
-
         os.makedirs(slc_dir, exist_ok=True)
+
+        slc_scenes, slc_frames = get_scenes(self.burst_data_csv)
+
+        # first create slc for one complete frame which will be a reference frame
+        # to resize the incomplete frames.
+        resize_master_tab = None
+        for _dt, status_frame, _pol in slc_frames:
+            if status_frame:
+                ProcessSlc(
+                    scene_date=_dt,
+                    raw_path=Path(self.outdir).joinpath(__RAW__),
+                    polarization=_pol,
+                    burst_date=self.burst_data_csv,
+                    slc_dir=slc_dir,
+                    workdir=self.workdir,
+                )
+                slc_prefix = "{:04}{:02}{:02}".format(_dt.year, _dt.month, _dt.day)
+                resize_master_tab = Path(slc_dir)\
+                    .joinpath(slc_prefix, "{}_{}_tab".format(slc_prefix, _pol.upper()))
+                if resize_master_tab.exists():
+                    break
+
+        # need at least one complete frame to enable further processing of the stacks
+        # The frame definition were generated using all sentinel-1 acquisition dataset, thus
+        # only processing a temporal subset might encounter stacks with all scene's frame
+        # not forming a complete master frame.
+        # TODO implement a method to resize a stacks to new frames definition
+        # TODO Generate a new reference frame using scene that has least number of missing burst
+        if resize_master_tab is None:
+            if self.cleanup:
+                shutil.rmtree(self.outdir)
+            raise ValueError(f"Not a  single complete frames were available {self.track}_{self.frame}")
 
         slc_tasks = []
         for slc_scene in slc_scenes:
             for pol in self.polarization:
+                if resize_master_tab.exists():
+                    continue
                 slc_tasks.append(
                     ProcessSlc(
                         scene_date=slc_scene,
@@ -297,9 +356,9 @@ class CreateFullSlc(luigi.Task):
                         burst_data=self.burst_data_csv,
                         slc_dir=slc_dir,
                         workdir=self.workdir,
+                        ref_master_tab=resize_master_tab
                     )
                 )
-
         yield slc_tasks
 
         # clean up raw data directory
@@ -353,7 +412,7 @@ class CreateMultilook(luigi.Task):
         log.info("create multi-look task")
 
         # calculate the mean range and azimuth look values
-        slc_scenes = get_scenes(self.burst_data_csv)
+        slc_scenes, _ = get_scenes(self.burst_data_csv)
         slc_par_files = []
         for slc_scene in slc_scenes:
             for pol in self.polarization:
@@ -408,7 +467,7 @@ class CalcInitialBaseline(luigi.Task):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("calculate baseline task")
 
-        slc_scenes = get_scenes(self.burst_data_csv)
+        slc_scenes, _ = get_scenes(self.burst_data_csv)
         slc_par_files = []
         for slc_scene in slc_scenes:
             slc_par = pjoin(
@@ -472,7 +531,7 @@ class CoregisterDemMaster(luigi.Task):
 
         master_scene = self.master_scene
         if master_scene is None:
-            slc_scenes = get_scenes(self.burst_data_csv)
+            slc_scenes, _ = get_scenes(self.burst_data_csv)
             master_scene = calculate_master(slc_scenes)
 
         master_slc = pjoin(
@@ -577,7 +636,7 @@ class CreateCoregisterSlaves(luigi.Task):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("co-register master-slaves task")
 
-        slc_scenes = get_scenes(self.burst_data_csv)
+        slc_scenes, _ = get_scenes(self.burst_data_csv)
         master_scene = self.master_scene
         if master_scene is None:
             master_scene = calculate_master(slc_scenes)
@@ -653,7 +712,7 @@ class CreateCoregisterSlaves(luigi.Task):
         # cleanup slc directory after coreg  and gamma dem dir
         if self.cleanup:
             clean_slcdir(Path(self.outdir).joinpath(__SLC__))
-            clean_gammademdir(Path(self.outdir).joinpath(__DEM_GAMMA__),track_frame=f"{self.track}_{self.frame}")
+            clean_gammademdir(Path(self.outdir).joinpath(__DEM_GAMMA__), track_frame=f"{self.track}_{self.frame}")
 
         with self.output().open("w") as f:
             f.write("")

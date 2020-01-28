@@ -221,6 +221,9 @@ def query_slc_inputs(
             min_date_arg=min_date_arg,
             max_date_arg=max_date_arg,
         )
+        if slc_df is None:
+            return
+
         try:
             slc_df["acquisition_start_time"] = pd.to_datetime(
                 slc_df["acquisition_start_time"]
@@ -234,7 +237,7 @@ def query_slc_inputs(
                 for pol in polarization
             }
 
-        except (AttributeError, AssertionError) as err:
+        except (AttributeError, AssertionError, TypeError) as err:
             raise err
 
 
@@ -292,7 +295,7 @@ def slc_inputs(slc_data_input: Dict) -> pd.DataFrame:
                             "total_bursts": slc_val["total_bursts"],
                             "polarization": slc_val["polarization"],
                             "acquistion_datetime": slc_val["acquisition_datetime"],
-                            "missing_master_bursts": missing_master_bursts,
+                            "missing_master_bursts": list(map(lambda x: int(x), missing_master_bursts))
                         },
                         ignore_index=True,
                     )

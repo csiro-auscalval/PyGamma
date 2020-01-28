@@ -28,8 +28,8 @@ PBS_RESOURCES = """#!/bin/bash
 PBS_TEMPLATE = r"""{pbs_resources}
 
 source {env}
-
-gamma_insar ARD --vector-file-list {vector_file_list} --start-date {start_date} --end-date {end_date} --workdir {workdir} --outdir {outdir} --workers {cpu_count} --local-scheduler
+export OMP_NUM_THREADS={num_threads}
+gamma_insar ARD --vector-file-list {vector_file_list} --start-date {start_date} --end-date {end_date} --workdir {workdir} --outdir {outdir} --workers {worker} --local-scheduler
 """
 
 FMT1 = "job{jobid}.bash"
@@ -57,6 +57,7 @@ def _gen_pbs(
     end_date,
     pbs_resource,
     cpu_count,
+    num_threads,
 ):
     """
     Generates a pbs scripts
@@ -82,7 +83,8 @@ def _gen_pbs(
             end_date=end_date,
             workdir=job_dir,
             outdir=outdir,
-            cpu_count=cpu_count
+            worker=int(cpu_count/num_threads),
+            num_threads=num_threads
         )
 
         out_fname = pjoin(job_dir, FMT1.format(jobid=jobid))
@@ -134,6 +136,8 @@ def run(
     """
     consolidates batch processing job script creation and submission of pbs jobs
     """
+
+    num_threads = 2
     with open(taskfile, "r") as src:
         tasklist = src.readlines()
 
@@ -158,7 +162,8 @@ def run(
         start_date,
         end_date,
         pbs_resources,
-        ncpus
+        ncpus,
+        num_threads
     )
     _submit_pbs(pbs_scripts, test)
 

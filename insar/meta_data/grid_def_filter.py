@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+
 def grid_processing_list():
     return {
         'T002D': [f"F{frame:02}S" for frame in range(9, 27)],
@@ -28,7 +29,7 @@ def grid_processing_list():
     }
 
 
-def main(grid_data_dir: Path, out_dir:Path):
+def main(grid_data_dir: Path, out_dir: Path):
 
     for track, frame_list in grid_processing_list().items():
         with open(out_dir.joinpath(f"input_list_{track}.txt").as_posix(), "w") as fid:
