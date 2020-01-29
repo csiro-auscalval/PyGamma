@@ -43,7 +43,7 @@ def scatter(iterable, n):
     """
 
     q, r = len(iterable) // n, len(iterable) % n
-    res = (iterable[i * q + min(i, r) : (i + 1) * q + min(i + 1, r)] for i in range(n))
+    res = (iterable[i * q + min(i, r): (i + 1) * q + min(i + 1, r)] for i in range(n))
 
     return list(res)
 

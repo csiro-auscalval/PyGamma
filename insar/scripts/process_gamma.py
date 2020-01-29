@@ -23,6 +23,7 @@ from insar.process_s1_slc import SlcProcess
 from insar.s1_slc_metadata import S1DataDownload
 from insar.clean_up import clean_rawdatadir, clean_slcdir, clean_gammademdir
 from insar.logs import ERROR_LOGGER, STATUS_LOGGER
+from insar.scripts.package_insar import package, PRODUCTS
 
 
 __RAW__ = "RAW_DATA"
@@ -61,9 +62,7 @@ def get_scenes(burst_data_csv):
         complete_frame = True
         for swath in [1, 2, 3]:
             swath_df = df_subset_new[df_subset_new.swath == "IW{}".format(swath)]
-            swath_df = swath_df.sort_values(
-                by="acquistion_datetime", ascending=True
-            )
+            swath_df = swath_df.sort_values(by="acquistion_datetime", ascending=True)
             for row in swath_df.itertuples():
                 missing_bursts = row.missing_master_bursts.strip("][")
                 if missing_bursts:
@@ -113,7 +112,9 @@ class SlcDataDownload(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(str(self.workdir)).joinpath(f"{Path(str(self.slc_scene)).stem}_slc_download.out")
+            Path(str(self.workdir)).joinpath(
+                f"{Path(str(self.slc_scene)).stem}_slc_download.out"
+            )
         )
 
     def run(self):
@@ -121,7 +122,7 @@ class SlcDataDownload(luigi.Task):
             Path(str(self.slc_scene)),
             list(self.polarization),
             Path(str(self.poeorb_path)),
-            Path(str(self.resorb_path))
+            Path(str(self.resorb_path)),
         )
 
         os.makedirs(str(self.output_dir), exist_ok=True)
@@ -177,18 +178,17 @@ class InitialSetup(luigi.Task):
         )
 
         if slc_query_results is None:
-            raise ValueError(f"Nothing was returned for {self.track}_{self.frame} "
-                             f"start_date: {self.start_date} "
-                             f"end_date: {self.end_date} "
-                             f"orbit: {self.orbit}")
+            raise ValueError(
+                f"Nothing was returned for {self.track}_{self.frame} "
+                f"start_date: {self.start_date} "
+                f"end_date: {self.end_date} "
+                f"orbit: {self.orbit}"
+            )
 
         # here scenes_list and download_list are overwritten for each polarization
         # IW products in conflict-free mode products VV and VH polarization over land
         slc_inputs_df = pd.concat(
-            [
-                slc_inputs(slc_query_results[pol])
-                for pol in list(self.polarization)
-            ]
+            [slc_inputs(slc_query_results[pol]) for pol in list(self.polarization)]
         )
 
         # download slc data
@@ -282,7 +282,7 @@ class ProcessSlc(luigi.Task):
             str(self.polarization),
             str(self.scene_date),
             str(self.burst_data),
-            self.ref_master_tab
+            self.ref_master_tab,
         )
         slc_job.main()
         with self.output().open("w") as f:
@@ -327,8 +327,9 @@ class CreateFullSlc(luigi.Task):
                         workdir=self.workdir,
                     )
                     yield resize_task
-                    resize_master_tab = Path(slc_dir)\
-                        .joinpath(slc_scene, f"{slc_scene}_{_pol.upper()}_tab")
+                    resize_master_tab = Path(slc_dir).joinpath(
+                        slc_scene, f"{slc_scene}_{_pol.upper()}_tab"
+                    )
                     break
             if resize_master_tab is not None:
                 if resize_master_tab.exists():
@@ -341,7 +342,9 @@ class CreateFullSlc(luigi.Task):
         # TODO implement a method to resize a stacks to new frames definition
         # TODO Generate a new reference frame using scene that has least number of missing burst
         if resize_master_tab is None:
-            raise ValueError(f"Not a  single complete frames were available {self.track}_{self.frame}")
+            raise ValueError(
+                f"Not a  single complete frames were available {self.track}_{self.frame}"
+            )
 
         slc_tasks = []
         for _dt, status_frame, _pols in slc_frames:
@@ -349,7 +352,9 @@ class CreateFullSlc(luigi.Task):
             for _pol in _pols:
                 if _pol not in self.polarization:
                     continue
-                if slc_dir.joinpath(slc_scene, f"{slc_scene}_{_pol.upper()}_tab").exists():
+                if slc_dir.joinpath(
+                    slc_scene, f"{slc_scene}_{_pol.upper()}_tab"
+                ).exists():
                     continue
                 slc_tasks.append(
                     ProcessSlc(
@@ -359,7 +364,7 @@ class CreateFullSlc(luigi.Task):
                         burst_data=self.burst_data_csv,
                         slc_dir=slc_dir,
                         workdir=self.workdir,
-                        ref_master_tab=resize_master_tab
+                        ref_master_tab=resize_master_tab,
                     )
                 )
         yield slc_tasks
@@ -389,7 +394,12 @@ class Multilook(luigi.Task):
         )
 
     def run(self):
-        multilook(Path(str(self.slc)), Path(str(self.slc_par)), int(str(self.rlks)), int(str(self.alks)))
+        multilook(
+            Path(str(self.slc)),
+            Path(str(self.slc_par)),
+            int(str(self.rlks)),
+            int(str(self.alks)),
+        )
         with self.output().open("w") as f:
             f.write("")
 
@@ -435,7 +445,8 @@ class CreateMultilook(luigi.Task):
 
         # range and azimuth looks are only computed from VV polarization
         rlks, alks, *_ = calculate_mean_look_values(
-            [_par for _par in slc_par_files if "VV" in _par.stem], int(str(self.multi_look))
+            [_par for _par in slc_par_files if "VV" in _par.stem],
+            int(str(self.multi_look)),
         )
 
         # multi-look jobs run
@@ -491,7 +502,9 @@ class CalcInitialBaseline(luigi.Task):
         baseline = BaselineProcess(
             slc_par_files,
             str(self.master_scene_polarization),
-            master_scene=calculate_master([dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames]),
+            master_scene=calculate_master(
+                [dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames]
+            ),
             outdir=Path(self.outdir),
         )
 
@@ -540,7 +553,9 @@ class CoregisterDemMaster(luigi.Task):
         master_scene = self.master_scene
         if master_scene is None:
             slc_frames = get_scenes(self.burst_data_csv)
-            master_scene = calculate_master([dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames])
+            master_scene = calculate_master(
+                [dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames]
+            )
 
         master_slc = pjoin(
             Path(self.outdir),
@@ -647,15 +662,21 @@ class CreateCoregisterSlaves(luigi.Task):
 
         master_scene = self.master_scene
         if master_scene is None:
-            master_scene = calculate_master([dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames])
+            master_scene = calculate_master(
+                [dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames]
+            )
 
-        master_polarizations = [pols for dt, _, pols in slc_frames if dt == master_scene]
+        master_polarizations = [
+            pols for dt, _, pols in slc_frames if dt.date() == master_scene
+        ]
         assert len(master_polarizations) == 1
 
         # TODO if master polarization data does not exist in SLC archive then
         # TODO choose other polarization or raise Error.
         if self.master_scene_polarization not in master_polarizations[0]:
-            raise ValueError(f"{self.master_scene_polarization}  not available in SLC data for {master_scene}")
+            raise ValueError(
+                f"{self.master_scene_polarization}  not available in SLC data for {master_scene}"
+            )
 
         # get range and azimuth looked values
         ml_file = Path(self.workdir).joinpath(
@@ -669,7 +690,9 @@ class CreateCoregisterSlaves(luigi.Task):
                     alks = int(line.strip().split(":")[1])
 
         master_scene = master_scene.strftime(__DATE_FMT__)
-        master_slc_prefix = f"{master_scene}_{str(self.master_scene_polarization).upper()}"
+        master_slc_prefix = (
+            f"{master_scene}_{str(self.master_scene_polarization).upper()}"
+        )
         master_slc_rlks_prefix = f"{master_slc_prefix}_{rlks}rlks"
         r_dem_master_slc_prefix = f"r{master_slc_prefix}"
 
@@ -731,10 +754,49 @@ class CreateCoregisterSlaves(luigi.Task):
         # cleanup slc directory after coreg  and gamma dem dir
         if self.cleanup:
             clean_slcdir(Path(self.outdir).joinpath(__SLC__))
-            clean_gammademdir(Path(self.outdir).joinpath(__DEM_GAMMA__), track_frame=f"{self.track}_{self.frame}")
+            clean_gammademdir(
+                Path(self.outdir).joinpath(__DEM_GAMMA__),
+                track_frame=f"{self.track}_{self.frame}",
+            )
 
         with self.output().open("w") as f:
             f.write("")
+
+
+class Package(luigi.Task):
+    """
+    Runs the packaging tasks
+    """
+    track = luigi.Parameter()
+    frame = luigi.Parameter()
+    root_directory = luigi.Parameter()
+    out_directory = luigi.Parameter()
+    workdir = luigi.Parameter()
+    product = luigi.Parameter(default=PRODUCTS[0])
+    cleanup = luigi.Parameter(default=False)
+    polarization = luigi.ListParameter(default=["VV", "VH"])
+    common_attrs = luigi.Parameter(default=None)
+
+    def output(self):
+        return luigi.LocalTarget(
+            Path(self.workdir).joinpath(
+                f"{self.track}_{self.frame}_package_status_logs.out"
+            )
+        )
+
+    def run(self):
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+        log.info("packaging")
+        package(
+            self.track,
+            self.frame,
+            self.root_directory,
+            self.out_directory,
+            self.product,
+            self.polarization,
+        )
+        if self.cleanup:
+            shutil.rmtree(Path(self.root_directory).joinpath(f"{self.track}_{self.frame}"))
 
 
 class ARD(luigi.WrapperTask):
@@ -763,6 +825,7 @@ class ARD(luigi.WrapperTask):
     cleanup = luigi.Parameter(default=True, significant=False)
     outdir = luigi.Parameter(significant=False)
     workdir = luigi.Parameter(significant=False)
+    packagedir = luigi.Parameter(significant=False, default=None)
     database_name = luigi.Parameter()
     orbit = luigi.Parameter()
     dem_img = luigi.Parameter()
@@ -772,17 +835,22 @@ class ARD(luigi.WrapperTask):
 
     def requires(self):
         log = STATUS_LOGGER.bind(vector_file_list=Path(self.vector_file_list).stem)
+        if self.packagedir is None:
+            self.packagedir = self.outdir
 
         ard_tasks = []
+        package_tasks = []
         with open(self.vector_file_list, "r") as fid:
             vector_files = fid.readlines()
             for vector_file in vector_files:
                 vector_file = vector_file.rstrip()
                 if not re.match(__TRACK_FRAME__, Path(vector_file).stem):
-                    log.info(f"{Path(vector_file).stem} should be of {__TRACK_FRAME__} format")
+                    log.info(
+                        f"{Path(vector_file).stem} should be of {__TRACK_FRAME__} format"
+                    )
                     continue
 
-                track, frame = Path(vector_file).stem.split('_')
+                track, frame = Path(vector_file).stem.split("_")
                 outdir = Path(str(self.outdir)).joinpath(f"{track}_{frame}")
                 workdir = Path(str(self.workdir)).joinpath(f"{track}_{frame}")
 
@@ -805,11 +873,25 @@ class ARD(luigi.WrapperTask):
                     "resorb_path": self.resorb_path,
                     "multi_look": self.multi_look,
                     "burst_data_csv": pjoin(outdir, f"{track}_{frame}_burst_data.csv"),
-                    "cleanup": self.cleanup
+                    "cleanup": self.cleanup,
                 }
 
                 ard_tasks.append(CreateCoregisterSlaves(**kwargs))
+                package_tasks.append(
+                    Package(
+                        track=track,
+                        frame=frame,
+                        root_directory=self.outdir,
+                        out_directory=self.packagedir,
+                        workdir=workdir,
+                        product=PRODUCTS[0],
+                        cleanup=False,
+                        polarization=self.polarization,
+                    )
+                )
+
         yield ard_tasks
+        yield package_tasks
 
 
 def run():

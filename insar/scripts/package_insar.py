@@ -283,7 +283,6 @@ def package(
     # Only properties from one polarization is gathered for packaging.
     for slc in SLC.for_path(track, frame, polarizations[0], track_frame_base, product):
         with DatasetAssembler(Path(out_directory), naming_conventions="dea") as p:
-
             esa_metadata_slc = slc.slc_metadata
             ard_slc_metadata = _get_metadata(slc.par_file)
 
@@ -332,6 +331,5 @@ def package(
 
 
 if __name__ == "__main__":
-
     outdir = "/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/test_package"
     package("T045D", "F19S", "/g/data/dz56/INSAR_ARD/BACKSCATTER", outdir)
