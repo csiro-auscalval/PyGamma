@@ -57,7 +57,9 @@ class SlcProcess:
         self.polarization = polarization
         self.scene_date = scene_date
         self.burst_data = burst_data
-        self.ref_master_tab = ref_master_tab
+        if ref_master_tab is not None:
+            self.ref_master_tab = Path(ref_master_tab)
+
         self.raw_files_patterns = {
             "data": "*measurement/s1*-iw{swath}-slc-{polarization}*.tiff",
             "annotation": "*annotation/s1*-iw{swath}-slc-{polarization}*.xml",
@@ -437,6 +439,8 @@ class SlcProcess:
         :param full_slc_tab:
             A full path to a slc_tab file to be resized.
         """
+        full_slc_tab = Path(full_slc_tab)
+        ref_slc_tab = Path(ref_slc_tab)
 
         # determine the resize burst tab
         with tempfile.TemporaryDirectory() as tmpdir:

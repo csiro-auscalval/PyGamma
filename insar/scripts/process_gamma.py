@@ -318,7 +318,7 @@ class CreateFullSlc(luigi.Task):
             slc_scene = _dt.strftime(__DATE_FMT__)
             for _pol in _pols:
                 if status_frame:
-                    ProcessSlc(
+                    resize_task = ProcessSlc(
                         scene_date=slc_scene,
                         raw_path=Path(self.outdir).joinpath(__RAW__),
                         polarization=_pol,
@@ -326,6 +326,7 @@ class CreateFullSlc(luigi.Task):
                         slc_dir=slc_dir,
                         workdir=self.workdir,
                     )
+                    yield resize_task
                     resize_master_tab = Path(slc_dir)\
                         .joinpath(slc_scene, f"{slc_scene}_{_pol.upper()}_tab")
                     break
