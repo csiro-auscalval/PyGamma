@@ -763,18 +763,13 @@ class CreateCoregisterSlaves(luigi.Task):
             f.write("")
 
 
+@requires(CreateCoregisterSlaves)
 class Package(luigi.Task):
     """
     Runs the packaging tasks
     """
-    track = luigi.Parameter()
-    frame = luigi.Parameter()
-    root_directory = luigi.Parameter()
-    out_directory = luigi.Parameter()
-    workdir = luigi.Parameter()
+    packagedir = luigi.Parameter()
     product = luigi.Parameter(default=PRODUCTS[0])
-    cleanup = luigi.Parameter(default=False)
-    polarization = luigi.ListParameter(default=["VV", "VH"])
     common_attrs = luigi.Parameter(default=None)
 
     def output(self):
@@ -787,16 +782,19 @@ class Package(luigi.Task):
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("packaging")
-        package(
+        yield package(
             self.track,
             self.frame,
-            self.root_directory,
-            self.out_directory,
+            self.outdir,
+            self.packagedir,
             self.product,
             self.polarization,
         )
         if self.cleanup:
-            shutil.rmtree(Path(self.root_directory).joinpath(f"{self.track}_{self.frame}"))
+            shutil.rmtree(Path(self.outdir).joinpath(f"{self.track}_{self.frame}"))
+
+        with self.output().open("w") as out_fid:
+            out_fid.write("")
 
 
 class ARD(luigi.WrapperTask):
@@ -832,6 +830,7 @@ class ARD(luigi.WrapperTask):
     multi_look = luigi.Parameter()
     poeorb_path = luigi.Parameter()
     resorb_path = luigi.Parameter()
+    products = luigi.Parameter(default=PRODUCTS[0])
 
     def requires(self):
         log = STATUS_LOGGER.bind(vector_file_list=Path(self.vector_file_list).stem)
@@ -839,7 +838,6 @@ class ARD(luigi.WrapperTask):
             self.packagedir = self.outdir
 
         ard_tasks = []
-        package_tasks = []
         with open(self.vector_file_list, "r") as fid:
             vector_files = fid.readlines()
             for vector_file in vector_files:
@@ -863,10 +861,12 @@ class ARD(luigi.WrapperTask):
                     "end_date": self.end_date,
                     "database_name": self.database_name,
                     "polarization": self.polarization,
+                    "product": self.products,
                     "track": track,
                     "frame": frame,
                     "outdir": outdir,
                     "workdir": workdir,
+                    "packagedir": self.packagedir,
                     "orbit": self.orbit,
                     "dem_img": self.dem_img,
                     "poeorb_path": self.poeorb_path,
@@ -876,22 +876,9 @@ class ARD(luigi.WrapperTask):
                     "cleanup": self.cleanup,
                 }
 
-                ard_tasks.append(CreateCoregisterSlaves(**kwargs))
-                package_tasks.append(
-                    Package(
-                        track=track,
-                        frame=frame,
-                        root_directory=self.outdir,
-                        out_directory=self.packagedir,
-                        workdir=workdir,
-                        product=PRODUCTS[0],
-                        cleanup=False,
-                        polarization=self.polarization,
-                    )
-                )
-
+                ard_tasks.append(Package(**kwargs))
         yield ard_tasks
-        yield package_tasks
+
 
 
 def run():

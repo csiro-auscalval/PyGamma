@@ -211,12 +211,12 @@ class SLC:
         if product == "sar":
             for slc_scene_path in (
                 Path(stack_base_path)
-                .joinpath(f"{_track}_{_frame}", map_product(product)["product_base"])
+                .joinpath(map_product(product)["product_base"])
                 .iterdir()
             ):
 
                 burst_data = Path(stack_base_path).joinpath(
-                    f"{_track}_{_frame}", f"{_track}_{_frame}_burst_data.csv"
+                    f"{_track}_{_frame}_burst_data.csv"
                 )
 
                 if not burst_data.exists():
@@ -332,4 +332,4 @@ def package(
 
 if __name__ == "__main__":
     outdir = "/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/test_package"
-    package("T045D", "F19S", "/g/data/dz56/INSAR_ARD/BACKSCATTER", outdir)
+    package("T045D", "F19S", "/g/data/dz56/INSAR_ARD/BACKSCATTER/T045D_F19S", outdir)
