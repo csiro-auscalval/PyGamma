@@ -49,17 +49,18 @@ def on_failure(task, exception):
 
 def get_scenes(burst_data_csv):
     df = pd.read_csv(burst_data_csv)
-    polarizations = df.polarization.unique()
     scene_dates = [_dt for _dt in sorted(df.date.unique())]
 
-    scenes = []
     frames_data = []
 
     for _date in scene_dates:
-        df_subset = df[(df["date"] == _date) & (df["polarization"] == polarizations[0])]
+        df_subset = df[df["date"] == _date]
+        polarizations = df_subset.polarization.unique()
+        df_subset_new = df_subset[df_subset["polarization"] == polarizations[0]]
+
         complete_frame = True
         for swath in [1, 2, 3]:
-            swath_df = df_subset[df_subset.swath == "IW{}".format(swath)]
+            swath_df = df_subset_new[df_subset_new.swath == "IW{}".format(swath)]
             swath_df = swath_df.sort_values(
                 by="acquistion_datetime", ascending=True
             )
@@ -67,11 +68,10 @@ def get_scenes(burst_data_csv):
                 missing_bursts = row.missing_master_bursts.strip("][")
                 if missing_bursts:
                     complete_frame = False
-        dt = datetime.datetime.strptime(_date, "%Y-%m-%d").strftime(__DATE_FMT__)
-        frames_data.append((dt, complete_frame, polarizations[0]))
-        scenes.append(dt)
+        dt = datetime.datetime.strptime(_date, "%Y-%m-%d")
+        frames_data.append((dt, complete_frame, polarizations))
 
-    return scenes, frames_data
+    return frames_data
 
 
 def calculate_master(scenes_list) -> datetime:
@@ -177,8 +177,6 @@ class InitialSetup(luigi.Task):
         )
 
         if slc_query_results is None:
-            if self.cleanup:
-                shutil.rmtree(self.outdir)
             raise ValueError(f"Nothing was returned for {self.track}_{self.frame} "
                              f"start_date: {self.start_date} "
                              f"end_date: {self.end_date} "
@@ -311,24 +309,27 @@ class CreateFullSlc(luigi.Task):
         slc_dir = Path(self.outdir).joinpath(__SLC__)
         os.makedirs(slc_dir, exist_ok=True)
 
-        slc_scenes, slc_frames = get_scenes(self.burst_data_csv)
+        slc_frames = get_scenes(self.burst_data_csv)
 
         # first create slc for one complete frame which will be a reference frame
         # to resize the incomplete frames.
         resize_master_tab = None
-        for _dt, status_frame, _pol in slc_frames:
-            if status_frame:
-                ProcessSlc(
-                    scene_date=_dt,
-                    raw_path=Path(self.outdir).joinpath(__RAW__),
-                    polarization=_pol,
-                    burst_date=self.burst_data_csv,
-                    slc_dir=slc_dir,
-                    workdir=self.workdir,
-                )
-                slc_prefix = "{:04}{:02}{:02}".format(_dt.year, _dt.month, _dt.day)
-                resize_master_tab = Path(slc_dir)\
-                    .joinpath(slc_prefix, "{}_{}_tab".format(slc_prefix, _pol.upper()))
+        for _dt, status_frame, _pols in slc_frames:
+            slc_scene = _dt.strftime(__DATE_FMT__)
+            for _pol in _pols:
+                if status_frame:
+                    ProcessSlc(
+                        scene_date=slc_scene,
+                        raw_path=Path(self.outdir).joinpath(__RAW__),
+                        polarization=_pol,
+                        burst_data=self.burst_data_csv,
+                        slc_dir=slc_dir,
+                        workdir=self.workdir,
+                    )
+                    resize_master_tab = Path(slc_dir)\
+                        .joinpath(slc_scene, f"{slc_scene}_{_pol.upper()}_tab")
+                    break
+            if resize_master_tab is not None:
                 if resize_master_tab.exists():
                     break
 
@@ -339,20 +340,21 @@ class CreateFullSlc(luigi.Task):
         # TODO implement a method to resize a stacks to new frames definition
         # TODO Generate a new reference frame using scene that has least number of missing burst
         if resize_master_tab is None:
-            if self.cleanup:
-                shutil.rmtree(self.outdir)
             raise ValueError(f"Not a  single complete frames were available {self.track}_{self.frame}")
 
         slc_tasks = []
-        for slc_scene in slc_scenes:
-            for pol in self.polarization:
-                if resize_master_tab.exists():
+        for _dt, status_frame, _pols in slc_frames:
+            slc_scene = _dt.strftime(__DATE_FMT__)
+            for _pol in _pols:
+                if _pol not in self.polarization:
+                    continue
+                if slc_dir.joinpath(slc_scene, f"{slc_scene}_{_pol.upper()}_tab").exists():
                     continue
                 slc_tasks.append(
                     ProcessSlc(
                         scene_date=slc_scene,
                         raw_path=Path(self.outdir).joinpath(__RAW__),
-                        polarization=pol,
+                        polarization=_pol,
                         burst_data=self.burst_data_csv,
                         slc_dir=slc_dir,
                         workdir=self.workdir,
@@ -412,15 +414,19 @@ class CreateMultilook(luigi.Task):
         log.info("create multi-look task")
 
         # calculate the mean range and azimuth look values
-        slc_scenes, _ = get_scenes(self.burst_data_csv)
+        slc_frames = get_scenes(self.burst_data_csv)
         slc_par_files = []
-        for slc_scene in slc_scenes:
-            for pol in self.polarization:
+
+        for _dt, status_frame, _pols in slc_frames:
+            slc_scene = _dt.strftime(__DATE_FMT__)
+            for _pol in _pols:
+                if _pol not in self.polarization:
+                    continue
                 slc_par = pjoin(
                     self.outdir,
                     __SLC__,
                     slc_scene,
-                    "{}_{}.slc.par".format(slc_scene, pol),
+                    f"{slc_scene}_{_pol.upper()}.slc.par",
                 )
                 if not exists(slc_par):
                     raise FileNotFoundError(f"missing {slc_par} file")
@@ -467,9 +473,10 @@ class CalcInitialBaseline(luigi.Task):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("calculate baseline task")
 
-        slc_scenes, _ = get_scenes(self.burst_data_csv)
+        slc_frames = get_scenes(self.burst_data_csv)
         slc_par_files = []
-        for slc_scene in slc_scenes:
+        for _dt, _, _ in slc_frames:
+            slc_scene = _dt.strftime(__DATE_FMT__)
             slc_par = pjoin(
                 self.outdir,
                 __SLC__,
@@ -483,7 +490,7 @@ class CalcInitialBaseline(luigi.Task):
         baseline = BaselineProcess(
             slc_par_files,
             str(self.master_scene_polarization),
-            master_scene=calculate_master(slc_scenes),
+            master_scene=calculate_master([dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames]),
             outdir=Path(self.outdir),
         )
 
@@ -531,8 +538,8 @@ class CoregisterDemMaster(luigi.Task):
 
         master_scene = self.master_scene
         if master_scene is None:
-            slc_scenes, _ = get_scenes(self.burst_data_csv)
-            master_scene = calculate_master(slc_scenes)
+            slc_frames = get_scenes(self.burst_data_csv)
+            master_scene = calculate_master([dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames])
 
         master_slc = pjoin(
             Path(self.outdir),
@@ -625,7 +632,6 @@ class CreateCoregisterSlaves(luigi.Task):
     cleanup = luigi.Parameter()
 
     def output(self):
-        inputs = self.input()
         return luigi.LocalTarget(
             Path(self.workdir).joinpath(
                 f"{self.track}_{self.frame}_coregister_slaves_status_logs.out"
@@ -636,10 +642,19 @@ class CreateCoregisterSlaves(luigi.Task):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("co-register master-slaves task")
 
-        slc_scenes, _ = get_scenes(self.burst_data_csv)
+        slc_frames = get_scenes(self.burst_data_csv)
+
         master_scene = self.master_scene
         if master_scene is None:
-            master_scene = calculate_master(slc_scenes)
+            master_scene = calculate_master([dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames])
+
+        master_polarizations = [pols for dt, _, pols in slc_frames if dt == master_scene]
+        assert len(master_polarizations) == 1
+
+        # TODO if master polarization data does not exist in SLC archive then
+        # TODO choose other polarization or raise Error.
+        if self.master_scene_polarization not in master_polarizations[0]:
+            raise ValueError(f"{self.master_scene_polarization}  not available in SLC data for {master_scene}")
 
         # get range and azimuth looked values
         ml_file = Path(self.workdir).joinpath(
@@ -684,7 +699,7 @@ class CreateCoregisterSlaves(luigi.Task):
 
         # need to account for master scene with polarization different than
         # the one used in coregistration of dem and master scene
-        master_pol_coreg = set(list(self.polarization)) - {
+        master_pol_coreg = set(list(master_polarizations[0])) - {
             str(self.master_scene_polarization).upper()
         }
         for pol in master_pol_coreg:
@@ -695,12 +710,15 @@ class CreateCoregisterSlaves(luigi.Task):
             )
             slave_coreg_jobs.append(CoregisterSlave(**kwargs))
 
-        # slave coregisration
-        slc_scenes.remove(master_scene)
-        for slc_scene in slc_scenes:
+        for _dt, _, _pols in slc_frames:
+            slc_scene = _dt.strftime(__DATE_FMT__)
+            if slc_scene == master_scene:
+                continue
             slave_dir = Path(self.outdir).joinpath(__SLC__).joinpath(slc_scene)
-            for pol in self.polarization:
-                slave_slc_prefix = f"{slc_scene}_{pol.upper()}"
+            for _pol in _pols:
+                if _pol not in self.polarization:
+                    continue
+                slave_slc_prefix = f"{slc_scene}_{_pol.upper()}"
                 kwargs["slc_slave"] = slave_dir.joinpath(f"{slave_slc_prefix}.slc")
                 kwargs["slave_mli"] = slave_dir.joinpath(
                     f"{slave_slc_prefix}_{rlks}rlks.mli"

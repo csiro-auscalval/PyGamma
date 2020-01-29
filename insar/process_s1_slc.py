@@ -203,9 +203,9 @@ class SlcProcess:
                     _tops_par = tab_params[swath]["tops_par"]
 
                 if slc_data_dir is not None:
-                    _slc = slc_data_dir.joinpath(_slc).as_posix()
-                    _par = slc_data_dir.joinpath(_par).as_posix()
-                    _tops_par = slc_data_dir.joinpath(_tops_par).as_posix()
+                    _slc = Path(slc_data_dir).joinpath(_slc).as_posix()
+                    _par = Path(slc_data_dir).joinpath(_par).as_posix()
+                    _tops_par = Path(slc_data_dir).joinpath(_tops_par).as_posix()
 
                 fid.write(_slc + " " + _par + " " + _tops_par + "\n")
 
