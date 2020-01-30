@@ -298,7 +298,7 @@ class SlcMetadata:
         target_file: Path,
         outdir: Optional[Path] = None,
         obj: Optional[bool] = False,
-    ) -> None:
+    ) -> Union[BytesIO, None]:
         """
         Extracts a content of a target file from a slc zip archive as a byte object or a file.
 

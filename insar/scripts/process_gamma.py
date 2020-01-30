@@ -782,7 +782,7 @@ class Package(luigi.Task):
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("packaging")
-        yield package(
+        package(
             self.track,
             self.frame,
             self.outdir,
@@ -875,10 +875,8 @@ class ARD(luigi.WrapperTask):
                     "burst_data_csv": pjoin(outdir, f"{track}_{frame}_burst_data.csv"),
                     "cleanup": self.cleanup,
                 }
-
-                ard_tasks.append(Package(**kwargs))
+                ard_tasks.append(CreateCoregisterSlaves(**kwargs))
         yield ard_tasks
-
 
 
 def run():
