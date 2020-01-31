@@ -7,6 +7,8 @@ import logging
 
 import attr
 import pandas as pd
+import click
+
 import py_gamma as gamma_program
 from eodatasets3 import DatasetAssembler
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata
@@ -23,12 +25,16 @@ def map_product(product: str) -> Dict:
     _map_dict = {
         "sar": {
             "suffixs": ("gamma0.tif", "sigma0.tif"),
+            "angles": ("lv_phi.tif", "lv_theta.tif"),
             "product_base": "SLC",
+            "dem_base": "DEM",
             "product_family": "bck",
         },
         "insar": {
             "suffixs": ("unw.tif", "int.tif", "cc.tif"),
+            "angles": ("lv_phi.tif", "lv_theta.tif"),
             "product_base": "INT",
+            "dem_base": "DEM",
             "product_family": "insar",
         },
     }
@@ -166,7 +172,8 @@ def _find_products(
 
 
 def _write_measurements(
-    p: DatasetAssembler, product_list: Iterable[Union[Path, str]]
+    p: DatasetAssembler,
+    product_list: Iterable[Union[Path, str]],
 ) -> None:
     """
     Unpack and package the sar and insar products
@@ -186,6 +193,28 @@ def _write_measurements(
         )
 
 
+def _write_angles_measurements(
+    p: DatasetAssembler,
+    product_list: Iterable[Union[Path, str]],
+) -> None:
+    """
+    Unpack and package the sar and insar products
+    """
+    for product in product_list:
+        product = Path(product)
+
+        # TODO currently assumes that filename is of
+        # r'^[0-9]{8}_[VV|VH]_*_*_*.tif'
+        try:
+            _, _name = product.stem.split(".")
+        except:
+            raise ValueError(f"{product.name} not recognized filename pattern")
+
+        p.write_measurement(
+            f"{_name}", product, overviews=None
+        )
+
+
 @attr.s(auto_attribs=True)
 class SLC:
     """
@@ -196,14 +225,16 @@ class SLC:
     frame: str
     par_file: Path
     slc_path: Path
+    dem_path: Path
     slc_metadata: Dict
+    status: bool
 
     @classmethod
     def for_path(
         cls,
         _track: str,
         _frame: str,
-        _pol: str,
+        _pols: Iterable[str],
         stack_base_path: Union[Path, str],
         product: str,
     ):
@@ -214,21 +245,31 @@ class SLC:
                 .joinpath(map_product(product)["product_base"])
                 .iterdir()
             ):
-
+                package_status = True
+                dem_path = Path(stack_base_path).joinpath(map_product(product)["dem_base"])
                 burst_data = Path(stack_base_path).joinpath(
                     f"{_track}_{_frame}_burst_data.csv"
                 )
 
                 if not burst_data.exists():
-                    raise FileNotFoundError(f"{burst_data} does not exists")
+                    package_status = False
+                    _LOG.info(f"{burst_data} does not exists")
 
-                par_files = [
-                    item
-                    for item in slc_scene_path.glob(
-                        f"r{slc_scene_path.name}_{_pol}_*rlks.mli.par"
-                    )
-                ]
-                assert len(par_files) == 1
+                # try to find any slc parameter for any polarizations to extract the metadata
+                par_files = None
+                for _pol in _pols:
+                    par_files = [
+                        item
+                        for item in slc_scene_path.glob(
+                            f"r{slc_scene_path.name}_{_pol}_*rlks.mli.par"
+                        )
+                    ]
+                    if par_files:
+                        break
+                if par_files is None:
+                    package_status = False
+                    _LOG.info(f"missing required parameter needed for packaging"
+                              f"for in {slc_scene_path}")
 
                 scene_date = datetime.datetime.strptime(
                     slc_scene_path.name, "%Y%m%d"
@@ -239,10 +280,12 @@ class SLC:
                     frame=_frame,
                     par_file=par_files[0],
                     slc_path=slc_scene_path,
+                    dem_path=dem_path,
                     slc_metadata={
                         Path(_url).stem: generate_slc_metadata(Path(_url))
                         for _url in slc_urls
                     },
+                    status=package_status
                 )
         else:
             raise NotImplementedError(f"packaging of {product} is not implemented")
@@ -281,7 +324,12 @@ def package(
 
     # Both the VV and VH polarizations has have identical SLC and burst informations.
     # Only properties from one polarization is gathered for packaging.
-    for slc in SLC.for_path(track, frame, polarizations[0], track_frame_base, product):
+    for slc in SLC.for_path(track, frame, polarizations, track_frame_base, product):
+
+        # skip packaging for missing parameters files needed to extract metadata
+        if not slc.status:
+            continue
+
         with DatasetAssembler(Path(out_directory), naming_conventions="dea") as p:
             esa_metadata_slc = slc.slc_metadata
             ard_slc_metadata = _get_metadata(slc.par_file)
@@ -323,13 +371,57 @@ def package(
             for key, val in esa_metadata_slc.items():
                 p.extend_user_metadata(key, val)
 
-            # find produce files and write
+            # find backscatter files and write
             _write_measurements(
                 p, _find_products(slc.slc_path, product_attrs["suffixs"])
+            )
+
+            # find angles files and write
+            _write_angles_measurements(
+                p, _find_products(slc.dem_path, product_attrs["angles"])
             )
             p.done()
 
 
+@click.command()
+@click.option(
+    "--track", type=click.STRING,
+    help="track name of the grid definition: `T001D`"
+)
+@click.option(
+    "--frame", type=click.STRING,
+    help="Frame name of the grid definition: `F02S`"
+)
+@click.option(
+    "--input-dir", type=click.Path(exists=True, readable=True),
+    help="The base directory of InSAR datasets"
+)
+@click.option(
+    "--pkgdir", type=click.Path(exists=True, writable=True),
+    help="The base output packaged directory."
+)
+@click.option(
+    "--product", type=click.STRING,
+    default='sar',
+    help="The product to be packaged: sar|insar"
+)
+@click.option(
+    "--polarization", type=click.Tuple([str, str]),
+    default=('VV', 'VH'),
+    help="Polarizations used in metadata consolidations for product."
+)
+def main(track, frame, input_dir, pkgdir, product, polarization):
+    package(
+        track=track,
+        frame=frame,
+        track_frame_base=input_dir,
+        out_directory=pkgdir,
+        product=product,
+        polarizations=polarization
+    )
+
+
+
 if __name__ == "__main__":
-    outdir = "/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/test_package"
-    package("T045D", "F19S", "/g/data/dz56/INSAR_ARD/BACKSCATTER/T045D_F19S", outdir)
+    outdir = "/g/data/dz56/INSAR_ARD/BACKSCATTER"
+    package("T134D", "F19S", "/g/data/dz56/INSAR_ARD/BACKSCATTER/T134D_F19S", outdir)

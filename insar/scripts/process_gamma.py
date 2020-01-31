@@ -5,7 +5,6 @@ import os
 import re
 import traceback
 from os.path import exists, join as pjoin
-import shutil
 from pathlib import Path
 
 import luigi
@@ -21,10 +20,13 @@ from insar.coregister_slc import CoregisterSlc
 from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
 from insar.s1_slc_metadata import S1DataDownload
-from insar.clean_up import clean_rawdatadir, clean_slcdir, clean_gammademdir
+from insar.clean_up import (
+    clean_rawdatadir,
+    clean_slcdir,
+    clean_gammademdir,
+    clean_demdir,
+)
 from insar.logs import ERROR_LOGGER, STATUS_LOGGER
-from insar.scripts.package_insar import package, PRODUCTS
-
 
 __RAW__ = "RAW_DATA"
 __SLC__ = "SLC"
@@ -758,43 +760,41 @@ class CreateCoregisterSlaves(luigi.Task):
                 Path(self.outdir).joinpath(__DEM_GAMMA__),
                 track_frame=f"{self.track}_{self.frame}",
             )
+            # TODO move this clean up methods after interferogram generation task once implemented
+            clean_demdir(
+                Path(self.outdir).joinpath(__DEM__),
+                [
+                    "*sigma*",
+                    "*.linc",
+                    "*.lv_phi",
+                    "*.lv_theta",
+                    "*.sim",
+                    "*dem.tif",
+                    "*gamma*",
+                    "*.lt",
+                    "*.png",
+                    "*.lsmap",
+                    "_",
+                    "*.dem",
+                    "*seamask.tif"
+                ]
+
+            )
+            clean_slcdir(
+                Path(self.outdir).joinpath(__SLC__),
+                [
+                    "*.sigma0",
+                    "*.gamma0",
+                    "*.png",
+                    "*.slc",
+                    "*.kml",
+                    "*.bmp",
+                    "*.mli",
+                ],
+            )
 
         with self.output().open("w") as f:
             f.write("")
-
-
-@requires(CreateCoregisterSlaves)
-class Package(luigi.Task):
-    """
-    Runs the packaging tasks
-    """
-    packagedir = luigi.Parameter()
-    product = luigi.Parameter(default=PRODUCTS[0])
-    common_attrs = luigi.Parameter(default=None)
-
-    def output(self):
-        return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_package_status_logs.out"
-            )
-        )
-
-    def run(self):
-        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
-        log.info("packaging")
-        package(
-            self.track,
-            self.frame,
-            self.outdir,
-            self.packagedir,
-            self.product,
-            self.polarization,
-        )
-        if self.cleanup:
-            shutil.rmtree(Path(self.outdir).joinpath(f"{self.track}_{self.frame}"))
-
-        with self.output().open("w") as out_fid:
-            out_fid.write("")
 
 
 class ARD(luigi.WrapperTask):
@@ -823,19 +823,15 @@ class ARD(luigi.WrapperTask):
     cleanup = luigi.Parameter(default=True, significant=False)
     outdir = luigi.Parameter(significant=False)
     workdir = luigi.Parameter(significant=False)
-    packagedir = luigi.Parameter(significant=False, default=None)
     database_name = luigi.Parameter()
     orbit = luigi.Parameter()
     dem_img = luigi.Parameter()
     multi_look = luigi.Parameter()
     poeorb_path = luigi.Parameter()
     resorb_path = luigi.Parameter()
-    products = luigi.Parameter(default=PRODUCTS[0])
 
     def requires(self):
         log = STATUS_LOGGER.bind(vector_file_list=Path(self.vector_file_list).stem)
-        if self.packagedir is None:
-            self.packagedir = self.outdir
 
         ard_tasks = []
         with open(self.vector_file_list, "r") as fid:
@@ -861,12 +857,10 @@ class ARD(luigi.WrapperTask):
                     "end_date": self.end_date,
                     "database_name": self.database_name,
                     "polarization": self.polarization,
-                    "product": self.products,
                     "track": track,
                     "frame": frame,
                     "outdir": outdir,
                     "workdir": workdir,
-                    "packagedir": self.packagedir,
                     "orbit": self.orbit,
                     "dem_img": self.dem_img,
                     "poeorb_path": self.poeorb_path,
