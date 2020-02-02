@@ -1,0 +1,43 @@
+description: Sentinel-1A SAR ARD test samples
+measurements:
+-   aliases:
+    - sar_gamma0_vh
+    dtype: float32
+    name: gamma0_vh
+    nodata: 0
+    units: '1'
+-   aliases:
+    - sar_gamma0_vv
+    dtype: float32
+    name: gamma0_vv
+    nodata: 0
+    units: '1'
+-   aliases:
+    - sar_sigma0_vv
+    dtype: float32
+    name: sigma0_vv
+    nodata: 0
+    units: '1'
+-   aliases:
+    - sar_sigma0_vh
+    dtype: float32
+    name: sigma0_vh
+    nodata: 0
+    units: '1'
+-   aliases: 
+    - vector_elevation_angle
+    dtype: float32 
+    name: lv_theta
+    nodata: 0 
+    units: 'degrees'
+-   aliases: 
+    - vector_orientation_angle
+    dtype: float32
+    name: lv_phi
+    nodata: 0 
+    units: 'degrees'
+metadata:
+    product:
+        name: ga_s1ac_bck_1
+metadata_type: eo3_sar_ard
+name: ga_s1ac_bck_1

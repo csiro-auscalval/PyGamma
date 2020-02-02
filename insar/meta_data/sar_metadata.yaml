@@ -1,0 +1,135 @@
+dataset:
+    creation_dt:
+    - properties
+    - odc:processing_datetime
+    format:
+    - properties
+    - odc:file_format
+    grid_spatial:
+    - grid_spatial
+    - projection
+    id:
+    - id
+    label:
+    - label
+    measurements:
+    - measurements
+    search_fields:
+        dataset_maturity:
+            description: One of - final|interim|nrt  (near real time)
+            indexed: false
+            offset:
+            - properties
+            - dea:dataset_maturity
+        instrument:
+            description: Instrument name
+            indexed: false
+            offset:
+            - properties
+            - eo:instrument
+        eo_orbit: 
+            description: Satellite overpass direction A (ascending)| D (descending)
+            indexed: false
+            offset: 
+            - properties
+            - eo:orbit
+        eo_relative_orbit: 
+            description: Relative orbit number 
+            indexed: false
+            offset: 
+            - properties
+            - eo:relative_orbit
+            type: integer
+        sar_azimuth_angle:
+            description: Azimuth angle
+            indexed: false
+            offset:
+            - properties
+            - sar:azimuth_angle
+            type: double
+        sar_azimuth_looks:
+            description: Azimuth look value
+            indexed: false 
+            offset: 
+            - properties
+            - sar:azimuth_looks
+            type: integer
+        sar_range_look:
+            description: Range look value 
+            indexed: false
+            offset: 
+            - properties
+            - sar:range_looks
+            type: integer
+        sar_heading: 
+            description: Heading direction
+            indexed: false
+            offset:
+            - properties
+            - sar:heading
+            type: double
+        sar_incidence_angle:
+            description: Incidence angle 
+            indexed: false
+            offset: 
+            - properties 
+            - sar:incidence_angle 
+            type: double
+        lat:
+            description: Latitude range
+            max_offset:
+            -   - extent
+                - lat
+                - end
+            min_offset:
+            -   - extent
+                - lat
+                - begin
+            type: double-range
+        lon:
+            description: Longitude range
+            max_offset:
+            -   - extent
+                - lon
+                - end
+            min_offset:
+            -   - extent
+                - lon
+                - begin
+            type: double-range
+        platform:
+            description: Platform code
+            indexed: false
+            offset:
+            - properties
+            - eo:platform
+        product_family:
+            description: Product family code
+            indexed: false
+            offset:
+            - properties
+            - odc:product_family
+        region_code:
+            description: "Spatial reference code genrated by dea. For Sentinel-1 region_code\
+                \ is a relative orbit number and frame name:\n '{:03d}{:03d}.format(relative orbit number,frame name)'.\n"
+            offset:
+            - properties
+            - odc:region_code
+        time:
+            description: Acquisition time range
+            max_offset:
+            -   - properties
+                - sar:end_datetime
+            -   - properties
+                - datetime
+            min_offset:
+            -   - properties
+                - sar:start_datetime
+            -   - properties
+                - datetime
+            type: datetime-range
+    sources:
+    - lineage
+    - source_datasets
+description: EO3 metadata for sentinel-1 sar
+name: eo3_sar_ard
