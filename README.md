@@ -67,6 +67,25 @@ Process a single stack Sentinel-1 SLC data to directly using a ARD pipeline from
 
 	$gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --workers <number-of-workers> --local-scheduler 
 
+#### Single stack packaging 
+The packaging of a single stack Sentinel-1 ARD processed using `gamma_insar ARD` workflow.
+
+    $package --help
+    
+    usage: package 
+          [REQUIRED PARAMETERS]
+          --track TEXT                   track name of the grid definition: `T001D`
+          --frame TEXT                   Frame name of the grid definition: `F02S`
+          --input-dir PATH               The base directory of InSAR datasets
+          --pkgdir PATH                  The base output packaged directory.
+          --product TEXT                 The product to be packaged: sar|insar
+          --polarization <TEXT TEXT>...  Polarizations used in metadata consolidations
+                                         for product.
+
+#### Example 
+
+	$package ARD --track T001D --frame F20S --input-dir <path-to-stack-folder> --pkgdir <path-to-pkg-output-dir> --product sar --polarization VV VH 
+
 
 #### Multi-stack processing using PBS system
 Batch processing of multiple stacks Sentinel-1 SLC data to ARD using PBS module in NCI.
@@ -98,10 +117,10 @@ and submitted to NCI queue with parameters specified in a `required parameters`
 
 	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --ncpus 48 --memory 192 --queue normal --nodes 2 --jobfs 400 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
 
-#### Packaging of InSAR ARD data 
+#### Multi-stack packaging of InSAR ARD using PBS system
 Batch processing of packaging of InSAR ARD to be indexed using Open Data Cube tools eo-datasets. 
-The `input-list` containing the full path to stack processed are can be submitted to NCI PBS system 
-to be packaged to be indexed into ODC. 
+The `input-list` containing the full path to stack processed can be submitted to NCI PBS system 
+to be packaged to be indexed into a data-cube. 
 
     $pbs-package --help 
     
