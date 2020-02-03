@@ -6,11 +6,12 @@ import re
 import traceback
 from os.path import exists, join as pjoin
 from pathlib import Path
-
+import zipfile
 import luigi
 import luigi.configuration
 import pandas as pd
 from luigi.util import requires
+import zlib
 
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.calc_baselines_new import BaselineProcess
@@ -36,6 +37,20 @@ __IFG__ = "IFG"
 __DATE_FMT__ = "%Y%m%d"
 __TRACK_FRAME__ = r"^T[0-9]{3}[A|D]_F[0-9]{2}[S|N]"
 
+SLC_PATTERN = (
+    r"^(?P<sensor>S1[AB])_"
+    r"(?P<beam>S1|S2|S3|S4|S5|S6|IW|EW|WV|EN|N1|N2|N3|N4|N5|N6|IM)_"
+    r"(?P<product>SLC|GRD|OCN)(?:F|H|M|_)_"
+    r"(?:1|2)"
+    r"(?P<category>S|A)"
+    r"(?P<pols>SH|SV|DH|DV|VV|HH|HV|VH)_"
+    r"(?P<start>[0-9]{8}T[0-9]{6})_"
+    r"(?P<stop>[0-9]{8}T[0-9]{6})_"
+    r"(?P<orbitNumber>[0-9]{6})_"
+    r"(?P<dataTakeID>[0-9A-F]{6})_"
+    r"(?P<productIdentifier>[0-9A-F]{4})"
+    r"(?P<extension>.SAFE|.zip)$"
+)
 
 @luigi.Task.event_handler(luigi.Event.FAILURE)
 def on_failure(task, exception):
@@ -126,12 +141,18 @@ class SlcDataDownload(luigi.Task):
             Path(str(self.poeorb_path)),
             Path(str(self.resorb_path)),
         )
-
+        failed = False
         os.makedirs(str(self.output_dir), exist_ok=True)
-
-        download_obj.slc_download(Path(str(self.output_dir)))
-        with self.output().open("w") as f:
-            f.write("")
+        try:
+            download_obj.slc_download(Path(str(self.output_dir)))
+        except (zipfile.BadZipFile, zlib.error):
+            failed = True
+        finally:
+            with self.output().open("w") as f:
+                if failed:
+                    f.write(f"{Path(self.slc_scene).name}")
+                else:
+                    f.write("")
 
 
 class InitialSetup(luigi.Task):
@@ -213,6 +234,18 @@ class InitialSetup(luigi.Task):
                 )
             )
         yield download_tasks
+
+        # TODO decide if we terminate if scenes in a stack fails to extract
+        # TODO or continue to processing after removing a failed scenes
+        # currently processing removing failed scenes
+        for out_path in download_tasks:
+            with open(out_path.output().path) as fid:
+                out_name = fid.readline().rstrip()
+                log.info(f"{out_name}")
+                if re.match(SLC_PATTERN, out_name):
+                    log.info(f"corrupted zip file {out_name} removed from further processing")
+                    indexes = slc_inputs_df[slc_inputs_df['url'].map(lambda x: Path(x).name) == out_name].index
+                    slc_inputs_df.drop(indexes, inplace=True)
 
         # save slc burst data details which is used by different tasks
         slc_inputs_df.to_csv(self.burst_data_csv)
