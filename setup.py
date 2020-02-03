@@ -41,7 +41,7 @@ setup(
         'console_scripts': [
             'gamma_insar=insar.scripts.process_gamma:run',
             'pbs-insar=insar.scripts.insar_pbs:ard_insar',
-            'pbs-package=insar.scripts.insar_pbs:ard_package'
+            'pbs-package=insar.scripts.insar_pbs:ard_package',
             'package=insar.scripts.package_insar:main',
             'slc-archive=insar.scripts.grid_processing:slc_archive_cli',
             'grid-definition=insar.scripts.grid_processing:grid_definition_cli'

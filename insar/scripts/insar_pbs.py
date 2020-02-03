@@ -12,7 +12,6 @@ import click
 from os.path import join as pjoin, dirname, exists, basename
 import subprocess
 import uuid
-import argparse
 import time
 
 
@@ -123,34 +122,134 @@ def _submit_pbs(pbs_scripts, test):
             )
 
 
-def run(
-    taskfile,
-    start_date,
-    end_date,
-    workdir,
-    outdir,
-    ncpus,
-    memory,
-    queue,
-    hours,
-    email,
-    nodes,
-    jobfs,
-    storage,
-    project,
-    env,
-    test,
+@click.command(
+    "ard-insar",
+    help="Equally partition a jobs into batches and submit each batch into the PBS queue."
+
+)
+@click.option(
+    "--taskfile",
+    type=click.Path(exists=True, readable=True),
+    help="The file containing the list of " "tasks to be performed",
+)
+@click.option(
+    "--start-date",
+    type=click.DateTime(),
+    default='2016-1-1',
+    help="The start date of SLC acquisition",
+)
+@click.option(
+    "--end-date",
+    type=click.DateTime(),
+    default='2019-12-31',
+    help="The end date of SLC acquisition",
+)
+@click.option(
+    "--workdir",
+    type=click.Path(exists=True, writable=True),
+    help="The base working and scripts output directory."
+)
+@click.option(
+    "--outdir",
+    type=click.Path(exists=True, writable=True),
+    help="The output directory for processed data",
+)
+@click.option(
+    "--ncpus",
+    type=click.INT,
+    help="The total number of cpus per job" "required if known",
+    default=48
+)
+@click.option(
+    "--memory",
+    type=click.INT,
+    help="Total memory required if per node",
+    default=48*4,
+)
+@click.option(
+    "--queue",
+    type=click.STRING,
+    help="Queue to submit the job into",
+    default="normal",
+)
+@click.option(
+    "--hours",
+    type=click.INT,
+    help="Job walltime in hours.",
+    default=24
+)
+@click.option(
+    "--email",
+    type=click.STRING,
+    help="Notification email address.",
+    default="your.name@something.com"
+)
+@click.option(
+    "--nodes",
+    type=click.INT,
+    help="Number of nodes to be requested",
+    default=1,
+)
+@click.option(
+    "--jobfs",
+    type=click.INT,
+    help="Jobfs required per node",
+    default=400
+)
+@click.option(
+    "--storage",
+    "-s",
+    multiple=True,
+    type=click.STRING,
+    help="Project storage you wish to use in PBS jobs",
+)
+@click.option(
+    "--project",
+    type=click.STRING,
+    help="Project to compute under",
+)
+@click.option(
+    "--env",
+    type=click.Path(exists=True),
+    help="Environment script to source.",
+)
+@click.option(
+    "--test",
+    type=click.BOOL,
+    is_flag=True,
+    help="mock the job submission to PBS queue",
+    default=False,
+)
+def ard_insar(
+    taskfile: click.Path,
+    start_date: click.DateTime,
+    end_date: click.DateTime,
+    workdir: click.Path,
+    outdir: click.Path,
+    ncpus: click.INT,
+    memory: click.INT,
+    queue: click.INT,
+    hours: click.INT,
+    email: click.STRING,
+    nodes: click.INT,
+    jobfs: click.INT,
+    storage: click.STRING,
+    project: click.STRING,
+    env: click.Path,
+    test: click.BOOL,
 ):
     """
     consolidates batch processing job script creation and submission of pbs jobs
     """
+    start_date = start_date.date()
+    end_date = end_date.date()
 
     num_threads = 2
     with open(taskfile, "r") as src:
         tasklist = src.readlines()
 
     scattered_tasklist = scatter(tasklist, nodes)
-    storage_names = ''.join([STORAGE.format(proj=p) for p in storage]) 
+    storage_names = ''.join([STORAGE.format(proj=p) for p in storage])
     pbs_resources = PBS_RESOURCES.format(
         project_name=project,
         queue=queue,
@@ -161,7 +260,7 @@ def run(
         storages=storage_names,
         email=email,
     )
-    
+
     pbs_scripts = _gen_pbs(
         scattered_tasklist,
         env,
@@ -174,124 +273,6 @@ def run(
         num_threads
     )
     _submit_pbs(pbs_scripts, test)
-
-
-def _parser():
-    """ Argument parser. """
-    description = (
-        "Equally partition a jobs into batches and submit each batch"
-        "into the PBS queue."
-    )
-
-    formatter = argparse.ArgumentDefaultsHelpFormatter
-    parser = argparse.ArgumentParser(description=description, formatter_class=formatter)
-
-    parser.add_argument(
-        "--taskfile",
-        help="The file containing the list of " "tasks to be performed",
-        required=True,
-    )
-    parser.add_argument(
-        "--start-date",
-        help="The start date of SLC acquisition",
-        required=True,
-    )
-    parser.add_argument(
-        "--end-date",
-        help="The end date of SLC acquisition",
-        required=True
-    )
-    parser.add_argument(
-        "--workdir",
-        help="The base working and scripts output directory.",
-        required=True,
-    )
-    parser.add_argument(
-        "--outdir", help="The output directory for processed data", required=True
-    )
-    parser.add_argument(
-        "--ncpus",
-        type=int,
-        help="The total number of cpus per job" "required if known",
-        default=48,
-        required=False,
-    )
-    parser.add_argument(
-        "--memory",
-        type=int,
-        help="Total memory required if per node",
-        default=48*4,
-        required=False,
-    )
-    parser.add_argument(
-        "--queue",
-        help="Queue to submit the job into",
-        default="normal",
-        required=False,
-    )
-    parser.add_argument(
-        "--hours", help="Job walltime in hours.", default=24, required=False
-    )
-    parser.add_argument(
-        "--email", help="Notification email address.", default="your.name@something.com"
-    )
-    parser.add_argument(
-        "--nodes",
-        type=int,
-        help="Number of nodes to be requested",
-        default=1,
-        required=False,
-    )
-    parser.add_argument(
-        "--jobfs",
-        help="Jobfs required per node",
-        default=400,
-        required=False
-    )
-    parser.add_argument(
-        "--storage",
-        nargs='*',
-        help="Project storage you wish to use in PBS jobs",
-        required=True,
-    )
-    parser.add_argument(
-        "--project",
-        help="Project to compute under",
-        required=True,
-    )
-    parser.add_argument(
-        "--env",
-        help="Environment script to source.",
-        required=True,
-    )
-    parser.add_argument(
-        "--test", action="store_true", help="mock the job submission to PBS queue"
-    )
-    return parser
-
-
-def ard_insar():
-    """ Main execution. """
-    parser = _parser()
-    args = parser.parse_args()
-    run(
-        args.taskfile,
-        args.start_date,
-        args.end_date,
-        args.workdir,
-        args.outdir,
-        args.ncpus,
-        args.memory,
-        args.queue,
-        args.hours,
-        args.email,
-        args.nodes,
-        args.jobfs,
-        args.storage,
-        args.project,
-        args.env,
-        args.test,
-    )
 
 
 @click.command(
@@ -380,7 +361,6 @@ def ard_insar():
     is_flag=True,
     help="mock the job submission to PBS queue"
 )
-
 def ard_package(
     input_list: click.Path,
     workdir: click.Path,
@@ -395,7 +375,7 @@ def ard_package(
     env: click.Path,
     product: click.STRING,
     polarization: click.Tuple,
-    test
+    test: click.BOOL
 ):
     storage_names = ''.join([STORAGE.format(proj=p) for p in storage])
     polarization = ' '.join([p for p in polarization])
@@ -440,7 +420,3 @@ def ard_package(
         pbs_scripts.append(out_fname)
     _submit_pbs(pbs_scripts, test)
 
-
-if __name__ == "__main__":
-    ard_package()
-    # main()

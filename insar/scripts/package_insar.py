@@ -419,7 +419,3 @@ def main(track, frame, input_dir, pkgdir, product, polarization):
         polarizations=polarization
     )
 
-
-if __name__ == "__main__":
-    outdir = "/g/data/dz56/INSAR_ARD/BACKSCATTER"
-    package("T134D", "F19S", "/g/data/dz56/INSAR_ARD/BACKSCATTER/T134D_F19S", outdir)
