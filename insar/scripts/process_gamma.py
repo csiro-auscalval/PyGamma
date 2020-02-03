@@ -238,10 +238,9 @@ class InitialSetup(luigi.Task):
         # TODO decide if we terminate if scenes in a stack fails to extract
         # TODO or continue to processing after removing a failed scenes
         # currently processing removing failed scenes
-        for out_path in download_tasks:
-            with open(out_path.output().path) as fid:
+        for _task in download_tasks:
+            with open(_task.output().path) as fid:
                 out_name = fid.readline().rstrip()
-                log.info(f"{out_name}")
                 if re.match(SLC_PATTERN, out_name):
                     log.info(f"corrupted zip file {out_name} removed from further processing")
                     indexes = slc_inputs_df[slc_inputs_df['url'].map(lambda x: Path(x).name) == out_name].index
