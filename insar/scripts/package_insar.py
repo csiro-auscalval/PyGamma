@@ -74,7 +74,6 @@ def _get_metadata(par_file: Union[Path, str]) -> Dict:
     _metadata["end_time"] = _dt + datetime.timedelta(
         seconds=params.get_value("end_time", dtype=float, index=0)
     )
-
     _metadata["incidence_angle"] = params.get_value(
         "incidence_angle", dtype=float, index=0
     )
@@ -419,7 +418,6 @@ def main(track, frame, input_dir, pkgdir, product, polarization):
         product=product,
         polarizations=polarization
     )
-
 
 
 if __name__ == "__main__":

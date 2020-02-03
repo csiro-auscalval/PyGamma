@@ -7,6 +7,8 @@ PBS submission scripts.
 from __future__ import print_function
 
 import os
+from pathlib import Path
+import click
 from os.path import join as pjoin, dirname, exists, basename
 import subprocess
 import uuid
@@ -30,6 +32,12 @@ PBS_TEMPLATE = r"""{pbs_resources}
 source {env}
 export OMP_NUM_THREADS={num_threads}
 gamma_insar ARD --vector-file-list {vector_file_list} --start-date {start_date} --end-date {end_date} --workdir {workdir} --outdir {outdir} --workers {worker} --local-scheduler
+"""
+
+PBS_PACKAGE_TEMPLATE = r"""{pbs_resources}
+
+source {env}
+package --track {track} --frame {frame} --input-dir {indir} --pkgdir {pkgdir} --product {product} --polarization {polarization}
 """
 
 FMT1 = "job{jobid}.bash"
@@ -262,7 +270,7 @@ def _parser():
     return parser
 
 
-def main():
+def ard_insar():
     """ Main execution. """
     parser = _parser()
     args = parser.parse_args()
@@ -286,5 +294,153 @@ def main():
     )
 
 
+@click.command(
+    "ard-package",
+    help="sar/insar analysis product packaging"
+)
+@click.option(
+    "--input-list",
+    type=click.Path(exists=True, readable=True),
+    help="full path to a file with list of track and frames to be packaged"
+)
+@click.option(
+    "--workdir",
+    type=click.Path(exists=True, writable=True),
+    help="The base working and scripts output directory."
+)
+@click.option(
+    "--pkgdir",
+    type=click.Path(exists=True, writable=True),
+    help="The output directory for packaged data"
+)
+@click.option(
+    "--ncpus",
+    type=click.INT,
+    help="The total number of cpus per node" "required if known",
+    default=8,
+)
+@click.option(
+    "--memory",
+    type=click.INT,
+    help="Total memory required per node",
+    default=32,
+)
+@click.option(
+    "--queue",
+    type=click.STRING,
+    help="Queue to submit the job into",
+    default="normal",
+)
+@click.option(
+    "--hours",
+    type=click.INT,
+    help="Job walltime in hours.",
+    default=24
+)
+@click.option(
+    "--jobfs",
+    help="jobfs required per node",
+    default=50
+)
+@click.option(
+    "--storage",
+    "-s",
+    type=click.STRING,
+    multiple=True,
+    help="Project storage you wish to use in PBS jobs"
+)
+@click.option(
+    "--project",
+    type=click.STRING,
+    help="Project to compute under",
+    required=True,
+)
+@click.option(
+    "--env",
+    type=click.Path(exists=True),
+    help="Environment script to source.",
+    required=True,
+)
+@click.option(
+    "--product",
+    type=click.STRING,
+    default="sar",
+    help="The product to be packaged: sar| insar"
+)
+@click.option(
+    "--polarization",
+    type=click.Tuple([str, str]),
+    default=("VV", "VH"),
+    help="Polarizations used in metadata consolidations for product."
+)
+@click.option(
+    "--test",
+    type=click.BOOL,
+    default=False,
+    is_flag=True,
+    help="mock the job submission to PBS queue"
+)
+
+def ard_package(
+    input_list: click.Path,
+    workdir: click.Path,
+    pkgdir: click.Path,
+    ncpus: click.INT,
+    memory: click.INT,
+    queue: click.STRING,
+    hours: click.INT,
+    jobfs: click.INT,
+    storage: click.STRING,
+    project: click.STRING,
+    env: click.Path,
+    product: click.STRING,
+    polarization: click.Tuple,
+    test
+):
+    storage_names = ''.join([STORAGE.format(proj=p) for p in storage])
+    polarization = ' '.join([p for p in polarization])
+    pbs_resource = PBS_RESOURCES.format(
+        project_name=project,
+        queue=queue,
+        walltime_hours=hours,
+        mem_gb=memory,
+        cpu_count=ncpus,
+        jobfs_gb=jobfs,
+        storages=storage_names,
+    )
+
+    with open(input_list, "r") as src:
+        tasklist = [fp.rstrip() for fp in src.readlines()]
+
+    pbs_scripts = []
+    for task in tasklist:
+        track, frame = Path(task).name.split('_')
+
+        jobid = uuid.uuid4().hex[0:6]
+        job_dir = Path(workdir).joinpath(f"{track}_{frame}-{jobid}")
+
+        if not exists(job_dir):
+            os.makedirs(job_dir)
+
+        pbs = PBS_PACKAGE_TEMPLATE.format(
+            pbs_resources=pbs_resource,
+            env=env,
+            track=track,
+            frame=frame,
+            indir=task,
+            pkgdir=pkgdir,
+            product=product,
+            polarization=polarization
+        )
+
+        out_fname = job_dir.joinpath(f"{track}{frame}{jobid}.bash")
+        with open(out_fname, "w") as src:
+            src.writelines(pbs)
+
+        pbs_scripts.append(out_fname)
+    _submit_pbs(pbs_scripts, test)
+
+
 if __name__ == "__main__":
-    main()
+    ard_package()
+    # main()
