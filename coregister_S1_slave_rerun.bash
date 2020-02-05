@@ -117,9 +117,11 @@ while read slave; do
       # average=`printf %.5f $average`
       # std_dev=`printf %.5f $std_dev`
       printf "%s %7.4f %7.4f\n" $slave $average $std_dev
-      check1=`echo $std_dev'>'0.2 | bc -l`
+      check1=`echo $std_dev'>'0.4 | bc -l`
       check2=`echo ${average#-}'>'0.4 | bc -l`
-      if [ $check0 -eq 1 -o $check1 -eq 1 -o $check2 -eq 1 -o $check3 -eq 1 ]; then
+      # don't use check0
+      #if [ $check0 -eq 1 -o $check1 -eq 1 -o $check2 -eq 1 -o $check3 -eq 1 ]; then
+      if [ $check1 -eq 1 -o $check2 -eq 1 -o $check3 -eq 1 ]; then
         # calculate difference in time to master (used to prioritise jobs later)
         date_diff=`echo $(( ($(date --date=$master_scene +%s) - $(date --date=$slave +%s) )/(60*60*24) ))`
         echo $slave ${date_diff#-} >> $rerun_slave_list
