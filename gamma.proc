@@ -3,17 +3,17 @@
 
 -----NCI SOFTWARE CONFIGURATION FILE--------------------------------------------------------------------
 
-GAMMA_CONFIG=/g/data1/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
+GAMMA_CONFIG=/g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
 
 
 -----NCI FILE PATHS-------------------------------------------------------------------------------------
 
-NCI_PATH=/g/data1/dg9
-ENVISAT_ORBITS=/g/data1/dg9/SAR_ORBITS/ENVISAT
-ERS_ORBITS=/g/data1/dg9/SAR_ORBITS/ERS_ODR_UPDATED
+NCI_PATH=/g/data/dg9
+ENVISAT_ORBITS=/g/data/dg9/SAR_ORBITS/ENVISAT
+ERS_ORBITS=/g/data/dg9/SAR_ORBITS/ERS_ODR_UPDATED
 S1_ORBITS=/g/data/fj7/Copernicus/Sentinel-1
-S1_PATH=/g/data1/fj7/Copernicus/Sentinel-1/C-SAR/SLC
-MASTER_DEM_IMAGE=/g/data1/dg9/MASTER_DEM
+S1_PATH=/g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC
+MASTER_DEM_IMAGE=/g/data/dg9/MASTER_DEM
 
 
 -----PROCESSING OUTPUT DIRECTORIES----------------------------------------------------------------------
