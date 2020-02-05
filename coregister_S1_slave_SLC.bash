@@ -246,7 +246,9 @@ echo "" >> $slave_ovr_res
 # iterate while azimuth correction >= 0.0005 SLC pixel
 daz10000=10000
 it=1
-while [[ "$daz10000" -gt 5 || "$daz10000" -lt -5 ]] && [ "$it" -le "$slave_niter" ]; do
+# TF decreased to 0.0001
+while [[ "$daz10000" -gt 1 || "$daz10000" -lt -1 ]] && [ "$it" -le "$slave_niter" ]; do
+#while [[ "$daz10000" -gt 5 || "$daz10000" -lt -5 ]] && [ "$it" -le "$slave_niter" ]; do
     cp -rf $slave_off $slave_off_start
 
 # TF don't use azimuth refined look-up table, but original one
@@ -268,6 +270,10 @@ while [[ "$daz10000" -gt 5 || "$daz10000" -lt -5 ]] && [ "$it" -le "$slave_niter
       fi
       r_coreg_slave_tab=$slc_dir/$coreg_slave/r$coreg_slave"_"$polar"_tab"
       S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
+    elif [ $list_idx -gt "20140000" ]; then # coregister to particular slave
+      coreg_slave=$list_idx
+      r_coreg_slave_tab=$slc_dir/$coreg_slave/r$coreg_slave"_"$polar"_tab"
+      S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $slave_s1_cct $slave_s1_frac $slave_s1_stdev $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
     else # coregister to slave image with short temporal baseline
       #  take the first/last slave of the previous list for coregistration
       prev_list_idx=$(($list_idx-1))
@@ -281,7 +287,9 @@ while [[ "$daz10000" -gt 5 || "$daz10000" -lt -5 ]] && [ "$it" -le "$slave_niter
     fi
 
     daz=`awk '$1 == "azimuth_pixel_offset" {print $2}' $slave_off.az_ovr.$it.out`
+    # TF: changed to 100000 or 100 to increase/decrease precision of iteration
     daz10000=`awk '$1 == "azimuth_pixel_offset" {printf "%d", $2*10000}' $slave_off.az_ovr.$it.out`
+    #daz10000=`awk '$1 == "azimuth_pixel_offset" {printf "%d", $2*100000}' $slave_off.az_ovr.$it.out`
 
     cp -rf $slave_off $slave_off.az_ovr.$it
 
