@@ -299,7 +299,7 @@ FLAT()
         GM multi_cpx $ifg_flat1 $ifg_off $ifg_flat10 $ifg_off10 10 10 0 0
 
         width10=`grep interferogram_width: $ifg_off10 | awk '{print $2}'`
-	
+
         ## Generate coherence image
         GM cc_wave $ifg_flat10 - - $ifg_flat_cc10 $width10 7 7 1
 
@@ -331,26 +331,26 @@ FLAT()
 
         ## Calculate precision baseline from GCP phase data
         GM base_ls $r_master_slc_par $ifg_off $ifg_gcp_ph $ifg_base 0 1 1 1 1 10
- 
+
 	##### CODE BELOW DOESN'T LINK PROPERLY TO REST OF FLOW, NOT SURE WHAT 'DIFF' SHOULD BE
         ## Simulate the phase from the DEM and precision baseline model.
         #GM phase_sim $r_master_slc_par $ifg_off $ifg_base $rdc_dem refined 0 1
 
-        ## add refined phase_sim to original simulated phase from initial interferogram 
+        ## add refined phase_sim to original simulated phase from initial interferogram
         #GM sub_phase diff refined $ifg_diff_par $ifg_sim_unw 0 1
 
 	#### USE OLD CODE FOR NOW
         ## Simulate the phase from the DEM and precision baseline model.
 	GM phase_sim $r_master_slc_par $ifg_off $ifg_base $rdc_dem $ifg_sim_unw 0 1
- 
+
         ## subtract simulated phase ('ifg_flat1' was originally 'ifg', but this file is no longer created)
 	GM sub_phase $ifg_flat1 $ifg_sim_unw $ifg_diff_par $ifg_flat 1 0
 
         if [ $clean_up == yes ]; then
             ## clean up unnecessary files
-            rm -f $ifg_flat1 $ifg_flat"1.unw" $ifg_sim_unw1 $ifg_flat1.unw 
-            rm -f $ifg_flat_cc0 $ifg_flat_cc0_mask 
-            rm -f $ifg_flat10.unw $ifg_off10 $ifg_flat10 $ifg_flat_cc10 $ifg_flat_cc10_mask 
+            rm -f $ifg_flat1 $ifg_flat"1.unw" $ifg_sim_unw1 $ifg_flat1.unw
+            rm -f $ifg_flat_cc0 $ifg_flat_cc0_mask
+            rm -f $ifg_flat10.unw $ifg_off10 $ifg_flat10 $ifg_flat_cc10 $ifg_flat_cc10_mask
             rm -f $ifg_gcp $ifg_gcp_ph
         fi
     fi
@@ -457,10 +457,14 @@ GEOCODE()
     width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
 
     ## Use bicubic spline interpolation for geocoded unwrapped interferogram
-    GM geocode_back $ifg_unw $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    #GM geocode_back $ifg_unw $width_in $dem_lt_fine temp $width_out - 1 0 - -
     ## apply sea mask to phase data
-    GM mask_data temp $width_out $ifg_unw_geocode_out $seamask 0
-    # make quick-look png image 
+    #GM mask_data temp $width_out $ifg_unw_geocode_out $seamask 0
+    # TF: problem with large seamask.ras file ( > 44000 lines ) -> Segmentation fault in mask_data
+    #     consider usage of different format, e.g. tif
+    #     solution for Surat stack (inland): don't apply masking
+    GM geocode_back $ifg_unw $width_in $dem_lt_fine $ifg_unw_geocode_out $width_out - 1 0 - -
+    # make quick-look png image
     GM rasrmg $ifg_unw_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_unw_geocode_bmp
     GM convert $ifg_unw_geocode_bmp -transparent black ${ifg_unw_geocode_bmp/.bmp}.png
     name=`ls *rlks_eqa_unw.png`
@@ -470,9 +474,11 @@ GEOCODE()
     ## Use bicubic spline interpolation for geocoded flattened interferogram
     # convert to float and extract phase
     GM cpx_to_real $ifg_flat $ifg_flat_float $width_in 4
-    GM geocode_back $ifg_flat_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    #GM geocode_back $ifg_flat_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
     ## apply sea mask to phase data
-    GM mask_data temp $width_out $ifg_flat_geocode_out $seamask 0
+    #GM mask_data temp $width_out $ifg_flat_geocode_out $seamask 0
+    # TF: no masking sea unw ifg
+    GM geocode_back $ifg_flat_float $width_in $dem_lt_fine $ifg_flat_geocode_out $width_out - 1 0 - -
     # make quick-look png image
     GM rasrmg $ifg_flat_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_flat_geocode_bmp
     GM convert $ifg_flat_geocode_bmp -transparent black ${ifg_flat_geocode_bmp/.bmp}.png
@@ -483,14 +489,16 @@ GEOCODE()
     ## Use bicubic spline interpolation for geocoded filtered interferogram
     # convert to float and extract phase
     GM cpx_to_real $ifg_filt $ifg_filt_float $width_in 4
-    GM geocode_back $ifg_filt_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    #GM geocode_back $ifg_filt_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
     ## apply sea mask to phase data
-    GM mask_data temp $width_out $ifg_filt_geocode_out $seamask 0
+    #GM mask_data temp $width_out $ifg_filt_geocode_out $seamask 0
+    # TF: no masking sea unw ifg
+    GM geocode_back $ifg_filt_float $width_in $dem_lt_fine $ifg_filt_geocode_out $width_out - 1 0 - -
     # make quick-look png image
     GM rasrmg $ifg_filt_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_filt_geocode_bmp
     GM convert $ifg_filt_geocode_bmp -transparent black ${ifg_filt_geocode_bmp/.bmp}.png
     name=`ls *rlks_filt_eqa_int.png`
-    GM kml_map $name $eqa_dem_par ${name/.png}.kml    
+    GM kml_map $name $eqa_dem_par ${name/.png}.kml
     rm -f $ifg_filt_geocode_bmp temp $ifg_filt_float
 
     ## Use bicubic spline interpolation for geocoded flat coherence file
@@ -500,7 +508,7 @@ GEOCODE()
     GM ras2ras temp.bmp $ifg_flat_cc_geocode_bmp gray.cm
     GM convert $ifg_flat_cc_geocode_bmp -transparent black ${ifg_flat_cc_geocode_bmp/.bmp}.png
     name=`ls *rlks_flat_eqa_cc.png`
-    GM kml_map $name $eqa_dem_par ${name/.png}.kml    
+    GM kml_map $name $eqa_dem_par ${name/.png}.kml
     rm -f $ifg_flat_cc_geocode_bmp temp.bmp
 
     ## Use bicubic spline interpolation for geocoded filt coherence file
@@ -510,7 +518,7 @@ GEOCODE()
     GM ras2ras temp.bmp $ifg_filt_cc_geocode_bmp gray.cm
     GM convert $ifg_filt_cc_geocode_bmp -transparent black ${ifg_filt_cc_geocode_bmp/.bmp}.png
     name=`ls *rlks_filt_eqa_cc.png`
-    GM kml_map $name $eqa_dem_par ${name/.png}.kml    
+    GM kml_map $name $eqa_dem_par ${name/.png}.kml
     rm -f $ifg_filt_cc_geocode_bmp temp.bmp
 
     echo " "
@@ -556,6 +564,12 @@ GEOCODE()
     rm -f *flat1*
     rm -f *sim0* *sim1*
     rm -f *int1*
+
+    ## TF: also remove all binaries and .ras files to save disc space
+    rm -f *.ras
+    rm -f *.unw
+    rm -f *.int
+    rm -f *.cc
 }
 
 DONE()
