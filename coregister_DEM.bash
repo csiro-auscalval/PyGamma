@@ -170,7 +170,7 @@ GEN_DEM_RDC()
     fi
 
     ## Generate initial geocoding look up table and simulated SAR image
-    GM gc_map $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2
+    GM gc_map1 $r_dem_master_mli_par - $dem_par $dem $eqa_dem_par $eqa_dem $dem_lt_rough $dem_ovr $dem_ovr $dem_eqa_sim_sar - - $dem_loc_inc - - $dem_lsmap 8 2
 
     ## Generate initial gamma0 pixel normalisation area image in radar geometry
     GM pixel_area $r_dem_master_mli_par $eqa_dem_par $eqa_dem $dem_lt_rough $dem_lsmap $dem_loc_inc - $dem_pix_gam
