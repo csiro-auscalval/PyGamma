@@ -705,7 +705,8 @@ function single_job {
     fi
 
     echo \#\!/bin/bash > $job
-      echo \#\PBS -l other=$pbs_run_loc >> $job
+    echo \#\PBS -l other=$pbs_run_loc >> $job
+    echo \#\PBS -l storage=gdata/dg9+gdata/v10+gdata/fj7 >> $job
     echo \#\PBS -l walltime=$walltime >> $job
     echo \#\PBS -l mem=$mem >> $job
     echo \#\PBS -l ncpus=$cpu >> $job
@@ -783,6 +784,7 @@ function multi_jobs {
 	fi
 	echo \#\!/bin/bash > $job
 	echo \#\PBS -l other=$pbs_run_loc >> $job
+	echo \#\PBS -l storage=gdata/dg9+gdata/v10+gdata/fj7 >> $job
 	echo \#\PBS -l walltime=$hh":"$mm":00" >> $job
 	echo \#\PBS -l mem=$mem >> $job
 	echo \#\PBS -l ncpus=$cpu >> $job
