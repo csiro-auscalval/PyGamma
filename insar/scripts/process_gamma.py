@@ -52,6 +52,7 @@ SLC_PATTERN = (
     r"(?P<extension>.SAFE|.zip)$"
 )
 
+
 @luigi.Task.event_handler(luigi.Event.FAILURE)
 def on_failure(task, exception):
     """Capture any Task Failure here."""
@@ -318,9 +319,21 @@ class ProcessSlc(luigi.Task):
             str(self.burst_data),
             self.ref_master_tab,
         )
-        slc_job.main()
-        with self.output().open("w") as f:
-            f.write("")
+
+        # TODO this is a crude way to handle gamma program error which fails
+        # TODO create full SLC because of resizing issue with only single burst
+        # TODO find better way to handle this Error in process_s1_slc class.
+        failed = False
+        try:
+            slc_job.main()
+        except OSError:
+            failed = True
+        finally:
+            with self.output().open("w") as f:
+                if failed:
+                    f.write(f"{self.scene_date}")
+                else:
+                    f.write("")
 
 
 @requires(InitialSetup)
@@ -348,6 +361,8 @@ class CreateFullSlc(luigi.Task):
         # first create slc for one complete frame which will be a reference frame
         # to resize the incomplete frames.
         resize_master_tab = None
+        resize_master_scene = None
+        resize_master_pol = None
         for _dt, status_frame, _pols in slc_frames:
             slc_scene = _dt.strftime(__DATE_FMT__)
             for _pol in _pols:
@@ -367,6 +382,8 @@ class CreateFullSlc(luigi.Task):
                     break
             if resize_master_tab is not None:
                 if resize_master_tab.exists():
+                    resize_master_scene = slc_scene
+                    resize_master_pol = _pol
                     break
 
         # need at least one complete frame to enable further processing of the stacks
@@ -386,9 +403,7 @@ class CreateFullSlc(luigi.Task):
             for _pol in _pols:
                 if _pol not in self.polarization:
                     continue
-                if slc_dir.joinpath(
-                    slc_scene, f"{slc_scene}_{_pol.upper()}_tab"
-                ).exists():
+                if slc_scene == resize_master_scene and _pol == resize_master_pol:
                     continue
                 slc_tasks.append(
                     ProcessSlc(
@@ -402,7 +417,26 @@ class CreateFullSlc(luigi.Task):
                     )
                 )
         yield slc_tasks
+        # TODO decide if we terminate if scenes in a stack fails to process slc
+        # TODO or continue to processing after removing failed scenes
+        # currently processing removing failed scenes
+        slc_inputs_df = pd.read_csv(self.burst_data_csv)
+        rewrite = False
+        for _slc_task in slc_tasks:
+            print("THIS IS slc task")
+            with open(_slc_task.output().path) as fid:
+                slc_date = fid.readline().rstrip()
+                if re.match(r"^[0-9]{8}", slc_date):
+                    slc_date = f"{slc_date[0:4]}-{slc_date[4:6]}-{slc_date[6:8]}"
+                    log.info(f"slc processing failed for scene for {slc_date}: removed from further processing")
+                    indexes = slc_inputs_df[slc_inputs_df['date'] == slc_date].index
+                    slc_inputs_df.drop(indexes, inplace=True)
+                    rewrite = True
 
+        # rewrite the burst_data_csv with removed scenes
+        if rewrite:
+            log.info(f"re-writing the burst data csv files after removing failed slc scenes")
+            slc_inputs_df.to_csv(self.burst_data_csv)
         # clean up raw data directory
         if self.cleanup:
             clean_rawdatadir(Path(self.outdir).joinpath(__RAW__))
@@ -521,21 +555,34 @@ class CalcInitialBaseline(luigi.Task):
 
         slc_frames = get_scenes(self.burst_data_csv)
         slc_par_files = []
-        for _dt, _, _ in slc_frames:
+        polarizations = [self.master_scene_polarization]
+        for _dt, _, _pols in slc_frames:
             slc_scene = _dt.strftime(__DATE_FMT__)
-            slc_par = pjoin(
-                self.outdir,
-                __SLC__,
-                slc_scene,
-                "{}_{}.slc.par".format(slc_scene, self.master_scene_polarization),
-            )
+
+            if self.master_scene_polarization in _pols:
+                slc_par = pjoin(
+                    self.outdir,
+                    __SLC__,
+                    slc_scene,
+                    "{}_{}.slc.par".format(slc_scene, self.master_scene_polarization),
+                )
+            else:
+                slc_par = pjoin(
+                    self.outdir,
+                    __SLC__,
+                    slc_scene,
+                    "{}_{}.slc.par".format(slc_scene, _pols[0]),
+                )
+                polarizations.append(_pols[0])
+
             if not exists(slc_par):
                 raise FileNotFoundError(f"missing {slc_par} file")
+
             slc_par_files.append(Path(slc_par))
 
         baseline = BaselineProcess(
             slc_par_files,
-            str(self.master_scene_polarization),
+            list(set(polarizations)),
             master_scene=calculate_master(
                 [dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames]
             ),

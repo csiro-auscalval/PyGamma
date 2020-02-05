@@ -97,7 +97,7 @@ class BaselineProcess:
     def __init__(
         self,
         slc_par_list: List[Path],
-        polarization: str,
+        polarization: List[str],
         master_scene: datetime.date,
         scene_list: Optional[Path] = None,
         outdir: Optional[Path] = None,
@@ -167,18 +167,23 @@ class BaselineProcess:
         )
 
         # slc paramter is matched from slc parameter path lists
-        _par = fnmatch.filter(
-            self.slc_par_list_posix,
-            "*{}_{}.slc.par".format(
-                scene_date.strftime("%Y%m%d"), self.polarization.upper()
-            ),
-        )
-
-        if len(_par) != 1:
-            raise IndexError(
-                f"{scene_date} has {len(_par)} match. match must be only 1 file"
+        # for any polarizations. Both VV and VH have same params values required
+        # to compute baseline
+        for pol in self.polarization:
+            _par = fnmatch.filter(
+                self.slc_par_list_posix,
+                "*{}_{}.slc.par".format(
+                    scene_date.strftime("%Y%m%d"), pol.upper()
+                ),
             )
-        return Path(_par[0])
+            if not _par:
+                continue
+            if Path(_par[0]).exists():
+                return Path(_par[0])
+
+        raise FileNotFoundError(
+            f"{scene_date} has no matching slc parameter file"
+        )
 
     def compute_perpendicular_baseline(self):
         """

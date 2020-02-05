@@ -457,7 +457,7 @@ class SlcProcess:
                 full_slc_tab.as_posix(), resize_slc_tab.as_posix(), burst_tab
             )
 
-            # replace full slc with resized slc
+            # replace full slc with re-sized slc
             for swath in [1, 2, 3]:
                 tab_names = self.swath_tab_names(swath, self.slc_prefix)
                 for item in [tab_names.slc, tab_names.par, tab_names.tops_par]:

@@ -30,7 +30,6 @@ def grid_processing_list():
 
 
 def main(grid_data_dir: Path, out_dir: Path):
-
     for track, frame_list in grid_processing_list().items():
         with open(out_dir.joinpath(f"input_list_{track}.txt").as_posix(), "w") as fid:
             for frame in frame_list:
@@ -41,7 +40,6 @@ def main(grid_data_dir: Path, out_dir: Path):
 
 
 if __name__ == '__main__':
-
     _dir = Path('/g/data/u46/users/pd1813/INSAR/shape_files/final_grid_def_with_bursts')
     out_dir = Path('/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/input_files')
     main(_dir, out_dir)
