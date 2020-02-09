@@ -46,12 +46,12 @@ Process a single stack Sentinel-1 SLC data to directly using a ARD pipeline from
 
 	usage: gamma_insar ARD
 		   [REQUIRED PARAMETERS]
-		   --vector-file    PATH    A full path to a Sentinel-1 tract and frame vector-file.
+		   --vector-file-list    PATH    A full path to a Sentinel-1 tract and frame vector-file.
 		   --start-date [%Y-%m-%d]  A start-date of SLC data acquisition.
 		   --end-date [%Y-%m-%d]    An end-date of SLC data acquisition.
 		   --workdir    PATH    A full path to a working directory to output logs.
 		   --outdir PATH    A full path to an output directory.
-		   --polarization TEXT      Polarizations to be processed [VV|VH|VV,VH].	
+		   --polarization LIST      Polarizations to be processed ["VV"|"VH"|"VV","VH"].	
 		   --cleanup TEXT   A flag[yes|no] to specify a clean up  of intermediary files. Highly recommended to cleanup to limit storage during production.
 		   --database-name  PATH   A full path to SLC-metata database with burst informations.
 		   --orbit  TEXT    A Sentinel-1 orbit [A|D].
