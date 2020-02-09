@@ -4,10 +4,9 @@ import os
 from io import BytesIO
 import logging
 from datetime import datetime
-from typing import List, Optional, Type, Union, Dict
+from typing import Dict, List, Optional, Type, Union
 from pathlib import Path
 import re
-import subprocess
 import tempfile
 import xml.etree.ElementTree as etree
 import zipfile as zf
@@ -18,12 +17,9 @@ from shapely.geometry import Polygon, box
 import yaml
 import pandas as pd
 import numpy as np
-
 from spatialist import sqlite3, sqlite_setup
 import py_gamma as gamma_program
-
 from insar.xml_util import getNamespaces
-
 
 _LOG = logging.getLogger(__name__)
 
