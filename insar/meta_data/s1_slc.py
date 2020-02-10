@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Type, Union
 from pathlib import Path
 import re
+import uuid
 import tempfile
 import xml.etree.ElementTree as etree
 import zipfile as zf
@@ -95,6 +96,12 @@ class SlcMetadata:
             metadata["measurements"][os.path.basename(xml_file)] = self.metadata_swath(
                 xml_file
             )
+        metadata["id"] = str(uuid.uuid4())
+        metadata["product"] = dict()
+
+        # TODO infer names from metadata after naming convections is discussed
+        metadata["product"]["name"] = "ESA_S1_SLC"
+        metadata["product"]["url"] = self.scene
 
         return metadata
 
