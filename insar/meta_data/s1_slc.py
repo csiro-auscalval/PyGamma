@@ -344,7 +344,7 @@ class Archive:
             A full path to a database file.
         """
 
-        self.dbfile = dbfile
+        self.dbfile = Path(dbfile).as_posix()
         self.conn = sqlite_setup(self.dbfile, ["spatialite"])
         self.metadata = dict()
         self.slc_table_name = "slc_metadata"

@@ -19,7 +19,7 @@ will contain IW-swaths and manifest safe file's informations::
 
     from insar.meta_data.s1_slc import SlcMetadata 
 
-    scene_path = Path('/path/to/SLC/SAFE/file')
+    scene_path = Path('/path/to/SLC/zip/file')
     slc = SlcMetadata(scene_path)
     slc_metadata = slc.get_metadata()
 
@@ -32,7 +32,7 @@ archived into a database. Extracted slc metadata can be supplied to be archived:
     from insar.meta_data.s1_slc import Arhcive, SlcMetadata
     
     database_file = Path('/path/to/database')
-    scene_path = Path('/path/to/SLC/SAFE/file')
+    scene_path = Path('/path/to/SLC/zip/file')
     slc_metadata = SlcMetadata(scene_path).get_metadata()
     with Archive(database_file) as archive: 
         archive.archive_scene(slc_metadata)
