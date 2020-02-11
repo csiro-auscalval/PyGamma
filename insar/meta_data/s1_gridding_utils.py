@@ -41,11 +41,15 @@ def generate_slc_metadata(
     except AssertionError as err:
         raise AssertionError(err)
 
-    slc_metadata["id"] = str(uuid.uuid4())
-    slc_metadata["product"] = {
-        "name": "ESA_S1_{}".format(slc_metadata["properties"]["product"]),
-        "url": scene_obj.scene,
-    }
+    keys = slc_metadata.keys()
+
+    if "id" not in keys:
+        slc_metadata["id"] = str(uuid.uuid4())
+    if "product" not in keys:
+        slc_metadata["product"] = {
+            "name": "ESA_S1_{}".format(slc_metadata["properties"]["product"]),
+            "url": scene_obj.scene,
+        }
 
     if not yaml_file:
         return slc_metadata
