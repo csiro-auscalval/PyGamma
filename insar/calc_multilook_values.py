@@ -96,7 +96,7 @@ def multilook(
 
     try:
         scene_date, pol = slc.stem.split("_")
-    except ValueError as err:
+    except ValueError:
         err_msg = f"{slc.stem} needs to be in scene_date_polarization format"
         raise ValueError(err_msg)
 
