@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-"""Tests for `insar` package."""
+"""Full integration test for insar workflow."""
+
 from pathlib import Path
 import datetime
 import time
@@ -11,11 +12,15 @@ import unittest
 import pytest
 import pandas as pd
 
-from ..insar.meta_data import s1_slc
-from ..insar.s1_slc_metadata import S1DataDownload
-from ..insar.generate_slc_inputs import query_slc_inputs, slc_inputs
-from ..insar.make_gamma_dem import create_gamma_dem
-from ..insar.process_s1_slc import SlcProcess
+from insar.meta_data import s1_slc
+from insar.s1_slc_metadata import S1DataDownload
+from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
+from insar.make_gamma_dem import create_gamma_dem
+from insar.process_s1_slc import SlcProcess
+from insar.calc_multilook_values import multilook, calculate_mean_look_values
+from insar.calc_baselines_new import BaselineProcess
+from insar.coregister_dem import CoregisterDem
+from insar.coregister_slc import CoregisterSlc
 
 
 __DATA__ = Path(__file__).parent.joinpath("data")
@@ -248,14 +253,61 @@ def test_slcprocess(tmp_path, query_results):
 
     slc_tab = sjob.slc_tab_names(scene_date)
     assert slc_dir.joinpath(scene_date, slc_tab.slc).exists()
-    assert slc_dir.joinpath(scene_date, slc_tab.tops_par).exists()
 
     test_dict = param_parser(slc_dir.joinpath(scene_date, slc_tab.par))
     val_dict = param_parser(__DATA__.joinpath(slc_tab.par))
 
+    # TODO assert might fails since comparision is made have same values
+    # TODO change to compare to certain decimal points if value are float
     for key, val in test_dict.items():
-        print(val[0], val_dict[key][0])
         assert val[0] == val_dict[key][0]
+
+
+def test_calculatemeanlookvalues():
+    """Test calculate mean look values"""
+    par_files =[__DATA__.joinpath("20160101_VV.slc.par") for _ in range(11)]
+    rlks, alks, *_ = calculate_mean_look_values(par_files, 1)
+
+    assert rlks == 4
+    assert alks == 1
+
+
+def test_multilook(tmp_path):
+    """Test multilook"""
+    slc_par = __DATA__.joinpath("SLC", "20160101", "20160101_VV.slc.par")
+    slc = slc_par.with_suffix("")
+    multilook(
+        slc=slc,
+        slc_par=slc_par,
+        rlks=4,
+        alks=1,
+        outdir=tmp_path
+    )
+
+    assert tmp_path.joinpath("20160101_VV_4rlks.mli").exists()
+
+    test_dict = param_parser(tmp_path.joinpath("20160101_VV_4rlks.mli.par"))
+    val_dict = param_parser(slc_par.parent.joinpath("20160101_VV_4rlks.mli.par"))
+
+    # TODO assert might fails since comparision is made have same values
+    # TODO change to compare to certain decimal points if value are float
+    for key, val in test_dict.items():
+        assert val[0] == val_dict[key][0]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
