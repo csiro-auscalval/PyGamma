@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 
-"""Full integration test for insar workflow."""
+"""
+Full integration test for insar workflow.
+
+This integration test is written to test whole insar workflow
+till slave-master coregistration step. The integration test
+was run on nci gadi compute node using 8 cpus, 64GB memory and
+jobfs of 400GB. Approximately 2 hours is required to run all the
+tests.
+"""
 
 from pathlib import Path
 import datetime
@@ -63,7 +71,6 @@ def sqlite_database(tmp_path, slc_data):
 
 @pytest.fixture()
 def query_results(sqlite_database):
-
     _db = sqlite_database
     query_args = (
         _db.as_posix(),
@@ -256,8 +263,8 @@ def test_slcprocess(tmp_path, query_results):
     test_dict = param_parser(slc_dir.joinpath(scene_date, slc_tab.par))
     val_dict = param_parser(__DATA__.joinpath(slc_tab.par))
 
-    # TODO assert might fails since comparision is made have same values
-    # TODO change to compare to certain decimal points if value are float
+    # TODO assertion might fail since statements expect same values.
+    # TODO Change to compare within accurracy of certain signiticant figures.
     for key, val in test_dict.items():
         assert val[0] == val_dict[key][0]
 
@@ -282,8 +289,8 @@ def test_multilook(tmp_path):
     test_dict = param_parser(tmp_path.joinpath("20160101_VV_4rlks.mli.par"))
     val_dict = param_parser(slc_par.parent.joinpath("20160101_VV_4rlks.mli.par"))
 
-    # TODO assert might fails since comparision is made have same values
-    # TODO change to compare to certain decimal points if value are float
+    # TODO assertion might fail since statements expect same values.
+    # TODO Change to compare within accurracy of certain signiticant figures.
     for key, val in test_dict.items():
         assert val[0] == val_dict[key][0]
 
@@ -397,6 +404,8 @@ def test_coregisterslaves(tmp_path):
     assert outdir.joinpath("20160101_VH_4rlks_eqa.sigma0.tif").exists()
     assert outdir.joinpath("20160101_VH_4rlks_eqa.gamma0.tif").exists()
 
+    # TODO assertion might fail since statements expect same values.
+    # TODO Change to compare within accurracy of certain signiticant figures.
     test_dict = param_parser(outdir.joinpath("r20160101_VH.slc.par"))
     val_dict = param_parser(slc_dir.joinpath("r20160101_VH.slc.par"))
 
