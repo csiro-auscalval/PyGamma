@@ -395,7 +395,7 @@ def test_coregisterslaves(tmp_path):
     cjob.main()
 
     assert outdir.joinpath("20160101_VH_4rlks_eqa.sigma0.tif").exists()
-    assert outdir.joinpath("20160101_VV_4rlks_eqa.gamma0.tif").exists()
+    assert outdir.joinpath("20160101_VH_4rlks_eqa.gamma0.tif").exists()
 
     test_dict = param_parser(outdir.joinpath("r20160101_VH.slc.par"))
     val_dict = param_parser(slc_dir.joinpath("r20160101_VH.slc.par"))
