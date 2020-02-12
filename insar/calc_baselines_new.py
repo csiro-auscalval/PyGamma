@@ -832,37 +832,3 @@ class BaselineProcess:
             papertype="a4",
         )
         return
-
-
-if __name__ == "__main__":
-    slc_par = [
-        "/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/INSAR_ANALYSIS/VICTORIA/S1/GAMMA/T045D_F20S/SLC/20180108/20180108_VV.slc.par"
-    ]
-    slc = "/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/INSAR_ANALYSIS/VICTORIA/S1/GAMMA/T045D_F20S/SLC/20180108/20180108_VV.slc"
-    scene_list = Path(
-        "/g/data/dz56/INSAR_ARD/REPROCESSED/VV/INSAR_ANALYSIS/VICTORIA/S1/GAMMA/T45D_F19/lists/scenes.list"
-    )
-    slc_par = []
-    with open(
-        "/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/par_files.txt",
-        "r",
-    ) as fid:
-        lines = fid.readlines()
-        for line in lines:
-            fp = Path(
-                "/g/data/dz56/INSAR_ARD/REPROCESSED/VV/INSAR_ANALYSIS/VICTORIA/S1/GAMMA/T45D_F19/SLC"
-            ).joinpath(line.rstrip())
-            if fp.stem.startswith("r"):
-                continue
-            slc_par.append(fp)
-
-    pol = "VV"
-    baseline = BaselineProcess(
-        slc_par,
-        pol,
-        master_scene=datetime.date(2017, 1, 1),
-        outdir=Path(
-            "/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/test_backscatter_workflow/"
-        ),
-    )
-    baseline.sbas_list()

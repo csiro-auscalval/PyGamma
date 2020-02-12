@@ -29,7 +29,6 @@ __DB__ = Path(__file__).parent.joinpath("data", "test_slcdb.db")
 __DEM__ = Path("/g/data/dg9/MASTER_DEM/GAMMA_DEM_SRTM_1as_mosaic.img")
 
 
-
 def param_parser(par_file):
     """method to parse parameter files"""
     par_file = Path(par_file).as_posix()
@@ -38,7 +37,7 @@ def param_parser(par_file):
         tmp_dict = dict()
         lines = fid.readlines()
         for line in lines:
-            vals = line.strip().split(':')
+            vals = line.strip().split(":")
             try:
                 tmp_dict[vals[0]] = [v for v in vals[1].split()]
             except IndexError:
@@ -265,7 +264,7 @@ def test_slcprocess(tmp_path, query_results):
 
 def test_calculatemeanlookvalues():
     """Test calculate mean look values"""
-    par_files =[__DATA__.joinpath("20160101_VV.slc.par") for _ in range(11)]
+    par_files = [__DATA__.joinpath("20160101_VV.slc.par") for _ in range(11)]
     rlks, alks, *_ = calculate_mean_look_values(par_files, 1)
 
     assert rlks == 4
@@ -276,13 +275,7 @@ def test_multilook(tmp_path):
     """Test multilook"""
     slc_par = __DATA__.joinpath("SLC", "20160101", "20160101_VV.slc.par")
     slc = slc_par.with_suffix("")
-    multilook(
-        slc=slc,
-        slc_par=slc_par,
-        rlks=4,
-        alks=1,
-        outdir=tmp_path
-    )
+    multilook(slc=slc, slc_par=slc_par, rlks=4, alks=1, outdir=tmp_path)
 
     assert tmp_path.joinpath("20160101_VV_4rlks.mli").exists()
 
@@ -295,20 +288,119 @@ def test_multilook(tmp_path):
         assert val[0] == val_dict[key][0]
 
 
+def test_baselineprocess(tmp_path):
+    """Test baseline process"""
+    par_files = [
+        tmp_path.joinpath(
+            f"{(datetime.datetime(2016,1,1)+datetime.timedelta(days=d*12)).strftime('%Y%m%d')}_VV.slc.par"
+        )
+        for d in range(11)
+    ]
+
+    for dst in par_files:
+        shutil.copyfile(__DATA__.joinpath("20160101_VV.slc.par"), dst)
+
+    bjob = BaselineProcess(
+        par_files,
+        ["VV"],
+        master_scene=datetime.date(2016,3,1),
+        outdir=tmp_path
+    )
+    bjob.sbas_list()
+
+    with open(tmp_path.joinpath("ifg_list").as_posix(), "r") as fid:
+        test_cons = [item.rstrip() for item in fid.readlines()]
+        with open(__DATA__.joinpath("ifg_list").as_posix(), "r") as fid1:
+            val_cons = [item.rstrip() for item in fid1.readlines()]
+        assert set(test_cons) == set(val_cons)
 
 
+def test_coregisterdemmaster(tmp_path):
+    """Test coregister dem and master scene"""
+    outdir = tmp_path.joinpath("gamma")
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    track_frame = "T134D_F20S"
+    kwargs = {
+        "gamma_dem_dir": outdir,
+        "dem_img": __DEM__.as_posix(),
+        "track_frame": track_frame,
+        "shapefile": __AOI__.as_posix(),
+    }
+
+    create_gamma_dem(**kwargs)
+
+    gamma_dem = outdir.joinpath(f"{track_frame}.dem")
+    gamma_dem_par = outdir.joinpath(f"{track_frame}.dem.par")
+
+    slc_dir = tmp_path.joinpath("SLC", "20160101")
+    slc_dir.mkdir(parents=True, exist_ok=True)
+
+    shutil.copy(__DATA__.joinpath("SLC", "20160101", "20160101_VV.slc.par"), slc_dir)
+    shutil.copy(__DATA__.joinpath("SLC", "20160101", "20160101_VV.slc"), slc_dir)
+
+    slc_par = slc_dir.joinpath("20160101_VV.slc.par")
+    slc = slc_par.with_suffix("")
+
+    dem_dir = tmp_path.joinpath("DEM")
+    dem_dir.mkdir(parents=True, exist_ok=True)
+
+    coreg = CoregisterDem(
+        rlks=4,
+        alks=1,
+        dem=gamma_dem,
+        slc=slc,
+        dem_par=gamma_dem_par,
+        slc_par=slc_par,
+        dem_outdir=dem_dir,
+    )
+    coreg.main()
+
+    assert dem_dir.joinpath("20160101_VV_4rlks_ellip_pix_sigma0").exists()
+    assert dem_dir.joinpath("20160101_VV_4rlks_rdc_pix_gamma0").exists()
+    assert dem_dir.joinpath("20160101_VV_4rlks_rdc.dem").exists()
+    assert dem_dir.joinpath("20160101_VV_4rlks_eqa_to_rdc.lt").exists()
+    assert slc_dir.joinpath("20160101_VV_4rlks_eqa.sigma0.tif").exists()
+    assert slc_dir.joinpath("20160101_VV_4rlks_eqa.gamma0.tif").exists()
+
+    test_dict = param_parser(dem_dir.joinpath("20160101_VV_4rlks_eqa.dem.par"))
+    val_dict = param_parser(__DATA__.joinpath("DEM", "20160101_VV_4rlks_eqa.dem.par"))
+
+    for key, val in test_dict.items():
+        assert val[0] == val_dict[key][0]
 
 
+def test_coregisterslaves(tmp_path):
+    """Test coregister master and slaves slc"""
+    outdir = tmp_path.joinpath("SLC", "20160101")
+    outdir.mkdir(parents=True, exist_ok=True)
 
+    slc_dir = __DATA__.joinpath("SLC", "20160101")
+    dem_dir = __DATA__.joinpath("DEM")
+    cjob = CoregisterSlc(
+        slc_master=slc_dir.joinpath("20160101_VV.slc"),
+        slc_slave=slc_dir.joinpath("20160101_VH.slc"),
+        slave_mli=slc_dir.joinpath("20160101_VH_4rlks.mli"),
+        range_looks=4,
+        azimuth_looks=1,
+        ellip_pix_sigma0=dem_dir.joinpath("20160101_VV_4rlks_ellip_pix_sigma0"),
+        dem_pix_gamma0=dem_dir.joinpath("20160101_VV_4rlks_rdc_pix_gamma0"),
+        r_dem_master_mli=slc_dir.joinpath("r20160101_VV_4rlks.mli"),
+        rdc_dem=dem_dir.joinpath("20160101_VV_4rlks_rdc.dem"),
+        eqa_dem_par=dem_dir.joinpath("20160101_VV_4rlks_eqa.dem.par"),
+        dem_lt_fine=dem_dir.joinpath("20160101_VV_4rlks_eqa_to_rdc.lt"),
+        outdir=outdir,
+    )
 
+    cjob.main()
 
+    assert outdir.joinpath("20160101_VH_4rlks_eqa.sigma0.tif").exists()
+    assert outdir.joinpath("20160101_VV_4rlks_eqa.gamma0.tif").exists()
 
+    test_dict = param_parser(outdir.joinpath("r20160101_VH.slc.par"))
+    val_dict = param_parser(slc_dir.joinpath("r20160101_VH.slc.par"))
 
-
-
-
-
-
-
+    for key, val in test_dict.items():
+        assert val[0] == val_dict[key][0]
 
 
