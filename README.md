@@ -3,8 +3,12 @@
 A tool to process Sentinel-1 SLC to Analysis Ready Data using GAMMA SOFTWARE.
 
 ## Installation
+To install into a local user directory in NCI
+    python setup.py install --user 
 
-    python setup.py install --prefix=<prefix> 
+To install into a particular path
+    export PYTHONPATH=<path/to/install/location>:$PYTHONPATH
+    python setup.py install --prefix=<path/to/install/location> 
 
 Python 3.6+ is supported.
 
