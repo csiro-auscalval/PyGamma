@@ -9,7 +9,7 @@ To install into a local user directory in NCI.
 
 To install into a particular path.
     
-    export PYTHONPATH=<path/to/install/location>:$PYTHONPATH
+    export PYTHONPATH=<path/to/install/location/lib/python_version/site-packages>:$PYTHONPATH
     python setup.py install --prefix=<path/to/install/location> 
 
 Python 3.6+ is supported.
