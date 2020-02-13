@@ -33,8 +33,9 @@ Linux
 
 
 ## NCI Module
-	$module use -a /g/data/v10/public/modules/modulefiles /g/data/v10/private/modules/modulefiles 
-	$module load gamma-insar
+    
+	$module use <path/to/a/module/file/location>
+	$module load <module name>
 
 ### Usage
 #### Single Stack processing 
@@ -84,7 +85,7 @@ The packaging of a single stack Sentinel-1 ARD processed using `gamma_insar ARD`
 
 #### Example 
 
-	$package ARD --track T001D --frame F20S --input-dir <path-to-stack-folder> --pkgdir <path-to-pkg-output-dir> --product sar --polarization VV VH 
+	$package --track <track-name> --frame <frame-name> --input-dir <path-to-stack-folder> --pkgdir <path-to-pkg-output-dir> --product sar --polarization VV VH 
 
 
 #### Multi-stack processing using PBS system
