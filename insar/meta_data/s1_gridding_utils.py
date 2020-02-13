@@ -91,7 +91,7 @@ def swath_bursts_extents(bursts_df, swt, buf=0.01, pol="VV") -> Iterable:
     if isinstance(mp, Polygon):
         centroids.append(mp.centroid)
     else:
-        for geom in mp.gepms:
+        for geom in mp.geoms:
             centroids.append(geom.centroid)
     return [
         cascaded_union(
