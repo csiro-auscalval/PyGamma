@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+"""
+A utility to generate input lists to be used in pbs
+batch processing. The one input list file is generated
+per track (all the frames associated with a track is
+written in that input list). The sub-set in frames ares
+what is required to cover continental australian product.
+"""
+
 from pathlib import Path
 
 
@@ -40,6 +48,6 @@ def main(grid_data_dir: Path, out_dir: Path):
 
 
 if __name__ == '__main__':
-    _dir = Path('/g/data/u46/users/pd1813/INSAR/shape_files/final_grid_def_with_bursts')
-    out_dir = Path('/g/data/u46/users/pd1813/INSAR/INSAR_BACKSCATTER/input_files')
+    _dir = Path('/path/to/a/track_frame/shape/files/')
+    out_dir = Path('/path/to/a/output/directory/')
     main(_dir, out_dir)

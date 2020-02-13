@@ -1049,13 +1049,3 @@ class SlcFrame:
         """ Returns a geo-pandas data frame for a frame_name."""
         gpd_df = self.generate_frame_polygon()
         return gpd_df.loc[gpd_df["frame"] == frame_name]
-
-
-if __name__ == "__main__":
-    slc = "/g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC/2019/2019-06/30S145E-35S150E//S1A_IW_SLC__1SDV_20190630T193933_20190630T194000_027913_0326C8_0037.zip"
-    poeorb_path = "/g/data/fj7/Copernicus/Sentinel-1/POEORB"
-    resorb_path = "/g/data/fj7/Copernicus/Sentinel-1/RESORB"
-    s1_obj = S1DataDownload(slc, "VV", poeorb_path, resorb_path)
-    s1_obj.slc_download(output_dir="/g/data/u46/users/pd1813/INSAR/temp_raw_data")
-    # f = s1_obj.get_resorb_orbit_file()
-    # print(f)
