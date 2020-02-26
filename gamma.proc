@@ -8,7 +8,7 @@ GAMMA_CONFIG=/g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
 
 -----NCI FILE PATHS-------------------------------------------------------------------------------------
 
-NCI_PATH=/g/data/dg9
+NCI_PATH=<user-defined> 
 ENVISAT_ORBITS=/g/data/dg9/SAR_ORBITS/ENVISAT
 ERS_ORBITS=/g/data/dg9/SAR_ORBITS/ERS_ODR_UPDATED
 S1_ORBITS=/g/data/fj7/Copernicus/Sentinel-1

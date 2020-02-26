@@ -30,7 +30,7 @@ function proc_variables {
     palsar2_type=`grep ^PALSAR2_TYPE= $proc_file | cut -d "=" -f 2`
 
     # Directories
-    proj_dir=$nci_path/INSAR_ANALYSIS/$project/$sensor/GAMMA
+    proj_dir=$nci_path/$project/$sensor/GAMMA
     slc_dir=$proj_dir/$track/`grep ^SLC_DIR= $proc_file | cut -d "=" -f 2`
     dem_dir=$proj_dir/$track/`grep ^DEM_DIR= $proc_file | cut -d "=" -f 2`
     int_dir=$proj_dir/$track/`grep ^INT_DIR= $proc_file | cut -d "=" -f 2`
