@@ -85,7 +85,7 @@ function multi_err_job {
     local job_dir=$2
 
     if [ -f $err_list ]; then
-	rm -rf $er_list
+	rm -rf $err_list
     else
 	:
     fi
