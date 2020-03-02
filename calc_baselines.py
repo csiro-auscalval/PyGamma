@@ -89,7 +89,7 @@ for line in open(proc_file):
         nmax = int(line.split('=')[1].strip())
 
 # Project directories
-proj_dir = os.path.join(nci_path, "INSAR_ANALYSIS", project, sensor, "GAMMA")
+proj_dir = os.path.join(nci_path, project, sensor, "GAMMA")
 track_dir = os.path.join(proj_dir, track)
 slc_dir = os.path.join(proj_dir, track, slc_dir1)
 int_dir = os.path.join(proj_dir, track, int_dir1)
