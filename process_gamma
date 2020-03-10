@@ -1408,7 +1408,7 @@ if [ $do_ifgs == yes ]; then
         if [ $coregister == yes ]; then
   	    if [ ! -e $ifg_list ]; then
 		cd $proj_dir
-		echo "ifg.list not created yet, 'process_gamma' will auto re-run once list is created and SLCs are created."
+		echo "ifgs.list not created yet, 'process_gamma' will auto re-run once list is created and SLCs are created."
 		if [ $do_slc == yes ]; then
 		    if [ $sensor == 'S1' ]; then
 			if [ $do_s1_resize == yes ]; then
@@ -1425,7 +1425,7 @@ if [ $do_ifgs == yes ]; then
        		depend_type=afterok
 		job_type=1
 		echo ""
-		echo "Restarting 'process_gamma' after creating ifg.list ..."
+		echo "Restarting 'process_gamma' after creating ifgs.list ..."
 		pbs_job_prefix=restart"_"$track
 		type=-
 		script=process_gamma
@@ -1439,7 +1439,7 @@ if [ $do_ifgs == yes ]; then
 	else
 	    if [ ! -e $ifg_list ]; then
 		cd $proj_dir
-		echo "ifg.list not created yet, 'process_gamma' will auto re-run once list is created and SLCs are created."
+		echo "ifgs.list not created yet, 'process_gamma' will auto re-run once list is created and SLCs are created."
 		if [ $do_slc == yes ]; then
 		    if [ $sensor == 'S1' ]; then
 			if [ $do_s1_resize == yes ]; then
@@ -1456,7 +1456,7 @@ if [ $do_ifgs == yes ]; then
        		depend_type=afterok
 		job_type=1
 		echo ""
-		echo "Restarting 'process_gamma' after creating ifg.list ..."
+		echo "Restarting 'process_gamma' after creating ifgs.list ..."
 		pbs_job_prefix=restart"_"$track
 		type=-
 		script=process_gamma
