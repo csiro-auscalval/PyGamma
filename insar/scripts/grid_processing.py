@@ -246,7 +246,7 @@ def process_grid_definition(
     "--database-name",
     type=click.Path(dir_okay=False, file_okay=True),
     required=True,
-    help="name of database to injest slc acquistion details into",
+    help="name of database to injest slc acquistion details into (ignored if --save-yaml specified)",
 )
 @click.option(
     "--year",
@@ -266,9 +266,24 @@ def process_grid_definition(
     required=True,
     help="base directory where slc data are stored",
 )
-def process_slc_injestion(
-    database_name: click.Path, year: int, month: int, slc_dir: click.Path
-):
+@click.option(
+   "--save-yaml",
+   default=False,
+   is_flag=True,
+   help="If specified, stores SLC metadata as a yaml",
+)
+@click.option(
+    "--yaml-dir",
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
+    required=False,
+    help="directory where the yaml SLC metadata will be saved",
+)
+def process_slc_injestion(database_name: click.Path,\
+                          year: int,\
+                          month: int,\
+                          slc_dir: click.Path,\
+                          save_yaml: click.BOOL,\
+                          yaml_dir: click.Path):
     """
     Method to ingest slc scenes into the database
     """
@@ -281,8 +296,18 @@ def process_slc_injestion(
             )
             for scene in scenes_slc:
                 try:
-                    with Archive(database_name) as archive:
-                        archive.archive_scene(generate_slc_metadata(scene))
+                    ## Merging a plethora of SQLite databases is a cumbersome task,
+                    ## especially for batch processing across multiple cores.
+                    ## An alternative solution is to simply save the SLC metadata
+                    ## as yaml in a user specified directory (yaml_dir), and
+                    ## then compile all the yaml files into a single SQLite database.
+                    if (save_yaml is True):
+                       #print("yaml_dir: {}".format(Path(yaml_dir)))
+                       #print("scene: {}".format(scene))
+                       generate_slc_metadata(Path(scene), Path(yaml_dir), True)
+                    else:
+                       with Archive(database_name) as archive:
+                           archive.archive_scene(generate_slc_metadata(Path(scene)))
                 except (AssertionError, ValueError, TypeError) as err:
                     _LOG.error("{}: {}".format(scene, err))
     except IOError as err:
