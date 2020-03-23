@@ -307,7 +307,7 @@ def process_slc_injestion(database_name: click.Path,\
                        generate_slc_metadata(Path(scene), Path(yaml_dir), True)
                     else:
                        with Archive(database_name) as archive:
-                           archive.archive_scene( generate_slc_metadata( Path(scene) ) )
+                           archive.archive_scene(generate_slc_metadata(Path(scene)))
                 except (AssertionError, ValueError, TypeError) as err:
                     _LOG.error("{}: {}".format(scene, err))
     except IOError as err:
