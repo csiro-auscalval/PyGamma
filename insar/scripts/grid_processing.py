@@ -8,6 +8,7 @@ import datetime
 import re
 import math
 import logging
+import yaml
 
 import click
 from spatialist.ancillary import finder
@@ -238,7 +239,6 @@ def process_grid_definition(
         frame_numbers,
     )
 
-
 @slc_archive_cli.command(
     "slc-injestion", help="slc acquistion details injestion into the database"
 )
@@ -313,6 +313,44 @@ def process_slc_injestion(database_name: click.Path,\
     except IOError as err:
         _LOG.error("{} does not exists".format(month_dir))
         raise IOError(err)
+
+# Create a child command of the slc-archive called slc-ingeest-yaml
+@slc_archive_cli.command(
+   "slc-ingest-yaml", help="Ingestion of Sentinel-1 slc metadata (yaml format) into a SQLite database"
+   )
+
+@click.option(
+    "--database-name",
+    type=click.Path(dir_okay=False, file_okay=True),
+    required=True,
+    help="output SQLite database (.db) containing slc acquistion metadata",
+)
+@click.option(
+    "--yaml-dir",
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
+    required=False,
+    help="directory containing yaml files that will be ingested",
+)
+def ingest_slc_yamls(\
+   database_name: click.Path,\
+   yaml_dir: click.Path\
+):
+
+    ## Get yaml files from input directory (yaml_dir)
+    yaml_slc_files = finder(yaml_dir, [r"S1[AB]_IW_SLC.*\.yaml"], regex=True, recursive=True)
+    for yaml_file in yaml_slc_files:
+
+        ## Load yaml files
+        try:
+           with open(yaml_file, "r") as in_fid:
+              slc_metadata = yaml.load(in_fid, Loader=yaml.FullLoader)
+
+           ## Generate Archive
+           with Archive(database_name) as archive:
+              archive.archive_scene(slc_metadata)
+
+        except (AssertionError, ValueError, TypeError, IOError) as err:
+           _LOG.error("{}: {}".format(yaml_file, err))
 
 
 if __name__ == "__main__":
