@@ -278,12 +278,14 @@ def process_grid_definition(
     required=False,
     help="directory where the yaml SLC metadata will be saved",
 )
-def process_slc_injestion(database_name: click.Path,\
-                          year: int,\
-                          month: int,\
-                          slc_dir: click.Path,\
-                          save_yaml: click.BOOL,\
-                          yaml_dir: click.Path):
+def process_slc_injestion(
+    database_name: click.Path,
+    year: int,
+    month: int,
+    slc_dir: click.Path,
+    save_yaml: click.BOOL,
+    yaml_dir: click.Path
+):
     """
     Method to ingest slc scenes into the database
     """
@@ -331,9 +333,9 @@ def process_slc_injestion(database_name: click.Path,\
     required=False,
     help="directory containing yaml files that will be ingested",
 )
-def ingest_slc_yamls(\
-   database_name: click.Path,\
-   yaml_dir: click.Path\
+def ingest_slc_yamls(
+   database_name: click.Path,
+   yaml_dir: click.Path
 ):
 
     ## Get yaml files from input directory (yaml_dir)
