@@ -67,7 +67,7 @@ def grid_definition_cli():
     default=r"^T[0-9]{3}[AD]_F[0-9]{2}[SN]",
 )
 @click.option(
-    "log-pathname",
+    "--log-pathname",
     type=click.Path(dir_okay=False),
     help="Output pathname to contain the logging events.",
     default="grid-adjustment.jsonl",
@@ -222,7 +222,7 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str,
     help="overlap between two grids in latitude (in decimal degrees)",
 )
 @click.option(
-    "log-pathname",
+    "--log-pathname",
     type=click.Path(dir_okay=False),
     help="Output pathname to contain the logging events.",
     default="grid-generation.jsonl",
@@ -313,7 +313,7 @@ def process_grid_definition(
     help="directory where the yaml SLC metadata will be saved",
 )
 @click.option(
-    "log-pathname",
+    "--log-pathname",
     type=click.Path(dir_okay=False),
     help="Output pathname to contain the logging events.",
     default="slc-ingestion.jsonl",
@@ -387,7 +387,7 @@ def process_slc_injestion(
     help="directory containing yaml files that will be ingested",
 )
 @click.option(
-    "log-pathname",
+    "--log-pathname",
     type=click.Path(dir_okay=False),
     help="Output pathname to contain the logging events.",
     default="yaml-ingestion.jsonl",

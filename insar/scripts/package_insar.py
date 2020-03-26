@@ -427,7 +427,7 @@ def package(
     help="Polarizations used in metadata consolidations for product."
 )
 @click.option(
-    "log-pathname",
+    "--log-pathname",
     type=click.Path(dir_okay=False),
     help="Output pathname to contain the logging events.",
     default="packaging-insar-data.jsonl",
