@@ -334,9 +334,10 @@ def process_slc_injestion(
     with open(log_pathname, 'w') as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
+        year_month = "{:04}-{:02}".format(year, month)
         month_dir = pjoin(
             slc_dir, "{:04}".format(year),
-            "{:04}-{:02}".format(year, month)
+            year_month
         )
         try:
             for grid in os.listdir(month_dir):
@@ -358,7 +359,7 @@ def process_slc_injestion(
                         ## as yaml in a user specified directory (yaml_dir), and
                         ## then compile all the yaml files into a single SQLite database.
                         if (save_yaml is True):
-                            outdir = yaml_dir.joinpath(year, month_dir, grid)
+                            outdir = yaml_dir.joinpath(year, year_month, grid)
                             generate_slc_metadata(Path(scene), outdir, True)
                         else:
                             with Archive(database_name) as archive:
