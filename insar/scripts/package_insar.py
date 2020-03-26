@@ -3,8 +3,8 @@
 from typing import Dict, Iterable, List, Optional, Union
 from pathlib import Path
 import datetime
-import logging
 
+import structlog
 import attr
 import pandas as pd
 import click
@@ -13,7 +13,16 @@ import py_gamma as gamma_program
 from eodatasets3 import DatasetAssembler
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+PROCESSORS = [
+    structlog.stdlib.add_log_level,
+    structlog.processors.TimeStamper(fmt="ISO"),
+    structlog.processors.StackInfoRenderer(),
+    structlog.processors.format_exc_info,
+    structlog.processors.JSONRenderer(sort_keys=True),
+]
+structlog.configure(processors=PROCESSORS)
+_LOG = structlog.get_logger()
 
 
 ALIAS_FMT = {"gamma0": "nrb_{}", "sigma0": "rb_{}"}
@@ -56,6 +65,7 @@ def _get_metadata(par_file: Union[Path, str]) -> Dict:
     par_file = Path(par_file)
 
     if not par_file.exists():
+        _LOG.error("missing par file", par_file=str(par_file))
         raise FileNotFoundError(f"{par_file} does not exists")
 
     _metadata = dict()
@@ -185,6 +195,10 @@ def _write_measurements(
         try:
             _, pol, _, _suffix = product.stem.split("_")
         except:
+            _LOG.error(
+                "filename pattern not recognized",
+                product_name=product.name
+            )
             raise ValueError(f"{product.name} not recognized filename pattern")
 
         p.write_measurement(
@@ -207,6 +221,10 @@ def _write_angles_measurements(
         try:
             _, _name = product.stem.split(".")
         except:
+            _LOG.error(
+                "filename pattern not recognized",
+                product_name=product.name
+            )
             raise ValueError(f"{product.name} not recognized filename pattern")
 
         p.write_measurement(
@@ -252,7 +270,7 @@ class SLC:
 
                 if not burst_data.exists():
                     package_status = False
-                    _LOG.info(f"{burst_data} does not exists")
+                    _LOG.info("burst does not exist", burst_data=burst_data)
 
                 # try to find any slc parameter for any polarizations to extract the metadata
                 par_files = None
@@ -269,6 +287,10 @@ class SLC:
                     package_status = False
                     _LOG.info(f"missing required parameter needed for packaging"
                               f"for in {slc_scene_path}")
+                    _LOG.info(
+                        "missing parameter required for packaging",
+                        slc_path=str(slc_scene_path)
+                    )
 
                 scene_date = datetime.datetime.strptime(
                     slc_scene_path.name, "%Y%m%d"
@@ -324,6 +346,7 @@ def package(
     # Both the VV and VH polarizations has have identical SLC and burst informations.
     # Only properties from one polarization is gathered for packaging.
     for slc in SLC.for_path(track, frame, polarizations, track_frame_base, product):
+        _LOG.info("processing slc scene", slc_scene=str(slc.slc_path))
 
         # skip packaging for missing parameters files needed to extract metadata
         if not slc.status:
@@ -409,13 +432,30 @@ def package(
     default=('VV', 'VH'),
     help="Polarizations used in metadata consolidations for product."
 )
-def main(track, frame, input_dir, pkgdir, product, polarization):
-    package(
-        track=track,
-        frame=frame,
-        track_frame_base=input_dir,
-        out_directory=pkgdir,
-        product=product,
-        polarizations=polarization
-    )
+@click.option(
+    "log-pathname",
+    type=click.Path(dir_okay=False),
+    help="Output pathname to contain the logging events.",
+    default="packaging-insar-data.jsonl",
+)
+def main(track, frame, input_dir, pkgdir, product, polarization, log_pathname):
+    with open(log_pathname, 'w') as fobj:
+        structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
+        _LOG.info(
+            "packaging insar",
+            track=track,
+            frame=frame,
+            track_frame_base=input_dir,
+            out_directory=pkgdir,
+            product=product,
+            polarizations=polarization
+        )
+        package(
+            track=track,
+            frame=frame,
+            track_frame_base=input_dir,
+            out_directory=pkgdir,
+            product=product,
+            polarizations=polarization
+        )
