@@ -2,7 +2,6 @@
 
 import os
 from io import BytesIO
-import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Type, Union
 from pathlib import Path
@@ -12,6 +11,7 @@ import tempfile
 import xml.etree.ElementTree as etree
 import zipfile as zf
 
+import structlog
 import geopandas as gpd
 import shapely.wkt
 from shapely.geometry import Polygon, box
@@ -22,7 +22,8 @@ from spatialist import sqlite3, sqlite_setup
 import py_gamma as gamma_program
 from insar.xml_util import getNamespaces
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+_LOG = structlog.get_logger()
 
 
 class SlcMetadata:
@@ -46,16 +47,16 @@ class SlcMetadata:
         self.pattern = (
             r"^(?P<sensor>S1[AB])_"
             r"(?P<beam>S1|S2|S3|S4|S5|S6|IW|EW|WV|EN|N1|N2|N3|N4|N5|N6|IM)_"
-            r"(?P<product>SLC|GRD|OCN)(?:F|H|M|_)_"
-            r"(?:1|2)"
+            r"(?P<product>SLC|GRD|OCN)(?P<resolution>F|H|M|_)_"
+            r"(?P<level>1|2)"
             r"(?P<category>S|A)"
-            r"(?P<pols>SH|SV|DH|DV|VV|HH|HV|VH)_"
-            r"(?P<start>[0-9]{8}T[0-9]{6})_"
-            r"(?P<stop>[0-iiii9]{8}T[0-9]{6})_"
+            r"(?P<polarisation>SH|SV|DH|DV|VV|HH|HV|VH)_"
+            r"(?P<start_date>[0-9]{8}T[0-9]{6})_"
+            r"(?P<stop_date>[0-9]{8}T[0-9]{6})_"
             r"(?P<orbitNumber>[0-9]{6})_"
             r"(?P<dataTakeID>[0-9A-F]{6})_"
             r"(?P<productIdentifier>[0-9A-F]{4})"
-            r"\.SAFE$"
+            r".zip"
         )
 
         self.pattern_ds = (
@@ -71,12 +72,16 @@ class SlcMetadata:
         )
         self.archive_files = None
 
-        if not re.match(self.pattern, os.path.basename(self.scene)):
-            _LOG.info(
-                "{} does not match s1 filename pattern".format(
-                    os.path.basename(self.scene)
-                )
+        match = re.match(self.pattern, os.path.basename(self.scene))
+
+        if not match:
+            _LOG.warning(
+                "filename pattern mismatch",
+                pattern=self.pattern,
+                scene=self.scene
             )
+        else:
+            _LOG.info("filename pattern match", **match.groupdict())
 
     def get_metadata(self):
         """Consolidates metadata  of manifest safe file and annotation/swath xmls from a slc archive."""
@@ -215,40 +220,52 @@ class SlcMetadata:
         swath_obj = self.extract_archive_member(xml_file, obj=True)
 
         def _metadata_burst(xml_path):
-            def _parse_s1_burstloc(log_file):
+            def _parse_s1_burstloc(gamma_output_list):
                 burst_info = dict()
-                with open(log_file.as_posix(), "r") as fid:
-                    lines = fid.readlines()
-                    for line in lines:
-                        if line.startswith("Burst"):
-                            split_line = line.split()
-                            temp_dict = dict()
-                            temp_dict["burst_num"] = int(split_line[2])
-                            temp_dict["rel_orbit"] = int(split_line[3])
-                            temp_dict["swath"] = split_line[4]
-                            temp_dict["polarization"] = split_line[5]
-                            temp_dict["azimuth_time"] = float(split_line[6])
-                            temp_dict["angle"] = float(split_line[7])
-                            temp_dict["delta_angle"] = float(split_line[8])
-                            temp_dict["coordinate"] = [
-                                [float(split_line[14]), float(split_line[13])],
-                                [float(split_line[16]), float(split_line[15])],
-                                [float(split_line[10]), float(split_line[9])],
-                                [float(split_line[12]), float(split_line[11])],
-                            ]
-                            burst_info[
-                                "burst {}".format(temp_dict["burst_num"])
-                            ] = temp_dict
+                for line in gamma_output_list:
+                    if line.startswith("Burst"):
+                        split_line = line.split()
+                        temp_dict = dict()
+                        temp_dict["burst_num"] = int(split_line[2])
+                        temp_dict["rel_orbit"] = int(split_line[3])
+                        temp_dict["swath"] = split_line[4]
+                        temp_dict["polarization"] = split_line[5]
+                        temp_dict["azimuth_time"] = float(split_line[6])
+                        temp_dict["angle"] = float(split_line[7])
+                        temp_dict["delta_angle"] = float(split_line[8])
+                        temp_dict["coordinate"] = [
+                            [float(split_line[14]), float(split_line[13])],
+                            [float(split_line[16]), float(split_line[15])],
+                            [float(split_line[10]), float(split_line[9])],
+                            [float(split_line[12]), float(split_line[11])],
+                        ]
+                        burst_info[
+                            "burst {}".format(temp_dict["burst_num"])
+                        ] = temp_dict
                 return burst_info
 
             with tempfile.TemporaryDirectory() as tmp_dir:
-                self.extract_archive_member(xml_file, outdir=tmp_dir)
-                std_out = Path(tmp_dir).joinpath("stdout.log")
-                gamma_program.S1_burstloc(
+                self.extract_archive_member(xml_path, outdir=tmp_dir)
+                cout = []
+                cerr = []
+                stat = gamma_program.S1_burstloc(
                     os.path.join(tmp_dir, os.path.basename(xml_path)),
-                    logf=std_out.as_posix()
+                    cout=cout,
+                    cerr=cerr,
+                    stdout_flag=False,
+                    stderr_flag=False
                 )
-                return _parse_s1_burstloc(std_out)
+                if stat == 0:
+                    return _parse_s1_burstloc(cout)
+                else:
+                    msg = "failed to execute gamma_program.S1_burstloc"
+                    _LOG.error(
+                        msg,
+                        xml_file=xml_path,
+                        stat=stat,
+                        gamma_error=cerr
+                    )
+                    raise Exception(msg)
 
         with swath_obj as obj:
             ann_tree = etree.fromstring(obj.read())
@@ -692,54 +709,8 @@ class Archive:
                 self.slc_table_name
             ):
                 _LOG.info(
-                    "slc id: {} already ingested into the database".format(
-                        self.metadata["id"]
-                    )
-                )
-                return
-            else:
-                raise err
-
-        for measurement in self.measurements:
-            swath_str, swath_vals = self.prepare_swath_metadata_insertion(measurement)
-            try:
-                cursor.execute(swath_str, swath_vals)
-            except sqlite3.IntegrityError as err:
-                if str(err) == "UNIQUE constraint failed: {}.swath_name".format(
-                    self.swath_table_name
-                ):
-                    _LOG.info(
-                        "slc id: {} duplicates is detected".format(self.metadata["id"])
-                    )
-                    self.archive_duplicate()
-                    return
-                else:
-                    raise err
-
-            burst_keys = self.get_burst_names(measurement)
-            for burst_key in burst_keys:
-                burst_str, burst_values = self.prepare_burst_metadata_insertion(
-                    measurement, burst_key
-                )
-                cursor.execute(burst_str, burst_values)
-        self.conn.commit()
-
-    def archive_duplicate(self):
-        """ archive duplicate slc scenes. """
-        cursor = self.conn.cursor()
-        try:
-            cursor.execute(
-                "INSERT INTO slc_duplicates(id, url) VALUES(?, ?)",
-                (os.path.basename(self.file_location), self.file_location),
-            )
-        except sqlite3.IntegrityError as err:
-            if str(err) == "UNIQUE constraint failed: {}.id".format(
-                self.duplicate_table_name
-            ):
-                _LOG.info(
-                    "{} already detected in slc_duplicate table".format(
-                        os.path.basename(self.file_location)
-                    )
+                    "record already exists in slc_duplicate table",
+                    pathname=self.file_location
                 )
             else:
                 raise err

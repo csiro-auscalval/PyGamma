@@ -3,15 +3,18 @@
 import os
 import functools
 import itertools
-import logging
 import signal
 import subprocess
 import contextlib
 
-
+import structlog
 from luigi import six
 
-_LOG = logging.getLogger(__name__)
+from insar.logs import COMMON_PROCESSORS
+
+# _LOG = logging.getLogger(__name__)
+structlog.configure(processors=COMMON_PROCESSORS)
+_LOG = structlog.get_logger()
 
 os.environ["CPL_ZIP_ENCODING"] = "UTF-8"
 
@@ -132,21 +135,30 @@ def run_command(
         _stdout, _stderr = _proc.communicate()
         timed_out = True
 
+    stdout_decode = _stdout.decode("utf-8")
+    stderr_decode = _stderr.decode("utf-8")
+    cmd = str(command)
     if _proc.returncode != 0:
-        _LOG.error(_stderr.decode("utf-8"))
-        _LOG.info(_stdout.decode("utf-8"))
+        _LOG.error("command result", command=cmd, std_err=stderr_decode)
+        _LOG.info("command result", command=cmd, std_out=stdout_decode)
 
         if command_name is None:
             command_name = str(command)
 
         if timed_out:
+            _LOG.error("command timed out", command=cmd)
             raise CommandError('"%s" timed out' % (command_name))
         else:
+            _LOG.error(
+                "command failed",
+                command=cmd,
+                return_code=_proc.returncode
+            )
             raise CommandError(
                 '"%s" failed with return code: %s'
                 % (command_name, str(_proc.returncode))
             )
     else:
-        _LOG.debug(_stdout.decode("utf-8"))
+        _LOG.info("command result", command=cmd, std_out=stdout_decode)
         if return_stdout:
-            return _stdout.decode("utf-8")
+            return stdout_decode

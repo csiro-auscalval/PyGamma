@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-import logging
 import re
 from datetime import datetime
 from pathlib import Path
 from typing import List, Union, Dict
 
+import structlog
 import geopandas as gpd
 import pandas as pd
 import shapely.wkt
@@ -13,7 +13,8 @@ from spatialist import Vector
 
 from insar.s1_slc_metadata import Archive
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+_LOG = structlog.get_logger()
 
 
 def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: Dict) -> Dict:
@@ -143,7 +144,11 @@ def _check_slc_input_data(
 
         except AssertionError as err:
             # only log the information for scenes not available to form compute frame.
-            _LOG.info("slc scene date {}: {}".format(dt.strftime("%Y-%m-%d"), err))
+            _LOG.info(
+                "scene not available to form complete frame",
+                slc_scene_date=dt.strftime("%Y-%m-%d"),
+                err=err
+            )
 
     return _check_frame_bursts(master_df, data_dict)
 

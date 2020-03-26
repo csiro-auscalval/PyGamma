@@ -6,14 +6,17 @@ import tempfile
 from collections import namedtuple
 from pathlib import Path
 import re
-import logging
 import shutil
 
+import structlog
 import py_gamma as gamma_program
 
 from insar.subprocess_utils import working_directory, run_command
+from insar.logs import COMMON_PROCESSORS
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+structlog.configure(processors=COMMON_PROCESSORS)
+_LOG = structlog.get_logger()
 
 
 class SlcParFileParser:
@@ -125,29 +128,29 @@ class CoregisterSlc:
         self.r_dem_master_mli_par = self.r_dem_master_mli.with_suffix(".mli.par")
         if not self.r_dem_master_mli_par.exists():
             _LOG.error(
-                FileNotFoundError(
-                    f"{self.r_dem_master_mli_par.as_posix()} does not exists"
-                )
+                "DEM Master MLI par file not found",
+                pathname=str(self.r_dem_master_mli_par)
             )
 
         self.r_dem_master_slc_par = self.slc_master.with_suffix(".slc.par")
         if not self.r_dem_master_slc_par.exists():
             _LOG.error(
-                FileNotFoundError(
-                    f"{self.r_dem_master_slc_par.as_posix()} does not exists"
-                )
+                "DEM Master SLC par file not found",
+                pathname=str(self.r_dem_master_slc_par)
             )
 
         self.slc_slave_par = self.slc_slave.with_suffix(".slc.par")
         if not self.slc_slave_par.exists():
             _LOG.error(
-                FileNotFoundError(f"{self.slc_slave_par.as_posix()} does not exists")
+                "SLC Slave par file not found",
+                pathname=str(self.slc_slave_par)
             )
 
         self.slave_mli_par = self.slave_mli.with_suffix(".mli.par")
         if not self.slave_mli_par.exists():
             _LOG.error(
-                FileNotFoundError(f"{self.slave_mli_par.as_posix()} does not exist")
+                "Slave MLI par file not found",
+                pathname=str(self.slave_mli_par)
             )
 
         self.master_sample = self.master_sample_size()
@@ -461,16 +464,22 @@ class CoregisterSlc:
                     d_range_mli = d_range / self.rlks
 
                     _LOG.info(
-                        f"matching iteration {iteration + 1}\n"
-                        f"daz:\t{d_azimuth:0.6f}\n "
-                        f"dr:\t{d_range:0.6f}\n "
-                        f"daz_mli:\t{d_azimuth_mli:0.6f}\n "
-                        f"dr_mli:\t{d_range_mli:0.6f}"
+                        "matching iteration",
+                        iteration=iteration+1,
+                        daz=d_azimuth,
+                        dr=d_range,
+                        daz_mli=d_azimuth_mli,
+                        dr_mli=d_range_mli,
+                        max_azimuth_threshold=max_azimuth_threshold,
+                        max_iterations=max_iteration
                     )
                     _LOG.info(
-                        f"matching iteration {iteration + 1} standard deviation\n"
-                        f"azimuth stdev:\t {float(azimuth_stdev):0.6f}\n"
-                        f"range stdev:\t {float(range_stdev):0.6f}"
+                        "matching iteration and standard deviation",
+                        iteration=iteration+1,
+                        azimuth_stdev=azimuth_stdev,
+                        range_stdev=range_stdev,
+                        max_azimuth_threshold=max_azimuth_threshold,
+                        max_iterations=max_iteration
                     )
 
                     if slave_diff_par.exists():

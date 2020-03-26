@@ -7,15 +7,18 @@ from pathlib import Path
 import datetime
 import re
 import math
-import logging
+import structlog
 import yaml
 
 import click
 from spatialist.ancillary import finder
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata, grid_adjustment, grid_definition
 from insar.meta_data.s1_slc import Archive
+from insar.logs import COMMON_PROCESSORS
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+structlog.configure(processors=COMMON_PROCESSORS)
+_LOG = structlog.get_logger()
 GRID_NAME_FMT = "{track}_{frame}{ext}"
 
 
@@ -63,7 +66,14 @@ def grid_definition_cli():
     help="regex pattern to match the vector filename",
     default=r"^T[0-9]{3}[AD]_F[0-9]{2}[SN]",
 )
-def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
+@click.option(
+    "--log-pathname",
+    type=click.Path(dir_okay=False),
+    help="Output pathname to contain the logging events.",
+    default="grid-adjustment.jsonl",
+)
+def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str,
+                            log_pathname: click.Path):
     """
     A method to process the grid adjustment for InSAR grid auto-generated grid definition.
 
@@ -79,6 +89,8 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
     """
 
     def _get_required_grids(vector_file, vector_file_dir):
+        _LOG.info("processing _get_required_grids", pathname=vector_file)
+
         if re.match(pattern, vector_file):
             name_pcs = re.split(r"[_](?=[ADF])", vector_file)
             track = name_pcs[0]
@@ -103,6 +115,8 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
         raise ValueError
 
     def _process_adjustment(in_path):
+        _LOG.info("processing _process_adjustment", pathname=in_path)
+
         dir_name, file_name = split(in_path)
         try:
             track, frame, grid_before_path, grid_after_path = _get_required_grids(
@@ -110,7 +124,9 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
             )
         except ValueError as err:
             _LOG.error(
-                "vector file {} does match {} pattern".format(file_name, pattern)
+                "vector filename pattern mismatch",
+                pathname=file_name,
+                pattern=pattern
             )
             raise err
         try:
@@ -123,27 +139,35 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
                 grid_after_shapefile=grid_after_path,
             )
         except ValueError:
-            _LOG.error("{} does not have data in all three swaths".format(file_name))
+            _LOG.error(
+                "data is required in all three swaths",
+                pathname=file_name
+            )
         except AttributeError:
             _LOG.error(
-                "{} does not have data in a swath after grid adjustment".format(
-                    file_name
-                )
+                "no data in swath after grid adjustment",
+                pathname=file_name
             )
 
-    if not isdir(input_path):
-        if input_path.endswith(".shp"):
-            _process_adjustment(input_path)
-            return
-        _LOG.error("{} is not of type .shp file".format(os.path.basename(input_path)))
-        raise TypeError
+    with open(log_pathname, 'w') as fobj:
+        structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
-    for fid in os.listdir(input_path):
-        in_file = pjoin(input_path, fid)
-        if in_file.endswith(".shp"):
-            _process_adjustment(in_file)
-        else:
-            _LOG.info("{} is not of type .shp file".format(fid))
+        if not isdir(input_path):
+            if input_path.endswith(".shp"):
+                _process_adjustment(input_path)
+                return
+            _LOG.error("file is not an ESRI Shapefile", pathname=input_path)
+            raise TypeError
+
+        for fid in os.listdir(input_path):
+            in_file = pjoin(input_path, fid)
+            if in_file.endswith(".shp"):
+                _process_adjustment(in_file)
+            else:
+                _LOG.error(
+                    "file is not an ESRI Shapefile; skipping",
+                    pathname=input_path
+                )
 
 
 @grid_definition_cli.command(
@@ -198,6 +222,12 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str):
     help="overlap between two grids in latitude (in decimal degrees)",
 )
 @click.option(
+    "--log-pathname",
+    type=click.Path(dir_okay=False),
+    help="Output pathname to contain the logging events.",
+    default="grid-generation.jsonl",
+)
+@click.option(
     "--start-date",
     type=click.DateTime(),
     default=None,
@@ -218,26 +248,30 @@ def process_grid_definition(
     orbits: str,
     latitude_width: float,
     latitude_buffer: float,
+    log_pathname: click.Path,
     start_date: Optional[click.DateTime] = None,
     end_date: Optional[click.DateTime] = None,
 ):
     """
     A method to process InSAR grid definition for given rel_orbits
     """
-    frame_numbers = [i + 1 for i in range(math.ceil(90.0 / latitude_width))]
-    grid_definition(
-        database_path,
-        out_dir,
-        relative_orbit_number,
-        hemisphere,
-        sensor,
-        orbits,
-        latitude_width,
-        latitude_buffer,
-        start_date,
-        end_date,
-        frame_numbers,
-    )
+    with open(log_pathname, 'w') as fobj:
+        structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
+        frame_numbers = [i + 1 for i in range(math.ceil(90.0 / latitude_width))]
+        grid_definition(
+            database_path,
+            out_dir,
+            relative_orbit_number,
+            hemisphere,
+            sensor,
+            orbits,
+            latitude_width,
+            latitude_buffer,
+            start_date,
+            end_date,
+            frame_numbers,
+        )
+
 
 @slc_archive_cli.command(
     "slc-injestion", help="slc acquistion details injestion into the database"
@@ -278,49 +312,69 @@ def process_grid_definition(
     required=False,
     help="directory where the yaml SLC metadata will be saved",
 )
+@click.option(
+    "--log-pathname",
+    type=click.Path(dir_okay=False),
+    help="Output pathname to contain the logging events.",
+    default="slc-ingestion.jsonl",
+)
 def process_slc_injestion(
     database_name: click.Path,
     year: int,
     month: int,
     slc_dir: click.Path,
     save_yaml: click.BOOL,
-    yaml_dir: click.Path
+    yaml_dir: click.Path,
+    log_pathname: str,
 ):
     """
     Method to ingest slc scenes into the database
     """
-    month_dir = pjoin(slc_dir, "{:04}".format(year), "{:04}-{:02}".format(year, month))
-    try:
-        for grid in os.listdir(month_dir):
-            grid_dir = pjoin(month_dir, grid)
-            scenes_slc = finder(
-                str(grid_dir), [r"^S1[AB]_IW_SLC.*\.zip"], regex=True, recursive=True
-            )
-            for scene in scenes_slc:
-                try:
-                    ## Merging a plethora of SQLite databases is a cumbersome task,
-                    ## especially for batch processing across multiple cores.
-                    ## An alternative solution is to simply save the SLC metadata
-                    ## as yaml in a user specified directory (yaml_dir), and
-                    ## then compile all the yaml files into a single SQLite database.
-                    if (save_yaml is True):
-                       #print("yaml_dir: {}".format(Path(yaml_dir)))
-                       #print("scene: {}".format(scene))
-                       generate_slc_metadata(Path(scene), Path(yaml_dir), True)
-                    else:
-                       with Archive(database_name) as archive:
-                           archive.archive_scene(generate_slc_metadata(Path(scene)))
-                except (AssertionError, ValueError, TypeError) as err:
-                    _LOG.error("{}: {}".format(scene, err))
-    except IOError as err:
-        _LOG.error("{} does not exists".format(month_dir))
-        raise IOError(err)
+    with open(log_pathname, 'w') as fobj:
+        structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
+
+        year_month = "{:04}-{:02}".format(year, month)
+        slc_ym_dir = pjoin(slc_dir, str(year), year_month)
+        try:
+            for grid in os.listdir(slc_ym_dir):
+                _LOG.info("processing grid", grid=grid)
+
+                grid_dir = pjoin(slc_ym_dir, grid)
+                scenes_slc = finder(
+                    str(grid_dir),
+                    [r"^S1[AB]_IW_SLC.*\.zip"],
+                    regex=True,
+                    recursive=True
+                )
+                for scene in scenes_slc:
+                    _LOG.info("processing scene", scene=scene)
+                    try:
+                        ## Merging a plethora of SQLite databases is a cumbersome task,
+                        ## especially for batch processing across multiple cores.
+                        ## An alternative solution is to simply save the SLC metadata
+                        ## as yaml in a user specified directory (yaml_dir), and
+                        ## then compile all the yaml files into a single SQLite database.
+                        if (save_yaml is True):
+                            yaml_dir = Path(yaml_dir)
+                            outdir = yaml_dir.joinpath(str(year), year_month, grid)
+                            generate_slc_metadata(Path(scene), outdir, True)
+                        else:
+                            with Archive(database_name) as archive:
+                                archive.archive_scene(generate_slc_metadata(Path(scene)))
+                    except (AssertionError, ValueError, TypeError) as err:
+                        _LOG.error(
+                            "failed to execute generate_slc_metadata",
+                            scene=scene,
+                            err=err)
+        except IOError as err:
+            _LOG.error("directory does not exist", directory=slc_ym_dir)
+            raise IOError(err)
+
 
 # Create a child command of the slc-archive called slc-ingeest-yaml
 @slc_archive_cli.command(
    "slc-ingest-yaml", help="Ingestion of Sentinel-1 slc metadata (yaml format) into a SQLite database"
    )
-
 @click.option(
     "--database-name",
     type=click.Path(dir_okay=False, file_okay=True),
@@ -330,29 +384,49 @@ def process_slc_injestion(
 @click.option(
     "--yaml-dir",
     type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
-    required=False,
+    required=True,
     help="directory containing yaml files that will be ingested",
+)
+@click.option(
+    "--log-pathname",
+    type=click.Path(dir_okay=False),
+    help="Output pathname to contain the logging events.",
+    default="yaml-ingestion.jsonl",
 )
 def ingest_slc_yamls(
    database_name: click.Path,
-   yaml_dir: click.Path
+   yaml_dir: click.Path,
+   log_pathname: str,
 ):
 
-    ## Get yaml files from input directory (yaml_dir)
-    yaml_slc_files = finder(yaml_dir, [r"S1[AB]_IW_SLC.*\.yaml"], regex=True, recursive=True)
-    for yaml_file in yaml_slc_files:
+    with open(log_pathname, 'w') as fobj:
+        structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
-        ## Load yaml files
-        try:
-           with open(yaml_file, "r") as in_fid:
-              slc_metadata = yaml.load(in_fid, Loader=yaml.FullLoader)
+        ## Get yaml files from input directory (yaml_dir)
+        yaml_slc_files = finder(
+            yaml_dir,
+            [r"S1[AB]_IW_SLC.*\.yaml"],
+            regex=True,
+            recursive=True
+        )
+        for yaml_file in yaml_slc_files:
+            _LOG.info("processing yaml", pathname=yaml_file)
 
-           ## Generate Archive
-           with Archive(database_name) as archive:
-              archive.archive_scene(slc_metadata)
+            if not exists(yaml_file):
+                _LOG.warning("file not found; skipping", pathname=yaml_file)
+                continue
 
-        except (AssertionError, ValueError, TypeError, IOError) as err:
-           _LOG.error("{}: {}".format(yaml_file, err))
+            ## Load yaml files
+            try:
+                with open(yaml_file, "r") as in_fid:
+                    slc_metadata = yaml.load(in_fid, Loader=yaml.FullLoader)
+
+                ## Generate Archive
+                with Archive(database_name) as archive:
+                    archive.archive_scene(slc_metadata)
+
+            except (AssertionError, ValueError, TypeError, IOError) as err:
+                _LOG.error("failed", pathname=yaml_file, err=err)
 
 
 if __name__ == "__main__":

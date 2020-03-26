@@ -3,13 +3,16 @@
 import math
 from typing import List, Tuple, Optional, Union
 from pathlib import Path
-import logging
+import structlog
 import py_gamma as gamma_program
 
 from insar.constant import MliFilenames
 from insar.subprocess_utils import working_directory
+from insar.logs import COMMON_PROCESSORS
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+structlog.configure(processors=COMMON_PROCESSORS)
+_LOG = structlog.get_logger()
 
 
 def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:

@@ -27,7 +27,7 @@ from insar.clean_up import (
     clean_gammademdir,
     clean_demdir,
 )
-from insar.logs import ERROR_LOGGER, STATUS_LOGGER
+from insar.logs import TASK_LOGGER, STATUS_LOGGER
 
 __RAW__ = "RAW_DATA"
 __SLC__ = "SLC"
@@ -56,13 +56,27 @@ SLC_PATTERN = (
 @luigi.Task.event_handler(luigi.Event.FAILURE)
 def on_failure(task, exception):
     """Capture any Task Failure here."""
-    ERROR_LOGGER.exception(
+    TASK_LOGGER.exception(
         task=task.get_task_family(),
         params=task.to_str_params(),
         track=getattr(task, "track", ""),
         frame=getattr(task, "frame", ""),
+        stack_info=True,
+        status='failure',
         exception=exception.__str__(),
         traceback=traceback.format_exc().splitlines(),
+    )
+
+
+@luigi.Task.event_handler(luigi.Event.SUCCESS)
+def on_success(task, exception):
+    """Capture any Task Succes here."""
+    TASK_LOGGER.exception(
+        task=task.get_task_family(),
+        params=task.to_str_params(),
+        track=getattr(task, "track", ""),
+        frame=getattr(task, "frame", ""),
+        status='success',
     )
 
 
