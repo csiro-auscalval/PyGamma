@@ -3,11 +3,11 @@
 import os
 import re
 import uuid
-import logging
 from typing import Optional, Union, Dict, Iterable
 from pathlib import Path
 from datetime import datetime
 
+import structlog
 import pandas as pd
 import geopandas as gpd
 import shapely.wkt
@@ -16,7 +16,8 @@ from shapely.ops import cascaded_union
 import yaml
 from insar.meta_data.s1_slc import Archive, SlcFrame, SlcMetadata
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+_LOG = structlog.get_logger()
 
 
 def generate_slc_metadata(
@@ -457,10 +458,6 @@ def process_grid_adjustment(
                 grid_after_shapefile=grid_after_name,
             )
         except ValueError:
-            _LOG.error("{} does not have data in all three swaths".format(item))
+            _LOG.error("data is required in all three swaths", pathname=item)
         except AttributeError:
-            _LOG.error(
-                "{} does not have data a swath dataframe after adjustment".format(item)
-            )
-
-
+            _LOG.error("no data in swath after grid adjustment", pathname=item)

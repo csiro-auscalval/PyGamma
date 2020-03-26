@@ -2,7 +2,6 @@
 
 import os
 from io import BytesIO
-import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Type, Union
 from pathlib import Path
@@ -12,6 +11,7 @@ import tempfile
 import xml.etree.ElementTree as etree
 import zipfile as zf
 
+import structlog
 import geopandas as gpd
 import shapely.wkt
 from shapely.geometry import Polygon, box
@@ -22,7 +22,8 @@ from spatialist import sqlite3, sqlite_setup
 import py_gamma as gamma_program
 from insar.xml_util import getNamespaces
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+_LOG = structlog.get_logger()
 
 
 class SlcMetadata:
@@ -73,9 +74,9 @@ class SlcMetadata:
 
         if not re.match(self.pattern, os.path.basename(self.scene)):
             _LOG.info(
-                "{} does not match s1 filename pattern".format(
-                    os.path.basename(self.scene)
-                )
+                "filename pattern mismatch",
+                pattern=self.pattern,
+                scene=self.scene
             )
 
     def get_metadata(self):
@@ -692,54 +693,8 @@ class Archive:
                 self.slc_table_name
             ):
                 _LOG.info(
-                    "slc id: {} already ingested into the database".format(
-                        self.metadata["id"]
-                    )
-                )
-                return
-            else:
-                raise err
-
-        for measurement in self.measurements:
-            swath_str, swath_vals = self.prepare_swath_metadata_insertion(measurement)
-            try:
-                cursor.execute(swath_str, swath_vals)
-            except sqlite3.IntegrityError as err:
-                if str(err) == "UNIQUE constraint failed: {}.swath_name".format(
-                    self.swath_table_name
-                ):
-                    _LOG.info(
-                        "slc id: {} duplicates is detected".format(self.metadata["id"])
-                    )
-                    self.archive_duplicate()
-                    return
-                else:
-                    raise err
-
-            burst_keys = self.get_burst_names(measurement)
-            for burst_key in burst_keys:
-                burst_str, burst_values = self.prepare_burst_metadata_insertion(
-                    measurement, burst_key
-                )
-                cursor.execute(burst_str, burst_values)
-        self.conn.commit()
-
-    def archive_duplicate(self):
-        """ archive duplicate slc scenes. """
-        cursor = self.conn.cursor()
-        try:
-            cursor.execute(
-                "INSERT INTO slc_duplicates(id, url) VALUES(?, ?)",
-                (os.path.basename(self.file_location), self.file_location),
-            )
-        except sqlite3.IntegrityError as err:
-            if str(err) == "UNIQUE constraint failed: {}.id".format(
-                self.duplicate_table_name
-            ):
-                _LOG.info(
-                    "{} already detected in slc_duplicate table".format(
-                        os.path.basename(self.file_location)
-                    )
+                    "record already exists in slc_duplicate table",
+                    pathname=self.file_location
                 )
             else:
                 raise err
