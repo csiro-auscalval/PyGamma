@@ -330,20 +330,16 @@ def process_slc_injestion(
     """
     Method to ingest slc scenes into the database
     """
-    yaml_dir = Path(yaml_dir)
     with open(log_pathname, 'w') as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
         year_month = "{:04}-{:02}".format(year, month)
-        month_dir = pjoin(
-            slc_dir, "{:04}".format(year),
-            year_month
-        )
+        slc_ym_dir = pjoin(slc_dir, str(year), year_month)
         try:
-            for grid in os.listdir(month_dir):
+            for grid in os.listdir(slc_ym_dir):
                 _LOG.info("processing grid", grid=grid)
 
-                grid_dir = pjoin(month_dir, grid)
+                grid_dir = pjoin(slc_ym_dir, grid)
                 scenes_slc = finder(
                     str(grid_dir),
                     [r"^S1[AB]_IW_SLC.*\.zip"],
@@ -359,15 +355,19 @@ def process_slc_injestion(
                         ## as yaml in a user specified directory (yaml_dir), and
                         ## then compile all the yaml files into a single SQLite database.
                         if (save_yaml is True):
-                            outdir = yaml_dir.joinpath(year, year_month, grid)
+                            yaml_dir = Path(yaml_dir)
+                            outdir = yaml_dir.joinpath(str(year), year_month, grid)
                             generate_slc_metadata(Path(scene), outdir, True)
                         else:
                             with Archive(database_name) as archive:
                                 archive.archive_scene(generate_slc_metadata(Path(scene)))
                     except (AssertionError, ValueError, TypeError) as err:
-                        _LOG.error("failed", scene=scene, err=err)
+                        _LOG.error(
+                            "failed to execute generate_slc_metadata",
+                            scene=scene,
+                            err=err)
         except IOError as err:
-            _LOG.error("directory does not exist", directory=month_dir)
+            _LOG.error("directory does not exist", directory=slc_ym_dir)
             raise IOError(err)
 
 
