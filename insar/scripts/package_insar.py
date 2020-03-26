@@ -12,16 +12,10 @@ import click
 import py_gamma as gamma_program
 from eodatasets3 import DatasetAssembler
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata
+from insar.logs import COMMON_PROCESSORS
 
 # _LOG = logging.getLogger(__name__)
-PROCESSORS = [
-    structlog.stdlib.add_log_level,
-    structlog.processors.TimeStamper(fmt="ISO"),
-    structlog.processors.StackInfoRenderer(),
-    structlog.processors.format_exc_info,
-    structlog.processors.JSONRenderer(sort_keys=True),
-]
-structlog.configure(processors=PROCESSORS)
+structlog.configure(processors=COMMON_PROCESSORS)
 _LOG = structlog.get_logger()
 
 

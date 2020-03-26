@@ -12,8 +12,10 @@ import structlog
 import py_gamma as gamma_program
 
 from insar.subprocess_utils import working_directory, run_command
+from insar.logs import COMMON_PROCESSORS
 
 # _LOG = logging.getLogger(__name__)
+structlog.configure(processors=COMMON_PROCESSORS)
 _LOG = structlog.get_logger()
 
 

@@ -11,12 +11,17 @@ from datetime import timedelta
 from pathlib import Path
 import fnmatch
 
+import structlog
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid import make_axes_locatable
 from matplotlib import dates as mdates
 import numpy as np
 
-_LOG = logging.getLogger(__name__)
+from insar.logs import COMMON_PROCESSORS
+
+# _LOG = logging.getLogger(__name__)
+structlog.configure(processors=COMMON_PROCESSORS)
+_LOG = structlog.get_logger()
 
 
 class SlcParFileParser:
@@ -483,7 +488,11 @@ class BaselineProcess:
         nifgs = len(bperp)
         nepochs = len(epochs)
 
-        _LOG.info(nifgs, "interferograms and", nepochs, "epochs in the network.")
+        _LOG.info(
+            "number of interferograms and epochs in the network",
+            interferograms=nifgs,
+            epochs=nepochs
+        )
         # Initialise design matrix 'A'
         A = np.zeros((nifgs + 1, nepochs))
 
@@ -614,12 +623,9 @@ class BaselineProcess:
                             ix2[j, i] = True
                         else:
                             _LOG.info(
-                                "Connection between scene",
-                                i,
-                                "and scene",
-                                j,
-                                "\
-                            possible (total decorrelation)",
+                                "connection between scenes possible (total decorrelation)",
+                                scene_i=i,
+                                scene_j=j
                             )
                 ntest = ntest + 1
 

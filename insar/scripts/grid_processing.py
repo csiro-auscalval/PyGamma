@@ -14,18 +14,12 @@ import click
 from spatialist.ancillary import finder
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata, grid_adjustment, grid_definition
 from insar.meta_data.s1_slc import Archive
+from insar.logs import COMMON_PROCESSORS
 
 # _LOG = logging.getLogger(__name__)
-GRID_NAME_FMT = "{track}_{frame}{ext}"
-PROCESSORS = [
-    structlog.stdlib.add_log_level,
-    structlog.processors.TimeStamper(fmt="ISO"),
-    structlog.processors.StackInfoRenderer(),
-    structlog.processors.format_exc_info,
-    structlog.processors.JSONRenderer(sort_keys=True),
-]
-structlog.configure(processors=PROCESSORS)
+structlog.configure(processors=COMMON_PROCESSORS)
 _LOG = structlog.get_logger()
+GRID_NAME_FMT = "{track}_{frame}{ext}"
 
 
 @click.group()

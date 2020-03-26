@@ -5,7 +5,7 @@ import re
 from collections import namedtuple
 from typing import Optional, Union, Dict, List
 import tempfile
-import logging
+import structlog
 from pathlib import Path
 import shutil
 import datetime
@@ -14,9 +14,12 @@ import pandas as pd
 import py_gamma as gamma_program
 from insar.constant import SlcFilenames
 from insar.subprocess_utils import working_directory, run_command
+from insar.logs import COMMON_PROCESSORS
 
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+structlog.configure(processors=COMMON_PROCESSORS)
+_LOG = structlog.get_logger()
 
 
 class SlcProcess:
@@ -189,7 +192,8 @@ class SlcProcess:
 
         if slc_tab_file.exists():
             _LOG.info(
-                f"{slc_tab_file.name} exits, skipping writing of slc tab parameters"
+                "SLC tab file exists; skipping writing of SLC tab parameters",
+                pathname=slc_tab_file
             )
             return
         with open(slc_tab_file, "w") as fid:

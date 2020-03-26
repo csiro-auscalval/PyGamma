@@ -5,13 +5,16 @@ import tempfile
 from collections import namedtuple
 from typing import Optional, Tuple, Union, Dict
 import shutil
-import logging
 from pathlib import Path
+import structlog
 
 import py_gamma as gamma_program
 from insar.subprocess_utils import working_directory, run_command, environ
+from insar.logs import COMMON_PROCESSORS
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+structlog.configure(processors=COMMON_PROCESSORS)
+_LOG = structlog.get_logger()
 
 
 class SlcParFileParser:
@@ -299,17 +302,29 @@ class CoregisterDem:
         self.dem_window[0] = int(self.dem_window[0] / self.rlks)
         if self.dem_window[0] < 8:
             win1 = round(self.dem_window[0] * self.rlks) * 2
-            _LOG.info(f"increasing the dem window1 from {self.dem_window[0]} to {win1}")
+            _LOG.info(
+                "increasing DEM window1 size",
+                old_window=self.dem_window[0],
+                new_window=win1
+            )
             self.dem_window[0] = win1
 
         self.dem_window[1] = int(self.dem_window[1] / self.rlks)
         if self.dem_window[1] < 8:
             win2 = round(self.dem_window[1] * self.rlks) * 2
-            _LOG.info(f"increasing the dem window2 from {self.dem_window[1]} to {win2}")
+            _LOG.info(
+                "increasing DEM window2 size",
+                old_window=self.dem_window[2],
+                new_window=win2
+            )
             self.dem_window[1] = win2
 
         if self.dem_patch_window / self.rlks < 128.0:
-            _LOG.info(f"adjusting dem patch window from {self.dem_patch_window} to 128")
+            _LOG.info(
+                "increasing DEM patch window",
+                old_patch_window=self.dem_patch_window,
+                new_patch_window=128
+            )
             self.dem_patch_window = 128
 
         self.dem_offset[0] = int(self.dem_offset[0] / self.rlks)
