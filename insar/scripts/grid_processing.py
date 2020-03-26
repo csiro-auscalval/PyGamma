@@ -330,6 +330,7 @@ def process_slc_injestion(
     """
     Method to ingest slc scenes into the database
     """
+    yaml_dir = Path(yaml_dir)
     with open(log_pathname, 'w') as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
@@ -357,9 +358,8 @@ def process_slc_injestion(
                         ## as yaml in a user specified directory (yaml_dir), and
                         ## then compile all the yaml files into a single SQLite database.
                         if (save_yaml is True):
-                            #print("yaml_dir: {}".format(Path(yaml_dir)))
-                            #print("scene: {}".format(scene))
-                            generate_slc_metadata(Path(scene), Path(yaml_dir), True)
+                            outdir = yaml_dir.joinpath(year, month_dir, grid)
+                            generate_slc_metadata(Path(scene), outdir, True)
                         else:
                             with Archive(database_name) as archive:
                                 archive.archive_scene(generate_slc_metadata(Path(scene)))
