@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
 from typing import List, Optional
 import os
 from os.path import join as pjoin
@@ -14,6 +13,7 @@ from io import BytesIO
 import fnmatch
 import shutil
 
+import structlog
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -26,7 +26,8 @@ import py_gamma as gamma_program
 
 from insar.xml_util import getNamespaces
 
-_LOG = logging.getLogger(__name__)
+# _LOG = logging.getLogger(__name__)
+_LOG = structlog.get_logger()
 
 
 class SlcMetadata:
@@ -66,9 +67,9 @@ class SlcMetadata:
         )
         if not re.match(self.pattern, os.path.basename(self.scene)):
             _LOG.info(
-                "{} does not match s1 filename pattern".format(
-                    os.path.basename(self.scene)
-                )
+                "mismatch in Sentinel-1 filename pattern",
+                pathname=self.scene,
+                pattern=self.pattern
             )
 
         self.date_fmt = "%Y%m%d"
@@ -331,9 +332,10 @@ class SlcMetadata:
         while retry_count < retry:
             if retry_count > 0:
                 _LOG.info(
-                    "retry download number {}/{}: {}".format(
-                        retry_count, os.path.basename(target_file, str(retry))
-                    )
+                    "retrying download",
+                    retry_count=retry_count,
+                    max_retries=retry,
+                    pathname=target_file
                 )
 
             if os.path.getsize(_archive_download(outfile)) != source_size:
@@ -342,7 +344,8 @@ class SlcMetadata:
                 break
             if retry_count == retry:
                 _LOG.error(
-                    "download failed for {}".format(os.path.basename(target_file))
+                    "failed to download",
+                    pathname=target_file
                 )
 
 
@@ -494,7 +497,8 @@ class S1DataDownload(SlcMetadata):
             orbit_source_file = self.get_resorb_orbit_file()
             if not orbit_source_file:
                 _LOG.error(
-                    "no orbit files found for {}".format(os.path.basename(self.scene))
+                    "no orbit files found",
+                    pathname=self.scene
                 )
             orbit_destination_file = os.path.join(
                 base_dir, os.path.basename(orbit_source_file)
@@ -857,9 +861,8 @@ class Archive:
                 self.slc_table_name
             ):
                 _LOG.info(
-                    "{} already ingested into the database".format(
-                        os.path.basename(yaml_file)
-                    )
+                    "record already exists in database",
+                    pathname=yaml_file
                 )
                 return
             else:
@@ -874,7 +877,8 @@ class Archive:
                     self.swath_table_name
                 ):
                     _LOG.info(
-                        "{} duplicates is detected".format(os.path.basename(yaml_file))
+                        "duplicates detected",
+                        pathname=yaml_file
                     )
                     self.archive_duplicate(yaml_file)
                     return
