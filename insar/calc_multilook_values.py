@@ -115,14 +115,20 @@ def multilook(
     with working_directory(work_dir.as_posix()):
         cout = []
         cerr = []
+        slc_pathname = str(slc)
+        slc_par_pathname = str(slc_par)
+        mli_pathname = mli
+        mli_par_pathname = mli_par
+        azlks = alks
+        loff = 0
         stat = gamma_program.multi_look(
-            slc.as_posix(),
-            slc_par.as_posix(),
-            mli,
-            mli_par,
+            slc_pathname,
+            slc_par_pathname,
+            mli_pathname,
+            mli_par_pathname,
             rlks,
-            alks,
-            0,
+            azlks,
+            loff,
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
@@ -133,12 +139,13 @@ def multilook(
             msg = "failed to execute gamma_program.multi_look"
             _LOG.error(
                 msg,
-                slc_pathname=str(slc),
-                slc_par_pathname=str(slc_par),
-                mli_pathname=mli,
-                mli_par_pathname=mli_par,
+                slc_pathname=slc_pathname,
+                slc_par_pathname=slc_par_pathname,
+                mli_pathname=mli_pathname,
+                mli_par_pathname=mli_par_pathname,
                 rlks=rlks,
-                alks=alks,
+                azlks=azlks,
+                loff=loff,
                 stat=stat,
                 gamma_error=cerr
             )
