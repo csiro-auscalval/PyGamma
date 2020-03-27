@@ -19,7 +19,7 @@ import yaml
 import pandas as pd
 import numpy as np
 from spatialist import sqlite3, sqlite_setup
-import py_gamma as gamma_program
+import py_gamma as pg
 from insar.xml_util import getNamespaces
 
 # _LOG = logging.getLogger(__name__)
@@ -248,7 +248,7 @@ class SlcMetadata:
                 self.extract_archive_member(xml_path, outdir=tmp_dir)
                 cout = []
                 cerr = []
-                stat = gamma_program.S1_burstloc(
+                stat = pg.S1_burstloc(
                     os.path.join(tmp_dir, os.path.basename(xml_path)),
                     cout=cout,
                     cerr=cerr,
@@ -258,7 +258,7 @@ class SlcMetadata:
                 if stat == 0:
                     return _parse_s1_burstloc(cout)
                 else:
-                    msg = "failed to execute gamma_program.S1_burstloc"
+                    msg = "failed to execute pg.S1_burstloc"
                     _LOG.error(
                         msg,
                         xml_file=xml_path,

@@ -22,7 +22,7 @@ import yaml
 from shapely.geometry import Polygon, box
 from shapely.ops import cascaded_union
 from spatialist import Vector, sqlite3, sqlite_setup
-import py_gamma as gamma_program
+import py_gamma as pg
 
 from insar.xml_util import getNamespaces
 
@@ -239,7 +239,7 @@ class SlcMetadata:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 self.extract_archive_member(xml_file, outdir=tmp_dir)
                 std_out = Path(tmp_dir).joinpath("stdout.log")
-                gamma_program.S1_burstloc(
+                pg.S1_burstloc(
                     os.path.join(tmp_dir, os.path.basename(xml_path)),
                     logf=std_out.as_posix()
                 )

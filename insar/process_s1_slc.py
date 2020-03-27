@@ -11,7 +11,7 @@ import shutil
 import datetime
 import pandas as pd
 
-import py_gamma as gamma_program
+import py_gamma as pg
 from insar.constant import SlcFilenames
 from insar.subprocess_utils import working_directory, run_command
 from insar.logs import COMMON_PROCESSORS
@@ -149,7 +149,7 @@ class SlcProcess:
                 _concat_tabs[_id][swath]["par"] = tab_names.par
                 _concat_tabs[_id][swath]["tops_par"] = tab_names.tops_par
 
-                gamma_program.par_S1_SLC(
+                pg.par_S1_SLC(
                     raw_files[0],
                     raw_files[1],
                     raw_files[2],
@@ -275,7 +275,7 @@ class SlcProcess:
                     self._write_tabs(slc_tab3, _id=slc_prefix, slc_data_dir=os.getcwd())
 
                     # concat sequential ScanSAR burst SLC images
-                    gamma_program.SLC_cat_ScanSAR(
+                    pg.SLC_cat_ScanSAR(
                         slc_tab1.as_posix(), slc_tab2.as_posix(), slc_tab3.as_posix()
                     )
                     # assign slc_tab3 to slc_tab1 to perform series of concatenation
@@ -314,7 +314,7 @@ class SlcProcess:
                 tab_names = self.swath_tab_names(swath, self.slc_prefix)
 
                 with working_directory(tmpdir):
-                    gamma_program.SLC_phase_shift(
+                    pg.SLC_phase_shift(
                         slc_dir.joinpath(tab_names.slc).as_posix(),
                         slc_dir.joinpath(tab_names.par).as_posix(),
                         tab_names.slc,
@@ -340,7 +340,7 @@ class SlcProcess:
         """
 
         slc_tab = self.slc_tab_names(self.slc_prefix)
-        gamma_program.SLC_mosaic_S1_TOPS(
+        pg.SLC_mosaic_S1_TOPS(
             self.slc_tab.as_posix(), slc_tab.slc, slc_tab.par, rlks, alks
         )
 
@@ -348,7 +348,7 @@ class SlcProcess:
         """Extract Sentinel-1 OPOD state vectors and copy into the ISP image parameter file"""
 
         slc_tab = self.slc_tab_names(self.slc_prefix)
-        gamma_program.S1_OPOD_vec(slc_tab.par, self.orbit_file)
+        pg.S1_OPOD_vec(slc_tab.par, self.orbit_file)
 
     def frame_subset(self):
         """Subset frames to form full SLC frame of a vector file.
@@ -415,7 +415,7 @@ class SlcProcess:
             self._write_tabs(sub_slc_out, _id=self.slc_prefix, slc_data_dir=tmpdir)
 
             # run the subset
-            gamma_program.SLC_copy_ScanSAR(
+            pg.SLC_copy_ScanSAR(
                 sub_slc_in.as_posix(), sub_slc_out.as_posix(), burst_tab.as_posix(), 0
             )
 
@@ -450,14 +450,14 @@ class SlcProcess:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             burst_tab = tmpdir.joinpath("burst_tab").as_posix()
-            gamma_program.S1_BURST_tab(
+            pg.S1_BURST_tab(
                 ref_slc_tab.as_posix(), full_slc_tab.as_posix(), burst_tab
             )
 
             # write output in a temp directory
             resize_slc_tab = tmpdir.joinpath("sub_slc_output_tab")
             self._write_tabs(resize_slc_tab, _id=self.slc_prefix, slc_data_dir=tmpdir)
-            gamma_program.SLC_copy_ScanSAR(
+            pg.SLC_copy_ScanSAR(
                 full_slc_tab.as_posix(), resize_slc_tab.as_posix(), burst_tab
             )
 
@@ -471,7 +471,7 @@ class SlcProcess:
         """Make a quick look of .png files for each swath and mosiac slc."""
 
         def _make_png(tab_names):
-            _par_vals = gamma_program.ParFile(tab_names.par)
+            _par_vals = pg.ParFile(tab_names.par)
             range_samples = _par_vals.get_value("range_samples", dtype=int, index=0)
             azimuth_lines = _par_vals.get_value("azimuth_lines", dtype=int, index=0)
 
@@ -482,7 +482,7 @@ class SlcProcess:
                     .with_suffix(".bmp")
                     .as_posix()
                 )
-                gamma_program.rasSLC(
+                pg.rasSLC(
                     tab_names.slc,
                     range_samples,
                     1,
