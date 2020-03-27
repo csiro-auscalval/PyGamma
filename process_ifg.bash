@@ -457,13 +457,9 @@ GEOCODE()
     width_out=`grep width: $eqa_dem_par | awk '{print $2}'`
 
     ## Use bicubic spline interpolation for geocoded unwrapped interferogram
-    #GM geocode_back $ifg_unw $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    GM geocode_back $ifg_unw $width_in $dem_lt_fine temp $width_out - 1 0 - -
     ## apply sea mask to phase data
-    #GM mask_data temp $width_out $ifg_unw_geocode_out $seamask 0
-    # TF: problem with large seamask.ras file ( > 44000 lines ) -> Segmentation fault in mask_data
-    #     consider usage of different format, e.g. tif
-    #     solution for Surat stack (inland): don't apply masking
-    GM geocode_back $ifg_unw $width_in $dem_lt_fine $ifg_unw_geocode_out $width_out - 1 0 - -
+    GM mask_data temp $width_out $ifg_unw_geocode_out $seamask 0
     # make quick-look png image
     GM rasrmg $ifg_unw_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_unw_geocode_bmp
     GM convert $ifg_unw_geocode_bmp -transparent black ${ifg_unw_geocode_bmp/.bmp}.png
@@ -474,11 +470,9 @@ GEOCODE()
     ## Use bicubic spline interpolation for geocoded flattened interferogram
     # convert to float and extract phase
     GM cpx_to_real $ifg_flat $ifg_flat_float $width_in 4
-    #GM geocode_back $ifg_flat_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    GM geocode_back $ifg_flat_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
     ## apply sea mask to phase data
-    #GM mask_data temp $width_out $ifg_flat_geocode_out $seamask 0
-    # TF: no masking sea unw ifg
-    GM geocode_back $ifg_flat_float $width_in $dem_lt_fine $ifg_flat_geocode_out $width_out - 1 0 - -
+    GM mask_data temp $width_out $ifg_flat_geocode_out $seamask 0
     # make quick-look png image
     GM rasrmg $ifg_flat_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_flat_geocode_bmp
     GM convert $ifg_flat_geocode_bmp -transparent black ${ifg_flat_geocode_bmp/.bmp}.png
@@ -489,11 +483,9 @@ GEOCODE()
     ## Use bicubic spline interpolation for geocoded filtered interferogram
     # convert to float and extract phase
     GM cpx_to_real $ifg_filt $ifg_filt_float $width_in 4
-    #GM geocode_back $ifg_filt_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
+    GM geocode_back $ifg_filt_float $width_in $dem_lt_fine temp $width_out - 1 0 - -
     ## apply sea mask to phase data
-    #GM mask_data temp $width_out $ifg_filt_geocode_out $seamask 0
-    # TF: no masking sea unw ifg
-    GM geocode_back $ifg_filt_float $width_in $dem_lt_fine $ifg_filt_geocode_out $width_out - 1 0 - -
+    GM mask_data temp $width_out $ifg_filt_geocode_out $seamask 0
     # make quick-look png image
     GM rasrmg $ifg_filt_geocode_out - $width_out 1 1 0 20 20 1 1 0.35 0 1 $ifg_filt_geocode_bmp
     GM convert $ifg_filt_geocode_bmp -transparent black ${ifg_filt_geocode_bmp/.bmp}.png
