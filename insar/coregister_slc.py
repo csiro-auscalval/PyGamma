@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+"""
+For all py_gamma calls, attempts have been made to best match the Gamma
+parameter names and the variable names defined in this module.
+"""
+
 import os
 from typing import Optional, Union, Dict, List
 import tempfile
@@ -221,12 +226,35 @@ class CoregisterSlc:
         if outfile is None:
             self.slave_lt = self.out_dir.joinpath(f"{self.master_slave_prefix}.lt")
 
-        gamma_program.rdc_trans(
-            self.r_dem_master_mli_par.as_posix(),
-            self.rdc_dem.as_posix(),
-            self.slave_mli_par.as_posix(),
-            self.slave_lt.as_posix(),
+        cout = []
+        cerr = []
+        mli1_par_pathname = str(self.r_dem_master_mli_par)
+        dem_rdc_pathname = str(self.rdc_dem)
+        mli2_par_pathname = str(self.slave_mli_par)
+        lookup_table_pathname = str(self.slave_lt)
+        stat = gamma_program.rdc_trans(
+            mli1_par_pathname,
+            dem_rdc_pathname,
+            mli2_par_pathname,
+            lookup_table_pathname,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute gamma_program.rdc_trans"
+            _LOG.error(
+                msg,
+                mli1_par_pathname=mli1_par_pathname,
+                dem_rdc_pathname=dem_rdc_pathname,
+                mli2_par_pathname=mli2_par_pathname,
+                lookup_table_pathname=lookup_table_pathname,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
     def master_sample_size(self):
         """Returns the start and end rows and cols."""
@@ -290,24 +318,22 @@ class CoregisterSlc:
                 fid.write(_slc + " " + _par + " " + _tops_par + "\n")
 
     @staticmethod
-    def _grep_stdout(std_output: Union[Path, str], match_start_string: str) -> str:
+    def _grep_stdout(std_output: list, match_start_string: str) -> str:
         """
         A helper method to return matched string from std_out.
         
         :param std_output: 
-            A full path to a file containing std output from a shell command.
+            A list containing the std output collected by py_gamma.
         :param mathch_start_string: 
             A case sensitive string to be scanned in stdout. 
 
         :returns: 
             A full string line of the matched string.
         """
-        with open(Path(std_output).as_posix(), 'r') as fid:
-            lines = fid.readlines()
-            for line in lines:
-                print(line)
-                if line.startswith(match_start_string):
-                    return line
+        for line in std_output:
+            print(line)
+            if line.startswith(match_start_string):
+                return line
 
     @staticmethod
     def _grep_offset_parameter(
@@ -354,15 +380,45 @@ class CoregisterSlc:
         # create slave offset
         if self.slave_off is None:
             self.slave_off = self.out_dir.joinpath(f"{self.master_slave_prefix}.off")
-        gamma_program.create_offset(
-            self.r_dem_master_slc_par.as_posix(),
-            self.slc_slave_par.as_posix(),
-            self.slave_off.as_posix(),
-            1,
-            self.rlks,
-            self.alks,
-            0,
+
+        cout = []
+        cerr = []
+        slc1_par_pathname = str(self.r_dem_master_slc_par)
+        slc2_par_pathname = str(self.slc_slave_par)
+        off_par_pathname = str(self.slave_off)
+        algorithm = 1  # intensity cross-correlation
+        rlks = self.rlks
+        azlks = self.alks
+        iflg = 0  # non-interactive mode
+        stat = gamma_program.create_offset(
+            slc1_par_pathname,
+            slc2_par_pathname,
+            off_par_pathname,
+            algorithm,
+            rlks,
+            azlks,
+            iflg,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute gamma_program.create_offset"
+            _LOG.error(
+                msg,
+                slc1_par_pathname=slc1_par_pathname,
+                slc2_par_pathname=slc2_par_pathname,
+                off_par_pathname=off_par_pathname,
+                algorithm=algorithm,
+                rlks=rlks,
+                azlks=azlks,
+                iflg=iflg,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         d_azimuth = 1.0
         iteration = 0
@@ -380,74 +436,221 @@ class CoregisterSlc:
 
                 # re-sample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials for refinement
                 with working_directory(temp_dir):
-                    gamma_program.SLC_interp_lt_ScanSAR(
-                        self.slave_slc_tab.as_posix(),
-                        self.slc_slave_par.as_posix(),
-                        self.master_slc_tab.as_posix(),
-                        self.r_dem_master_slc_par.as_posix(),
-                        self.slave_lt.as_posix(),
-                        self.r_dem_master_mli_par.as_posix(),
-                        self.slave_mli_par.as_posix(),
-                        slave_off_start.as_posix(),
-                        self.r_slave_slc_tab.as_posix(),
-                        self.r_slave_slc.as_posix(),
-                        self.r_slave_slc_par.as_posix(),
+                    cout = []
+                    cerr = []
+                    slc2_tab_pathname = str(self.slave_slc_tab)
+                    slc2_par_pathname = str(self.slc_slave_par)
+                    slc1_tab_pathname = str(self.master_slc_tab)
+                    slc1_par_pathname = str(self.r_dem_master_slc_par)
+                    lookup_table_pathname = str(self.slave_lt)
+                    mli1_par_pathname = str(self.r_dem_master_mli_par)
+                    mli2_par_pathname = str(self.slave_mli_par)
+                    off_par_pathname = str(slave_off_start)
+                    slc2r_tab_pathname = str(self.r_slave_slc_tab)
+                    slc_2r_pathname = str(self.r_slave_slc)
+                    slc2r_par_pathname = str(self.r_slave_slc_par)
+                    stat = gamma_program.SLC_interp_lt_ScanSAR(
+                        slc2_tab_pathname,
+                        slc2_par_pathname,
+                        slc1_tab_pathname,
+                        slc1_par_pathname,
+                        lookup_table_pathname,
+                        mli1_par_pathname,
+                        mli2_par_pathname,
+                        off_par_pathname,
+                        slc2r_tab_pathname,
+                        slc_2r_pathname,
+                        slc2r_par_pathname,
+                        cout=cout,
+                        cerr=cerr,
+                        stdout_flag=False,
+                        stderr_flag=False
                     )
+
+                    if stat != 0:
+                        msg = "failed to execute gamma_program.SLC_interp_lt_ScanSAR"
+                        _LOG.error(
+                            msg,
+                            slc2_tab_pathname=slc2_tab_pathname,
+                            slc2_par_pathname=slc2_par_pathname,
+                            slc1_tab_pathname=slc1_tab_pathname,
+                            slc1_par_pathname=slc1_par_pathname,
+                            lookup_table_pathname=lookup_table_pathname,
+                            mli1_par_pathname=mli1_par_pathname,
+                            mli2_par_pathname=mli2_par_pathname,
+                            off_par_pathname=off_par_pathname,
+                            slc2r_tab_pathname=slc2r_tab_pathname,
+                            slc_2r_pathname=slc_2r_pathname,
+                            slc2r_par_pathname=slc2r_par_pathname,
+                            stat=stat,
+                            gamma_error=cerr
+                        )
+                        raise Exception(msg)
 
                     if slave_doff.exists():
                         os.remove(slave_doff)
 
                     # create and update ISP offset parameter file
-                    gamma_program.create_offset(
-                        self.r_dem_master_slc_par.as_posix(),
-                        self.slc_slave_par.as_posix(),
-                        slave_doff.as_posix(),
-                        1,
-                        self.rlks,
-                        self.alks,
-                        0,
+                    cout = []
+                    cerr = []
+                    slc1_par_pathname = str(self.r_dem_master_slc_par)
+                    slc2_par_pathname = str(self.slc_slave_par)
+                    off_par_pathname = str(slave_doff)
+                    algorithm = 1  # intensity cross-correlation
+                    rlks = self.rlks
+                    azlks = self.alks
+                    iflg = 0  # non-interactive mode
+                    stat = gamma_program.create_offset(
+                        slc1_par_pathname,
+                        slc2_par_pathname,
+                        off_par_pathname,
+                        algorithm,
+                        rlks,
+                        azlks,
+                        iflg,
+                        cout=cout,
+                        cerr=cerr,
+                        stdout_flag=False,
+                        stderr_flag=False
                     )
+
+                    if stat != 0:
+                        msg = "failed to execute gamma_program.create_offset"
+                        _LOG.error(
+                            msg,
+                            slc1_par_pathname=slc1_par_pathname,
+                            slc2_par_pathname=slc2_par_pathname,
+                            off_par_pathname=off_par_pathname,
+                            algorithm=algorithm,
+                            rlks=rlks,
+                            azlks=azlks,
+                            iflg=iflg,
+                            stat=stat,
+                            gamma_error=cerr
+                        )
+                        raise Exception(msg)
 
                     # offset tracking between SLC images using intensity cross-correlation
-                    gamma_program.offset_pwr_tracking(
-                        self.slc_master.as_posix(),
-                        self.r_slave_slc.as_posix(),
-                        self.r_dem_master_slc_par.as_posix(),
-                        self.r_slave_slc_par.as_posix(),
-                        slave_doff.as_posix(),
-                        slave_offs.as_posix(),
-                        slave_snr.as_posix(),
-                        128,
-                        64,
-                        "-",
-                        1,
-                        0.2,
-                        self.range_step,
-                        self.azimuth_step,
-                        self.master_sample.slc_width_start,
-                        self.master_sample.slc_width_end,
-                        self.master_sample.slc_lines_start,
-                        self.master_sample.slc_lines_end,
+                    cout = []
+                    cerr = []
+                    slc1_pathname = str(self.slc_master)
+                    slc2_pathname = str(self.r_slave_slc)
+                    slc1_par_pathname = str(self.r_dem_master_slc_par)
+                    slc2_par_pathname = str(self.r_slave_slc_par)
+                    off_par_pathname = str(slave_doff)
+                    offs_pathname = str(slave_offs)
+                    ccp_pathname = str(slave_snr)
+                    rwin = 128
+                    azwin = 64
+                    offsets = "-"
+                    n_ovr = 1
+                    thres = 0.2
+                    rstep = self.range_step
+                    azstep = self.azimuth_step
+                    rstart = self.master_sample.slc_width_start
+                    rstop = self.master_sample.slc_width_end
+                    azstart = self.master_sample.slc_lines_start
+                    azstop = self.master_sample.slc_lines_end
+                    stat = gamma_program.offset_pwr_tracking(
+                        slc1_pathname,
+                        slc2_pathname,
+                        slc1_par_pathname,
+                        slc2_par_pathname,
+                        off_par_pathname,
+                        offs_pathname,
+                        ccp_pathname,
+                        rwin,
+                        azwin,
+                        offsets,
+                        n_ovr,
+                        thres,
+                        rstep,
+                        azstep,
+                        rstart,
+                        rstop,
+                        azstart,
+                        azstop,
+                        cout=cout,
+                        cerr=cerr,
+                        stdout_flag=False,
+                        stderr_flag=False
                     )
 
+                    if stat != 0:
+                        msg = "failed to execute gamma_program.offset_pwr_tracking"
+                        _LOG.error(
+                            msg,
+                            slc1_pathname=slc1_pathname,
+                            slc2_pathname=slc2_pathname,
+                            slc1_par_pathname=slc1_par_pathname,
+                            slc2_par_pathname=slc2_par_pathname,
+                            off_par_pathname=off_par_pathname,
+                            offs_pathname=offs_pathname,
+                            ccp_pathname=ccp_pathname,
+                            rwin=rwin,
+                            azwin=azwin,
+                            offsets=offsets,
+                            n_ovr=n_ovr,
+                            thres=thres,
+                            rstep=rstep,
+                            azstep=azstep,
+                            rstart=rstart,
+                            rstop=rstop,
+                            azstart=azstart,
+                            azstop=azstop,
+                            stat=stat,
+                            gamma_error=cerr
+                        )
+                        raise Exception(msg)
+
                     # range and azimuth offset polynomial estimation
-                    _std_output = temp_dir.joinpath("offset_fit.log")
-                    gamma_program.offset_fit(
-                        slave_offs.as_posix(),
-                        slave_snr.as_posix(),
-                        slave_doff.as_posix(),
-                        "-",
-                        "-",
-                        0.2,
-                        1,
-                        0,
-                        logf=_std_output.as_posix(),
+                    cout = []
+                    cerr = []
+                    offs_pathname = str(slave_offs)
+                    ccp_pathname = str(slave_snr)
+                    off_par = str(slave_doff)
+                    coffs = "-"
+                    coffsets = "-"
+                    thres = 0.2
+                    npoly = 1
+                    interact_mode = 0  # off
+                    stat = gamma_program.offset_fit(
+                        offs_pathname,
+                        ccp_pathname,
+                        off_par,
+                        coffs,
+                        coffsets,
+                        thres,
+                        npoly,
+                        interact_mode,
+                        cout=cout,
+                        cerr=cerr,
+                        stdout_flag=False,
+                        stderr_flag=False
                     )
+
+                    if stat != 0:
+                        msg = "failed to execute gamma_program.offset_fit"
+                        _LOG.error(
+                            msg,
+                            offs_pathname=offs_pathname,
+                            ccp_pathname=ccp_pathname,
+                            off_par=off_par,
+                            coffs=coffs,
+                            coffsets=coffsets,
+                            thres=thres,
+                            npoly=npoly,
+                            interact_mode=interact_mode,
+                            stat=stat,
+                            gamma_error=cerr
+                        )
+                        raise Exception(msg)
 
                     range_stdev, azimuth_stdev = re.findall(
                         "[-+]?[0-9]*\.?[0-9]+",
                         self._grep_stdout(
-                            _std_output, "final model fit std. dev. (samples) range:"
+                            cout,
+                            "final model fit std. dev. (samples) range:"
                         ),
                     )
 
@@ -485,43 +688,136 @@ class CoregisterSlc:
                     if slave_diff_par.exists():
                         os.remove(slave_diff_par)
 
-                    # create diff parameter file for geocoding
-                    gamma_program.create_diff_par(
-                        self.r_dem_master_mli_par.as_posix(),
-                        self.r_dem_master_mli_par.as_posix(),
-                        slave_diff_par.as_posix(),
-                        1,
-                        0,
+                    # create template diff parameter file for geocoding
+                    cout = []
+                    cerr = []
+                    par1_pathname = str(self.r_dem_master_mli_par)
+                    par2_pathname = str(self.r_dem_master_mli_par)
+                    diff_par_pathname = str(slave_diff_par)
+                    par_type = 1  # SLC/MLI_par ISP SLC/MLI parameters
+                    iflg = 0  # non-interactive mode
+                    stat = gamma_program.create_diff_par(
+                        par1_pathname,
+                        par2_pathname,
+                        diff_par_pathname,
+                        par_type,
+                        iflg,
+                        cout=cout,
+                        cerr=cerr,
+                        stdout_flag=False,
+                        stderr_flag=False
                     )
+
+                    if stat != 0:
+                        msg = "failed to execute gamma_program.create_diff_par"
+                        _LOG.error(
+                            msg,
+                            par1_pathname=par1_pathname,
+                            par2_pathname=par2_pathname,
+                            diff_par_pathname=diff_par_pathname,
+                            par_type=par_type,
+                            iflg=iflg,
+                            stat=stat,
+                            gamma_error=cerr
+                        )
+                        raise Exception(msg)
 
                     # update range_offset_polynomial in diff param file
-                    gamma_program.set_value(
+                    cout = []
+                    cerr = []
+                    search_keyword = "range_offset_polynomial"
+                    new_value = f"{d_range_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
+                    stat = gamma_program.set_value(
                         slave_diff_par.as_posix(),
                         slave_diff_par.as_posix(),
-                        "range_offset_polynomial",
-                        f"{d_range_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00",
+                        search_keyword,
+                        new_value,
+                        cout=cout,
+                        cerr=cerr,
+                        stdout_flag=False,
+                        stderr_flag=False
                     )
 
+                    if stat != 0:
+                        msg = "failed to execute gamma_program.set_value"
+                        _LOG.error(
+                            msg,
+                            par_in_pathname=str(slave_diff_par),
+                            par_out_pathname=str(slave_diff_par),
+                            search_keyword=search_keyword,
+                            new_value=new_value,
+                            stat=stat,
+                            gamma_error=cerr
+                        )
+                        raise Exception
+
                     # update azimuth_offset_polynomial in diff param file
-                    gamma_program.set_value(
+                    cout = []
+                    cerr = []
+                    search_keyword = "azimuth_offset_polynomial"
+                    new_value = f"{d_azimuth_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
+                    stat = gamma_program.set_value(
                         slave_diff_par.as_posix(),
                         slave_diff_par.as_posix(),
-                        "azimuth_offset_polynomial",
-                        f"{d_azimuth_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00",
+                        search_keyword,
+                        new_value,
+                        cout=cout,
+                        cerr=cerr,
+                        stdout_flag=False,
+                        stderr_flag=False
                     )
+
+                    if stat != 0:
+                        msg = "failed to execute gamma_program.set_value"
+                        _LOG.error(
+                            msg,
+                            par_in_pathname=str(slave_diff_par),
+                            par_out_pathname=str(slave_diff_par),
+                            search_keyword=search_keyword,
+                            new_value=new_value,
+                            stat=stat,
+                            gamma_error=cerr
+                        )
+                        raise Exception
 
                     # update look-up table
                     _slave_lt = temp_dir.joinpath(f"{self.slave_lt.name}.{iteration}")
                     shutil.copy(self.slave_lt, _slave_lt)
 
                     # geocoding look-up table refinement using diff par offset polynomial
-                    gamma_program.gc_map_fine(
-                        _slave_lt.as_posix(),
-                        self.master_sample.mli_width_end,
-                        slave_diff_par.as_posix(),
-                        self.slave_lt.as_posix(),
-                        1,
+                    cout = []
+                    cerr = []
+                    gc_in = str(_slave_lt)
+                    width = self.master_sample.mli_width_end
+                    diff_par = str(slave_diff_par)
+                    gc_out = str(self.slave_lt)
+                    ref_flg = 1
+                    stat = gamma_program.gc_map_fine(
+                        gc_in,
+                        width,
+                        diff_par,
+                        gc_out,
+                        ref_flg,
+                        cout=cout,
+                        cerr=cerr,
+                        stdout_flag=False,
+                        stderr_flag=False
                     )
+                    if stat != 0:
+                        msg = "failed to execute gamma_program.gc_map_fine"
+                        _LOG.error(
+                            msg,
+                            gc_in=gc_in,
+                            width=width,
+                            diff_par=diff_par,
+                            gc_out=gc_out,
+                            ref_flg=ref_flg,
+                            stat=stat,
+                            gamma_error=cerr
+                        )
+                        # TODO; do we raise and kill the program or iterate?
+                        # raise Exception(msg)
+
                     iteration += 1
 
             # TODO this needs to be removed once fine co-registration step is implemented
@@ -531,32 +827,96 @@ class CoregisterSlc:
         """Resample full data set"""
 
         # re-sample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials
-        gamma_program.SLC_interp_lt_ScanSAR(
-            self.slave_slc_tab.as_posix(),
-            self.slc_slave_par.as_posix(),
-            self.master_slc_tab.as_posix(),
-            self.r_dem_master_slc_par.as_posix(),
-            self.slave_lt.as_posix(),
-            self.r_dem_master_mli_par.as_posix(),
-            self.slave_mli_par.as_posix(),
-            self.slave_off.as_posix(),
-            self.r_slave_slc_tab.as_posix(),
-            self.r_slave_slc.as_posix(),
-            self.r_slave_slc_par.as_posix(),
+        cout = []
+        cerr = []
+        slc2_tab = str(self.slave_slc_tab)
+        slc2_par = str(self.slc_slave_par)
+        slc1_tab = str(self.master_slc_tab)
+        slc1_par = str(self.r_dem_master_slc_par)
+        lookup_table_pathname = str(self.slave_lt)
+        mli1_par = str(self.r_dem_master_mli_par)
+        mli2_par = str(self.slave_mli_par)
+        off_par = str(self.slave_off)
+        slc2r_tab = str(self.r_slave_slc_tab)
+        slc_2r = str(self.r_slave_slc)
+        slc2r_par = str(self.r_slave_slc_par)
+        stat = gamma_program.SLC_interp_lt_ScanSAR(
+            slc2_tab,
+            slc2_par,
+            slc1_tab,
+            slc1_par,
+            lookup_table_pathname,
+            mli1_par,
+            mli2_par,
+            off_par,
+            slc2r_tab,
+            slc_2r,
+            slc2r_par,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute gamma_program.SLC_interp_lt_ScanSAR"
+            _LOG.info(
+                msg,
+                slc2_tab=slc2_tab,
+                slc2_par=slc2_par,
+                slc1_tab=slc1_tab,
+                slc1_par=slc1_par,
+                lookup_table_pathname=lookup_table_pathname,
+                mli1_par=mli1_par,
+                mli2_par=mli2_par,
+                off_par=off_par,
+                slc2r_tab=slc2r_tab,
+                slc_2r=slc_2r,
+                slc2r_par=slc2r_par,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
     def multi_look(self):
         """Multi-look co-registered slaves."""
         self.r_slave_mli = self.out_dir.joinpath(f"r{self.slave_mli.name}")
         self.r_slave_mli_par = self.r_slave_mli.with_suffix(".mli.par")
-        gamma_program.multi_look(
-            self.r_slave_slc.as_posix(),
-            self.r_slave_slc_par.as_posix(),
-            self.r_slave_mli.as_posix(),
-            self.r_slave_mli_par.as_posix(),
-            self.rlks,
-            self.alks,
+        cout = []
+        cerr = []
+        slc_pathname = str(self.r_slave_slc)
+        slc_par_pathname = str(self.r_slave_slc_par)
+        mli_pathname = str(self.r_slave_mli)
+        mli_par_pathname = str(self.r_slave_mli_par)
+        rlks = self.rlks
+        alks = self.alks
+        stat = gamma_program.multi_look(
+            slc_pathname,
+            slc_par_pathname,
+            mli_pathname,
+            mli_par_pathname,
+            rlks,
+            alks,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute gamma_program.multi_look"
+            _LOG.error(
+                msg,
+                slc_pathname=slc_pathname,
+                slc_par_pathname=slc_par_pathname,
+                mli_pathname=mli_pathname,
+                mli_par_pathname=mli_par_pathname,
+                rlks=rlks,
+                alks=alks,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
     def generate_normalised_backscatter(self):
         """
@@ -573,57 +933,174 @@ class CoregisterSlc:
             temp_dir = Path(temp_dir)
             temp_output = temp_dir.joinpath("temp_output")
             with working_directory(temp_dir):
-                gamma_program.float_math(
-                    self.r_slave_mli.as_posix(),
-                    self.ellip_pix_sigma0.as_posix(),
-                    temp_output.as_posix(),
-                    self.master_sample.mli_width_end,
-                    2,
+                cout = []
+                cerr = []
+                d1_pathname = str(self.r_slave_mli)
+                d2_pathname = str(self.ellip_pix_sigma0)
+                d_out_pathname = str(temp_output)
+                width = self.master_sample.mli_width_end
+                mode = 2  # multiplication
+                stat = gamma_program.float_math(
+                    d1_pathname,
+                    d2_pathname,
+                    d_out_pathname,
+                    width,
+                    mode,
+                    cout=cout,
+                    cerr=cerr,
+                    stdout_flag=False,
+                    stderr_flag=False
                 )
 
-            gamma_program.float_math(
-                temp_output.as_posix(),
-                self.dem_pix_gamma0.as_posix(),
-                slave_gamma0.as_posix(),
-                self.master_sample.mli_width_end,
-                3,
+                if stat != 0:
+                    msg = "failed to execute gamma_program.float_math"
+                    _LOG.error(
+                        msg,
+                        d1_pathname=d1_pathname,
+                        d2_pathname=d2_pathname,
+                        d_out_pathname=d_out_pathname,
+                        width=width,
+                        mode=mode,
+                        stat=stat,
+                        gamma_error=cerr
+                    )
+                    raise Exception(msg)
+
+            cout = []
+            cerr = []
+            d1_pathname = str(temp_output)
+            d2_pathname = str(self.dem_pix_gamma0)
+            d_out_pathname = str(slave_gamma0)
+            width = self.master_sample.mli_width_end
+            mode = 3  # division
+            stat = gamma_program.float_math(
+                d1_pathname,
+                d2_pathname,
+                d2_pathname,
+                width,
+                mode,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute gamma_program.float_math"
+                _LOG.error(
+                    msg,
+                    d1_pathname=d1_pathname,
+                    d2_pathname=d2_pathname,
+                    d_out_pathname=d_out_pathname,
+                    width=width,
+                    mode=mode,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
             # back geocode gamma0 backscatter product to map geometry using B-spline interpolation on sqrt data
             eqa_dem_par_vals = DemParFileParser(self.eqa_dem_par)
             dem_width = eqa_dem_par_vals.dem_par_params.width
-            gamma_program.geocode_back(
-                slave_gamma0.as_posix(),
-                self.master_sample.mli_width_end,
-                self.dem_lt_fine.as_posix(),
-                slave_gamma0_eqa.as_posix(),
-                dem_width,
-                "-",
-                5,
-                0,
-                "-",
-                "-",
-                5,
+            cout = []
+            cerr = []
+            data_in_pathname = str(slave_gamma0)
+            width_in = self.master_sample.mli_width_end
+            lookup_table_pathname = str(self.dem_lt_fine)
+            data_out_pathname = str(slave_gamma0_eqa)
+            width_out = dem_width
+            nlines_out = "-"
+            interp_mode = 5  # B-spline interpolation
+            dtype = 0  # float
+            lr_in = "-"
+            lr_out = "-"
+            order = 5  # B-spline degree
+            stat = gamma_program.geocode_back(
+                data_in_pathname,
+                width_in,
+                lookup_table_pathname,
+                data_out_pathname,
+                width_out,
+                nlines_out,
+                interp_mode,
+                dtype,
+                lr_in,
+                lr_out,
+                order,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute gamma_program.geocode_back"
+                _LOG.error(
+                    msg,
+                    data_in_pathname=data_in_pathname,
+                    width_in=width_in,
+                    lookup_table_pathname=lookup_table_pathname,
+                    data_out_pathname=data_out_pathname,
+                    width_out=width_out,
+                    interp_mode=interp_mode,
+                    dtype=dtype,
+                    order=order,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
             # make quick-look png image
             temp_bmp = temp_dir.joinpath(f"{slave_gamma0_eqa.name}.bmp")
             slave_png = self.out_dir.joinpath(temp_bmp.with_suffix(".png").name)
 
             with working_directory(temp_dir):
-                gamma_program.raspwr(
-                    slave_gamma0_eqa.as_posix(),
-                    dem_width,
-                    1,
-                    0,
-                    20,
-                    20,
-                    "-",
-                    "-",
-                    "-",
-                    temp_bmp.as_posix(),
+                cout = []
+                cerr = []
+                pwr_pathname = str(slave_gamma0_eqa)
+                width = dem_width
+                start = 1
+                nlines = 0
+                pixavr = 20
+                pixavaz = 20
+                scale = "-"
+                exp = "-"
+                lr = "-"
+                rasf_pathname = str(temp_bmp)
+                stat = gamma_program.raspwr(
+                    pwr_pathname,
+                    width,
+                    start,
+                    nlines,
+                    pixavr,
+                    pixavaz,
+                    scale,
+                    exp,
+                    lr,
+                    rasf_pathname,
+                    cout=cout,
+                    cerr=cerr,
+                    stdout_flag=False,
+                    stderr_flag=False
                 )
 
+                if stat != 0:
+                    msg = "failed to execute gamma_program.raspwr"
+                    _LOG.error(
+                        msg,
+                        pwr_pathname=pwr_pathname,
+                        width=width,
+                        start=start,
+                        nlines=nlines,
+                        pixavr=pixavr,
+                        pixavaz=pixavaz,
+                        rasf_pathname=rasf_pathname,
+                        stat=stat,
+                        gamma_error=cerr
+                    )
+                    raise Exception(msg)
+
+                # image magick conversion routine
                 command = [
                     "convert",
                     temp_bmp.as_posix(),
@@ -633,41 +1110,152 @@ class CoregisterSlc:
                 ]
                 run_command(command, os.getcwd())
 
-                gamma_program.data2geotiff(
-                    self.eqa_dem_par.as_posix(),
-                    slave_gamma0_eqa.as_posix(),
-                    2,
-                    slave_gamma0_eqa.with_suffix(".gamma0.tif").as_posix(),
-                    0.0,
+                # convert gamma0 Gamma file to GeoTIFF
+                cout = []
+                cerr = []
+                dem_par_pathname = str(self.eqa_dem_par)
+                data_pathname = str(slave_gamma0_eqa)
+                dtype = 2  # float
+                geotiff_pathname = str(slave_gamma0_eqa.with_suffix(".gamma0.tif"))
+                nodata = 0.0
+                stat = gamma_program.data2geotiff(
+                    dem_par_pathname,
+                    data_pathname,
+                    dtype,
+                    geotiff_pathname,
+                    nodata,
+                    cout=cout,
+                    cerr=cerr,
+                    stdout_flag=False,
+                    stderr_flag=False
                 )
 
-                gamma_program.kml_map(
-                    slave_png.as_posix(),
-                    self.eqa_dem_par.as_posix(),
-                    slave_png.with_suffix(".kml").as_posix(),
+                if stat != 0:
+                    msg = "failed to execute gamma_program.data2geotiff"
+                    _LOG.error(
+                        msg,
+                        dem_par_pathname=dem_par_pathname,
+                        data_pathname=data_pathname,
+                        dtype=dtype,
+                        geotiff_pathname=geotiff_pathname,
+                        nodata=nodata,
+                        stat=stat,
+                        gamma_error=cerr
+                    )
+                    raise Exception(msg)
+
+                # create KML map of PNG file
+                cout = []
+                cerr = []
+                image_pathname = str(slave_png)
+                dem_par_pathname = str(self.eqa_dem_par)
+                kml_pathname = str(slave_png.with_suffix(".kml"))
+                stat = gamma_program.kml_map(
+                    image_pathname,
+                    dem_par_pathname,
+                    kml_pathname,
+                    cout=cout,
+                    cerr=cerr,
+                    stdout_flag=False,
+                    stderr_flag=False
                 )
+
+                if stat != 0:
+                    msg = "failed to execute gamma_program.kml_map"
+                    _LOG.error(
+                        msg,
+                        image_pathname=image_pathname,
+                        dem_par_pathname=dem_par_pathname,
+                        kml_pathname=kml_pathname,
+                        stat=stat,
+                        gamma_error=cerr
+                    )
+                    raise Exception(msg)
 
                 # geocode sigma0 mli
                 slave_sigma0_eqa = slave_gamma0_eqa.with_suffix(".sigma0")
-                gamma_program.geocode_back(
-                    self.r_slave_mli.as_posix(),
-                    self.master_sample.mli_width_end,
-                    self.dem_lt_fine.as_posix(),
-                    slave_sigma0_eqa.as_posix(),
-                    dem_width,
-                    "-",
-                    0,
-                    0,
-                    "-",
-                    "-",
+                cout = []
+                cerr = []
+                data_in_pathname = str(self.r_slave_mli)
+                width_in = self.master_sample.mli_width_end
+                lookup_table_pathname = str(self.dem_lt_fine)
+                data_out_pathname = str(slave_sigma0_eqa)
+                width_out = dem_width
+                nlines_out = "-"
+                interp_mode = 0  # nearest-neighbor
+                dtype = 0  # float
+                lr_in = "-"
+                lr_out = "-"
+                stat = gamma_program.geocode_back(
+                    data_in_pathname,
+                    width_in,
+                    lookup_table_pathname,
+                    data_out_pathname,
+                    width_out,
+                    nlines_out,
+                    interp_mode,
+                    dtype,
+                    lr_in,
+                    lr_out,
+                    cout=cout,
+                    cerr=cerr,
+                    stdout_flag=False,
+                    stderr_flag=False
                 )
-                gamma_program.data2geotiff(
-                    self.eqa_dem_par.as_posix(),
-                    slave_gamma0_eqa.as_posix(),
-                    2,
-                    slave_sigma0_eqa.with_suffix(".sigma0.tif").as_posix(),
-                    0.0,
+
+                if stat != 0:
+                    msg = "failed to execute gamma_program.geocode_back"
+                    _LOG.error(
+                        msg,
+                        data_in_pathname=data_in_pathname,
+                        width_in=width_in,
+                        lookup_table_pathname=lookup_table_pathname,
+                        data_out_pathname=data_out_pathname,
+                        width_out=width_out,
+                        nlines_out=nlines_out,
+                        interp_mode=interp_mode,
+                        dtype=dtype,
+                        order=order,
+                        lr_in=lr_in,
+                        lr_out=lr_out,
+                        stat=stat,
+                        gamma_error=cerr
+                    )
+                    raise Exception(msg)
+
+                # convert sigma0 Gamma file to GeoTIFF
+                cout = []
+                cerr = []
+                dem_par_pathname = str(self.eqa_dem_par)
+                data_pathname = str(slave_gamma0_eqa)
+                dtype = 2  # float
+                geotiff_pathname = str(slave_sigma0_eqa.with_suffix(".sigma0.tif"))
+                nodata = 0.0
+                stat = gamma_program.data2geotiff(
+                    dem_par_pathname,
+                    data_pathname,
+                    dtype,
+                    geotiff_pathname,
+                    nodata,
+                    cout=cout,
+                    cerr=cerr,
+                    stdout_flag=False,
+                    stderr_flag=False
                 )
+
+                if stat != 0:
+                    msg = "failed to execute gamma_program.data2geotiff"
+                    _LOG.error(
+                        msg,
+                        dem_par_pathname=dem_par_pathname,
+                        data_pathname=data_pathname,
+                        dtype=dtype,
+                        geotiff_pathname=geotiff_pathname,
+                        nodata=nodata,
+                        stat=stat,
+                        gamma_error=cerr
+                    )
+                    raise Exception(msg)
 
     def main(self):
         """Main method to execute methods sequence of methods need for master-slave coregistration."""
