@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 import structlog
 
-import py_gamma as gamma_program
+import py_gamma as pg
 from insar.subprocess_utils import working_directory, run_command, environ
 from insar.logs import COMMON_PROCESSORS
 
@@ -26,7 +26,7 @@ class SlcParFileParser:
             A full path to a SLC parameter file.
         """
         self.par_file = Path(par_file).as_posix()
-        self.par_vals = gamma_program.ParFile(self.par_file)
+        self.par_vals = pg.ParFile(self.par_file)
     
     @property
     def slc_par_params(self):
@@ -49,7 +49,7 @@ class DemParFileParser:
             A full path to a DEM parameter file.
         """
         self.par_file = Path(par_file).as_posix()
-        self.dem_par_vals = gamma_program.ParFile(self.par_file)
+        self.dem_par_vals = pg.ParFile(self.par_file)
     
     @property
     def dem_par_params(self):
@@ -346,7 +346,7 @@ class CoregisterDem:
         # copy SLC image file to new file r_dem_master_slc.
         # TODO this step seems redundant if we can directly use SLC image file to
         # multi-look. (Confirm with InSAR geodesy Team)
-        gamma_program.SLC_copy(
+        pg.SLC_copy(
             self.dem_master_slc.as_posix(),
             self.dem_master_slc_par.as_posix(),
             self.r_dem_master_slc.as_posix(),
@@ -356,7 +356,7 @@ class CoregisterDem:
         )
 
         # multi-look SLC image file
-        gamma_program.multi_look(
+        pg.multi_look(
             self.r_dem_master_slc.as_posix(),
             self.r_dem_master_slc_par.as_posix(),
             self.r_dem_master_mli.as_posix(),
@@ -371,7 +371,7 @@ class CoregisterDem:
         # This is redundant in production phase (Consult InSAR team and remove)
         if raster_out:
             params = SlcParFileParser(self.r_dem_master_mli_par)
-            gamma_program.raspwr(
+            pg.raspwr(
                 self.r_dem_master_mli.as_posix(),
                 params.slc_par_params.range_samples,
                 1,
@@ -409,7 +409,7 @@ class CoregisterDem:
         """
 
         # generate initial geocoding look-up-table and simulated SAR image
-        gamma_program.gc_map1(
+        pg.gc_map1(
             self.r_dem_master_mli_par.as_posix(),
             "-",
             self.dem_par.as_posix(),
@@ -431,7 +431,7 @@ class CoregisterDem:
         )
 
         # generate initial gamma0 pixel normalisation area image in radar geometry
-        gamma_program.pixel_area(
+        pg.pixel_area(
             self.r_dem_master_mli_par.as_posix(),
             self.eqa_dem_par.as_posix(),
             self.eqa_dem.as_posix(),
@@ -455,7 +455,7 @@ class CoregisterDem:
 
         if use_external_image:
             # transform simulated SAR intensity image to radar geometry
-            gamma_program.map_trans(
+            pg.map_trans(
                 self.dem_par.as_posix(),
                 self.ext_image.as_posix(),
                 self.eqa_dem_par.as_posix(),
@@ -468,7 +468,7 @@ class CoregisterDem:
             )
 
             # transform external image to radar geometry
-            gamma_program.geocode(
+            pg.geocode(
                 self.dem_lt_rought.as_posix(),
                 self.ext_image_flt.as_posix(),
                 self.dem_width,
@@ -529,7 +529,7 @@ class CoregisterDem:
             self._set_attrs()
 
         # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than simulated SAR image in offset calculation
-        gamma_program.init_offsetm(
+        pg.init_offsetm(
             self.dem_pix_gam.as_posix(),
             self.r_dem_master_mli.as_posix(),
             self.dem_diff.as_posix(),
@@ -544,7 +544,7 @@ class CoregisterDem:
             1,
         )
 
-        gamma_program.offset_pwrm(
+        pg.offset_pwrm(
             self.dem_pix_gam.as_posix(),
             self.r_dem_master_mli.as_posix(),
             self.dem_diff.as_posix(),
@@ -559,7 +559,7 @@ class CoregisterDem:
             "-",
         )
 
-        gamma_program.offset_fitm(
+        pg.offset_fitm(
             self.dem_offs.as_posix(),
             self.dem_ccp.as_posix(),
             self.dem_diff.as_posix(),
@@ -574,7 +574,7 @@ class CoregisterDem:
         if use_external_image:
             ref_flg = 0
 
-        gamma_program.gc_map_fine(
+        pg.gc_map_fine(
             self.dem_lt_rough.as_posix(),
             self.dem_width,
             self.dem_diff.as_posix(),
@@ -585,7 +585,7 @@ class CoregisterDem:
         # generate refined gamma0 pixel normalization area image in radar geometry
         with tempfile.TemporaryDirectory() as temp_dir:
             pix = Path(temp_dir).joinpath("pix")
-            gamma_program.pixel_area(
+            pg.pixel_area(
                 self.r_dem_master_mli_par.as_posix(),
                 self.eqa_dem_par.as_posix(),
                 self.eqa_dem.as_posix(),
@@ -597,7 +597,7 @@ class CoregisterDem:
             )
 
             # interpolate holes
-            gamma_program.interp_ad(
+            pg.interp_ad(
                 pix.as_posix(),
                 self.dem_pix_gam.as_posix(),
                 self.r_dem_master_mli_width,
@@ -611,7 +611,7 @@ class CoregisterDem:
 
             # obtain ellipsoid-based ground range sigma0 pixel reference area
             sigma0 = Path(temp_dir).joinpath("sigma0")
-            gamma_program.radcal_MLI(
+            pg.radcal_MLI(
                 self.r_dem_master_mli.as_posix(),
                 self.r_dem_master_mli_par.as_posix(),
                 "-",
@@ -628,14 +628,14 @@ class CoregisterDem:
             # Generate Gamma0 backscatter image for master scene according to equation
             # in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
             temp1 = Path(temp_dir).joinpath("temp1")
-            gamma_program.float_math(
+            pg.float_math(
                 self.r_dem_master_mli.as_posix(),
                 self.ellip_pix_sigma0.as_posix(),
                 temp1.as_posix(),
                 self.r_dem_master_mli_width,
                 2,
             )
-            gamma_program.float_math(
+            pg.float_math(
                 temp1.as_posix(),
                 self.dem_pix_gam.as_posix(),
                 self.dem_master_gamma0.as_posix(),
@@ -644,7 +644,7 @@ class CoregisterDem:
             )
 
             # create raster for comparison with master mli raster
-            gamma_program.raspwr(
+            pg.raspwr(
                 self.dem_master_gamma0.as_posix(),
                 self.r_dem_master_mli_width,
                 1,
@@ -659,7 +659,7 @@ class CoregisterDem:
 
             # make sea-mask based on DEM zero values
             temp = Path(temp_dir).joinpath("temp")
-            gamma_program.replace_values(
+            pg.replace_values(
                 self.eqa_dem.as_posix(),
                 0.0001,
                 0,
@@ -670,7 +670,7 @@ class CoregisterDem:
                 1,
             )
 
-            gamma_program.rashgt(
+            pg.rashgt(
                 temp.as_posix(),
                 "-",
                 self.dem_width,
@@ -706,7 +706,7 @@ class CoregisterDem:
             self._set_attrs()
 
         # geocode map geometry DEM to radar geometry
-        gamma_program.geocode(
+        pg.geocode(
             self.dem_lt_fine.as_posix(),
             self.eqa_dem.as_posix(),
             self.dem_width,
@@ -723,7 +723,7 @@ class CoregisterDem:
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             rdc_dem_bmp = Path(temp_dir).joinpath("rdc_dem.bmp")
-            gamma_program.rashgt(
+            pg.rashgt(
                 self.rdc_dem.as_posix(),
                 self.r_dem_master_mli.as_posix(),
                 self.r_dem_master_mli_width,
@@ -749,7 +749,7 @@ class CoregisterDem:
             run_command(command, os.getcwd())
 
         # Geocode simulated SAR intensity image to radar geometry
-        gamma_program.geocode(
+        pg.geocode(
             self.dem_lt_fine.as_posix(),
             self.dem_eqa_sim_sar.as_posix(),
             self.dem_width,
@@ -766,7 +766,7 @@ class CoregisterDem:
         )
 
         # Geocode local incidence angle image to radar geometry
-        gamma_program.geocode(
+        pg.geocode(
             self.dem_lt_fine.as_posix(),
             self.dem_loc_inc.as_posix(),
             self.dem_width,
@@ -784,7 +784,7 @@ class CoregisterDem:
 
         # Geocode external image to radar geometry
         if use_external_image:
-            gamma_program.geocode(
+            pg.geocode(
                 self.dem_lt_fine.as_posix(),
                 self.ext_image_flt.as_posix(),
                 self.dem_width,
@@ -801,7 +801,7 @@ class CoregisterDem:
             )
 
         # Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
-        gamma_program.geocode_back(
+        pg.geocode_back(
             self.dem_master_gamma0.as_posix(),
             self.r_dem_master_mli_width,
             self.dem_lt_fine.as_posix(),
@@ -816,7 +816,7 @@ class CoregisterDem:
         )
 
         # make quick-look png image
-        gamma_program.raspwr(
+        pg.raspwr(
             self.dem_master_gamma0_eqa.as_posix(),
             self.dem_width,
             1,
@@ -839,7 +839,7 @@ class CoregisterDem:
         run_command(command, os.getcwd())
 
         # geotiff gamma0 file
-        gamma_program.data2geotiff(
+        pg.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.dem_master_gamma0_eqa.as_posix(),
             2,
@@ -850,7 +850,7 @@ class CoregisterDem:
         # geocode and geotif sigma0 mli
         shutil.copyfile(self.r_dem_master_mli, self.dem_master_sigma0)
 
-        gamma_program.geocode_back(
+        pg.geocode_back(
             self.dem_master_sigma0.as_posix(),
             self.r_dem_master_mli_width,
             self.dem_lt_fine.as_posix(),
@@ -863,7 +863,7 @@ class CoregisterDem:
             "-",
         )
 
-        gamma_program.data2geotiff(
+        pg.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.dem_master_sigma0_eqa.as_posix(),
             2,
@@ -872,7 +872,7 @@ class CoregisterDem:
         )
 
         # geotiff DEM
-        gamma_program.data2geotiff(
+        pg.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.eqa_dem.as_posix(),
             2,
@@ -880,7 +880,7 @@ class CoregisterDem:
             0.0,
         )
         # create kml
-        gamma_program.kml_map(
+        pg.kml_map(
             self.dem_master_gamma0_eqa_bmp.with_suffix(".png").as_posix(),
             self.eqa_dem_par.as_posix(),
             self.dem_master_gamma0_eqa_bmp.with_suffix(".kml").as_posix(),
@@ -904,7 +904,7 @@ class CoregisterDem:
         """Create look vector files."""
 
         # create angles look vector image
-        gamma_program.look_vector(
+        pg.look_vector(
             self.r_dem_master_slc_par.as_posix(),
             "-",
             self.eqa_dem_par.as_posix(),
@@ -914,7 +914,7 @@ class CoregisterDem:
         )
 
         # convert look vector files to geotiff file
-        gamma_program.data2geotiff(
+        pg.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.dem_lv_theta.as_posix(),
             2,
@@ -922,7 +922,7 @@ class CoregisterDem:
             0.0,
         )
 
-        gamma_program.data2geotiff(
+        pg.data2geotiff(
             self.eqa_dem_par.as_posix(),
             self.dem_lv_phi.as_posix(),
             2,

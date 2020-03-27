@@ -11,7 +11,7 @@ from shapely.ops import cascaded_union
 import rasterio
 from spatialist import Vector
 
-import py_gamma as gamma_program
+import py_gamma as pg
 
 from insar.subprocess_utils import run_command
 
@@ -85,7 +85,7 @@ def create_gamma_dem(
                 dst.write(data, 1)
 
             # dem_import function is a call to GAMMA software which creates a gamma compatible DEM
-            gamma_program.dem_import(
+            pg.dem_import(
                 outfile_new,
                 Path(gamma_dem_dir).joinpath(f"{track_frame}.dem").as_posix(),
                 Path(gamma_dem_dir).joinpath(f"{track_frame}.dem.par").as_posix(),

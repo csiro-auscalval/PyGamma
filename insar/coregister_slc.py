@@ -14,7 +14,7 @@ import re
 import shutil
 
 import structlog
-import py_gamma as gamma_program
+import py_gamma as pg
 
 from insar.subprocess_utils import working_directory, run_command
 from insar.logs import COMMON_PROCESSORS
@@ -33,7 +33,7 @@ class SlcParFileParser:
             A full path to a SLC image parameter file
         """
         self.par_file = Path(par_file).as_posix()
-        self.par_vals = gamma_program.ParFile(self.par_file)
+        self.par_vals = pg.ParFile(self.par_file)
 
     @property
     def slc_par_params(self):
@@ -56,7 +56,7 @@ class DemParFileParser:
             A full path to a DEM parameter file.
         """
         self.par_file = Path(par_file).as_posix()
-        self.dem_par_vals = gamma_program.ParFile(self.par_file)
+        self.dem_par_vals = pg.ParFile(self.par_file)
 
     @property
     def dem_par_params(self):
@@ -232,7 +232,7 @@ class CoregisterSlc:
         dem_rdc_pathname = str(self.rdc_dem)
         mli2_par_pathname = str(self.slave_mli_par)
         lookup_table_pathname = str(self.slave_lt)
-        stat = gamma_program.rdc_trans(
+        stat = pg.rdc_trans(
             mli1_par_pathname,
             dem_rdc_pathname,
             mli2_par_pathname,
@@ -244,7 +244,7 @@ class CoregisterSlc:
         )
 
         if stat != 0:
-            msg = "failed to execute gamma_program.rdc_trans"
+            msg = "failed to execute pg.rdc_trans"
             _LOG.error(
                 msg,
                 mli1_par_pathname=mli1_par_pathname,
@@ -390,7 +390,7 @@ class CoregisterSlc:
         rlks = self.rlks
         azlks = self.alks
         iflg = 0  # non-interactive mode
-        stat = gamma_program.create_offset(
+        stat = pg.create_offset(
             slc1_par_pathname,
             slc2_par_pathname,
             off_par_pathname,
@@ -405,7 +405,7 @@ class CoregisterSlc:
         )
 
         if stat != 0:
-            msg = "failed to execute gamma_program.create_offset"
+            msg = "failed to execute pg.create_offset"
             _LOG.error(
                 msg,
                 slc1_par_pathname=slc1_par_pathname,
@@ -449,7 +449,7 @@ class CoregisterSlc:
                     slc2r_tab_pathname = str(self.r_slave_slc_tab)
                     slc_2r_pathname = str(self.r_slave_slc)
                     slc2r_par_pathname = str(self.r_slave_slc_par)
-                    stat = gamma_program.SLC_interp_lt_ScanSAR(
+                    stat = pg.SLC_interp_lt_ScanSAR(
                         slc2_tab_pathname,
                         slc2_par_pathname,
                         slc1_tab_pathname,
@@ -468,7 +468,7 @@ class CoregisterSlc:
                     )
 
                     if stat != 0:
-                        msg = "failed to execute gamma_program.SLC_interp_lt_ScanSAR"
+                        msg = "failed to execute pg.SLC_interp_lt_ScanSAR"
                         _LOG.error(
                             msg,
                             slc2_tab_pathname=slc2_tab_pathname,
@@ -500,7 +500,7 @@ class CoregisterSlc:
                     rlks = self.rlks
                     azlks = self.alks
                     iflg = 0  # non-interactive mode
-                    stat = gamma_program.create_offset(
+                    stat = pg.create_offset(
                         slc1_par_pathname,
                         slc2_par_pathname,
                         off_par_pathname,
@@ -515,7 +515,7 @@ class CoregisterSlc:
                     )
 
                     if stat != 0:
-                        msg = "failed to execute gamma_program.create_offset"
+                        msg = "failed to execute pg.create_offset"
                         _LOG.error(
                             msg,
                             slc1_par_pathname=slc1_par_pathname,
@@ -551,7 +551,7 @@ class CoregisterSlc:
                     rstop = self.master_sample.slc_width_end
                     azstart = self.master_sample.slc_lines_start
                     azstop = self.master_sample.slc_lines_end
-                    stat = gamma_program.offset_pwr_tracking(
+                    stat = pg.offset_pwr_tracking(
                         slc1_pathname,
                         slc2_pathname,
                         slc1_par_pathname,
@@ -577,7 +577,7 @@ class CoregisterSlc:
                     )
 
                     if stat != 0:
-                        msg = "failed to execute gamma_program.offset_pwr_tracking"
+                        msg = "failed to execute pg.offset_pwr_tracking"
                         _LOG.error(
                             msg,
                             slc1_pathname=slc1_pathname,
@@ -614,7 +614,7 @@ class CoregisterSlc:
                     thres = 0.2
                     npoly = 1
                     interact_mode = 0  # off
-                    stat = gamma_program.offset_fit(
+                    stat = pg.offset_fit(
                         offs_pathname,
                         ccp_pathname,
                         off_par,
@@ -630,7 +630,7 @@ class CoregisterSlc:
                     )
 
                     if stat != 0:
-                        msg = "failed to execute gamma_program.offset_fit"
+                        msg = "failed to execute pg.offset_fit"
                         _LOG.error(
                             msg,
                             offs_pathname=offs_pathname,
@@ -656,7 +656,7 @@ class CoregisterSlc:
 
                     # look-up table refinement
                     # determine range and azimuth corrections for look-up table (in mli pixels)
-                    doff_vals = gamma_program.ParFile(slave_doff.as_posix())
+                    doff_vals = pg.ParFile(slave_doff.as_posix())
                     d_azimuth = doff_vals.get_value(
                         "azimuth_offset_polynomial", dtype=float, index=0
                     )
@@ -696,7 +696,7 @@ class CoregisterSlc:
                     diff_par_pathname = str(slave_diff_par)
                     par_type = 1  # SLC/MLI_par ISP SLC/MLI parameters
                     iflg = 0  # non-interactive mode
-                    stat = gamma_program.create_diff_par(
+                    stat = pg.create_diff_par(
                         par1_pathname,
                         par2_pathname,
                         diff_par_pathname,
@@ -709,7 +709,7 @@ class CoregisterSlc:
                     )
 
                     if stat != 0:
-                        msg = "failed to execute gamma_program.create_diff_par"
+                        msg = "failed to execute pg.create_diff_par"
                         _LOG.error(
                             msg,
                             par1_pathname=par1_pathname,
@@ -727,7 +727,7 @@ class CoregisterSlc:
                     cerr = []
                     search_keyword = "range_offset_polynomial"
                     new_value = f"{d_range_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
-                    stat = gamma_program.set_value(
+                    stat = pg.set_value(
                         slave_diff_par.as_posix(),
                         slave_diff_par.as_posix(),
                         search_keyword,
@@ -739,7 +739,7 @@ class CoregisterSlc:
                     )
 
                     if stat != 0:
-                        msg = "failed to execute gamma_program.set_value"
+                        msg = "failed to execute pg.set_value"
                         _LOG.error(
                             msg,
                             par_in_pathname=str(slave_diff_par),
@@ -756,7 +756,7 @@ class CoregisterSlc:
                     cerr = []
                     search_keyword = "azimuth_offset_polynomial"
                     new_value = f"{d_azimuth_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
-                    stat = gamma_program.set_value(
+                    stat = pg.set_value(
                         slave_diff_par.as_posix(),
                         slave_diff_par.as_posix(),
                         search_keyword,
@@ -768,7 +768,7 @@ class CoregisterSlc:
                     )
 
                     if stat != 0:
-                        msg = "failed to execute gamma_program.set_value"
+                        msg = "failed to execute pg.set_value"
                         _LOG.error(
                             msg,
                             par_in_pathname=str(slave_diff_par),
@@ -792,7 +792,7 @@ class CoregisterSlc:
                     diff_par = str(slave_diff_par)
                     gc_out = str(self.slave_lt)
                     ref_flg = 1
-                    stat = gamma_program.gc_map_fine(
+                    stat = pg.gc_map_fine(
                         gc_in,
                         width,
                         diff_par,
@@ -804,7 +804,7 @@ class CoregisterSlc:
                         stderr_flag=False
                     )
                     if stat != 0:
-                        msg = "failed to execute gamma_program.gc_map_fine"
+                        msg = "failed to execute pg.gc_map_fine"
                         _LOG.error(
                             msg,
                             gc_in=gc_in,
@@ -840,7 +840,7 @@ class CoregisterSlc:
         slc2r_tab = str(self.r_slave_slc_tab)
         slc_2r = str(self.r_slave_slc)
         slc2r_par = str(self.r_slave_slc_par)
-        stat = gamma_program.SLC_interp_lt_ScanSAR(
+        stat = pg.SLC_interp_lt_ScanSAR(
             slc2_tab,
             slc2_par,
             slc1_tab,
@@ -859,7 +859,7 @@ class CoregisterSlc:
         )
 
         if stat != 0:
-            msg = "failed to execute gamma_program.SLC_interp_lt_ScanSAR"
+            msg = "failed to execute pg.SLC_interp_lt_ScanSAR"
             _LOG.info(
                 msg,
                 slc2_tab=slc2_tab,
@@ -890,7 +890,7 @@ class CoregisterSlc:
         mli_par_pathname = str(self.r_slave_mli_par)
         rlks = self.rlks
         alks = self.alks
-        stat = gamma_program.multi_look(
+        stat = pg.multi_look(
             slc_pathname,
             slc_par_pathname,
             mli_pathname,
@@ -904,7 +904,7 @@ class CoregisterSlc:
         )
 
         if stat != 0:
-            msg = "failed to execute gamma_program.multi_look"
+            msg = "failed to execute pg.multi_look"
             _LOG.error(
                 msg,
                 slc_pathname=slc_pathname,
@@ -940,7 +940,7 @@ class CoregisterSlc:
                 d_out_pathname = str(temp_output)
                 width = self.master_sample.mli_width_end
                 mode = 2  # multiplication
-                stat = gamma_program.float_math(
+                stat = pg.float_math(
                     d1_pathname,
                     d2_pathname,
                     d_out_pathname,
@@ -953,7 +953,7 @@ class CoregisterSlc:
                 )
 
                 if stat != 0:
-                    msg = "failed to execute gamma_program.float_math"
+                    msg = "failed to execute pg.float_math"
                     _LOG.error(
                         msg,
                         d1_pathname=d1_pathname,
@@ -973,7 +973,7 @@ class CoregisterSlc:
             d_out_pathname = str(slave_gamma0)
             width = self.master_sample.mli_width_end
             mode = 3  # division
-            stat = gamma_program.float_math(
+            stat = pg.float_math(
                 d1_pathname,
                 d2_pathname,
                 d2_pathname,
@@ -986,7 +986,7 @@ class CoregisterSlc:
             )
 
             if stat != 0:
-                msg = "failed to execute gamma_program.float_math"
+                msg = "failed to execute pg.float_math"
                 _LOG.error(
                     msg,
                     d1_pathname=d1_pathname,
@@ -1015,7 +1015,7 @@ class CoregisterSlc:
             lr_in = "-"
             lr_out = "-"
             order = 5  # B-spline degree
-            stat = gamma_program.geocode_back(
+            stat = pg.geocode_back(
                 data_in_pathname,
                 width_in,
                 lookup_table_pathname,
@@ -1034,7 +1034,7 @@ class CoregisterSlc:
             )
 
             if stat != 0:
-                msg = "failed to execute gamma_program.geocode_back"
+                msg = "failed to execute pg.geocode_back"
                 _LOG.error(
                     msg,
                     data_in_pathname=data_in_pathname,
@@ -1067,7 +1067,7 @@ class CoregisterSlc:
                 exp = "-"
                 lr = "-"
                 rasf_pathname = str(temp_bmp)
-                stat = gamma_program.raspwr(
+                stat = pg.raspwr(
                     pwr_pathname,
                     width,
                     start,
@@ -1085,7 +1085,7 @@ class CoregisterSlc:
                 )
 
                 if stat != 0:
-                    msg = "failed to execute gamma_program.raspwr"
+                    msg = "failed to execute pg.raspwr"
                     _LOG.error(
                         msg,
                         pwr_pathname=pwr_pathname,
@@ -1118,7 +1118,7 @@ class CoregisterSlc:
                 dtype = 2  # float
                 geotiff_pathname = str(slave_gamma0_eqa.with_suffix(".gamma0.tif"))
                 nodata = 0.0
-                stat = gamma_program.data2geotiff(
+                stat = pg.data2geotiff(
                     dem_par_pathname,
                     data_pathname,
                     dtype,
@@ -1131,7 +1131,7 @@ class CoregisterSlc:
                 )
 
                 if stat != 0:
-                    msg = "failed to execute gamma_program.data2geotiff"
+                    msg = "failed to execute pg.data2geotiff"
                     _LOG.error(
                         msg,
                         dem_par_pathname=dem_par_pathname,
@@ -1150,7 +1150,7 @@ class CoregisterSlc:
                 image_pathname = str(slave_png)
                 dem_par_pathname = str(self.eqa_dem_par)
                 kml_pathname = str(slave_png.with_suffix(".kml"))
-                stat = gamma_program.kml_map(
+                stat = pg.kml_map(
                     image_pathname,
                     dem_par_pathname,
                     kml_pathname,
@@ -1161,7 +1161,7 @@ class CoregisterSlc:
                 )
 
                 if stat != 0:
-                    msg = "failed to execute gamma_program.kml_map"
+                    msg = "failed to execute pg.kml_map"
                     _LOG.error(
                         msg,
                         image_pathname=image_pathname,
@@ -1186,7 +1186,7 @@ class CoregisterSlc:
                 dtype = 0  # float
                 lr_in = "-"
                 lr_out = "-"
-                stat = gamma_program.geocode_back(
+                stat = pg.geocode_back(
                     data_in_pathname,
                     width_in,
                     lookup_table_pathname,
@@ -1204,7 +1204,7 @@ class CoregisterSlc:
                 )
 
                 if stat != 0:
-                    msg = "failed to execute gamma_program.geocode_back"
+                    msg = "failed to execute pg.geocode_back"
                     _LOG.error(
                         msg,
                         data_in_pathname=data_in_pathname,
@@ -1231,7 +1231,7 @@ class CoregisterSlc:
                 dtype = 2  # float
                 geotiff_pathname = str(slave_sigma0_eqa.with_suffix(".sigma0.tif"))
                 nodata = 0.0
-                stat = gamma_program.data2geotiff(
+                stat = pg.data2geotiff(
                     dem_par_pathname,
                     data_pathname,
                     dtype,
@@ -1244,7 +1244,7 @@ class CoregisterSlc:
                 )
 
                 if stat != 0:
-                    msg = "failed to execute gamma_program.data2geotiff"
+                    msg = "failed to execute pg.data2geotiff"
                     _LOG.error(
                         msg,
                         dem_par_pathname=dem_par_pathname,

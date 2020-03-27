@@ -15,7 +15,6 @@ import zipfile as zf
 import geopandas as gpd
 import pandas as pd
 import numpy as np
-import py_gamma as gamma_program
 
 from io import BytesIO
 from os.path import join as pjoin
@@ -23,6 +22,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Type, Union
 from shapely.geometry import Polygon, box
 from spatialist import sqlite3, sqlite_setup
+from spatialist import sqlite3, sqlite_setup
+import py_gamma as pg
 from insar.xml_util import getNamespaces
 
 # _LOG = logging.getLogger(__name__)
@@ -247,8 +248,8 @@ class SlcMetadata:
                 self.extract_archive_member(xml_path, outdir=tmp_dir)
                 cout = []
                 cerr = []
-                stat = gamma_program.S1_burstloc(
-                    pjoin(tmp_dir, os.path.basename(xml_path)),
+                stat = pg.S1_burstloc(
+                    os.path.join(tmp_dir, os.path.basename(xml_path)),
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
@@ -257,7 +258,7 @@ class SlcMetadata:
                 if stat == 0:
                     return _parse_s1_burstloc(cout)
                 else:
-                    msg = "failed to execute gamma_program.S1_burstloc"
+                    msg = "failed to execute pg.S1_burstloc"
                     _LOG.error(
                         msg,
                         xml_file=xml_path,
