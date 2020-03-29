@@ -1,25 +1,28 @@
 #!/usr/bin/env python
 
 import os
-from io import BytesIO
-from datetime import datetime
-from typing import Dict, List, Optional, Type, Union
-from pathlib import Path
 import re
+import yaml
 import uuid
+import shutil  # required for S1DataDownload
+import fnmatch  # required for S1DataDownload
 import tempfile
+import datetime  # changed to keep consistency with S1DataDownload (removed from datetime import datetime)
+import structlog
+import shapely.wkt
 import xml.etree.ElementTree as etree
 import zipfile as zf
-
-import structlog
 import geopandas as gpd
-import shapely.wkt
-from shapely.geometry import Polygon, box
-import yaml
 import pandas as pd
 import numpy as np
-from spatialist import sqlite3, sqlite_setup
 import py_gamma as gamma_program
+
+from io import BytesIO
+from os.path import join as pjoin
+from pathlib import Path
+from typing import Dict, List, Optional, Type, Union
+from shapely.geometry import Polygon, box
+from spatialist import sqlite3, sqlite_setup
 from insar.xml_util import getNamespaces
 
 # _LOG = logging.getLogger(__name__)
@@ -119,7 +122,7 @@ class SlcMetadata:
         """
 
         def _parse_datetime(dt):
-            return datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S.%f").strftime(
+            return datetime.datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S.%f").strftime(
                 "%Y-%m-%d %H:%M:%S.%f"
             )
 
@@ -130,12 +133,8 @@ class SlcMetadata:
             namespaces = getNamespaces(manifest)
             tree = etree.fromstring(manifest)
             meta["acquisition_mode"] = tree.find(".//s1sarl1:mode", namespaces).text
-            meta["acquisition_start_time"] = _parse_datetime(
-                tree.find(".//safe:startTime", namespaces).text
-            )
-            meta["acquisition_stop_time"] = _parse_datetime(
-                tree.find(".//safe:stopTime", namespaces).text
-            )
+            meta["acquisition_start_time"] = _parse_datetime(tree.find(".//safe:startTime", namespaces).text)
+            meta["acquisition_stop_time"] = _parse_datetime(tree.find(".//safe:stopTime", namespaces).text)
             meta["coordinates"] = [
                 list([float(y) for y in x.split(",")])
                 for x in tree.find(".//gml:coordinates", namespaces).text.split()
@@ -249,7 +248,7 @@ class SlcMetadata:
                 cout = []
                 cerr = []
                 stat = gamma_program.S1_burstloc(
-                    os.path.join(tmp_dir, os.path.basename(xml_path)),
+                    pjoin(tmp_dir, os.path.basename(xml_path)),
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
@@ -337,11 +336,151 @@ class SlcMetadata:
                 file_obj.seek(0)
                 return file_obj
             if outdir:
-                outfile = os.path.join(outdir, os.path.basename(target_file))
+                outfile = pjoin(outdir, os.path.basename(target_file))
             with open(outfile, "wb") as out_fid:
                 out_fid.write(archive.read(target_file))
             return None
 
+
+class S1DataDownload(SlcMetadata):
+    """
+    A class to download an slc data from a sentinel-1 archive.
+    """
+
+    def __init__(
+        self,
+        slc_scene: Path,
+        polarization: List[str],
+        s1_orbits_poeorb_path: Path,
+        s1_orbits_resorb_path: Path,
+    ) -> None:
+        """a default class constructor."""
+        self.raw_data_path = slc_scene
+        self.polarization = polarization
+        self.s1_orbits_poeorb_path = s1_orbits_poeorb_path
+        self.s1_orbits_resorb_path = s1_orbits_resorb_path
+
+        super(S1DataDownload, self).__init__(self.raw_data_path)
+        self.archive_name_list()
+
+    def get_poeorb_orbit_file(self):
+        """A method to download precise orbit file for a slc scene."""
+
+        _poeorb_path = pjoin(self.s1_orbits_poeorb_path, self.sensor)
+        orbit_files = [p_file for p_file in os.listdir(_poeorb_path)]
+        start_datetime = datetime.datetime.strptime(self.acquisition_start_time, self.dt_fmt_1)
+        start_date = (start_datetime - datetime.timedelta(days=1)).strftime(self.date_fmt)
+        end_date = (start_datetime + datetime.timedelta(days=1)).strftime(self.date_fmt)
+
+        acq_orbit_file = fnmatch.filter(
+            orbit_files, "*V{}*_{}*.EOF".format(start_date, end_date)
+        )
+
+        if not acq_orbit_file:
+            return
+        if len(acq_orbit_file) > 1:
+            acq_orbit_file = sorted(
+                acq_orbit_file,
+                key=lambda x: datetime.datetime.strptime(x.split("_")[5], self.dt_fmt_2),
+            )
+        return pjoin(_poeorb_path, acq_orbit_file[-1])
+
+    def get_resorb_orbit_file(self):
+        """A method to download restitution orbit file for a slc scene."""
+
+        def __start_strptime(dt):
+            return datetime.datetime.strptime(dt, "V{}".format(self.dt_fmt_2))
+
+        def __stop_strptime(dt):
+            return datetime.datetime.strptime(dt, "{}.EOF".format(self.dt_fmt_2))
+
+        _resorb_path = pjoin(self.s1_orbits_resorb_path, self.sensor)
+        orbit_files = [orbit_file for orbit_file in os.listdir(_resorb_path)]
+        start_datetime = datetime.datetime.strptime(self.acquisition_start_time, self.dt_fmt_1)
+        end_datetime = datetime.datetime.strptime(self.acquisition_stop_time, self.dt_fmt_1)
+        acq_date = start_datetime.strftime(self.date_fmt)
+
+        acq_orbit_file = fnmatch.filter(orbit_files, "*V{d}*_{d}*.EOF".format(d=acq_date))
+
+        acq_orbit_file = [
+            orbit_file
+            for orbit_file in acq_orbit_file
+            if start_datetime >= __start_strptime(orbit_file.split("_")[6])
+            and end_datetime <= __stop_strptime(orbit_file.split("_")[7])
+        ]
+
+        if not acq_orbit_file:
+            return
+        if len(acq_orbit_file) > 1:
+            acq_orbit_file = sorted(
+                acq_orbit_file,
+                key=lambda x: datetime.datetime.strptime(x.split("_")[5], self.dt_fmt_2),
+            )
+
+        return pjoin(_resorb_path, acq_orbit_file[-1])
+
+    def slc_download(
+        self,
+        output_dir: Optional[Path] = None,
+        retry: Optional[int] = 3,
+        polarizations: Optional[List[str]] = None,
+    ):
+        """A method to download slc raw data."""
+
+        if polarizations is None:
+            polarizations = self.polarization
+
+        download_files_patterns = sum(
+            [
+                [
+                    f"*measurement/*{pol.lower()}*",
+                    f"*annotation/*{pol.lower()}*",
+                    f"*/calibration/*{pol.lower()}*",
+                ]
+                for pol in polarizations
+            ],
+            [],
+        )
+
+        def _archive_download(target_file):
+            """ A helper method to download target file from archive"""
+            out_dir = os.path.dirname(target_file)
+            if output_dir:
+                out_dir = pjoin(output_dir, out_dir)
+            self.extract_archive_member(target_file, outdir=out_dir, retry=retry)
+
+        # download files from slc archive (zip) file
+        files_download = sum(
+            [
+                fnmatch.filter(self.archive_files, pattern)
+                for pattern in download_files_patterns
+            ],
+            [],
+        )
+        files_download.append(self.manifest_file)
+        for fp in files_download:
+            _archive_download(fp)
+
+        # get a base slc directory where files will be downloaded
+        base_dir = os.path.commonprefix(files_download)
+        if output_dir:
+            base_dir = pjoin(output_dir, base_dir)
+
+        # download orbit files with precise orbit as first choice
+        orbit_source_file = self.get_poeorb_orbit_file()
+        orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
+
+        if not orbit_source_file:
+            orbit_source_file = self.get_resorb_orbit_file()
+            if not orbit_source_file:
+                _LOG.error(
+                    "no orbit files found",
+                    pathname=self.scene
+                )
+            orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
+
+        if not os.path.exists(orbit_destination_file):
+            shutil.copyfile(orbit_source_file, orbit_destination_file)
 
 class Archive:
     """
