@@ -20,8 +20,8 @@ import unittest
 import pytest
 import pandas as pd
 
-from insar.meta_data import s1_slc
-from insar.s1_slc_metadata import S1DataDownload
+from insar.meta_data import s1_slc  ## this script uses Archive, SlcMetadata and S1DataDownload
+#from insar.s1_slc_metadata import S1DataDownload  ## s1_slc_metadata is a duplicate of meta_data.s1_slc
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
@@ -152,7 +152,7 @@ def test_s1datadownload(tmp_path, query_results):
             "s1_orbits_poeorb_path": __DATA__,
             "s1_orbits_resorb_path": __DATA__,
         }
-        dobj = S1DataDownload(**kwargs)
+        dobj = s1_slc.S1DataDownload(**kwargs)
         dobj.slc_download(raw_dir)
         files = [
             "S1A_OPER_AUX_POEORB_OPOD_20160121T121801_V20151231T225943_20160102T005943.EOF",
