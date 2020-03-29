@@ -42,16 +42,16 @@ class SlcMetadata:
         self.pattern = (
             r"^(?P<sensor>S1[AB])_"
             r"(?P<beam>S1|S2|S3|S4|S5|S6|IW|EW|WV|EN|N1|N2|N3|N4|N5|N6|IM)_"
-            r"(?P<product>SLC|GRD|OCN)(?:F|H|M|_)_"
-            r"(?:1|2)"
+            r"(?P<product>SLC|GRD|OCN)(?P<resolution>F|H|M|_)_"
+            r"(?P<level>1|2)"
             r"(?P<category>S|A)"
-            r"(?P<pols>SH|SV|DH|DV|VV|HH|HV|VH)_"
-            r"(?P<start>[0-9]{8}T[0-9]{6})_"
-            r"(?P<stop>[0-9]{8}T[0-9]{6})_"
+            r"(?P<polarisation>SH|SV|DH|DV|VV|HH|HV|VH)_"
+            r"(?P<start_date>[0-9]{8}T[0-9]{6})_"
+            r"(?P<stop_date>[0-9]{8}T[0-9]{6})_"
             r"(?P<orbitNumber>[0-9]{6})_"
             r"(?P<dataTakeID>[0-9A-F]{6})_"
             r"(?P<productIdentifier>[0-9A-F]{4})"
-            r"(?P<extension>.SAFE|.zip)$"
+            r".zip"
         )
 
         self.pattern_ds = (
@@ -210,40 +210,52 @@ class SlcMetadata:
         swath_obj = self.extract_archive_member(xml_file, obj=True)
 
         def __metadata_burst(xml_path):
-            def __parse_s1_burstloc(log_file):
+            def __parse_s1_burstloc(gamma_output_list):
                 burst_info = dict()
-                with open(log_file.as_posix(), "r") as fid:
-                    lines = fid.readlines()
-                    for line in lines:
-                        if line.startswith("Burst"):
-                            split_line = line.split()
-                            temp_dict = dict()
-                            temp_dict["burst_num"] = int(split_line[2])
-                            temp_dict["rel_orbit"] = int(split_line[3])
-                            temp_dict["swath"] = split_line[4]
-                            temp_dict["polarization"] = split_line[5]
-                            temp_dict["azimuth_time"] = float(split_line[6])
-                            temp_dict["angle"] = float(split_line[7])
-                            temp_dict["delta_angle"] = float(split_line[8])
-                            temp_dict["coordinate"] = [
-                                [float(split_line[14]), float(split_line[13])],
-                                [float(split_line[16]), float(split_line[15])],
-                                [float(split_line[10]), float(split_line[9])],
-                                [float(split_line[12]), float(split_line[11])],
-                            ]
-                            burst_info[
-                                "burst {}".format(temp_dict["burst_num"])
-                            ] = temp_dict
+                for line in gamma_output_list:
+                    if line.startswith("Burst"):
+                        split_line = line.split()
+                        temp_dict = dict()
+                        temp_dict["burst_num"] = int(split_line[2])
+                        temp_dict["rel_orbit"] = int(split_line[3])
+                        temp_dict["swath"] = split_line[4]
+                        temp_dict["polarization"] = split_line[5]
+                        temp_dict["azimuth_time"] = float(split_line[6])
+                        temp_dict["angle"] = float(split_line[7])
+                        temp_dict["delta_angle"] = float(split_line[8])
+                        temp_dict["coordinate"] = [
+                            [float(split_line[14]), float(split_line[13])],
+                            [float(split_line[16]), float(split_line[15])],
+                            [float(split_line[10]), float(split_line[9])],
+                            [float(split_line[12]), float(split_line[11])],
+                        ]
+                        burst_info[
+                            "burst {}".format(temp_dict["burst_num"])
+                        ] = temp_dict
                 return burst_info
 
             with tempfile.TemporaryDirectory() as tmp_dir:
                 self.extract_archive_member(xml_file, outdir=tmp_dir)
-                std_out = Path(tmp_dir).joinpath("stdout.log")
-                pg.S1_burstloc(
+                cout = []
+                cerr = []
+                stat = pg.S1_burstloc(
                     os.path.join(tmp_dir, os.path.basename(xml_path)),
-                    logf=std_out.as_posix()
+                    cout=cout,
+                    cerr=cerr,
+                    stdout_flag=False,
+                    stderr_flag=False
                 )
-                return __parse_s1_burstloc(std_out)
+                if stat == 0:
+                    return __parse_s1_burstloc(cout)
+                else:
+                    msg = "failed to execute pg.S1_burstloc"
+                    _LOG.error(
+                        msg,
+                        xml_file=xml_path,
+                        stat=stat,
+                        gamma_error=cerr
+                    )
+                    raise Exception(msg)
 
         with swath_obj as obj:
             ann_tree = etree.fromstring(obj.read())
