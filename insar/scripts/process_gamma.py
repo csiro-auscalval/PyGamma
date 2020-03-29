@@ -20,7 +20,8 @@ from insar.coregister_dem import CoregisterDem
 from insar.coregister_slc import CoregisterSlc
 from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
-from insar.s1_slc_metadata import S1DataDownload
+#from insar.s1_slc_metadata import S1DataDownload  ## s1_slc_metadata is a duplicate of metadata.s1_slc
+from insar.meta_data.s1_slc import S1DataDownload
 from insar.clean_up import (
     clean_rawdatadir,
     clean_slcdir,
