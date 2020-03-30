@@ -149,18 +149,54 @@ class SlcProcess:
                 _concat_tabs[_id][swath]["par"] = tab_names.par
                 _concat_tabs[_id][swath]["tops_par"] = tab_names.tops_par
 
-                pg.par_S1_SLC(
-                    raw_files[0],
-                    raw_files[1],
-                    raw_files[2],
-                    raw_files[3],
-                    tab_names.par,
-                    tab_names.slc,
-                    tab_names.tops_par,
-                    0,
-                    "-",
-                    "-",
+                cout = []
+                cerr = []
+                geotiff_pathname = raw_files[0]
+                annotation_xml_pathname = raw_files[1]
+                calibration_xml_pathname = raw_files[2]
+                noise_xml_pathname = raw_files[3]
+                slc_par_pathname = tab_names.par
+                slc_pathname = tab_names.slc
+                tops_par_pathname = tab_names.tops_par
+                dtype = 0  # complex
+                sc_db = "-"  # scale factor for FCOMPLEX -> SCOMPLEX
+                noise_pwr = "-"  # noise intensity for each SLC sample in slant range
+                stat = pg.par_S1_SLC(
+                    geotiff_pathname,
+                    annotation_xml_pathname,
+                    calibration_xml_pathname,
+                    noise_xml_pathname,
+                    slc_par_pathname,
+                    slc_pathname,
+                    tops_par_pathname,
+                    dtype,
+                    sc_db,
+                    noise_pwr,
+                    cout=cout,
+                    cerr=cerr,
+                    stdout_flag=False,
+                    stderr_flag=False
                 )
+
+                if stat != 0:
+                    msg = "failed to execute pg.par_S1_SLC"
+                    _LOG.error(
+                        msg,
+                        geotiff_pathname=geotiff_pathname,
+                        annotation_xml_pathname=annotation_xml_pathname,
+                        calibration_xml_pathname=calibration_xml_pathname,
+                        noise_xml_pathname=noise_xml_pathname,
+                        slc_par_pathname=slc_par_pathname,
+                        slc_pathname=slc_pathname,
+                        tops_par_pathname=tops_par_pathname,
+                        dtype=dtype,
+                        sc_db=sc_db,
+                        noise_pwr=noise_pwr,
+                        stat=stat,
+                        gamma_error=cerr
+                    )
+                    raise Exception(msg)
+
                 # assign orbit file name
                 self.orbit_file = raw_files[4]
 
@@ -275,9 +311,30 @@ class SlcProcess:
                     self._write_tabs(slc_tab3, _id=slc_prefix, slc_data_dir=os.getcwd())
 
                     # concat sequential ScanSAR burst SLC images
-                    pg.SLC_cat_ScanSAR(
-                        slc_tab1.as_posix(), slc_tab2.as_posix(), slc_tab3.as_posix()
+                    cout = []
+                    cerr = []
+                    stat = pg.SLC_cat_ScanSAR(
+                        str(slc_tab1),
+                        str(slc_tab2),
+                        str(slc_tab3),
+                        cout=cout,
+                        cerr=cerr,
+                        stdout_flag=False,
+                        stderr_flag=False
                     )
+
+                    if stat != 0:
+                        msg = "failed to execute pg.SLC_cat_ScanSAR"
+                        _LOG.error(
+                            msg,
+                            slc_tab1=str(slc_tab1),
+                            slc_tab2=str(slc_tab2),
+                            slc_tab3=str(slc_tab3),
+                            stat=stat,
+                            gamma_error=cerr
+                        )
+                        raise Exception(msg)
+
                     # assign slc_tab3 to slc_tab1 to perform series of concatenation
                     slc_tab1 = slc_tab3
 
@@ -314,13 +371,39 @@ class SlcProcess:
                 tab_names = self.swath_tab_names(swath, self.slc_prefix)
 
                 with working_directory(tmpdir):
-                    pg.SLC_phase_shift(
-                        slc_dir.joinpath(tab_names.slc).as_posix(),
-                        slc_dir.joinpath(tab_names.par).as_posix(),
-                        tab_names.slc,
-                        tab_names.par,
-                        -1.25,
+                    cout = []
+                    cerr = []
+                    slc_1_pathname = str(slc_dir.joinpath(tab_names.slc))
+                    slc_1_par_pathname = str(slc_dir.joinpath(tab_names.par))
+                    slc_2_pathname = tab_names.slc
+                    slc_2_par_pathname = tab_names.par
+                    ph_shift = -1.25  # phase shift to add to SLC phase (radians)
+                    stat = pg.SLC_phase_shift(
+                        slc_1_pathname,
+                        slc_1_par_pathname,
+                        slc_2_pathname,
+                        slc_2_par_pathname,
+                        ph_shift,
+                        cout=cout,
+                        cerr=cerr,
+                        stdout_flag=False,
+                        stderr_flag=False
                     )
+
+                    if stat != 0:
+                        msg = "failed to execute pg.SLC_phase_shift"
+                        _LOG.error(
+                            msg,
+                            slc_1_pathname=slc_1_pathname,
+                            slc_1_par_pathname=slc_1_par_pathname,
+                            slc_2_pathname=slc_2_pathname,
+                            slc_2_par_pathname=slc_2_par_pathname,
+                            ph_shift=ph_shift,
+                            stat=stat,
+                            gamma_error=cerr
+                        )
+                        raise Exception(msg)
+
                     # replace iw1 slc with phase corrected files
                     shutil.move(
                         tmpdir.joinpath(tab_names.slc), slc_dir.joinpath(tab_names.slc)
@@ -340,15 +423,65 @@ class SlcProcess:
         """
 
         slc_tab = self.slc_tab_names(self.slc_prefix)
-        pg.SLC_mosaic_S1_TOPS(
-            self.slc_tab.as_posix(), slc_tab.slc, slc_tab.par, rlks, alks
+        cout = []
+        cerr = []
+        slc_tab_pathname = str(self.slc_tab)
+        slc_pathname = slc_tab.slc
+        slc_par_pathname = slc_tab.par
+        azlks = alks
+        stat = pg.SLC_mosaic_S1_TOPS(
+            slc_tab_pathname,
+            slc_pathname,
+            slc_par_pathname,
+            rlks,
+            azlks,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.SLC_mosaic_S1_TOPS"
+            _LOG.error(
+                msg,
+                slc_tab_pathname=slc_tab_pathname,
+                slc_pathname=slc_pathname,
+                slc_par_pathname=slc_par_pathname,
+                rlks=rlks,
+                azlks=azlks,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
     def orbits(self):
         """Extract Sentinel-1 OPOD state vectors and copy into the ISP image parameter file"""
 
         slc_tab = self.slc_tab_names(self.slc_prefix)
-        pg.S1_OPOD_vec(slc_tab.par, self.orbit_file)
+        cout = []
+        cerr = []
+        slc_par_pathname = slc_tab.par
+        opod_pathname = self.orbit_file
+        stat = pg.S1_OPOD_vec(
+            slc_par_pathname,
+            opod_pathname,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
+        )
+
+        if stat != 0:
+            msg = "failed to execute pg.S1_OPOD_vec"
+            _LOG.error(
+                msg,
+                slc_par_pathname=slc_par_pathname,
+                opod_pathname=opod_pathname,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
     def frame_subset(self):
         """Subset frames to form full SLC frame of a vector file.
@@ -415,9 +548,35 @@ class SlcProcess:
             self._write_tabs(sub_slc_out, _id=self.slc_prefix, slc_data_dir=tmpdir)
 
             # run the subset
-            pg.SLC_copy_ScanSAR(
-                sub_slc_in.as_posix(), sub_slc_out.as_posix(), burst_tab.as_posix(), 0
+            cout = []
+            cerr = []
+            slc1_tab_pathname = str(sub_slc_in)
+            slc2_tab_pathname = str(sub_slc_out)
+            burst_tab_pathname = str(burst_tab)
+            dtype = 0  # output datatype; FCOMPLEX
+            stat = pg.SLC_copy_ScanSAR(
+                slc1_tab_pathname,
+                slc2_tab_pathname,
+                burst_tab_pathname,
+                dtype,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute pg.SLC_copy_ScanSAR"
+                _LOG.error(
+                    msg,
+                    slc1_tab_pathname=slc1_tab_pathname,
+                    slc2_tab_pathname=slc2_tab_pathname,
+                    burst_tab_pathname=burst_tab_pathname,
+                    dtype=dtype,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
             # replace concatenate slc with burst-subset of concatenated slc
             for swath in [1, 2, 3]:
@@ -450,16 +609,65 @@ class SlcProcess:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             burst_tab = tmpdir.joinpath("burst_tab").as_posix()
-            pg.S1_BURST_tab(
-                ref_slc_tab.as_posix(), full_slc_tab.as_posix(), burst_tab
+            cout = []
+            cerr = []
+            slc1_tab_pathname = str(ref_slc_tab)
+            slc2_tab_pathname = str(full_slc_tab)
+            burst_tab_pathname = burst_tab
+            stat = pg.S1_BURST_tab(
+                slc1_tab_pathname,
+                slc2_tab_pathname,
+                burst_tab_pathname,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute pg.S1_BURST_tab"
+                _LOG.error(
+                    msg,
+                    slc1_tab_pathname=slc1_tab_pathname,
+                    slc2_tab_pathname=slc2_tab_pathname,
+                    burst_tab_pathname=burst_tab_pathname,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
             # write output in a temp directory
             resize_slc_tab = tmpdir.joinpath("sub_slc_output_tab")
             self._write_tabs(resize_slc_tab, _id=self.slc_prefix, slc_data_dir=tmpdir)
-            pg.SLC_copy_ScanSAR(
-                full_slc_tab.as_posix(), resize_slc_tab.as_posix(), burst_tab
+            cout = []
+            cerr = []
+            slc1_tab_pathname = str(full_slc_tab)
+            slc2_tab_pathname = str(resize_slc_tab)
+            burst_tab_pathname = str(burst_tab_pathname)
+            dtype = "-"  # output datatype; default (same as input)
+            stat = pg.SLC_copy_ScanSAR(
+                slc1_tab_pathname,
+                slc2_tab_pathname,
+                burst_tab_pathname,
+                dtype,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute pg.SLC_copy_ScanSAR"
+                _LOG.error(
+                    msg,
+                    slc1_tab_pathname=slc1_tab_pathname,
+                    slc2_tab_pathname=slc2_tab_pathname,
+                    burst_tab_pathname=burst_tab_pathname,
+                    dtype=dtype,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
             # replace full slc with re-sized slc
             for swath in [1, 2, 3]:
@@ -482,20 +690,59 @@ class SlcProcess:
                     .with_suffix(".bmp")
                     .as_posix()
                 )
-                pg.rasSLC(
-                    tab_names.slc,
-                    range_samples,
-                    1,
-                    azimuth_lines,
-                    50,
-                    20,
-                    "-",
-                    "-",
-                    1,
-                    0,
-                    0,
-                    bmp_file,
+                cout = []
+                cerr = []
+                slc_pathname = tab_names.slc
+                width = range_samples
+                start = 1
+                nlines = azimuth_lines
+                pixavr = 50
+                pixavaz = 20
+                scale = "-"
+                exp = "-"
+                lr = 1  # left/right mirror image flag
+                data_type = 0  # FCOMPLEX
+                hdrsz = 0  # line header size in bytes
+                rasf_pathname = bmp_file
+                stat = pg.rasSLC(
+                    slc_pathname,
+                    width,
+                    start,
+                    nlines,
+                    pixavr,
+                    pixavaz,
+                    scale,
+                    exp,
+                    lr,
+                    data_type,
+                    hdrsz,
+                    rasf_pathname,
+                    cout=cout,
+                    cerr=cerr,
+                    stdout_flag=False,
+                    stderr_flag=False
                 )
+
+            if stat != 0:
+                msg = "failed to execute pg.rasSLC"
+                _LOG.error(
+                    msg,
+                    slc_pathname=slc_pathname,
+                    width=width,
+                    start=start,
+                    nlines=nlines,
+                    pixavr=pixavr,
+                    pixavaz=pixavaz,
+                    scale=scale,
+                    exp=exp,
+                    lr=lr,
+                    data_type=data_type,
+                    hdrsz=hdrsz,
+                    rasf_pathname=rasf_pathname,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
                 # convert bmp file to png quick look iamge file
                 command = [
