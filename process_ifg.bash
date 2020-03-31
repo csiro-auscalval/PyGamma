@@ -558,9 +558,11 @@ GEOCODE()
     rm -f *int1*
 
     ## TF: also remove all binaries and .ras files to save disc space
+    ##     keep flat.int since this is currently used as input for stamps processing
     rm -f *.ras
     rm -f *.unw
-    rm -f *.int
+    rm -f *eqa.int
+    rm -f *filt.int
     rm -f *.cc
 }
 
