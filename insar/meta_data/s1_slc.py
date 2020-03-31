@@ -901,8 +901,14 @@ class Archive:
             else:
                 frame = frame_obj
 
+            # frame.get_frame_extent(frame_num)
+            #     return gpd_df.loc[gpd_df["frame_num"] == frame_num]
             gpd_frame = frame.get_frame_extent(frame_num)
             if gpd_frame.empty:
+                _LOG.warning(
+                    "gpd_df.loc[gpd_df['frame_num'] == frame_num] failed",
+                    frame_num=frame_num,
+                )
                 return
             extent = gpd_frame["extent"].values[0]
             arg_format.append(
@@ -930,11 +936,27 @@ class Archive:
         cursor = self.conn.cursor()
         cursor.execute(query)
 
+        fetched_query_rows = cursor.fetchall()
+        if not fetched_query_rows:
+            _LOG.error(
+                "Database query failed",
+                frame_num=frame_num,
+                slc_metadata=args,
+                search_start_date=min_date_arg.split(".")[-1].replace("\"", ""),
+                search_end_date=max_date_arg.split(".")[-1].replace("\"", ""),
+            )
+            return
+
         slc_df = pd.DataFrame(
-            [[item for item in row] for row in cursor.fetchall()],
+            [[item for item in row] for row in fetched_query_rows],
             columns=[col[0] for col in cursor.description],
         )
+
         if slc_df.empty:
+            _LOG.error(
+                "geopandas data frame (slc_df) fail from db query",
+                frame_num=frame_num,
+            ) 
             return
 
         geopandas_df = gpd.GeoDataFrame(
@@ -1002,6 +1024,11 @@ class SlcFrame:
         geopandas_df = gpd.GeoDataFrame(
             df, crs={"init": "epsg:4326"}, geometry=df["extent"].map(shapely.wkt.loads)
         )
+
+        if geopandas_df.empty:
+            _LOG.error(
+                "failed to generate frame polygon as geopandas dataframe",
+            )
 
         if shapefile_name:
             geopandas_df.to_file(shapefile_name, driver="ESRI Shapefile")
