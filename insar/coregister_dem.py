@@ -346,43 +346,134 @@ class CoregisterDem:
         # copy SLC image file to new file r_dem_master_slc.
         # TODO this step seems redundant if we can directly use SLC image file to
         # multi-look. (Confirm with InSAR geodesy Team)
-        pg.SLC_copy(
-            self.dem_master_slc.as_posix(),
-            self.dem_master_slc_par.as_posix(),
-            self.r_dem_master_slc.as_posix(),
-            self.r_dem_master_slc_par.as_posix(),
-            1,
-            "-",
+        cout = []
+        cerr = []
+        slc_in_pathname = str(self.dem_master_slc)
+        slc_par_in_pathname = str(self.dem_master_slc_par)
+        slc_out_pathname = str(self.r_dem_master_slc)
+        slc_par_out_pathname = str(self.r_dem_master_slc_par)
+        fcase = 1  # FCOMPLEX
+        sc = "-"  # scale factor
+        stat = pg.SLC_copy(
+            slc_in_pathname,
+            slc_par_in_pathname,
+            slc_out_pathname,
+            slc_par_out_pathname,
+            fcase,
+            sc,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
 
+        if stat != 0:
+            msg = "failed to execute pg.SLC_copy"
+            _LOG.error(
+                msg,
+                slc_in_pathname=slc_in_pathname,
+                slc_par_in_pathname=slc_par_in_pathname,
+                slc_out_pathname=slc_out_pathname,
+                slc_par_out_pathname=slc_par_out_pathname,
+                fcase=fcase,
+                sc=sc,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
+
         # multi-look SLC image file
-        pg.multi_look(
-            self.r_dem_master_slc.as_posix(),
-            self.r_dem_master_slc_par.as_posix(),
-            self.r_dem_master_mli.as_posix(),
-            self.r_dem_master_mli_par.as_posix(),
-            self.rlks,
-            self.alks,
-            0,
+        cout = []
+        cerr = []
+        slc_pathname = str(self.r_dem_master_slc)
+        slc_par_pathname = str(self.r_dem_master_slc_par)
+        mli_pathname = str(self.r_dem_master_mli)
+        mli_par_pathname = str(self.r_dem_master_mli_par)
+        rlks = self.rlks
+        azlks = self.alks
+        loff = 0  # offset to starting line
+        stat = pg.multi_look(
+            slc_pathname,
+            slc_par_pathname,
+            mli_pathname,
+            mli_par_pathname,
+            rlks,
+            azlks,
+            loff,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.multi_look"
+            _LOG.error(
+                msg,
+                slc_pathname=slc_pathname,
+                slc_par_pathname=slc_par_pathname,
+                mli_pathname=mli_pathname,
+                mli_par_pathname=mli_par_pathname,
+                rlks=rlks,
+                azlks=azlks,
+                loff=loff,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         # output raster image of multi-looked SLC image file if needed
         # TODO only useful for visual debugging phase.
         # This is redundant in production phase (Consult InSAR team and remove)
         if raster_out:
             params = SlcParFileParser(self.r_dem_master_mli_par)
-            pg.raspwr(
-                self.r_dem_master_mli.as_posix(),
-                params.slc_par_params.range_samples,
-                1,
-                0,
-                20,
-                20,
-                1.0,
-                0.35,
-                1,
-                self.r_dem_master_mli_bmp.as_posix(),
+            cout = []
+            cerr = []
+            pwr_pathname = str(self.r_dem_master_mli)
+            width = params.slc_par_params.range_samples
+            start = 1
+            nlines = 0  # default (to end of file)
+            pixavr = 20
+            pixavaz = 20
+            scale = 1.0
+            exp = 0.35
+            lr = 1  # left/right mirror image flag
+            rasf_pathname = str(self.r_dem_master_mli_bmp)
+            stat = pg.raspwr(
+                pwr_pathname,
+                width,
+                start,
+                nlines,
+                pixavr,
+                pixavaz,
+                scale,
+                exp,
+                lr,
+                rasf_pathname,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute pg.raspwr"
+                _LOG.error(
+                    msg,
+                    pwr_pathname=pwr_pathname,
+                    width=width,
+                    start=start,
+                    nlines=nlines,
+                    pixavr=pixavr,
+                    pixavaz=pixavaz,
+                    scale=scale,
+                    exp=exp,
+                    lr=lr,
+                    rasf_pathname=rasf_pathname,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
     def over_sample(self) -> None:
         """Returns oversampling factor for DEM coregistration."""
@@ -409,38 +500,120 @@ class CoregisterDem:
         """
 
         # generate initial geocoding look-up-table and simulated SAR image
-        pg.gc_map1(
-            self.r_dem_master_mli_par.as_posix(),
-            "-",
-            self.dem_par.as_posix(),
-            self.dem.as_posix(),
-            self.eqa_dem_par.as_posix(),
-            self.eqa_dem.as_posix(),
-            self.dem_lt_rough.as_posix(),
-            self.dem_ovr,
-            self.dem_ovr,
-            self.dem_eqa_sim_sar.as_posix(),
-            "-",
-            "-",
-            self.dem_loc_inc.as_posix(),
-            "-",
-            "-",
-            self.dem_lsmap.as_posix(),
-            8,
-            2,
+        cout = []
+        cerr = []
+        mli_par_pathname = str(self.r_dem_master_mli_par)
+        off_par_pathname = "-"
+        dem_par_pathname = str(self.dem_par)
+        dem_pathname = str(self.dem)
+        dem_seg_par_pathname = str(self.eqa_dem_par)
+        dem_seg_pathname = str(self.eqa_dem)
+        lookup_table_pathname = str(self.dem_lt_rough)
+        lat_ovr = self.dem_ovr
+        lon_ovr = self.dem_ovr
+        sim_sar_pathname = str(self.dem_eqa_sim_sar)
+        u_zenith_angle = "-"
+        v_orientation_angle = "-"
+        inc_angle_pathname = str(self.dem_loc_inc)
+        psi_projection_angle = "-"
+        pix = "-"  # pixel area normalization factor
+        ls_map_pathname = str(self.dem_lsmap)
+        frame = 8
+        ls_mode = 2
+        stat = pg.gc_map1(
+            mli_par_pathname,
+            off_par_pathname,
+            dem_par_pathname,
+            dem_pathname,
+            dem_seg_par_pathname,
+            dem_seg_pathname,
+            lookup_table_pathname,
+            lat_ovr,
+            lon_ovr,
+            sim_sar_pathname,
+            u_zenith_angle,
+            v_orientation_angle,
+            inc_angle_pathname,
+            psi_projection_angle,
+            pix,
+            ls_map_pathname,
+            frame,
+            ls_mode,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
 
+        if stat != 0:
+            msg = "failed to execute pg.gc_map1"
+            _LOG.error(
+                msg,
+                mli_par_pathname=mli_par_pathname,
+                off_par_pathname=off_par_pathname,
+                dem_par_pathname=dem_par_pathname,
+                dem_pathname=dem_pathname,
+                dem_seg_par_pathname=dem_seg_par_pathname,
+                dem_seg_pathname=dem_seg_pathname,
+                lookup_table_pathname=lookup_table_pathname,
+                lat_ovr=lat_ovr,
+                lon_ovr=lon_ovr,
+                sim_sar_pathname=sim_sar_pathname,
+                u_zenith_angle=u_zenith_angle,
+                v_orientation_angle=v_orientation_angle,
+                inc_angle_pathname=inc_angle_pathname,
+                psi_projection_angle=psi_projection_angle,
+                pix=pix,
+                ls_map_pathname=ls_map_pathname,
+                frame=frame,
+                ls_mode=ls_mode,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
+
         # generate initial gamma0 pixel normalisation area image in radar geometry
-        pg.pixel_area(
-            self.r_dem_master_mli_par.as_posix(),
-            self.eqa_dem_par.as_posix(),
-            self.eqa_dem.as_posix(),
-            self.dem_lt_rough.as_posix(),
-            self.dem_lsmap.as_posix(),
-            self.dem_loc_inc.as_posix(),
-            "_",
-            self.dem_pix_gam.as_posix(),
+        cout = []
+        cerr = []
+        mli_par_pathname = str(self.r_dem_master_mli_par)
+        dem_par_pathname = str(self.eqa_dem_par)
+        dem_pathname = str(self.eqa_dem)
+        lookup_table_pathname = str(self.dem_lt_rough)
+        ls_map_pathname = str(self.dem_lsmap)
+        inc_map_pathname = str(self.dem_loc_inc)
+        pix_sigma0_pathname = "-"  # no output
+        pix_gamma0_pathname = str(self.dem_pix_gam)
+        stat = pg.pixel_area(
+            mli_par_pathname,
+            dem_par_pathname,
+            dem_pathname,
+            lookup_table_pathname,
+            ls_map_pathname,
+            inc_map_pathname,
+            pix_sigma0_pathname,
+            pix_gamma0_pathname,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.pixel_area"
+            _LOG.error(
+                msg,
+                mli_par_pathname=mli_par_pathname,
+                dem_par_pathname=dem_par_pathname,
+                dem_pathname=dem_pathname,
+                lookup_table_pathname=lookup_table_pathname,
+                ls_map_pathname=ls_map_pathname,
+                inc_map_pathname=inc_map_pathname,
+                pix_sigma0_pathname=pix_sigma0_pathname,
+                pix_gamma0_pathname=pix_gamma0_pathname,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         # any of the dem master mli size is not set. Set the dem size attributes.
         if any(
@@ -455,34 +628,108 @@ class CoregisterDem:
 
         if use_external_image:
             # transform simulated SAR intensity image to radar geometry
-            pg.map_trans(
-                self.dem_par.as_posix(),
-                self.ext_image.as_posix(),
-                self.eqa_dem_par.as_posix(),
-                self.ext_image_flt.as_posix(),
-                1,
-                1,
-                1,
-                0,
-                "-",
+            cout = []
+            cerr = []
+            dem1_par_pathname = str(self.dem_par)
+            data1_pathname = str(self.ext_image)
+            dem2_par_pathname = str(self.eqa_dem_par)
+            data2_pathname = str(self.ext_image_flt)
+            lat_ovr = 1
+            lon_ovr = 1
+            interp_mode = 1  # bicubic spline
+            dtype = 0  # FLOAT
+            bflg = "-"  # use DEM bounds specified by dem2_par_pathname
+            stat = pg.map_trans(
+                dem1_par_pathname,
+                data1_pathname,
+                dem2_par_pathname,
+                data2_pathname,
+                lat_ovr,
+                lon_ovr,
+                interp_mode,
+                dtype,
+                bflg,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
 
+            if stat != 0:
+                msg = "failed to execute pg.map_trans"
+                _LOG.error(
+                    msg,
+                    dem1_par_pathname=dem1_par_pathname,
+                    data1_pathname=data1_pathname,
+                    dem2_par_pathname=dem2_par_pathname,
+                    data2_pathname=data2_pathname,
+                    lat_ovr=lat_ovr,
+                    lon_ovr=lon_ovr,
+                    interp_mode=interp_mode,
+                    dtype=dtype,
+                    bflg=bflg,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
+
             # transform external image to radar geometry
+            cout = []
+            cerr = []
+            lookup_table_pathname = str(self.dem_lt_rought)
+            data_in_pathname = str(self.ext_image_flt)
+            width_in = self.dem_width
+            data_out_pathname = str(self.ext_image_init_sar)
+            width_out = self.r_dem_master_mli_width
+            nlines_out = self.r_dem_master_mli_length
+            interp_mode = 1  # nearest neighbor
+            dtype = 0  # FLOAT
+            lr_in = "-"
+            lr_out = "-"
+            n_ovr = 2
+            rad_max = 4
+            nintr = "-"  # n points for interpolation when not nearest neighbor
             pg.geocode(
-                self.dem_lt_rought.as_posix(),
-                self.ext_image_flt.as_posix(),
-                self.dem_width,
-                self.ext_image_init_sar.as_posix(),
-                self.r_dem_master_mli_width,
-                self.r_dem_master_mli_length,
-                1,
-                0,
-                "-",
-                "-",
-                2,
-                4,
-                "-",
+                lookup_table_pathname,
+                data_in_pathname,
+                width_in,
+                data_out_pathname,
+                width_out,
+                nlines_out,
+                interp_mode,
+                dtype,
+                lr_in,
+                lr_out,
+                n_ovr,
+                rad_max,
+                nintr,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute pg.geocode"
+                _LOG.error(
+                    msg,
+                    lookup_table_pathname=lookup_table_pathname,
+                    data_in_pathname=data_in_pathname,
+                    width_in=width_in,
+                    data_out_pathname=data_out_pathname,
+                    width_out=width_out,
+                    nlines_out=nlines_out,
+                    interp_mode=interp_mode,
+                    dtype=dtype,
+                    lr_in=lr_in,
+                    lr_out=lr_out,
+                    n_ovr=n_ovr,
+                    rad_max=rad_max,
+                    nintr=nintr,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
     def create_diff_par(self) -> None:
         """Fine coregistration of master MLI and simulated SAR image."""
@@ -529,35 +776,112 @@ class CoregisterDem:
             self._set_attrs()
 
         # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than simulated SAR image in offset calculation
-        pg.init_offsetm(
-            self.dem_pix_gam.as_posix(),
-            self.r_dem_master_mli.as_posix(),
-            self.dem_diff.as_posix(),
-            1,
-            1,
-            self.dem_rpos,
-            self.dem_azpos,
-            "-",
-            "-",
-            self.dem_snr,
-            self.dem_patch_window,
-            1,
+        cout = []
+        cerr = []
+        mli_1_pathname = str(self.dem_pix_gam)
+        mli_2_pathname = str(self.r_dem_master_mli)
+        diff_par_pathname = str(self.dem_diff)
+        rlks = 1
+        azlks = 1
+        rpos = self.dem_rpos
+        azpos = self.dem_azpos
+        offr = "-"  # initial range offset
+        offaz = "-"  # initial azimuth offset
+        thres = self.dem_snr
+        patch = self.dem_patch_window
+        cflag = 1  # copy constant range and azimuth offsets
+        stat = pg.init_offsetm(
+            mli_1_pathname,
+            mli_2_pathname,
+            diff_par_pathname,
+            rlks,
+            azlks,
+            rpos,
+            azpos,
+            offr,
+            offaz,
+            thres,
+            patch,
+            cflag,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
 
-        pg.offset_pwrm(
-            self.dem_pix_gam.as_posix(),
-            self.r_dem_master_mli.as_posix(),
-            self.dem_diff.as_posix(),
-            self.dem_offs.as_posix(),
-            self.dem_ccp.as_posix(),
-            "-",
-            "-",
-            self.dem_offsets.as_posix(),
-            2,
-            "-",
-            "-",
-            "-",
+        if stat != 0:
+            msg = "failed to execute pg.init_offsetm"
+            _LOG.error(
+                msg,
+                mli_1_pathname=mli_1_pathname,
+                mli_2_pathname=mli_2_pathname,
+                diff_par_pathname=diff_par_pathname,
+                rlks=rlks,
+                azlks=azlks,
+                rpos=rpos,
+                offr=offr,
+                offaz=offaz,
+                thres=thres,
+                patch=patch,
+                cflag=cflag,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
+
+        cout = []
+        cerr = []
+        mli_1_pathname = str(self.dem_pix_gam)
+        mli_2_pathname = str(self.r_dem_master_mli)
+        diff_par_pathname = str(self.dem_diff)
+        offs_pathname = str(self.dem_offs)
+        ccp_pathname = str(self.dem_ccp)
+        rwin = "-"  # range patch size
+        azwin = "-"  # azimuth patch size
+        offsets_pathname = str(self.dem_offsets)
+        n_ovr = 2
+        nr = "-"  # number of offset estimates in range direction
+        naz = "-"  # number of offset estimates in azimuth direction
+        thres = "-"  # Lanczos interpolator order
+        stat = pg.offset_pwrm(
+            mli_1_pathname,
+            mli_2_pathname,
+            diff_par_pathname,
+            offs_pathname,
+            ccp_pathname,
+            rwin,
+            azwin,
+            offsets_pathname,
+            n_ovr,
+            nr,
+            naz,
+            thres,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.offset_pwrm"
+            _LOG.error(
+                msg,
+                mli_1_pathname=mli_1_pathname,
+                mli_2_pathname=mli_2_pathname,
+                diff_par_pathname=diff_par_pathname,
+                offs_pathname=offs_pathname,
+                ccp_pathname=ccp_pathname,
+                rwin=rwin,
+                azwin=azwin,
+                offsets_pathname=offsets_pathname,
+                n_ovr=n_ovr,
+                nr=nr,
+                naz=naz,
+                thres=thres,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         pg.offset_fitm(
             self.dem_offs.as_posix(),
