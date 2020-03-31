@@ -849,7 +849,58 @@ class Archive:
             ):
                 _LOG.info(
                     "record already exists in slc_duplicate table",
-                    pathname=self.file_location
+                    pathname=self.file_location,
+                    slc_id=self.metadata["id"],
+                    table_name=self.slc_table_name
+                )
+            else:
+                raise err
+
+        for measurement in self.measurements:
+            swath_str, swath_vals = self.prepare_swath_metadata_insertion(measurement)
+            try:
+                cursor.execute(swath_str, swath_vals)
+            except sqlite3.IntegrityError as err:
+                if str(err) == "UNIQUE constraint failed: {}.swath_name".format(
+                    self.swath_table_name
+                ):
+                    _LOG.info(
+                        "duplicate detected",
+                        pathname=self.file_location,
+                        slc_id=self.metadata["id"],
+                        table_name=self.swath_table_name
+                    )
+                    self.archive_duplicate()
+                    return
+                else:
+                    raise err
+
+            burst_keys = self.get_burst_names(measurement)
+            for burst_key in burst_keys:
+                burst_str, burst_values = self.prepare_burst_metadata_insertion(
+                    measurement, burst_key
+                )
+                cursor.execute(burst_str, burst_values)
+
+        self.conn.commit()
+
+    def archive_duplicate(self):
+        """ archive duplicate slc scenes. """
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO slc_duplicates(id, url) VALUES(?, ?)",
+                (os.path.basename(self.file_location), self.file_location),
+            )
+        except sqlite3.IntegrityError as err:
+            if str(err) == "UNIQUE constraint failed: {}.id".format(
+                self.duplicate_table_name
+            ):
+                _LOG.info(
+                    "record already detected in slc_duplicate table",
+                    pathname=self.file_location,
+                    slc_id=self.metadata["id"],
+                    table_name=self.duplicate_table_name
                 )
             else:
                 raise err
