@@ -113,6 +113,7 @@ def multilook(
         work_dir = outdir
 
     with working_directory(work_dir.as_posix()):
+        # py_gamma parameters
         cout = []
         cerr = []
         slc_pathname = str(slc)
@@ -121,6 +122,7 @@ def multilook(
         mli_par_pathname = mli_par
         azlks = alks
         loff = 0
+
         stat = pg.multi_look(
             slc_pathname,
             slc_par_pathname,

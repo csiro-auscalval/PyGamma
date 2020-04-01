@@ -90,6 +90,7 @@ def create_gamma_dem(
                 dst.write(data, 1)
 
             # dem_import function is a call to GAMMA software which creates a gamma compatible DEM
+            # py_gamma parameters
             cout = []
             cerr = []
             input_dem_pathname = outfile_new
@@ -104,6 +105,7 @@ def create_gamma_dem(
             lon_e_shift = "-"  # longitude or Easting constant shift
             zflg = "-"  # no_data values in input file are kept in output file
             no_data = "-"  # value defined in input metadata
+
             stat = pg.dem_import(
                 input_dem_pathname,
                 dem_pathname,

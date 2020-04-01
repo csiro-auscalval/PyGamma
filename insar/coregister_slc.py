@@ -226,12 +226,14 @@ class CoregisterSlc:
         if outfile is None:
             self.slave_lt = self.out_dir.joinpath(f"{self.master_slave_prefix}.lt")
 
+        # py_gamma parameters
         cout = []
         cerr = []
         mli1_par_pathname = str(self.r_dem_master_mli_par)
         dem_rdc_pathname = str(self.rdc_dem)
         mli2_par_pathname = str(self.slave_mli_par)
         lookup_table_pathname = str(self.slave_lt)
+
         stat = pg.rdc_trans(
             mli1_par_pathname,
             dem_rdc_pathname,
@@ -381,6 +383,7 @@ class CoregisterSlc:
         if self.slave_off is None:
             self.slave_off = self.out_dir.joinpath(f"{self.master_slave_prefix}.off")
 
+        # py_gamma parameters
         cout = []
         cerr = []
         slc1_par_pathname = str(self.r_dem_master_slc_par)
@@ -390,6 +393,7 @@ class CoregisterSlc:
         rlks = self.rlks
         azlks = self.alks
         iflg = 0  # non-interactive mode
+
         stat = pg.create_offset(
             slc1_par_pathname,
             slc2_par_pathname,
@@ -436,6 +440,8 @@ class CoregisterSlc:
 
                 # re-sample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials for refinement
                 with working_directory(temp_dir):
+
+                    # py_gamma parameters
                     cout = []
                     cerr = []
                     slc2_tab_pathname = str(self.slave_slc_tab)
@@ -449,6 +455,7 @@ class CoregisterSlc:
                     slc2r_tab_pathname = str(self.r_slave_slc_tab)
                     slc_2r_pathname = str(self.r_slave_slc)
                     slc2r_par_pathname = str(self.r_slave_slc_par)
+
                     stat = pg.SLC_interp_lt_ScanSAR(
                         slc2_tab_pathname,
                         slc2_par_pathname,
@@ -491,6 +498,7 @@ class CoregisterSlc:
                         os.remove(slave_doff)
 
                     # create and update ISP offset parameter file
+                    # py_gamma parameters
                     cout = []
                     cerr = []
                     slc1_par_pathname = str(self.r_dem_master_slc_par)
@@ -500,6 +508,7 @@ class CoregisterSlc:
                     rlks = self.rlks
                     azlks = self.alks
                     iflg = 0  # non-interactive mode
+
                     stat = pg.create_offset(
                         slc1_par_pathname,
                         slc2_par_pathname,
@@ -531,6 +540,7 @@ class CoregisterSlc:
                         raise Exception(msg)
 
                     # offset tracking between SLC images using intensity cross-correlation
+                    # py_gamma parameters
                     cout = []
                     cerr = []
                     slc1_pathname = str(self.slc_master)
@@ -551,6 +561,7 @@ class CoregisterSlc:
                     rstop = self.master_sample.slc_width_end
                     azstart = self.master_sample.slc_lines_start
                     azstop = self.master_sample.slc_lines_end
+
                     stat = pg.offset_pwr_tracking(
                         slc1_pathname,
                         slc2_pathname,
@@ -604,6 +615,7 @@ class CoregisterSlc:
                         raise Exception(msg)
 
                     # range and azimuth offset polynomial estimation
+                    # py_gamma parameters
                     cout = []
                     cerr = []
                     offs_pathname = str(slave_offs)
@@ -614,6 +626,7 @@ class CoregisterSlc:
                     thres = 0.2
                     npoly = 1
                     interact_mode = 0  # off
+
                     stat = pg.offset_fit(
                         offs_pathname,
                         ccp_pathname,
@@ -689,6 +702,7 @@ class CoregisterSlc:
                         os.remove(slave_diff_par)
 
                     # create template diff parameter file for geocoding
+                    # py_gamma parameters
                     cout = []
                     cerr = []
                     par1_pathname = str(self.r_dem_master_mli_par)
@@ -696,6 +710,7 @@ class CoregisterSlc:
                     diff_par_pathname = str(slave_diff_par)
                     par_type = 1  # SLC/MLI_par ISP SLC/MLI parameters
                     iflg = 0  # non-interactive mode
+
                     stat = pg.create_diff_par(
                         par1_pathname,
                         par2_pathname,
@@ -723,10 +738,12 @@ class CoregisterSlc:
                         raise Exception(msg)
 
                     # update range_offset_polynomial in diff param file
+                    # py_gamma parameters
                     cout = []
                     cerr = []
                     search_keyword = "range_offset_polynomial"
                     new_value = f"{d_range_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
+
                     stat = pg.set_value(
                         slave_diff_par.as_posix(),
                         slave_diff_par.as_posix(),
@@ -752,10 +769,12 @@ class CoregisterSlc:
                         raise Exception
 
                     # update azimuth_offset_polynomial in diff param file
+                    # py_gamma parameters
                     cout = []
                     cerr = []
                     search_keyword = "azimuth_offset_polynomial"
                     new_value = f"{d_azimuth_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
+
                     stat = pg.set_value(
                         slave_diff_par.as_posix(),
                         slave_diff_par.as_posix(),
@@ -785,6 +804,7 @@ class CoregisterSlc:
                     shutil.copy(self.slave_lt, _slave_lt)
 
                     # geocoding look-up table refinement using diff par offset polynomial
+                    # py_gamma parameters
                     cout = []
                     cerr = []
                     gc_in = str(_slave_lt)
@@ -792,6 +812,7 @@ class CoregisterSlc:
                     diff_par = str(slave_diff_par)
                     gc_out = str(self.slave_lt)
                     ref_flg = 1
+
                     stat = pg.gc_map_fine(
                         gc_in,
                         width,
@@ -827,6 +848,7 @@ class CoregisterSlc:
         """Resample full data set"""
 
         # re-sample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials
+        # py_gamma parameters
         cout = []
         cerr = []
         slc2_tab = str(self.slave_slc_tab)
@@ -840,6 +862,7 @@ class CoregisterSlc:
         slc2r_tab = str(self.r_slave_slc_tab)
         slc_2r = str(self.r_slave_slc)
         slc2r_par = str(self.r_slave_slc_par)
+
         stat = pg.SLC_interp_lt_ScanSAR(
             slc2_tab,
             slc2_par,
@@ -882,6 +905,7 @@ class CoregisterSlc:
         """Multi-look co-registered slaves."""
         self.r_slave_mli = self.out_dir.joinpath(f"r{self.slave_mli.name}")
         self.r_slave_mli_par = self.r_slave_mli.with_suffix(".mli.par")
+        # py_gamma parameters
         cout = []
         cerr = []
         slc_pathname = str(self.r_slave_slc)
@@ -890,6 +914,7 @@ class CoregisterSlc:
         mli_par_pathname = str(self.r_slave_mli_par)
         rlks = self.rlks
         alks = self.alks
+
         stat = pg.multi_look(
             slc_pathname,
             slc_par_pathname,
@@ -933,6 +958,7 @@ class CoregisterSlc:
             temp_dir = Path(temp_dir)
             temp_output = temp_dir.joinpath("temp_output")
             with working_directory(temp_dir):
+                # py_gamma parameters
                 cout = []
                 cerr = []
                 d1_pathname = str(self.r_slave_mli)
@@ -940,6 +966,7 @@ class CoregisterSlc:
                 d_out_pathname = str(temp_output)
                 width = self.master_sample.mli_width_end
                 mode = 2  # multiplication
+
                 stat = pg.float_math(
                     d1_pathname,
                     d2_pathname,
@@ -966,6 +993,7 @@ class CoregisterSlc:
                     )
                     raise Exception(msg)
 
+            # py_gamma parameters
             cout = []
             cerr = []
             d1_pathname = str(temp_output)
@@ -973,6 +1001,7 @@ class CoregisterSlc:
             d_out_pathname = str(slave_gamma0)
             width = self.master_sample.mli_width_end
             mode = 3  # division
+
             stat = pg.float_math(
                 d1_pathname,
                 d2_pathname,
@@ -1002,6 +1031,8 @@ class CoregisterSlc:
             # back geocode gamma0 backscatter product to map geometry using B-spline interpolation on sqrt data
             eqa_dem_par_vals = DemParFileParser(self.eqa_dem_par)
             dem_width = eqa_dem_par_vals.dem_par_params.width
+
+            # py_gamma parameters
             cout = []
             cerr = []
             data_in_pathname = str(slave_gamma0)
@@ -1015,6 +1046,7 @@ class CoregisterSlc:
             lr_in = "-"
             lr_out = "-"
             order = 5  # B-spline degree
+
             stat = pg.geocode_back(
                 data_in_pathname,
                 width_in,
@@ -1055,6 +1087,7 @@ class CoregisterSlc:
             slave_png = self.out_dir.joinpath(temp_bmp.with_suffix(".png").name)
 
             with working_directory(temp_dir):
+                # py_gamma parameters
                 cout = []
                 cerr = []
                 pwr_pathname = str(slave_gamma0_eqa)
@@ -1067,6 +1100,7 @@ class CoregisterSlc:
                 exp = "-"
                 lr = "-"
                 rasf_pathname = str(temp_bmp)
+
                 stat = pg.raspwr(
                     pwr_pathname,
                     width,
@@ -1111,6 +1145,7 @@ class CoregisterSlc:
                 run_command(command, os.getcwd())
 
                 # convert gamma0 Gamma file to GeoTIFF
+                # py_gamma parameters
                 cout = []
                 cerr = []
                 dem_par_pathname = str(self.eqa_dem_par)
@@ -1118,6 +1153,7 @@ class CoregisterSlc:
                 dtype = 2  # float
                 geotiff_pathname = str(slave_gamma0_eqa.with_suffix(".gamma0.tif"))
                 nodata = 0.0
+
                 stat = pg.data2geotiff(
                     dem_par_pathname,
                     data_pathname,
@@ -1145,11 +1181,13 @@ class CoregisterSlc:
                     raise Exception(msg)
 
                 # create KML map of PNG file
+                # py_gamma parameters
                 cout = []
                 cerr = []
                 image_pathname = str(slave_png)
                 dem_par_pathname = str(self.eqa_dem_par)
                 kml_pathname = str(slave_png.with_suffix(".kml"))
+
                 stat = pg.kml_map(
                     image_pathname,
                     dem_par_pathname,
@@ -1174,6 +1212,8 @@ class CoregisterSlc:
 
                 # geocode sigma0 mli
                 slave_sigma0_eqa = slave_gamma0_eqa.with_suffix(".sigma0")
+
+                # py_gamma parameters
                 cout = []
                 cerr = []
                 data_in_pathname = str(self.r_slave_mli)
@@ -1186,6 +1226,7 @@ class CoregisterSlc:
                 dtype = 0  # float
                 lr_in = "-"
                 lr_out = "-"
+
                 stat = pg.geocode_back(
                     data_in_pathname,
                     width_in,
@@ -1224,6 +1265,7 @@ class CoregisterSlc:
                     raise Exception(msg)
 
                 # convert sigma0 Gamma file to GeoTIFF
+                # py_gamma parameters
                 cout = []
                 cerr = []
                 dem_par_pathname = str(self.eqa_dem_par)
@@ -1231,6 +1273,7 @@ class CoregisterSlc:
                 dtype = 2  # float
                 geotiff_pathname = str(slave_sigma0_eqa.with_suffix(".sigma0.tif"))
                 nodata = 0.0
+
                 stat = pg.data2geotiff(
                     dem_par_pathname,
                     data_pathname,

@@ -246,8 +246,11 @@ class SlcMetadata:
 
             with tempfile.TemporaryDirectory() as tmp_dir:
                 self.extract_archive_member(xml_path, outdir=tmp_dir)
+
+                # py_gamma parameters
                 cout = []
                 cerr = []
+
                 stat = pg.S1_burstloc(
                     os.path.join(tmp_dir, os.path.basename(xml_path)),
                     cout=cout,

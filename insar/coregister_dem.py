@@ -346,6 +346,8 @@ class CoregisterDem:
         # copy SLC image file to new file r_dem_master_slc.
         # TODO this step seems redundant if we can directly use SLC image file to
         # multi-look. (Confirm with InSAR geodesy Team)
+
+        # py_gamma parameters
         cout = []
         cerr = []
         slc_in_pathname = str(self.dem_master_slc)
@@ -354,6 +356,7 @@ class CoregisterDem:
         slc_par_out_pathname = str(self.r_dem_master_slc_par)
         fcase = 1  # FCOMPLEX
         sc = "-"  # scale factor
+
         stat = pg.SLC_copy(
             slc_in_pathname,
             slc_par_in_pathname,
@@ -383,6 +386,7 @@ class CoregisterDem:
             raise Exception(msg)
 
         # multi-look SLC image file
+        # py_gamma parameters
         cout = []
         cerr = []
         slc_pathname = str(self.r_dem_master_slc)
@@ -392,6 +396,7 @@ class CoregisterDem:
         rlks = self.rlks
         azlks = self.alks
         loff = 0  # offset to starting line
+
         stat = pg.multi_look(
             slc_pathname,
             slc_par_pathname,
@@ -427,6 +432,8 @@ class CoregisterDem:
         # This is redundant in production phase (Consult InSAR team and remove)
         if raster_out:
             params = SlcParFileParser(self.r_dem_master_mli_par)
+
+            # py_gamma parameters
             cout = []
             cerr = []
             pwr_pathname = str(self.r_dem_master_mli)
@@ -439,6 +446,7 @@ class CoregisterDem:
             exp = 0.35
             lr = 1  # left/right mirror image flag
             rasf_pathname = str(self.r_dem_master_mli_bmp)
+
             stat = pg.raspwr(
                 pwr_pathname,
                 width,
@@ -500,6 +508,8 @@ class CoregisterDem:
         """
 
         # generate initial geocoding look-up-table and simulated SAR image
+
+        # py_gamma parameters
         cout = []
         cerr = []
         mli_par_pathname = str(self.r_dem_master_mli_par)
@@ -520,6 +530,7 @@ class CoregisterDem:
         ls_map_pathname = str(self.dem_lsmap)
         frame = 8
         ls_mode = 2
+
         stat = pg.gc_map1(
             mli_par_pathname,
             off_par_pathname,
@@ -573,6 +584,7 @@ class CoregisterDem:
             raise Exception(msg)
 
         # generate initial gamma0 pixel normalisation area image in radar geometry
+        # py_gamma parameters
         cout = []
         cerr = []
         mli_par_pathname = str(self.r_dem_master_mli_par)
@@ -583,6 +595,7 @@ class CoregisterDem:
         inc_map_pathname = str(self.dem_loc_inc)
         pix_sigma0_pathname = "-"  # no output
         pix_gamma0_pathname = str(self.dem_pix_gam)
+
         stat = pg.pixel_area(
             mli_par_pathname,
             dem_par_pathname,
@@ -628,6 +641,7 @@ class CoregisterDem:
 
         if use_external_image:
             # transform simulated SAR intensity image to radar geometry
+            # py_gamma parameters
             cout = []
             cerr = []
             dem1_par_pathname = str(self.dem_par)
@@ -639,6 +653,7 @@ class CoregisterDem:
             interp_mode = 1  # bicubic spline
             dtype = 0  # FLOAT
             bflg = "-"  # use DEM bounds specified by dem2_par_pathname
+
             stat = pg.map_trans(
                 dem1_par_pathname,
                 data1_pathname,
@@ -674,6 +689,7 @@ class CoregisterDem:
                 raise Exception(msg)
 
             # transform external image to radar geometry
+            # py_gamma parameters
             cout = []
             cerr = []
             lookup_table_pathname = str(self.dem_lt_rought)
@@ -689,6 +705,7 @@ class CoregisterDem:
             n_ovr = 2
             rad_max = 4
             nintr = "-"  # n points for interpolation when not nearest neighbor
+
             stat = pg.geocode(
                 lookup_table_pathname,
                 data_in_pathname,
@@ -776,6 +793,7 @@ class CoregisterDem:
             self._set_attrs()
 
         # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than simulated SAR image in offset calculation
+        # py_gamma parameters
         cout = []
         cerr = []
         mli_1_pathname = str(self.dem_pix_gam)
@@ -790,6 +808,7 @@ class CoregisterDem:
         thres = self.dem_snr
         patch = self.dem_patch_window
         cflag = 1  # copy constant range and azimuth offsets
+
         stat = pg.init_offsetm(
             mli_1_pathname,
             mli_2_pathname,
@@ -829,6 +848,7 @@ class CoregisterDem:
             )
             raise Exception(msg)
 
+        # py_gamma parameters
         cout = []
         cerr = []
         mli_1_pathname = str(self.dem_pix_gam)
@@ -843,6 +863,7 @@ class CoregisterDem:
         nr = "-"  # number of offset estimates in range direction
         naz = "-"  # number of offset estimates in azimuth direction
         thres = "-"  # Lanczos interpolator order
+
         stat = pg.offset_pwrm(
             mli_1_pathname,
             mli_2_pathname,
@@ -883,6 +904,7 @@ class CoregisterDem:
             )
             raise Exception(msg)
 
+        # py_gamma parameters
         cout = []
         cerr = []
         offs_pathname = str(self.dem_offs)
@@ -891,6 +913,7 @@ class CoregisterDem:
         coffs_pathname = str(self.dem_coffs)
         coffsets_pathname = str(self.dem_coffsets)
         thres = "-"
+
         stat = pg.offset_fitm(
             offs_pathname,
             ccp_pathname,
@@ -926,12 +949,14 @@ class CoregisterDem:
         if use_external_image:
             ref_flg = 0
 
+        # py_gamma parameters
         cout = []
         cerr = []
         gc_in_pathname = str(self.dem_lt_rough)
         width = self.dem_width
         diff_par_pathname = str(self.dem_diff)
         gc_out_pathname = str(self.dem_lt_fine)
+
         stat = pg.gc_map_fine(
             gc_in_pathname,
             width,
@@ -961,6 +986,8 @@ class CoregisterDem:
         # generate refined gamma0 pixel normalization area image in radar geometry
         with tempfile.TemporaryDirectory() as temp_dir:
             pix = Path(temp_dir).joinpath("pix")
+
+            # py_gamma parameters
             cout = []
             cerr = []
             mli_par_pathname = str(self.r_dem_master_mli_par)
@@ -971,6 +998,7 @@ class CoregisterDem:
             inc_map_pathname = str(self.dem_loc_inc)
             pix_sigma0 = "-"
             pix_gamma0 = str(pix)
+
             stat = pg.pixel_area(
                 mli_par_pathname,
                 dem_par_pathname,
@@ -1004,6 +1032,7 @@ class CoregisterDem:
                 raise Exception(msg)
 
             # interpolate holes
+            # py_gamma parameters
             cout = []
             cerr = []
             data_in_pathname = str(pix)
@@ -1015,6 +1044,7 @@ class CoregisterDem:
             w_mode = 2  # data weighting mode
             dtype = 2  # FLOAT
             cp_data = 1  # copy input data values to output
+
             stat = pg.interp_ad(
                 data_in_pathname,
                 data_out_pathname,
@@ -1050,6 +1080,8 @@ class CoregisterDem:
 
             # obtain ellipsoid-based ground range sigma0 pixel reference area
             sigma0 = Path(temp_dir).joinpath("sigma0")
+
+            # py_gamma parameters
             cout = []
             cerr = []
             mli_pathname = str(self.r_dem_master_mli)
@@ -1063,6 +1095,7 @@ class CoregisterDem:
             sc_db = "-"  # scale factor in dB
             k_db = "-"  # calibration factor in dB
             pix_area_pathname = str(self.ellip_pix_sigma0)
+
             stat = pg.radcal_MLI(
                 mli_pathname,
                 mli_par_pathname,
@@ -1104,6 +1137,8 @@ class CoregisterDem:
             # Generate Gamma0 backscatter image for master scene according to equation
             # in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
             temp1 = Path(temp_dir).joinpath("temp1")
+
+            # py_gamma parameters
             cout = []
             cerr = []
             d1_pathname = str(self.r_dem_master_mli)
@@ -1111,6 +1146,7 @@ class CoregisterDem:
             d_out_pathname = str(temp1)
             width = self.r_dem_master_mli_width
             mode = 2  # multiplication
+
             stat = pg.float_math(
                 d1_pathname,
                 d2_pathname,
@@ -1137,6 +1173,7 @@ class CoregisterDem:
                 )
                 raise Exception(msg)
 
+            # py_gamma parameters
             cout = []
             cerr = []
             d1_pathname = str(temp1)
@@ -1144,6 +1181,7 @@ class CoregisterDem:
             d_out_pathname = str(self.dem_master_gamma0)
             width = self.r_dem_master_mli_width
             mode = 3  # division
+
             stat = pg.float_math(
                 d1_pathname,
                 d2_pathname,
@@ -1171,6 +1209,7 @@ class CoregisterDem:
                 raise Exception(msg)
 
             # create raster for comparison with master mli raster
+            # py_gamma parameters
             cout = []
             cerr = []
             pwr_pathname = str(self.dem_master_gamma0)
@@ -1183,6 +1222,7 @@ class CoregisterDem:
             exp = 0.35
             lr = 1  # left/right mirror image flag
             rasf_pathname = str(self.dem_master_gamma0_bmp)
+
             stat = pg.raspwr(
                 pwr_pathname,
                 width,
@@ -1221,6 +1261,8 @@ class CoregisterDem:
 
             # make sea-mask based on DEM zero values
             temp = Path(temp_dir).joinpath("temp")
+
+            # py_gamma parameters
             cout = []
             cerr = []
             f_in_pathname = str(self.eqa_dem)
@@ -1231,6 +1273,7 @@ class CoregisterDem:
             rpl_flg = 0  # replacement option flag; replace all points
             dtype = 2  # FLOAT
             zflg = 1  # zero is a valid data value
+
             stat = pg.replace_values(
                 f_in_pathname,
                 value,
@@ -1263,6 +1306,7 @@ class CoregisterDem:
                 )
                 raise Exception(msg)
 
+            # py_gamma parameters
             cout = []
             cerr = []
             hgt_pathname = str(temp)
@@ -1278,6 +1322,7 @@ class CoregisterDem:
             exp = "-"  # display exponent
             lr = "-"  # left/right mirror image flag
             rasf_pathname = str(self.seamask)
+
             stat = pg.rashgt(
                 hgt_pathname,
                 pwr_pathname,
@@ -1340,6 +1385,7 @@ class CoregisterDem:
             self._set_attrs()
 
         # geocode map geometry DEM to radar geometry
+        # py_gamma parameters
         cout = []
         cerr = []
         lookup_table_pathname = str(self.dem_lt_fine)
@@ -1355,6 +1401,7 @@ class CoregisterDem:
         n_ovr = 2
         rad_max = self.dem_rad_max
         nintr = "-"  # number of points required for interpolation
+
         stat = pg.geocode(
             lookup_table_pathname,
             data_in_pathname,
@@ -1399,6 +1446,8 @@ class CoregisterDem:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             rdc_dem_bmp = Path(temp_dir).joinpath("rdc_dem.bmp")
+
+            # py_gamma parameters
             cout = []
             cerr = []
             hgt_pathname = str(self.rdc_dem)
@@ -1414,6 +1463,7 @@ class CoregisterDem:
             exp = 0.35  # display exponent
             lr = 1  # left/right mirror image flag
             rasf_pathname = str(rdc_dem_bmp)
+
             stat = pg.rashgt(
                 hgt_pathname,
                 pwr_pathname,
@@ -1466,6 +1516,7 @@ class CoregisterDem:
             run_command(command, os.getcwd())
 
         # Geocode simulated SAR intensity image to radar geometry
+        # py_gamma parameters
         cout = []
         cerr = []
         lookup_table_pathname = str(self.dem_lt_fine)
@@ -1481,6 +1532,7 @@ class CoregisterDem:
         n_ovr = 2
         rad_max = self.dem_rad_max  # maximum interpolation search radius
         nintr = "-"  # number of points required for interpolation
+
         stat = pg.geocode(
             lookup_table_pathname,
             data_in_pathname,
@@ -1524,6 +1576,7 @@ class CoregisterDem:
             raise Exception(msg)
 
         # Geocode local incidence angle image to radar geometry
+        # py_gamma parameters
         cout = []
         cerr = []
         lookup_table_pathname = str(self.dem_lt_fine)
@@ -1539,6 +1592,7 @@ class CoregisterDem:
         n_ovr = 2
         rad_max = self.dem_rad_max  # maximum interpolation search radius
         nintr = "-"  # number of points required for interpolation
+
         stat = pg.geocode(
             lookup_table_pathname,
             data_in_pathname,
@@ -1583,6 +1637,7 @@ class CoregisterDem:
 
         # Geocode external image to radar geometry
         if use_external_image:
+            # py_gamma parameters
             cout = []
             cerr = []
             lookup_table_pathname = str(self.dem_lt_fine)
@@ -1598,6 +1653,7 @@ class CoregisterDem:
             n_ovr = 2
             rad_max = self.dem_rad_max  # maximum interpolation search radius
             nintr = "-"  # number of points required for interpolation
+
             stat = pg.geocode(
                 lookup_table_pathname,
                 data_in_pathname,
@@ -1641,6 +1697,7 @@ class CoregisterDem:
                 raise Exception(msg)
 
         # Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
+        # py_gamma parameters
         cout = []
         cerr = []
         data_in_pathname = str(self.dem_master_gamma0)
@@ -1654,6 +1711,7 @@ class CoregisterDem:
         lr_in = "-"
         lr_out = "-"
         order = 5  # Lanczos function order or B-spline degree
+
         stat = pg.geocode_back(
             data_in_pathname,
             width_in,
@@ -1693,6 +1751,7 @@ class CoregisterDem:
             raise Exception(msg)
 
         # make quick-look png image
+        # py_gamma parameters
         cout = []
         cerr = []
         pwr_pathname = str(self.dem_master_gamma0_eqa)
@@ -1705,6 +1764,7 @@ class CoregisterDem:
         exp = "-"
         lr = "-"
         rasf_pathname = str(self.dem_master_gamma0_eqa_bmp)
+
         stat = pg.raspwr(
             pwr_pathname,
             width,
@@ -1751,6 +1811,7 @@ class CoregisterDem:
         run_command(command, os.getcwd())
 
         # geotiff gamma0 file
+        # py_gamma parameters
         cout = []
         cerr = []
         dem_par_pathname = str(self.eqa_dem_par)
@@ -1758,6 +1819,7 @@ class CoregisterDem:
         dtype = 2  # FLOAT
         geotiff_pathname = self.dem_master_gamma0_eqa_geo
         nodata = 0.0
+
         stat = pg.data2geotiff(
             dem_par_pathname,
             data_pathname,
@@ -1787,6 +1849,7 @@ class CoregisterDem:
         # geocode and geotif sigma0 mli
         shutil.copyfile(self.r_dem_master_mli, self.dem_master_sigma0)
 
+        # py_gamma parameters
         cout = []
         cerr = []
         data_in_pathname = str(self.dem_master_sigma0)
@@ -1799,6 +1862,7 @@ class CoregisterDem:
         dtype = 0  # FLOAT
         lr_in = "-"
         lr_out = "-"
+
         stat = pg.geocode_back(
             data_in_pathname,
             width_in,
@@ -1835,6 +1899,7 @@ class CoregisterDem:
             )
             raise Exception(msg)
 
+        # py_gamma parameters
         cout = []
         cerr = []
         dem_par_pathname = str(self.eqa_dem_par)
@@ -1842,6 +1907,7 @@ class CoregisterDem:
         dtype = 2  # FLOAT
         geotiff_pathname = str(self.dem_master_sigma0_eqa_geo)
         nodata = 0.0
+
         stat = pg.data2geotiff(
             dem_par_pathname,
             data_pathname,
@@ -1869,6 +1935,7 @@ class CoregisterDem:
             raise Exception(msg)
 
         # geotiff DEM
+        # py_gamma parameters
         cout = []
         cerr = []
         dem_par_pathname = str(self.eqa_dem_par)
@@ -1876,6 +1943,7 @@ class CoregisterDem:
         dtype = 2  # FLOAT
         geotiff_pathname = str(self.eqa_dem_geo)
         nodata = 0.0
+
         stat = pg.data2geotiff(
             dem_par_pathname,
             data_pathname,
@@ -1903,11 +1971,13 @@ class CoregisterDem:
             raise Exception(msg)
 
         # create kml
+        # py_gamma parameters
         cout = []
         cerr = []
         image_pathname = str(self.dem_master_gamma0_eqa_bmp.with_suffix(".png"))
         dem_par_pathname = str(self.eqa_dem_par)
         kml_pathname = str(self.dem_master_gamma0_eqa_bmp.with_suffix(".kml"))
+
         stat = pg.kml_map(
             image_pathname,
             dem_par_pathname,
@@ -1948,6 +2018,7 @@ class CoregisterDem:
         """Create look vector files."""
 
         # create angles look vector image
+        # py_gamma parameters
         cout = []
         cerr = []
         slc_par_pathname = str(self.r_dem_master_slc_par)
@@ -1956,6 +2027,7 @@ class CoregisterDem:
         dem_pathname = str(self.eqa_dem)
         lv_theta_pathname = str(self.dem_lv_theta)
         lv_phi_pathname = str(self.dem_lv_phi)
+
         stat = pg.look_vector(
             slc_par_pathname,
             off_par_pathname,
@@ -1985,6 +2057,7 @@ class CoregisterDem:
             raise Exception(msg)
 
         # convert look vector files to geotiff file
+        # py_gamma parameters
         cout = []
         cerr = []
         dem_par_pathname = str(self.eqa_dem_par)
@@ -1992,6 +2065,7 @@ class CoregisterDem:
         dtype = 2  # FLOAT
         geotiff_pathname = str(self.dem_lv_theta_geo)
         nodata = 0.0
+
         stat = pg.data2geotiff(
             dem_par_pathname,
             data_pathname,
@@ -2018,6 +2092,7 @@ class CoregisterDem:
             )
             raise Exception(msg)
 
+        # py_gamma parameters
         cout = []
         cerr = []
         dem_par_pathname = str(self.eqa_dem_par)
@@ -2025,6 +2100,7 @@ class CoregisterDem:
         dtype = 2  # FLOAT
         geotiff_pathname = str(self.dem_lv_phi_geo)
         nodata = 0.0
+
         stat = pg.data2geotiff(
             dem_par_pathname,
             data_pathname,

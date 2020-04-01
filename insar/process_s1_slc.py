@@ -149,6 +149,7 @@ class SlcProcess:
                 _concat_tabs[_id][swath]["par"] = tab_names.par
                 _concat_tabs[_id][swath]["tops_par"] = tab_names.tops_par
 
+                # py_gamma parameters
                 cout = []
                 cerr = []
                 geotiff_pathname = raw_files[0]
@@ -161,6 +162,7 @@ class SlcProcess:
                 dtype = 0  # complex
                 sc_db = "-"  # scale factor for FCOMPLEX -> SCOMPLEX
                 noise_pwr = "-"  # noise intensity for each SLC sample in slant range
+
                 stat = pg.par_S1_SLC(
                     geotiff_pathname,
                     annotation_xml_pathname,
@@ -311,8 +313,10 @@ class SlcProcess:
                     self._write_tabs(slc_tab3, _id=slc_prefix, slc_data_dir=os.getcwd())
 
                     # concat sequential ScanSAR burst SLC images
+                    # py_gamma parameters
                     cout = []
                     cerr = []
+
                     stat = pg.SLC_cat_ScanSAR(
                         str(slc_tab1),
                         str(slc_tab2),
@@ -371,6 +375,7 @@ class SlcProcess:
                 tab_names = self.swath_tab_names(swath, self.slc_prefix)
 
                 with working_directory(tmpdir):
+                    # py_gamma parameters
                     cout = []
                     cerr = []
                     slc_1_pathname = str(slc_dir.joinpath(tab_names.slc))
@@ -378,6 +383,7 @@ class SlcProcess:
                     slc_2_pathname = tab_names.slc
                     slc_2_par_pathname = tab_names.par
                     ph_shift = -1.25  # phase shift to add to SLC phase (radians)
+
                     stat = pg.SLC_phase_shift(
                         slc_1_pathname,
                         slc_1_par_pathname,
@@ -423,12 +429,15 @@ class SlcProcess:
         """
 
         slc_tab = self.slc_tab_names(self.slc_prefix)
+
+        # py_gamma parameters
         cout = []
         cerr = []
         slc_tab_pathname = str(self.slc_tab)
         slc_pathname = slc_tab.slc
         slc_par_pathname = slc_tab.par
         azlks = alks
+
         stat = pg.SLC_mosaic_S1_TOPS(
             slc_tab_pathname,
             slc_pathname,
@@ -459,10 +468,13 @@ class SlcProcess:
         """Extract Sentinel-1 OPOD state vectors and copy into the ISP image parameter file"""
 
         slc_tab = self.slc_tab_names(self.slc_prefix)
+
+        # py_gamma parameters
         cout = []
         cerr = []
         slc_par_pathname = slc_tab.par
         opod_pathname = self.orbit_file
+
         stat = pg.S1_OPOD_vec(
             slc_par_pathname,
             opod_pathname,
@@ -548,12 +560,14 @@ class SlcProcess:
             self._write_tabs(sub_slc_out, _id=self.slc_prefix, slc_data_dir=tmpdir)
 
             # run the subset
+            # py_gamma parameters
             cout = []
             cerr = []
             slc1_tab_pathname = str(sub_slc_in)
             slc2_tab_pathname = str(sub_slc_out)
             burst_tab_pathname = str(burst_tab)
             dtype = 0  # output datatype; FCOMPLEX
+
             stat = pg.SLC_copy_ScanSAR(
                 slc1_tab_pathname,
                 slc2_tab_pathname,
@@ -609,11 +623,14 @@ class SlcProcess:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             burst_tab = tmpdir.joinpath("burst_tab").as_posix()
+
+            # py_gamma parameters
             cout = []
             cerr = []
             slc1_tab_pathname = str(ref_slc_tab)
             slc2_tab_pathname = str(full_slc_tab)
             burst_tab_pathname = burst_tab
+
             stat = pg.S1_BURST_tab(
                 slc1_tab_pathname,
                 slc2_tab_pathname,
@@ -639,12 +656,15 @@ class SlcProcess:
             # write output in a temp directory
             resize_slc_tab = tmpdir.joinpath("sub_slc_output_tab")
             self._write_tabs(resize_slc_tab, _id=self.slc_prefix, slc_data_dir=tmpdir)
+
+            # py_gamma parameters
             cout = []
             cerr = []
             slc1_tab_pathname = str(full_slc_tab)
             slc2_tab_pathname = str(resize_slc_tab)
             burst_tab_pathname = str(burst_tab_pathname)
             dtype = "-"  # output datatype; default (same as input)
+
             stat = pg.SLC_copy_ScanSAR(
                 slc1_tab_pathname,
                 slc2_tab_pathname,
@@ -690,6 +710,8 @@ class SlcProcess:
                     .with_suffix(".bmp")
                     .as_posix()
                 )
+
+                # py_gamma parameters
                 cout = []
                 cerr = []
                 slc_pathname = tab_names.slc
@@ -704,6 +726,7 @@ class SlcProcess:
                 data_type = 0  # FCOMPLEX
                 hdrsz = 0  # line header size in bytes
                 rasf_pathname = bmp_file
+
                 stat = pg.rasSLC(
                     slc_pathname,
                     width,
