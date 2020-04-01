@@ -240,9 +240,13 @@ class SlcMetadata:
                 # py_gamma parameters
                 cout = []
                 cerr = []
+                annotation_xml_pathname = os.path.join(
+                    tmp_dir,
+                    os.path.basename(xml_path)
+                )
 
                 stat = pg.S1_burstloc(
-                    os.path.join(tmp_dir, os.path.basename(xml_path)),
+                    annotation_xml_pathname,
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
@@ -254,7 +258,7 @@ class SlcMetadata:
                     msg = "failed to execute pg.S1_burstloc"
                     _LOG.error(
                         msg,
-                        xml_file=xml_path,
+                        annotation_xml_pathname=annotation_xml_pathname,
                         stat=stat,
                         gamma_error=cerr
                     )

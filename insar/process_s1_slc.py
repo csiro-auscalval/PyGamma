@@ -316,11 +316,14 @@ class SlcProcess:
                     # py_gamma parameters
                     cout = []
                     cerr = []
+                    slc_tab1_pathname = str(slc_tab1)
+                    slc_tab2_pathname = str(slc_tab2)
+                    slc_tab3_pathname = str(slc_tab3)
 
                     stat = pg.SLC_cat_ScanSAR(
-                        str(slc_tab1),
-                        str(slc_tab2),
-                        str(slc_tab3),
+                        slc_tab1_pathname,
+                        slc_tab2_pathname,
+                        slc_tab3_pathname,
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
@@ -331,9 +334,9 @@ class SlcProcess:
                         msg = "failed to execute pg.SLC_cat_ScanSAR"
                         _LOG.error(
                             msg,
-                            slc_tab1=str(slc_tab1),
-                            slc_tab2=str(slc_tab2),
-                            slc_tab3=str(slc_tab3),
+                            slc_tab1=slc_tab1_pathname,
+                            slc_tab2=slc_tab2_pathname,
+                            slc_tab3=slc_tab3_pathname,
                             stat=stat,
                             gamma_error=cerr
                         )

@@ -741,12 +741,14 @@ class CoregisterSlc:
                     # py_gamma parameters
                     cout = []
                     cerr = []
+                    par_in_pathname = str(slave_diff_par)
+                    par_out_pathname = str(slave_diff_par)
                     search_keyword = "range_offset_polynomial"
                     new_value = f"{d_range_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
 
                     stat = pg.set_value(
-                        slave_diff_par.as_posix(),
-                        slave_diff_par.as_posix(),
+                        par_in_pathname,
+                        par_out_pathname,
                         search_keyword,
                         new_value,
                         cout=cout,
@@ -759,8 +761,8 @@ class CoregisterSlc:
                         msg = "failed to execute pg.set_value"
                         _LOG.error(
                             msg,
-                            par_in_pathname=str(slave_diff_par),
-                            par_out_pathname=str(slave_diff_par),
+                            par_in_pathname=par_in_pathname,
+                            par_out_pathname=par_out_pathname,
                             search_keyword=search_keyword,
                             new_value=new_value,
                             stat=stat,
@@ -772,12 +774,14 @@ class CoregisterSlc:
                     # py_gamma parameters
                     cout = []
                     cerr = []
+                    par_in_pathname = str(slave_diff_par)
+                    par_out_pathname = str(slave_diff_par)
                     search_keyword = "azimuth_offset_polynomial"
                     new_value = f"{d_azimuth_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
 
                     stat = pg.set_value(
-                        slave_diff_par.as_posix(),
-                        slave_diff_par.as_posix(),
+                        par_in_pathname,
+                        par_out_pathname,
                         search_keyword,
                         new_value,
                         cout=cout,
@@ -790,8 +794,8 @@ class CoregisterSlc:
                         msg = "failed to execute pg.set_value"
                         _LOG.error(
                             msg,
-                            par_in_pathname=str(slave_diff_par),
-                            par_out_pathname=str(slave_diff_par),
+                            par_in_pathname=par_in_pathname,
+                            par_out_pathname=par_out_pathname,
                             search_keyword=search_keyword,
                             new_value=new_value,
                             stat=stat,
@@ -905,6 +909,7 @@ class CoregisterSlc:
         """Multi-look co-registered slaves."""
         self.r_slave_mli = self.out_dir.joinpath(f"r{self.slave_mli.name}")
         self.r_slave_mli_par = self.r_slave_mli.with_suffix(".mli.par")
+
         # py_gamma parameters
         cout = []
         cerr = []
