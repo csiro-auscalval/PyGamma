@@ -689,7 +689,7 @@ class CoregisterDem:
             n_ovr = 2
             rad_max = 4
             nintr = "-"  # n points for interpolation when not nearest neighbor
-            pg.geocode(
+            stat = pg.geocode(
                 lookup_table_pathname,
                 data_in_pathname,
                 width_in,
