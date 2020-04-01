@@ -883,132 +883,442 @@ class CoregisterDem:
             )
             raise Exception(msg)
 
-        pg.offset_fitm(
-            self.dem_offs.as_posix(),
-            self.dem_ccp.as_posix(),
-            self.dem_diff.as_posix(),
-            self.dem_coffs.as_posix(),
-            self.dem_coffsets.as_posix(),
-            "-",
+        cout = []
+        cerr = []
+        offs_pathname = str(self.dem_offs)
+        ccp_pathname = str(self.dem_ccp)
+        diff_par_pathname = str(self.dem_diff)
+        coffs_pathname = str(self.dem_coffs)
+        coffsets_pathname = str(self.dem_coffsets)
+        thres = "-"
+        stat = pg.offset_fitm(
+            offs_pathname,
+            ccp_pathname,
+            diff_par_pathname,
+            coffs_pathname,
+            coffsets_pathname,
+            thres,
             npoly,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.offset_fitm"
+            _LOG.error(
+                msg,
+                offs_pathname=offs_pathname,
+                ccp_pathname=ccp_pathname,
+                diff_par_pathname=diff_par_pathname,
+                coffs_pathname=coffs_pathname,
+                coffsets_pathname=coffsets_pathname,
+                thres=thres,
+                npoly=npoly,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         # refinement of initial geo-coding look-up-table
         ref_flg = 1
         if use_external_image:
             ref_flg = 0
 
-        pg.gc_map_fine(
-            self.dem_lt_rough.as_posix(),
-            self.dem_width,
-            self.dem_diff.as_posix(),
-            self.dem_lt_fine.as_posix(),
+        cout = []
+        cerr = []
+        gc_in_pathname = str(self.dem_lt_rough)
+        width = self.dem_width
+        diff_par_pathname = str(self.dem_diff)
+        gc_out_pathname = str(self.dem_lt_fine)
+        stat = pg.gc_map_fine(
+            gc_in_pathname,
+            width,
+            diff_par_pathname,
+            gc_out_pathname,
             ref_flg,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.gc_map_fine"
+            _LOG.error(
+                msg,
+                gc_in_pathname=gc_in_pathname,
+                width=width,
+                diff_par_pathname=diff_par_pathname,
+                gc_out_pathname=gc_out_pathname,
+                ref_flg=ref_flg,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         # generate refined gamma0 pixel normalization area image in radar geometry
         with tempfile.TemporaryDirectory() as temp_dir:
             pix = Path(temp_dir).joinpath("pix")
-            pg.pixel_area(
-                self.r_dem_master_mli_par.as_posix(),
-                self.eqa_dem_par.as_posix(),
-                self.eqa_dem.as_posix(),
-                self.dem_lt_fine.as_posix(),
-                self.dem_lsmap.as_posix(),
-                self.dem_loc_inc.as_posix(),
-                "-",
-                pix.as_posix(),
+            cout = []
+            cerr = []
+            mli_par_pathname = str(self.r_dem_master_mli_par)
+            dem_par_pathname = str(self.eqa_dem_par)
+            dem_pathname = str(self.eqa_dem)
+            lookup_table_pathname = str(self.dem_lt_fine)
+            ls_map_pathname = str(self.dem_lsmap)
+            inc_map_pathname = str(self.dem_loc_inc)
+            pix_sigma0 = "-"
+            pix_gamma0 = str(pix)
+            stat = pg.pixel_area(
+                mli_par_pathname,
+                dem_par_pathname,
+                dem_pathname,
+                lookup_table_pathname,
+                ls_map_pathname,
+                inc_map_pathname,
+                pix_sigma0,
+                pix_gamma0,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
 
+            if stat != 0:
+                msg = "failed to execute pg.pixel_area"
+                _LOG.error(
+                    msg,
+                    mli_par_pathname=mli_par_pathname,
+                    dem_par_pathname=dem_par_pathname,
+                    dem_pathname=dem_pathname,
+                    lookup_table_pathname=lookup_table_pathname,
+                    ls_map_pathname=ls_map_pathname,
+                    inc_map_pathname=inc_map_pathname,
+                    pix_sigma0=pix_sigma0,
+                    pix_gamma0=pix_gamma0,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
+
             # interpolate holes
-            pg.interp_ad(
-                pix.as_posix(),
-                self.dem_pix_gam.as_posix(),
-                self.r_dem_master_mli_width,
-                "-",
-                "-",
-                "-",
-                2,
-                2,
-                1,
+            cout = []
+            cerr = []
+            data_in_pathname = str(pix)
+            data_out_pathname = str(self.dem_pix_gam)
+            width = self.r_dem_master_mli_width
+            r_max = "-"  # maximum interpolation window radius
+            np_min = "-"  # minimum number of points used for the interpolation
+            np_max = "-"  # maximum number of points used for the interpolation
+            w_mode = 2  # data weighting mode
+            dtype = 2  # FLOAT
+            cp_data = 1  # copy input data values to output
+            stat = pg.interp_ad(
+                data_in_pathname,
+                data_out_pathname,
+                width,
+                r_max,
+                np_min,
+                np_max,
+                w_mode,
+                dtype,
+                cp_data,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute pg.interp_ad"
+                _LOG.error(
+                    msg,
+                    data_in_pathname=data_in_pathname,
+                    data_out_pathname=data_out_pathname,
+                    width=width,
+                    r_max=r_max,
+                    np_min=np_min,
+                    np_max=np_max,
+                    dtype=dtype,
+                    cp_data=cp_data,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
             # obtain ellipsoid-based ground range sigma0 pixel reference area
             sigma0 = Path(temp_dir).joinpath("sigma0")
-            pg.radcal_MLI(
-                self.r_dem_master_mli.as_posix(),
-                self.r_dem_master_mli_par.as_posix(),
-                "-",
-                sigma0.as_posix(),
-                "-",
-                0,
-                0,
-                1,
-                "-",
-                "-",
-                self.ellip_pix_sigma0.as_posix(),
+            cout = []
+            cerr = []
+            mli_pathname = str(self.r_dem_master_mli)
+            mli_par_pathname = str(self.r_dem_master_mli_par)
+            off_par = "-"  # ISP offset/interferogram parameter file
+            cmli = str(sigma0)  # radiometrically calibrated output MLI
+            antenna = "-"  # 1-way antenna gain pattern file
+            rloss_flag = 0  # range spreading loss correction
+            ant_flag = 0  # antenna pattern correction
+            refarea_flag = 1  # reference pixel area correction
+            sc_db = "-"  # scale factor in dB
+            k_db = "-"  # calibration factor in dB
+            pix_area_pathname = str(self.ellip_pix_sigma0)
+            stat = pg.radcal_MLI(
+                mli_pathname,
+                mli_par_pathname,
+                off_par,
+                cmli,
+                antenna,
+                rloss_flag,
+                ant_flag,
+                refarea_flag,
+                sc_db,
+                k_db,
+                pix_area_pathname,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute pg.radcal_MLI"
+                _LOG.error(
+                    msg,
+                    mli_pathname=mli_pathname,
+                    mli_par_pathname=mli_par_pathname,
+                    off_par=off_par,
+                    cmli=cmli,
+                    antenna=antenna,
+                    rloss_flag=rloss_flag,
+                    ant_flag=ant_flag,
+                    refarea_flag=refarea_flag,
+                    sc_db=sc_db,
+                    k_db=k_db,
+                    pix_area_pathname=pix_area_pathname,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
             # Generate Gamma0 backscatter image for master scene according to equation
             # in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
             temp1 = Path(temp_dir).joinpath("temp1")
-            pg.float_math(
-                self.r_dem_master_mli.as_posix(),
-                self.ellip_pix_sigma0.as_posix(),
-                temp1.as_posix(),
-                self.r_dem_master_mli_width,
-                2,
-            )
-            pg.float_math(
-                temp1.as_posix(),
-                self.dem_pix_gam.as_posix(),
-                self.dem_master_gamma0.as_posix(),
-                self.r_dem_master_mli_width,
-                3,
+            cout = []
+            cerr = []
+            d1_pathname = str(self.r_dem_master_mli)
+            d2_pathname = str(self.ellip_pix_sigma0)
+            d_out_pathname = str(temp1)
+            width = self.r_dem_master_mli_width
+            mode = 2  # multiplication
+            stat = pg.float_math(
+                d1_pathname,
+                d2_pathname,
+                d_out_pathname,
+                width,
+                mode,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
 
-            # create raster for comparison with master mli raster
-            pg.raspwr(
-                self.dem_master_gamma0.as_posix(),
-                self.r_dem_master_mli_width,
-                1,
-                0,
-                20,
-                20,
-                1.0,
-                0.35,
-                1,
-                self.dem_master_gamma0_bmp.as_posix(),
+            if stat != 0:
+                msg = "failed to execute pg.float_math"
+                _LOG.error(
+                    msg,
+                    d1_pathname=d1_pathname,
+                    d2_pathname=d2_pathname,
+                    d_out_pathname=d_out_pathname,
+                    width=width,
+                    mode=mode,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
+
+            cout = []
+            cerr = []
+            d1_pathname = str(temp1)
+            d2_pathname = str(self.dem_pix_gam)
+            d_out_pathname = str(self.dem_master_gamma0)
+            width = self.r_dem_master_mli_width
+            mode = 3  # division
+            stat = pg.float_math(
+                d1_pathname,
+                d2_pathname,
+                d_out_pathname,
+                width,
+                mode,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute pg.float_math"
+                _LOG.error(
+                    msg,
+                    d1_pathname=d1_pathname,
+                    d2_pathname=d2_pathname,
+                    d_out_pathname=d_out_pathname,
+                    width=width,
+                    mode=mode,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
+
+            # create raster for comparison with master mli raster
+            cout = []
+            cerr = []
+            pwr_pathname = str(self.dem_master_gamma0)
+            width = self.r_dem_master_mli_width
+            start = 1
+            nlines = 0  # 0 is to end of file
+            pixavr = 20
+            pixavaz = 20
+            scale = 1.0
+            exp = 0.35
+            lr = 1  # left/right mirror image flag
+            rasf_pathname = str(self.dem_master_gamma0_bmp)
+            stat = pg.raspwr(
+                pwr_pathname,
+                width,
+                start,
+                nlines,
+                pixavr,
+                pixavaz,
+                scale,
+                exp,
+                lr,
+                rasf_pathname,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
+            )
+
+            if stat != 0:
+                msg = "failed to execute pg.raspwr"
+                _LOG.error(
+                    msg,
+                    pwr_pathname=pwr_pathname,
+                    width=width,
+                    start=start,
+                    nlines=nlines,
+                    pixavr=pixavr,
+                    pixavaz=pixavaz,
+                    scale=scale,
+                    exp=exp,
+                    lr=lr,
+                    rasf_pathname=rasf_pathname,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
             # make sea-mask based on DEM zero values
             temp = Path(temp_dir).joinpath("temp")
-            pg.replace_values(
-                self.eqa_dem.as_posix(),
-                0.0001,
-                0,
-                temp.as_posix(),
-                self.dem_width,
-                0,
-                2,
-                1,
+            cout = []
+            cerr = []
+            f_in_pathname = str(self.eqa_dem)
+            value = 0.0001
+            new_value = 0
+            f_out_pathname = str(temp)
+            width = self.dem_width
+            rpl_flg = 0  # replacement option flag; replace all points
+            dtype = 2  # FLOAT
+            zflg = 1  # zero is a valid data value
+            stat = pg.replace_values(
+                f_in_pathname,
+                value,
+                new_value,
+                f_out_pathname,
+                width,
+                rpl_flg,
+                dtype,
+                zflg,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
 
-            pg.rashgt(
-                temp.as_posix(),
-                "-",
-                self.dem_width,
-                1,
-                1,
-                0,
-                1,
-                1,
-                100.0,
-                "-",
-                "-",
-                "-",
-                self.seamask.as_posix(),
+            if stat != 0:
+                msg = "failed to execute pg.replace_values"
+                _LOG.error(
+                    msg,
+                    f_in_pathname=f_in_pathname,
+                    value=value,
+                    new_value=new_value,
+                    f_out_pathname=f_out_pathname,
+                    width=width,
+                    rpl_flg=rpl_flg,
+                    dtype=dtype,
+                    zflg=zflg,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
+
+            cout = []
+            cerr = []
+            hgt_pathname = str(temp)
+            pwr_pathname = "-"
+            width = self.dem_width
+            start_hgt = 1
+            start_pwr = 1
+            nlines = 0
+            pixavr = 1
+            pixavaz = 1
+            m_per_cycle = 100.0  # metres per color cycle
+            scale = "-"  # display scale factor
+            exp = "-"  # display exponent
+            lr = "-"  # left/right mirror image flag
+            rasf_pathname = str(self.seamask)
+            stat = pg.rashgt(
+                hgt_pathname,
+                pwr_pathname,
+                width,
+                start_hgt,
+                start_pwr,
+                nlines,
+                pixavr,
+                pixavaz,
+                m_per_cycle,
+                scale,
+                exp,
+                lr,
+                rasf_pathname,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute pg.rashgt"
+                _LOG.error(
+                    msg,
+                    hgt_pathname=hgt_pathname,
+                    pwr_pathname=pwr_pathname,
+                    width=width,
+                    start_hgt=start_hgt,
+                    start_pwr=start_pwr,
+                    nlines=nlines,
+                    pixavr=pixavr,
+                    pixavaz=pixavaz,
+                    m_per_cycle=m_per_cycle,
+                    scale=scale,
+                    exp=exp,
+                    lr=lr,
+                    rasf_pathname=rasf_pathname,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
     def geocode(self, use_external_image: Optional[bool] = False):
         """
@@ -1030,38 +1340,121 @@ class CoregisterDem:
             self._set_attrs()
 
         # geocode map geometry DEM to radar geometry
-        pg.geocode(
-            self.dem_lt_fine.as_posix(),
-            self.eqa_dem.as_posix(),
-            self.dem_width,
-            self.rdc_dem.as_posix(),
-            self.r_dem_master_mli_width,
-            self.r_dem_master_mli_length,
-            1,
-            0,
-            "-",
-            "-",
-            2,
-            self.dem_rad_max,
-            "-",
+        cout = []
+        cerr = []
+        lookup_table_pathname = str(self.dem_lt_fine)
+        data_in_pathname = str(self.eqa_dem)
+        width_in = self.dem_width
+        data_out_pathname = str(self.rdc_dem)
+        width_out = self.r_dem_master_mli_width
+        nlines_out = self.r_dem_master_mli_length
+        interp_mode = 1
+        dtype = 0  # FLOAT
+        lr_in = "-"
+        lr_out = "-"
+        n_ovr = 2
+        rad_max = self.dem_rad_max
+        nintr = "-"  # number of points required for interpolation
+        stat = pg.geocode(
+            lookup_table_pathname,
+            data_in_pathname,
+            width_in,
+            data_out_pathname,
+            width_out,
+            nlines_out,
+            interp_mode,
+            dtype,
+            lr_in,
+            lr_out,
+            n_ovr,
+            rad_max,
+            nintr,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.geocode"
+            _LOG.error(
+                msg,
+                lookup_table_pathname=lookup_table_pathname,
+                data_in_pathname=data_in_pathname,
+                width_in=width_in,
+                data_out_pathname=data_out_pathname,
+                width_out=width_out,
+                nlines_out=nlines_out,
+                interp_mode=interp_mode,
+                dtype=dtype,
+                lr_in=lr_in,
+                lr_out=lr_out,
+                n_ovr=n_ovr,
+                rad_max=rad_max,
+                nintr=nintr,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
+
         with tempfile.TemporaryDirectory() as temp_dir:
             rdc_dem_bmp = Path(temp_dir).joinpath("rdc_dem.bmp")
-            pg.rashgt(
-                self.rdc_dem.as_posix(),
-                self.r_dem_master_mli.as_posix(),
-                self.r_dem_master_mli_width,
-                1,
-                1,
-                0,
-                20,
-                20,
-                500.0,
-                1.0,
-                0.35,
-                1,
-                rdc_dem_bmp.as_posix(),
+            cout = []
+            cerr = []
+            hgt_pathname = str(self.rdc_dem)
+            pwr_pathname = str(self.r_dem_master_mli)
+            width = self.r_dem_master_mli_width
+            start_hgt = 1
+            start_pwr = 1
+            nlines = 0
+            pixavr = 20
+            pixavaz = 20
+            m_per_cycle = 500.0  # metres per color cycle
+            scale = 1.0  # display scale factor
+            exp = 0.35  # display exponent
+            lr = 1  # left/right mirror image flag
+            rasf_pathname = str(rdc_dem_bmp)
+            stat = pg.rashgt(
+                hgt_pathname,
+                pwr_pathname,
+                width,
+                start_hgt,
+                start_pwr,
+                nlines,
+                pixavr,
+                pixavaz,
+                m_per_cycle,
+                scale,
+                exp,
+                lr,
+                rasf_pathname,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+
+            if stat != 0:
+                msg = "failed to execute pg.rashgt"
+                _LOG.error(
+                    msg,
+                    hgt_pathname=hgt_pathname,
+                    pwr_pathname=pwr_pathname,
+                    width=width,
+                    start_hgt=start_hgt,
+                    start_pwr=start_pwr,
+                    nlines=nlines,
+                    pixavr=pixavr,
+                    pixavaz=pixavaz,
+                    m_per_cycle=m_per_cycle,
+                    scale=scale,
+                    exp=exp,
+                    lr=lr,
+                    rasf_pathname=rasf_pathname,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
             command = [
                 "convert",
@@ -1073,85 +1466,280 @@ class CoregisterDem:
             run_command(command, os.getcwd())
 
         # Geocode simulated SAR intensity image to radar geometry
-        pg.geocode(
-            self.dem_lt_fine.as_posix(),
-            self.dem_eqa_sim_sar.as_posix(),
-            self.dem_width,
-            self.dem_rdc_sim_sar.as_posix(),
-            self.r_dem_master_mli_width,
-            self.r_dem_master_mli_length,
-            0,
-            0,
-            "-",
-            "-",
-            2,
-            self.dem_rad_max,
-            "-",
+        cout = []
+        cerr = []
+        lookup_table_pathname = str(self.dem_lt_fine)
+        data_in_pathname = str(self.dem_eqa_sim_sar)
+        width_in = self.dem_width
+        data_out_pathname = str(self.dem_rdc_sim_sar)
+        width_out = self.r_dem_master_mli_width
+        nlines_out = self.r_dem_master_mli_length
+        interp_mode = 0  # resampling interpolation; 1/dist
+        dtype = 0  # FLOAT
+        lr_in = "-"
+        lr_out = "-"
+        n_ovr = 2
+        rad_max = self.dem_rad_max  # maximum interpolation search radius
+        nintr = "-"  # number of points required for interpolation
+        stat = pg.geocode(
+            lookup_table_pathname,
+            data_in_pathname,
+            width_in,
+            data_out_pathname,
+            width_out,
+            nlines_out,
+            interp_mode,
+            dtype,
+            lr_in,
+            lr_out,
+            n_ovr,
+            rad_max,
+            nintr,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
 
+        if stat != 0:
+            msg = "failed to execute pg.geocode"
+            _LOG.error(
+                msg,
+                lookup_table_pathname=lookup_table_pathname,
+                data_in_pathname=data_in_pathname,
+                width_in=width_in,
+                data_out_pathname=data_out_pathname,
+                width_out=width_out,
+                nlines_out=nlines_out,
+                interp_mode=interp_mode,
+                dtype=dtype,
+                lr_in=lr_in,
+                lr_out=lr_out,
+                n_ovr=n_ovr,
+                rad_max=rad_max,
+                nintr=nintr,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
+
         # Geocode local incidence angle image to radar geometry
-        pg.geocode(
-            self.dem_lt_fine.as_posix(),
-            self.dem_loc_inc.as_posix(),
-            self.dem_width,
-            self.dem_rdc_inc.as_posix(),
-            self.r_dem_master_mli_width,
-            self.r_dem_master_mli_length,
-            0,
-            0,
-            "-",
-            "-",
-            2,
-            self.dem_rad_max,
-            "-",
+        cout = []
+        cerr = []
+        lookup_table_pathname = str(self.dem_lt_fine)
+        data_in_pathname = str(self.dem_loc_inc)
+        width_in = self.dem_width
+        data_out_pathname = str(self.dem_rdc_inc)
+        width_out = self.r_dem_master_mli_width
+        nlines_out = self.r_dem_master_mli_length
+        interp_mode = 0  # resampling interpolation; 1/dist
+        dtype = 0  # FLOAT
+        lr_in = "-"
+        lr_out = "-"
+        n_ovr = 2
+        rad_max = self.dem_rad_max  # maximum interpolation search radius
+        nintr = "-"  # number of points required for interpolation
+        stat = pg.geocode(
+            lookup_table_pathname,
+            data_in_pathname,
+            width_in,
+            data_out_pathname,
+            width_out,
+            nlines_out,
+            interp_mode,
+            dtype,
+            lr_in,
+            lr_out,
+            n_ovr,
+            rad_max,
+            nintr,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.geocode"
+            _LOG.error(
+                msg,
+                lookup_table_pathname=lookup_table_pathname,
+                data_in_pathname=data_in_pathname,
+                width_in=width_in,
+                data_out_pathname=data_out_pathname,
+                width_out=width_out,
+                nlines_out=nlines_out,
+                interp_mode=interp_mode,
+                dtype=dtype,
+                lr_in=lr_in,
+                lr_out=lr_out,
+                n_ovr=n_ovr,
+                rad_max=rad_max,
+                nintr=nintr,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         # Geocode external image to radar geometry
         if use_external_image:
-            pg.geocode(
-                self.dem_lt_fine.as_posix(),
-                self.ext_image_flt.as_posix(),
-                self.dem_width,
-                self.ext_image_sar.as_posix(),
-                self.r_dem_master_mli_width,
-                self.r_dem_master_mli_length,
-                0,
-                0,
-                "-",
-                "-",
-                2,
-                self.dem_rad_max,
-                "-",
+            cout = []
+            cerr = []
+            lookup_table_pathname = str(self.dem_lt_fine)
+            data_in_pathname = str(self.ext_image_flt)
+            width_in = self.dem_width
+            data_out_pathname = str(self.ext_image_sar)
+            width_out = self.r_dem_master_mli_width
+            nlines_out = self.r_dem_master_mli_length
+            interp_mode = 0  # resampling interpolation; 1/dist
+            dtype = 0  # FLOAT
+            lr_in = "-"
+            lr_out = "-"
+            n_ovr = 2
+            rad_max = self.dem_rad_max  # maximum interpolation search radius
+            nintr = "-"  # number of points required for interpolation
+            stat = pg.geocode(
+                lookup_table_pathname,
+                data_in_pathname,
+                width_in,
+                data_out_pathname,
+                width_out,
+                nlines_out,
+                interp_mode,
+                dtype,
+                lr_in,
+                lr_out,
+                n_ovr,
+                rad_max,
+                nintr,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
 
+            if stat != 0:
+                msg = "failed to execute pg.geocode"
+                _LOG.error(
+                    msg,
+                    lookup_table_pathname=lookup_table_pathname,
+                    data_in_pathname=data_in_pathname,
+                    width_in=width_in,
+                    data_out_pathname=data_out_pathname,
+                    width_out=width_out,
+                    nlines_out=nlines_out,
+                    interp_mode=interp_mode,
+                    dtype=dtype,
+                    lr_in=lr_in,
+                    lr_out=lr_out,
+                    n_ovr=n_ovr,
+                    rad_max=rad_max,
+                    nintr=nintr,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
+
         # Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
-        pg.geocode_back(
-            self.dem_master_gamma0.as_posix(),
-            self.r_dem_master_mli_width,
-            self.dem_lt_fine.as_posix(),
-            self.dem_master_gamma0_eqa.as_posix(),
-            self.dem_width,
-            "-",
-            5,
-            0,
-            "-",
-            "-",
-            5,
+        cout = []
+        cerr = []
+        data_in_pathname = str(self.dem_master_gamma0)
+        width_in = self.r_dem_master_mli_width
+        lookup_table_pathname = str(self.dem_lt_fine)
+        data_out_pathname = str(self.dem_master_gamma0_eqa)
+        width_out = self.dem_width
+        nlines_out = "-"
+        interp_mode = 5  # B-spline interpolation sqrt(x)
+        dtype = 0  # FLOAT
+        lr_in = "-"
+        lr_out = "-"
+        order = 5  # Lanczos function order or B-spline degree
+        stat = pg.geocode_back(
+            data_in_pathname,
+            width_in,
+            lookup_table_pathname,
+            data_out_pathname,
+            width_out,
+            nlines_out,
+            interp_mode,
+            dtype,
+            lr_in,
+            lr_out,
+            order,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
 
+        if stat != 0:
+            msg = "failed to execute pg.geocode_back"
+            _LOG.error(
+                msg,
+                data_in_pathname=data_in_pathname,
+                width_in=width_in,
+                lookup_table_pathname=lookup_table_pathname,
+                data_out_pathname=data_out_pathname,
+                width_out=width_out,
+                nlines_out=nlines_out,
+                interp_mode=interp_mode,
+                dtype=dtype,
+                lr_in=lr_in,
+                lr_out=lr_out,
+                order=order,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
+
         # make quick-look png image
-        pg.raspwr(
-            self.dem_master_gamma0_eqa.as_posix(),
-            self.dem_width,
-            1,
-            0,
-            20,
-            20,
-            "-",
-            "-",
-            "-",
-            self.dem_master_gamma0_eqa_bmp.as_posix(),
+        cout = []
+        cerr = []
+        pwr_pathname = str(self.dem_master_gamma0_eqa)
+        width = self.dem_width
+        start = 1
+        nlines = 0  # to end of file
+        pixavr = 20
+        pixavaz = 20
+        scale = "-"
+        exp = "-"
+        lr = "-"
+        rasf_pathname = str(self.dem_master_gamma0_eqa_bmp)
+        stat = pg.raspwr(
+            pwr_pathname,
+            width,
+            start,
+            nlines,
+            pixavr,
+            pixavaz,
+            scale,
+            exp,
+            lr,
+            rasf_pathname,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.raspwr"
+            _LOG.error(
+                msg,
+                pwr_pathname=pwr_pathname,
+                width=width,
+                start=start,
+                nlines=nlines,
+                pixavr=pixavr,
+                pixavaz=pixavaz,
+                scale=scale,
+                exp=exp,
+                lr=lr,
+                rasf_pathname=rasf_pathname,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         command = [
             "convert",
@@ -1163,52 +1751,184 @@ class CoregisterDem:
         run_command(command, os.getcwd())
 
         # geotiff gamma0 file
-        pg.data2geotiff(
-            self.eqa_dem_par.as_posix(),
-            self.dem_master_gamma0_eqa.as_posix(),
-            2,
-            self.dem_master_gamma0_eqa_geo.as_posix(),
-            0.0,
+        cout = []
+        cerr = []
+        dem_par_pathname = str(self.eqa_dem_par)
+        data_pathname = str(self.dem_master_gamma0_eqa)
+        dtype = 2  # FLOAT
+        geotiff_pathname = self.dem_master_gamma0_eqa_geo
+        nodata = 0.0
+        stat = pg.data2geotiff(
+            dem_par_pathname,
+            data_pathname,
+            dtype,
+            geotiff_pathname,
+            nodata,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.data2geotiff"
+            _LOG.error(
+                msg,
+                dem_par_pathname=dem_par_pathname,
+                data_pathname=data_pathname,
+                dtype=dtype,
+                geotiff_pathname=geotiff_pathname,
+                nodata=nodata,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         # geocode and geotif sigma0 mli
         shutil.copyfile(self.r_dem_master_mli, self.dem_master_sigma0)
 
-        pg.geocode_back(
-            self.dem_master_sigma0.as_posix(),
-            self.r_dem_master_mli_width,
-            self.dem_lt_fine.as_posix(),
-            self.dem_master_sigma0_eqa.as_posix(),
-            self.dem_width,
-            "-",
-            0,
-            0,
-            "-",
-            "-",
+        cout = []
+        cerr = []
+        data_in_pathname = str(self.dem_master_sigma0)
+        width_in = self.r_dem_master_mli_width
+        lookup_table_pathname = str(self.dem_lt_fine)
+        data_out_pathname = str(self.dem_master_sigma0_eqa)
+        width_out = self.dem_width
+        nlines_out = "-"
+        interp_mode = 0
+        dtype = 0  # FLOAT
+        lr_in = "-"
+        lr_out = "-"
+        stat = pg.geocode_back(
+            data_in_pathname,
+            width_in,
+            lookup_table_pathname,
+            data_out_pathname,
+            width_out,
+            nlines_out,
+            interp_mode,
+            dtype,
+            lr_in,
+            lr_out,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
 
-        pg.data2geotiff(
-            self.eqa_dem_par.as_posix(),
-            self.dem_master_sigma0_eqa.as_posix(),
-            2,
-            self.dem_master_sigma0_eqa_geo.as_posix(),
-            0.0,
+        if stat != 0:
+            msg = "failed to execute pg.geocode_back"
+            _LOG.error(
+                msg,
+                data_in_pathname=data_in_pathname,
+                width_in=width_in,
+                lookup_table_pathname=lookup_table_pathname,
+                data_out_pathname=data_out_pathname,
+                width_out=width_out,
+                nlines_out=nlines_out,
+                interp_mode=interp_mode,
+                dtype=dtype,
+                lr_in=lr_in,
+                lr_out=lr_out,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
+
+        cout = []
+        cerr = []
+        dem_par_pathname = str(self.eqa_dem_par)
+        data_pathname = str(self.dem_master_sigma0_eqa)
+        dtype = 2  # FLOAT
+        geotiff_pathname = str(self.dem_master_sigma0_eqa_geo)
+        nodata = 0.0
+        stat = pg.data2geotiff(
+            dem_par_pathname,
+            data_pathname,
+            dtype,
+            geotiff_pathname,
+            nodata,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.data2geotiff"
+            _LOG.error(
+                msg,
+                dem_par_pathname=dem_par_pathname,
+                data_pathname=data_pathname,
+                dtype=dtype,
+                geotiff_pathname=geotiff_pathname,
+                nodata=nodata,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         # geotiff DEM
-        pg.data2geotiff(
-            self.eqa_dem_par.as_posix(),
-            self.eqa_dem.as_posix(),
-            2,
-            self.eqa_dem_geo.as_posix(),
-            0.0,
+        cout = []
+        cerr = []
+        dem_par_pathname = str(self.eqa_dem_par)
+        data_pathname = str(self.eqa_dem)
+        dtype = 2  # FLOAT
+        geotiff_pathname = str(self.eqa_dem_geo)
+        nodata = 0.0
+        stat = pg.data2geotiff(
+            dem_par_pathname,
+            data_pathname,
+            dtype,
+            geotiff_pathname,
+            nodata,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.data2geotiff"
+            _LOG.error(
+                msg,
+                dem_par_pathname=dem_par_pathname,
+                data_pathname=data_pathname,
+                dtype=dtype,
+                geotiff_pathname=geotiff_pathname,
+                nodata=nodata,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
+
         # create kml
-        pg.kml_map(
-            self.dem_master_gamma0_eqa_bmp.with_suffix(".png").as_posix(),
-            self.eqa_dem_par.as_posix(),
-            self.dem_master_gamma0_eqa_bmp.with_suffix(".kml").as_posix(),
+        cout = []
+        cerr = []
+        image_pathname = str(self.dem_master_gamma0_eqa_bmp.with_suffix(".png"))
+        dem_par_pathname = str(self.eqa_dem_par)
+        kml_pathname = str(self.dem_master_gamma0_eqa_bmp.with_suffix(".kml"))
+        stat = pg.kml_map(
+            image_pathname,
+            dem_par_pathname,
+            kml_pathname,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.kml_map"
+            _LOG.error(
+                msg,
+                image_pathname=image_pathname,
+                dem_par_pathname=dem_par_pathname,
+                kml_pathname=kml_pathname,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         # clean up now intermittent redundant files.
         for item in [
@@ -1228,31 +1948,108 @@ class CoregisterDem:
         """Create look vector files."""
 
         # create angles look vector image
-        pg.look_vector(
-            self.r_dem_master_slc_par.as_posix(),
-            "-",
-            self.eqa_dem_par.as_posix(),
-            self.eqa_dem.as_posix(),
-            self.dem_lv_theta.as_posix(),
-            self.dem_lv_phi.as_posix(),
+        cout = []
+        cerr = []
+        slc_par_pathname = str(self.r_dem_master_slc_par)
+        off_par_pathname = "-"
+        dem_par_pathname = str(self.eqa_dem_par)
+        dem_pathname = str(self.eqa_dem)
+        lv_theta_pathname = str(self.dem_lv_theta)
+        lv_phi_pathname = str(self.dem_lv_phi)
+        stat = pg.look_vector(
+            slc_par_pathname,
+            off_par_pathname,
+            dem_par_pathname,
+            dem_pathname,
+            lv_theta_pathname,
+            lv_phi_pathname,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.look_vector"
+            _LOG.error(
+                msg,
+                slc_par_pathname=slc_par_pathname,
+                off_par_pathname=off_par_pathname,
+                dem_par_pathname=dem_par_pathname,
+                dem_pathname=dem_pathname,
+                lv_theta_pathname=lv_theta_pathname,
+                lv_phi_pathname=lv_phi_pathname,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
         # convert look vector files to geotiff file
-        pg.data2geotiff(
-            self.eqa_dem_par.as_posix(),
-            self.dem_lv_theta.as_posix(),
-            2,
-            self.dem_lv_theta_geo.as_posix(),
-            0.0,
+        cout = []
+        cerr = []
+        dem_par_pathname = str(self.eqa_dem_par)
+        data_pathname = str(self.dem_lv_theta)
+        dtype = 2  # FLOAT
+        geotiff_pathname = str(self.dem_lv_theta_geo)
+        nodata = 0.0
+        stat = pg.data2geotiff(
+            dem_par_pathname,
+            data_pathname,
+            dtype,
+            geotiff_pathname,
+            nodata,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
 
-        pg.data2geotiff(
-            self.eqa_dem_par.as_posix(),
-            self.dem_lv_phi.as_posix(),
-            2,
-            self.dem_lv_phi_geo.as_posix(),
-            0.0,
+        if stat != 0:
+            msg = "failed to execute pg.data2geotiff"
+            _LOG.error(
+                msg,
+                dem_par_pathname=dem_par_pathname,
+                data_pathname=data_pathname,
+                dtype=dtype,
+                geotiff_pathname=geotiff_pathname,
+                nodata=nodata,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
+
+        cout = []
+        cerr = []
+        dem_par_pathname = str(self.eqa_dem_par)
+        data_pathname = str(self.dem_lv_phi)
+        dtype = 2  # FLOAT
+        geotiff_pathname = str(self.dem_lv_phi_geo)
+        nodata = 0.0
+        stat = pg.data2geotiff(
+            dem_par_pathname,
+            data_pathname,
+            dtype,
+            geotiff_pathname,
+            nodata,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
+
+        if stat != 0:
+            msg = "failed to execute pg.data2geotiff"
+            _LOG.error(
+                msg,
+                dem_par_pathname=dem_par_pathname,
+                data_pathname=data_pathname,
+                dtype=dtype,
+                geotiff_pathname=geotiff_pathname,
+                nodata=nodata,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
 
     def main(self):
         """Main method to execute SLC-DEM coregistration task in sequence."""
