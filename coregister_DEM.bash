@@ -132,17 +132,20 @@ OVER_SAMPLE()
 {
     cd $dem_dir
     dem_post=`grep post_lon $dem_par | awk '{printf "%.8f\n", $2}'`
-    if [ $(bc <<< "$dem_post <= 0.00011111") -eq 1 ]; then # 0.4 arc second or smaller DEMs
-	dem_ovr=1
-    elif [ $(bc <<< "$dem_post <= 0.00027778") -eq 1 ]; then # between 0.4 and 1 arc second DEMs
-	dem_ovr=4
-    elif [ $(bc <<< "$dem_post < 0.00083333") -eq 1 ]; then # between 1 and 3 arc second DEMs
-	dem_ovr=4
-    elif [ $(bc <<< "$dem_post >= 0.00083333") -eq 1 ]; then # 3 arc second or larger DEMs
-	dem_ovr=8
-    else
-	:
-    fi
+#    if [ $(bc <<< "$dem_post <= 0.00011111") -eq 1 ]; then # 0.4 arc second or smaller DEMs
+#	dem_ovr=1
+#    elif [ $(bc <<< "$dem_post <= 0.00027778") -eq 1 ]; then # between 0.4 and 1 arc second DEMs
+#	dem_ovr=4
+#    elif [ $(bc <<< "$dem_post < 0.00083333") -eq 1 ]; then # between 1 and 3 arc second DEMs
+#	dem_ovr=4
+#    elif [ $(bc <<< "$dem_post >= 0.00083333") -eq 1 ]; then # 3 arc second or larger DEMs
+#	dem_ovr=8
+#    else
+#	:
+#    fi
+### temporary fix: use DEM at its original resolution (30m x 30m for SRTM-1)
+    dem_ovr=1
+###    
     echo " "
     echo "DEM oversampling factor: "$dem_ovr
     echo " "
