@@ -9,7 +9,7 @@ import attr
 import pandas as pd
 import click
 
-import py_gamma as gamma_program
+import py_gamma as pg
 from eodatasets3 import DatasetAssembler
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata
 from insar.logs import COMMON_PROCESSORS
@@ -64,7 +64,7 @@ def _get_metadata(par_file: Union[Path, str]) -> Dict:
 
     _metadata = dict()
 
-    params = gamma_program.ParFile(par_file.as_posix())
+    params = pg.ParFile(par_file.as_posix())
 
     year, month, day = params.get_value("date")
     _metadata["date"] = datetime.date(int(year), int(month), int(day))
@@ -376,7 +376,7 @@ def package(
             p.dataset_version = "1.0.0"
 
             # not software version
-            software_name, version = Path(gamma_program.__file__).parent.name.split("-")
+            software_name, version = Path(pg.__file__).parent.name.split("-")
             url = "http://www/gamma-rs.ch"
             p.note_software_version(software_name, url, version)
 

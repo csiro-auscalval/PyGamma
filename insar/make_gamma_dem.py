@@ -11,9 +11,14 @@ from shapely.ops import cascaded_union
 import rasterio
 from spatialist import Vector
 
-import py_gamma as gamma_program
+import structlog
+import py_gamma as pg
 
 from insar.subprocess_utils import run_command
+from insar.logs import COMMON_PROCESSORS
+
+structlog.configure(processors=COMMON_PROCESSORS)
+_LOG = structlog.get_logger()
 
 
 def create_gamma_dem(
@@ -85,20 +90,60 @@ def create_gamma_dem(
                 dst.write(data, 1)
 
             # dem_import function is a call to GAMMA software which creates a gamma compatible DEM
-            gamma_program.dem_import(
-                outfile_new,
-                Path(gamma_dem_dir).joinpath(f"{track_frame}.dem").as_posix(),
-                Path(gamma_dem_dir).joinpath(f"{track_frame}.dem.par").as_posix(),
-                0,
-                1,
-                "-",
-                "-",
-                "-",
-                "-",
-                "-",
-                "-",
-                "-",
+            # py_gamma parameters
+            cout = []
+            cerr = []
+            input_dem_pathname = outfile_new
+            dem_pathname = str(Path(gamma_dem_dir).joinpath(f"{track_frame}.dem"))
+            par_pathname = f"{dem_pathname}.par"
+            input_type = 0  # GeoTIFF
+            priority = 1  # input DEM parameters have priority
+            geoid = "-"  # geoid or constant geoid height value
+            geoid_par = "-"  # geoid DEM_par file
+            geoid_type = "-"  # global geoid in EQA coordinates
+            lat_n_shift = "-"  # latitude or Northing constant shift to apply
+            lon_e_shift = "-"  # longitude or Easting constant shift
+            zflg = "-"  # no_data values in input file are kept in output file
+            no_data = "-"  # value defined in input metadata
+
+            stat = pg.dem_import(
+                input_dem_pathname,
+                dem_pathname,
+                par_pathname,
+                input_type,
+                priority,
+                geoid,
+                geoid_par,
+                geoid_type,
+                lat_n_shift,
+                lon_e_shift,
+                zflg,
+                no_data,
+                cout=cout,
+                cerr=cerr,
+                stdout_flag=False,
+                stderr_flag=False
             )
+            if stat != 0:
+                msg = "failed to execute pg.dem_import"
+                _LOG.error(
+                    msg,
+                    input_dem_pathname=input_dem_pathname,
+                    dem_pathname=dem_pathname,
+                    par_pathname=par_pathname,
+                    input_type=input_type,
+                    priority=priority,
+                    geoid=geoid,
+                    geoid_par=geoid_par,
+                    geoid_type=geoid_type,
+                    lat_n_shift=lat_n_shift,
+                    lon_e_shift=lon_e_shift,
+                    zflg=zflg,
+                    no_data=no_data,
+                    stat=stat,
+                    gamma_error=cerr
+                )
+                raise Exception(msg)
 
             # create a preview of dem file
             if create_png:

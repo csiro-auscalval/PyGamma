@@ -4,7 +4,7 @@ import math
 from typing import List, Tuple, Optional, Union
 from pathlib import Path
 import structlog
-import py_gamma as gamma_program
+import py_gamma as pg
 
 from insar.constant import MliFilenames
 from insar.subprocess_utils import working_directory
@@ -18,7 +18,7 @@ _LOG = structlog.get_logger()
 def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:
     """Calculates the range and azimuth look values."""
 
-    _par_vals = gamma_program.ParFile(Path(slc_par_file).as_posix())
+    _par_vals = pg.ParFile(Path(slc_par_file).as_posix())
 
     azsp = _par_vals.get_value("azimuth_pixel_spacing", dtype=float, index=0)
     rgsp = _par_vals.get_value("range_pixel_spacing", dtype=float, index=0)
@@ -113,7 +113,42 @@ def multilook(
         work_dir = outdir
 
     with working_directory(work_dir.as_posix()):
-        gamma_program.multi_look(
-            slc.as_posix(), slc_par.as_posix(), mli, mli_par, rlks, alks, 0
+        # py_gamma parameters
+        cout = []
+        cerr = []
+        slc_pathname = str(slc)
+        slc_par_pathname = str(slc_par)
+        mli_pathname = mli
+        mli_par_pathname = mli_par
+        azlks = alks
+        loff = 0
+
+        stat = pg.multi_look(
+            slc_pathname,
+            slc_par_pathname,
+            mli_pathname,
+            mli_par_pathname,
+            rlks,
+            azlks,
+            loff,
+            cout=cout,
+            cerr=cerr,
+            stdout_flag=False,
+            stderr_flag=False
         )
 
+        if stat != 0:
+            msg = "failed to execute pg.multi_look"
+            _LOG.error(
+                msg,
+                slc_pathname=slc_pathname,
+                slc_par_pathname=slc_par_pathname,
+                mli_pathname=mli_pathname,
+                mli_par_pathname=mli_par_pathname,
+                rlks=rlks,
+                azlks=azlks,
+                loff=loff,
+                stat=stat,
+                gamma_error=cerr
+            )
+            raise Exception(msg)
