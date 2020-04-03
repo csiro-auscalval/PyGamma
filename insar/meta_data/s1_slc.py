@@ -734,6 +734,106 @@ class Archive:
         cursor.execute("PRAGMA table_info({})".format(table_name))
         return sorted([self.encode_string(x[1]) for x in cursor.fetchall()])
 
+    def get_rel_orbit_nums(
+            self,
+            orbit_node=None,
+            sensor_type=None,
+            rel_orb_num=None
+    ):
+        """
+        Get the unique listing of the relative orbit numbers. A useful function
+        if one does not know which relative orbit numbers exist inside a
+        database for a given orbit node and sensor
+
+        Parameters
+        ----------
+
+        orbit_node : str or None
+            The orbit node ("A", "D") for ascending and descending nodes respectively.
+            If None then "A" and "D" are included in the search.
+
+        sensor_type : str or None
+            The sensor ("S1A", "S2A") for Sentinel-1A and -1B respectively
+            If None then "S1A" and "S1B" are included in the search.
+
+        rel_orb_num : int or None
+            The relative orbit number. If specified, then this function checks if
+            it exists.
+
+        Returns
+        -------
+        list or None
+            Unique listing of the relative orbit numbers
+            None if error occured
+
+        Author, Date
+        ------------
+            Rodrigo Garcia, 2nd April 2020
+        """
+
+        table_list = self.get_tablenames()
+
+        # check that there are tables in the db
+        if not table_list:
+            _LOG.error(
+                "Database does not contain any tables",
+                database=self.dbfile,
+            )
+            return None  # return None for error checks
+
+        # ensure the "slc_metadata" table exists
+        if not ("slc_metadata" in table_list):
+            _LOG.error(
+                "Database does not contain the slc_metadata table",
+                database=self.dbfile,
+            )
+            return None  # return None for error checks
+
+        cursor = self.conn.cursor()
+
+        try:
+            table_columns = cursor.execute("SELECT url, orbit, sensor, orbitnumber_rel FROM slc_metadata").fetchall()
+        except sqlite3.OperationalError as err:
+            if (str(err).lower().find("no such column") != -1):
+                _LOG.error(
+                    "Database query of slc_metadata table failed ({})".format(str(err)),
+                    pathname=self.dbfile,
+                )
+            else:
+                raise err
+
+            return None  # return None for error checks
+
+        # ---------------------------------------- #
+        #  Get all relative orbit numbers base on  #
+        #  the user inputs of sensor type,  orbit  #
+        #  node and relative orbit number          #
+        # ---------------------------------------- #
+
+        # create a user input set so we can find the union with the table columns
+        user_set = []
+        if orbit_node:
+            user_set.append(orbit_node.upper())
+        if sensor_type:
+            user_set.append(sensor_type.upper())
+        if rel_orb_num:
+            user_set.append(rel_orb_num)
+        user_set = set(user_set)
+
+        #Useful_info = []
+        RON_meets_criteria = set()  # creating a set to directly obtain unique values without an a posteriori np.unique
+        for row in table_columns:
+            # check if user_set is a subset of row
+            if user_set.issubset(set(row[1:])):
+                #S1_base = os.path.splitext(os.path.basename(row[0]))[0]  # extract the S1 basename
+                #Useful_info.append([S1_base, row[1], row[2], row[3]])
+                #print([S1_base, row[1], row[2], row[3]])
+
+                RON_meets_criteria.add(row[3])
+
+        return sorted(RON_meets_criteria)  # sort set() in ascending order and return as list
+
+
     def prepare_slc_metadata_insertion(self):
         """ prepares to insert slc metadata into a database. """
         slc_metadata = self.get_slc_metadata()
