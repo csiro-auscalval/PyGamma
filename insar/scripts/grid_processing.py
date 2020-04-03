@@ -273,6 +273,148 @@ def process_grid_definition(
         )
 
 
+
+@grid_definition_cli.command(
+    "grid-generation-new", help="produces a grid definition for Sentinel-1 (new version)"
+)
+@click.option(
+    "--database-path",
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+    required=True,
+    help="full path to a sqlite database name",
+)
+@click.option(
+    "--out-dir",
+    type=click.Path(dir_okay=True, file_okay=False, writable=True),
+    default=os.getcwd(),
+    help="directory to output grid vector files",
+)
+@click.option(
+    "--relative-orbit-number",
+    type=int,
+    default=None,
+    help="relative orbit number of Sentinel-1",
+)
+@click.option(
+    "--hemisphere",
+    type=str,
+    default="S",
+    help="define grid in southern[S] or northern[N] hemisphere",
+)
+@click.option(
+    "--sensor",
+    type=str,
+    default=None,
+    help="Sentinel-1A (S1A) or 1B (S1B), default=None selects both S1A and S1B sensors",
+)
+@click.option(
+    "--orbits",
+    type=str,
+    default=None,
+    help="Sentinel-1 overpass ascending [A] or descending [D]",
+)
+@click.option(
+    "--latitude-width",
+    type=float,
+    default=1.25,
+    help="how wide the grid should be in latitude (in decimal degrees)",
+)
+@click.option(
+    "--latitude-buffer",
+    type=float,
+    default=0.01,
+    help="overlap between two grids in latitude (in decimal degrees)",
+)
+@click.option(
+    "--log-pathname",
+    type=click.Path(dir_okay=False),
+    help="Output pathname to contain the logging events.",
+    default="grid-generation.jsonl",
+)
+@click.option(
+    "--start-date",
+    type=click.DateTime(),
+    default=None,
+    help="start date to begin query into database",
+)
+@click.option(
+    "--end-date",
+    type=click.DateTime(),
+    default=None,
+    help="end date to stop query into database",
+)
+def process_grid_definition_NEW(
+    database_path: click.Path,
+    out_dir: click.Path,
+    hemisphere: str,
+    relative_orbit_number: int,
+    sensor: str,
+    orbits: str,
+    latitude_width: float,
+    latitude_buffer: float,
+    log_pathname: click.Path,
+    start_date: Optional[click.DateTime] = None,
+    end_date: Optional[click.DateTime] = None,
+):
+    """
+    An updated method to process InSAR grid definition for given rel_orbits
+    Additions include relative_orbit_number as an optional input. Here,
+    the sensor and orbit inputs are used to determine the unique listings
+    of the relative orbits.
+
+    Also, sensor and orbits defaults to None if not specified.
+    """
+
+    with open(log_pathname, 'w') as fobj:
+        structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
+        frame_numbers = [i + 1 for i in range(math.ceil(90.0 / latitude_width))]
+
+        # ------------------------------------------- #
+        #  first query the database and get a unique  #
+        #    listing of the relative orbit numbers    #
+        # ------------------------------------------- #
+        with Archive(database_path) as archive:
+            uniq_relorb_nums = archive.get_rel_orbit_nums(orbit_node=orbits, sensor_type=sensor, rel_orb_num=relative_orbit_number)
+            # uniq_relorb_nums can be None, [] or [1,2,3,....,N]
+
+            # do not use "if not uniq_relorb_nums:" as None or empty lists ([]) will be accepted
+            if uniq_relorb_nums:
+                # relative orbit numbers were found
+                print("\nFound {} relative orbit number(s)".format(len(uniq_relorb_nums)))
+                _LOG.info(
+                    "Sucessfully extracted relative orbit numbers [{0}]".format(", ".join(str(x) for x in uniq_relorb_nums)),
+                     S1_sensor=sensor,
+                     orbit_node=orbits,
+                     relative_orbit_num=relative_orbit_number,
+                )
+                # iterate through the relative orbit numbers and create the shapefiles:
+                for RelOrb in uniq_relorb_nums:
+                    grid_definition(
+                        database_path,
+                        out_dir,
+                        RelOrb,
+                        hemisphere,
+                        sensor,
+                        orbits,
+                        latitude_width,
+                        latitude_buffer,
+                        start_date,
+                        end_date,
+                        frame_numbers,
+                   )
+
+
+            else:
+                # empty list or errors occured
+                print("\nNo relative orbit numbers were found")
+                _LOG.info(
+                    "No relative orbit numbers were found",
+                    S1_sensor=sensor,
+                    orbit_node=orbits,
+                    relative_orbit_num=relative_orbit_number
+                )
+
+
 @slc_archive_cli.command(
     "slc-injestion", help="slc acquistion details injestion into the database"
 )
