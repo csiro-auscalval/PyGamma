@@ -16,7 +16,7 @@ S1_PATH=/g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC
 MASTER_DEM_IMAGE=/g/data/dg9/MASTER_DEM
 
 # NOTE: 
-# - the total path to the gamma processing will be made up of variables from thie file.
+# - the total path to the gamma processing directory will be made up of variables from this file.
 # - so, NCI_PATH/PROJECT/SENSOR/GAMMA/TRACK
 # - the path needs to exist.
 
