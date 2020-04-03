@@ -782,10 +782,11 @@ class Archive:
             return None  # return None for error checks
 
         # ensure the "slc_metadata" table exists
-        if not ("slc_metadata" in table_list):
+        if not "slc_metadata" in table_list:
             _LOG.error(
                 "Database does not contain the slc_metadata table",
                 database=self.dbfile,
+                table_list=table_list,
             )
             return None  # return None for error checks
 
@@ -796,8 +797,9 @@ class Archive:
         except sqlite3.OperationalError as err:
             if (str(err).lower().find("no such column") != -1):
                 _LOG.error(
-                    "Database query of slc_metadata table failed ({})".format(str(err)),
+                    "Database query of slc_metadata table failed",
                     pathname=self.dbfile,
+                    error_message=err,
                 )
             else:
                 raise err
@@ -820,15 +822,10 @@ class Archive:
             user_set.append(rel_orb_num)
         user_set = set(user_set)
 
-        #Useful_info = []
         RON_meets_criteria = set()  # creating a set to directly obtain unique values without an a posteriori np.unique
         for row in table_columns:
             # check if user_set is a subset of row
             if user_set.issubset(set(row[1:])):
-                #S1_base = os.path.splitext(os.path.basename(row[0]))[0]  # extract the S1 basename
-                #Useful_info.append([S1_base, row[1], row[2], row[3]])
-                #print([S1_base, row[1], row[2], row[3]])
-
                 RON_meets_criteria.add(row[3])
 
         return sorted(RON_meets_criteria)  # sort set() in ascending order and return as list
