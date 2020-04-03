@@ -380,7 +380,6 @@ def process_grid_definition_NEW(
             # do not use "if not uniq_relorb_nums:" as None or empty lists ([]) will be accepted
             if uniq_relorb_nums:
                 # relative orbit numbers were found
-                print("\nFound {} relative orbit number(s)".format(len(uniq_relorb_nums)))
                 _LOG.info(
                     "Sucessfully extracted relative orbit numbers [{0}]".format(", ".join(str(x) for x in uniq_relorb_nums)),
                      S1_sensor=sensor,
