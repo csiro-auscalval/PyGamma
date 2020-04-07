@@ -114,23 +114,33 @@ def db_query(
     """
     A helper method to query into a database.
 
-    :param archive:
-        An Archive object initialised with a database.
-    :param frame_num:
+    Parameters
+    ----------
+
+    archive:
+        An Archive object (/insar/metadata/s1_slc.py) initialised with a database.
+
+    frame_num:
         Frame number associated with a track_frame of spatial query.
-    :param frame_object:
-        Frame definition object.
-    :param query_args:
+
+    frame_object:
+        Frame definition object from SlcFrame.
+
+    query_args:
         Optional query pair formed of database fieldnames and value to be queried.
-    :param start_date:
+
+    start_date: datetime object or None
         Optional start date of SLC acquisition to be queried.
-    :param end_date:
+
+    end_date: datetime object or None
         Optional end date of SLC acquisition to be queried.
-    :param columns_name:
+
+    columns_name:
         field names associated with table in a database to be returned.
 
-    :returns:
-        A queried results from an Archive of a frame associated with the frame number.
+    Returns
+    -------
+        None or Geopandas dataframe of the Archive query of a frame associated with the frame number.
     """
 
     if columns_name is None:
@@ -166,12 +176,14 @@ def db_query(
 
     return archive.select(
         tables_join_string,
+        orbit=None,
         args=query_args,
         min_date_arg=min_date_arg,
         max_date_arg=max_date_arg,
         columns=columns_name,
         frame_num=frame_num,
         frame_obj=frame_object,
+        shapefile_name=None,
     )
 
 
@@ -186,6 +198,10 @@ def grid_definition(
     latitude_buffer: float,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
+    bbox_nlat: Optional[float] = 0.0,
+    bbox_wlon: Optional[float] = 100.0,
+    bbox_slat: Optional[float] = 50.0,
+    bbox_elon: Optional[float] = 179.0,
     frame_numbers: Optional[Iterable] = None,
 ) -> None:
     """
@@ -194,31 +210,60 @@ def grid_definition(
     A grid definition generated with available SLC bursts in dbfile for
     given sensor, orbit for particular relative orbit and frame numbers.
 
-    :param dbfile:
+    Parameters
+    ----------
+
+    dbfile: Path, str
         A full path to a sqlite database with SLC metadata information.
-    :param out_dir:
+
+    out_dir: Path, str
         A full path to store the grid-definition shape files.
-    :param rel_orbit:
+
+    rel_orbit: int
         A Sentinel-1 relative orbit number.
-    :param hemisphere:
+
+    hemisphere: str
         Southern (S) or northern (N) hemisphere to form a grid.
-    :param sensor:
+
+    sensor: str, None
         Sentinel-1 (S1A) or (S1B) sensor. If None then both sensor's
         information are used to form a grid definition.
-    :param orbits:
+
+    orbits: str
         Ascending (A) or descending overpass to form the grid definition.
-    :param latitude_width:
+
+    latitude_width: float
         How wide the grid should span in latitude (in decimal degrees).
-    :param latitude_buffer:
+
+    latitude_buffer: float
         The buffer to include in latitude width to facilitate the overlaps needed
         between two grids along a relative orbit.
-    :param start_date:
+
+    start_date: datetime or None
         Optional start date of acquisition to account in forming a grid definition.
-    :param end_date:
+
+    end_date: datetime or None
         Optional end date of acquisition to account in forming a grid definition.
-    :param frame_numbers:
+
+    bbox_nlat: float
+        Northern latitude (decimal degrees) of bounding box
+
+    bbox_wlon: float
+        Western longitude (decimal degrees) of bounding box
+
+    bbox_slat: float
+        Southern latitude (decimal degrees) of bounding box
+
+    bbox_elon: float
+        Eastern longitude (decimal degrees) of bounding box
+
+    frame_numbers: list or None
         Optional frame numbers to generate a grid definition. Default is to generate
         50 horizontal lines speparated by latitude width + latitude_buffer from equator.
+
+    Returns
+    -------
+        None, however an ERSI shapefile is created
     """
 
     if frame_numbers is None:
@@ -272,9 +317,22 @@ def grid_definition(
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
         for frame_num in frame_numbers:
-            frame_obj = SlcFrame(width_lat=latitude_width, buffer_lat=latitude_buffer)
+
+            # define the SLC Frames based on latitude width,
+            # buffer (overlap) amount, and the lat/lon
+            # of the region of interest
+            frame_obj = SlcFrame(
+                southern_hemisphere=True,
+                bbox_nlat=bbox_nlat,
+                bbox_wlon=bbox_wlon,
+                bbox_slat=bbox_slat,
+                bbox_elon=bbox_elon,
+                width_lat=latitude_width,
+                buffer_lat=latitude_buffer
+            )
+
             grid_track = "T{:03}{}".format(rel_orbit, orbits)
-            grid_frame = "F{:02}{}".format(frame_num, hemisphere)
+            grid_frame = "F{:02}{}".format(frame_num, hemisphere)  # hemisphere will be removed
             grid_shapefile = os.path.join(
                 out_dir, "{}_{}.shp".format(grid_track, grid_frame)
             )
