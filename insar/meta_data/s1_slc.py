@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys  # RG add
 import os
 import re
 import yaml
@@ -1026,10 +1027,42 @@ class Archive:
         max_date_arg: Optional[str] = None,
         columns: Optional[List[str]] = None,
         frame_num: Optional[int] = None,
-        shapefile_name: Optional[Path] = None,
         frame_obj: Optional[Type["SlcFrame"]] = None,
+        shapefile_name: Optional[Path] = None,
     ):
-        """ returns geo-pandas data frame of from the database of selected SLC. """
+        """
+        Parameters
+        ----------
+
+        tables_join_string: str
+            string that selects the tables in the sqlite database to query
+
+        orbit: str or None
+            ?? unknown ??
+
+        args: dict, str or None
+            contains the SLC and burst metadata for the database query
+
+        min_date_arg: datetime, str or None
+            start datetime for the query
+
+        max_date_arg: datetime, str or None
+            end datetime for the query
+
+        columns: list or None
+            a list of the column names from which data will be extracted
+
+        frame_num: int or None
+            Frame number associated with a track_frame of spatial query.
+
+        frame_obj: SlcFrame object or None
+            Frame definition object from SlcFrame.
+
+        Returns
+        -------
+           None or geo-pandas dataframe from the database
+        
+        """
 
         if not columns:
             columns = ["slc_metadata.slc_extent", "bursts_metadata.burst_extent"]
@@ -1094,8 +1127,6 @@ class Archive:
                 "Database query failed",
                 frame_num=frame_num,
                 slc_metadata=args,
-                search_start_date=min_date_arg.split(".")[-1].replace("\"", ""),
-                search_end_date=max_date_arg.split(".")[-1].replace("\"", ""),
             )
             return
 
@@ -1135,52 +1166,86 @@ class Archive:
 
 
 class SlcFrame:
-    """ A class to create a Frame definition based on latitude width and
-        the buffer size. It is hard corded to start from latitude
-        of 0.0 to 50 in the southern hemisphere and longitude 100 to 179.0.
+    """
+    A class to create a Frame definition based on
+    a latitude/longitude bounding box, the latitude
+    width and the buffer size of the frame. The 
+    default values for the bounding box cover
+    continental Australia.
+
+    Parameters
+    ----------
+
+    bbox_nlat: float (default = 0.0)
+        Northern latitude (decimal degrees) of bounding box
+
+    bbox_wlon: float (default = 100.0)
+        Western longitude (decimal degrees) of bounding box
+
+    bbox_slat: float (default = 50.0)
+        Southern latitude (decimal degrees) of bounding box
+
+    bbox_elon: float (default = 179.0)
+        Eastern longitude (decimal degrees) of bounding box
+
+    width_lat: float (default = 1.1)
+        latitude width (decimal degrees) of each frame
+
+    buffer_lat: float (default = 0.01)
+        The amount of overlap (decimal degrees) of adjacent frames
+
+    Author
+    ------
+       Modified by Rodrigo Garcia, 7th April 2020
     """
 
     def __init__(
-        self, width_lat: Optional[float] = 1.1, buffer_lat: Optional[float] = 0.01
+        self,
+        southern_hemisphere: Optional[bool] = True,
+        bbox_nlat: Optional[float] = 0.0,
+        bbox_wlon: Optional[float] = 100.0,
+        bbox_slat: Optional[float] = 50.0,
+        bbox_elon: Optional[float] = 179.0,
+        width_lat: Optional[float] = 1.1,
+        buffer_lat: Optional[float] = 0.01
     ) -> None:
-        self.southern_hemisphere = True
-        self.start_lat = 0.0
-        self.end_lat = 50.0
-        self.start_lon = 100.0
-        self.end_lon = 179.0
 
+        self.southern_hemisphere = southern_hemisphere
+
+        self.north_lat = bbox_nlat
+        self.south_lat = bbox_slat
+        self.west_lon = bbox_wlon
+        self.east_lon = bbox_elon
         self.width_lat = width_lat
         self.buffer_lat = buffer_lat
 
     def generate_frame_polygon(self, shapefile_name: Optional[Path] = None):
-        """ generates a frame with associated extent for the frame definition defined in class constructor. """
-        latitudes = [
-            i
-            for i in np.arange(
-                self.start_lat, self.end_lat + self.width_lat, self.width_lat
-            )
-        ]
-        start_lats = [lat - self.buffer_lat for lat in latitudes]
-        end_lats = [lat + self.buffer_lat for _, lat in enumerate(latitudes[1:])]
+        """
+        generates a frame with associated extent for the frame definition defined in class constructor.
 
+        Code modified by R. Garcia to make it more generic and efficient
+        """
+        latitudes = np.arange(self.north_lat, self.south_lat + self.width_lat, self.width_lat)
         if self.southern_hemisphere:
-            start_lats = np.array(start_lats) * -1.0
-            end_lats = np.array(end_lats) * -1.0
+            latitudes *= -1.0
+
+        frame_nums = []
+        df_bbox = []
+        for idx in range(len(latitudes)-1):
+           slat_frame = latitudes[idx]+self.buffer_lat  # this should work for both hemispheres
+           elat_frame = latitudes[idx+1]-self.buffer_lat  # this should work for both hemispheres
+           frame_nums.append(idx+1)
+           df_bbox.append(box(self.west_lon, slat_frame, self.east_lon, elat_frame).wkt)
 
         df = pd.DataFrame()
-        df["frame_num"] = [i + 1 for i in range(len(start_lats) - 1)]
-        df["extent"] = [
-            box(self.start_lon, start_lat, self.end_lon, end_lats[idx]).wkt
-            for idx, start_lat in enumerate(start_lats[:-1])
-        ]
+        df["frame_num"] = frame_nums
+        df["extent"] = df_bbox
         geopandas_df = gpd.GeoDataFrame(
             df, crs={"init": "epsg:4326"}, geometry=df["extent"].map(shapely.wkt.loads)
         )
 
         if geopandas_df.empty:
-            _LOG.error(
-                "failed to generate frame polygon as geopandas dataframe",
-            )
+            _LOG.error("failed to generate frame polygon as geopandas dataframe")
 
         if shapefile_name:
             geopandas_df.to_file(shapefile_name, driver="ESRI Shapefile")

@@ -259,17 +259,17 @@ def process_grid_definition(
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
         frame_numbers = [i + 1 for i in range(math.ceil(90.0 / latitude_width))]
         grid_definition(
-            database_path,
-            out_dir,
-            relative_orbit_number,
-            hemisphere,
-            sensor,
-            orbits,
-            latitude_width,
-            latitude_buffer,
-            start_date,
-            end_date,
-            frame_numbers,
+            dbfile = database_path,
+            out_dir = out_dir,
+            rel_orbit = relative_orbit_number,
+            hemisphere = hemisphere,
+            sensor = sensor,
+            orbits = orbits,
+            latitude_width = latitude_width,
+            latitude_buffer = latitude_buffer,
+            start_date = start_date,
+            end_date = end_date,
+            frame_numbers = frame_numbers,
         )
 
 
@@ -290,28 +290,10 @@ def process_grid_definition(
     help="directory to output grid vector files",
 )
 @click.option(
-    "--relative-orbit-number",
-    type=int,
-    default=None,
-    help="relative orbit number of Sentinel-1",
-)
-@click.option(
     "--hemisphere",
     type=str,
     default="S",
     help="define grid in southern[S] or northern[N] hemisphere",
-)
-@click.option(
-    "--sensor",
-    type=str,
-    default=None,
-    help="Sentinel-1A (S1A) or 1B (S1B), default=None selects both S1A and S1B sensors",
-)
-@click.option(
-    "--orbits",
-    type=str,
-    default=None,
-    help="Sentinel-1 overpass ascending [A] or descending [D]",
 )
 @click.option(
     "--latitude-width",
@@ -332,6 +314,24 @@ def process_grid_definition(
     default="grid-generation.jsonl",
 )
 @click.option(
+    "--relative-orbit-number",
+    type=int,
+    default=None,
+    help="relative orbit number of Sentinel-1",
+)
+@click.option(
+    "--sensor",
+    type=str,
+    default=None,
+    help="Sentinel-1A (S1A) or 1B (S1B), default=None selects both S1A and S1B sensors",
+)
+@click.option(
+    "--orbits",
+    type=str,
+    default=None,
+    help="Sentinel-1 overpass ascending [A] or descending [D]",
+)
+@click.option(
     "--start-date",
     type=click.DateTime(),
     default=None,
@@ -343,24 +343,55 @@ def process_grid_definition(
     default=None,
     help="end date to stop query into database",
 )
+@click.option(
+    "--northern-latitude",
+    type=float,
+    default=0.0,
+    help="Northern latitude (decimal degrees North) of the bounding box"
+)
+@click.option(
+    "--western-longitude",
+    type=float,
+    default=100.0,
+    help="Western longitude (decimal degrees East) of the bounding box"
+)
+@click.option(
+    "--southern-latitude",
+    type=float,
+    default=50.0,
+    help="Southern latitude (decimal degrees North) of the bounding box"
+)
+@click.option(
+    "--eastern-longitude",
+    type=float,
+    default=179.0,
+    help="Eastern longitude (decimal degrees East) of the bounding box"
+)
 def process_grid_definition_NEW(
     database_path: click.Path,
     out_dir: click.Path,
     hemisphere: str,
-    relative_orbit_number: int,
-    sensor: str,
-    orbits: str,
     latitude_width: float,
     latitude_buffer: float,
     log_pathname: click.Path,
+    relative_orbit_number: Optional[int] = None,
+    sensor: Optional[str] = None,
+    orbits: Optional[str] = None,
     start_date: Optional[click.DateTime] = None,
     end_date: Optional[click.DateTime] = None,
+    northern_latitude: Optional[float] = None,
+    western_longitude: Optional[float] = None,
+    southern_latitude: Optional[float] = None,
+    eastern_longitude: Optional[float] = None,
 ):
     """
-    An updated method to process InSAR grid definition for given rel_orbits
-    Additions include relative_orbit_number as an optional input. Here,
-    the sensor and orbit inputs are used to determine the unique listings
-    of the relative orbits.
+    An updated method to process InSAR grid definition.
+    Additions include:
+    (1) relative_orbit_number as an optional input. Here,
+        the sensor and orbit inputs are used to determine
+        the unique listings of the relative orbits.
+    (2) optional lat/lon bounding box to generate shp
+        files for a user specified region
 
     Also, sensor and orbits defaults to None if not specified.
     """
@@ -368,6 +399,42 @@ def process_grid_definition_NEW(
     with open(log_pathname, 'w') as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
         frame_numbers = [i + 1 for i in range(math.ceil(90.0 / latitude_width))]
+
+        # ------------------------------------ #
+        #   check that the user bounding box   #
+        #   is OK. This will be altered when   #
+        #   the hemisphere key is removed in   #
+        #   later commits                      #
+        # ------------------------------------ #
+        if hemisphere.lower() == "n":
+            if northern_latitude <= southern_latitude:
+                _LOG.error(
+                    "input bounding box error, northern latitude <= southern latitude",
+                    northern_latitude=northern_latitude,
+                    southern_latitude=southern_latitude,
+                )
+                raise Exception("bounding box error: northern latitude <= southern latitude\n")
+
+        elif hemisphere.lower() == "s":
+            if northern_latitude >= southern_latitude:
+                _LOG.error(
+                    "input bounding box error, northern latitude >= southern latitude",
+                    northern_latitude=northern_latitude,
+                    southern_latitude=southern_latitude,
+                )
+                raise Exception("bounding box error: northern latitude >= southern latitude\n")
+
+        else:
+           raise Exception("hemisphere must either be 'N' or 'S'\n")
+
+        if (eastern_longitude <= western_longitude):
+            _LOG.error(
+                "input bounding box error, eastern longitude <= western latitude",
+                eastern_longitude=eastern_longitude,
+                western_longitude=western_longitude,
+            )
+            raise Exception("bounding box error: eastern longitude <= western longitude\n")
+
 
         # ------------------------------------------- #
         #  first query the database and get a unique  #
@@ -389,17 +456,21 @@ def process_grid_definition_NEW(
                 # iterate through the relative orbit numbers and create the shapefiles:
                 for RelOrb in uniq_relorb_nums:
                     grid_definition(
-                        database_path,
-                        out_dir,
-                        RelOrb,
-                        hemisphere,
-                        sensor,
-                        orbits,
-                        latitude_width,
-                        latitude_buffer,
-                        start_date,
-                        end_date,
-                        frame_numbers,
+                        dbfile = database_path,
+                        out_dir = out_dir,
+                        rel_orbit = RelOrb,
+                        hemisphere = hemisphere,
+                        sensor = sensor,
+                        orbits = orbits,
+                        latitude_width = latitude_width,
+                        latitude_buffer = latitude_buffer,
+                        start_date = start_date,
+                        end_date = end_date,
+                        bbox_nlat = northern_latitude,
+                        bbox_wlon = western_longitude,
+                        bbox_slat = southern_latitude,
+                        bbox_elon = eastern_longitude,
+                        frame_numbers = frame_numbers,
                    )
 
 
