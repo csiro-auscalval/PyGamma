@@ -149,9 +149,9 @@ third=`awk 'NR==3 {print $1}' sorted_end_times`
 
 
 ## Auto positioning of swaths on plot
-top="-0.9c"
-middle="-1.2c"
-bottom="-1.5c"
+top="-0.9"
+middle="-1.2"
+bottom="-1.5"
 if [ $first == "IW1" ]; then
     pos1=$top
 elif [ $first == "IW2" ]; then
@@ -174,36 +174,39 @@ elif [ $third == "IW3" ]; then
     pos3=$bottom
 fi
 
-
 ## Auto length of swaths
-sw1_len=`echo $sw1_burst*0.95 | bc -l`
-sw2_len=`echo $sw2_burst*0.95 | bc -l`
-sw3_len=`echo $sw3_burst*0.95 | bc -l`
+sw1_len=`echo $sw1_burst*1.2 | bc -l`
+sw2_len=`echo $sw2_burst*1.2 | bc -l`
+sw3_len=`echo $sw3_burst*1.2 | bc -l`
 
+## Adjust position based on length of swath
+pos1=`echo $pos1+20-$sw1_burst | bc -l` 
+pos2=`echo $pos2+20-$sw2_burst | bc -l` 
+pos3=`echo $pos3+20-$sw3_burst | bc -l` 
 
 ## Plot swaths
 gmtset PS_MEDIA A4
 outline="-JX23c/26c"
 range="-R0/100/0/100"
-psbasemap $outline $range -Bnesw -K -P > $psfile
+psbasemap $outline $range -B+n -K -P > $psfile
 pstext $outline $range -F+cTL+f15p -O -K -P <<EOF >> $psfile
 $project $track $scene $polar $header
 EOF
-psimage $slc_png -W4c/4c -Fthin -C14c/22c -O -K -P >> $psfile
-pstext $outline $range -F+f13p -O -K -P <<EOF >> $psfile
-5.5 88.5 Swath 1 ($sw1_burst)
+psimage $slc_png -Dx14.5c/24c+w3.5c/3c -O -K -P >> $psfile
+pstext $outline $range -F+f12p -O -K -P <<EOF >> $psfile
+10 90 Swath 1 ($sw1_burst)
 EOF
-psimage $slc_png1 -W4.5c/$sw1_len"c" -Fthin -C-1c/$pos1 -O -K -P >> $psfile
-pstext $outline $range -F+f13p -O -K -P <<EOF >> $psfile
-26 88.5 Swath 2 ($sw2_burst)
+psimage $slc_png1 -Dx0c/$pos1"c"+w4.5c/$sw1_len"c" -O -K -P >> $psfile
+pstext $outline $range -F+f12p -O -K -P <<EOF >> $psfile
+34 90 Swath 2 ($sw2_burst)
 EOF
-psimage $slc_png2 -W4.5c/$sw2_len"c" -Fthin -C4c/$pos2 -K -O -P >> $psfile
-pstext $outline $range -F+f13p -K -O -P <<EOF >> $psfile
-47 88.5 Swath 3 ($sw3_burst)
+psimage $slc_png2 -Dx5.5c/$pos2"c"+w4.5c/$sw2_len"c" -O -K -P >> $psfile
+pstext $outline $range -F+f12p -K -O -P <<EOF >> $psfile
+58 90 Swath 3 ($sw3_burst)
 EOF
-psimage $slc_png3 -W4.5c/$sw3_len"c" -Fthin -C9c/$pos3 -O -P >> $psfile
+psimage $slc_png3 -Dx11c/$pos3"c"+w4.5c/$sw3_len"c" -O -P >> $psfile
 
-ps2raster -Tf $psfile
+psconvert -Tf $psfile
 rm -rf $psfile sorted_end_times
 
 cp $pdf $out_dir
