@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys  # RG add
 import os
 import re
 import uuid
@@ -191,16 +192,15 @@ def grid_definition(
     dbfile: Union[Path, str],
     out_dir: Union[Path, str],
     rel_orbit: int,
-    hemisphere: str,
     sensor: Union[str, None],
     orbits: str,
-    latitude_width: float,
-    latitude_buffer: float,
+    latitude_width: Optional[float] = -1.25,
+    latitude_buffer: Optional[float] = 0.01,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     bbox_nlat: Optional[float] = 0.0,
     bbox_wlon: Optional[float] = 100.0,
-    bbox_slat: Optional[float] = 50.0,
+    bbox_slat: Optional[float] = -50.0,
     bbox_elon: Optional[float] = 179.0,
     frame_numbers: Optional[Iterable] = None,
 ) -> None:
@@ -222,9 +222,6 @@ def grid_definition(
     rel_orbit: int
         A Sentinel-1 relative orbit number.
 
-    hemisphere: str
-        Southern (S) or northern (N) hemisphere to form a grid.
-
     sensor: str, None
         Sentinel-1 (S1A) or (S1B) sensor. If None then both sensor's
         information are used to form a grid definition.
@@ -232,10 +229,10 @@ def grid_definition(
     orbits: str
         Ascending (A) or descending overpass to form the grid definition.
 
-    latitude_width: float
+    latitude_width: float (default = -1.25)
         How wide the grid should span in latitude (in decimal degrees).
 
-    latitude_buffer: float
+    latitude_buffer: float (default = 0.01)
         The buffer to include in latitude width to facilitate the overlaps needed
         between two grids along a relative orbit.
 
@@ -245,29 +242,25 @@ def grid_definition(
     end_date: datetime or None
         Optional end date of acquisition to account in forming a grid definition.
 
-    bbox_nlat: float
+    bbox_nlat: float (default = 0.0)
         Northern latitude (decimal degrees) of bounding box
 
-    bbox_wlon: float
+    bbox_wlon: float (default = 100.0)
         Western longitude (decimal degrees) of bounding box
 
-    bbox_slat: float
+    bbox_slat: float (default = -50.0)
         Southern latitude (decimal degrees) of bounding box
 
-    bbox_elon: float
+    bbox_elon: float (default = 179.0)
         Eastern longitude (decimal degrees) of bounding box
 
     frame_numbers: list or None
-        Optional frame numbers to generate a grid definition. Default is to generate
-        50 horizontal lines speparated by latitude width + latitude_buffer from equator.
+        Optional frame numbers to generate a grid definition.
 
     Returns
     -------
         None, however an ERSI shapefile is created
     """
-
-    if frame_numbers is None:
-        frame_numbers = [i + 1 for i in range(50)]
 
     def _frame_def():
         bursts_query_args = {
@@ -289,6 +282,20 @@ def grid_definition(
         if gpd_df is not None:
             grid_df = pd.DataFrame()
             swaths = gpd_df.swath.unique()
+
+            # subsequent grid adjustment will not include the shapefile if
+            # len(swaths) != 3. Hence a warning is provided for traceback
+            if len(swaths) != 3:
+                #print(gpd_df.columns.values)
+                _LOG.warning(
+                    "number of swaths != 3",
+                    grid_shapefile=grid_shapefile,
+                    swaths=swaths,
+                    swath_number=len(swaths),
+                    sentinel_files=", ".join(gpd_df.url.unique()),
+                    xml_files=", ".join(gpd_df.swath_name.unique()),
+                )
+
             for swath in swaths:
                 bursts_extents = swath_bursts_extents(gpd_df, swath)
                 sorted_extents = sorted(
@@ -316,23 +323,24 @@ def grid_definition(
     with Archive(dbfile) as archive:
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
-        for frame_num in frame_numbers:
 
-            # define the SLC Frames based on latitude width,
-            # buffer (overlap) amount, and the lat/lon
-            # of the region of interest
-            frame_obj = SlcFrame(
-                southern_hemisphere=True,
-                bbox_nlat=bbox_nlat,
-                bbox_wlon=bbox_wlon,
-                bbox_slat=bbox_slat,
-                bbox_elon=bbox_elon,
-                width_lat=latitude_width,
-                buffer_lat=latitude_buffer
-            )
+        # define SLC Frames once based on 
+        # latitude width, buffer (overlap)
+        # amount, and lat/lon of the 
+        # region of interest
+        frame_obj = SlcFrame(
+            bbox_nlat=bbox_nlat,
+            bbox_wlon=bbox_wlon,
+            bbox_slat=bbox_slat,
+            bbox_elon=bbox_elon,
+            width_lat=latitude_width,
+            buffer_lat=latitude_buffer
+        )
+
+        for frame_num in frame_obj.frame_numbers:
 
             grid_track = "T{:03}{}".format(rel_orbit, orbits)
-            grid_frame = "F{:02}{}".format(frame_num, hemisphere)  # hemisphere will be removed
+            grid_frame = "F{:02}".format(frame_num)
             grid_shapefile = os.path.join(
                 out_dir, "{}_{}.shp".format(grid_track, grid_frame)
             )
@@ -354,7 +362,7 @@ def grid_adjustment(
 
     This method performs a grid adjustment by removing first burst in swath 1
     and last burst from swath 3. Depending on the availability of grid before
-    or after the grid that is being adjusted, a) if grid the before the current
+    or after the grid that is being adjusted, a) if the grid before the current
     grid is available, then the last overlapping burst from grid before is
     added to current grid in swath 3, b) if grid after the current grid is
     available, then the first overlapping burst from grid after is added to the
@@ -387,6 +395,12 @@ def grid_adjustment(
 
     # only grid with all three swaths will be processed
     if len(swaths) != 3:
+        _LOG.error(
+            "number of swaths != 3",
+            input_shapefile=in_grid_shapefile,
+            swaths=swaths,
+            swath_number=len(swaths),
+        )
         raise ValueError
 
     iw1_df = gpd_df[gpd_df.swath == "IW1"].copy()
@@ -475,47 +489,3 @@ def grid_adjustment(
         geometry=grid_df["extent"].map(shapely.wkt.loads),
     )
     new_gpd_df.to_file(out_grid_shapefile, driver="ESRI Shapefile")
-
-
-def process_grid_adjustment(
-    in_dir: Union[Path, str],
-    out_dir: Union[Path, str],
-    hemisphere: Optional[str] = 'S'
-):
-    """
-    A method to bulk process grid adjustment from given in_dir.
-    grid shapefile is expected to be in format "<track>_<frame>.shp (eg: T002_F20S.shp)"
-    """
-    in_dir = Path(in_dir)
-    out_dir = Path(out_dir)
-
-    for item in in_dir.iterdir():
-        if not item.name.endswith(".shp"):
-            continue
-
-        name_pcs = item.name.split("_")
-        track = name_pcs[0]
-        frame = os.path.splitext(name_pcs[1])[0]
-        frame_num = int(re.findall(r"\d+", frame)[0])
-
-        grid_before_name = in_dir.joinpath(f"{track}_F{frame_num - 1:02}{hemisphere}.shp")
-        grid_after_name = in_dir.joinpath(f"{track}_F{frame_num + 1:02}{hemisphere}.shp")
-
-        if not grid_before_name.exists():
-            grid_before_name = None
-        if not grid_after_name.exists():
-            grid_after_name = None
-
-        try:
-            grid_adjustment(
-                item,
-                out_dir.joinpath(item),
-                track=track,
-                frame=frame,
-                grid_before_shapefile=grid_before_name,
-                grid_after_shapefile=grid_after_name,
-            )
-        except ValueError:
-            _LOG.error("data is required in all three swaths", pathname=item)
-        except AttributeError:
-            _LOG.error("no data in swath after grid adjustment", pathname=item)

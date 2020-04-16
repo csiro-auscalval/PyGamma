@@ -1182,13 +1182,13 @@ class SlcFrame:
     bbox_wlon: float (default = 100.0)
         Western longitude (decimal degrees) of bounding box
 
-    bbox_slat: float (default = 50.0)
+    bbox_slat: float (default = -50.0)
         Southern latitude (decimal degrees) of bounding box
 
     bbox_elon: float (default = 179.0)
         Eastern longitude (decimal degrees) of bounding box
 
-    width_lat: float (default = 1.1)
+    width_lat: float (default = -1.25)
         latitude width (decimal degrees) of each frame
 
     buffer_lat: float (default = 0.01)
@@ -1196,21 +1196,18 @@ class SlcFrame:
 
     Author
     ------
-       Modified by Rodrigo Garcia, 7th April 2020
+       Modified by Rodrigo Garcia, 15th April 2020
     """
 
     def __init__(
         self,
-        southern_hemisphere: Optional[bool] = True,
         bbox_nlat: Optional[float] = 0.0,
         bbox_wlon: Optional[float] = 100.0,
-        bbox_slat: Optional[float] = 50.0,
+        bbox_slat: Optional[float] = -50.0,
         bbox_elon: Optional[float] = 179.0,
-        width_lat: Optional[float] = 1.1,
+        width_lat: Optional[float] = -1.25,
         buffer_lat: Optional[float] = 0.01
     ) -> None:
-
-        self.southern_hemisphere = southern_hemisphere
 
         self.north_lat = bbox_nlat
         self.south_lat = bbox_slat
@@ -1219,27 +1216,57 @@ class SlcFrame:
         self.width_lat = width_lat
         self.buffer_lat = buffer_lat
 
+        # defining private variables that the user cannot see
+        self._slat_frame_coords = self.get_slat_frame_coords()
+        self._elat_frame_coords = self.get_elat_frame_coords()
+        self._frame_numbers = np.arange(1, self._slat_frame_coords.shape[0]+1, 1)
+
+    @property
+    def frame_numbers(self):
+        # return self._frame_numbers to the user, who won't be able to modify it
+        return self._frame_numbers
+
+    @property
+    def slat_frame_coords(self):
+        return self._slat_frame_coords
+
+    @property
+    def elat_frame_coords(self):
+        return self._elat_frame_coords
+
+    def get_slat_frame_coords(self):
+        return np.arange(
+                   self.north_lat+self.buffer_lat,
+                   self.south_lat,
+                   self.width_lat
+               )
+
+    def get_elat_frame_coords(self):
+        return np.arange(
+                   self.north_lat+self.width_lat-self.buffer_lat,
+                   self.south_lat+self.width_lat,
+                   self.width_lat
+               )
+
+    def get_bbox_wkt(self):
+        nth_lat_frame = self.slat_frame_coords
+        sth_lat_frame = self.elat_frame_coords
+        df_bbox = []
+        for i in range(nth_lat_frame.shape[0]):
+            df_bbox.append(box(self.west_lon, nth_lat_frame[i], self.east_lon, sth_lat_frame[i]).wkt)
+
+        return df_bbox
+
     def generate_frame_polygon(self, shapefile_name: Optional[Path] = None):
         """
         generates a frame with associated extent for the frame definition defined in class constructor.
 
-        Code modified by R. Garcia to make it more generic and efficient
+        Code modified by R. Garcia to make it more generic
         """
-        latitudes = np.arange(self.north_lat, self.south_lat + self.width_lat, self.width_lat)
-        if self.southern_hemisphere:
-            latitudes *= -1.0
-
-        frame_nums = []
-        df_bbox = []
-        for idx in range(len(latitudes)-1):
-           slat_frame = latitudes[idx]+self.buffer_lat  # this should work for both hemispheres
-           elat_frame = latitudes[idx+1]-self.buffer_lat  # this should work for both hemispheres
-           frame_nums.append(idx+1)
-           df_bbox.append(box(self.west_lon, slat_frame, self.east_lon, elat_frame).wkt)
 
         df = pd.DataFrame()
-        df["frame_num"] = frame_nums
-        df["extent"] = df_bbox
+        df["frame_num"] = list(self.frame_numbers)
+        df["extent"] = self.get_bbox_wkt()
         geopandas_df = gpd.GeoDataFrame(
             df, crs={"init": "epsg:4326"}, geometry=df["extent"].map(shapely.wkt.loads)
         )

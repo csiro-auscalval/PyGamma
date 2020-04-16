@@ -166,7 +166,7 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str,
             else:
                 _LOG.error(
                     "file is not an ESRI Shapefile; skipping",
-                    pathname=input_path
+                    pathname=in_file
                 )
 
 
@@ -192,12 +192,6 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str,
     help="relative orbit number of Sentinel-1",
 )
 @click.option(
-    "--hemisphere",
-    type=str,
-    default="S",
-    help="define grid in southern[S] or northern[N] hemisphere",
-)
-@click.option(
     "--sensor",
     type=str,
     default=None,
@@ -212,14 +206,14 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str,
 @click.option(
     "--latitude-width",
     type=float,
-    default=1.25,
-    help="how wide the grid should be in latitude (in decimal degrees)",
+    default=-1.25,
+    help="The latitude length of the grid (in decimal degrees, and must be negative)",
 )
 @click.option(
     "--latitude-buffer",
     type=float,
     default=0.01,
-    help="overlap between two grids in latitude (in decimal degrees)",
+    help="overlap between two grids in latitude (in decimal degrees, and must be positive)",
 )
 @click.option(
     "--log-pathname",
@@ -242,7 +236,6 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str,
 def process_grid_definition(
     database_path: click.Path,
     out_dir: click.Path,
-    hemisphere: str,
     relative_orbit_number: int,
     sensor: str,
     orbits: str,
@@ -257,19 +250,16 @@ def process_grid_definition(
     """
     with open(log_pathname, 'w') as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
-        frame_numbers = [i + 1 for i in range(math.ceil(90.0 / latitude_width))]
         grid_definition(
-            dbfile = database_path,
-            out_dir = out_dir,
-            rel_orbit = relative_orbit_number,
-            hemisphere = hemisphere,
-            sensor = sensor,
-            orbits = orbits,
-            latitude_width = latitude_width,
-            latitude_buffer = latitude_buffer,
-            start_date = start_date,
-            end_date = end_date,
-            frame_numbers = frame_numbers,
+            dbfile=database_path,
+            out_dir=out_dir,
+            rel_orbit=relative_orbit_number,
+            sensor=sensor,
+            orbits=orbits,
+            latitude_width=latitude_width,
+            latitude_buffer=latitude_buffer,
+            start_date=start_date,
+            end_date=end_date,
         )
 
 
@@ -290,22 +280,16 @@ def process_grid_definition(
     help="directory to output grid vector files",
 )
 @click.option(
-    "--hemisphere",
-    type=str,
-    default="S",
-    help="define grid in southern[S] or northern[N] hemisphere",
-)
-@click.option(
     "--latitude-width",
     type=float,
-    default=1.25,
-    help="how wide the grid should be in latitude (in decimal degrees)",
+    default=-1.25,
+    help="The latitude length of the grid (in decimal degrees, and must be negative)",
 )
 @click.option(
     "--latitude-buffer",
     type=float,
     default=0.01,
-    help="overlap between two grids in latitude (in decimal degrees)",
+    help="overlap between two grids in latitude (in decimal degrees, and must be positive)",
 )
 @click.option(
     "--log-pathname",
@@ -358,7 +342,7 @@ def process_grid_definition(
 @click.option(
     "--southern-latitude",
     type=float,
-    default=50.0,
+    default=-50.0,
     help="Southern latitude (decimal degrees North) of the bounding box"
 )
 @click.option(
@@ -370,7 +354,6 @@ def process_grid_definition(
 def process_grid_definition_NEW(
     database_path: click.Path,
     out_dir: click.Path,
-    hemisphere: str,
     latitude_width: float,
     latitude_buffer: float,
     log_pathname: click.Path,
@@ -379,10 +362,10 @@ def process_grid_definition_NEW(
     orbits: Optional[str] = None,
     start_date: Optional[click.DateTime] = None,
     end_date: Optional[click.DateTime] = None,
-    northern_latitude: Optional[float] = None,
-    western_longitude: Optional[float] = None,
-    southern_latitude: Optional[float] = None,
-    eastern_longitude: Optional[float] = None,
+    northern_latitude: Optional[float] = 0.0,
+    western_longitude: Optional[float] = 100.0,
+    southern_latitude: Optional[float] = -50.0,
+    eastern_longitude: Optional[float] = 179.0,
 ):
     """
     An updated method to process InSAR grid definition.
@@ -392,42 +375,29 @@ def process_grid_definition_NEW(
         the unique listings of the relative orbits.
     (2) optional lat/lon bounding box to generate shp
         files for a user specified region
+    (3) Removed hemisphere
+    (4) Assuming that the origin is the northern latitude
+        of the bounding box, requires the latitude
+        width to be negative.
 
     Also, sensor and orbits defaults to None if not specified.
     """
 
     with open(log_pathname, 'w') as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
-        frame_numbers = [i + 1 for i in range(math.ceil(90.0 / latitude_width))]
 
-        # ------------------------------------ #
-        #   check that the user bounding box   #
-        #   is OK. This will be altered when   #
-        #   the hemisphere key is removed in   #
-        #   later commits                      #
-        # ------------------------------------ #
-        if hemisphere.lower() == "n":
-            if northern_latitude <= southern_latitude:
-                _LOG.error(
-                    "input bounding box error, northern latitude <= southern latitude",
-                    northern_latitude=northern_latitude,
-                    southern_latitude=southern_latitude,
-                )
-                raise Exception("bounding box error: northern latitude <= southern latitude\n")
+        # ----------------------------------------- #
+        #   check that the user bounding box is OK  #
+        # ----------------------------------------- #
+        if northern_latitude <= southern_latitude:
+            _LOG.error(
+                "input bounding box error, northern latitude <= southern latitude",
+                northern_latitude=northern_latitude,
+                southern_latitude=southern_latitude,
+            )
+            raise Exception("bounding box error: northern latitude <= southern latitude\n")
 
-        elif hemisphere.lower() == "s":
-            if northern_latitude >= southern_latitude:
-                _LOG.error(
-                    "input bounding box error, northern latitude >= southern latitude",
-                    northern_latitude=northern_latitude,
-                    southern_latitude=southern_latitude,
-                )
-                raise Exception("bounding box error: northern latitude >= southern latitude\n")
-
-        else:
-           raise Exception("hemisphere must either be 'N' or 'S'\n")
-
-        if (eastern_longitude <= western_longitude):
+        if eastern_longitude <= western_longitude:
             _LOG.error(
                 "input bounding box error, eastern longitude <= western latitude",
                 eastern_longitude=eastern_longitude,
@@ -435,6 +405,34 @@ def process_grid_definition_NEW(
             )
             raise Exception("bounding box error: eastern longitude <= western longitude\n")
 
+        # latitude width must be negative as the origin is the
+        # northern latitude of the bounding box
+        if latitude_width > 0:
+            _LOG.warning(
+                "input latitude width is positive, multiplying by -1 to convert it to negative",
+                latitude_width=latitude_width,
+            )
+            latitude_width *= -1.0
+
+        if latitude_width == 0:
+            _LOG.error(
+                "input latitude width = 0, but expected latitude width < 0",
+            )
+            raise Exception("latitude width = 0, but expected latitude width < 0")
+
+        # asserting latitude buffer > 0
+        if latitude_buffer < 0:
+            _LOG.warning(
+                "input latitude (overlap) buffer is negative, taking absolute value to convert it to positive",
+                latitude_buffer=latitude_buffer,
+            )
+            latitude_buffer = abs(latitude_buffer)
+
+        if latitude_buffer == 0:
+            _LOG.error(
+                "input latitude buffer = 0, but expected latitude buffer > 0",
+            )
+            raise Exception("latitude buffer = 0, but expected latitude buffer < 0")
 
         # ------------------------------------------- #
         #  first query the database and get a unique  #
@@ -456,23 +454,20 @@ def process_grid_definition_NEW(
                 # iterate through the relative orbit numbers and create the shapefiles:
                 for RelOrb in uniq_relorb_nums:
                     grid_definition(
-                        dbfile = database_path,
-                        out_dir = out_dir,
-                        rel_orbit = RelOrb,
-                        hemisphere = hemisphere,
-                        sensor = sensor,
-                        orbits = orbits,
-                        latitude_width = latitude_width,
-                        latitude_buffer = latitude_buffer,
-                        start_date = start_date,
-                        end_date = end_date,
-                        bbox_nlat = northern_latitude,
-                        bbox_wlon = western_longitude,
-                        bbox_slat = southern_latitude,
-                        bbox_elon = eastern_longitude,
-                        frame_numbers = frame_numbers,
+                        dbfile=database_path,
+                        out_dir=out_dir,
+                        rel_orbit=RelOrb,
+                        sensor=sensor,
+                        orbits=orbits,
+                        latitude_width=latitude_width,
+                        latitude_buffer=latitude_buffer,
+                        start_date=start_date,
+                        end_date=end_date,
+                        bbox_nlat=northern_latitude,
+                        bbox_wlon=western_longitude,
+                        bbox_slat=southern_latitude,
+                        bbox_elon=eastern_longitude,
                    )
-
 
             else:
                 # empty list or errors occured
