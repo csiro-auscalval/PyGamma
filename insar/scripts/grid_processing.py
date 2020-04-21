@@ -64,7 +64,7 @@ def grid_definition_cli():
     "--pattern",
     type=str,
     help="regex pattern to match the vector filename",
-    default=r"^T[0-9]{3}[AD]_F[0-9]{2}[SN]",
+    default=r"^T[0-9]{3}[AD]_F[0-9]{2}",
 )
 @click.option(
     "--log-pathname",
@@ -72,8 +72,19 @@ def grid_definition_cli():
     help="Output pathname to contain the logging events.",
     default="grid-adjustment.jsonl",
 )
-def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str,
-                            log_pathname: click.Path):
+@click.option(
+    "--create-kml",
+    default=False,
+    is_flag=True,
+    help="If specified, saves kml files of the bursts for each frame"
+)
+def process_grid_adjustment(
+    input_path: Path,
+    out_dir: Path,
+    pattern: str,
+    log_pathname: click.Path,
+    create_kml: click.BOOL,
+    ):
     """
     A method to process the grid adjustment for InSAR grid auto-generated grid definition.
 
@@ -82,10 +93,23 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str,
     are as genrated by grid_definition process. For more user control on individual grid
     adjustment check metadata.s1_gridding_utils.grid_adjustment.
 
-    :param input_path:
+    Parameters
+    ----------
+    input_path: Path
         A full path to grid-definition input files parent directory.
-    :param out_dir:
+
+    out_dir: Path
         A full path to a directory to store adjusted grid definition files.
+
+    pattern: str
+        regex pattern search for shp filenames that were created during grid-definition
+
+    log_pathname: Path
+        Path of log file
+
+    create_kml: bool
+        Create kml (True or False). kml files are created in out_dir
+
     """
 
     def _get_required_grids(vector_file, vector_file_dir):
@@ -129,10 +153,12 @@ def process_grid_adjustment(input_path: Path, out_dir: Path, pattern: str,
                 pattern=pattern
             )
             raise err
+
         try:
             grid_adjustment(
-                in_path,
-                pjoin(out_dir, file_name),
+                in_grid_shapefile=in_path,
+                out_grid_shapefile=pjoin(out_dir, file_name),
+                create_kml=create_kml,
                 track=track,
                 frame=frame,
                 grid_before_shapefile=grid_before_path,
@@ -256,6 +282,7 @@ def process_grid_definition(
             rel_orbit=relative_orbit_number,
             sensor=sensor,
             orbits=orbits,
+            create_kml=False,
             latitude_width=latitude_width,
             latitude_buffer=latitude_buffer,
             start_date=start_date,
@@ -296,6 +323,12 @@ def process_grid_definition(
     type=click.Path(dir_okay=False),
     help="Output pathname to contain the logging events.",
     default="grid-generation.jsonl",
+)
+@click.option(
+    "--create-kml",
+    default=False,
+    is_flag=True,
+    help="If specified, saves kml files of the bursts for each frame"
 )
 @click.option(
     "--relative-orbit-number",
@@ -357,6 +390,7 @@ def process_grid_definition_NEW(
     latitude_width: float,
     latitude_buffer: float,
     log_pathname: click.Path,
+    create_kml: click.BOOL,
     relative_orbit_number: Optional[int] = None,
     sensor: Optional[str] = None,
     orbits: Optional[str] = None,
@@ -379,6 +413,8 @@ def process_grid_definition_NEW(
     (4) Assuming that the origin is the northern latitude
         of the bounding box, requires the latitude
         width to be negative.
+    (5) added option to create kml files that contain
+        selected bursts for each frame
 
     Also, sensor and orbits defaults to None if not specified.
     """
@@ -459,6 +495,7 @@ def process_grid_definition_NEW(
                         rel_orbit=RelOrb,
                         sensor=sensor,
                         orbits=orbits,
+                        create_kml=create_kml,
                         latitude_width=latitude_width,
                         latitude_buffer=latitude_buffer,
                         start_date=start_date,
