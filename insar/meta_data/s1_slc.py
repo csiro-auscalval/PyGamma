@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys  # RG add
+import simplekml
 import os
 import re
 import yaml
@@ -21,7 +22,7 @@ from io import BytesIO
 from os.path import join as pjoin
 from pathlib import Path
 from typing import Dict, List, Optional, Type, Union
-from shapely.geometry import Polygon, box
+from shapely.geometry import MultiPolygon, Polygon, box
 from spatialist import sqlite3, sqlite_setup
 from spatialist import sqlite3, sqlite_setup
 import py_gamma as pg
@@ -1080,14 +1081,19 @@ class Archive:
         if orbit:
             arg_format.append("{}.orbit='{}'".format(self.slc_table_name, orbit))
 
+        if min_date_arg:
+            arg_format.append(min_date_arg)
+        if max_date_arg:
+            arg_format.append(max_date_arg)
+
+        frame_intersect_query = ""
         if frame_num:
             if frame_obj is None:
                 frame = SlcFrame()
             else:
                 frame = frame_obj
 
-            # frame.get_frame_extent(frame_num)
-            #     return gpd_df.loc[gpd_df["frame_num"] == frame_num]
+            # frame.get_frame_extent(frame_num) calls SlcFrame.generate_frame_polygon()
             gpd_frame = frame.get_frame_extent(frame_num)
             if gpd_frame.empty:
                 _LOG.warning(
@@ -1095,34 +1101,29 @@ class Archive:
                     frame_num=frame_num,
                 )
                 return
-            extent = gpd_frame["extent"].values[0]
-            arg_format.append(
-                "st_intersects(GeomFromText('{}', 4326), bursts_metadata.burst_extent) = 1".format(
-                    extent
-                )
-            )
 
-        if min_date_arg:
-            arg_format.append(min_date_arg)
-        if max_date_arg:
-            arg_format.append(max_date_arg)
+            track_frame_extent = gpd_frame["extent"].values[0]
+            frame_intersect_query = " AND st_intersects"+\
+                                    "(GeomFromText('{}', 4326)".format(track_frame_extent)+\
+                                    ", bursts_metadata.burst_extent) = 1"  # invalid syntax without backslashes
 
-        query = """SELECT {0} from {1} WHERE {2}""".format(
-            ", ".join(
-                [
-                    "AsText({})".format(col) if "extent" in col else col
-                    for col in columns
-                ]
-            ),
+        table_select = ", ".join(["AsText({})".format(col) if "extent" in col else col for col in columns])
+        # table_select = bursts_metadata.burst_number, slc_metadata.sensor, AsText(bursts_metadata.burst_extent)
+        #                swath_metadata.swath_name, bursts_metadata.swath, slc_metadata.orbit,
+        #                bursts_metadata.polarization, slc_metadata.acquisition_start_time, slc_metadata.url
+        base_query = """SELECT {0} from {1} WHERE {2}""".format(
+            table_select,
             tables_join_string,
             " AND ".join(arg_format),
         )
+        # base_query is reused in the refinement stage below
+        burst_query = base_query + frame_intersect_query
 
         cursor = self.conn.cursor()
-        cursor.execute(query)
+        cursor.execute(burst_query)
 
-        fetched_query_rows = cursor.fetchall()
-        if not fetched_query_rows:
+        initial_query_list = cursor.fetchall()  # initial query
+        if not initial_query_list:
             _LOG.error(
                 "Database query failed",
                 frame_num=frame_num,
@@ -1130,8 +1131,60 @@ class Archive:
             )
             return
 
+        # check if this track and frame has data from all the three-subswaths
+        subswath_set = set()
+        poly_wkt_list = []
+        for row_ in initial_query_list:
+            poly_wkt_list.append(shapely.wkt.loads(row_[2]))
+            subswath_set.add(row_[4])
+        # Note:
+        # subswath_set = {'IW1'}, {'IW2'}, {'IW3'},        
+        #                {'IW1', 'IW2'}, {'IW1', 'IW3'}, {'IW2', 'IW3'} or
+        #                {'IW1', 'IW2', 'IW3'}
+        #
+        # poly_wkt_list is a list of shapely Polygons
+        #
+        # --------------------------------- #
+        #   Refining query to include all   #
+        #   sub-swaths in a S1 aquisition   #
+        # --------------------------------- #
+        if len(subswath_set) != 3:
+            # only  1 or 2  sub-swaths were selected. Performing
+            # additional querying to select bursts from adjacent
+            # sub-swaths so that all sub-swaths in the Sentinel-
+            # 1 aquisition are utilised.
+            #
+            # convert list of Polygons to Multipolygon and get the
+            # convex_hull  coordinates. This is  a simple approach 
+            # at obtaining the boundary  of the bursts selected by 
+            # the initial query
+            bursts_chull = MultiPolygon(poly_wkt_list).convex_hull.wkt
+            refined_intersect_query = " AND st_intersects"+\
+                                      "(GeomFromText('{}', 4326)".format(bursts_chull)+\
+                                      ", bursts_metadata.burst_extent) = 1"  # invalid syntax without backslashes
+
+            cursor2 = self.conn.cursor()
+            cursor2.execute(base_query + refined_intersect_query)
+
+            refined_query_list = cursor2.fetchall()
+            if len(refined_query_list) > len(initial_query_list):
+                # overwrite  extracted data from  the initial query
+                # if the refined query  has more data. The  refined
+                # query was coded such that it will include all the
+                # bursts contained from the initial query plus any
+                # additional overlapping bursts. The refined query
+                # will replace/overwrite initial query as this is
+                # easier than finding then appending these new 
+                # overlapping bursts.
+                #
+                # Note refined query doesn't always find additional
+                # overlapping bursts
+                initial_query_list = refined_query_list
+            else:
+                print("refined query failed")
+
         slc_df = pd.DataFrame(
-            [[item for item in row] for row in fetched_query_rows],
+            [[item for item in row] for row in initial_query_list],
             columns=[col[0] for col in cursor.description],
         )
 
@@ -1235,22 +1288,27 @@ class SlcFrame:
         return self._elat_frame_coords
 
     def get_slat_frame_coords(self):
+        # add self.buffer_lat after np.arange call so that
+        # len(get_slat_frame_coords) = len(get_elat_frame_coords)
         return np.arange(
-                   self.north_lat+self.buffer_lat,
+                   self.north_lat,
                    self.south_lat,
                    self.width_lat
-               )
+               ) + self.buffer_lat
 
     def get_elat_frame_coords(self):
+        # subtract self.buffer_lat after np.arange call so that
+        # len(get_slat_frame_coords) = len(get_elat_frame_coords)
         return np.arange(
-                   self.north_lat+self.width_lat-self.buffer_lat,
+                   self.north_lat+self.width_lat,
                    self.south_lat+self.width_lat,
                    self.width_lat
-               )
+               ) - self.buffer_lat
 
     def get_bbox_wkt(self):
         nth_lat_frame = self.slat_frame_coords
         sth_lat_frame = self.elat_frame_coords
+
         df_bbox = []
         for i in range(nth_lat_frame.shape[0]):
             df_bbox.append(box(self.west_lon, nth_lat_frame[i], self.east_lon, sth_lat_frame[i]).wkt)
@@ -1283,3 +1341,107 @@ class SlcFrame:
         """ returns a geo-pandas data frame for a frame_name. """
         gpd_df = self.generate_frame_polygon()
         return gpd_df.loc[gpd_df["frame_num"] == frame_num]
+
+    def get_frame_coords_list(self, frame_num: int):
+        """ returns a lon,lat coordinate list for the frame number. """
+        poly_shapely = self.get_bbox_wkt()[frame_num-1]  # frame num ranges from 1 to N
+        return list(shapely.wkt.loads(poly_shapely).exterior.coords)
+
+class generate_kml:
+    """
+    A class to create kml files  containing
+    bursts within a track and frame, as well
+    as ROI extent and frame extent
+
+    Author
+    ------
+       Rodrigo Garcia, 20th April 2020
+    """
+
+    def __init__(self):
+
+        self.kml = simplekml.Kml()
+
+    def add_polygon(
+        self,
+        polygon_name: str,
+        polygon_coords: list,
+        polygon_width: int,
+        tranparency: float,
+        colour: str,
+    ):
+        """
+        Parameters
+        ----------
+           polygon_name: str
+              name of polygon that will be added to kml
+
+           polygon_coords: list
+               list of longitude, latitude coordinates that form a closed
+               polygon with the following format,
+               [[lon1,lat1], [lon2,lat2], ...., [lonN,latN]]
+                  longitude must be in degrees East
+                  latitude must be in degrees North
+
+           polygon_width: int
+               linewidth of the polygon
+
+           tranparency: float
+               tranparency of polygon, ranges between 0 and 100
+               0 --> 100% transparent
+               1 --> 100% opaque
+
+           colour: str
+               similar to hex except the leading # is replaced with FF, e.g.
+               blue hex = #0000FF
+               colour   = FF0000FF
+        """
+        pol = self.kml.newpolygon(name=polygon_name)
+        pol.outerboundaryis = polygon_coords
+        pol.style.linestyle.color = colour
+        pol.style.linestyle.width = polygon_width
+        pol.style.polystyle.color = simplekml.Color.changealphaint(int(255*tranparency), colour)
+
+    def add_multipolygon(
+        self,
+        polygon_name: str,
+        polygon_list: list,
+        polygon_width: int,
+        tranparency: float,
+        colour: str,
+    ):
+        """
+        Parameters
+        ----------
+           polygon_name: str
+              name of polygon that will be added to kml
+
+           polygon_list: list
+               list of polygons [poly1, poly2, ..., polyN] where,
+               poly1 = [[lon1,lat1], [lon2,lat2], ...., [lonN,latN]]
+                   longitude must be in degrees East
+                   latitude must be in degrees North
+
+           polygon_width: int
+               linewidth of the polygon
+
+           tranparency: float
+               tranparency of polygon, ranges between 0 and 100
+               0 --> 100% transparent
+               1 --> 100% opaque
+
+           colour: str
+               similar to hex except the leading # is replaced with FF, e.g.
+               blue hex = #0000FF
+               colour   = FF0000FF
+        """
+        mpol = self.kml.newmultigeometry(name=polygon_name)
+        for poly in polygon_list:
+            mpol.newpolygon(outerboundaryis=poly)
+        mpol.style.linestyle.color = colour
+        mpol.style.linestyle.width = polygon_width
+        mpol.style.polystyle.color = simplekml.Color.changealphaint(int(255*tranparency), colour)
+
+    def save_kml(self, kml_filename: Path):
+        """ save kml """
+        self.kml.save(kml_filename)
