@@ -4,6 +4,7 @@ import sys  # RG add
 import os
 import re
 import uuid
+import random
 from typing import Optional, Union, Dict, Iterable
 from pathlib import Path
 from datetime import datetime
@@ -15,7 +16,7 @@ import shapely.wkt
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 import yaml
-from insar.meta_data.s1_slc import Archive, SlcFrame, SlcMetadata
+from insar.meta_data.s1_slc import Archive, SlcFrame, SlcMetadata, generate_kml
 
 # _LOG = logging.getLogger(__name__)
 _LOG = structlog.get_logger()
@@ -136,7 +137,7 @@ def db_query(
     end_date: datetime object or None
         Optional end date of SLC acquisition to be queried.
 
-    columns_name:
+    columns_name: str or None
         field names associated with table in a database to be returned.
 
     Returns
@@ -194,6 +195,7 @@ def grid_definition(
     rel_orbit: int,
     sensor: Union[str, None],
     orbits: str,
+    create_kml: bool,
     latitude_width: Optional[float] = -1.25,
     latitude_buffer: Optional[float] = 0.01,
     start_date: Optional[datetime] = None,
@@ -229,6 +231,10 @@ def grid_definition(
     orbits: str
         Ascending (A) or descending overpass to form the grid definition.
 
+    create_kml: bool
+        True saves kml containing the bursts selected for each frame.
+        False does not save kmls
+
     latitude_width: float (default = -1.25)
         How wide the grid should span in latitude (in decimal degrees).
 
@@ -261,6 +267,10 @@ def grid_definition(
     -------
         None, however an ERSI shapefile is created
     """
+    # create a random  hex that will be used
+    # to color the burst polygons in the kml
+    r = lambda: random.randint(0,255)
+    random_hex = "FF%02X%02X%02X" % (r(),r(),r())  # replacing the leading # with FF
 
     def _frame_def():
         bursts_query_args = {
@@ -282,6 +292,32 @@ def grid_definition(
         if gpd_df is not None:
             grid_df = pd.DataFrame()
             swaths = gpd_df.swath.unique()
+
+            if create_kml:
+                # add frame extent polygon to kml
+                master_kml.add_polygon(
+                    polygon_name="Frame_{:02}".format(frame_num),
+                    polygon_coords=frame_obj.get_frame_coords_list(frame_num),
+                    polygon_width=4,
+                    tranparency=0.1,
+                    colour="ff0000ff",
+                )
+
+                burst_coord_list = [
+                    list(shapely.wkt.loads(burst_polys).exterior.coords)
+                    for burst_polys in gpd_df["AsText(bursts_metadata.burst_extent)"]
+                ]
+                # burst_coord_list = [poly1, ..., polyN]
+                #    where poly1 = [(lon1,lat1), ..., (lonN,latN), (lon1,lat1)], etc
+
+                # add polygons to kml with a random colour
+                master_kml.add_multipolygon(
+                    polygon_name="Bursts_in_Frame_{:02}".format(frame_num),
+                    polygon_list=burst_coord_list,
+                    polygon_width=3,
+                    tranparency=0.3,
+                    colour=random_hex,
+                )
 
             # subsequent grid adjustment will not include the shapefile if
             # len(swaths) != 3. Hence a warning is provided for traceback
@@ -337,21 +373,69 @@ def grid_definition(
             buffer_lat=latitude_buffer
         )
 
+
+        grid_track = "T{:03}{}".format(rel_orbit, orbits)
+
+        # Initiate kml even user doesn't want to save them
+        # Creating a kml file per relative orbit to minimise the amount of files
+        master_kml = generate_kml()
+        gpd_cnt = 0
+
         for frame_num in frame_obj.frame_numbers:
 
-            grid_track = "T{:03}{}".format(rel_orbit, orbits)
             grid_frame = "F{:02}".format(frame_num)
             grid_shapefile = os.path.join(
                 out_dir, "{}_{}.shp".format(grid_track, grid_frame)
             )
+
             grid_gpd = _frame_def()
             if grid_gpd is not None:
+                gpd_cnt+=1
                 grid_gpd.to_file(grid_shapefile, driver="ESRI Shapefile")
+
+
+        if create_kml and gpd_cnt > 0:
+            # add ROI polygon
+            ROI_lons = [bbox_wlon, bbox_elon, bbox_elon, bbox_wlon, bbox_wlon]
+            ROI_lats = [bbox_nlat, bbox_nlat, bbox_slat, bbox_slat, bbox_nlat]
+            master_kml.add_polygon(
+                polygon_name="ROI",
+                polygon_coords=[xy for xy in zip(ROI_lons, ROI_lats)],
+                polygon_width=5,
+                tranparency=0,
+                colour="ffff0000",
+            )
+
+            # create kml filename, e.g. T060D_F01_to_F22.kml
+            kml_filename = Path(
+                os.path.join(out_dir, "{0}_F{1:02}_to_F{2:02}.kml".format(
+                    grid_track,
+                    frame_obj.frame_numbers[0],
+                    frame_obj.frame_numbers[-1]
+                    )
+                )
+            )
+
+            # save kml
+            master_kml.save_kml(kml_filename)
+
+            if os.path.exists(kml_filename):
+                _LOG.info(
+                    "kml file created",
+                    output_kml_file=kml_filename,
+                )
+            else:
+                _LOG.error(
+                    "failed to create kml file",
+                    output_kml_file=kml_filename,
+                )
+
 
 
 def grid_adjustment(
     in_grid_shapefile: Union[Path, str],
     out_grid_shapefile: Union[Path, str],
+    create_kml: bool,
     track: str,
     frame: str,
     grid_before_shapefile: Optional[Path] = None,
@@ -360,40 +444,125 @@ def grid_adjustment(
     """
     Adjustment of a grid definition.
 
-    This method performs a grid adjustment by removing first burst in swath 1
-    and last burst from swath 3. Depending on the availability of grid before
-    or after the grid that is being adjusted, a) if the grid before the current
-    grid is available, then the last overlapping burst from grid before is
-    added to current grid in swath 3, b) if grid after the current grid is
-    available, then the first overlapping burst from grid after is added to the
-    current grid in swath 1. c) Finally, one burst from each swath from the
-    start (geographic north) of the grid are removed (this was deemed appropriate
-    after observing the adjusted grid that there was minimum of two overlaps
-    between the grids in each swaths. The requirement is to have at least one
-    bursts overlap to allow mosaic formation in the post processing).
+    Let the current grid be indexed as k, while the grids before and
+    after the current grid indexed as k-1 and k+1 respectively.
 
-    :param in_grid_shapefile:
+    This grid adjustment method begins by removing the first burst from swath 1
+    (IW1)  and the last burst from swath 3 (IW3), depending on the availability
+    of the k-1 or  the k+1 grids:  (a)  if the k-1 grid  is available, then the
+    last overlapping burst from the k-1 grid is added to IW3 of grid k;  (b) if
+    k+1 is  available, the first  overlapping burst from k+1 is added to IW1 of
+    grid k; (c) finally, the northern-most burst from each swath of a grid are
+    removed. This was deemed appropriate after observing that there were a
+    minimum of two overlapping bursts between the grids in each swath. Whereas
+    the requirement is to have at least one burst overlap to allow mosaic
+    formation
+
+    Parameters
+    ----------
+
+    in_grid_shapefile: Path
         A full path to a shape file that needs adjustment.
-    :param out_grid_shapefile:
+
+    out_grid_shapefile: Path
         A full path to output shapefile.
-    :param track:
+
+    create_kml: bool
+        Create kml (True or False). kml files are created in out_grid_shapefile
+
+    track: str
         A track name associated with in_grid_shapefile.
-    :param frame:
+
+    frame: str
         A frame name associated with in_grid_shapefile.
-    :param grid_before_shapefile:
+
+    grid_before_shapefile: Path or None
         A full path to a shapefile for grid definition before the
         in_grid_shapefile. The frame number should be one less than
         the in_grid_shapefile's frame number for descending overpass.
-    :param grid_after_shapefile:
+
+    grid_after_shapefile: Path or None
         A full path to a shapefile for grid definition after the
         in_grid_shapefile. The frame number should be one more than
         the in_grid_shapefile's frame number for descending overpass.
+
     """
+
+    # create a random  hex that will be used
+    # to color the burst polygons in the kml
+    r = lambda: random.randint(0,255)
+    random_hex = "FF%02X%02X%02X" % (r(),r(),r())  # replacing the leading # with FF
+
+    def _add_overlapping_burst_to_grid_k(
+        iw_df,
+        iw_name,
+        adjacent_grid_shp
+    ):
+        """
+
+        Parameters
+        ----------
+
+        iw_df: geopandas dataframe
+           dataframe of grid k
+           
+        iw_name: str
+           subswath name {IW1 or IW3}
+
+        adjacent_grid_shp: Path or None
+           Path of the shapefile of the k-1 or k+1 grid.
+
+        Return
+        ------
+
+        new_iw_df: geopandas dataframe
+            the modified geopandas dataframe that has the additional burst(s)
+        """
+        if iw_name == "IW1":
+            # if IW1: remove the first burst from swath 1
+            new_iw_df = iw_df.drop(
+                iw_df[iw_df.burst_num == min(iw_df.burst_num.values)].index
+            )
+        elif iw_name == "IW3":
+            # if IW3: remove last burst from swath 3
+            new_iw_df = iw_df.drop(
+                iw_df[iw_df.burst_num == max(iw_df.burst_num.values)].index
+            )
+        else:
+            return None
+
+        if adjacent_grid_shp:
+            # append burst to new_iw_df
+            iw_extents = cascaded_union([geom for geom in new_iw_df.geometry])
+
+            adjacent_gpd = gpd.read_file(Path(adjacent_grid_shp).as_posix())
+            adjacent_iw = adjacent_gpd[adjacent_gpd.swath == iw_name].copy()
+
+            bursts_numbers = list(adjacent_iw.burst_num.values)
+
+            for idx, row in adjacent_iw.iterrows():
+                row_centroid = row.geometry.centroid
+                if iw_extents.contains(row_centroid):
+                    bursts_numbers.remove(row.burst_num)
+
+            if bursts_numbers:
+                match_burst_num = max(bursts_numbers)  # append last burst for IW3
+
+                if iw_name == "IW1":
+                    match_burst_num = min(bursts_numbers)  # append first burst for IW1
+
+                new_iw_df = new_iw_df.append(
+                    adjacent_iw[adjacent_iw.burst_num == match_burst_num],
+                    ignore_index=True,
+               )
+
+        return new_iw_df
+
 
     gpd_df = gpd.read_file(in_grid_shapefile)
     swaths = gpd_df.swath.unique()
 
-    # only grid with all three swaths will be processed
+    # only grids containing IW1, IW2 and IW3 swaths will be processed
     if len(swaths) != 3:
         _LOG.error(
             "number of swaths != 3",
@@ -407,62 +576,23 @@ def grid_adjustment(
     iw2_df = gpd_df[gpd_df.swath == "IW2"].copy()
     iw3_df = gpd_df[gpd_df.swath == "IW3"].copy()
 
-    # from swath 1 remove first burst number
-    iw1_new = iw1_df.drop(
-        iw1_df[iw1_df.burst_num == min(iw1_df.burst_num.values)].index
-    )
+    # if k-1 grid exists: add the last overlapping burst to IW3 of current grid
+    iw3_new = _add_overlapping_burst_to_grid_k(iw3_df, "IW3", grid_before_shapefile)
 
-    # from swath 3 remove last burst number
-    iw3_new = iw3_df.drop(
-        iw3_df[iw3_df.burst_num == max(iw3_df.burst_num.values)].index
-    )
+    # if k+1 grid exists: add first overlapping burst to IW1 of current grid
+    iw1_new = _add_overlapping_burst_to_grid_k(iw1_df, "IW1", grid_after_shapefile)
 
-    # if grid exists before the current grid then add the last overlapping burst
-    # from grid before to the current grid in swath 3
-    if grid_before_shapefile:
-        iw3_extents = cascaded_union([geom for geom in iw3_new.geometry])
-        gpd_before = gpd.read_file(Path(grid_before_shapefile).as_posix())
-        iw3_before = gpd_before[gpd_before.swath == "IW3"].copy()
-        bursts_numbers = list(iw3_before.burst_num.values)
-
-        for idx, row in iw3_before.iterrows():
-            row_centroid = row.geometry.centroid
-            if iw3_extents.contains(row_centroid):
-                bursts_numbers.remove(row.burst_num)
-
-        if bursts_numbers:
-            iw3_new = iw3_new.append(
-                iw3_before[iw3_before.burst_num == max(bursts_numbers)],
-                ignore_index=True,
-            )
-
-    # if grid after exists before the current grid then add first overlapping burst
-    # from grid after to the current grid in swath 1
-    if grid_after_shapefile:
-        iw1_extents = cascaded_union([geom for geom in iw1_new.geometry])
-        gpd_after = gpd.read_file(Path(grid_after_shapefile).as_posix())
-        iw1_after = gpd_after[gpd_after.swath == "IW1"].copy()
-        bursts_numbers = list(iw1_after.burst_num.values)
-
-        for idx, row in iw1_after.iterrows():
-            row_centroid = row.geometry.centroid
-            if iw1_extents.contains(row_centroid):
-                bursts_numbers.remove(row.burst_num)
-        if bursts_numbers:
-            iw1_new = iw1_new.append(
-                iw1_after[iw1_after.burst_num == min(bursts_numbers)], ignore_index=True
-            )
-
+    # remove the northern-most burst in each swath to minimise overlaps
     grid_df = pd.DataFrame()
-
-    # remove one bursts each in swaths to minimise overlaps
     for df in [iw1_new, iw2_df, iw3_new]:
+
         iw_df = pd.DataFrame()
+        northernmost_lat = max([geom.centroid.y for geom in df.geometry])
+
         for idx, row in df.iterrows():
-            if row.geometry.centroid.y != max(
-                [geom.centroid.y for geom in df.geometry]
-            ):
+            if row.geometry.centroid.y != northernmost_lat:
                 iw_df = iw_df.append(row, ignore_index=True)
+
         try:
             sorted_bursts = sorted(
                 [(geom, geom.centroid.y) for geom in iw_df.geometry],
@@ -489,3 +619,37 @@ def grid_adjustment(
         geometry=grid_df["extent"].map(shapely.wkt.loads),
     )
     new_gpd_df.to_file(out_grid_shapefile, driver="ESRI Shapefile")
+
+    if create_kml:
+        out_kmlfile = Path(os.path.splitext(out_grid_shapefile)[0]+"_adj.kml")
+
+        burst_coord_list = [
+            list(shapely.wkt.loads(burst_polys).exterior.coords)
+            for burst_polys in new_gpd_df["extent"]
+        ]
+        # burst_coord_list = [poly1, ..., polyN]
+        #    where poly1 = [(lon1,lat1), ..., (lonN,latN), (lon1,lat1)], etc
+
+        # add polygons to kml with a random colour
+        adj_kml = generate_kml()
+        adj_kml.add_multipolygon(
+            polygon_name="Bursts_in_{}".format(frame),
+            polygon_list=burst_coord_list,
+            polygon_width=3,
+            tranparency=0.3,
+            colour=random_hex,
+        )
+
+        # save kml
+        adj_kml.save_kml(out_kmlfile)
+
+        if os.path.exists(out_kmlfile):
+            _LOG.info(
+                "kml file created",
+                output_kml_file=out_kmlfile,
+            )
+        else:
+            _LOG.error(
+                "failed to create kml file",
+                output_kml_file=out_kmlfile,
+            ) 
