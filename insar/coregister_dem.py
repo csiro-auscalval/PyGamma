@@ -80,6 +80,7 @@ class CoregisterDem:
         dem_window: Optional[Tuple[int, int]] = (256, 256),
         dem_snr: Optional[float] = 0.15,
         dem_rad_max: Optional[int] = 4,
+        dem_ovr: int = 1,
         dem_outdir: Optional[Union[Path, str]] = None,
         slc_outdir: Optional[Union[Path, str]] = None,
         ext_image_flt: Optional[Union[Path, str]] = None,
@@ -115,6 +116,8 @@ class CoregisterDem:
             An Optional dem signal-to-noise ratio value.
         :param dem_rad_max:
             An Optional dem rad max value.
+        :param dem_ovr:
+            DEM oversampling factor. Default is 1.
         :param dem_outdir:
             An Optional full path to store dem files.
         :param slc_outdir:
@@ -152,7 +155,6 @@ class CoregisterDem:
         self.dem_master_slc = self.slc
         self.dem_master_slc_par = self.slc_par
 
-        self.dem_ovr = None
         self.dem_width = None
         self.r_dem_master_mli_width = None
         self.r_dem_master_mli_length = None
@@ -482,22 +484,6 @@ class CoregisterDem:
                     gamma_error=cerr
                 )
                 raise Exception(msg)
-
-    def over_sample(self) -> None:
-        """Returns oversampling factor for DEM coregistration."""
-
-        params = DemParFileParser(self.dem_par)
-        post_lon = params.dem_par_params.post_lon
-
-        # 0.4 arc second or smaller DEMs resolution
-        if post_lon <= 0.00011111:
-            self.dem_ovr = 1
-        # greater than 0.4 or less then 3 arc seconds DEMs resolution
-        elif 0.00011111 < post_lon < 0.0008333:
-            self.dem_ovr = 4
-        # other DEMs resolution
-        else:
-            self.dem_ovr = 8
 
     def gen_dem_rdc(self, use_external_image: Optional[bool] = False) -> None:
         """
@@ -2133,7 +2119,6 @@ class CoregisterDem:
         self.dem_outdir.mkdir(exist_ok=True)
         with working_directory(self.dem_outdir):
             self.copy_slc()
-            self.over_sample()
             self.gen_dem_rdc()
             self.create_diff_par()
             self.offset_calc()
