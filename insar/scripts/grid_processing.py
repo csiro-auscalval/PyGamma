@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 
 import os
+import re
+import sys
+import math
+import yaml
+import click
+import datetime
+import structlog
+from pathlib import Path
 from typing import Optional
 from os.path import exists, isdir, join as pjoin, split, splitext
-from pathlib import Path
-import datetime
-import re
-import math
-import structlog
-import yaml
 
-import click
 from spatialist.ancillary import finder
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata, grid_adjustment, grid_definition
 from insar.meta_data.s1_slc import Archive
@@ -22,6 +23,17 @@ _LOG = structlog.get_logger()
 GRID_NAME_FMT = "{track}_{frame}{ext}"
 
 
+# ----------------------------------------- #
+#                                           #
+#   Defining the click groups:              #
+#       - slc-archive                       #
+#       - grid-definition                   #
+#       - create-task-files                 #
+#                                           #
+#   New groups also need to be added to     #
+#   the entry_points in setup.py            #
+#                                           #
+# ----------------------------------------- #
 @click.group()
 @click.version_option()
 def cli():
@@ -29,25 +41,112 @@ def cli():
     Command line interface parent group
     """
 
-
+# add slc-archive group to cli()
 @cli.group(
     name="slc-archive",
-    help="handles injestion of slc acquistion details into the database",
+    help="handles ingestion of slc acquisition details into sqlite databases",
 )
 def slc_archive_cli():
     """
-    Sentinel-1 slc injestion command group
+    Sentinel-1 slc ingestion command group
     """
 
-
-@cli.group(name="grid-definition", help="process Sentinel-1 grid definition")
+# add grid-definition group to cli()
+@cli.group(
+    name="grid-definition",
+    help="Create and adjust Sentinel-1 track and frames"
+)
 def grid_definition_cli():
     """
-    Sentinel-1 grid definition command group
+    Sentinel-1 track and frame creation and adjustment command group
     """
 
+# add pbs-task-file-creation to cli()
+@cli.group(
+    name="create-task-files",
+    help="creates task files that are used in pbs batch processing"
+)
+def create_task_files_cli():
+    """
+    creation of task .txt files that are used in pbs batch processing
+    """
 
-@grid_definition_cli.command("grid-adjustment", help="Reconfigure the defined grid")
+# -------------------------------------------- #
+# -------------------------------------------- #
+#                                              #
+#    task-files group                          #
+#                                              #
+# -------------------------------------------- #
+# -------------------------------------------- #
+@create_task_files_cli.command(
+    "insar-files", help="Generate input files for inSAR pbs jobs"
+)
+@click.option(
+    "--input-path",
+    type=click.Path(exists=True, dir_okay=True, file_okay=False),
+    help="Path to grid definition/adjusted shape files",
+    required=True,
+)
+@click.option(
+    "--out-dir",
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
+    help="output directory where task files are created",
+    default=Path(os.getcwd()),
+)
+def insar_task_files(
+    input_path: click.Path,
+    out_dir: click.Path,
+    ):
+    """
+
+    Parameters
+    ----------
+    input_path: Path
+        Path to the parent directory containing the grid-definition/adjustment
+        shape files
+
+    out_dir: Path
+        Path to a directory to store adjusted grid definition files.
+
+    """
+
+    # iterate through shp files in input_path
+    # and extract the unique listings of the
+    # track names.
+    all_tracks = []
+    shape_files = []
+    for f in  os.listdir(input_path):
+        full_f = pjoin(input_path, f)
+        if os.path.isfile(full_f) and f.lower().endswith(".shp"):
+            shape_files.append(full_f)
+            all_tracks.append(f.split("_")[0])
+
+    all_tracks = np.array(all_tracks, order='C')
+    shape_files= np.array(shape_files, order='C')
+
+    # iterate through the unique tracks and obtain all frames
+    for track in np.unique(all_tracks):
+        shp_for_track = shape_files[all_tracks == track]
+
+        out_filename = pjoin(out_dir, "input_list_{}.txt".format(track))
+
+        with open(out_filename, "w") as fid:
+            fid.write("\n".join(shp_for_track))
+
+
+# -------------------------------------------- #
+# -------------------------------------------- #
+#                                              #
+#   grid definition group:                     #
+#       - grid-generation-new (recommended)    #
+#       - grid-generation (legacy)             #
+#       - grid-adjustment                      #
+#                                              #
+# -------------------------------------------- #
+# -------------------------------------------- #
+@grid_definition_cli.command(
+    "grid-adjustment", help="Reconfigure the defined grid"
+)
 @click.option(
     "--input-path",
     type=click.Path(exists=True, dir_okay=True, file_okay=True),
@@ -273,6 +372,8 @@ def process_grid_definition(
 ):
     """
     A method to process InSAR grid definition for given rel_orbits
+
+    legacy code that should not be used
     """
     with open(log_pathname, 'w') as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
@@ -402,21 +503,80 @@ def process_grid_definition_NEW(
     eastern_longitude: Optional[float] = 179.0,
 ):
     """
-    An updated method to process InSAR grid definition.
-    Additions include:
-    (1) relative_orbit_number as an optional input. Here,
-        the sensor and orbit inputs are used to determine
-        the unique listings of the relative orbits.
-    (2) optional lat/lon bounding box to generate shp
-        files for a user specified region
-    (3) Removed hemisphere
-    (4) Assuming that the origin is the northern latitude
-        of the bounding box, requires the latitude
-        width to be negative.
-    (5) added option to create kml files that contain
-        selected bursts for each frame
+    Description
+    -----------
+    A method to define a consistent track and frame for Sentinel-1 over a given
+    region-of-interest
 
-    Also, sensor and orbits defaults to None if not specified.
+    Updated method of inSAR track/frame creation, with the following additions:
+    (1) relative_orbit_number as an optional input. Here, the senor and orbit
+        inputs are used to determine the unique listings of the relative orbits.
+        This eliminates the need for the user to specify the relative orbit
+        number, which typically isn't known beforehand.
+
+    (2) optional lat/lon bounding box to generate shp files for a user specified
+        region of interest. 
+
+    (3) removed hemisphere command as it was redundant
+
+    (4) latitude width made negative to align with definition of the origin,
+        being the northern-most latitude of the region-of-interest.
+
+    (5) added an option to create kml files that contain the selected bursts
+        for each frame in a given relative orbit number
+
+    (6) Set sensor and orbit node to optional that default to None
+
+    Parameters
+    ----------
+    database_path: Path
+        A full path to sqlite database file created from slc-archive
+
+    out_dir: Path
+        A full path to a directory to store the shape files
+
+    latitude_width: float
+        latitude width of a given frame (decimal degrees, and negative).
+        default = -1.25
+
+    latitude_buffer: float
+        overlapping buffer between subsequent frames (decimal degrees)
+        default = 0.01
+
+    log_pathname: Path
+        Path of log file
+
+    create_kml: bool
+        Create kml (True or False). kml files are created in out_dir
+
+    relative_orbit_number: int or None
+        Relative orbit number of Sentinel-1
+
+    sensor: str or None
+        {'S1A' or 'S1B'} for Sentinel-1A and -1B respectively.
+        default=None selects both S1A and S1B sensors
+
+    orbits: str, None
+        {'A' or 'D'} for Sentinel-1 ascending or descending nodes, respectively.
+        default=None selects both A and D nodes
+
+    start_date: DateTime, None
+        Sentinel 1 acquisition start date
+
+    end_date: DateTime, None
+        Sentinel 1 acquisition end date
+
+    northern_latitude: float, 0.0
+        Northern latitude (decimal degrees North) of the bounding box
+
+    western_longitude: float, 100.0
+        Western longitude (decimal degrees East) of the bounding box
+
+    southern_latitude: float, -50.0
+        Southern latitude (decimal degrees North) of the bounding box
+
+    eastern_longitude: float, 179.0
+        Eastern longitude (decimal degrees East) of the bounding box
     """
 
     with open(log_pathname, 'w') as fobj:
@@ -517,14 +677,23 @@ def process_grid_definition_NEW(
                 )
 
 
+# ----------------------------------------- #
+# ----------------------------------------- #
+#                                           #
+#  SLC archive group:                       #
+#        -  slc-ingestion                   #
+#        -  slc-ingest-yaml                 #
+#                                           #
+# ----------------------------------------- #
+# ----------------------------------------- #
 @slc_archive_cli.command(
-    "slc-injestion", help="slc acquistion details injestion into the database"
+    "slc-ingestion", help="slc acquisition details ingestion into the database"
 )
 @click.option(
     "--database-name",
     type=click.Path(dir_okay=False, file_okay=True),
     required=True,
-    help="name of database to injest slc acquistion details into (ignored if --save-yaml specified)",
+    help="name of database to ingest slc acquisition details (ignored if --save-yaml specified)",
 )
 @click.option(
     "--year",
@@ -536,7 +705,7 @@ def process_grid_definition_NEW(
     "--month",
     type=int,
     default=datetime.datetime.now().month,
-    help="Sentinel-1 acquistion month",
+    help="Sentinel-1 acquisition month",
 )
 @click.option(
     "--slc-dir",
@@ -554,15 +723,15 @@ def process_grid_definition_NEW(
     "--yaml-dir",
     type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
     required=False,
-    help="directory where the yaml SLC metadata will be saved",
+    help="directory where the yaml SLC metadata will be stored",
 )
 @click.option(
     "--log-pathname",
     type=click.Path(dir_okay=False),
-    help="Output pathname to contain the logging events.",
+    help="Output pathname to a log file",
     default="slc-ingestion.jsonl",
 )
-def process_slc_injestion(
+def process_slc_ingestion(
     database_name: click.Path,
     year: int,
     month: int,
@@ -572,7 +741,48 @@ def process_slc_injestion(
     log_pathname: str,
 ):
     """
-    Method to ingest slc scenes into the database
+    Description
+    -----------
+    A method to ingest slc metadata from the xml files inside
+    Sentinel-1 zip files into:
+    (1) a sqlite database, or;
+    (2) a series of yaml files.
+    
+    Note that in (2), the yaml files stored in yaml-dir have the
+    same directory structure as the Sentinel-1 database in
+    /g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC
+
+    Parameters
+    ----------
+    database_name: Path
+        name of sqlite database to ingest slc acquisition details (ignored if --save-yaml specified)
+
+    year: int
+        the year of the Sentinel-1 acquisition
+
+    month: int
+        the month of the Sentinel-1 acquisition
+        months represented as integer, for example:
+         1 -> January
+         2 -> February
+         . ->  ...
+        12 -> December
+
+    slc_dir: Path
+        base directory where slc data (i.e. Sentinel-1 zips) are stored
+        /g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC
+
+    save_yaml: bool
+        If specified, stores SLC metadata as a yaml, in which case
+        a sqlite database file is not created (i.e. database_name
+        is ignored)
+
+    yaml_dir: Path
+        directory where the yaml SLC metadata will be stored
+
+    log_pathname: str
+        Output pathname to a log file
+
     """
     with open(log_pathname, 'w') as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
@@ -623,7 +833,7 @@ def process_slc_injestion(
     "--database-name",
     type=click.Path(dir_okay=False, file_okay=True),
     required=True,
-    help="output SQLite database (.db) containing slc acquistion metadata",
+    help="output SQLite database (.db) containing slc acquisition metadata",
 )
 @click.option(
     "--yaml-dir",
@@ -634,7 +844,7 @@ def process_slc_injestion(
 @click.option(
     "--log-pathname",
     type=click.Path(dir_okay=False),
-    help="Output pathname to contain the logging events.",
+    help="Output pathname to a log file",
     default="yaml-ingestion.jsonl",
 )
 def ingest_slc_yamls(
@@ -642,6 +852,25 @@ def ingest_slc_yamls(
    yaml_dir: click.Path,
    log_pathname: str,
 ):
+    """
+    Description
+    -----------
+    A method to ingest slc metadata from yaml files into a sqlite database.
+    This command needs to be run if the --save_yaml commandline argument
+    was used in slc-archive slc-ingestion
+
+    Parameters
+    ----------
+    database_name: Path
+        output SQLite database (.db) containing slc acquisition metadata
+
+    yaml_dir: Path
+        directory containing yaml files that will be ingested
+
+    log_pathname: str
+        Output pathname to a log file
+
+    """
 
     with open(log_pathname, 'w') as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))

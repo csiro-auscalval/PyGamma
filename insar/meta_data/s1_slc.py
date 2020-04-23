@@ -1097,8 +1097,9 @@ class Archive:
             gpd_frame = frame.get_frame_extent(frame_num)
             if gpd_frame.empty:
                 _LOG.warning(
-                    "gpd_df.loc[gpd_df['frame_num'] == frame_num] failed",
+                    "get frame extent warning, empty geo-pandas data frame",
                     frame_num=frame_num,
+                    slc_metadata=args,
                 )
                 return
 
@@ -1125,7 +1126,7 @@ class Archive:
         initial_query_list = cursor.fetchall()  # initial query
         if not initial_query_list:
             _LOG.error(
-                "Database query failed",
+                "Database query failed, no SLC bursts in this track intersect with frame",
                 frame_num=frame_num,
                 slc_metadata=args,
             )
@@ -1158,6 +1159,13 @@ class Archive:
             # convex_hull  coordinates. This is  a simple approach 
             # at obtaining the boundary  of the bursts selected by 
             # the initial query
+            _LOG.info(
+                "less than 3 subswaths intersected the frame, refining the database query",
+                IW_set=subswath_set,
+                frame_num=frame_num,
+                slc_metdata=args,
+            )
+
             bursts_chull = MultiPolygon(poly_wkt_list).convex_hull.wkt
             refined_intersect_query = " AND st_intersects"+\
                                       "(GeomFromText('{}', 4326)".format(bursts_chull)+\
@@ -1181,7 +1189,11 @@ class Archive:
                 # overlapping bursts
                 initial_query_list = refined_query_list
             else:
-                print("refined query failed")
+                _LOG.info(
+                    "refined query did not find additional overlapping bursts",
+                    frame_num=frame_num,
+                    slc_metdata=args,
+                )
 
         slc_df = pd.DataFrame(
             [[item for item in row] for row in initial_query_list],
@@ -1192,6 +1204,7 @@ class Archive:
             _LOG.error(
                 "geopandas data frame (slc_df) fail from db query",
                 frame_num=frame_num,
+                slc_metdata=args,
             ) 
             return
 
@@ -1387,7 +1400,7 @@ class generate_kml:
                linewidth of the polygon
 
            tranparency: float
-               tranparency of polygon, ranges between 0 and 100
+               tranparency of polygon, ranges between 0 and 1
                0 --> 100% transparent
                1 --> 100% opaque
 
@@ -1426,7 +1439,7 @@ class generate_kml:
                linewidth of the polygon
 
            tranparency: float
-               tranparency of polygon, ranges between 0 and 100
+               tranparency of polygon, ranges between 0 and 1
                0 --> 100% transparent
                1 --> 100% opaque
 
