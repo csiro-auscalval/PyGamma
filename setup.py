@@ -45,7 +45,8 @@ setup(
             'pbs-package=insar.scripts.insar_pbs:ard_package',
             'package=insar.scripts.package_insar:main',
             'slc-archive=insar.scripts.grid_processing:slc_archive_cli',
-            'grid-definition=insar.scripts.grid_processing:grid_definition_cli'
+            'grid-definition=insar.scripts.grid_processing:grid_definition_cli',
+            'create-task-files=insar.scripts.grid_processing:create_task_files_cli'
         ],
     },
     install_requires=[
