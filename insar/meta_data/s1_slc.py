@@ -54,7 +54,7 @@ class SlcMetadata:
             r"^(?P<sensor>S1[AB])_"
             r"(?P<beam>S1|S2|S3|S4|S5|S6|IW|EW|WV|EN|N1|N2|N3|N4|N5|N6|IM)_"
             r"(?P<product>SLC|GRD|OCN)(?P<resolution>F|H|M|_)_"
-            r"(?P<level>1|2)"
+            r"(?P<product_level>1|2)"
             r"(?P<category>S|A)"
             r"(?P<polarisation>SH|SV|DH|DV|VV|HH|HV|VH)_"
             r"(?P<start_date>[0-9]{8}T[0-9]{6})_"
@@ -1129,6 +1129,7 @@ class Archive:
                 "Database query failed, no SLC bursts in this track intersect with frame",
                 frame_num=frame_num,
                 slc_metadata=args,
+                burst_query=burst_query,
             )
             return
 
@@ -1193,6 +1194,7 @@ class Archive:
                     "refined query did not find additional overlapping bursts",
                     frame_num=frame_num,
                     slc_metdata=args,
+                    refined_query=refined_intersect_query,
                 )
 
         slc_df = pd.DataFrame(
