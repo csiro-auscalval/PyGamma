@@ -1,53 +1,92 @@
 #!/usr/bin/env python
 
 """
-A utility to generate input lists to be used in pbs
-batch processing. The one input list file is generated
-per track (all the frames associated with a track is
-written in that input list). The sub-set in frames ares
-what is required to cover continental australian product.
+   *** This is a legacy file that should not be used ***
+   instead use the command line:
+   create-task-files insar-files --input-path {/path/to/shps/} --out-dir {/path/to/output}
+
+   Description
+   A utility to generate task files that are inputs to pbs
+   batch processing. Each task file contains all the shape
+   files for a given track, e.g.
+
+   input_list_T002D.txt :
+   /path/to/shp/T002D_F09.shp
+   /path/to/shp/T002D_F10.shp
+   ....
+   ....
+   /path/to/shp/T002D_F27.shp
+
 """
 
+# get a unique listing of the different tracks 
+# for each unique track find the frames.
+import os
+import sys
+import click
+import numpy as np
 from pathlib import Path
+from os.path import join as pjoin
 
+@click.group()
+@click.version_option()
+def cli():
+    """
+    Command line interface parent group
+    """
+@cli.command(
+    name="create-task-files",
+    help="creates task files that are used in pbs batch processing"
+)
+@click.option(
+    "--input-path",
+    type=click.Path(exists=True, dir_okay=True, file_okay=False),
+    help="Path to grid definition/adjusted shape files",
+    required=True,
+)
+@click.option(
+    "--out-dir",
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
+    help="output directory where task files are created",
+    default=Path(os.getcwd()),
+)
+def generate_task_files(
+    input_path: click.Path,
+    out_dir: click.Path,
+    ):
+    """
 
-def grid_processing_list():
-    return {
-        'T002D': [f"F{frame:02}S" for frame in range(9, 27)],
-        'T016D': [f"F{frame:02}S" for frame in range(16, 32)],
-        'T017D': [f"F{frame:02}S" for frame in range(12, 29)],
-        'T031D': [f"F{frame:02}S" for frame in range(14, 28)],
-        'T045D': [f"F{frame:02}S" for frame in range(19, 36)],
-        'T046D': [f"F{frame:02}S" for frame in range(10, 29)],
-        'T060D': [f"F{frame:02}S" for frame in range(10, 30)],
-        'T061D': [f"F{frame:02}S" for frame in range(17, 26)],
-        'T074D': [f"F{frame:02}S" for frame in range(23, 32)],
-        'T075D': [f"F{frame:02}S" for frame in range(10, 27)],
-        'T089D': [f"F{frame:02}S" for frame in range(15, 31)],
-        'T090D': [f"F{frame:02}S" for frame in range(14, 29)],
-        'T104D': [f"F{frame:02}S" for frame in range(9, 27)],
-        'T118D': [f"F{frame:02}S" for frame in range(17, 34)],
-        'T119D': [f"F{frame:02}S" for frame in range(12, 29)],
-        'T133D': [f"F{frame:02}S" for frame in range(9, 29)],
-        'T134D': [f"F{frame:02}S" for frame in range(16, 24)],
-        'T147D': [f"F{frame:02}S" for frame in range(21, 36)],
-        'T148D': [f"F{frame:02}S" for frame in range(9, 28)],
-        'T162D': [f"F{frame:02}S" for frame in range(12, 31)],
-        'T163D': [f"F{frame:02}S" for frame in range(15, 29)],
-    }
+    Parameters
+    ----------
+    input_path: Path
+        Path to the parent directory containing the grid-definition/adjustment
+        shape files
 
+    out_dir: Path
+        Path to a directory to store adjusted grid definition files.
 
-def main(grid_data_dir: Path, out_dir: Path):
-    for track, frame_list in grid_processing_list().items():
-        with open(out_dir.joinpath(f"input_list_{track}.txt").as_posix(), "w") as fid:
-            for frame in frame_list:
-                grid_name = grid_data_dir.joinpath(f"{track}_{frame}.shp")
-                if grid_name.exists():
-                    fid.write(grid_name.as_posix())
-                    fid.write("\n")
+    """
 
+    # find the unique tracks
+    all_tracks = []
+    shape_files = []
+    for f in  os.listdir(input_path):
+        full_f = pjoin(input_path, f)
+        if os.path.isfile(full_f) and f.lower().endswith(".shp"):
+            shape_files.append(full_f)
+            all_tracks.append(f.split("_")[0])
 
-if __name__ == '__main__':
-    _dir = Path('/path/to/a/track_frame/shape/files/')
-    out_dir = Path('/path/to/a/output/directory/')
-    main(_dir, out_dir)
+    all_tracks = np.array(all_tracks, order='C')
+    shape_files= np.array(shape_files, order='C')
+
+    # iterate through the unique tracks and obtain all frames
+    for track in np.unique(all_tracks):
+        shp_for_track = shape_files[all_tracks == track]
+
+        out_filename = pjoin(out_dir, "input_list_{}.txt".format(track))
+
+        with open(out_filename, "w") as fid:
+            fid.write("\n".join(shp_for_track))
+
+if __name__ == "__main__":
+    cli()
