@@ -194,8 +194,8 @@ def grid_definition(
     out_dir: Union[Path, str],
     rel_orbit: int,
     sensor: Union[str, None],
-    orbits: str,
     create_kml: bool,
+    orbits: Optional[str] = "D",
     latitude_width: Optional[float] = -1.25,
     latitude_buffer: Optional[float] = 0.01,
     start_date: Optional[datetime] = None,
@@ -333,12 +333,23 @@ def grid_definition(
                 )
 
             for swath in swaths:
-                bursts_extents = swath_bursts_extents(gpd_df, swath)
+                bursts_extents = swath_bursts_extents(
+                    bursts_df=gpd_df,
+                    swt=swath,
+                    buf=latitude_buffer,
+                )  # pol='VV' ?
+                # when pol (i.e. polarisation) is not specified, bursts_extents
+                # defaults to 'VV'. If gpd_df does not contain bursts with 'VV'
+                # polarisation then bursts_extents=[], and  nothing is appended
+                # to grid_df. If this occurs for all  subswaths then grid_df is
+                # empty and _frame_def returns None
+                
                 sorted_extents = sorted(
                     [(burst, burst.centroid.y) for burst in bursts_extents],
                     key=lambda tup: tup[1],
                     reverse=True,
                 )
+
                 for idx, extent in enumerate(sorted_extents):
                     grid_df = grid_df.append(
                         {
@@ -350,11 +361,23 @@ def grid_definition(
                         },
                         ignore_index=True,
                     )
-            return gpd.GeoDataFrame(
-                grid_df,
-                crs={"init": "epsg:4326"},
-                geometry=grid_df["extent"].map(shapely.wkt.loads),
-            )
+
+            if grid_df.empty:
+                _LOG.error(
+                    "empty grid_df inside _frame_def() [/insar/meta_data/s1_gridding_utils.py]",
+                    frame_num=frame_num,
+                    rel_orbit=rel_orbit,
+                    polarisations_in_grid=list(set(gpd_df.polarization)),
+                    swaths=swaths,
+                )
+                return None
+
+            else:
+                return gpd.GeoDataFrame(
+                    grid_df,
+                    crs={"init": "epsg:4326"},
+                    geometry=grid_df["extent"].map(shapely.wkt.loads),
+                )
 
     with Archive(dbfile) as archive:
         if not os.path.exists(out_dir):
@@ -372,7 +395,6 @@ def grid_definition(
             width_lat=latitude_width,
             buffer_lat=latitude_buffer
         )
-
 
         grid_track = "T{:03}{}".format(rel_orbit, orbits)
 

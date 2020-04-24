@@ -156,7 +156,7 @@ def _check_slc_input_data(
 
 def query_slc_inputs(
     dbfile: Union[Path, str],
-    spatial_subset: Union[Path, str],
+    shapefile: Union[Path, str],
     start_date: datetime,
     end_date: datetime,
     orbit: str,
@@ -168,7 +168,7 @@ def query_slc_inputs(
     :param dbfile:
         A full path to a sqlite database with SLC metadata including burst
         informations needed to process SLC.
-    :param spatial_subset:
+    :param shapefile
         A full path to frame (vector shape file) spatial extent.
     :param start_date:
         A start date to begin database query of SLC acquisition.
@@ -184,8 +184,8 @@ def query_slc_inputs(
     :return:
         Returns slc input field values for all unique date queried
         from a dbfile between start_date and end_date (inclusive of the end dates)
-        for area within a spatial_subset if data is in the database. Else returns
-        None.
+        for area within a spatial extent of an input shape file if data is in the
+        database. Else returns None.
     """
     with Archive(dbfile) as archive:
         tables_join_string = (
@@ -218,11 +218,12 @@ def query_slc_inputs(
             "{}.url".format(archive.slc_table_name),
         ]
 
-        slc_df = archive.select(
+        # select_bursts_in_vector is a temporary fix to output data
+        slc_df = archive.select_bursts_in_vector(
             tables_join_string=tables_join_string,
             orbit=orbit,
             track=track,
-            spatial_subset=Vector(spatial_subset),
+            spatial_subset=Vector(shapefile),
             columns=columns,
             min_date_arg=min_date_arg,
             max_date_arg=max_date_arg,
@@ -238,7 +239,7 @@ def query_slc_inputs(
             #  check queried results against master dataframe to form slc inputs
             return {
                 pol: _check_slc_input_data(
-                    slc_df, gpd.read_file(spatial_subset), track, pol
+                    slc_df, gpd.read_file(shapefile), track, pol
                 )
                 for pol in polarization
             }

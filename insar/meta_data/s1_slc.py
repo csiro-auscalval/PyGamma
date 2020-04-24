@@ -23,8 +23,7 @@ from os.path import join as pjoin
 from pathlib import Path
 from typing import Dict, List, Optional, Type, Union
 from shapely.geometry import MultiPolygon, Polygon, box
-from spatialist import sqlite3, sqlite_setup
-from spatialist import sqlite3, sqlite_setup
+from spatialist import Vector, sqlite3, sqlite_setup
 import py_gamma as pg
 from insar.xml_util import getNamespaces
 
@@ -1019,6 +1018,98 @@ class Archive:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+
+    def select_bursts_in_vector(
+        self,
+        tables_join_string: str,
+        orbit: Optional[str] = None,
+        track: Optional[str] = None,
+        spatial_subset: Optional[Vector] = None,
+        args: Optional[str] = None,
+        min_date_arg: Optional[str] = None,
+        max_date_arg: Optional[str] = None,
+        columns: Optional[List[str]] = None,
+    ):
+        """
+        Returns pandas dataframe of SLC bursts that are contained within
+        an area defined by a shape file. Here, this area is given as a
+        spatialist Vector object.
+
+        This function, originally called select() in /insar/s1_slc_metadata.py,
+        will be become redundant in future commits, and is only included here
+        as a temporary fix to generate data.
+        """
+
+        if not columns:
+            columns = ["slc_metadata.slc_extent", "bursts_metadata.burst_extent"]
+            for key in self.slc_fields_lookup.keys():
+                columns.append("{}.{}".format(self.slc_table_name, key))
+            for key in self.swath_fields_lookup.keys():
+                columns.append("{}.{}".format(self.swath_table_name, key))
+            for key in self.burst_fields_lookup.keys():
+                columns.append("{}.{}".format(self.bursts_table_name, key))
+
+        if args:
+            arg_format = ["{0}='{1}'".format(key, args[key]) for key in args.keys()]
+        else:
+            arg_format = []
+
+        if orbit:
+            arg_format.append("{}.orbit='{}'".format(self.slc_table_name, orbit))
+
+        if track:
+            arg_format.append("{}.orbitNumber_rel= {}".format(self.slc_table_name, track))
+
+        if min_date_arg:
+            arg_format.append(min_date_arg)
+        if max_date_arg:
+            arg_format.append(max_date_arg)
+
+        if spatial_subset:
+            # Spatial query check. Select data only if burst extent centroid is
+            # inside the extent defined by the spatial vector. Note that spatial
+            # subset must be an instance of a spatialist Vector
+            if isinstance(spatial_subset, Vector):
+                wkt_string = cascaded_union(
+                    [
+                        shapely.wkt.loads(extent)
+                        for extent in spatial_subset.convert2wkt(set3D=False)
+                    ]
+                )
+                arg_format.append(
+                    "st_within(Centroid(bursts_metadata.burst_extent), GeomFromText('{}', 4326)) = 1".format(
+                        wkt_string
+                    )
+                )
+
+        query = """SELECT {0} from {1} WHERE {2}""".format(
+            ", ".join(
+                [
+                    "AsText({})".format(col) if "extent" in col else col
+                    for col in columns
+                ]
+            ),
+            tables_join_string,
+            " AND ".join(arg_format),
+        )
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+
+        initial_query_list = cursor.fetchall()
+        if not initial_query_list:
+            # query failed and returned nothing
+            return None
+
+        slc_df = pd.DataFrame(
+            [[item for item in row] for row in initial_query_list],
+            columns=[col[0] for col in cursor.description],
+        )
+        if slc_df.empty:
+            return None
+
+        return slc_df
+
+
     def select(
         self,
         tables_join_string: str,
@@ -1059,10 +1150,12 @@ class Archive:
         frame_obj: SlcFrame object or None
             Frame definition object from SlcFrame.
 
+        shapefile_name: Path of None
+           filename of a shape file
+
         Returns
         -------
            None or geo-pandas dataframe from the database
-        
         """
 
         if not columns:
