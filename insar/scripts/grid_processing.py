@@ -8,6 +8,7 @@ import yaml
 import click
 import datetime
 import structlog
+import numpy as np
 from pathlib import Path
 from typing import Optional
 from os.path import exists, isdir, join as pjoin, split, splitext
@@ -628,53 +629,70 @@ def process_grid_definition_NEW(
             _LOG.error(
                 "input latitude buffer = 0, but expected latitude buffer > 0",
             )
-            raise Exception("latitude buffer = 0, but expected latitude buffer < 0")
+            raise Exception("latitude buffer = 0, but expected latitude buffer > 0")
 
+        # ensuring that orbits is 'A', 'D' or None
+        orbit_node_list = None
+        if orbits:
+            if orbits.lower() == "a":
+                orbit_node_list = ['A']
+            elif orbits.lower() == "d":
+                orbit_node_list = ['D']
+            else:
+                _LOG.error(
+                    "expected orbit as 'A' or 'D'",
+                    input_orbit=orbits,
+                )
+                raise Exception("input orbit is neither 'A' nor 'D'")
+        else:
+            orbit_node_list = ['A', 'D']
         # ------------------------------------------- #
         #  first query the database and get a unique  #
         #    listing of the relative orbit numbers    #
         # ------------------------------------------- #
         with Archive(database_path) as archive:
-            uniq_relorb_nums = archive.get_rel_orbit_nums(orbit_node=orbits, sensor_type=sensor, rel_orb_num=relative_orbit_number)
-            # uniq_relorb_nums can be None, [] or [1,2,3,....,N]
 
-            # do not use "if not uniq_relorb_nums:" as None or empty lists ([]) will be accepted
-            if uniq_relorb_nums:
-                # relative orbit numbers were found
-                _LOG.info(
-                    "Sucessfully extracted relative orbit numbers [{0}]".format(", ".join(str(x) for x in uniq_relorb_nums)),
-                     S1_sensor=sensor,
-                     orbit_node=orbits,
-                     relative_orbit_num=relative_orbit_number,
-                )
-                # iterate through the relative orbit numbers and create the shapefiles:
-                for RelOrb in uniq_relorb_nums:
-                    grid_definition(
-                        dbfile=database_path,
-                        out_dir=out_dir,
-                        rel_orbit=RelOrb,
-                        sensor=sensor,
-                        orbits=orbits,
-                        create_kml=create_kml,
-                        latitude_width=latitude_width,
-                        latitude_buffer=latitude_buffer,
-                        start_date=start_date,
-                        end_date=end_date,
-                        bbox_nlat=northern_latitude,
-                        bbox_wlon=western_longitude,
-                        bbox_slat=southern_latitude,
-                        bbox_elon=eastern_longitude,
-                   )
+            # loop through the orbits
+            for orbit_node in orbit_node_list:
+                uniq_relorb_nums = archive.get_rel_orbit_nums(orbit_node=orbit_node, sensor_type=sensor, rel_orb_num=relative_orbit_number)
+                # uniq_relorb_nums can be None, [] or [1,2,3,....,N]
 
-            else:
-                # empty list or errors occured
-                print("\nNo relative orbit numbers were found")
-                _LOG.info(
-                    "No relative orbit numbers were found",
-                    S1_sensor=sensor,
-                    orbit_node=orbits,
-                    relative_orbit_num=relative_orbit_number
-                )
+                # do not use "if not uniq_relorb_nums:" as None or empty lists ([]) will be accepted
+                if uniq_relorb_nums:
+                    # relative orbit numbers were found
+                    _LOG.info(
+                         "Sucessfully extracted relative orbit numbers [{0}]".format(", ".join(str(x) for x in uniq_relorb_nums)),
+                         S1_sensor=sensor,
+                         orbit_node=orbit_node,
+                         relative_orbit_num=relative_orbit_number,
+                    )
+                    # iterate through the relative orbit numbers and create the shapefiles:
+                    for RelOrb in uniq_relorb_nums:
+                        grid_definition(
+                            dbfile=database_path,
+                            out_dir=out_dir,
+                            rel_orbit=RelOrb,
+                            sensor=sensor,
+                            create_kml=create_kml,
+                            orbits=orbit_node,
+                            latitude_width=latitude_width,
+                            latitude_buffer=latitude_buffer,
+                            start_date=start_date,
+                            end_date=end_date,
+                            bbox_nlat=northern_latitude,
+                            bbox_wlon=western_longitude,
+                            bbox_slat=southern_latitude,
+                            bbox_elon=eastern_longitude,
+                        )
+
+                else:
+                    # empty list or errors occured
+                    _LOG.info(
+                        "No relative orbit numbers were found",
+                        S1_sensor=sensor,
+                        orbit_node=orbit_node,
+                        relative_orbit_num=relative_orbit_number
+                    )
 
 
 # ----------------------------------------- #
