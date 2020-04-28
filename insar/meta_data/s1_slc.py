@@ -48,7 +48,6 @@ class SlcMetadata:
             A full path to a SLC save folder.
         """
         self.scene = os.path.realpath(scene)
-        self.manifest = "manifest.safe"
         self.pattern = (
             r"^(?P<sensor>S1[AB])_"
             r"(?P<beam>S1|S2|S3|S4|S5|S6|IW|EW|WV|EN|N1|N2|N3|N4|N5|N6|IM)_"
@@ -88,13 +87,25 @@ class SlcMetadata:
         else:
             _LOG.info("filename pattern match", **match.groupdict())
 
+        # added self.manifest_file as it is required for S1DataDownload
+        self.manifest = "manifest.safe"  # only used for self.manifest_file_list
+        manifest_file_list = self.find_archive_files(self.manifest)
+        self.manifest_file = manifest_file_list[0]
+
+        # taken from /insar/s1_slc_metadata.py, which are used in S1DataDownload
+        self.date_fmt = "%Y%m%d"
+        self.dt_fmt_1 = "%Y-%m-%d %H:%M:%S.%f"
+        self.dt_fmt_2 = "%Y%m%dT%H%M%S"
+        self.dt_fmt_3 = "%Y-%m-%dT%H:%M:%S.%f"
+
     def get_metadata(self):
         """Consolidates metadata  of manifest safe file and annotation/swath xmls from a slc archive."""
 
         metadata = dict()
         try:
-            manifest_file = self.find_archive_files(self.manifest)
-            metadata["properties"] = self.metadata_manifest_safe(manifest_file[0])
+            #manifest_file = self.find_archive_files(self.manifest)
+            #metadata["properties"] = self.metadata_manifest_safe(manifest_file[0])
+            metadata["properties"] = self.metadata_manifest_safe(self.manifest_file)
         except ValueError as err:
             raise ValueError(err)
 
@@ -124,9 +135,7 @@ class SlcMetadata:
         """
 
         def _parse_datetime(dt):
-            return datetime.datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S.%f").strftime(
-                "%Y-%m-%d %H:%M:%S.%f"
-            )
+            return datetime.datetime.strptime(dt, self.dt_fmt_3).strftime(self.dt_fmt_1)
 
         manifest_obj = self.extract_archive_member(manifest_file, obj=True)
         meta = dict()
@@ -332,6 +341,10 @@ class SlcMetadata:
             A Optional output directory to write a target file.
         :param obj:
             A flag to extract file as an byte object or not.
+
+        important to note:
+           The duplicate function extract_archive_member() in /insar/s1_slc_metadata.py
+           is different. It is unknown why this function was alterned or this effect.
         """
 
         with zf.ZipFile(self.scene, "r") as archive:
@@ -350,6 +363,7 @@ class SlcMetadata:
 class S1DataDownload(SlcMetadata):
     """
     A class to download an slc data from a sentinel-1 archive.
+    This was copied from /insar/s1_slc_metadata.py
     """
 
     def __init__(
