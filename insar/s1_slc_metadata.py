@@ -260,7 +260,8 @@ class SlcMetadata:
                         msg,
                         annotation_xml_pathname=annotation_xml_pathname,
                         stat=stat,
-                        gamma_error=cerr
+                        gamma_stdout=cout,
+                        gamma_stderr=cerr
                     )
                     raise Exception(msg)
 

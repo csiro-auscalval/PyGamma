@@ -149,6 +149,7 @@ def multilook(
                 azlks=azlks,
                 loff=loff,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
