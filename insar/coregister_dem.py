@@ -381,7 +381,8 @@ class CoregisterDem:
                 fcase=fcase,
                 sc=sc,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -423,7 +424,8 @@ class CoregisterDem:
                 azlks=azlks,
                 loff=loff,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -479,7 +481,8 @@ class CoregisterDem:
                     lr=lr,
                     rasf_pathname=rasf_pathname,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -579,7 +582,8 @@ class CoregisterDem:
                 frame=frame,
                 ls_mode=ls_mode,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -624,7 +628,8 @@ class CoregisterDem:
                 pix_sigma0_pathname=pix_sigma0_pathname,
                 pix_gamma0_pathname=pix_gamma0_pathname,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -684,7 +689,8 @@ class CoregisterDem:
                     dtype=dtype,
                     bflg=bflg,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -744,7 +750,8 @@ class CoregisterDem:
                     rad_max=rad_max,
                     nintr=nintr,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -838,13 +845,15 @@ class CoregisterDem:
                 rlks=rlks,
                 azlks=azlks,
                 rpos=rpos,
+                azpos=azpos,
                 offr=offr,
                 offaz=offaz,
                 thres=thres,
                 patch=patch,
                 cflag=cflag,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -900,7 +909,8 @@ class CoregisterDem:
                 naz=naz,
                 thres=thres,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -940,7 +950,8 @@ class CoregisterDem:
                 thres=thres,
                 npoly=npoly,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -979,7 +990,8 @@ class CoregisterDem:
                 gc_out_pathname=gc_out_pathname,
                 ref_flg=ref_flg,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -1027,7 +1039,8 @@ class CoregisterDem:
                     pix_sigma0=pix_sigma0,
                     pix_gamma0=pix_gamma0,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1071,10 +1084,12 @@ class CoregisterDem:
                     r_max=r_max,
                     np_min=np_min,
                     np_max=np_max,
+                    w_mode=w_mode,
                     dtype=dtype,
                     cp_data=cp_data,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1130,7 +1145,8 @@ class CoregisterDem:
                     k_db=k_db,
                     pix_area_pathname=pix_area_pathname,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1169,7 +1185,8 @@ class CoregisterDem:
                     width=width,
                     mode=mode,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1204,7 +1221,8 @@ class CoregisterDem:
                     width=width,
                     mode=mode,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1255,7 +1273,8 @@ class CoregisterDem:
                     lr=lr,
                     rasf_pathname=rasf_pathname,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1302,7 +1321,8 @@ class CoregisterDem:
                     dtype=dtype,
                     zflg=zflg,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1361,7 +1381,8 @@ class CoregisterDem:
                     lr=lr,
                     rasf_pathname=rasf_pathname,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1440,7 +1461,8 @@ class CoregisterDem:
                 rad_max=rad_max,
                 nintr=nintr,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -1502,7 +1524,8 @@ class CoregisterDem:
                     lr=lr,
                     rasf_pathname=rasf_pathname,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1571,7 +1594,8 @@ class CoregisterDem:
                 rad_max=rad_max,
                 nintr=nintr,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -1631,7 +1655,8 @@ class CoregisterDem:
                 rad_max=rad_max,
                 nintr=nintr,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -1692,7 +1717,8 @@ class CoregisterDem:
                     rad_max=rad_max,
                     nintr=nintr,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1746,7 +1772,8 @@ class CoregisterDem:
                 lr_out=lr_out,
                 order=order,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -1797,7 +1824,8 @@ class CoregisterDem:
                 lr=lr,
                 rasf_pathname=rasf_pathname,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -1842,7 +1870,8 @@ class CoregisterDem:
                 geotiff_pathname=geotiff_pathname,
                 nodata=nodata,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -1895,7 +1924,8 @@ class CoregisterDem:
                 lr_in=lr_in,
                 lr_out=lr_out,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -1930,7 +1960,8 @@ class CoregisterDem:
                 geotiff_pathname=geotiff_pathname,
                 nodata=nodata,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -1966,7 +1997,8 @@ class CoregisterDem:
                 geotiff_pathname=geotiff_pathname,
                 nodata=nodata,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -1996,7 +2028,8 @@ class CoregisterDem:
                 dem_par_pathname=dem_par_pathname,
                 kml_pathname=kml_pathname,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -2052,7 +2085,8 @@ class CoregisterDem:
                 lv_theta_pathname=lv_theta_pathname,
                 lv_phi_pathname=lv_phi_pathname,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -2088,7 +2122,8 @@ class CoregisterDem:
                 geotiff_pathname=geotiff_pathname,
                 nodata=nodata,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -2123,7 +2158,8 @@ class CoregisterDem:
                 geotiff_pathname=geotiff_pathname,
                 nodata=nodata,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
