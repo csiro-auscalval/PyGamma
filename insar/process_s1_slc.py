@@ -195,7 +195,8 @@ class SlcProcess:
                         sc_db=sc_db,
                         noise_pwr=noise_pwr,
                         stat=stat,
-                        gamma_error=cerr
+                        gamma_stdout=cout,
+                        gamma_stderr=cerr
                     )
                     raise Exception(msg)
 
@@ -338,7 +339,8 @@ class SlcProcess:
                             slc_tab2=slc_tab2_pathname,
                             slc_tab3=slc_tab3_pathname,
                             stat=stat,
-                            gamma_error=cerr
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr
                         )
                         raise Exception(msg)
 
@@ -409,7 +411,8 @@ class SlcProcess:
                             slc_2_par_pathname=slc_2_par_pathname,
                             ph_shift=ph_shift,
                             stat=stat,
-                            gamma_error=cerr
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr
                         )
                         raise Exception(msg)
 
@@ -463,7 +466,8 @@ class SlcProcess:
                 rlks=rlks,
                 azlks=azlks,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -494,7 +498,8 @@ class SlcProcess:
                 slc_par_pathname=slc_par_pathname,
                 opod_pathname=opod_pathname,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -591,7 +596,8 @@ class SlcProcess:
                     burst_tab_pathname=burst_tab_pathname,
                     dtype=dtype,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -652,7 +658,8 @@ class SlcProcess:
                     slc2_tab_pathname=slc2_tab_pathname,
                     burst_tab_pathname=burst_tab_pathname,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -688,7 +695,8 @@ class SlcProcess:
                     burst_tab_pathname=burst_tab_pathname,
                     dtype=dtype,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -766,7 +774,8 @@ class SlcProcess:
                     hdrsz=hdrsz,
                     rasf_pathname=rasf_pathname,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 

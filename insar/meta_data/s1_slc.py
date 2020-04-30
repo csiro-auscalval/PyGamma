@@ -276,7 +276,8 @@ class SlcMetadata:
                         msg,
                         xml_file=xml_path,
                         stat=stat,
-                        gamma_error=cerr
+                        gamma_stdout=cout,
+                        gamma_stderr=cerr
                     )
                     raise Exception(msg)
 
