@@ -254,7 +254,8 @@ class CoregisterSlc:
                 mli2_par_pathname=mli2_par_pathname,
                 lookup_table_pathname=lookup_table_pathname,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -420,7 +421,8 @@ class CoregisterSlc:
                 azlks=azlks,
                 iflg=iflg,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -490,7 +492,8 @@ class CoregisterSlc:
                             slc_2r_pathname=slc_2r_pathname,
                             slc2r_par_pathname=slc2r_par_pathname,
                             stat=stat,
-                            gamma_error=cerr
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr
                         )
                         raise Exception(msg)
 
@@ -535,7 +538,8 @@ class CoregisterSlc:
                             azlks=azlks,
                             iflg=iflg,
                             stat=stat,
-                            gamma_error=cerr
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr
                         )
                         raise Exception(msg)
 
@@ -610,7 +614,8 @@ class CoregisterSlc:
                             azstart=azstart,
                             azstop=azstop,
                             stat=stat,
-                            gamma_error=cerr
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr
                         )
                         raise Exception(msg)
 
@@ -655,7 +660,8 @@ class CoregisterSlc:
                             npoly=npoly,
                             interact_mode=interact_mode,
                             stat=stat,
-                            gamma_error=cerr
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr
                         )
                         raise Exception(msg)
 
@@ -733,7 +739,8 @@ class CoregisterSlc:
                             par_type=par_type,
                             iflg=iflg,
                             stat=stat,
-                            gamma_error=cerr
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr
                         )
                         raise Exception(msg)
 
@@ -766,7 +773,8 @@ class CoregisterSlc:
                             search_keyword=search_keyword,
                             new_value=new_value,
                             stat=stat,
-                            gamma_error=cerr
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr
                         )
                         raise Exception
 
@@ -799,7 +807,8 @@ class CoregisterSlc:
                             search_keyword=search_keyword,
                             new_value=new_value,
                             stat=stat,
-                            gamma_error=cerr
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr
                         )
                         raise Exception
 
@@ -838,7 +847,8 @@ class CoregisterSlc:
                             gc_out=gc_out,
                             ref_flg=ref_flg,
                             stat=stat,
-                            gamma_error=cerr
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr
                         )
                         # TODO; do we raise and kill the program or iterate?
                         # raise Exception(msg)
@@ -901,7 +911,8 @@ class CoregisterSlc:
                 slc_2r=slc_2r,
                 slc2r_par=slc2r_par,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -944,7 +955,8 @@ class CoregisterSlc:
                 rlks=rlks,
                 alks=alks,
                 stat=stat,
-                gamma_error=cerr
+                gamma_stdout=cout,
+                gamma_stderr=cerr
             )
             raise Exception(msg)
 
@@ -994,7 +1006,8 @@ class CoregisterSlc:
                         width=width,
                         mode=mode,
                         stat=stat,
-                        gamma_error=cerr
+                        gamma_stdout=cout,
+                        gamma_stderr=cerr
                     )
                     raise Exception(msg)
 
@@ -1010,7 +1023,7 @@ class CoregisterSlc:
             stat = pg.float_math(
                 d1_pathname,
                 d2_pathname,
-                d2_pathname,
+                d_out_pathname,
                 width,
                 mode,
                 cout=cout,
@@ -1029,7 +1042,8 @@ class CoregisterSlc:
                     width=width,
                     mode=mode,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1081,9 +1095,12 @@ class CoregisterSlc:
                     width_out=width_out,
                     interp_mode=interp_mode,
                     dtype=dtype,
+                    lr_in=lr_in,
+                    lr_out=lr_out,
                     order=order,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
@@ -1133,9 +1150,13 @@ class CoregisterSlc:
                         nlines=nlines,
                         pixavr=pixavr,
                         pixavaz=pixavaz,
+                        scale=scale,
+                        exp=exp,
+                        lr=lr,
                         rasf_pathname=rasf_pathname,
                         stat=stat,
-                        gamma_error=cerr
+                        gamma_stdout=cout,
+                        gamma_stderr=cerr
                     )
                     raise Exception(msg)
 
@@ -1181,7 +1202,8 @@ class CoregisterSlc:
                         geotiff_pathname=geotiff_pathname,
                         nodata=nodata,
                         stat=stat,
-                        gamma_error=cerr
+                        gamma_stdout=cout,
+                        gamma_stderr=cerr
                     )
                     raise Exception(msg)
 
@@ -1211,7 +1233,8 @@ class CoregisterSlc:
                         dem_par_pathname=dem_par_pathname,
                         kml_pathname=kml_pathname,
                         stat=stat,
-                        gamma_error=cerr
+                        gamma_stdout=cout,
+                        gamma_stderr=cerr
                     )
                     raise Exception(msg)
 
@@ -1261,11 +1284,11 @@ class CoregisterSlc:
                         nlines_out=nlines_out,
                         interp_mode=interp_mode,
                         dtype=dtype,
-                        order=order,
                         lr_in=lr_in,
                         lr_out=lr_out,
                         stat=stat,
-                        gamma_error=cerr
+                        gamma_stdout=cout,
+                        gamma_stderr=cerr
                     )
                     raise Exception(msg)
 
@@ -1301,7 +1324,8 @@ class CoregisterSlc:
                         geotiff_pathname=geotiff_pathname,
                         nodata=nodata,
                         stat=stat,
-                        gamma_error=cerr
+                        gamma_stdout=cout,
+                        gamma_stderr=cerr
                     )
                     raise Exception(msg)
 

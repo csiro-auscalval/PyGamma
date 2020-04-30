@@ -141,7 +141,8 @@ def create_gamma_dem(
                     zflg=zflg,
                     no_data=no_data,
                     stat=stat,
-                    gamma_error=cerr
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr
                 )
                 raise Exception(msg)
 
