@@ -1,20 +1,36 @@
 ## GAMMA-INSAR
 
-A tool to process Sentinel-1 SLC to Analysis Ready Data using GAMMA SOFTWARE.
+A tool to process Sentinel-1 SLC to Analysis Ready Data (ARD) using GAMMA SOFTWARE.
 
 ## Installation
-To install into a local user directory in NCI.
-    
-    python setup.py install --user 
 
-To install into a particular path.
-    
-    export PYTHONPATH=<path/to/install/location/lib/python_version/site-packages>:$PYTHONPATH
-    python setup.py install --prefix=<path/to/install/location> 
+As of April 2020, `gamma_insar` is coupled with the NCI HPC systems and has to be installed there. Using `gamma_insar` requires membership of several NCI groups. Use [Mancini](https://my.nci.org.au/) to request membership access to the following groups:
 
-Python 3.6+ is supported.
+```
+dg9: InSAR research
+u46: DEA Development and Science (GA internal)
+fj7: Sentinel Data
+```
+
+Then, once logged into NCI, clone this repository into a dir/workspace in your NCI home dir:
+
+```
+cd ~/<your project dir>
+git clone git@github.com:GeoscienceAustralia/gamma_insar.git
+cd gamma_insar
+git checkout -b pygamma_workflow
+
+# set up a local Python 3.6 runtime environment
+source configs/insar.env  # should be error/warning free
+export CUSTOM_PY_INSTALL=~/.digitalearthau/dea-env/20191127/local/lib/python3.6/site-packages/
+mkdir -p $CUSTOM_PY_INSTALL
+python setup.py install --prefix=$CUSTOM_PY_INSTALL
+```
+
+If the `source configs/insar.env` command does not complete cleanly (e.g. cannot find a dir of modules), check your group memberships.
 
 ## Operating System tested
+
 Linux
 
 ## Supported Satellites and Sensors
