@@ -147,6 +147,7 @@ class CoregisterDem:
         self.dem_window = list(dem_window)
         self.dem_snr = dem_snr
         self.dem_rad_max = dem_rad_max
+        self.dem_ovr = dem_ovr
 
         # adjust dem parameters for range looks greater than 1
         if self.rlks > 1:
