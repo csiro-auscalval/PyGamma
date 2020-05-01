@@ -104,6 +104,7 @@ class SlcMetadata:
         req_metadata_dict = self.get_metadata_essentials(self.manifest_file)
 
         # add dictionary items and values from req_metadata_dict to self
+        # so that they are accessible from S1DataDownload
         for item in req_metadata_dict:
             setattr(self, item, req_metadata_dict[item])
 
@@ -189,6 +190,11 @@ class SlcMetadata:
         req_meta = dict()
         manifest_obj = self.extract_archive_BytesIO(target_file=manifest_file)
 
+
+        #
+        # The items "acquisition_start_time", "acquisition_stop_time" and "sensor"
+        # are also added to a dict() in metadata_manifest_safe. At a later stage
+        # other alternatives should be pursued to simplify this code.
         with manifest_obj as obj:
             manifest = obj.getvalue()
             namespaces = getNamespaces(manifest)
@@ -212,7 +218,6 @@ class SlcMetadata:
             )
 
         return req_meta
-
 
     def metadata_manifest_safe(self, manifest_file: Path) -> Dict:
         """
@@ -450,7 +455,7 @@ class SlcMetadata:
         Notes
         -----
             retries are not possible because we can't compare the bytes
-            of the target file with that as a BytesIO object,
+            of the target file with that from a BytesIO object,
             BytesIO.__sizeof__() != os.path.getsize(target_file)
         """
 
@@ -593,6 +598,7 @@ class SlcMetadata:
 
             return None
 
+
 class S1DataDownload(SlcMetadata):
     """
     A class to download an slc data from a sentinel-1 archive.
@@ -716,7 +722,6 @@ class S1DataDownload(SlcMetadata):
                 retry=retry
             )
 
-
         # get a base slc directory where files will be downloaded
         base_dir = pjoin(output_dir, os.path.commonprefix(files_download))
 
@@ -735,6 +740,7 @@ class S1DataDownload(SlcMetadata):
 
         if not os.path.exists(orbit_destination_file):
             shutil.copyfile(orbit_source_file, orbit_destination_file)
+
 
 class Archive:
     """
@@ -1080,7 +1086,6 @@ class Archive:
 
         return sorted(RON_meets_criteria)  # sort set() in ascending order and return as list
 
-
     def prepare_slc_metadata_insertion(self):
         """ prepares to insert slc metadata into a database. """
         slc_metadata = self.get_slc_metadata()
@@ -1267,7 +1272,6 @@ class Archive:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-
     def select_bursts_in_vector(
         self,
         tables_join_string: str,
@@ -1357,7 +1361,6 @@ class Archive:
             return None
 
         return slc_df
-
 
     def select(
         self,
@@ -1704,7 +1707,8 @@ class SlcFrame:
         poly_shapely = self.get_bbox_wkt()[frame_num-1]  # frame num ranges from 1 to N
         return list(shapely.wkt.loads(poly_shapely).exterior.coords)
 
-class generate_kml:
+
+class Generate_kml:
     """
     A class to create kml files  containing
     bursts within a track and frame, as well
