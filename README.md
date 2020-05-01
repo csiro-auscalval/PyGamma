@@ -171,3 +171,34 @@ to be packaged to be indexed into a data-cube.
 #### Example 
 
 	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV VH --queue normal --nodes 2 --jobfs 50 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+
+### Example SLC Metadata to YAML Extraction
+
+Run this step to extract the SLC acquisition details into YAML files.
+
+Create a PBS job script on `Gadi` using this template:
+
+```
+#!/bin/bash
+#PBS -P u46
+#PBS -q express  # for faster turnaround in the queue
+#PBS -l walltime=05:00:00,mem=4GB,ncpus=1
+#PBS -l wd
+#PBS -l storage=gdata/v10+gdata/dg9+gdata/fj7+gdata/up71
+#PBS -me
+#PBS -M <your-email@some.domain>
+
+pushd $HOME/<your-project-dir>/gamma_insar/configs
+source insar.env
+popd
+
+slc-archive slc-ingestion \
+    --save-yaml \
+    --yaml-dir <dir-to-save-generated-yamls> \
+    --year <year-to-process> --month <month-to-process> \
+    --slc-dir /g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC \  # change if required
+    --database-name <filename-to-save-sqlite-db-to> \
+    --log-pathname <filename-to-save-log-to>
+```
+
+Then submit with `qsub` from somewhere in your `$HOME` dir. If your groups are correctly set, the `source insar.env` line should complete without errors or warnings. The run time should be around 70 minutes.
