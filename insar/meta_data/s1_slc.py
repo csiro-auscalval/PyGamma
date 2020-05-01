@@ -22,6 +22,7 @@ from io import BytesIO
 from os.path import join as pjoin
 from pathlib import Path
 from typing import Dict, List, Optional, Type, Union
+from shapely.ops import cascaded_union  # required for select_bursts_in_vector()
 from shapely.geometry import MultiPolygon, Polygon, box
 from spatialist import Vector, sqlite3, sqlite_setup
 import py_gamma as pg
@@ -87,24 +88,30 @@ class SlcMetadata:
         else:
             _LOG.info("filename pattern match", **match.groupdict())
 
-        # added self.manifest_file as it is required for S1DataDownload
-        self.manifest = "manifest.safe"  # only used for self.manifest_file_list
-        manifest_file_list = self.find_archive_files(self.manifest)
-        self.manifest_file = manifest_file_list[0]
 
         # taken from /insar/s1_slc_metadata.py, which are used in S1DataDownload
         self.date_fmt = "%Y%m%d"
         self.dt_fmt_1 = "%Y-%m-%d %H:%M:%S.%f"
         self.dt_fmt_2 = "%Y%m%dT%H%M%S"
-        self.dt_fmt_3 = "%Y-%m-%dT%H:%M:%S.%f"
+        self.dt_fmt_3 = "%Y-%m-%dT%H:%M:%S.%f"  # format in the manifest.safe file
+
+        # added self.manifest_file as it is required for S1DataDownload
+        self.manifest = "manifest.safe"  # only used for self.manifest_file_list
+        manifest_file_list = self.find_archive_files(self.manifest)
+        self.manifest_file = manifest_file_list[0]
+
+        # extract metadata that's required for S1DataDownload
+        req_metadata_dict = self.get_metadata_essentials(self.manifest_file)
+
+        # add dictionary items and values from req_metadata_dict to self
+        for item in req_metadata_dict:
+            setattr(self, item, req_metadata_dict[item])
 
     def get_metadata(self):
         """Consolidates metadata  of manifest safe file and annotation/swath xmls from a slc archive."""
 
         metadata = dict()
         try:
-            #manifest_file = self.find_archive_files(self.manifest)
-            #metadata["properties"] = self.metadata_manifest_safe(manifest_file[0])
             metadata["properties"] = self.metadata_manifest_safe(self.manifest_file)
         except ValueError as err:
             raise ValueError(err)
@@ -126,26 +133,116 @@ class SlcMetadata:
 
         return metadata
 
+    def format_datetime_string(
+        self,
+        input_dt: str,
+        in_format: str,
+        out_format: str,
+        ) -> str:
+        """
+        converts a date and time string from an input to an output format
+
+        Parameters
+        ----------
+        input_dt: str
+            date and time string
+
+        in_format: str
+            datetime format directive of input_dt, e.g.
+            if input_dt = "2018-01-06T19:38:08.036130" then
+            in_format = "%Y-%m-%dT%H:%M:%S.%f"
+
+        out_format: str
+            datetime format directive of output date & time string
+            e.g. out_format = "%Y-%m-%d %H:%M:%S.%f"
+
+        Returns
+        -------
+            date and time string with a format specified by out_format
+
+        Example
+        -------
+        out_datetime = format_datetime_string(
+            "2018-01-06T19:38:08.036130",
+            "%Y-%m-%dT%H:%M:%S.%f",
+            "%Y-%m-%d %H:%M:%S.%f"
+            )
+
+        out_datetime = "2018-01-06 19:38:08.036130"
+        """
+        return datetime.datetime.strptime(input_dt, in_format).strftime(out_format)
+
+    def get_metadata_essentials(self, manifest_file: Path) -> Dict:
+        """
+        Extracts essential metadata required for S1DataDownload from a
+        manifest safe file. Without this function, one would need to
+        load the entire metadata from metadata_manifest_safe() and then
+        keep only keep a few items.
+
+        Parameters
+        ----------
+        manifest_file: Path
+            path to manifest.safe file, e.g.
+            S1A_IW_SLC__1SDV_20180106T193808_20180106T193834_020038_02224B_8674.SAFE/manifest.safe
+
+        """
+        req_meta = dict()
+        manifest_obj = self.extract_archive_BytesIO(target_file=manifest_file)
+
+        with manifest_obj as obj:
+            manifest = obj.getvalue()
+            namespaces = getNamespaces(manifest)
+            tree = etree.fromstring(manifest)
+
+            req_meta["sensor"] = (
+                tree.find(".//safe:familyName", namespaces).text.replace("ENTINEL-", "")
+                + tree.find(".//safe:number", namespaces).text
+            )
+
+            req_meta["acquisition_start_time"] = self.format_datetime_string(
+                tree.find(".//safe:startTime", namespaces).text,
+                self.dt_fmt_3,
+                self.dt_fmt_1
+            )
+
+            req_meta["acquisition_stop_time"] = self.format_datetime_string(
+                tree.find(".//safe:stopTime", namespaces).text,
+                self.dt_fmt_3,
+                self.dt_fmt_1
+            )
+
+        return req_meta
+
+
     def metadata_manifest_safe(self, manifest_file: Path) -> Dict:
         """
         Extracts metadata from a manifest safe file.
 
         :param manifest_file:
-            A full path to a manifest safe file.
+            A full path to a manifest safe file, e.g.
+            S1A_IW_SLC__1SDV_20180106T193808_20180106T193834_020038_02224B_8674.SAFE/manifest.safe
         """
 
-        def _parse_datetime(dt):
-            return datetime.datetime.strptime(dt, self.dt_fmt_3).strftime(self.dt_fmt_1)
-
-        manifest_obj = self.extract_archive_member(manifest_file, obj=True)
+        manifest_obj = self.extract_archive_BytesIO(target_file=manifest_file)
         meta = dict()
         with manifest_obj as obj:
             manifest = obj.getvalue()
             namespaces = getNamespaces(manifest)
             tree = etree.fromstring(manifest)
             meta["acquisition_mode"] = tree.find(".//s1sarl1:mode", namespaces).text
-            meta["acquisition_start_time"] = _parse_datetime(tree.find(".//safe:startTime", namespaces).text)
-            meta["acquisition_stop_time"] = _parse_datetime(tree.find(".//safe:stopTime", namespaces).text)
+
+            meta["acquisition_start_time"] = self.format_datetime_string(
+                tree.find(".//safe:startTime", namespaces).text,
+                self.dt_fmt_3,
+                self.dt_fmt_1
+            )
+
+            meta["acquisition_stop_time"] = self.format_datetime_string(
+                tree.find(".//safe:stopTime", namespaces).text,
+                self.dt_fmt_3,
+                self.dt_fmt_1
+            )
+
             meta["coordinates"] = [
                 list([float(y) for y in x.split(",")])
                 for x in tree.find(".//gml:coordinates", namespaces).text.split()
@@ -227,7 +324,7 @@ class SlcMetadata:
         """
 
         swath_meta = dict()
-        swath_obj = self.extract_archive_member(xml_file, obj=True)
+        swath_obj = self.extract_archive_BytesIO(target_file=xml_file)
 
         def _metadata_burst(xml_path):
             def _parse_s1_burstloc(gamma_output_list):
@@ -255,7 +352,7 @@ class SlcMetadata:
                 return burst_info
 
             with tempfile.TemporaryDirectory() as tmp_dir:
-                self.extract_archive_member(xml_path, outdir=tmp_dir)
+                self.extract_archive_tofile(target_file=xml_path, outdir=tmp_dir, retry=0)
 
                 # py_gamma parameters
                 cout = []
@@ -326,39 +423,175 @@ class SlcMetadata:
         ]
         return match_names
 
-    def extract_archive_member(
+    def extract_archive_BytesIO(
+        self,
+        target_file: Path
+    ) -> BytesIO:
+        """
+        Extracts content from a target file within the slc zip archive
+        as a _io.BytesIO object
+
+        Parameters
+        ----------
+        target_file: Path
+            The path of a target file inside the S1 zip archive
+            must be supplied (not the full path). Target file
+            is usually the:
+            (a) manifest.safe file;
+            (b) xml file, or;
+            (c) tiff file
+            e.g.
+            S1A_IW_SLC__1SDV_20180106T193808_20180106T193834_020038_02224B_8674.SAFE/manifest.safe
+
+        Returns
+        -------
+            contents of target file as BytesIO object
+
+        Notes
+        -----
+            retries are not possible because we can't compare the bytes
+            of the target file with that as a BytesIO object,
+            BytesIO.__sizeof__() != os.path.getsize(target_file)
+        """
+
+        # get archive contents and size from an S1 zip
+        # scene = /g/data/{some_path}/S1A_IW_SLC__1SDV_20180106T193808_20180106T193834_020038_02224B_8674.zip
+        # target_file = S1A_IW_SLC__1SDV_20180106T193808_{blah}_8674.SAFE/manifest.safe
+        # target_file = S1A_IW_SLC__1SDV_20180106T193808_{blah}_8674.SAFE/annotation/s1a-iw1-{blah}-004.xml
+        # target_file = S1A_IW_SLC__1SDV_20180106T193808_{blah}_8674.SAFE/measurement/s1a-iw1-{blah}-004.tiff
+        with zf.ZipFile(self.scene, "r") as archive:
+            file_obj = BytesIO()
+            file_obj.write(archive.read(target_file))
+            file_obj.seek(0)
+            return file_obj
+
+    def extract_archive_tofile(
         self,
         target_file: Path,
-        outdir: Optional[Path] = None,
-        obj: Optional[bool] = False,
-    ) -> Union[BytesIO, None]:
+        outdir: Path,
+        retry: Optional[int] = 0,
+    ) -> None:
         """
-        Extracts a content of a target file from a slc zip archive as a byte object or a file.
+        Extracts content from a target file within the slc zip archive
+        to a file in the user specified outdir. Returns None
 
-        :param target_file:
-            A full path of a file to be extracted.
-        :param outdir:
-            A Optional output directory to write a target file.
-        :param obj:
-            A flag to extract file as an byte object or not.
+        Parameters
+        ----------
+        target_file: Path
+            The path of a target file inside the S1 zip archive
+            must be supplied (not the full path). Target file
+            is usually the:
+            (a) manifest.safe file;
+            (b) xml file, or;
+            (c) tiff file
+            e.g.
+            S1A_IW_SLC__1SDV_20180106T193808_20180106T193834_020038_02224B_8674.SAFE/manifest.safe
 
-        important to note:
-           The duplicate function extract_archive_member() in /insar/s1_slc_metadata.py
-           is different. It is unknown why this function was alterned or this effect.
+        outdir: Path
+            Output directory to write a copy of the target file.
+
+        retry: int
+            The number of retries (must be greater than 0)
+
+        Returns
+        -------
+            None
+
+        Notes
+        -----
+            Retries are possible as we can compare the bytes of copied file
+            with target file
         """
-
-        with zf.ZipFile(self.scene, "r") as archive:
-            if obj:
-                file_obj = BytesIO()
-                file_obj.write(archive.read(target_file))
-                file_obj.seek(0)
-                return file_obj
-            if outdir:
-                outfile = pjoin(outdir, os.path.basename(target_file))
-            with open(outfile, "wb") as out_fid:
-                out_fid.write(archive.read(target_file))
+        # ---------------------------- #
+        #          FUNCTIONS           #
+        # ---------------------------- #
+        def _copy_target_contents(
+            o_file,
+            archive_contents,
+        ):
+            # this function was adapated from
+            # def _archive_download(name_outfile):
+            # in /insar/s1_slc_metadata.py
+            #
+            # o_file: str
+            # archive_contents: bytes
+            with open(o_file, "wb") as out_fid:
+                out_fid.write(archive_contents)
             return None
 
+        def _check_byte_size(
+            o_file,
+            expected_size,
+        ):
+            # check the size (in Bytes) of o_file
+            # against size of source file
+            # 
+            # o_file: str
+            # expected_size: int
+            size_ok = False
+            if os.path.exists(o_file):
+                if os.path.getsize(o_file) == expected_size:
+                    size_ok = True
+            return size_ok
+
+        # ---------------------------- #
+        #                              #
+        # ---------------------------- #
+        # ensure that outdir exists
+        if not os.path.exists(outdir):
+           os.makedirs(outdir)
+
+        # outfile is effectively a copy of the target file in outdir
+        outfile = pjoin(outdir, os.path.basename(target_file))
+
+        # get archive contents and size from an S1 zip
+        # scene = /g/data/{some_path}/S1A_IW_SLC__1SDV_20180106T193808_20180106T193834_020038_02224B_8674.zip
+        # target_file = S1A_IW_SLC__1SDV_20180106T193808_{blah}_8674.SAFE/manifest.safe
+        # target_file = S1A_IW_SLC__1SDV_20180106T193808_{blah}_8674.SAFE/annotation/s1a-iw1-{blah}-004.xml
+        # target_file = S1A_IW_SLC__1SDV_20180106T193808_{blah}_8674.SAFE/measurement/s1a-iw1-{blah}-004.tiff
+        with zf.ZipFile(self.scene, "r") as zip_archive:
+            # open S1 zip and get contents from a target file 
+            source_size = zip_archive.getinfo(target_file).file_size
+            archive_dump = zip_archive.read(target_file)  # <class 'bytes'>
+
+        _copy_target_contents(outfile, archive_dump)
+
+        if retry <= 0:
+            return None
+
+        else:
+            if _check_byte_size(outfile, source_size) is True:
+                return None
+
+            _LOG.info(
+                "retrying extraction",
+                retry_count=retry_count,
+                max_retries=retry,
+                target_file=target_file,
+                slc_scene=self.scene,
+                outfile=outfile,
+            )
+
+            retry_count = 0
+            while retry_count < retry:
+
+                # retry copying the contents of the archive
+                _copy_target_contents(outfile, archive_dump)
+                if _check_byte_size(outfile, source_size) is False:
+                    # size of copied archive != original archive
+                    retry_count += 1
+                else:
+                    break
+
+            if retry_count == retry:
+                _LOG.error(
+                    "failed to extract data",
+                    target_file=target_file,
+                    slc_scene=self.scene,
+                    outfile=outfile,
+                )
+
+            return None
 
 class S1DataDownload(SlcMetadata):
     """
@@ -440,7 +673,7 @@ class S1DataDownload(SlcMetadata):
 
     def slc_download(
         self,
-        output_dir: Optional[Path] = None,
+        output_dir: Path,
         retry: Optional[int] = 3,
         polarizations: Optional[List[str]] = None,
     ):
@@ -461,14 +694,7 @@ class S1DataDownload(SlcMetadata):
             [],
         )
 
-        def _archive_download(target_file):
-            """ A helper method to download target file from archive"""
-            out_dir = os.path.dirname(target_file)
-            if output_dir:
-                out_dir = pjoin(output_dir, out_dir)
-            self.extract_archive_member(target_file, outdir=out_dir, retry=retry)
-
-        # download files from slc archive (zip) file
+        # extract files from slc archive (zip) file
         files_download = sum(
             [
                 fnmatch.filter(self.archive_files, pattern)
@@ -476,14 +702,23 @@ class S1DataDownload(SlcMetadata):
             ],
             [],
         )
+
         files_download.append(self.manifest_file)
-        for fp in files_download:
-            _archive_download(fp)
+        for target_file in files_download:
+            path_inzip = os.path.dirname(target_file)
+            path_copy_target = pjoin(output_dir, path_inzip)
+            # Note:
+            #  path_inzip = S1A_IW_SLC__1SDV_20180106T193808_{blah}_8674.SAFE/measurement
+            #  path_copy_target = directory where the target files (tiff) are copied to.
+            self.extract_archive_tofile(
+                target_file=target_file,
+                outdir=path_copy_target,
+                retry=retry
+            )
+
 
         # get a base slc directory where files will be downloaded
-        base_dir = os.path.commonprefix(files_download)
-        if output_dir:
-            base_dir = pjoin(output_dir, base_dir)
+        base_dir = pjoin(output_dir, os.path.commonprefix(files_download))
 
         # download orbit files with precise orbit as first choice
         orbit_source_file = self.get_poeorb_orbit_file()
@@ -494,7 +729,7 @@ class S1DataDownload(SlcMetadata):
             if not orbit_source_file:
                 _LOG.error(
                     "no orbit files found",
-                    pathname=self.scene
+                    slc_scene=self.scene
                 )
             orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
 
