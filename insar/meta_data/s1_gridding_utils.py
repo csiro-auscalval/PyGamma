@@ -16,7 +16,7 @@ import shapely.wkt
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 import yaml
-from insar.meta_data.s1_slc import Archive, SlcFrame, SlcMetadata, generate_kml
+from insar.meta_data.s1_slc import Archive, SlcFrame, SlcMetadata, Generate_kml
 
 # _LOG = logging.getLogger(__name__)
 _LOG = structlog.get_logger()
@@ -400,7 +400,7 @@ def grid_definition(
 
         # Initiate kml even user doesn't want to save them
         # Creating a kml file per relative orbit to minimise the amount of files
-        master_kml = generate_kml()
+        master_kml = Generate_kml()
         gpd_cnt = 0
 
         for frame_num in frame_obj.frame_numbers:
@@ -653,7 +653,7 @@ def grid_adjustment(
         #    where poly1 = [(lon1,lat1), ..., (lonN,latN), (lon1,lat1)], etc
 
         # add polygons to kml with a random colour
-        adj_kml = generate_kml()
+        adj_kml = Generate_kml()
         adj_kml.add_multipolygon(
             polygon_name="Bursts_in_{}".format(frame),
             polygon_list=burst_coord_list,
