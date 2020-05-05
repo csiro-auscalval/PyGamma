@@ -14,7 +14,7 @@ fj7: Sentinel Data
 
 Then, once logged into NCI, clone this repository into a dir/workspace in your NCI home dir:
 
-```
+```BASH
 cd ~/<your project dir>
 git clone git@github.com:GeoscienceAustralia/gamma_insar.git
 cd gamma_insar
@@ -178,7 +178,7 @@ Run this step to extract the SLC acquisition details into YAML files.
 
 Create a PBS job script on `Gadi` using this template:
 
-```
+```BASH
 #!/bin/bash
 #PBS -P u46
 #PBS -q express  # for faster turnaround in the queue
