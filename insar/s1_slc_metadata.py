@@ -26,8 +26,7 @@ import py_gamma as pg
 
 from insar.xml_util import getNamespaces
 
-# _LOG = logging.getLogger(__name__)
-_LOG = structlog.get_logger()
+_LOG = structlog.get_logger("status")
 
 
 class SlcMetadata:

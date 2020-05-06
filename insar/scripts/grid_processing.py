@@ -16,11 +16,10 @@ from os.path import exists, isdir, join as pjoin, split, splitext
 from spatialist.ancillary import finder
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata, grid_adjustment, grid_definition
 from insar.meta_data.s1_slc import Archive
-from insar.logs import COMMON_PROCESSORS
+from insar.logs import COMMON_PROCESSORS, STATUS_LOGGER
 
-# _LOG = logging.getLogger(__name__)
 structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger()
+_LOG = structlog.get_logger("status")
 GRID_NAME_FMT = "{track}_{frame}{ext}"
 
 

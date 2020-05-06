@@ -17,9 +17,8 @@ from insar.subprocess_utils import working_directory, run_command
 from insar.logs import COMMON_PROCESSORS
 
 
-# _LOG = logging.getLogger(__name__)
 structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger()
+_LOG = structlog.get_logger("status")
 
 
 class SlcProcess:
