@@ -18,7 +18,7 @@ from insar.subprocess_utils import run_command
 from insar.logs import COMMON_PROCESSORS
 
 structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger()
+_LOG = structlog.get_logger("status")
 
 
 def create_gamma_dem(

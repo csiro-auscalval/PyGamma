@@ -14,8 +14,7 @@ from spatialist import Vector
 #from insar.s1_slc_metadata import Archive  ## s1_slc_metadata is a duplicate of meta_data.s1_slc
 from insar.meta_data.s1_slc import Archive
 
-# _LOG = logging.getLogger(__name__)
-_LOG = structlog.get_logger()
+_LOG = structlog.get_logger("status")
 
 
 def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: Dict) -> Dict:
