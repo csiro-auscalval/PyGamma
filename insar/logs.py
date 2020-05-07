@@ -24,9 +24,14 @@ COMMON_PROCESSORS = [
 
 def get_wrapped_logger(logger_name: str = "root", **kwargs):
     """ Returns a struct log equivalent for the named logger """
-    return structlog.wrap_logger(
+    logger = structlog.wrap_logger(
         logging.getLogger(logger_name), COMMON_PROCESSORS, **kwargs
     )
+    # to handle the different cases of file handler initialisation
+    # could be either luigi (insar workflow), or ourselves in our cmd apps (eg grid-generation)
+    if not logger._logger.handlers:
+        logger = structlog.get_logger()
+    return logger
 
 
 class FormatJSONL(logging.Formatter):
