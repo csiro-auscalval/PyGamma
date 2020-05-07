@@ -461,7 +461,7 @@ if type == 'initial':
             outfile.write(dates[epo1].strftime("%Y%m%d") + "," + dates[epo2].strftime("%Y%m%d") + "\n")
         outfile.close
 
-        # save dates and Bperps of connection to ./TxxxX/baseline_plot_output.txt
+        # save dates and Bperps of connection to ./TxxxX/baseline_SBAS_network.txt
         outfile = open(os.path.join(base_dir, track + "_baseline_SBAS_network.txt"), "w")
         outfile.write("Date1[yyyy-mm-dd]   Date2[yyyy-mm-dd]   DateDiff[d]   Bperp[m]   DCdiff[Hz]\n")
         outfile.write("---------------------------------------------------------------------------\n")
@@ -600,7 +600,7 @@ elif type == 'precision':
         i = i + 1
 
     # read initial baseline estimates (based on orbits only) and compare
-    filename = os.path.join(base_dir, track + "_baseline_plot_output.txt")
+    filename = os.path.join(base_dir, track + "_baseline_SBAS_network.txt")
 
     if os.path.isfile(filename) and os.access(filename, os.R_OK):
         f = open(filename)
@@ -612,7 +612,7 @@ elif type == 'precision':
         epoch2_init = list(lines)
         epoch2_init[:] = [line.split()[1] for line in lines]
         Bperp_init = list(lines)
-        Bperp_init[:] = [float(line.split()[2]) for line in lines]
+        Bperp_init[:] = [float(line.split()[3]) for line in lines]
         num_ifgs_init = len(lines)
         epoch1_init[:] = [datetime.strptime(line, "%Y-%m-%d") for line in epoch1_init]
         epoch2_init[:] = [datetime.strptime(line, "%Y-%m-%d") for line in epoch2_init]
