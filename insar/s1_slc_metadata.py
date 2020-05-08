@@ -13,7 +13,6 @@ from io import BytesIO
 import fnmatch
 import shutil
 
-import structlog
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -25,8 +24,9 @@ from spatialist import Vector, sqlite3, sqlite_setup
 import py_gamma as pg
 
 from insar.xml_util import getNamespaces
+from insar.logs import get_wrapped_logger
 
-_LOG = structlog.get_logger("status")
+_LOG = get_wrapped_logger("status")
 
 
 class SlcMetadata:

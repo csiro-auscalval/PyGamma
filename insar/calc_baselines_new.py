@@ -17,10 +17,9 @@ from mpl_toolkits.axes_grid import make_axes_locatable
 from matplotlib import dates as mdates
 import numpy as np
 
-from insar.logs import COMMON_PROCESSORS
+from insar.logs import get_wrapped_logger
 
-structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger("status")
+_LOG = get_wrapped_logger("status")
 
 
 class SlcParFileParser:
