@@ -11,14 +11,12 @@ from shapely.ops import cascaded_union
 import rasterio
 from spatialist import Vector
 
-import structlog
 import py_gamma as pg
 
 from insar.subprocess_utils import run_command
-from insar.logs import COMMON_PROCESSORS
+from insar.logs import get_wrapped_logger
 
-structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger("status")
+_LOG = get_wrapped_logger("status")
 
 
 def create_gamma_dem(

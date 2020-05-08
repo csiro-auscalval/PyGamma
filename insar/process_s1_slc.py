@@ -5,7 +5,6 @@ import re
 from collections import namedtuple
 from typing import Optional, Union, Dict, List
 import tempfile
-import structlog
 from pathlib import Path
 import shutil
 import datetime
@@ -14,11 +13,9 @@ import pandas as pd
 import py_gamma as pg
 from insar.constant import SlcFilenames
 from insar.subprocess_utils import working_directory, run_command
-from insar.logs import COMMON_PROCESSORS
+from insar.logs import get_wrapped_logger
 
-
-structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger("status")
+_LOG = get_wrapped_logger("status")
 
 
 class SlcProcess:

@@ -9,7 +9,6 @@ from typing import Optional, Union, Dict, Iterable
 from pathlib import Path
 from datetime import datetime
 
-import structlog
 import pandas as pd
 import geopandas as gpd
 import shapely.wkt
@@ -17,9 +16,9 @@ from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 import yaml
 from insar.meta_data.s1_slc import Archive, SlcFrame, SlcMetadata, Generate_kml
+from insar.logs import get_wrapped_logger
 
-# _LOG = logging.getLogger(__name__)
-_LOG = structlog.get_logger()
+_LOG = get_wrapped_logger("status")
 
 
 def generate_slc_metadata(
