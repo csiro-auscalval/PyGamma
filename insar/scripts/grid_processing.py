@@ -14,7 +14,11 @@ from typing import Optional
 from os.path import exists, isdir, join as pjoin, split, splitext
 
 from spatialist.ancillary import finder
-from insar.meta_data.s1_gridding_utils import generate_slc_metadata, grid_adjustment, grid_definition
+from insar.meta_data.s1_gridding_utils import (
+    generate_slc_metadata,
+    grid_adjustment,
+    grid_definition,
+)
 from insar.meta_data.s1_slc import Archive
 from insar.logs import COMMON_PROCESSORS
 
@@ -42,6 +46,7 @@ def cli():
     Command line interface parent group
     """
 
+
 # add slc-archive group to cli()
 @cli.group(
     name="slc-archive",
@@ -52,25 +57,28 @@ def slc_archive_cli():
     Sentinel-1 slc ingestion command group
     """
 
+
 # add grid-definition group to cli()
 @cli.group(
     name="grid-definition",
-    help="Create and adjust Sentinel-1 track and frames"
+    help="Create and adjust Sentinel-1 track and frames",
 )
 def grid_definition_cli():
     """
     Sentinel-1 track and frame creation and adjustment command group
     """
 
+
 # add pbs-task-file-creation to cli()
 @cli.group(
     name="create-task-files",
-    help="creates task files that are used in pbs batch processing"
+    help="creates task files that are used in pbs batch processing",
 )
 def create_task_files_cli():
     """
     creation of task .txt files that are used in pbs batch processing
     """
+
 
 # -------------------------------------------- #
 # -------------------------------------------- #
@@ -80,7 +88,7 @@ def create_task_files_cli():
 # -------------------------------------------- #
 # -------------------------------------------- #
 @create_task_files_cli.command(
-    "insar-files", help="Generate input files for inSAR pbs jobs"
+    "insar-files", help="Generate input files for inSAR pbs jobs",
 )
 @click.option(
     "--input-path",
@@ -90,21 +98,22 @@ def create_task_files_cli():
 )
 @click.option(
     "--out-dir",
-    type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
+    type=click.Path(
+        exists=True, dir_okay=True, file_okay=False, writable=True
+    ),
     help="output directory where task files are created",
     default=Path(os.getcwd()),
 )
 def insar_task_files(
-    input_path: click.Path,
-    out_dir: click.Path,
-    ):
+    input_path: click.Path, out_dir: click.Path,
+):
     """
 
     Parameters
     ----------
     input_path: Path
-        Path to the parent directory containing the grid-definition/adjustment
-        shape files
+        Path to the parent directory containing the
+        grid-definition/adjustment shape files
 
     out_dir: Path
         Path to a directory to store adjusted grid definition files.
@@ -116,14 +125,14 @@ def insar_task_files(
     # track names.
     all_tracks = []
     shape_files = []
-    for f in  os.listdir(input_path):
+    for f in os.listdir(input_path):
         full_f = pjoin(input_path, f)
         if os.path.isfile(full_f) and f.lower().endswith(".shp"):
             shape_files.append(full_f)
             all_tracks.append(f.split("_")[0])
 
-    all_tracks = np.array(all_tracks, order='C')
-    shape_files= np.array(shape_files, order='C')
+    all_tracks = np.array(all_tracks, order="C")
+    shape_files = np.array(shape_files, order="C")
 
     # iterate through the unique tracks and obtain all frames
     for track in np.unique(all_tracks):
@@ -146,7 +155,7 @@ def insar_task_files(
 # -------------------------------------------- #
 # -------------------------------------------- #
 @grid_definition_cli.command(
-    "grid-adjustment", help="Reconfigure the defined grid"
+    "grid-adjustment", help="Reconfigure the defined grid",
 )
 @click.option(
     "--input-path",
@@ -176,7 +185,7 @@ def insar_task_files(
     "--create-kml",
     default=False,
     is_flag=True,
-    help="If specified, saves kml files of the bursts for each frame"
+    help="If specified, saves kml files of the bursts for each frame",
 )
 def process_grid_adjustment(
     input_path: Path,
@@ -184,14 +193,16 @@ def process_grid_adjustment(
     pattern: str,
     log_pathname: click.Path,
     create_kml: click.BOOL,
-    ):
+):
     """
-    A method to process the grid adjustment for InSAR grid auto-generated grid definition.
+    A method to process the grid adjustment for InSAR grid auto-
+    generated grid definition.
 
-    This grid adjustment is for bulk grid adjustment process. It assumes that all the
-    grid definition required to perform  resides in input_path and naming conventions
-    are as genrated by grid_definition process. For more user control on individual grid
-    adjustment check metadata.s1_gridding_utils.grid_adjustment.
+    This grid adjustment is for bulk grid adjustment process. It
+    assumes that all the grid definition required to perform
+    resides in input_path and naming conventions are as genrated
+    by grid_definition process. For more user control on individual
+    grid adjustment check metadata.s1_gridding_utils.grid_adjustment.
 
     Parameters
     ----------
@@ -199,10 +210,12 @@ def process_grid_adjustment(
         A full path to grid-definition input files parent directory.
 
     out_dir: Path
-        A full path to a directory to store adjusted grid definition files.
+        A full path to a directory to store adjusted grid definition
+        files.
 
     pattern: str
-        regex pattern search for shp filenames that were created during grid-definition
+        regex pattern search for shp filenames that were created during
+        grid-definition
 
     log_pathname: Path
         Path of log file
@@ -220,20 +233,26 @@ def process_grid_adjustment(
             track = name_pcs[0]
             frame, ext = splitext(name_pcs[1])
             frame_num = int(re.findall(r"\d+", frame)[0])
-            before_frame = re.sub(r"\d+", "{:02}".format(frame_num - 1), frame)
-            after_frame = re.sub(r"\d+", "{:02}".format(frame_num + 1), frame)
+            before_frame = re.sub(
+                r"\d+", "{:02}".format(frame_num - 1), frame,
+            )
+            after_frame = re.sub(r"\d+", "{:02}".format(frame_num + 1), frame,)
             grid_before = pjoin(
                 vector_file_dir,
-                GRID_NAME_FMT.format(track=track, frame=before_frame, ext=ext),
+                GRID_NAME_FMT.format(
+                    track=track, frame=before_frame, ext=ext,
+                ),
             )
             grid_after = pjoin(
                 vector_file_dir,
-                GRID_NAME_FMT.format(track=track, frame=after_frame, ext=ext),
+                GRID_NAME_FMT.format(track=track, frame=after_frame, ext=ext,),
             )
             if not exists(grid_before):
                 grid_before = None
+
             if not exists(grid_after):
                 grid_after = None
+
             return track, frame, grid_before, grid_after
 
         raise ValueError
@@ -243,14 +262,17 @@ def process_grid_adjustment(
 
         dir_name, file_name = split(in_path)
         try:
-            track, frame, grid_before_path, grid_after_path = _get_required_grids(
-                file_name, dir_name
-            )
+            (
+                track,
+                frame,
+                grid_before_path,
+                grid_after_path,
+            ) = _get_required_grids(file_name, dir_name)
         except ValueError as err:
             _LOG.error(
                 "vector filename pattern mismatch",
                 pathname=file_name,
-                pattern=pattern
+                pattern=pattern,
             )
             raise err
 
@@ -266,16 +288,14 @@ def process_grid_adjustment(
             )
         except ValueError:
             _LOG.error(
-                "data is required in all three swaths",
-                pathname=file_name
+                "data is required in all three swaths", pathname=file_name
             )
         except AttributeError:
             _LOG.error(
-                "no data in swath after grid adjustment",
-                pathname=file_name
+                "no data in swath after grid adjustment", pathname=file_name
             )
 
-    with open(log_pathname, 'w') as fobj:
+    with open(log_pathname, "w") as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
         if not isdir(input_path):
@@ -291,13 +311,13 @@ def process_grid_adjustment(
                 _process_adjustment(in_file)
             else:
                 _LOG.error(
-                    "file is not an ESRI Shapefile; skipping",
-                    pathname=in_file
+                    "file is not an ESRI Shapefile; skipping", pathname=in_file
                 )
 
 
 @grid_definition_cli.command(
-    "grid-generation", help="produces a grid definition for Sentinel-1 relative orbit"
+    "grid-generation",
+    help="produces a grid definition for Sentinel-1 relative orbit",
 )
 @click.option(
     "--database-path",
@@ -321,7 +341,10 @@ def process_grid_adjustment(
     "--sensor",
     type=str,
     default=None,
-    help="Sentinel-1A (S1A) or 1B (S1B), default=None selects both S1A and S1B sensors",
+    help=(
+        "Sentinel-1A (S1A) or 1B (S1B), default=None selects both S1A "
+        "and S1B sensors"
+    ),
 )
 @click.option(
     "--orbits",
@@ -333,13 +356,19 @@ def process_grid_adjustment(
     "--latitude-width",
     type=float,
     default=-1.25,
-    help="The latitude length of the grid (in decimal degrees, and must be negative)",
+    help=(
+        "The latitude length of the grid (in decimal degrees, "
+        "and must be negative)"
+    ),
 )
 @click.option(
     "--latitude-buffer",
     type=float,
     default=0.01,
-    help="overlap between two grids in latitude (in decimal degrees, and must be positive)",
+    help=(
+        "overlap between two grids in latitude (in decimal "
+        "degrees, and must be positive)"
+    ),
 )
 @click.option(
     "--log-pathname",
@@ -376,7 +405,7 @@ def process_grid_definition(
 
     legacy code that should not be used
     """
-    with open(log_pathname, 'w') as fobj:
+    with open(log_pathname, "w") as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
         grid_definition(
             dbfile=database_path,
@@ -392,9 +421,9 @@ def process_grid_definition(
         )
 
 
-
 @grid_definition_cli.command(
-    "grid-generation-new", help="produces a grid definition for Sentinel-1 (new version)"
+    "grid-generation-new",
+    help="produces a grid definition for Sentinel-1 (new version)",
 )
 @click.option(
     "--database-path",
@@ -412,13 +441,19 @@ def process_grid_definition(
     "--latitude-width",
     type=float,
     default=-1.25,
-    help="The latitude length of the grid (in decimal degrees, and must be negative)",
+    help=(
+        "The latitude length of the grid (in decimal degrees, "
+        "and must be negative)"
+    ),
 )
 @click.option(
     "--latitude-buffer",
     type=float,
     default=0.01,
-    help="overlap between two grids in latitude (in decimal degrees, and must be positive)",
+    help=(
+        "overlap between two grids in latitude (in decimal degrees, "
+        "and must be positive)"
+    ),
 )
 @click.option(
     "--log-pathname",
@@ -430,7 +465,7 @@ def process_grid_definition(
     "--create-kml",
     default=False,
     is_flag=True,
-    help="If specified, saves kml files of the bursts for each frame"
+    help="If specified, saves kml files of the bursts for each frame",
 )
 @click.option(
     "--relative-orbit-number",
@@ -442,7 +477,10 @@ def process_grid_definition(
     "--sensor",
     type=str,
     default=None,
-    help="Sentinel-1A (S1A) or 1B (S1B), default=None selects both S1A and S1B sensors",
+    help=(
+        "Sentinel-1A (S1A) or 1B (S1B), default=None selects "
+        "both S1A and S1B sensors"
+    ),
 )
 @click.option(
     "--orbits",
@@ -466,25 +504,25 @@ def process_grid_definition(
     "--northern-latitude",
     type=float,
     default=0.0,
-    help="Northern latitude (decimal degrees North) of the bounding box"
+    help="Northern latitude (decimal degrees North) of the bounding box",
 )
 @click.option(
     "--western-longitude",
     type=float,
     default=100.0,
-    help="Western longitude (decimal degrees East) of the bounding box"
+    help="Western longitude (decimal degrees East) of the bounding box",
 )
 @click.option(
     "--southern-latitude",
     type=float,
     default=-50.0,
-    help="Southern latitude (decimal degrees North) of the bounding box"
+    help="Southern latitude (decimal degrees North) of the bounding box",
 )
 @click.option(
     "--eastern-longitude",
     type=float,
     default=179.0,
-    help="Eastern longitude (decimal degrees East) of the bounding box"
+    help="Eastern longitude (decimal degrees East) of the bounding box",
 )
 def process_grid_definition_NEW(
     database_path: click.Path,
@@ -506,25 +544,28 @@ def process_grid_definition_NEW(
     """
     Description
     -----------
-    A method to define a consistent track and frame for Sentinel-1 over a given
-    region-of-interest
+    A method to define a consistent track and frame for Sentinel-1 over
+    a given region-of-interest
 
-    Updated method of inSAR track/frame creation, with the following additions:
-    (1) relative_orbit_number as an optional input. Here, the senor and orbit
-        inputs are used to determine the unique listings of the relative orbits.
-        This eliminates the need for the user to specify the relative orbit
-        number, which typically isn't known beforehand.
+    Updated method of inSAR track/frame creation, with the following
+    additions:
+    (1) relative_orbit_number as an optional input. Here, the senor
+        and orbit inputs are used to determine  the unique listings
+        of  the relative orbits. This  eliminates  the need for the
+        user to specify the relative orbit number, which  typically
+        isn't known beforehand.
 
-    (2) optional lat/lon bounding box to generate shp files for a user specified
-        region of interest. 
+    (2) optional lat/lon bounding box to generate shp files for a
+        user specified region of interest.
 
     (3) removed hemisphere command as it was redundant
 
-    (4) latitude width made negative to align with definition of the origin,
-        being the northern-most latitude of the region-of-interest.
+    (4) latitude width made negative to align with definition of the
+        origin, being the northern-most latitude of the region-of-
+        interest.
 
-    (5) added an option to create kml files that contain the selected bursts
-        for each frame in a given relative orbit number
+    (5) added an option to create kml files that contain the selected
+        bursts for each frame in a given relative orbit number
 
     (6) Set sensor and orbit node to optional that default to None
 
@@ -537,7 +578,7 @@ def process_grid_definition_NEW(
         A full path to a directory to store the shape files
 
     latitude_width: float
-        latitude width of a given frame (decimal degrees, and negative).
+        latitude width of a given frame (decimal degrees, & negative).
         default = -1.25
 
     latitude_buffer: float
@@ -558,8 +599,8 @@ def process_grid_definition_NEW(
         default=None selects both S1A and S1B sensors
 
     orbits: str, None
-        {'A' or 'D'} for Sentinel-1 ascending or descending nodes, respectively.
-        default=None selects both A and D nodes
+        {'A' or 'D'} for Sentinel-1 ascending or descending nodes,
+        respectively. default=None selects both A and D nodes
 
     start_date: DateTime, None
         Sentinel 1 acquisition start date
@@ -580,33 +621,44 @@ def process_grid_definition_NEW(
         Eastern longitude (decimal degrees East) of the bounding box
     """
 
-    with open(log_pathname, 'w') as fobj:
+    with open(log_pathname, "w") as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
         # ----------------------------------------- #
         #   check that the user bounding box is OK  #
         # ----------------------------------------- #
         if northern_latitude <= southern_latitude:
+            err_str = (
+                "input bounding box error, northern latitude"
+                " <= southern latitude"
+            )
             _LOG.error(
-                "input bounding box error, northern latitude <= southern latitude",
+                err_str,
                 northern_latitude=northern_latitude,
                 southern_latitude=southern_latitude,
             )
-            raise Exception("bounding box error: northern latitude <= southern latitude\n")
+            raise Exception(err_str + "\n")
 
         if eastern_longitude <= western_longitude:
+            err_str = (
+                "input bounding box error, eastern longitude"
+                " <= western latitude"
+            )
             _LOG.error(
-                "input bounding box error, eastern longitude <= western latitude",
+                err_str,
                 eastern_longitude=eastern_longitude,
                 western_longitude=western_longitude,
             )
-            raise Exception("bounding box error: eastern longitude <= western longitude\n")
+            raise Exception(err_str + "\n")
 
         # latitude width must be negative as the origin is the
         # northern latitude of the bounding box
         if latitude_width > 0:
             _LOG.warning(
-                "input latitude width is positive, multiplying by -1 to convert it to negative",
+                (
+                    "input latitude width is positive, multiplying by -1"
+                    " to convert it to negative"
+                ),
                 latitude_width=latitude_width,
             )
             latitude_width *= -1.0
@@ -615,12 +667,17 @@ def process_grid_definition_NEW(
             _LOG.error(
                 "input latitude width = 0, but expected latitude width < 0",
             )
-            raise Exception("latitude width = 0, but expected latitude width < 0")
+            raise Exception(
+                "latitude width = 0, but expected latitude width < 0"
+            )
 
         # asserting latitude buffer > 0
         if latitude_buffer < 0:
             _LOG.warning(
-                "input latitude (overlap) buffer is negative, taking absolute value to convert it to positive",
+                (
+                    "input latitude (overlap) buffer is negative, taking "
+                    "absolute value to convert it to positive"
+                ),
                 latitude_buffer=latitude_buffer,
             )
             latitude_buffer = abs(latitude_buffer)
@@ -629,23 +686,24 @@ def process_grid_definition_NEW(
             _LOG.error(
                 "input latitude buffer = 0, but expected latitude buffer > 0",
             )
-            raise Exception("latitude buffer = 0, but expected latitude buffer > 0")
+            raise Exception(
+                "latitude buffer = 0, but expected latitude buffer > 0"
+            )
 
         # ensuring that orbits is 'A', 'D' or None
         orbit_node_list = None
         if orbits:
             if orbits.lower() == "a":
-                orbit_node_list = ['A']
+                orbit_node_list = ["A"]
             elif orbits.lower() == "d":
-                orbit_node_list = ['D']
+                orbit_node_list = ["D"]
             else:
                 _LOG.error(
-                    "expected orbit as 'A' or 'D'",
-                    input_orbit=orbits,
+                    "expected orbit as 'A' or 'D'", input_orbit=orbits,
                 )
                 raise Exception("input orbit is neither 'A' nor 'D'")
         else:
-            orbit_node_list = ['A', 'D']
+            orbit_node_list = ["A", "D"]
         # ------------------------------------------- #
         #  first query the database and get a unique  #
         #    listing of the relative orbit numbers    #
@@ -654,24 +712,31 @@ def process_grid_definition_NEW(
 
             # loop through the orbits
             for orbit_node in orbit_node_list:
-                uniq_relorb_nums = archive.get_rel_orbit_nums(orbit_node=orbit_node, sensor_type=sensor, rel_orb_num=relative_orbit_number)
+                uniq_relorb_nums = archive.get_rel_orbit_nums(
+                    orbit_node=orbit_node,
+                    sensor_type=sensor,
+                    rel_orb_num=relative_orbit_number,
+                )
                 # uniq_relorb_nums can be None, [] or [1,2,3,....,N]
 
-                # do not use "if not uniq_relorb_nums:" as None or empty lists ([]) will be accepted
+                # do not use "if not uniq_relorb_nums:" as None or
+                # empty lists ([]) will be accepted
                 if uniq_relorb_nums:
                     # relative orbit numbers were found
                     _LOG.info(
-                         "Sucessfully extracted relative orbit numbers [{0}]".format(", ".join(str(x) for x in uniq_relorb_nums)),
-                         S1_sensor=sensor,
-                         orbit_node=orbit_node,
-                         relative_orbit_num=relative_orbit_number,
+                        "Sucessfully extracted relative orbit numbers",
+                        s1_sensor=sensor,
+                        orbit_node=orbit_node,
+                        extracted_rel_orbs=uniq_relorb_nums,
+                        relative_orbit_num=relative_orbit_number,
                     )
-                    # iterate through the relative orbit numbers and create the shapefiles:
-                    for RelOrb in uniq_relorb_nums:
+                    # iterate through the relative orbit numbers and
+                    # create the shapefiles:
+                    for rel_orb in uniq_relorb_nums:
                         grid_definition(
                             dbfile=database_path,
                             out_dir=out_dir,
-                            rel_orbit=RelOrb,
+                            rel_orbit=rel_orb,
                             sensor=sensor,
                             create_kml=create_kml,
                             orbits=orbit_node,
@@ -689,9 +754,9 @@ def process_grid_definition_NEW(
                     # empty list or errors occured
                     _LOG.info(
                         "No relative orbit numbers were found",
-                        S1_sensor=sensor,
+                        s1_sensor=sensor,
                         orbit_node=orbit_node,
-                        relative_orbit_num=relative_orbit_number
+                        relative_orbit_num=relative_orbit_number,
                     )
 
 
@@ -705,13 +770,17 @@ def process_grid_definition_NEW(
 # ----------------------------------------- #
 # ----------------------------------------- #
 @slc_archive_cli.command(
-    "slc-ingestion", help="slc acquisition details ingestion into the database"
+    "slc-ingestion",
+    help="slc acquisition details ingestion into the database",
 )
 @click.option(
     "--database-name",
     type=click.Path(dir_okay=False, file_okay=True),
     required=True,
-    help="name of database to ingest slc acquisition details (ignored if --save-yaml specified)",
+    help=(
+        "name of database to ingest slc acquisition details "
+        "(ignored if --save-yaml specified)"
+    ),
 )
 @click.option(
     "--year",
@@ -732,14 +801,16 @@ def process_grid_definition_NEW(
     help="base directory where slc data are stored",
 )
 @click.option(
-   "--save-yaml",
-   default=False,
-   is_flag=True,
-   help="If specified, stores SLC metadata as a yaml",
+    "--save-yaml",
+    default=False,
+    is_flag=True,
+    help="If specified, stores SLC metadata as a yaml",
 )
 @click.option(
     "--yaml-dir",
-    type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
+    type=click.Path(
+        exists=True, dir_okay=True, file_okay=False, writable=True
+    ),
     required=False,
     help="directory where the yaml SLC metadata will be stored",
 )
@@ -765,7 +836,7 @@ def process_slc_ingestion(
     Sentinel-1 zip files into:
     (1) a sqlite database, or;
     (2) a series of yaml files.
-    
+
     Note that in (2), the yaml files stored in yaml-dir have the
     same directory structure as the Sentinel-1 database in
     /g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC
@@ -773,7 +844,8 @@ def process_slc_ingestion(
     Parameters
     ----------
     database_name: Path
-        name of sqlite database to ingest slc acquisition details (ignored if --save-yaml specified)
+        name of sqlite database to ingest slc acquisition details.
+        Ignored if --save-yaml specified
 
     year: int
         the year of the Sentinel-1 acquisition
@@ -802,7 +874,7 @@ def process_slc_ingestion(
         Output pathname to a log file
 
     """
-    with open(log_pathname, 'w') as fobj:
+    with open(log_pathname, "w") as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
         year_month = "{:04}-{:02}".format(year, month)
@@ -816,28 +888,35 @@ def process_slc_ingestion(
                     str(grid_dir),
                     [r"^S1[AB]_IW_SLC.*\.zip"],
                     regex=True,
-                    recursive=True
+                    recursive=True,
                 )
                 for scene in scenes_slc:
                     _LOG.info("processing scene", scene=scene)
                     try:
-                        ## Merging a plethora of SQLite databases is a cumbersome task,
-                        ## especially for batch processing across multiple cores.
-                        ## An alternative solution is to simply save the SLC metadata
-                        ## as yaml in a user specified directory (yaml_dir), and
-                        ## then compile all the yaml files into a single SQLite database.
-                        if (save_yaml is True):
+                        # Merging a plethora of SQLite databases is a
+                        # cumbersome task, especially for batch
+                        # processing across multiple cores. An
+                        # alternative solution is to simply save the
+                        # SLC metadata as yaml in a user specified
+                        # directory (yaml_dir), and then compile all
+                        # the yaml files into a single SQLite database.
+                        if save_yaml is True:
                             yaml_dir = Path(yaml_dir)
-                            outdir = yaml_dir.joinpath(str(year), year_month, grid)
+                            outdir = yaml_dir.joinpath(
+                                str(year), year_month, grid,
+                            )
                             generate_slc_metadata(Path(scene), outdir, True)
                         else:
                             with Archive(database_name) as archive:
-                                archive.archive_scene(generate_slc_metadata(Path(scene)))
+                                archive.archive_scene(
+                                    generate_slc_metadata(Path(scene))
+                                )
                     except (AssertionError, ValueError, TypeError) as err:
                         _LOG.error(
                             "failed to execute generate_slc_metadata",
                             scene=scene,
-                            err=err)
+                            err=err,
+                        )
         except IOError as err:
             _LOG.error("directory does not exist", directory=slc_ym_dir)
             raise IOError(err)
@@ -845,8 +924,12 @@ def process_slc_ingestion(
 
 # Create a child command of the slc-archive called slc-ingeest-yaml
 @slc_archive_cli.command(
-   "slc-ingest-yaml", help="Ingestion of Sentinel-1 slc metadata (yaml format) into a SQLite database"
-   )
+    "slc-ingest-yaml",
+    help=(
+        "Ingestion of Sentinel-1 slc metadata (yaml format) "
+        "into a SQLite database"
+    ),
+)
 @click.option(
     "--database-name",
     type=click.Path(dir_okay=False, file_okay=True),
@@ -855,7 +938,9 @@ def process_slc_ingestion(
 )
 @click.option(
     "--yaml-dir",
-    type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
+    type=click.Path(
+        exists=True, dir_okay=True, file_okay=False, writable=True
+    ),
     required=True,
     help="directory containing yaml files that will be ingested",
 )
@@ -866,21 +951,20 @@ def process_slc_ingestion(
     default="yaml-ingestion.jsonl",
 )
 def ingest_slc_yamls(
-   database_name: click.Path,
-   yaml_dir: click.Path,
-   log_pathname: str,
+    database_name: click.Path, yaml_dir: click.Path, log_pathname: str,
 ):
     """
     Description
     -----------
-    A method to ingest slc metadata from yaml files into a sqlite database.
-    This command needs to be run if the --save_yaml commandline argument
-    was used in slc-archive slc-ingestion
+    A method to ingest slc metadata from yaml files into a sqlite
+    database. This command needs to be run if the --save_yaml
+    commandline argument was used in slc-archive slc-ingestion
 
     Parameters
     ----------
     database_name: Path
-        output SQLite database (.db) containing slc acquisition metadata
+        output SQLite database (.db) containing slc acquisition
+        metadata
 
     yaml_dir: Path
         directory containing yaml files that will be ingested
@@ -890,15 +974,12 @@ def ingest_slc_yamls(
 
     """
 
-    with open(log_pathname, 'w') as fobj:
+    with open(log_pathname, "w") as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
         ## Get yaml files from input directory (yaml_dir)
         yaml_slc_files = finder(
-            yaml_dir,
-            [r"S1[AB]_IW_SLC.*\.yaml"],
-            regex=True,
-            recursive=True
+            yaml_dir, [r"S1[AB]_IW_SLC.*\.yaml"], regex=True, recursive=True
         )
         for yaml_file in yaml_slc_files:
             _LOG.info("processing yaml", pathname=yaml_file)
