@@ -24,11 +24,12 @@ from typing import Dict, List, Optional, Type, Union
 from shapely.ops import cascaded_union  # required for select_bursts_in_vector()
 from shapely.geometry import MultiPolygon, Polygon, box
 from spatialist import Vector, sqlite3, sqlite_setup
+import structlog
 import py_gamma as pg
 from insar.xml_util import getNamespaces
 from insar.logs import get_wrapped_logger
 
-_LOG = get_wrapped_logger("status")
+_LOG = structlog.get_logger("insar")
 
 
 class SlcMetadata:

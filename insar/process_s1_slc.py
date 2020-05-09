@@ -9,13 +9,14 @@ from pathlib import Path
 import shutil
 import datetime
 import pandas as pd
+import structlog
 
 import py_gamma as pg
 from insar.constant import SlcFilenames
 from insar.subprocess_utils import working_directory, run_command
 from insar.logs import get_wrapped_logger
 
-_LOG = get_wrapped_logger("status")
+_LOG = structlog.get_logger("insar")
 
 
 class SlcProcess:

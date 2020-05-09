@@ -3,13 +3,14 @@
 import math
 from typing import List, Tuple, Optional, Union
 from pathlib import Path
+import structlog
 import py_gamma as pg
 
 from insar.constant import MliFilenames
 from insar.subprocess_utils import working_directory
 from insar.logs import get_wrapped_logger
 
-_LOG = get_wrapped_logger("status")
+_LOG = structlog.get_logger("insar")
 
 
 def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:

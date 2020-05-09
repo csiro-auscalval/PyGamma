@@ -14,11 +14,12 @@ import geopandas as gpd
 import shapely.wkt
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
+import structlog
 import yaml
 from insar.meta_data.s1_slc import Archive, SlcFrame, SlcMetadata, Generate_kml
 from insar.logs import get_wrapped_logger
 
-_LOG = get_wrapped_logger("status")
+_LOG = structlog.get_logger("insar")
 
 
 def generate_slc_metadata(

@@ -3,7 +3,6 @@
 import os
 import math
 import re
-import logging
 from typing import List, Optional, Tuple, Union
 from collections import namedtuple
 import datetime
@@ -17,9 +16,8 @@ from mpl_toolkits.axes_grid import make_axes_locatable
 from matplotlib import dates as mdates
 import numpy as np
 
-from insar.logs import get_wrapped_logger
 
-_LOG = get_wrapped_logger("status")
+_LOG = structlog.get_logger("insar")
 
 
 class SlcParFileParser:
