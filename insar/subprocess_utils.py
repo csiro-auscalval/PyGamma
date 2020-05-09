@@ -8,10 +8,11 @@ import subprocess
 import contextlib
 
 from luigi import six
+import structlog
 
 from insar.logs import get_wrapped_logger
 
-_LOG = get_wrapped_logger("status")
+_LOG = structlog.get_logger("insar")
 
 os.environ["CPL_ZIP_ENCODING"] = "UTF-8"
 

@@ -15,7 +15,7 @@ from insar.meta_data.s1_gridding_utils import generate_slc_metadata
 from insar.logs import COMMON_PROCESSORS
 
 structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger("status")
+_LOG = structlog.get_logger("insar")
 
 
 ALIAS_FMT = {"gamma0": "nrb_{}", "sigma0": "rb_{}"}

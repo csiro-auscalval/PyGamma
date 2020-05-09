@@ -23,7 +23,7 @@ from insar.meta_data.s1_slc import Archive
 from insar.logs import COMMON_PROCESSORS, STATUS_LOGGER
 
 structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger("status")
+_LOG = structlog.get_logger("insar")
 GRID_NAME_FMT = "{track}_{frame}{ext}"
 
 

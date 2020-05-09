@@ -12,6 +12,7 @@ import datetime
 from io import BytesIO
 import fnmatch
 import shutil
+import structlog
 
 import geopandas as gpd
 import numpy as np
@@ -26,7 +27,7 @@ import py_gamma as pg
 from insar.xml_util import getNamespaces
 from insar.logs import get_wrapped_logger
 
-_LOG = get_wrapped_logger("status")
+_LOG = structlog.get_logger("insar")
 
 
 class SlcMetadata:
