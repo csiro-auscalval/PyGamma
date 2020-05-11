@@ -22,8 +22,8 @@ git checkout -b pygamma_workflow
 
 # set up a local Python 3.6 runtime environment
 source configs/insar.env  # should be error/warning free
-export CUSTOM_PY_INSTALL=~/.digitalearthau/dea-env/20191127/local/lib/python3.6/site-packages/
-mkdir -p $CUSTOM_PY_INSTALL
+export CUSTOM_PY_INSTALL=~/.digitalearthau/dea-env/20191127/local
+mkdir -p $CUSTOM_PY_INSTALL/lib/python3.6/site-packages/
 python setup.py install --prefix=$CUSTOM_PY_INSTALL
 ```
 
