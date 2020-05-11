@@ -357,7 +357,7 @@ class SlcMetadata:
                 return burst_info
 
             with tempfile.TemporaryDirectory() as tmp_dir:
-                self.extract_archive_tofile(target_file=xml_path, outdir=tmp_dir, retry=0)
+                self.extract_archive_tofile(target_file=xml_path, outdir=tmp_dir, retry=3)
 
                 # py_gamma parameters
                 cout = []
@@ -531,13 +531,16 @@ class SlcMetadata:
         ):
             # check the size (in Bytes) of o_file
             # against size of source file
-            # 
+            #
             # o_file: str
             # expected_size: int
             size_ok = False
             if os.path.exists(o_file):
                 if os.path.getsize(o_file) == expected_size:
                     size_ok = True
+            else:
+                _LOG.info("_check_byte_size(): {} does not exist".format(o_file))
+
             return size_ok
 
         # ---------------------------- #
@@ -556,17 +559,19 @@ class SlcMetadata:
         # target_file = S1A_IW_SLC__1SDV_20180106T193808_{blah}_8674.SAFE/annotation/s1a-iw1-{blah}-004.xml
         # target_file = S1A_IW_SLC__1SDV_20180106T193808_{blah}_8674.SAFE/measurement/s1a-iw1-{blah}-004.tiff
         with zf.ZipFile(self.scene, "r") as zip_archive:
-            # open S1 zip and get contents from a target file 
+            # open S1 zip and get contents from a target file
             source_size = zip_archive.getinfo(target_file).file_size
             archive_dump = zip_archive.read(target_file)  # <class 'bytes'>
 
         _copy_target_contents(outfile, archive_dump)
 
         if retry <= 0:
+            _LOG.info("extract_archive_tofile(): no retries specified", retry=retry)
             return None
 
         else:
-            if _check_byte_size(outfile, source_size) is True:
+            if _check_byte_size(outfile, source_size):
+                _LOG.info("extract_archive_tofile(): _check_byte_size() returned True (no retries performed)")
                 return None
 
             _LOG.info(
@@ -582,6 +587,7 @@ class SlcMetadata:
             while retry_count < retry:
 
                 # retry copying the contents of the archive
+                # TODO: can other checks be done to verify the process?
                 _copy_target_contents(outfile, archive_dump)
                 if _check_byte_size(outfile, source_size) is False:
                     # size of copied archive != original archive
@@ -1486,7 +1492,7 @@ class Archive:
             poly_wkt_list.append(shapely.wkt.loads(row_[2]))
             subswath_set.add(row_[4])
         # Note:
-        # subswath_set = {'IW1'}, {'IW2'}, {'IW3'},        
+        # subswath_set = {'IW1'}, {'IW2'}, {'IW3'},
         #                {'IW1', 'IW2'}, {'IW1', 'IW3'}, {'IW2', 'IW3'} or
         #                {'IW1', 'IW2', 'IW3'}
         #
@@ -1503,8 +1509,8 @@ class Archive:
             # 1 aquisition are utilised.
             #
             # convert list of Polygons to Multipolygon and get the
-            # convex_hull  coordinates. This is  a simple approach 
-            # at obtaining the boundary  of the bursts selected by 
+            # convex_hull  coordinates. This is  a simple approach
+            # at obtaining the boundary  of the bursts selected by
             # the initial query
             _LOG.info(
                 "less than 3 subswaths intersected the frame, refining the database query",
@@ -1529,7 +1535,7 @@ class Archive:
                 # bursts contained from the initial query plus any
                 # additional overlapping bursts. The refined query
                 # will replace/overwrite initial query as this is
-                # easier than finding then appending these new 
+                # easier than finding then appending these new
                 # overlapping bursts.
                 #
                 # Note refined query doesn't always find additional
@@ -1553,7 +1559,7 @@ class Archive:
                 "geopandas data frame (slc_df) fail from db query",
                 frame_num=frame_num,
                 slc_metdata=args,
-            ) 
+            )
             return
 
         geopandas_df = gpd.GeoDataFrame(
@@ -1583,7 +1589,7 @@ class SlcFrame:
     """
     A class to create a Frame definition based on
     a latitude/longitude bounding box, the latitude
-    width and the buffer size of the frame. The 
+    width and the buffer size of the frame. The
     default values for the bounding box cover
     continental Australia.
 
