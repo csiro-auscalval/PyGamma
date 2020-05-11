@@ -7,14 +7,12 @@ import signal
 import subprocess
 import contextlib
 
-import structlog
 from luigi import six
+import structlog
 
-from insar.logs import COMMON_PROCESSORS
+from insar.logs import get_wrapped_logger
 
-# _LOG = logging.getLogger(__name__)
-structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger()
+_LOG = structlog.get_logger("insar")
 
 os.environ["CPL_ZIP_ENCODING"] = "UTF-8"
 

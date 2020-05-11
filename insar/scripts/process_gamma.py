@@ -12,6 +12,7 @@ import luigi.configuration
 import pandas as pd
 from luigi.util import requires
 import zlib
+import structlog
 
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.calc_baselines_new import BaselineProcess
@@ -28,7 +29,10 @@ from insar.clean_up import (
     clean_gammademdir,
     clean_demdir,
 )
-from insar.logs import TASK_LOGGER, STATUS_LOGGER
+from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+
+structlog.configure(processors=COMMON_PROCESSORS)
+_LOG = structlog.get_logger("insar")
 
 __RAW__ = "RAW_DATA"
 __SLC__ = "SLC"
@@ -968,7 +972,9 @@ class ARD(luigi.WrapperTask):
 
 
 def run():
-    luigi.run()
+    with open('insar-log.jsonl', 'w') as fobj:
+        structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
+        luigi.run()
 
 
 if __name__ == "__name__":

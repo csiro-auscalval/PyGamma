@@ -10,7 +10,6 @@ import shutil  # required for S1DataDownload
 import fnmatch  # required for S1DataDownload
 import tempfile
 import datetime  # changed to keep consistency with S1DataDownload (removed from datetime import datetime)
-import structlog
 import shapely.wkt
 import xml.etree.ElementTree as etree
 import zipfile as zf
@@ -25,11 +24,12 @@ from typing import Dict, List, Optional, Type, Union
 from shapely.ops import cascaded_union  # required for select_bursts_in_vector()
 from shapely.geometry import MultiPolygon, Polygon, box
 from spatialist import Vector, sqlite3, sqlite_setup
+import structlog
 import py_gamma as pg
 from insar.xml_util import getNamespaces
+from insar.logs import get_wrapped_logger
 
-# _LOG = logging.getLogger(__name__)
-_LOG = structlog.get_logger()
+_LOG = structlog.get_logger("insar")
 
 
 class SlcMetadata:

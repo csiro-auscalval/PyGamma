@@ -8,11 +8,9 @@ import py_gamma as pg
 
 from insar.constant import MliFilenames
 from insar.subprocess_utils import working_directory
-from insar.logs import COMMON_PROCESSORS
+from insar.logs import get_wrapped_logger
 
-# _LOG = logging.getLogger(__name__)
-structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger()
+_LOG = structlog.get_logger("insar")
 
 
 def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:

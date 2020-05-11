@@ -10,11 +10,9 @@ import structlog
 
 import py_gamma as pg
 from insar.subprocess_utils import working_directory, run_command, environ
-from insar.logs import COMMON_PROCESSORS
+from insar.logs import get_wrapped_logger
 
-# _LOG = logging.getLogger(__name__)
-structlog.configure(processors=COMMON_PROCESSORS)
-_LOG = structlog.get_logger()
+_LOG = structlog.get_logger("insar")
 
 
 class SlcParFileParser:

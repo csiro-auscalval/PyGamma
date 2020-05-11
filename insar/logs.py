@@ -24,9 +24,10 @@ COMMON_PROCESSORS = [
 
 def get_wrapped_logger(logger_name: str = "root", **kwargs):
     """ Returns a struct log equivalent for the named logger """
-    return structlog.wrap_logger(
+    logger = structlog.wrap_logger(
         logging.getLogger(logger_name), COMMON_PROCESSORS, **kwargs
     )
+    return logger
 
 
 class FormatJSONL(logging.Formatter):
