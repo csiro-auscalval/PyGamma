@@ -576,7 +576,6 @@ class SlcMetadata:
 
             _LOG.info(
                 "retrying extraction",
-                retry_count=retry_count,
                 max_retries=retry,
                 target_file=target_file,
                 slc_scene=self.scene,
