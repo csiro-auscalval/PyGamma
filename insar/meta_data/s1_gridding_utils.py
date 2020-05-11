@@ -250,15 +250,15 @@ def grid_from_frame(
         definition.
 
     latitude_buffer: float (default = 0.01)
-        The buffer to include in latitude width to facilitate the
+        The buffer (decimal degrees) usd to facilitate the
         overlaps needed between two grids along a relative orbit.
 
     start_date: datetime or None
-        Optional start date of acquisition to account in forming a
+        Start date of acquisition to account in forming a
         grid definition.
 
     end_date: datetime or None
-        Optional end date of acquisition to account in forming a grid
+        End date of acquisition to account in forming a grid
         definition.
 
     grid_track: str
