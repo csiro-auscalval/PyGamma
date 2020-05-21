@@ -811,7 +811,7 @@ class S1DataDownload(SlcMetadata):
 class Archive:
     """
     A class to create a light-weight sqlite database to archive slc metadata
-    and facilitate a automated query into a database.
+    and facilitate an automated query into a database.
     """
 
     def __init__(
@@ -1057,7 +1057,7 @@ class Archive:
         lats: List[float],
         lons: List[float],
     ):
-        """Returns coorner from given latitudes and longitudes."""
+        """Returns corner from given latitudes and longitudes."""
 
         return {
             "xmin": min(lons),
@@ -1073,17 +1073,22 @@ class Archive:
         """Returns all the measurement fieldnames for a slc scene."""
 
         return {
-            k for k, v in self.metadata["measurements"][measurement_key].items()
+            k for k in self.metadata["measurements"][measurement_key].keys()
         }
 
     def get_measurement_metadata(
         self,
         measurement_key: str,
     ):
-        """Returns metadata associated with all slc measurement field names."""
+        """
+        Returns a copy of the metadata associated with all slc
+        measurement field names. Note, certain keys/items in
+        this dictionary are deleted in get_swath_bursts_metadata(),
+        hence why a copy is returned.
+        """
 
         return {
-            mk: mv for mk, mv in self.metadata["measurements"][measurement_key].items()
+            k: v for k, v in self.metadata["measurements"][measurement_key].items()
         }
 
     def get_slc_metadata(self):
@@ -1203,13 +1208,12 @@ class Archive:
             # creating grids/frames and doesn't need to be perfect.
 
             # iterate through subswaths and get "total_bursts"
-            max_burst_tot = 0
-            min_burst_tot = 1e4
+            max_burst_tot = 0  # max. number of rows possible
+            min_burst_tot = 1e4  # max. number of complete rows
             max_burst_keys = list()
             max_burst_nums = list()
             for _iw in subswaths_dict[_pol]:
                 total_bursts = subswaths_dict[_pol][_iw]["total_bursts"]
-                #print("{0}: {1}".format(_iw, total_bursts))
                 if total_bursts > max_burst_tot:
                     max_burst_tot = total_bursts
                     max_burst_keys = subswaths_dict[_pol][_iw]["burst_key"]
@@ -1217,8 +1221,6 @@ class Archive:
 
                 if total_bursts < min_burst_tot:
                     min_burst_tot = total_bursts
-            # max_burst_tot = maximum number of rows possible
-            # min_burst_tot = number of complete rows
 
             iw_append_key = []  # sub-swaths with incomplete rows
             for _iw in subswaths_dict[_pol]:
@@ -1335,7 +1337,7 @@ class Archive:
             the table name in the database
 
         Return
-           a list of the column names in the tab;e
+           a list of the column names in the table
         """
         cursor = self.conn.cursor()
         cursor.execute("PRAGMA table_info({})".format(table_name))
