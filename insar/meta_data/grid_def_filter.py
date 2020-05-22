@@ -19,7 +19,7 @@
 
 """
 
-# get a unique listing of the different tracks 
+# get a unique listing of the different tracks
 # for each unique track find the frames.
 import os
 import sys
@@ -28,15 +28,18 @@ import numpy as np
 from pathlib import Path
 from os.path import join as pjoin
 
+
 @click.group()
 @click.version_option()
 def cli():
     """
     Command line interface parent group
     """
+
+
 @cli.command(
     name="create-task-files",
-    help="creates task files that are used in pbs batch processing"
+    help="creates task files that are used in pbs batch processing",
 )
 @click.option(
     "--input-path",
@@ -53,7 +56,7 @@ def cli():
 def generate_task_files(
     input_path: click.Path,
     out_dir: click.Path,
-    ):
+):
     """
 
     Parameters
@@ -70,14 +73,14 @@ def generate_task_files(
     # find the unique tracks
     all_tracks = []
     shape_files = []
-    for f in  os.listdir(input_path):
+    for f in os.listdir(input_path):
         full_f = pjoin(input_path, f)
         if os.path.isfile(full_f) and f.lower().endswith(".shp"):
             shape_files.append(full_f)
             all_tracks.append(f.split("_")[0])
 
-    all_tracks = np.array(all_tracks, order='C')
-    shape_files= np.array(shape_files, order='C')
+    all_tracks = np.array(all_tracks, order="C")
+    shape_files = np.array(shape_files, order="C")
 
     # iterate through the unique tracks and obtain all frames
     for track in np.unique(all_tracks):
@@ -87,6 +90,7 @@ def generate_task_files(
 
         with open(out_filename, "w") as fid:
             fid.write("\n".join(shp_for_track))
+
 
 if __name__ == "__main__":
     cli()
