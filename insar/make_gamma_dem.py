@@ -121,7 +121,7 @@ def create_gamma_dem(
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
             if stat != 0:
                 msg = "failed to execute pg.dem_import"
@@ -141,7 +141,7 @@ def create_gamma_dem(
                     no_data=no_data,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
