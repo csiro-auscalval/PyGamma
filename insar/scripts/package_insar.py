@@ -137,7 +137,8 @@ def _get_metadata(par_file: Union[Path, str]) -> Dict:
 
 
 def _slc_files(
-    burst_data: Union[Path, str, pd.DataFrame], acquisition_date: datetime.date
+    burst_data: Union[Path, str, pd.DataFrame],
+    acquisition_date: datetime.date,
 ) -> Iterable[str]:
     """
     Returns the SLC files used in forming Single-Look-Composite image.
@@ -154,15 +155,20 @@ def _slc_files(
     if not isinstance(burst_data, pd.DataFrame):
         burst_data = pd.read_csv(Path(burst_data).as_posix())
 
-    burst_data["acquisition_datetime"] = pd.to_datetime(burst_data["acquistion_datetime"])
-    burst_data["date"] = burst_data["acquisition_datetime"].apply(lambda x: pd.Timestamp(x).date())
+    burst_data["acquisition_datetime"] = pd.to_datetime(
+        burst_data["acquistion_datetime"]
+    )
+    burst_data["date"] = burst_data["acquisition_datetime"].apply(
+        lambda x: pd.Timestamp(x).date()
+    )
     _subset_burst_data = burst_data[burst_data["date"] == acquisition_date]
 
     return [item for item in _subset_burst_data.url.unique()]
 
 
 def _find_products(
-    base_dir: Union[Path, str], product_suffixs: Iterable[str]
+    base_dir: Union[Path, str],
+    product_suffixs: Iterable[str],
 ) -> List[Path]:
     """Returns List of matched suffix files from base_dir."""
     matched_files = []
@@ -188,10 +194,7 @@ def _write_measurements(
         try:
             _, pol, _, _suffix = product.stem.split("_")
         except:
-            _LOG.error(
-                "filename pattern not recognized",
-                product_name=product.name
-            )
+            _LOG.error("filename pattern not recognized", product_name=product.name)
             raise ValueError(f"{product.name} not recognized filename pattern")
 
         p.write_measurement(
@@ -214,15 +217,10 @@ def _write_angles_measurements(
         try:
             _, _name = product.stem.split(".")
         except:
-            _LOG.error(
-                "filename pattern not recognized",
-                product_name=product.name
-            )
+            _LOG.error("filename pattern not recognized", product_name=product.name)
             raise ValueError(f"{product.name} not recognized filename pattern")
 
-        p.write_measurement(
-            f"{_name}", product, overviews=None
-        )
+        p.write_measurement(f"{_name}", product, overviews=None)
 
 
 @attr.s(auto_attribs=True)
@@ -256,7 +254,9 @@ class SLC:
                 .iterdir()
             ):
                 package_status = True
-                dem_path = Path(stack_base_path).joinpath(map_product(product)["dem_base"])
+                dem_path = Path(stack_base_path).joinpath(
+                    map_product(product)["dem_base"]
+                )
                 burst_data = Path(stack_base_path).joinpath(
                     f"{_track}_{_frame}_burst_data.csv"
                 )
@@ -278,11 +278,13 @@ class SLC:
                         break
                 if par_files is None:
                     package_status = False
-                    _LOG.info(f"missing required parameter needed for packaging"
-                              f"for in {slc_scene_path}")
+                    _LOG.info(
+                        f"missing required parameter needed for packaging"
+                        f"for in {slc_scene_path}"
+                    )
                     _LOG.info(
                         "missing parameter required for packaging",
-                        slc_path=str(slc_scene_path)
+                        slc_path=str(slc_scene_path),
                     )
 
                 scene_date = datetime.datetime.strptime(
@@ -299,7 +301,7 @@ class SLC:
                         Path(_url).stem: generate_slc_metadata(Path(_url))
                         for _url in slc_urls
                     },
-                    status=package_status
+                    status=package_status,
                 )
         else:
             raise NotImplementedError(f"packaging of {product} is not implemented")
@@ -400,30 +402,32 @@ def package(
 
 @click.command()
 @click.option(
-    "--track", type=click.STRING,
-    help="track name of the grid definition: `T001D`"
+    "--track", type=click.STRING, help="track name of the grid definition: `T001D`"
 )
 @click.option(
-    "--frame", type=click.STRING,
-    help="Frame name of the grid definition: `F02S`"
+    "--frame", type=click.STRING, help="Frame name of the grid definition: `F02S`"
 )
 @click.option(
-    "--input-dir", type=click.Path(exists=True, readable=True),
-    help="The base directory of InSAR datasets"
+    "--input-dir",
+    type=click.Path(exists=True, readable=True),
+    help="The base directory of InSAR datasets",
 )
 @click.option(
-    "--pkgdir", type=click.Path(exists=True, writable=True),
-    help="The base output packaged directory."
+    "--pkgdir",
+    type=click.Path(exists=True, writable=True),
+    help="The base output packaged directory.",
 )
 @click.option(
-    "--product", type=click.STRING,
-    default='sar',
-    help="The product to be packaged: sar|insar"
+    "--product",
+    type=click.STRING,
+    default="sar",
+    help="The product to be packaged: sar|insar",
 )
 @click.option(
-    "--polarization", type=click.Tuple([str, str]),
-    default=('VV', 'VH'),
-    help="Polarizations used in metadata consolidations for product."
+    "--polarization",
+    type=click.Tuple([str, str]),
+    default=("VV", "VH"),
+    help="Polarizations used in metadata consolidations for product.",
 )
 @click.option(
     "--log-pathname",
@@ -431,8 +435,18 @@ def package(
     help="Output pathname to contain the logging events.",
     default="packaging-insar-data.jsonl",
 )
-def main(track, frame, input_dir, pkgdir, product, polarization, log_pathname):
-    with open(log_pathname, 'w') as fobj:
+
+def main(
+    track,
+    frame,
+    input_dir,
+    pkgdir,
+    product,
+    polarization,
+    log_pathname,
+):
+
+    with open(log_pathname, "w") as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
         _LOG.info(
@@ -442,7 +456,7 @@ def main(track, frame, input_dir, pkgdir, product, polarization, log_pathname):
             track_frame_base=input_dir,
             out_directory=pkgdir,
             product=product,
-            polarizations=polarization
+            polarizations=polarization,
         )
         package(
             track=track,
@@ -450,5 +464,5 @@ def main(track, frame, input_dir, pkgdir, product, polarization, log_pathname):
             track_frame_base=input_dir,
             out_directory=pkgdir,
             product=product,
-            polarizations=polarization
+            polarizations=polarization,
         )
