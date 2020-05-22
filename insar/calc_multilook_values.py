@@ -13,7 +13,9 @@ from insar.logs import get_wrapped_logger
 _LOG = structlog.get_logger("insar")
 
 
-def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:
+def calculate_slc_look_values(
+    slc_par_file: Union[Path, str],
+) -> Tuple:
     """Calculates the range and azimuth look values."""
 
     _par_vals = pg.ParFile(Path(slc_par_file).as_posix())
@@ -30,7 +32,10 @@ def calculate_slc_look_values(slc_par_file: Union[Path, str]) -> Tuple:
     return azsp, rgsp, inc
 
 
-def calculate_mean_look_values(slc_par_files: List, multi_look: int) -> Tuple:
+def calculate_mean_look_values(
+    slc_par_files: List,
+    multi_look: int,
+) -> Tuple:
     """Calculate mean slc look (range, azimuth, and incidence) angles from a temporal stack.
 
     :param slc_par_files:
@@ -101,8 +106,12 @@ def multilook(
         err_msg = f"{slc.stem} needs to be in scene_date_polarization format"
         raise ValueError(err_msg)
 
-    mli = MliFilenames.MLI_FILENAME.value.format(scene_date=scene_date, pol=pol, rlks=str(rlks))
-    mli_par = MliFilenames.MLI_PAR_FILENAME.value.format(scene_date=scene_date, pol=pol, rlks=str(rlks))
+    mli = MliFilenames.MLI_FILENAME.value.format(
+        scene_date=scene_date, pol=pol, rlks=str(rlks)
+    )
+    mli_par = MliFilenames.MLI_PAR_FILENAME.value.format(
+        scene_date=scene_date, pol=pol, rlks=str(rlks)
+    )
     work_dir = slc.parent
 
     if outdir is not None:
@@ -132,7 +141,7 @@ def multilook(
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -148,6 +157,6 @@ def multilook(
                 loff=loff,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
