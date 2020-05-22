@@ -51,7 +51,7 @@ class Wildcards(Enum):
     MLI_PAR_TYPE = "*.mli.par"
     MLI_TYPE = "*.mli"
     GAMMA0_TYPE = "*gamma0*"
-    SIGMA0_TYPE = "*sigma0*"            
+    SIGMA0_TYPE = "*sigma0*"
     # ifg directory
     FLT_TYPE = "*.flt"
     MODEL_UNW_TYPE = "*_model.unw"
