@@ -20,8 +20,11 @@ import unittest
 import pytest
 import pandas as pd
 
-from insar.meta_data import s1_slc  ## this script uses Archive, SlcMetadata and S1DataDownload
-#from insar.s1_slc_metadata import S1DataDownload  ## s1_slc_metadata is a duplicate of meta_data.s1_slc
+from insar.meta_data import (
+    s1_slc,
+)  ## this script uses Archive, SlcMetadata and S1DataDownload
+
+# from insar.s1_slc_metadata import S1DataDownload  ## s1_slc_metadata is a duplicate of meta_data.s1_slc
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
@@ -60,7 +63,10 @@ def slc_data():
 
 
 @pytest.fixture()
-def sqlite_database(tmp_path, slc_data):
+def sqlite_database(
+    tmp_path,
+    slc_data,
+):
     db_name = tmp_path.joinpath("test_slcdb.db")
     with s1_slc.Archive(db_name) as archive:
         for s1_path in slc_data:
@@ -132,7 +138,10 @@ def test_slc_inputs(query_results):
             )
 
 
-def test_s1datadownload(tmp_path, query_results):
+def test_s1datadownload(
+    tmp_path,
+    query_results,
+):
     """Test SLC download"""
     results_test, results_validate = query_results
     slc_inputs_df = pd.concat([slc_inputs(results_test[pol]) for pol in ["VV", "VH"]])
@@ -225,7 +234,10 @@ def test_creategammadem(tmp_path):
         assert set(test_pars) == set(val_pars)
 
 
-def test_slcprocess(tmp_path, query_results):
+def test_slcprocess(
+    tmp_path,
+    query_results,
+):
     """Test slc process"""
     results_test, _ = query_results
     scene_date = "20160101"
@@ -308,10 +320,7 @@ def test_baselineprocess(tmp_path):
         shutil.copyfile(__DATA__.joinpath("20160101_VV.slc.par"), dst)
 
     bjob = BaselineProcess(
-        par_files,
-        ["VV"],
-        master_scene=datetime.date(2016,3,1),
-        outdir=tmp_path
+        par_files, ["VV"], master_scene=datetime.date(2016, 3, 1), outdir=tmp_path
     )
     bjob.sbas_list()
 
@@ -411,5 +420,3 @@ def test_coregisterslaves(tmp_path):
 
     for key, val in test_dict.items():
         assert val[0] == val_dict[key][0]
-
-
