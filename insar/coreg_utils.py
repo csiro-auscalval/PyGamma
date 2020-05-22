@@ -9,7 +9,12 @@ def parse_date(scene_name):
     return datetime.datetime.strptime(scene_name, SCENE_DATE_FMT)
 
 
-def coregristration_candidates(scenes, master_idx, threshold, max_slave_idx=None):
+def coregristration_candidates(
+    scenes,
+    master_idx,
+    threshold,
+    max_slave_idx=None,
+):
     """
     Returns slave scene index  to be co-registered with master scene and
     checks if co-registration of scenes are complete or not.
@@ -21,7 +26,7 @@ def coregristration_candidates(scenes, master_idx, threshold, max_slave_idx=None
     is_complete = False
     _master_date = parse_date(scenes[master_idx])
 
-    for idx, scene in enumerate(scenes[master_idx + 1:], master_idx + 1):
+    for idx, scene in enumerate(scenes[master_idx + 1 :], master_idx + 1):
         if max_slave_idx and idx > max_slave_idx:
             break
         if abs((parse_date(scene) - _master_date).days) > threshold:
@@ -37,7 +42,11 @@ def coregristration_candidates(scenes, master_idx, threshold, max_slave_idx=None
     return slave_idx, is_complete
 
 
-def coreg_candidates_after_master_scene(scenes, masters_list, main_master):
+def coreg_candidates_after_master_scene(
+    scenes,
+    masters_list,
+    main_master,
+):
     """
     Return co-registration pairs for scenes after main master scene's date.
     :param scenes: list of scenes strings in '%Y%m%d' format.
@@ -72,7 +81,11 @@ def coreg_candidates_after_master_scene(scenes, masters_list, main_master):
     return coregistration_scenes
 
 
-def coreg_candidates_before_master_scene(scenes, masters_list, main_master):
+def coreg_candidates_before_master_scene(
+    scenes,
+    masters_list,
+    main_master,
+):
     """
     Return co-registration pairs for scenes before main master scene's date.
 
@@ -86,7 +99,8 @@ def coreg_candidates_before_master_scene(scenes, masters_list, main_master):
         scene for scene in masters_list if parse_date(scene) <= parse_date(main_master)
     ]
     masters.sort(
-        key=lambda date: datetime.datetime.strptime(date, SCENE_DATE_FMT), reverse=True
+        key=lambda date: datetime.datetime.strptime(date, SCENE_DATE_FMT),
+        reverse=True,
     )
 
     coregistration_scenes = {}
