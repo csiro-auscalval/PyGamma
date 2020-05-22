@@ -22,7 +22,10 @@ _LOG = structlog.get_logger("insar")
 
 
 class SlcParFileParser:
-    def __init__(self, par_file: Union[Path, str]) -> None:
+    def __init__(
+        self,
+        par_file: Union[Path, str],
+    ) -> None:
         """
         Convenient access fields for SLC image parameter properties
 
@@ -45,7 +48,10 @@ class SlcParFileParser:
 
 
 class DemParFileParser:
-    def __init__(self, par_file: Union[Path, str]) -> None:
+    def __init__(
+        self,
+        par_file: Union[Path, str],
+    ) -> None:
         """
         Convenient access fields for DEM image parameter properties.
 
@@ -131,29 +137,23 @@ class CoregisterSlc:
         if not self.r_dem_master_mli_par.exists():
             _LOG.error(
                 "DEM Master MLI par file not found",
-                pathname=str(self.r_dem_master_mli_par)
+                pathname=str(self.r_dem_master_mli_par),
             )
 
         self.r_dem_master_slc_par = self.slc_master.with_suffix(".slc.par")
         if not self.r_dem_master_slc_par.exists():
             _LOG.error(
                 "DEM Master SLC par file not found",
-                pathname=str(self.r_dem_master_slc_par)
+                pathname=str(self.r_dem_master_slc_par),
             )
 
         self.slc_slave_par = self.slc_slave.with_suffix(".slc.par")
         if not self.slc_slave_par.exists():
-            _LOG.error(
-                "SLC Slave par file not found",
-                pathname=str(self.slc_slave_par)
-            )
+            _LOG.error("SLC Slave par file not found", pathname=str(self.slc_slave_par))
 
         self.slave_mli_par = self.slave_mli.with_suffix(".mli.par")
         if not self.slave_mli_par.exists():
-            _LOG.error(
-                "Slave MLI par file not found",
-                pathname=str(self.slave_mli_par)
-            )
+            _LOG.error("Slave MLI par file not found", pathname=str(self.slave_mli_par))
 
         self.master_sample = self.master_sample_size()
 
@@ -172,7 +172,10 @@ class CoregisterSlc:
         self.master_slave_prefix = f"{self.slc_master.stem}-{self.slc_slave.stem}"
 
     @staticmethod
-    def swath_tab_names(swath: int, prefix: str) -> namedtuple:
+    def swath_tab_names(
+        swath: int,
+        prefix: str,
+    ) -> namedtuple:
         """
         Returns namedtuple swath-slc names.
         
@@ -191,9 +194,12 @@ class CoregisterSlc:
         swath_tab = namedtuple("swath_tab", ["slc", "par", "tops_par"])
         return swath_tab(swath_slc, swath_par, swath_tops_par)
 
-    def set_tab_files(self, out_dir: Optional[Union[Path, str]] = None):
+    def set_tab_files(
+        self,
+        out_dir: Optional[Union[Path, str]] = None,
+    ):
         """Writes tab files used in slave co-registration."""
-        
+
         if out_dir is None:
             out_dir = self.out_dir
 
@@ -216,7 +222,10 @@ class CoregisterSlc:
         self.r_slave_slc = out_dir.joinpath(f"r{self.slc_slave.name}")
         self.r_slave_slc_par = out_dir.joinpath(f"r{self.slc_slave.name}.par")
 
-    def get_lookup(self, outfile: Optional[Path] = None) -> None:
+    def get_lookup(
+        self,
+        outfile: Optional[Path] = None,
+    ) -> None:
         """Determine lookup table based on orbit data and DEM."""
 
         self.slave_lt = outfile
@@ -239,7 +248,7 @@ class CoregisterSlc:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -252,7 +261,7 @@ class CoregisterSlc:
                 lookup_table_pathname=lookup_table_pathname,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -318,7 +327,10 @@ class CoregisterSlc:
                 fid.write(_slc + " " + _par + " " + _tops_par + "\n")
 
     @staticmethod
-    def _grep_stdout(std_output: list, match_start_string: str) -> str:
+    def _grep_stdout(
+        std_output: list,
+        match_start_string: str,
+    ) -> str:
         """
         A helper method to return matched string from std_out.
         
@@ -337,7 +349,8 @@ class CoregisterSlc:
 
     @staticmethod
     def _grep_offset_parameter(
-        offset_file: Union[Path, str], match_start_string: Optional[str] = None
+        offset_file: Union[Path, str],
+        match_start_string: Optional[str] = None,
     ) -> Union[Dict, List]:
         """
         Method to read an offset parameter file. 
@@ -403,7 +416,7 @@ class CoregisterSlc:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -419,7 +432,7 @@ class CoregisterSlc:
                 iflg=iflg,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -470,7 +483,7 @@ class CoregisterSlc:
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
-                        stderr_flag=False
+                        stderr_flag=False,
                     )
 
                     if stat != 0:
@@ -490,7 +503,7 @@ class CoregisterSlc:
                             slc2r_par_pathname=slc2r_par_pathname,
                             stat=stat,
                             gamma_stdout=cout,
-                            gamma_stderr=cerr
+                            gamma_stderr=cerr,
                         )
                         raise Exception(msg)
 
@@ -520,7 +533,7 @@ class CoregisterSlc:
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
-                        stderr_flag=False
+                        stderr_flag=False,
                     )
 
                     if stat != 0:
@@ -536,7 +549,7 @@ class CoregisterSlc:
                             iflg=iflg,
                             stat=stat,
                             gamma_stdout=cout,
-                            gamma_stderr=cerr
+                            gamma_stderr=cerr,
                         )
                         raise Exception(msg)
 
@@ -585,7 +598,7 @@ class CoregisterSlc:
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
-                        stderr_flag=False
+                        stderr_flag=False,
                     )
 
                     if stat != 0:
@@ -612,7 +625,7 @@ class CoregisterSlc:
                             azstop=azstop,
                             stat=stat,
                             gamma_stdout=cout,
-                            gamma_stderr=cerr
+                            gamma_stderr=cerr,
                         )
                         raise Exception(msg)
 
@@ -641,7 +654,7 @@ class CoregisterSlc:
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
-                        stderr_flag=False
+                        stderr_flag=False,
                     )
 
                     if stat != 0:
@@ -658,15 +671,14 @@ class CoregisterSlc:
                             interact_mode=interact_mode,
                             stat=stat,
                             gamma_stdout=cout,
-                            gamma_stderr=cerr
+                            gamma_stderr=cerr,
                         )
                         raise Exception(msg)
 
                     range_stdev, azimuth_stdev = re.findall(
                         "[-+]?[0-9]*\.?[0-9]+",
                         self._grep_stdout(
-                            cout,
-                            "final model fit std. dev. (samples) range:"
+                            cout, "final model fit std. dev. (samples) range:"
                         ),
                     )
 
@@ -684,21 +696,21 @@ class CoregisterSlc:
 
                     _LOG.info(
                         "matching iteration",
-                        iteration=iteration+1,
+                        iteration=iteration + 1,
                         daz=d_azimuth,
                         dr=d_range,
                         daz_mli=d_azimuth_mli,
                         dr_mli=d_range_mli,
                         max_azimuth_threshold=max_azimuth_threshold,
-                        max_iterations=max_iteration
+                        max_iterations=max_iteration,
                     )
                     _LOG.info(
                         "matching iteration and standard deviation",
-                        iteration=iteration+1,
+                        iteration=iteration + 1,
                         azimuth_stdev=azimuth_stdev,
                         range_stdev=range_stdev,
                         max_azimuth_threshold=max_azimuth_threshold,
-                        max_iterations=max_iteration
+                        max_iterations=max_iteration,
                     )
 
                     if slave_diff_par.exists():
@@ -723,7 +735,7 @@ class CoregisterSlc:
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
-                        stderr_flag=False
+                        stderr_flag=False,
                     )
 
                     if stat != 0:
@@ -737,7 +749,7 @@ class CoregisterSlc:
                             iflg=iflg,
                             stat=stat,
                             gamma_stdout=cout,
-                            gamma_stderr=cerr
+                            gamma_stderr=cerr,
                         )
                         raise Exception(msg)
 
@@ -758,7 +770,7 @@ class CoregisterSlc:
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
-                        stderr_flag=False
+                        stderr_flag=False,
                     )
 
                     if stat != 0:
@@ -771,7 +783,7 @@ class CoregisterSlc:
                             new_value=new_value,
                             stat=stat,
                             gamma_stdout=cout,
-                            gamma_stderr=cerr
+                            gamma_stderr=cerr,
                         )
                         raise Exception
 
@@ -792,7 +804,7 @@ class CoregisterSlc:
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
-                        stderr_flag=False
+                        stderr_flag=False,
                     )
 
                     if stat != 0:
@@ -805,7 +817,7 @@ class CoregisterSlc:
                             new_value=new_value,
                             stat=stat,
                             gamma_stdout=cout,
-                            gamma_stderr=cerr
+                            gamma_stderr=cerr,
                         )
                         raise Exception
 
@@ -832,7 +844,7 @@ class CoregisterSlc:
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
-                        stderr_flag=False
+                        stderr_flag=False,
                     )
                     if stat != 0:
                         msg = "failed to execute pg.gc_map_fine"
@@ -845,7 +857,7 @@ class CoregisterSlc:
                             ref_flg=ref_flg,
                             stat=stat,
                             gamma_stdout=cout,
-                            gamma_stderr=cerr
+                            gamma_stderr=cerr,
                         )
                         # TODO; do we raise and kill the program or iterate?
                         # raise Exception(msg)
@@ -889,7 +901,7 @@ class CoregisterSlc:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -909,7 +921,7 @@ class CoregisterSlc:
                 slc2r_par=slc2r_par,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -938,7 +950,7 @@ class CoregisterSlc:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -953,7 +965,7 @@ class CoregisterSlc:
                 alks=alks,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -990,7 +1002,7 @@ class CoregisterSlc:
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
-                    stderr_flag=False
+                    stderr_flag=False,
                 )
 
                 if stat != 0:
@@ -1004,7 +1016,7 @@ class CoregisterSlc:
                         mode=mode,
                         stat=stat,
                         gamma_stdout=cout,
-                        gamma_stderr=cerr
+                        gamma_stderr=cerr,
                     )
                     raise Exception(msg)
 
@@ -1026,7 +1038,7 @@ class CoregisterSlc:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1040,7 +1052,7 @@ class CoregisterSlc:
                     mode=mode,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1078,7 +1090,7 @@ class CoregisterSlc:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1097,7 +1109,7 @@ class CoregisterSlc:
                     order=order,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1134,7 +1146,7 @@ class CoregisterSlc:
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
-                    stderr_flag=False
+                    stderr_flag=False,
                 )
 
                 if stat != 0:
@@ -1153,7 +1165,7 @@ class CoregisterSlc:
                         rasf_pathname=rasf_pathname,
                         stat=stat,
                         gamma_stdout=cout,
-                        gamma_stderr=cerr
+                        gamma_stderr=cerr,
                     )
                     raise Exception(msg)
 
@@ -1186,7 +1198,7 @@ class CoregisterSlc:
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
-                    stderr_flag=False
+                    stderr_flag=False,
                 )
 
                 if stat != 0:
@@ -1200,7 +1212,7 @@ class CoregisterSlc:
                         nodata=nodata,
                         stat=stat,
                         gamma_stdout=cout,
-                        gamma_stderr=cerr
+                        gamma_stderr=cerr,
                     )
                     raise Exception(msg)
 
@@ -1219,7 +1231,7 @@ class CoregisterSlc:
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
-                    stderr_flag=False
+                    stderr_flag=False,
                 )
 
                 if stat != 0:
@@ -1231,7 +1243,7 @@ class CoregisterSlc:
                         kml_pathname=kml_pathname,
                         stat=stat,
                         gamma_stdout=cout,
-                        gamma_stderr=cerr
+                        gamma_stderr=cerr,
                     )
                     raise Exception(msg)
 
@@ -1266,7 +1278,7 @@ class CoregisterSlc:
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
-                    stderr_flag=False
+                    stderr_flag=False,
                 )
 
                 if stat != 0:
@@ -1285,7 +1297,7 @@ class CoregisterSlc:
                         lr_out=lr_out,
                         stat=stat,
                         gamma_stdout=cout,
-                        gamma_stderr=cerr
+                        gamma_stderr=cerr,
                     )
                     raise Exception(msg)
 
@@ -1308,7 +1320,7 @@ class CoregisterSlc:
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
-                    stderr_flag=False
+                    stderr_flag=False,
                 )
 
                 if stat != 0:
@@ -1322,7 +1334,7 @@ class CoregisterSlc:
                         nodata=nodata,
                         stat=stat,
                         gamma_stdout=cout,
-                        gamma_stderr=cerr
+                        gamma_stderr=cerr,
                     )
                     raise Exception(msg)
 
