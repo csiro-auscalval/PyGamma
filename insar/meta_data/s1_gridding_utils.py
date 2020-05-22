@@ -5,6 +5,7 @@ import os
 import re
 import uuid
 import random
+import structlog
 from typing import Optional, Union, Dict, Iterable
 from pathlib import Path
 from datetime import datetime
@@ -14,7 +15,6 @@ import geopandas as gpd
 import shapely.wkt
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
-import structlog
 import yaml
 from insar.meta_data.s1_slc import Archive, SlcFrame, SlcMetadata, Generate_kml
 from insar.logs import get_wrapped_logger
@@ -28,15 +28,28 @@ def generate_slc_metadata(
     yaml_file: Optional[bool] = False,
 ) -> Union[Dict, None]:
     """
-    This method extracts slc metadata from scene.
+    generate_slc_metadata extracts slc metadata from a S1 zip file
+    denoted as slc_scene. This function is used in the 
+    slc-ingestion command (see process_slc_ingestion() in
+    /insar/scripts/grid_processing.py)
 
-    :param slc_scene: A 'Path' to slc scene
-    :param outdir: A 'Path' to store yaml_file
-    :param yaml_file: flag to write a yaml file with slc metadata
+    Parameters
+    ----------
 
-    :return:
-        A 'dict' with slc metadata if not yaml_file else
-        dumps to a yaml_file.
+    slc_scene: Path
+        Full path to a S1 zip file
+
+    outdir: Path or None
+        An output directory to store yaml_file
+
+    yaml_file: {True | False} or None
+        A bool flag to write a yaml file containing slc metadata
+
+    Returns
+    -------
+        if yaml_file is False then a  "dict"  containing slc
+        metadata is returned, else the "dict" is dumped into
+        a yaml file and None is returned.
     """
     scene_obj = SlcMetadata(slc_scene)
     try:
@@ -74,20 +87,38 @@ def generate_slc_metadata(
         yaml.dump(slc_metadata, out_fid)
 
 
-def swath_bursts_extents(bursts_df, swt, buf=0.01, pol="VV",) -> Iterable:
+def swath_bursts_extents(
+    bursts_df,
+    swt,
+    buf=0.01,
+    pol="VV",
+) -> Iterable:
     """
     Method to form extents for overlapping bursts.
 
     Overlapped extents are formed if centroid with 'buf'
     degree buffer intersects with other centroid.
 
-    :param bursts_df: geo-pandas data frame with burst information
-    :param swt: name of the swath to subset this operations
-    :param buf: buffer value to form buffer around the centroid point
-    :param pol: name of polarization to subset this operation
+    Parameters
+    ----------
 
-    :return:
-        A list of polygons formed as a result of this operation.
+    bursts_df: gpd.GeoDataFrame
+        geo-pandas data frame with burst information
+
+    swt: str
+        name of the swath to subset this operations
+
+    buf: float
+        buffer value (decimal degrees) to form buffer
+        around the centroid point
+
+    pol: str
+        name of polarization to subset this operation
+
+    Returns
+    -------
+        A list of polygons formed as a result of this
+        operation.
     """
 
     df_subset = bursts_df[
@@ -171,14 +202,21 @@ def db_query(
             "{}.polarization".format(archive.bursts_table_name),
             "{}.acquisition_start_time".format(archive.slc_table_name),
             "{}.url".format(archive.slc_table_name),
+            "{}.slc_extent".format(archive.slc_table_name),
+            "{}.row_extent".format(archive.slc_rows_table_name),
+            "{}.row_id".format(archive.slc_rows_table_name),
         ]
 
     tables_join_string = (
-        "{0} INNER JOIN {1} on {0}.swath_name = {1}.swath_name INNER JOIN {2} "
-        "on {2}.id = {1}.id".format(
+        "{0} "
+        "INNER JOIN {1} ON {0}.swath_name = {1}.swath_name "
+        "INNER JOIN {2} ON {2}.id = {1}.id "
+        "INNER JOIN {3} ON {3}.row_id = {0}.row_id "
+        .format(
             archive.bursts_table_name,
             archive.swath_table_name,
             archive.slc_table_name,
+            archive.slc_rows_table_name,
         )
     )
 
@@ -250,7 +288,7 @@ def grid_from_frame(
         definition.
 
     latitude_buffer: float (default = 0.01)
-        The buffer (decimal degrees) usd to facilitate the
+        The buffer (decimal degrees) used to facilitate the
         overlaps needed between two grids along a relative orbit.
 
     start_date: datetime or None
