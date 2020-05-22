@@ -59,8 +59,7 @@ def slc_archive_cli():
 
 # add grid-definition group to cli()
 @cli.group(
-    name="grid-definition",
-    help="Create and adjust Sentinel-1 track and frames",
+    name="grid-definition", help="Create and adjust Sentinel-1 track and frames",
 )
 def grid_definition_cli():
     """
@@ -97,14 +96,13 @@ def create_task_files_cli():
 )
 @click.option(
     "--out-dir",
-    type=click.Path(
-        exists=True, dir_okay=True, file_okay=False, writable=True
-    ),
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
     help="output directory where task files are created",
     default=Path(os.getcwd()),
 )
 def insar_task_files(
-    input_path: click.Path, out_dir: click.Path,
+    input_path: click.Path,
+    out_dir: click.Path,
 ):
     """
 
@@ -224,7 +222,10 @@ def process_grid_adjustment(
 
     """
 
-    def _get_required_grids(vector_file, vector_file_dir):
+    def _get_required_grids(
+        vector_file,
+        vector_file_dir,
+    ):
         _LOG.info("processing _get_required_grids", pathname=vector_file)
 
         if re.match(pattern, vector_file):
@@ -232,15 +233,11 @@ def process_grid_adjustment(
             track = name_pcs[0]
             frame, ext = splitext(name_pcs[1])
             frame_num = int(re.findall(r"\d+", frame)[0])
-            before_frame = re.sub(
-                r"\d+", "{:02}".format(frame_num - 1), frame,
-            )
+            before_frame = re.sub(r"\d+", "{:02}".format(frame_num - 1), frame,)
             after_frame = re.sub(r"\d+", "{:02}".format(frame_num + 1), frame,)
             grid_before = pjoin(
                 vector_file_dir,
-                GRID_NAME_FMT.format(
-                    track=track, frame=before_frame, ext=ext,
-                ),
+                GRID_NAME_FMT.format(track=track, frame=before_frame, ext=ext,),
             )
             grid_after = pjoin(
                 vector_file_dir,
@@ -261,17 +258,12 @@ def process_grid_adjustment(
 
         dir_name, file_name = split(in_path)
         try:
-            (
-                track,
-                frame,
-                grid_before_path,
-                grid_after_path,
-            ) = _get_required_grids(file_name, dir_name)
+            (track, frame, grid_before_path, grid_after_path,) = _get_required_grids(
+                file_name, dir_name
+            )
         except ValueError as err:
             _LOG.error(
-                "vector filename pattern mismatch",
-                pathname=file_name,
-                pattern=pattern,
+                "vector filename pattern mismatch", pathname=file_name, pattern=pattern,
             )
             raise err
 
@@ -286,13 +278,9 @@ def process_grid_adjustment(
                 grid_after_shapefile=grid_after_path,
             )
         except ValueError:
-            _LOG.error(
-                "data is required in all three swaths", pathname=file_name
-            )
+            _LOG.error("data is required in all three swaths", pathname=file_name)
         except AttributeError:
-            _LOG.error(
-                "no data in swath after grid adjustment", pathname=file_name
-            )
+            _LOG.error("no data in swath after grid adjustment", pathname=file_name)
 
     with open(log_pathname, "w") as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
@@ -309,14 +297,11 @@ def process_grid_adjustment(
             if in_file.endswith(".shp"):
                 _process_adjustment(in_file)
             else:
-                _LOG.error(
-                    "file is not an ESRI Shapefile; skipping", pathname=in_file
-                )
+                _LOG.error("file is not an ESRI Shapefile; skipping", pathname=in_file)
 
 
 @grid_definition_cli.command(
-    "grid-generation",
-    help="produces a grid definition for Sentinel-1 relative orbit",
+    "grid-generation", help="produces a grid definition for Sentinel-1 relative orbit",
 )
 @click.option(
     "--database-path",
@@ -356,8 +341,7 @@ def process_grid_adjustment(
     type=float,
     default=-1.25,
     help=(
-        "The latitude length of the grid (in decimal degrees, "
-        "and must be negative)"
+        "The latitude length of the grid (in decimal degrees, " "and must be negative)"
     ),
 )
 @click.option(
@@ -441,8 +425,7 @@ def process_grid_definition(
     type=float,
     default=-1.25,
     help=(
-        "The latitude length of the grid (in decimal degrees, "
-        "and must be negative)"
+        "The latitude length of the grid (in decimal degrees, " "and must be negative)"
     ),
 )
 @click.option(
@@ -628,8 +611,7 @@ def process_grid_definition_NEW(
         # ----------------------------------------- #
         if northern_latitude <= southern_latitude:
             err_str = (
-                "input bounding box error, northern latitude"
-                " <= southern latitude"
+                "input bounding box error, northern latitude" " <= southern latitude"
             )
             _LOG.error(
                 err_str,
@@ -640,8 +622,7 @@ def process_grid_definition_NEW(
 
         if eastern_longitude <= western_longitude:
             err_str = (
-                "input bounding box error, eastern longitude"
-                " <= western latitude"
+                "input bounding box error, eastern longitude" " <= western latitude"
             )
             _LOG.error(
                 err_str,
@@ -663,12 +644,8 @@ def process_grid_definition_NEW(
             latitude_width *= -1.0
 
         if latitude_width == 0:
-            _LOG.error(
-                "input latitude width = 0, but expected latitude width < 0",
-            )
-            raise Exception(
-                "latitude width = 0, but expected latitude width < 0"
-            )
+            _LOG.error("input latitude width = 0, but expected latitude width < 0",)
+            raise Exception("latitude width = 0, but expected latitude width < 0")
 
         # asserting latitude buffer > 0
         if latitude_buffer < 0:
@@ -682,12 +659,8 @@ def process_grid_definition_NEW(
             latitude_buffer = abs(latitude_buffer)
 
         if latitude_buffer == 0:
-            _LOG.error(
-                "input latitude buffer = 0, but expected latitude buffer > 0",
-            )
-            raise Exception(
-                "latitude buffer = 0, but expected latitude buffer > 0"
-            )
+            _LOG.error("input latitude buffer = 0, but expected latitude buffer > 0",)
+            raise Exception("latitude buffer = 0, but expected latitude buffer > 0")
 
         # ensuring that orbits is 'A', 'D' or None
         orbit_node_list = None
@@ -769,8 +742,7 @@ def process_grid_definition_NEW(
 # ----------------------------------------- #
 # ----------------------------------------- #
 @slc_archive_cli.command(
-    "slc-ingestion",
-    help="slc acquisition details ingestion into the database",
+    "slc-ingestion", help="slc acquisition details ingestion into the database",
 )
 @click.option(
     "--database-name",
@@ -807,9 +779,7 @@ def process_grid_definition_NEW(
 )
 @click.option(
     "--yaml-dir",
-    type=click.Path(
-        exists=True, dir_okay=True, file_okay=False, writable=True
-    ),
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
     required=False,
     help="directory where the yaml SLC metadata will be stored",
 )
@@ -901,9 +871,7 @@ def process_slc_ingestion(
                         # the yaml files into a single SQLite database.
                         if save_yaml is True:
                             yaml_dir = Path(yaml_dir)
-                            outdir = yaml_dir.joinpath(
-                                str(year), year_month, grid,
-                            )
+                            outdir = yaml_dir.joinpath(str(year), year_month, grid,)
                             generate_slc_metadata(Path(scene), outdir, True)
                         else:
                             with Archive(database_name) as archive:
@@ -925,8 +893,7 @@ def process_slc_ingestion(
 @slc_archive_cli.command(
     "slc-ingest-yaml",
     help=(
-        "Ingestion of Sentinel-1 slc metadata (yaml format) "
-        "into a SQLite database"
+        "Ingestion of Sentinel-1 slc metadata (yaml format) " "into a SQLite database"
     ),
 )
 @click.option(
@@ -937,9 +904,7 @@ def process_slc_ingestion(
 )
 @click.option(
     "--yaml-dir",
-    type=click.Path(
-        exists=True, dir_okay=True, file_okay=False, writable=True
-    ),
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True),
     required=True,
     help="directory containing yaml files that will be ingested",
 )
@@ -950,7 +915,9 @@ def process_slc_ingestion(
     default="yaml-ingestion.jsonl",
 )
 def ingest_slc_yamls(
-    database_name: click.Path, yaml_dir: click.Path, log_pathname: str,
+    database_name: click.Path,
+    yaml_dir: click.Path,
+    log_pathname: str,
 ):
     """
     Description
