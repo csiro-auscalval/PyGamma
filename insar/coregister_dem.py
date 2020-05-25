@@ -22,7 +22,6 @@ class SlcParFileParser:
     ) -> None:
         """
         Convenient access fields for SLC image parameter properties.
-
         :param par_file:
             A full path to a SLC parameter file.
         """
@@ -48,7 +47,6 @@ class DemParFileParser:
     ) -> None:
         """
         Convenient access fileds for DEM image parameter properties.
-
         :param par_file:
             A full path to a DEM parameter file.
         """
@@ -84,13 +82,13 @@ class CoregisterDem:
         dem_window: Optional[Tuple[int, int]] = (256, 256),
         dem_snr: Optional[float] = 0.15,
         dem_rad_max: Optional[int] = 4,
+        dem_ovr: int = 1,
         dem_outdir: Optional[Union[Path, str]] = None,
         slc_outdir: Optional[Union[Path, str]] = None,
         ext_image_flt: Optional[Union[Path, str]] = None,
     ) -> None:
         """
         Generates DEM coregistered to SLC image in radar geometry.
-
         :param rlks:
             A range look value.
         :param alks:
@@ -119,6 +117,8 @@ class CoregisterDem:
             An Optional dem signal-to-noise ratio value.
         :param dem_rad_max:
             An Optional dem rad max value.
+        :param dem_ovr:
+            DEM oversampling factor. Default is 1.
         :param dem_outdir:
             An Optional full path to store dem files.
         :param slc_outdir:
@@ -148,6 +148,7 @@ class CoregisterDem:
         self.dem_window = list(dem_window)
         self.dem_snr = dem_snr
         self.dem_rad_max = dem_rad_max
+        self.dem_ovr = dem_ovr
 
         # adjust dem parameters for range looks greater than 1
         if self.rlks > 1:
@@ -156,7 +157,6 @@ class CoregisterDem:
         self.dem_master_slc = self.slc
         self.dem_master_slc_par = self.slc_par
 
-        self.dem_ovr = None
         self.dem_width = None
         self.r_dem_master_mli_width = None
         self.r_dem_master_mli_length = None
@@ -184,14 +184,12 @@ class CoregisterDem:
     ) -> Dict:
         """
         Collate DEM master file names used need in CoregisterDem class.
-
         :param slc_prefix:
             A pre_fix of SLC image file.
         :param r_slc_prefix:
             A prefix of radar coded SLC image file.
         :param outdir:
             A full path to store DEM co-registered SLC files.
-
         :returns:
             Dict with SLC file names and paths needed in CoregisterDem class.
         """
@@ -236,12 +234,10 @@ class CoregisterDem:
     ) -> Dict:
         """
         Collate DEM file names used need in CoregisterDem class.
-
         :param dem_prefix:
             A pre_fix of dem file name.
         :param outdir:
             A full path to store DEM files generated during dem coregistration.
-
         :returns:
             Dict with DEM file names and paths needed in CoregisterDem class.
         """
@@ -352,7 +348,6 @@ class CoregisterDem:
     ) -> None:
         """
         Copy SLC with options for data format conversion.
-
         :param raster_out:
             An Optional flag to output raster files.
         """
@@ -500,29 +495,12 @@ class CoregisterDem:
                 )
                 raise Exception(msg)
 
-    def over_sample(self) -> None:
-        """Returns oversampling factor for DEM coregistration."""
-
-        params = DemParFileParser(self.dem_par)
-        post_lon = params.dem_par_params.post_lon
-
-        # 0.4 arc second or smaller DEMs resolution
-        if post_lon <= 0.00011111:
-            self.dem_ovr = 1
-        # greater than 0.4 or less then 3 arc seconds DEMs resolution
-        elif 0.00011111 < post_lon < 0.0008333:
-            self.dem_ovr = 4
-        # other DEMs resolution
-        else:
-            self.dem_ovr = 8
-
     def gen_dem_rdc(
         self,
         use_external_image: Optional[bool] = False,
     ) -> None:
         """
         Generate DEM coregistered to slc in rdc geometry.
-
         :param use_external_image:
             An Optional parameter to set use of external image for co-registration.
         """
@@ -800,7 +778,6 @@ class CoregisterDem:
         use_external_image: Optional[bool] = False,
     ) -> None:
         """Offset computation. (Need more information from InSAR team).
-
         :param npoly:
             An Optional nth order polynomial term. Otherwise set to default for
             Sentinel-1 acquisitions.
@@ -1411,7 +1388,6 @@ class CoregisterDem:
     ):
         """
         Method to geocode image files to radar geometry.
-
         :param use_external_image:
             An Optional external image is to be used for co-registration.
         """
@@ -2191,7 +2167,6 @@ class CoregisterDem:
         self.dem_outdir.mkdir(exist_ok=True)
         with working_directory(self.dem_outdir):
             self.copy_slc()
-            self.over_sample()
             self.gen_dem_rdc()
             self.create_diff_par()
             self.offset_calc()
