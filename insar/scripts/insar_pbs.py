@@ -156,10 +156,7 @@ def _submit_pbs(pbs_scripts, test):
     default=48,
 )
 @click.option(
-    "--memory",
-    type=click.INT,
-    help="Total memory required if per node",
-    default=48 * 4,
+    "--memory", type=click.INT, help="Total memory required if per node", default=48 * 4,
 )
 @click.option(
     "--queue", type=click.STRING, help="Queue to submit the job into", default="normal",
