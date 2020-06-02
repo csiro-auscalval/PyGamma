@@ -61,11 +61,7 @@ def coreg_candidates_after_master_scene(
         tmp_list = []
         if idx < len(masters) - 1:
             for scene in scenes:
-                if (
-                    parse_date(master)
-                    < parse_date(scene)
-                    < parse_date(masters[idx + 1])
-                ):
+                if parse_date(master) < parse_date(scene) < parse_date(masters[idx + 1]):
                     tmp_list.append(scene)
             coregistration_scenes[master] = tmp_list
         else:
@@ -100,11 +96,7 @@ def coreg_candidates_before_master_scene(
         tmp_list = []
         if idx < len(masters) - 1:
             for scene in scenes:
-                if (
-                    parse_date(master)
-                    > parse_date(scene)
-                    > parse_date(masters[idx + 1])
-                ):
+                if parse_date(master) > parse_date(scene) > parse_date(masters[idx + 1]):
                     tmp_list.append(scene)
 
             coregistration_scenes[master] = tmp_list
