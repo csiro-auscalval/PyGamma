@@ -23,11 +23,15 @@ class WithConfig(object):
     Usage:
     """
 
-    def __init__(self, config, replace_sections=False):
+    def __init__(
+        self, config, replace_sections=False,
+    ):
         self.config = config
         self.replace_sections = replace_sections
 
-    def _make_dict(self, old_dict):
+    def _make_dict(
+        self, old_dict,
+    ):
         if self.replace_sections:
             old_dict.update(self.config)
             return old_dict
@@ -41,7 +45,9 @@ class WithConfig(object):
         all_sections = itertools.chain(old_dict.keys(), self.config.keys())
         return {sec: get_section(sec) for sec in all_sections}
 
-    def __call__(self, fun):
+    def __call__(
+        self, fun,
+    ):
         @functools.wraps(fun)
         def wrapper(*args, **kwargs):
             import luigi.configuration
@@ -108,7 +114,7 @@ class CommandError(RuntimeError):
 
 
 def run_command(
-    command, work_dir, timeout=None, command_name=None, return_stdout=False
+    command, work_dir, timeout=None, command_name=None, return_stdout=False,
 ):
     """
     A simple utility to execute a subprocess command.
@@ -137,26 +143,31 @@ def run_command(
     stderr_decode = _stderr.decode("utf-8")
     cmd = str(command)
     if _proc.returncode != 0:
-        _LOG.error("command result", command=cmd, std_err=stderr_decode)
-        _LOG.info("command result", command=cmd, std_out=stdout_decode)
+        _LOG.error(
+            "command result", command=cmd, std_err=stderr_decode,
+        )
+        _LOG.info(
+            "command result", command=cmd, std_out=stdout_decode,
+        )
 
         if command_name is None:
             command_name = str(command)
 
         if timed_out:
-            _LOG.error("command timed out", command=cmd)
+            _LOG.error(
+                "command timed out", command=cmd,
+            )
             raise CommandError('"%s" timed out' % (command_name))
         else:
             _LOG.error(
-                "command failed",
-                command=cmd,
-                return_code=_proc.returncode
+                "command failed", command=cmd, return_code=_proc.returncode,
             )
             raise CommandError(
-                '"%s" failed with return code: %s'
-                % (command_name, str(_proc.returncode))
+                '"%s" failed with return code: %s' % (command_name, str(_proc.returncode))
             )
     else:
-        _LOG.info("command result", command=cmd, std_out=stdout_decode)
+        _LOG.info(
+            "command result", command=cmd, std_out=stdout_decode,
+        )
         if return_stdout:
             return stdout_decode

@@ -75,7 +75,7 @@ class SlcProcess:
         self.orbit_file = None
         self.temp_slc = []
 
-    def swath_tab_names(self, swath: int, pre_fix: str) -> namedtuple:
+    def swath_tab_names(self, swath: int, pre_fix: str,) -> namedtuple:
         """Formats slc swath tab filenames using swath and pre_fix."""
 
         swath_tab = namedtuple("swath_tab", ["slc", "par", "tops_par"])
@@ -91,7 +91,7 @@ class SlcProcess:
             ),
         )
 
-    def slc_tab_names(self, pre_fix: str) -> namedtuple:
+    def slc_tab_names(self, pre_fix: str,) -> namedtuple:
         """Formats slc tab filenames using prefix."""
 
         slc_tab = namedtuple("slc_tab", ["slc", "par", "tops_par"])
@@ -174,7 +174,7 @@ class SlcProcess:
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
-                    stderr_flag=False
+                    stderr_flag=False,
                 )
 
                 if stat != 0:
@@ -193,7 +193,7 @@ class SlcProcess:
                         noise_pwr=noise_pwr,
                         stat=stat,
                         gamma_stdout=cout,
-                        gamma_stderr=cerr
+                        gamma_stderr=cerr,
                     )
                     raise Exception(msg)
 
@@ -229,7 +229,7 @@ class SlcProcess:
         if slc_tab_file.exists():
             _LOG.info(
                 "SLC tab file exists; skipping writing of SLC tab parameters",
-                pathname=slc_tab_file
+                pathname=slc_tab_file,
             )
             return
         with open(slc_tab_file, "w") as fid:
@@ -325,7 +325,7 @@ class SlcProcess:
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
-                        stderr_flag=False
+                        stderr_flag=False,
                     )
 
                     if stat != 0:
@@ -337,7 +337,7 @@ class SlcProcess:
                             slc_tab3=slc_tab3_pathname,
                             stat=stat,
                             gamma_stdout=cout,
-                            gamma_stderr=cerr
+                            gamma_stderr=cerr,
                         )
                         raise Exception(msg)
 
@@ -359,7 +359,7 @@ class SlcProcess:
                     ),
                 )
 
-    def phase_shift(self, swath: Optional[int] = 1) -> None:
+    def phase_shift(self, swath: Optional[int] = 1,) -> None:
         """Perform phase shift correction.
 
         Phase shift-correction is needed for Sentinel-1 IW1 swath data collected
@@ -395,7 +395,7 @@ class SlcProcess:
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
-                        stderr_flag=False
+                        stderr_flag=False,
                     )
 
                     if stat != 0:
@@ -409,7 +409,7 @@ class SlcProcess:
                             ph_shift=ph_shift,
                             stat=stat,
                             gamma_stdout=cout,
-                            gamma_stderr=cerr
+                            gamma_stderr=cerr,
                         )
                         raise Exception(msg)
 
@@ -421,7 +421,7 @@ class SlcProcess:
                         tmpdir.joinpath(tab_names.par), slc_dir.joinpath(tab_names.par)
                     )
 
-    def mosiac_slc(self, rlks: Optional[int] = 12, alks: Optional[int] = 2) -> None:
+    def mosiac_slc(self, rlks: Optional[int] = 12, alks: Optional[int] = 2,) -> None:
         """
         Calculate SLC mosaic of Sentinel-1 TOPS burst SLC data.
 
@@ -450,7 +450,7 @@ class SlcProcess:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -464,7 +464,7 @@ class SlcProcess:
                 azlks=azlks,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -485,7 +485,7 @@ class SlcProcess:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -496,7 +496,7 @@ class SlcProcess:
                 opod_pathname=opod_pathname,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -557,9 +557,7 @@ class SlcProcess:
 
             # write out slc in and out tab files
             sub_slc_in = tmpdir.joinpath("sub_slc_input_tab")
-            self._write_tabs(
-                sub_slc_in, tab_params=tabs_param, slc_data_dir=os.getcwd()
-            )
+            self._write_tabs(sub_slc_in, tab_params=tabs_param, slc_data_dir=os.getcwd())
 
             sub_slc_out = tmpdir.joinpath("sub_slc_output_tab")
             self._write_tabs(sub_slc_out, _id=self.slc_prefix, slc_data_dir=tmpdir)
@@ -581,7 +579,7 @@ class SlcProcess:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -594,7 +592,7 @@ class SlcProcess:
                     dtype=dtype,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -613,7 +611,7 @@ class SlcProcess:
                     raise ValueError(err)
                 self.frame_resize(self.ref_master_tab, sub_slc_in)
 
-    def frame_resize(self, ref_slc_tab: Path, full_slc_tab: Path) -> None:
+    def frame_resize(self, ref_slc_tab: Path, full_slc_tab: Path,) -> None:
         """
         Resizes the full slc to the reference slc.
 
@@ -644,7 +642,7 @@ class SlcProcess:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -656,7 +654,7 @@ class SlcProcess:
                     burst_tab_pathname=burst_tab_pathname,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -680,7 +678,7 @@ class SlcProcess:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -693,7 +691,7 @@ class SlcProcess:
                     dtype=dtype,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -751,7 +749,7 @@ class SlcProcess:
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
-                    stderr_flag=False
+                    stderr_flag=False,
                 )
 
             if stat != 0:
@@ -772,7 +770,7 @@ class SlcProcess:
                     rasf_pathname=rasf_pathname,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -791,7 +789,9 @@ class SlcProcess:
         for tab in tab_names_list:
             _make_png(tab)
 
-    def main(self, write_png=True):
+    def main(
+        self, write_png=True,
+    ):
         """Main method to execute SLC processing sequence need to produce SLC."""
         work_dir = self.output_dir.joinpath(self.scene_date)
         work_dir.mkdir(exist_ok=True)

@@ -375,7 +375,9 @@ LONG_VERSION_PY = {}
 HANDLERS = {}
 
 
-def register_vcs_handler(vcs, method):  # decorator
+def register_vcs_handler(
+    vcs, method,
+):
     """Decorator to mark a method as the handler for a particular VCS."""
 
     def decorate(f):
@@ -388,7 +390,9 @@ def register_vcs_handler(vcs, method):  # decorator
     return decorate
 
 
-def run_command(commands, args, cwd=None, verbose=False, hide_stderr=False, env=None):
+def run_command(
+    commands, args, cwd=None, verbose=False, hide_stderr=False, env=None,
+):
     """Call the given command(s)."""
     assert isinstance(commands, list)
     p = None
@@ -487,7 +491,10 @@ LONG_VERSION_PY = {}
 HANDLERS = {}
 
 
-def register_vcs_handler(vcs, method):  # decorator
+def register_vcs_handler(
+    vcs,
+    method
+):
     """Decorator to mark a method as the handler for a particular VCS."""
     def decorate(f):
         """Store f in HANDLERS[vcs][method]."""
@@ -498,8 +505,14 @@ def register_vcs_handler(vcs, method):  # decorator
     return decorate
 
 
-def run_command(commands, args, cwd=None, verbose=False, hide_stderr=False,
-                env=None):
+def run_command(
+    commands,
+    args,
+    cwd=None,
+    verbose=False,
+    hide_stderr=False,
+    env=None,
+):
     """Call the given command(s)."""
     assert isinstance(commands, list)
     p = None
@@ -535,7 +548,11 @@ def run_command(commands, args, cwd=None, verbose=False, hide_stderr=False,
     return stdout, p.returncode
 
 
-def versions_from_parentdir(parentdir_prefix, root, verbose):
+def versions_from_parentdir(
+    parentdir_prefix,
+    root,
+    verbose,
+):
     """Try to determine the version from the parent directory name.
 
     Source tarballs conventionally unpack into a directory that includes both
@@ -590,7 +607,11 @@ def git_get_keywords(versionfile_abs):
 
 
 @register_vcs_handler("git", "keywords")
-def git_versions_from_keywords(keywords, tag_prefix, verbose):
+def git_versions_from_keywords(
+    keywords,
+    tag_prefix,
+    verbose,
+):
     """Get version information from git keywords."""
     if not keywords:
         raise NotThisMethod("no keywords at all, weird")
@@ -645,7 +666,12 @@ def git_versions_from_keywords(keywords, tag_prefix, verbose):
 
 
 @register_vcs_handler("git", "pieces_from_vcs")
-def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
+def git_pieces_from_vcs(
+    tag_prefix,
+    root,
+    verbose,
+    run_command=run_command,
+):
     """Get version from 'git describe' in the root of the source tree.
 
     This only gets called if the git-archive 'subst' keywords were *not*
@@ -982,7 +1008,9 @@ def git_get_keywords(versionfile_abs):
 
 
 @register_vcs_handler("git", "keywords")
-def git_versions_from_keywords(keywords, tag_prefix, verbose):
+def git_versions_from_keywords(
+    keywords, tag_prefix, verbose,
+):
     """Get version information from git keywords."""
     if not keywords:
         raise NotThisMethod("no keywords at all, weird")
@@ -1044,7 +1072,9 @@ def git_versions_from_keywords(keywords, tag_prefix, verbose):
 
 
 @register_vcs_handler("git", "pieces_from_vcs")
-def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
+def git_pieces_from_vcs(
+    tag_prefix, root, verbose, run_command=run_command,
+):
     """Get version from 'git describe' in the root of the source tree.
 
     This only gets called if the git-archive 'subst' keywords were *not*
@@ -1136,15 +1166,15 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
         pieces["distance"] = int(count_out)  # total number of commits
 
     # commit date: see ISO-8601 comment in git_versions_from_keywords()
-    date = run_command(GITS, ["show", "-s", "--format=%ci", "HEAD"], cwd=root)[
-        0
-    ].strip()
+    date = run_command(GITS, ["show", "-s", "--format=%ci", "HEAD"], cwd=root)[0].strip()
     pieces["date"] = date.strip().replace(" ", "T", 1).replace(" ", "", 1)
 
     return pieces
 
 
-def do_vcs_install(manifest_in, versionfile_source, ipy):
+def do_vcs_install(
+    manifest_in, versionfile_source, ipy,
+):
     """Git-specific installation logic for Versioneer.
 
     For Git, this means creating/changing .gitattributes to mark _version.py
@@ -1182,7 +1212,9 @@ def do_vcs_install(manifest_in, versionfile_source, ipy):
     run_command(GITS, ["add", "--"] + files)
 
 
-def versions_from_parentdir(parentdir_prefix, root, verbose):
+def versions_from_parentdir(
+    parentdir_prefix, root, verbose,
+):
     """Try to determine the version from the parent directory name.
 
     Source tarballs conventionally unpack into a directory that includes both
@@ -1454,9 +1486,7 @@ def get_versions(verbose=False):
     handlers = HANDLERS.get(cfg.VCS)
     assert handlers, "unrecognized VCS '%s'" % cfg.VCS
     verbose = verbose or cfg.verbose
-    assert (
-        cfg.versionfile_source is not None
-    ), "please set versioneer.versionfile_source"
+    assert cfg.versionfile_source is not None, "please set versioneer.versionfile_source"
     assert cfg.tag_prefix is not None, "please set versioneer.tag_prefix"
 
     versionfile_abs = os.path.join(root, cfg.versionfile_source)
@@ -1698,9 +1728,7 @@ def get_cmdclass():
             # updated value
             target_versionfile = os.path.join(base_dir, cfg.versionfile_source)
             print("UPDATING %s" % target_versionfile)
-            write_to_version_file(
-                target_versionfile, self._versioneer_generated_versions
-            )
+            write_to_version_file(target_versionfile, self._versioneer_generated_versions)
 
     cmds["sdist"] = cmd_sdist
 
@@ -1825,8 +1853,7 @@ def do_setup():
         print(" 'versioneer.py' already in MANIFEST.in")
     if cfg.versionfile_source not in simple_includes:
         print(
-            " appending versionfile_source ('%s') to MANIFEST.in"
-            % cfg.versionfile_source
+            " appending versionfile_source ('%s') to MANIFEST.in" % cfg.versionfile_source
         )
         with open(manifest_in, "a") as f:
             f.write("include %s\n" % cfg.versionfile_source)

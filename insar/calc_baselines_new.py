@@ -21,7 +21,7 @@ _LOG = structlog.get_logger("insar")
 
 
 class SlcParFileParser:
-    def __init__(self, par_file: Path) -> None:
+    def __init__(self, par_file: Path,) -> None:
         """
         Convenient access fields for SLC image parameter properties.
 
@@ -158,7 +158,9 @@ class BaselineProcess:
             slc_dates.append(datetime.datetime.strptime(dt_str, "%Y%m%d").date())
         return sorted(slc_dates, reverse=False)
 
-    def _match_par(self, scene_date: datetime.date):
+    def _match_par(
+        self, scene_date: datetime.date,
+    ):
         """
         Returns the SLC parameter file for scene_date.
         """
@@ -173,18 +175,14 @@ class BaselineProcess:
         for pol in self.polarization:
             _par = fnmatch.filter(
                 self.slc_par_list_posix,
-                "*{}_{}.slc.par".format(
-                    scene_date.strftime("%Y%m%d"), pol.upper()
-                ),
+                "*{}_{}.slc.par".format(scene_date.strftime("%Y%m%d"), pol.upper()),
             )
             if not _par:
                 continue
             if Path(_par[0]).exists():
                 return Path(_par[0])
 
-        raise FileNotFoundError(
-            f"{scene_date} has no matching slc parameter file"
-        )
+        raise FileNotFoundError(f"{scene_date} has no matching slc parameter file")
 
     def compute_perpendicular_baseline(self):
         """
@@ -196,9 +194,7 @@ class BaselineProcess:
         # compute baseline for treating each slc scene as a master slc
         for m_idx, master_date in enumerate(self.slc_dates):
             m_data = SlcParFileParser(Path(self._match_par(master_date)))
-            m_P = self.llh2xyz(
-                m_data.slc_par_params.lat, m_data.slc_par_params.lon, 0.0
-            )
+            m_P = self.llh2xyz(m_data.slc_par_params.lat, m_data.slc_par_params.lon, 0.0)
             m_M = self.calc_orbit_pos(
                 m_data.orbit_par_params.t,
                 m_data.slc_par_params.tmin,
@@ -315,7 +311,7 @@ class BaselineProcess:
 
     @staticmethod
     def single_master_list(
-        master: datetime.date, slaves: List[datetime.date], outfile: Path
+        master: datetime.date, slaves: List[datetime.date], outfile: Path,
     ) -> None:
         """
         Create single Master Interferogram List.
@@ -335,7 +331,7 @@ class BaselineProcess:
                 )
 
     @staticmethod
-    def daisy_chain_list(scenes: List[datetime.date], outfile: Path) -> None:
+    def daisy_chain_list(scenes: List[datetime.date], outfile: Path,) -> None:
         """
         Create Daisy-chained Interferogram List.
 
@@ -355,7 +351,7 @@ class BaselineProcess:
                     fid.write(scene + "," + _scenes[num1] + "\n")
 
     @staticmethod
-    def llh2xyz(latitude: float, longitude: float, height: float) -> np.ndarray:
+    def llh2xyz(latitude: float, longitude: float, height: float,) -> np.ndarray:
         """
         Transform latitude, longitude, height to state vector position x, y, z.
 
@@ -392,7 +388,8 @@ class BaselineProcess:
         t_min: float,
         t_max: float,
         xyz: List[List[float]],
-        xyz_centre: np.ndarray):
+        xyz_centre: np.ndarray,
+    ):
         """
         Calculate the in-orbit position for the time of scene centre acquisition.
 
@@ -462,7 +459,9 @@ class BaselineProcess:
         return np.array((xP, yP, zP))
 
     @staticmethod
-    def epoch_baselines(epochs, bperp, masidx, slvidx, supermaster):
+    def epoch_baselines(
+        epochs, bperp, masidx, slvidx, supermaster,
+    ):
         """Determine relative perpendicular baselines of epochs from interferometric baselines.
 
         :param epochs:
@@ -487,7 +486,7 @@ class BaselineProcess:
         _LOG.info(
             "number of interferograms and epochs in the network",
             interferograms=nifgs,
-            epochs=nepochs
+            epochs=nepochs,
         )
         # Initialise design matrix 'A'
         A = np.zeros((nifgs + 1, nepochs))
@@ -517,7 +516,7 @@ class BaselineProcess:
         Btemp_max: float,
         Bperp_max: float,
         Ba: float,
-        coh_thres: float ,
+        coh_thres: float,
         nmin: int,
         nmax: int,
         outfile1: Union[Path, str],
@@ -621,7 +620,7 @@ class BaselineProcess:
                             _LOG.info(
                                 "connection between scenes possible (total decorrelation)",
                                 scene_i=i,
-                                scene_j=j
+                                scene_j=j,
                             )
                 ntest = ntest + 1
 
@@ -673,7 +672,9 @@ class BaselineProcess:
         return epoch1, epoch2, Bperps_sbas
 
     @staticmethod
-    def plot_baseline_time_sm(epochs, Bperps, master_ix, filename):
+    def plot_baseline_time_sm(
+        epochs, Bperps, master_ix, filename,
+    ):
         """
         Make a baseline time plot and save to disk
         """
@@ -726,7 +727,7 @@ class BaselineProcess:
         date_range = date_max - date_min
         date_add = date_range.days / 15
         ax1.set_xlim(
-            date_min - timedelta(days=date_add), date_max + timedelta(days=date_add)
+            date_min - timedelta(days=date_add), date_max + timedelta(days=date_add),
         )
 
         # set the Bperp axis range
@@ -755,7 +756,9 @@ class BaselineProcess:
         return
 
     @staticmethod
-    def plot_baseline_time_sbas(epochs, Bperps, epoch1, epoch2, filename):
+    def plot_baseline_time_sbas(
+        epochs, Bperps, epoch1, epoch2, filename,
+    ):
         """
         Make a baseline time plot including IFG connections and save to disk
         """
@@ -807,7 +810,7 @@ class BaselineProcess:
         date_range = date_max - date_min
         date_add = date_range.days / 15
         ax1.set_xlim(
-            date_min - timedelta(days=date_add), date_max + timedelta(days=date_add)
+            date_min - timedelta(days=date_add), date_max + timedelta(days=date_add),
         )
 
         # set the Bperp axis range

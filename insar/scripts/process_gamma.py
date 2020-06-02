@@ -21,7 +21,8 @@ from insar.coregister_dem import CoregisterDem
 from insar.coregister_slc import CoregisterSlc
 from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
-#from insar.s1_slc_metadata import S1DataDownload  ## s1_slc_metadata is a duplicate of metadata.s1_slc
+
+# from insar.s1_slc_metadata import S1DataDownload  ## s1_slc_metadata is a duplicate of metadata.s1_slc
 from insar.meta_data.s1_slc import S1DataDownload
 from insar.clean_up import (
     clean_rawdatadir,
@@ -67,7 +68,7 @@ def on_failure(task, exception):
         track=getattr(task, "track", ""),
         frame=getattr(task, "frame", ""),
         stack_info=True,
-        status='failure',
+        status="failure",
         exception=exception.__str__(),
         traceback=traceback.format_exc().splitlines(),
     )
@@ -81,7 +82,7 @@ def on_success(task, exception):
         params=task.to_str_params(),
         track=getattr(task, "track", ""),
         frame=getattr(task, "frame", ""),
-        status='success',
+        status="success",
     )
 
 
@@ -262,8 +263,12 @@ class InitialSetup(luigi.Task):
             with open(_task.output().path) as fid:
                 out_name = fid.readline().rstrip()
                 if re.match(SLC_PATTERN, out_name):
-                    log.info(f"corrupted zip file {out_name} removed from further processing")
-                    indexes = slc_inputs_df[slc_inputs_df['url'].map(lambda x: Path(x).name) == out_name].index
+                    log.info(
+                        f"corrupted zip file {out_name} removed from further processing"
+                    )
+                    indexes = slc_inputs_df[
+                        slc_inputs_df["url"].map(lambda x: Path(x).name) == out_name
+                    ].index
                     slc_inputs_df.drop(indexes, inplace=True)
 
         # save slc burst data details which is used by different tasks
@@ -447,14 +452,18 @@ class CreateFullSlc(luigi.Task):
                 slc_date = fid.readline().rstrip()
                 if re.match(r"^[0-9]{8}", slc_date):
                     slc_date = f"{slc_date[0:4]}-{slc_date[4:6]}-{slc_date[6:8]}"
-                    log.info(f"slc processing failed for scene for {slc_date}: removed from further processing")
-                    indexes = slc_inputs_df[slc_inputs_df['date'] == slc_date].index
+                    log.info(
+                        f"slc processing failed for scene for {slc_date}: removed from further processing"
+                    )
+                    indexes = slc_inputs_df[slc_inputs_df["date"] == slc_date].index
                     slc_inputs_df.drop(indexes, inplace=True)
                     rewrite = True
 
         # rewrite the burst_data_csv with removed scenes
         if rewrite:
-            log.info(f"re-writing the burst data csv files after removing failed slc scenes")
+            log.info(
+                f"re-writing the burst data csv files after removing failed slc scenes"
+            )
             slc_inputs_df.to_csv(self.burst_data_csv)
         # clean up raw data directory
         if self.cleanup:
@@ -874,21 +883,12 @@ class CreateCoregisterSlaves(luigi.Task):
                     "*.lsmap",
                     "_",
                     "*.dem",
-                    "*seamask.tif"
-                ]
-
+                    "*seamask.tif",
+                ],
             )
             clean_slcdir(
                 Path(self.outdir).joinpath(__SLC__),
-                [
-                    "*.sigma0",
-                    "*.gamma0",
-                    "*.png",
-                    "*.slc",
-                    "*.kml",
-                    "*.bmp",
-                    "*.mli",
-                ],
+                ["*.sigma0", "*.gamma0", "*.png", "*.slc", "*.kml", "*.bmp", "*.mli",],
             )
 
         with self.output().open("w") as f:
@@ -972,7 +972,7 @@ class ARD(luigi.WrapperTask):
 
 
 def run():
-    with open('insar-log.jsonl', 'w') as fobj:
+    with open("insar-log.jsonl", "w") as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
         luigi.run()
 

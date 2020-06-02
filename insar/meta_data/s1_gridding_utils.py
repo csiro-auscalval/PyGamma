@@ -23,15 +23,12 @@ _LOG = structlog.get_logger("insar")
 
 
 def generate_slc_metadata(
-    slc_scene: Path,
-    outdir: Optional[Path] = None,
-    yaml_file: Optional[bool] = False,
+    slc_scene: Path, outdir: Optional[Path] = None, yaml_file: Optional[bool] = False,
 ) -> Union[Dict, None]:
     """
     generate_slc_metadata extracts slc metadata from a S1 zip file
     denoted as slc_scene. This function is used in the 
-    slc-ingestion command (see process_slc_ingestion() in
-    /insar/scripts/grid_processing.py)
+    slc-ingestion and ard_insar commands
 
     Parameters
     ----------
@@ -79,20 +76,14 @@ def generate_slc_metadata(
             os.makedirs(outdir.as_posix())
     with open(
         os.path.join(
-            outdir,
-            "{}.yaml".format(os.path.basename(slc_scene.as_posix())[:-4]),
+            outdir, "{}.yaml".format(os.path.basename(slc_scene.as_posix())[:-4]),
         ),
         "w",
     ) as out_fid:
         yaml.dump(slc_metadata, out_fid)
 
 
-def swath_bursts_extents(
-    bursts_df,
-    swt,
-    buf=0.01,
-    pol="VV",
-) -> Iterable:
+def swath_bursts_extents(bursts_df, swt, buf=0.01, pol="VV",) -> Iterable:
     """
     Method to form extents for overlapping bursts.
 
@@ -121,9 +112,7 @@ def swath_bursts_extents(
         operation.
     """
 
-    df_subset = bursts_df[
-        (bursts_df.swath == swt) & (bursts_df.polarization == pol)
-    ]
+    df_subset = bursts_df[(bursts_df.swath == swt) & (bursts_df.polarization == pol)]
     geoms = df_subset["geometry"]
     points = gpd.GeoSeries([geom.centroid for geom in geoms])
 
@@ -137,11 +126,7 @@ def swath_bursts_extents(
             centroids.append(geom.centroid)
     return [
         cascaded_union(
-            [
-                geom
-                for geom in geoms
-                if centroid.buffer(buf).intersects(geom.centroid)
-            ]
+            [geom for geom in geoms if centroid.buffer(buf).intersects(geom.centroid)]
         )
         for centroid in centroids
     ]
@@ -211,8 +196,7 @@ def db_query(
         "{0} "
         "INNER JOIN {1} ON {0}.swath_name = {1}.swath_name "
         "INNER JOIN {2} ON {2}.id = {1}.id "
-        "INNER JOIN {3} ON {3}.row_id = {0}.row_id "
-        .format(
+        "INNER JOIN {3} ON {3}.row_id = {0}.row_id ".format(
             archive.bursts_table_name,
             archive.swath_table_name,
             archive.slc_table_name,
@@ -508,8 +492,7 @@ def grid_definition(
                 # use os.rename to move file. Apparently,
                 # shutil.move calls os.rename in most cases
                 os.rename(
-                    os.path.join(shp_outdir, f),
-                    os.path.join(unsuit_dir, f),
+                    os.path.join(shp_outdir, f), os.path.join(unsuit_dir, f),
                 )
                 # log
                 _LOG.info(
@@ -639,10 +622,7 @@ def grid_definition(
                 # Remove rows in current grid that exist in adjacent
                 # grid. Note, new_adjacent_grid_df.drop_duplicates()
                 # didn't seem to work.
-                current_grid_df = _remove_duplicates(
-                    adjacent_grid_df,
-                    grid_shapefile,
-                )
+                current_grid_df = _remove_duplicates(adjacent_grid_df, grid_shapefile,)
 
                 # append kth grid to adjacent grid
                 new_adjacent_grid_df = adjacent_grid_df.append(
@@ -704,8 +684,7 @@ def grid_definition(
                 Frames_in_grid = "_".join(list(set(grid_gpd.frame)))
 
                 burst_coord_list = [
-                    list(burst_polys.exterior.coords)
-                    for burst_polys in grid_gpd.geometry
+                    list(burst_polys.exterior.coords) for burst_polys in grid_gpd.geometry
                 ]
                 # burst_coord_list = [poly1, ..., polyN]
                 #    poly1 = [(lon1,lat1),
@@ -813,7 +792,9 @@ def grid_adjustment(
     r = lambda: random.randint(0, 255)
     random_hex = "FF%02X%02X%02X" % (r(), r(), r())
 
-    def _add_overlapping_burst_to_grid_k(iw_df, iw_name, adjacent_grid_shp):
+    def _add_overlapping_burst_to_grid_k(
+        iw_df, iw_name, adjacent_grid_shp,
+    ):
         """
         Parameters
         ----------
@@ -896,14 +877,10 @@ def grid_adjustment(
     iw3_df = gpd_df[gpd_df.swath == "IW3"].copy()
 
     # k-1 grid exists: add the last overlapping burst to IW3 of grid k
-    iw3_new = _add_overlapping_burst_to_grid_k(
-        iw3_df, "IW3", grid_before_shapefile,
-    )
+    iw3_new = _add_overlapping_burst_to_grid_k(iw3_df, "IW3", grid_before_shapefile,)
 
     # k+1 grid exists: add first overlapping burst to IW1 of grid k
-    iw1_new = _add_overlapping_burst_to_grid_k(
-        iw1_df, "IW1", grid_after_shapefile,
-    )
+    iw1_new = _add_overlapping_burst_to_grid_k(iw1_df, "IW1", grid_after_shapefile,)
 
     # Remove the northernmost burst in each swath to minimise overlaps.
     # Idealy there should be a check to see if overlaps occur between
@@ -950,9 +927,7 @@ def grid_adjustment(
     #      Create kml      #
     # -------------------- #
     if create_kml:
-        out_kmlfile = Path(
-            os.path.splitext(out_grid_shapefile)[0] + "_adj.kml",
-        )
+        out_kmlfile = Path(os.path.splitext(out_grid_shapefile)[0] + "_adj.kml",)
 
         burst_coord_list = [
             list(shapely.wkt.loads(burst_polys).exterior.coords)

@@ -35,7 +35,9 @@ class SlcMetadata:
     Metadata extraction class to scrap slc metadata from a sentinel-1 slc scene.
     """
 
-    def __init__(self, scene):
+    def __init__(
+        self, scene,
+    ):
         """ a default class constructor """
 
         self.scene = os.path.realpath(scene)
@@ -69,7 +71,7 @@ class SlcMetadata:
             _LOG.info(
                 "mismatch in Sentinel-1 filename pattern",
                 pathname=self.scene,
-                pattern=self.pattern
+                pattern=self.pattern,
             )
 
         self.date_fmt = "%Y%m%d"
@@ -106,7 +108,9 @@ class SlcMetadata:
 
         return metadata
 
-    def metadata_manifest_safe(self, manifest_file=None):
+    def metadata_manifest_safe(
+        self, manifest_file=None,
+    ):
         """ Extracts metadata from a manifest safe file for a slc. """
 
         def __parse_datetime(dt):
@@ -136,9 +140,7 @@ class SlcMetadata:
                 for x in tree.find(".//gml:coordinates", namespaces).text.split()
             ]
             meta["crs"] = "epsg:{}".format(
-                tree.find(".//safe:footPrint", namespaces)
-                .attrib["srsName"]
-                .split("#")[1]
+                tree.find(".//safe:footPrint", namespaces).attrib["srsName"].split("#")[1]
             )
             meta["orbit"] = tree.find(".//s1:pass", namespaces).text[0]
 
@@ -203,7 +205,9 @@ class SlcMetadata:
 
         return meta
 
-    def metadata_swath(self, xml_file):
+    def metadata_swath(
+        self, xml_file,
+    ):
         """ Extracts swath and bursts metadata from a xml file for a swath in slc scene. """
 
         swath_meta = dict()
@@ -229,9 +233,7 @@ class SlcMetadata:
                             [float(split_line[10]), float(split_line[9])],
                             [float(split_line[12]), float(split_line[11])],
                         ]
-                        burst_info[
-                            "burst {}".format(temp_dict["burst_num"])
-                        ] = temp_dict
+                        burst_info["burst {}".format(temp_dict["burst_num"])] = temp_dict
                 return burst_info
 
             with tempfile.TemporaryDirectory() as tmp_dir:
@@ -241,8 +243,7 @@ class SlcMetadata:
                 cout = []
                 cerr = []
                 annotation_xml_pathname = os.path.join(
-                    tmp_dir,
-                    os.path.basename(xml_path)
+                    tmp_dir, os.path.basename(xml_path)
                 )
 
                 stat = pg.S1_burstloc(
@@ -250,7 +251,7 @@ class SlcMetadata:
                     cout=cout,
                     cerr=cerr,
                     stdout_flag=False,
-                    stderr_flag=False
+                    stderr_flag=False,
                 )
                 if stat == 0:
                     return __parse_s1_burstloc(cout)
@@ -261,16 +262,14 @@ class SlcMetadata:
                         annotation_xml_pathname=annotation_xml_pathname,
                         stat=stat,
                         gamma_stdout=cout,
-                        gamma_stderr=cerr
+                        gamma_stderr=cerr,
                     )
                     raise Exception(msg)
 
         with swath_obj as obj:
             ann_tree = etree.fromstring(obj.read())
             swath_meta["samples"] = int(
-                ann_tree.find(
-                    ".//imageAnnotation/imageInformation/numberOfSamples"
-                ).text
+                ann_tree.find(".//imageAnnotation/imageInformation/numberOfSamples").text
             )
             swath_meta["lines"] = int(
                 ann_tree.find(".//imageAnnotation/imageInformation/numberOfLines").text
@@ -300,7 +299,9 @@ class SlcMetadata:
         with zf.ZipFile(self.scene, "r") as archive:
             self.archive_files = archive.namelist()
 
-    def find_archive_files(self, pattern):
+    def find_archive_files(
+        self, pattern,
+    ):
         """ Returns a matching name from a archive_file for given pattern. """
 
         self.archive_name_list()
@@ -311,7 +312,9 @@ class SlcMetadata:
         ]
         return match_names
 
-    def extract_archive_member(self, target_file, outdir=None, obj=False, retry=None):
+    def extract_archive_member(
+        self, target_file, outdir=None, obj=False, retry=None,
+    ):
         """Extracts a content of a target file from a slc zip archive as an object or a file.
 
         :param target_file: A 'Path' to file in a slc zip archive
@@ -355,7 +358,7 @@ class SlcMetadata:
                     "retrying download",
                     retry_count=retry_count,
                     max_retries=retry,
-                    pathname=target_file
+                    pathname=target_file,
                 )
 
             if os.path.getsize(_archive_download(outfile)) != source_size:
@@ -363,10 +366,7 @@ class SlcMetadata:
             else:
                 break
             if retry_count == retry:
-                _LOG.error(
-                    "failed to download",
-                    pathname=target_file
-                )
+                _LOG.error("failed to download", pathname=target_file)
 
 
 class S1DataDownload(SlcMetadata):
@@ -398,9 +398,7 @@ class S1DataDownload(SlcMetadata):
         start_datetime = datetime.datetime.strptime(
             self.acquisition_start_time, self.dt_fmt_1
         )
-        start_date = (start_datetime - datetime.timedelta(days=1)).strftime(
-            self.date_fmt
-        )
+        start_date = (start_datetime - datetime.timedelta(days=1)).strftime(self.date_fmt)
         end_date = (start_datetime + datetime.timedelta(days=1)).strftime(self.date_fmt)
 
         acq_orbit_file = fnmatch.filter(
@@ -412,9 +410,7 @@ class S1DataDownload(SlcMetadata):
         if len(acq_orbit_file) > 1:
             acq_orbit_file = sorted(
                 acq_orbit_file,
-                key=lambda x: datetime.datetime.strptime(
-                    x.split("_")[5], self.dt_fmt_2
-                ),
+                key=lambda x: datetime.datetime.strptime(x.split("_")[5], self.dt_fmt_2),
             )
         return pjoin(_poeorb_path, acq_orbit_file[-1])
 
@@ -437,9 +433,7 @@ class S1DataDownload(SlcMetadata):
         )
         acq_date = start_datetime.strftime(self.date_fmt)
 
-        acq_orbit_file = fnmatch.filter(
-            orbit_files, "*V{d}*_{d}*.EOF".format(d=acq_date)
-        )
+        acq_orbit_file = fnmatch.filter(orbit_files, "*V{d}*_{d}*.EOF".format(d=acq_date))
 
         acq_orbit_file = [
             orbit_file
@@ -453,9 +447,7 @@ class S1DataDownload(SlcMetadata):
         if len(acq_orbit_file) > 1:
             acq_orbit_file = sorted(
                 acq_orbit_file,
-                key=lambda x: datetime.datetime.strptime(
-                    x.split("_")[5], self.dt_fmt_2
-                ),
+                key=lambda x: datetime.datetime.strptime(x.split("_")[5], self.dt_fmt_2),
             )
 
         return pjoin(_resorb_path, acq_orbit_file[-1])
@@ -516,10 +508,7 @@ class S1DataDownload(SlcMetadata):
         if not orbit_source_file:
             orbit_source_file = self.get_resorb_orbit_file()
             if not orbit_source_file:
-                _LOG.error(
-                    "no orbit files found",
-                    pathname=self.scene
-                )
+                _LOG.error("no orbit files found", pathname=self.scene)
             orbit_destination_file = os.path.join(
                 base_dir, os.path.basename(orbit_source_file)
             )
@@ -534,7 +523,9 @@ class Archive:
     facilitate an automated query into a database.
     """
 
-    def __init__(self, dbfile):
+    def __init__(
+        self, dbfile,
+    ):
         """ A default class constructor"""
 
         self.dbfile = dbfile
@@ -681,13 +672,17 @@ class Archive:
         if self.metadata:
             return self.metadata["product"]["url"]
 
-    def load_metadata(self, yaml_file):
+    def load_metadata(
+        self, yaml_file,
+    ):
         """ Loads the contents of metadata from slc yaml file"""
         with open(yaml_file, "r") as out_fid:
             self.metadata = yaml.load(out_fid)
 
     @staticmethod
-    def get_corners(lats, lons):
+    def get_corners(
+        lats, lons,
+    ):
         """ Returns coorner from given latitudes and longitudes. """
         return {
             "xmin": min(lons),
@@ -696,11 +691,15 @@ class Archive:
             "ymax": max(lats),
         }
 
-    def get_measurement_fieldnames(self, measurement_key):
+    def get_measurement_fieldnames(
+        self, measurement_key,
+    ):
         """ Returns all the measurement fieldnames for a slc scene. """
         return {k for k, v in self.metadata["measurements"][measurement_key].items()}
 
-    def get_measurement_metadata(self, measurement_key):
+    def get_measurement_metadata(
+        self, measurement_key,
+    ):
         """ Returns metadata associated with all slc measurement field names. """
         return {
             mk: mv for mk, mv in self.metadata["measurements"][measurement_key].items()
@@ -716,7 +715,9 @@ class Archive:
         ).wkt
         return slc_metadata
 
-    def get_burst_names(self, measurement_key):
+    def get_burst_names(
+        self, measurement_key,
+    ):
         """ Returns all the bursts contained within a given swath measurement. """
         return [
             burst
@@ -725,13 +726,17 @@ class Archive:
         ]
 
     @staticmethod
-    def encode_string(string, encoding="utf-8"):
+    def encode_string(
+        string, encoding="utf-8",
+    ):
         """ Encodes binary values into a string. """
         if not isinstance(string, str):
             return string.encode(encoding)
         return string
 
-    def get_swath_bursts_metadata(self, measurement_key, burst_key=None):
+    def get_swath_bursts_metadata(
+        self, measurement_key, burst_key=None,
+    ):
         """ Returns measurement or burst metadata. """
         measurement_metadata = self.get_measurement_metadata(measurement_key)
         burst_names = self.get_burst_names(measurement_key)
@@ -743,9 +748,7 @@ class Archive:
                 burst_temp = dict()
                 for name in self.burst_fieldnames:
                     burst_temp[name] = m_metadata[name]
-                burst_temp["burst_extent"] = [
-                    coord for coord in burst_temp["coordinate"]
-                ]
+                burst_temp["burst_extent"] = [coord for coord in burst_temp["coordinate"]]
                 burst_metadata[m_field] = burst_temp
                 del measurement_metadata[m_field]
 
@@ -762,7 +765,9 @@ class Archive:
         cursor.execute('SELECT * FROM sqlite_master WHERE type="table"')
         return sorted([self.encode_string(x[1]) for x in cursor.fetchall()])
 
-    def get_colnames(self, table_name):
+    def get_colnames(
+        self, table_name,
+    ):
         """ Returns column names for a given table name. """
         cursor = self.conn.cursor()
         cursor.execute("PRAGMA table_info({})".format(table_name))
@@ -795,16 +800,15 @@ class Archive:
             self.slc_table_name,
             ", ".join(col_names),
             ", ".join(
-                [
-                    "GeomFromText(?, 4326)" if x == "slc_extent" else "?"
-                    for x in col_names
-                ]
+                ["GeomFromText(?, 4326)" if x == "slc_extent" else "?" for x in col_names]
             ),
         )
 
         return insert_string, tuple(insertion_values)
 
-    def prepare_swath_metadata_insertion(self, measurement_key):
+    def prepare_swath_metadata_insertion(
+        self, measurement_key,
+    ):
         """ Prepares swath metadata to be inserted into a database. """
         measurement_metadata = self.get_swath_bursts_metadata(measurement_key)
         col_names = self.get_colnames(self.swath_table_name)
@@ -831,7 +835,9 @@ class Archive:
 
         return insert_string, tuple(insertion_values)
 
-    def prepare_burst_metadata_insertion(self, measurement_key, burst_key):
+    def prepare_burst_metadata_insertion(
+        self, measurement_key, burst_key,
+    ):
         """ Prepares a burst metadata to be inserted into a database. """
         burst_metadata = self.get_swath_bursts_metadata(measurement_key, burst_key)
         col_names = self.get_colnames(self.bursts_table_name)
@@ -867,7 +873,9 @@ class Archive:
 
         return insert_string, tuple(insertion_values)
 
-    def archive_scene(self, yaml_file):
+    def archive_scene(
+        self, yaml_file,
+    ):
         """ Archives a slc scene and its associated metadata from a yaml file into a database"""
 
         self.load_metadata(yaml_file)
@@ -877,13 +885,8 @@ class Archive:
         try:
             cursor.execute(slc_str, slc_vals)
         except sqlite3.IntegrityError as err:
-            if str(err) == "UNIQUE constraint failed: {}.id".format(
-                self.slc_table_name
-            ):
-                _LOG.info(
-                    "record already exists in database",
-                    pathname=yaml_file
-                )
+            if str(err) == "UNIQUE constraint failed: {}.id".format(self.slc_table_name):
+                _LOG.info("record already exists in database", pathname=yaml_file)
                 return
             else:
                 raise err
@@ -896,10 +899,7 @@ class Archive:
                 if str(err) == "UNIQUE constraint failed: {}.swath_name".format(
                     self.swath_table_name
                 ):
-                    _LOG.info(
-                        "duplicates detected",
-                        pathname=yaml_file
-                    )
+                    _LOG.info("duplicates detected", pathname=yaml_file)
                     self.archive_duplicate(yaml_file)
                     return
                 else:
@@ -913,7 +913,9 @@ class Archive:
                 cursor.execute(burst_str, burst_vals)
         self.conn.commit()
 
-    def archive_duplicate(self, yaml_file):
+    def archive_duplicate(
+        self, yaml_file,
+    ):
         """ Archive duplicate slc scenes. """
         self.load_metadata(yaml_file)
         cursor = self.conn.cursor()
@@ -931,7 +933,9 @@ class Archive:
         """ Ensures db connection is closed. """
         self.conn.close()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self, exc_type, exc_val, exc_tb,
+    ):
         """ Closes a Archive class. """
         self.close()
 
@@ -987,10 +991,7 @@ class Archive:
 
         query = """SELECT {0} from {1} WHERE {2}""".format(
             ", ".join(
-                [
-                    "AsText({})".format(col) if "extent" in col else col
-                    for col in columns
-                ]
+                ["AsText({})".format(col) if "extent" in col else col for col in columns]
             ),
             tables_join_string,
             " AND ".join(arg_format),
@@ -1024,7 +1025,9 @@ class SlcFrame:
     of 0.0 to 50 in the southern hemisphere and longitude 100 to 179.0.
     """
 
-    def __init__(self, width_lat=None, buffer_lat=None):
+    def __init__(
+        self, width_lat=None, buffer_lat=None,
+    ):
         """ A default class constructor. """
         self.southern_hemisphere = True
         self.start_lat = 0.0
@@ -1040,7 +1043,9 @@ class SlcFrame:
         else:
             self.buffer_lat = buffer_lat
 
-    def generate_frame_polygon(self, shapefile_name=None):
+    def generate_frame_polygon(
+        self, shapefile_name=None,
+    ):
         """ Generates a frame with associated extent for the frame definition defined in class constructor. """
         latitudes = [
             i
@@ -1069,7 +1074,9 @@ class SlcFrame:
             geopandas_df.to_file(shapefile_name, driver="ESRI Shapefile")
         return geopandas_df
 
-    def get_frame_extent(self, frame_name):
+    def get_frame_extent(
+        self, frame_name,
+    ):
         """ Returns a geo-pandas data frame for a frame_name."""
         gpd_df = self.generate_frame_polygon()
         return gpd_df.loc[gpd_df["frame"] == frame_name]

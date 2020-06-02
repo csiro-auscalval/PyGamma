@@ -7,15 +7,15 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath("."))
 
 
 is_on_readthedocs = os.environ.get("READTHEDOCS", None) == "TRUE"
 
-project = 'gamma_insar'
-copyright = '2020, Geoscience Australia'
-author = 'Geoscience Australia'
+project = "gamma_insar"
+copyright = "2020, Geoscience Australia"
+author = "Geoscience Australia"
 
 # show __init__ docstring as the class docstring
 autosummary_generate = True
@@ -37,14 +37,15 @@ intersphinx_mapping = {
     "luigi": ("https://luigi.readthedocs.io/en/stable/", None),
 }
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 if is_on_readthedocs:
     html_theme = "default"
 else:
     import sphinx_rtd_theme
+
     html_theme = "sphinx_rtd_theme"
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]

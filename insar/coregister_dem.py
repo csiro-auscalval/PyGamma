@@ -16,16 +16,15 @@ _LOG = structlog.get_logger("insar")
 
 
 class SlcParFileParser:
-    def __init__(self, par_file: Union[Path, str]) -> None:
+    def __init__(self, par_file: Union[Path, str],) -> None:
         """
         Convenient access fields for SLC image parameter properties.
-
         :param par_file:
             A full path to a SLC parameter file.
         """
         self.par_file = Path(par_file).as_posix()
         self.par_vals = pg.ParFile(self.par_file)
-    
+
     @property
     def slc_par_params(self):
         """
@@ -39,16 +38,15 @@ class SlcParFileParser:
 
 
 class DemParFileParser:
-    def __init__(self, par_file: Union[Path, str]) -> None:
+    def __init__(self, par_file: Union[Path, str],) -> None:
         """
         Convenient access fileds for DEM image parameter properties.
-
         :param par_file:
             A full path to a DEM parameter file.
         """
         self.par_file = Path(par_file).as_posix()
         self.dem_par_vals = pg.ParFile(self.par_file)
-    
+
     @property
     def dem_par_params(self):
         """
@@ -85,7 +83,6 @@ class CoregisterDem:
     ) -> None:
         """
         Generates DEM coregistered to SLC image in radar geometry.
-
         :param rlks:
             A range look value.
         :param alks:
@@ -174,17 +171,17 @@ class CoregisterDem:
             self.ext_image_flt.symlink_to(ext_image_flt)
 
     @staticmethod
-    def dem_master_names(slc_prefix: str, r_slc_prefix: str, outdir: Union[Path, str]) -> Dict:
+    def dem_master_names(
+        slc_prefix: str, r_slc_prefix: str, outdir: Union[Path, str],
+    ) -> Dict:
         """
         Collate DEM master file names used need in CoregisterDem class.
-
         :param slc_prefix:
             A pre_fix of SLC image file.
         :param r_slc_prefix:
             A prefix of radar coded SLC image file.
         :param outdir:
             A full path to store DEM co-registered SLC files.
-
         :returns:
             Dict with SLC file names and paths needed in CoregisterDem class.
         """
@@ -223,15 +220,13 @@ class CoregisterDem:
         return attrs
 
     @staticmethod
-    def dem_filenames(dem_prefix: str, outdir: Path) -> Dict:
+    def dem_filenames(dem_prefix: str, outdir: Path,) -> Dict:
         """
         Collate DEM file names used need in CoregisterDem class.
-
         :param dem_prefix:
             A pre_fix of dem file name.
         :param outdir:
             A full path to store DEM files generated during dem coregistration.
-
         :returns:
             Dict with DEM file names and paths needed in CoregisterDem class.
         """
@@ -306,7 +301,7 @@ class CoregisterDem:
             _LOG.info(
                 "increasing DEM window1 size",
                 old_window=self.dem_window[0],
-                new_window=win1
+                new_window=win1,
             )
             self.dem_window[0] = win1
 
@@ -316,7 +311,7 @@ class CoregisterDem:
             _LOG.info(
                 "increasing DEM window2 size",
                 old_window=self.dem_window[2],
-                new_window=win2
+                new_window=win2,
             )
             self.dem_window[1] = win2
 
@@ -324,7 +319,7 @@ class CoregisterDem:
             _LOG.info(
                 "increasing DEM patch window",
                 old_patch_window=self.dem_patch_window,
-                new_patch_window=128
+                new_patch_window=128,
             )
             self.dem_patch_window = 128
 
@@ -336,10 +331,9 @@ class CoregisterDem:
         if self.dem_azpos is not None:
             self.dem_azpos = int(self.dem_azpos / self.rlks)
 
-    def copy_slc(self, raster_out: Optional[bool] = True) -> None:
+    def copy_slc(self, raster_out: Optional[bool] = True,) -> None:
         """
         Copy SLC with options for data format conversion.
-
         :param raster_out:
             An Optional flag to output raster files.
         """
@@ -368,7 +362,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -383,7 +377,7 @@ class CoregisterDem:
                 sc=sc,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -410,7 +404,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -426,7 +420,7 @@ class CoregisterDem:
                 loff=loff,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -464,7 +458,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -483,14 +477,13 @@ class CoregisterDem:
                     rasf_pathname=rasf_pathname,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
-    def gen_dem_rdc(self, use_external_image: Optional[bool] = False) -> None:
+    def gen_dem_rdc(self, use_external_image: Optional[bool] = False,) -> None:
         """
         Generate DEM coregistered to slc in rdc geometry.
-
         :param use_external_image:
             An Optional parameter to set use of external image for co-registration.
         """
@@ -541,7 +534,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -568,7 +561,7 @@ class CoregisterDem:
                 ls_mode=ls_mode,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -597,7 +590,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -614,7 +607,7 @@ class CoregisterDem:
                 pix_gamma0_pathname=pix_gamma0_pathname,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -657,7 +650,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -675,7 +668,7 @@ class CoregisterDem:
                     bflg=bflg,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -714,7 +707,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -736,7 +729,7 @@ class CoregisterDem:
                     nintr=nintr,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -758,15 +751,14 @@ class CoregisterDem:
                 self.dem_diff.as_posix(),
                 "1",
                 "<",
-                return_file.as_posix()
+                return_file.as_posix(),
             ]
             run_command(command, os.getcwd())
 
     def offset_calc(
-        self, npoly: Optional[int] = 1, use_external_image: Optional[bool] = False
+        self, npoly: Optional[int] = 1, use_external_image: Optional[bool] = False,
     ) -> None:
         """Offset computation. (Need more information from InSAR team).
-
         :param npoly:
             An Optional nth order polynomial term. Otherwise set to default for
             Sentinel-1 acquisitions.
@@ -817,7 +809,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -838,7 +830,7 @@ class CoregisterDem:
                 cflag=cflag,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -874,7 +866,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -895,7 +887,7 @@ class CoregisterDem:
                 thres=thres,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -920,7 +912,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -936,7 +928,7 @@ class CoregisterDem:
                 npoly=npoly,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -962,7 +954,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -976,7 +968,7 @@ class CoregisterDem:
                 ref_flg=ref_flg,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -1008,7 +1000,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1025,7 +1017,7 @@ class CoregisterDem:
                     pix_gamma0=pix_gamma0,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1056,7 +1048,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1074,7 +1066,7 @@ class CoregisterDem:
                     cp_data=cp_data,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1111,7 +1103,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1131,7 +1123,7 @@ class CoregisterDem:
                     pix_area_pathname=pix_area_pathname,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1157,7 +1149,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1171,7 +1163,7 @@ class CoregisterDem:
                     mode=mode,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1193,7 +1185,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1207,7 +1199,7 @@ class CoregisterDem:
                     mode=mode,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1240,7 +1232,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1259,7 +1251,7 @@ class CoregisterDem:
                     rasf_pathname=rasf_pathname,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1290,7 +1282,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1307,7 +1299,7 @@ class CoregisterDem:
                     zflg=zflg,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1345,7 +1337,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1367,14 +1359,15 @@ class CoregisterDem:
                     rasf_pathname=rasf_pathname,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
-    def geocode(self, use_external_image: Optional[bool] = False):
+    def geocode(
+        self, use_external_image: Optional[bool] = False,
+    ):
         """
         Method to geocode image files to radar geometry.
-
         :param use_external_image:
             An Optional external image is to be used for co-registration.
         """
@@ -1425,7 +1418,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -1447,7 +1440,7 @@ class CoregisterDem:
                 nintr=nintr,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -1488,7 +1481,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1510,7 +1503,7 @@ class CoregisterDem:
                     rasf_pathname=rasf_pathname,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1558,7 +1551,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -1580,7 +1573,7 @@ class CoregisterDem:
                 nintr=nintr,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -1619,7 +1612,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -1641,7 +1634,7 @@ class CoregisterDem:
                 nintr=nintr,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -1681,7 +1674,7 @@ class CoregisterDem:
                 cout=cout,
                 cerr=cerr,
                 stdout_flag=False,
-                stderr_flag=False
+                stderr_flag=False,
             )
 
             if stat != 0:
@@ -1703,7 +1696,7 @@ class CoregisterDem:
                     nintr=nintr,
                     stat=stat,
                     gamma_stdout=cout,
-                    gamma_stderr=cerr
+                    gamma_stderr=cerr,
                 )
                 raise Exception(msg)
 
@@ -1738,7 +1731,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -1758,7 +1751,7 @@ class CoregisterDem:
                 order=order,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -1791,7 +1784,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -1810,7 +1803,7 @@ class CoregisterDem:
                 rasf_pathname=rasf_pathname,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -1842,7 +1835,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -1856,7 +1849,7 @@ class CoregisterDem:
                 nodata=nodata,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -1891,7 +1884,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -1910,7 +1903,7 @@ class CoregisterDem:
                 lr_out=lr_out,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -1932,7 +1925,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -1946,7 +1939,7 @@ class CoregisterDem:
                 nodata=nodata,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -1969,7 +1962,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -1983,7 +1976,7 @@ class CoregisterDem:
                 nodata=nodata,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -2002,7 +1995,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -2014,7 +2007,7 @@ class CoregisterDem:
                 kml_pathname=kml_pathname,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -2056,7 +2049,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -2071,7 +2064,7 @@ class CoregisterDem:
                 lv_phi_pathname=lv_phi_pathname,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -2094,7 +2087,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -2108,7 +2101,7 @@ class CoregisterDem:
                 nodata=nodata,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
@@ -2130,7 +2123,7 @@ class CoregisterDem:
             cout=cout,
             cerr=cerr,
             stdout_flag=False,
-            stderr_flag=False
+            stderr_flag=False,
         )
 
         if stat != 0:
@@ -2144,13 +2137,13 @@ class CoregisterDem:
                 nodata=nodata,
                 stat=stat,
                 gamma_stdout=cout,
-                gamma_stderr=cerr
+                gamma_stderr=cerr,
             )
             raise Exception(msg)
 
     def main(self):
         """Main method to execute SLC-DEM coregistration task in sequence."""
-        
+
         self.dem_outdir.mkdir(exist_ok=True)
         with working_directory(self.dem_outdir):
             self.copy_slc()

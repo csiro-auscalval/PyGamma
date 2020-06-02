@@ -11,14 +11,14 @@ import shapely.wkt
 from spatialist import Vector
 import structlog
 
-#from insar.s1_slc_metadata import Archive  ## s1_slc_metadata is a duplicate of meta_data.s1_slc
+# from insar.s1_slc_metadata import Archive  ## s1_slc_metadata is a duplicate of meta_data.s1_slc
 from insar.meta_data.s1_slc import Archive
 from insar.logs import get_wrapped_logger
 
 _LOG = structlog.get_logger("insar")
 
 
-def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: Dict) -> Dict:
+def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict:
     """Check missing master SLC bursts.
 
     Compares input data and master bursts to determine bursts overlaps
@@ -94,8 +94,7 @@ def _check_slc_input_data(
 
     # create unique date scenes list file
     unique_dates = [
-        dt
-        for dt in pol_subset_df.acquisition_start_time.map(pd.Timestamp.date).unique()
+        dt for dt in pol_subset_df.acquisition_start_time.map(pd.Timestamp.date).unique()
     ]
     data_dict = dict()
 
@@ -133,9 +132,7 @@ def _check_slc_input_data(
                         "burst_number": list(slc_gpd.burst_number.values),
                         "burst_extent": list(slc_gpd.geometry.values),
                         "sensor": sensor[0],
-                        "acquisition_datetime": slc_df.acquisition_start_time.unique()[
-                            0
-                        ],
+                        "acquisition_datetime": slc_df.acquisition_start_time.unique()[0],
                         "polarization": polarization,
                         "url": slc_gpd.url.unique()[0],
                         "total_bursts": slc_gpd.total_bursts.unique()[0],
@@ -148,7 +145,7 @@ def _check_slc_input_data(
             _LOG.info(
                 "scene not available to form complete frame",
                 slc_scene_date=dt.strftime("%Y-%m-%d"),
-                err=err
+                err=err,
             )
 
     return _check_frame_bursts(master_df, data_dict)
@@ -238,9 +235,7 @@ def query_slc_inputs(
 
             #  check queried results against master dataframe to form slc inputs
             return {
-                pol: _check_slc_input_data(
-                    slc_df, gpd.read_file(shapefile), track, pol
-                )
+                pol: _check_slc_input_data(slc_df, gpd.read_file(shapefile), track, pol)
                 for pol in polarization
             }
 
@@ -248,7 +243,7 @@ def query_slc_inputs(
             raise err
 
 
-def _write_list(data: List, fid: Union[Path, str]) -> None:
+def _write_list(data: List, fid: Union[Path, str],) -> None:
     """Helper method to write files."""
 
     with open(Path(fid.as_posix()), "w") as out_fid:
@@ -267,7 +262,9 @@ def slc_inputs(slc_data_input: Dict) -> pd.DataFrame:
         A dataframe with sub-set of queried attributes needed to form SLC.
     """
 
-    _regx_uuid = r"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}"
+    _regx_uuid = (
+        r"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}"
+    )
     _swath_keys = ["IW1", "IW2", "IW3"]
     _missing_master_bursts_key = "missing_master_bursts"
 
@@ -302,7 +299,9 @@ def slc_inputs(slc_data_input: Dict) -> pd.DataFrame:
                             "total_bursts": slc_val["total_bursts"],
                             "polarization": slc_val["polarization"],
                             "acquistion_datetime": slc_val["acquisition_datetime"],
-                            "missing_master_bursts": list(map(lambda x: int(x), missing_master_bursts))
+                            "missing_master_bursts": list(
+                                map(lambda x: int(x), missing_master_bursts)
+                            ),
                         },
                         ignore_index=True,
                     )
