@@ -101,8 +101,7 @@ def create_task_files_cli():
     default=Path(os.getcwd()),
 )
 def insar_task_files(
-    input_path: click.Path,
-    out_dir: click.Path,
+    input_path: click.Path, out_dir: click.Path,
 ):
     """
 
@@ -223,8 +222,7 @@ def process_grid_adjustment(
     """
 
     def _get_required_grids(
-        vector_file,
-        vector_file_dir,
+        vector_file, vector_file_dir,
     ):
         _LOG.info("processing _get_required_grids", pathname=vector_file)
 
@@ -854,11 +852,12 @@ def process_slc_ingestion(
 
                 grid_dir = pjoin(slc_ym_dir, grid)
                 scenes_slc = finder(
-                    str(grid_dir),
-                    [r"^S1[AB]_IW_SLC.*\.zip"],
+                    target=str(grid_dir),
+                    matchlist=[r"^S1[AB]_IW_SLC.*\.zip"],
                     regex=True,
                     recursive=True,
                 )
+
                 for scene in scenes_slc:
                     _LOG.info("processing scene", scene=scene)
                     try:
@@ -884,6 +883,7 @@ def process_slc_ingestion(
                             scene=scene,
                             err=err,
                         )
+
         except IOError as err:
             _LOG.error("directory does not exist", directory=slc_ym_dir)
             raise IOError(err)
@@ -915,9 +915,7 @@ def process_slc_ingestion(
     default="yaml-ingestion.jsonl",
 )
 def ingest_slc_yamls(
-    database_name: click.Path,
-    yaml_dir: click.Path,
-    log_pathname: str,
+    database_name: click.Path, yaml_dir: click.Path, log_pathname: str,
 ):
     """
     Description
