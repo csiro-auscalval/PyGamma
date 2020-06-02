@@ -194,9 +194,7 @@ class BaselineProcess:
         # compute baseline for treating each slc scene as a master slc
         for m_idx, master_date in enumerate(self.slc_dates):
             m_data = SlcParFileParser(Path(self._match_par(master_date)))
-            m_P = self.llh2xyz(
-                m_data.slc_par_params.lat, m_data.slc_par_params.lon, 0.0
-            )
+            m_P = self.llh2xyz(m_data.slc_par_params.lat, m_data.slc_par_params.lon, 0.0)
             m_M = self.calc_orbit_pos(
                 m_data.orbit_par_params.t,
                 m_data.slc_par_params.tmin,
