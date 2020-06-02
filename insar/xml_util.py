@@ -11,8 +11,7 @@ import xml.etree.ElementTree as ET
 
 class XMLHandler(object):
     def __init__(
-        self,
-        xml,
+        self, xml,
     ):
         errormessage = (
             "xmlfile must be a string pointing to an existing file, "
@@ -54,9 +53,7 @@ class XMLHandler(object):
             self.text = self.text.replace(key, val_new)
 
     def write(
-        self,
-        outname,
-        mode,
+        self, outname, mode,
     ):
         with open(outname, mode) as out:
             out.write(self.text)
