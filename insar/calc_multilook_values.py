@@ -13,9 +13,7 @@ from insar.logs import get_wrapped_logger
 _LOG = structlog.get_logger("insar")
 
 
-def calculate_slc_look_values(
-    slc_par_file: Union[Path, str],
-) -> Tuple:
+def calculate_slc_look_values(slc_par_file: Union[Path, str],) -> Tuple:
     """Calculates the range and azimuth look values."""
 
     _par_vals = pg.ParFile(Path(slc_par_file).as_posix())
@@ -32,10 +30,7 @@ def calculate_slc_look_values(
     return azsp, rgsp, inc
 
 
-def calculate_mean_look_values(
-    slc_par_files: List,
-    multi_look: int,
-) -> Tuple:
+def calculate_mean_look_values(slc_par_files: List, multi_look: int,) -> Tuple:
     """Calculate mean slc look (range, azimuth, and incidence) angles from a temporal stack.
 
     :param slc_par_files:
