@@ -219,9 +219,7 @@ def test_creategammadem(tmp_path):
 
     with open(outdir.joinpath(f"{track_frame}.dem.par").as_posix(), "r") as fid:
         test_pars = [
-            item.rstrip().split(":")[1].strip()
-            for item in fid.readlines()
-            if ":" in item
+            item.rstrip().split(":")[1].strip() for item in fid.readlines() if ":" in item
         ]
         with open(__DATA__.joinpath(f"{track_frame}.dem.par").as_posix(), "r") as fid1:
             val_pars = [
