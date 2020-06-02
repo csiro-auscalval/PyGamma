@@ -18,10 +18,7 @@ from insar.logs import get_wrapped_logger
 _LOG = structlog.get_logger("insar")
 
 
-def _check_frame_bursts(
-    master_df: gpd.GeoDataFrame,
-    input_data: Dict,
-) -> Dict:
+def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict:
     """Check missing master SLC bursts.
 
     Compares input data and master bursts to determine bursts overlaps
@@ -249,10 +246,7 @@ def query_slc_inputs(
             raise err
 
 
-def _write_list(
-    data: List,
-    fid: Union[Path, str],
-) -> None:
+def _write_list(data: List, fid: Union[Path, str],) -> None:
     """Helper method to write files."""
 
     with open(Path(fid.as_posix()), "w") as out_fid:
