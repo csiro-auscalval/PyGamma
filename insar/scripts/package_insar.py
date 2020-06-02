@@ -96,9 +96,9 @@ def _get_metadata(par_file: Union[Path, str]) -> Dict:
     _metadata["chirp_bandwidth"] = params.get_value(
         "chirp_bandwidth", dtype=float, index=0
     )
-    _metadata["doppler_polynomial"] = params.get_value(
-        "doppler_polynomial", dtype=float
-    )[0:4]
+    _metadata["doppler_polynomial"] = params.get_value("doppler_polynomial", dtype=float)[
+        0:4
+    ]
     _metadata["prf"] = params.get_value("prf", dtype=float, index=0)
     _metadata["azimuth_proc_bandwidth"] = params.get_value(
         "azimuth_proc_bandwidth", dtype=float, index=0
@@ -119,9 +119,7 @@ def _get_metadata(par_file: Union[Path, str]) -> Dict:
     _metadata["earth_semi_minor_axis"] = params.get_value(
         "earth_semi_minor_axis", dtype=float, index=0
     )
-    _metadata["near_range_slc"] = params.get_value(
-        "near_range_slc", dtype=float, index=0
-    )
+    _metadata["near_range_slc"] = params.get_value("near_range_slc", dtype=float, index=0)
     _metadata["center_range_slc"] = params.get_value(
         "center_range_slc", dtype=float, index=0
     )
@@ -154,9 +152,7 @@ def _slc_files(
     if not isinstance(burst_data, pd.DataFrame):
         burst_data = pd.read_csv(Path(burst_data).as_posix())
 
-    burst_data["acquisition_datetime"] = pd.to_datetime(
-        burst_data["acquistion_datetime"]
-    )
+    burst_data["acquisition_datetime"] = pd.to_datetime(burst_data["acquistion_datetime"])
     burst_data["date"] = burst_data["acquisition_datetime"].apply(
         lambda x: pd.Timestamp(x).date()
     )
@@ -385,9 +381,7 @@ def package(
                 p.extend_user_metadata(key, val)
 
             # find backscatter files and write
-            _write_measurements(
-                p, _find_products(slc.slc_path, product_attrs["suffixs"])
-            )
+            _write_measurements(p, _find_products(slc.slc_path, product_attrs["suffixs"]))
 
             # find angles files and write
             _write_angles_measurements(
