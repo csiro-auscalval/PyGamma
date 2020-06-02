@@ -36,8 +36,7 @@ class SlcMetadata:
     """
 
     def __init__(
-        self,
-        scene,
+        self, scene,
     ):
         """ a default class constructor """
 
@@ -110,8 +109,7 @@ class SlcMetadata:
         return metadata
 
     def metadata_manifest_safe(
-        self,
-        manifest_file=None,
+        self, manifest_file=None,
     ):
         """ Extracts metadata from a manifest safe file for a slc. """
 
@@ -210,8 +208,7 @@ class SlcMetadata:
         return meta
 
     def metadata_swath(
-        self,
-        xml_file,
+        self, xml_file,
     ):
         """ Extracts swath and bursts metadata from a xml file for a swath in slc scene. """
 
@@ -309,8 +306,7 @@ class SlcMetadata:
             self.archive_files = archive.namelist()
 
     def find_archive_files(
-        self,
-        pattern,
+        self, pattern,
     ):
         """ Returns a matching name from a archive_file for given pattern. """
 
@@ -323,11 +319,7 @@ class SlcMetadata:
         return match_names
 
     def extract_archive_member(
-        self,
-        target_file,
-        outdir=None,
-        obj=False,
-        retry=None,
+        self, target_file, outdir=None, obj=False, retry=None,
     ):
         """Extracts a content of a target file from a slc zip archive as an object or a file.
 
@@ -546,8 +538,7 @@ class Archive:
     """
 
     def __init__(
-        self,
-        dbfile,
+        self, dbfile,
     ):
         """ A default class constructor"""
 
@@ -696,8 +687,7 @@ class Archive:
             return self.metadata["product"]["url"]
 
     def load_metadata(
-        self,
-        yaml_file,
+        self, yaml_file,
     ):
         """ Loads the contents of metadata from slc yaml file"""
         with open(yaml_file, "r") as out_fid:
@@ -705,8 +695,7 @@ class Archive:
 
     @staticmethod
     def get_corners(
-        lats,
-        lons,
+        lats, lons,
     ):
         """ Returns coorner from given latitudes and longitudes. """
         return {
@@ -717,15 +706,13 @@ class Archive:
         }
 
     def get_measurement_fieldnames(
-        self,
-        measurement_key,
+        self, measurement_key,
     ):
         """ Returns all the measurement fieldnames for a slc scene. """
         return {k for k, v in self.metadata["measurements"][measurement_key].items()}
 
     def get_measurement_metadata(
-        self,
-        measurement_key,
+        self, measurement_key,
     ):
         """ Returns metadata associated with all slc measurement field names. """
         return {
@@ -743,8 +730,7 @@ class Archive:
         return slc_metadata
 
     def get_burst_names(
-        self,
-        measurement_key,
+        self, measurement_key,
     ):
         """ Returns all the bursts contained within a given swath measurement. """
         return [
@@ -755,8 +741,7 @@ class Archive:
 
     @staticmethod
     def encode_string(
-        string,
-        encoding="utf-8",
+        string, encoding="utf-8",
     ):
         """ Encodes binary values into a string. """
         if not isinstance(string, str):
@@ -764,9 +749,7 @@ class Archive:
         return string
 
     def get_swath_bursts_metadata(
-        self,
-        measurement_key,
-        burst_key=None,
+        self, measurement_key, burst_key=None,
     ):
         """ Returns measurement or burst metadata. """
         measurement_metadata = self.get_measurement_metadata(measurement_key)
@@ -799,8 +782,7 @@ class Archive:
         return sorted([self.encode_string(x[1]) for x in cursor.fetchall()])
 
     def get_colnames(
-        self,
-        table_name,
+        self, table_name,
     ):
         """ Returns column names for a given table name. """
         cursor = self.conn.cursor()
@@ -844,8 +826,7 @@ class Archive:
         return insert_string, tuple(insertion_values)
 
     def prepare_swath_metadata_insertion(
-        self,
-        measurement_key,
+        self, measurement_key,
     ):
         """ Prepares swath metadata to be inserted into a database. """
         measurement_metadata = self.get_swath_bursts_metadata(measurement_key)
@@ -874,9 +855,7 @@ class Archive:
         return insert_string, tuple(insertion_values)
 
     def prepare_burst_metadata_insertion(
-        self,
-        measurement_key,
-        burst_key,
+        self, measurement_key, burst_key,
     ):
         """ Prepares a burst metadata to be inserted into a database. """
         burst_metadata = self.get_swath_bursts_metadata(measurement_key, burst_key)
@@ -914,8 +893,7 @@ class Archive:
         return insert_string, tuple(insertion_values)
 
     def archive_scene(
-        self,
-        yaml_file,
+        self, yaml_file,
     ):
         """ Archives a slc scene and its associated metadata from a yaml file into a database"""
 
@@ -957,8 +935,7 @@ class Archive:
         self.conn.commit()
 
     def archive_duplicate(
-        self,
-        yaml_file,
+        self, yaml_file,
     ):
         """ Archive duplicate slc scenes. """
         self.load_metadata(yaml_file)
@@ -978,10 +955,7 @@ class Archive:
         self.conn.close()
 
     def __exit__(
-        self,
-        exc_type,
-        exc_val,
-        exc_tb,
+        self, exc_type, exc_val, exc_tb,
     ):
         """ Closes a Archive class. """
         self.close()
@@ -1076,9 +1050,7 @@ class SlcFrame:
     """
 
     def __init__(
-        self,
-        width_lat=None,
-        buffer_lat=None,
+        self, width_lat=None, buffer_lat=None,
     ):
         """ A default class constructor. """
         self.southern_hemisphere = True
@@ -1096,8 +1068,7 @@ class SlcFrame:
             self.buffer_lat = buffer_lat
 
     def generate_frame_polygon(
-        self,
-        shapefile_name=None,
+        self, shapefile_name=None,
     ):
         """ Generates a frame with associated extent for the frame definition defined in class constructor. """
         latitudes = [
@@ -1128,8 +1099,7 @@ class SlcFrame:
         return geopandas_df
 
     def get_frame_extent(
-        self,
-        frame_name,
+        self, frame_name,
     ):
         """ Returns a geo-pandas data frame for a frame_name."""
         gpd_df = self.generate_frame_polygon()
