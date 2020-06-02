@@ -684,8 +684,7 @@ def grid_definition(
                 Frames_in_grid = "_".join(list(set(grid_gpd.frame)))
 
                 burst_coord_list = [
-                    list(burst_polys.exterior.coords)
-                    for burst_polys in grid_gpd.geometry
+                    list(burst_polys.exterior.coords) for burst_polys in grid_gpd.geometry
                 ]
                 # burst_coord_list = [poly1, ..., polyN]
                 #    poly1 = [(lon1,lat1),
