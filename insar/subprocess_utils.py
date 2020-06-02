@@ -163,8 +163,7 @@ def run_command(
                 "command failed", command=cmd, return_code=_proc.returncode,
             )
             raise CommandError(
-                '"%s" failed with return code: %s'
-                % (command_name, str(_proc.returncode))
+                '"%s" failed with return code: %s' % (command_name, str(_proc.returncode))
             )
     else:
         _LOG.info(
