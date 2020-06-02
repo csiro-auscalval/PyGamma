@@ -54,8 +54,7 @@ def cli():
     default=Path(os.getcwd()),
 )
 def generate_task_files(
-    input_path: click.Path,
-    out_dir: click.Path,
+    input_path: click.Path, out_dir: click.Path,
 ):
     """
 
