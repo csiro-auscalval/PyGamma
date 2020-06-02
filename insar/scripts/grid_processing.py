@@ -324,8 +324,7 @@ def process_grid_adjustment(
     type=str,
     default=None,
     help=(
-        "Sentinel-1A (S1A) or 1B (S1B), default=None selects both S1A "
-        "and S1B sensors"
+        "Sentinel-1A (S1A) or 1B (S1B), default=None selects both S1A " "and S1B sensors"
     ),
 )
 @click.option(
@@ -403,8 +402,7 @@ def process_grid_definition(
 
 
 @grid_definition_cli.command(
-    "grid-generation-new",
-    help="produces a grid definition for Sentinel-1 (new version)",
+    "grid-generation-new", help="produces a grid definition for Sentinel-1 (new version)",
 )
 @click.option(
     "--database-path",
@@ -458,8 +456,7 @@ def process_grid_definition(
     type=str,
     default=None,
     help=(
-        "Sentinel-1A (S1A) or 1B (S1B), default=None selects "
-        "both S1A and S1B sensors"
+        "Sentinel-1A (S1A) or 1B (S1B), default=None selects " "both S1A and S1B sensors"
     ),
 )
 @click.option(
@@ -619,9 +616,7 @@ def process_grid_definition_NEW(
             raise Exception(err_str + "\n")
 
         if eastern_longitude <= western_longitude:
-            err_str = (
-                "input bounding box error, eastern longitude" " <= western latitude"
-            )
+            err_str = "input bounding box error, eastern longitude" " <= western latitude"
             _LOG.error(
                 err_str,
                 eastern_longitude=eastern_longitude,
@@ -874,9 +869,7 @@ def process_slc_ingestion(
                             generate_slc_metadata(Path(scene), outdir, True)
                         else:
                             with Archive(database_name) as archive:
-                                archive.archive_scene(
-                                    generate_slc_metadata(Path(scene))
-                                )
+                                archive.archive_scene(generate_slc_metadata(Path(scene)))
                     except (AssertionError, ValueError, TypeError) as err:
                         _LOG.error(
                             "failed to execute generate_slc_metadata",
@@ -892,9 +885,7 @@ def process_slc_ingestion(
 # Create a child command of the slc-archive called slc-ingeest-yaml
 @slc_archive_cli.command(
     "slc-ingest-yaml",
-    help=(
-        "Ingestion of Sentinel-1 slc metadata (yaml format) " "into a SQLite database"
-    ),
+    help=("Ingestion of Sentinel-1 slc metadata (yaml format) " "into a SQLite database"),
 )
 @click.option(
     "--database-name",
