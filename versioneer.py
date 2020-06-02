@@ -1166,9 +1166,7 @@ def git_pieces_from_vcs(
         pieces["distance"] = int(count_out)  # total number of commits
 
     # commit date: see ISO-8601 comment in git_versions_from_keywords()
-    date = run_command(GITS, ["show", "-s", "--format=%ci", "HEAD"], cwd=root)[
-        0
-    ].strip()
+    date = run_command(GITS, ["show", "-s", "--format=%ci", "HEAD"], cwd=root)[0].strip()
     pieces["date"] = date.strip().replace(" ", "T", 1).replace(" ", "", 1)
 
     return pieces
@@ -1488,9 +1486,7 @@ def get_versions(verbose=False):
     handlers = HANDLERS.get(cfg.VCS)
     assert handlers, "unrecognized VCS '%s'" % cfg.VCS
     verbose = verbose or cfg.verbose
-    assert (
-        cfg.versionfile_source is not None
-    ), "please set versioneer.versionfile_source"
+    assert cfg.versionfile_source is not None, "please set versioneer.versionfile_source"
     assert cfg.tag_prefix is not None, "please set versioneer.tag_prefix"
 
     versionfile_abs = os.path.join(root, cfg.versionfile_source)
@@ -1732,9 +1728,7 @@ def get_cmdclass():
             # updated value
             target_versionfile = os.path.join(base_dir, cfg.versionfile_source)
             print("UPDATING %s" % target_versionfile)
-            write_to_version_file(
-                target_versionfile, self._versioneer_generated_versions
-            )
+            write_to_version_file(target_versionfile, self._versioneer_generated_versions)
 
     cmds["sdist"] = cmd_sdist
 
@@ -1859,8 +1853,7 @@ def do_setup():
         print(" 'versioneer.py' already in MANIFEST.in")
     if cfg.versionfile_source not in simple_includes:
         print(
-            " appending versionfile_source ('%s') to MANIFEST.in"
-            % cfg.versionfile_source
+            " appending versionfile_source ('%s') to MANIFEST.in" % cfg.versionfile_source
         )
         with open(manifest_in, "a") as f:
             f.write("include %s\n" % cfg.versionfile_source)
