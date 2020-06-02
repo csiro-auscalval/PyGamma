@@ -137,8 +137,7 @@ def _get_metadata(par_file: Union[Path, str]) -> Dict:
 
 
 def _slc_files(
-    burst_data: Union[Path, str, pd.DataFrame],
-    acquisition_date: datetime.date,
+    burst_data: Union[Path, str, pd.DataFrame], acquisition_date: datetime.date,
 ) -> Iterable[str]:
     """
     Returns the SLC files used in forming Single-Look-Composite image.
@@ -167,8 +166,7 @@ def _slc_files(
 
 
 def _find_products(
-    base_dir: Union[Path, str],
-    product_suffixs: Iterable[str],
+    base_dir: Union[Path, str], product_suffixs: Iterable[str],
 ) -> List[Path]:
     """Returns List of matched suffix files from base_dir."""
     matched_files = []
@@ -180,8 +178,7 @@ def _find_products(
 
 
 def _write_measurements(
-    p: DatasetAssembler,
-    product_list: Iterable[Union[Path, str]],
+    p: DatasetAssembler, product_list: Iterable[Union[Path, str]],
 ) -> None:
     """
     Unpack and package the sar and insar products
@@ -203,8 +200,7 @@ def _write_measurements(
 
 
 def _write_angles_measurements(
-    p: DatasetAssembler,
-    product_list: Iterable[Union[Path, str]],
+    p: DatasetAssembler, product_list: Iterable[Union[Path, str]],
 ) -> None:
     """
     Unpack and package the sar and insar products
@@ -435,15 +431,8 @@ def package(
     help="Output pathname to contain the logging events.",
     default="packaging-insar-data.jsonl",
 )
-
 def main(
-    track,
-    frame,
-    input_dir,
-    pkgdir,
-    product,
-    polarization,
-    log_pathname,
+    track, frame, input_dir, pkgdir, product, polarization, log_pathname,
 ):
 
     with open(log_pathname, "w") as fobj:
