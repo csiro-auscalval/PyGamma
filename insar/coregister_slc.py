@@ -22,10 +22,7 @@ _LOG = structlog.get_logger("insar")
 
 
 class SlcParFileParser:
-    def __init__(
-        self,
-        par_file: Union[Path, str],
-    ) -> None:
+    def __init__(self, par_file: Union[Path, str],) -> None:
         """
         Convenient access fields for SLC image parameter properties
 
@@ -48,10 +45,7 @@ class SlcParFileParser:
 
 
 class DemParFileParser:
-    def __init__(
-        self,
-        par_file: Union[Path, str],
-    ) -> None:
+    def __init__(self, par_file: Union[Path, str],) -> None:
         """
         Convenient access fields for DEM image parameter properties.
 
@@ -172,10 +166,7 @@ class CoregisterSlc:
         self.master_slave_prefix = f"{self.slc_master.stem}-{self.slc_slave.stem}"
 
     @staticmethod
-    def swath_tab_names(
-        swath: int,
-        prefix: str,
-    ) -> namedtuple:
+    def swath_tab_names(swath: int, prefix: str,) -> namedtuple:
         """
         Returns namedtuple swath-slc names.
         
@@ -195,8 +186,7 @@ class CoregisterSlc:
         return swath_tab(swath_slc, swath_par, swath_tops_par)
 
     def set_tab_files(
-        self,
-        out_dir: Optional[Union[Path, str]] = None,
+        self, out_dir: Optional[Union[Path, str]] = None,
     ):
         """Writes tab files used in slave co-registration."""
 
@@ -222,10 +212,7 @@ class CoregisterSlc:
         self.r_slave_slc = out_dir.joinpath(f"r{self.slc_slave.name}")
         self.r_slave_slc_par = out_dir.joinpath(f"r{self.slc_slave.name}.par")
 
-    def get_lookup(
-        self,
-        outfile: Optional[Path] = None,
-    ) -> None:
+    def get_lookup(self, outfile: Optional[Path] = None,) -> None:
         """Determine lookup table based on orbit data and DEM."""
 
         self.slave_lt = outfile
@@ -327,10 +314,7 @@ class CoregisterSlc:
                 fid.write(_slc + " " + _par + " " + _tops_par + "\n")
 
     @staticmethod
-    def _grep_stdout(
-        std_output: list,
-        match_start_string: str,
-    ) -> str:
+    def _grep_stdout(std_output: list, match_start_string: str,) -> str:
         """
         A helper method to return matched string from std_out.
         
@@ -349,8 +333,7 @@ class CoregisterSlc:
 
     @staticmethod
     def _grep_offset_parameter(
-        offset_file: Union[Path, str],
-        match_start_string: Optional[str] = None,
+        offset_file: Union[Path, str], match_start_string: Optional[str] = None,
     ) -> Union[Dict, List]:
         """
         Method to read an offset parameter file. 
