@@ -64,8 +64,7 @@ def slc_data():
 
 @pytest.fixture()
 def sqlite_database(
-    tmp_path,
-    slc_data,
+    tmp_path, slc_data,
 ):
     db_name = tmp_path.joinpath("test_slcdb.db")
     with s1_slc.Archive(db_name) as archive:
@@ -139,8 +138,7 @@ def test_slc_inputs(query_results):
 
 
 def test_s1datadownload(
-    tmp_path,
-    query_results,
+    tmp_path, query_results,
 ):
     """Test SLC download"""
     results_test, results_validate = query_results
@@ -235,8 +233,7 @@ def test_creategammadem(tmp_path):
 
 
 def test_slcprocess(
-    tmp_path,
-    query_results,
+    tmp_path, query_results,
 ):
     """Test slc process"""
     results_test, _ = query_results
