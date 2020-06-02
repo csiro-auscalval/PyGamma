@@ -8,9 +8,7 @@ from typing import Union, List, Optional
 from insar.constant import Wildcards, SlcFilenames, MliFilenames
 
 
-def clean_rawdatadir(
-    raw_data_path: Union[Path, str],
-) -> None:
+def clean_rawdatadir(raw_data_path: Union[Path, str],) -> None:
     """
     Deletes all files in the raw data directory.
 
@@ -22,8 +20,7 @@ def clean_rawdatadir(
 
 
 def clean_slcdir(
-    slc_path: Union[Path, str],
-    patterns: Optional[List[str]] = None,
+    slc_path: Union[Path, str], patterns: Optional[List[str]] = None,
 ) -> None:
     """
     Deletes files associated with wildcard patterns from slc directory.
@@ -43,17 +40,15 @@ def clean_slcdir(
         for scene_dir in slc_path.iterdir():
             # delete the files set by wildcard patterns
             files_list = get_wildcard_match_files(
-                dirs_path=scene_dir,
-                wildcards=patterns,
+                dirs_path=scene_dir, wildcards=patterns,
             )
-            _del_files(file_dir=scene_dir,
-                    files_list=files_list,
+            _del_files(
+                file_dir=scene_dir, files_list=files_list,
             )
 
             # get all the remaining files in slc scene directory
             files_list = get_wildcard_match_files(
-                dirs_path=scene_dir,
-                wildcards=Wildcards.ALL_TYPE.value,
+                dirs_path=scene_dir, wildcards=Wildcards.ALL_TYPE.value,
             )
 
             # set the patterns for files that needs saved
@@ -65,8 +60,7 @@ def clean_slcdir(
 
             # get the save files associated with save patterns
             save_files = get_wildcard_match_files(
-                dirs_path=scene_dir,
-                wildcards=save_patterns,
+                dirs_path=scene_dir, wildcards=save_patterns,
             )
 
             # get the del file lists (files which are not in save files)
@@ -74,14 +68,12 @@ def clean_slcdir(
 
             # delete the files
             _del_files(
-                file_dir=scene_dir,
-                files_list=del_files_list,
+                file_dir=scene_dir, files_list=del_files_list,
             )
 
 
 def clean_ifgdir(
-    ifg_path: Union[Path, str],
-    patterns: Optional[List[str]] = None,
+    ifg_path: Union[Path, str], patterns: Optional[List[str]] = None,
 ) -> None:
     """
     Deletes files associated with wildcard patterns from ifg directory.
@@ -105,19 +97,14 @@ def clean_ifgdir(
         for scene_dir in ifg_path.iterdir():
             # delete the files set by wildcard patterns
             files_list = get_wildcard_match_files(
-                dirs_path=scene_dir,
-                wildcards=patterns,
+                dirs_path=scene_dir, wildcards=patterns,
             )
             _del_files(
-                file_dir=scene_dir,
-                files_list=files_list,
+                file_dir=scene_dir, files_list=files_list,
             )
 
 
-def clean_gammademdir(
-    gamma_dem_path: Union[Path, str],
-    track_frame=None,
-) -> None:
+def clean_gammademdir(gamma_dem_path: Union[Path, str], track_frame=None,) -> None:
     """
     Deletes files associated with wildcard patterns from gamma dem directory.
 
@@ -138,18 +125,15 @@ def clean_gammademdir(
     gamma_dem_path = Path(gamma_dem_path)
     if gamma_dem_path.exists():
         files_list = get_wildcard_match_files(
-            dirs_path=gamma_dem_path,
-            wildcards=patterns,
+            dirs_path=gamma_dem_path, wildcards=patterns,
         )
         _del_files(
-            file_dir=gamma_dem_path,
-            files_list=files_list,
+            file_dir=gamma_dem_path, files_list=files_list,
         )
 
 
 def clean_demdir(
-    dem_path: Union[Path, str],
-    patterns: Optional[List[str]] = None,
+    dem_path: Union[Path, str], patterns: Optional[List[str]] = None,
 ) -> None:
     """
     Deletes files associated with wildcard patterns from DEM directory
@@ -169,18 +153,15 @@ def clean_demdir(
 
     if Path(dem_path).exists():
         files_list = get_wildcard_match_files(
-            dirs_path=Path(dem_path),
-            wildcards=patterns,
+            dirs_path=Path(dem_path), wildcards=patterns,
         )
         _del_files(
-            file_dir=Path(dem_path),
-            files_list=files_list,
+            file_dir=Path(dem_path), files_list=files_list,
         )
 
 
 def get_wildcard_match_files(
-    dirs_path: Union[Path, str],
-    wildcards: Optional[List[str]] = None,
+    dirs_path: Union[Path, str], wildcards: Optional[List[str]] = None,
 ) -> Union[None, List]:
     """
     Returns files associated with wildcard patterns from directory 'dirs_path'
@@ -206,8 +187,7 @@ def get_wildcard_match_files(
 
 
 def _del_files(
-    file_dir=None,
-    files_list=None,
+    file_dir=None, files_list=None,
 ):
     """
     Deletes all files in 'files_list' from the directory 'file_dir'
