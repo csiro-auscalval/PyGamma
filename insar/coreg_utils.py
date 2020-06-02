@@ -10,10 +10,7 @@ def parse_date(scene_name):
 
 
 def coregristration_candidates(
-    scenes,
-    master_idx,
-    threshold,
-    max_slave_idx=None,
+    scenes, master_idx, threshold, max_slave_idx=None,
 ):
     """
     Returns slave scene index  to be co-registered with master scene and
@@ -43,9 +40,7 @@ def coregristration_candidates(
 
 
 def coreg_candidates_after_master_scene(
-    scenes,
-    masters_list,
-    main_master,
+    scenes, masters_list, main_master,
 ):
     """
     Return co-registration pairs for scenes after main master scene's date.
@@ -82,9 +77,7 @@ def coreg_candidates_after_master_scene(
 
 
 def coreg_candidates_before_master_scene(
-    scenes,
-    masters_list,
-    main_master,
+    scenes, masters_list, main_master,
 ):
     """
     Return co-registration pairs for scenes before main master scene's date.
@@ -99,8 +92,7 @@ def coreg_candidates_before_master_scene(
         scene for scene in masters_list if parse_date(scene) <= parse_date(main_master)
     ]
     masters.sort(
-        key=lambda date: datetime.datetime.strptime(date, SCENE_DATE_FMT),
-        reverse=True,
+        key=lambda date: datetime.datetime.strptime(date, SCENE_DATE_FMT), reverse=True,
     )
 
     coregistration_scenes = {}
