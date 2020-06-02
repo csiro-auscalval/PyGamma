@@ -276,9 +276,7 @@ class SlcMetadata:
             ]
 
             meta["crs"] = "epsg:{}".format(
-                tree.find(".//safe:footPrint", namespaces)
-                .attrib["srsName"]
-                .split("#")[1]
+                tree.find(".//safe:footPrint", namespaces).attrib["srsName"].split("#")[1]
             )
             meta["orbit"] = tree.find(".//s1:pass", namespaces).text[0]
 
@@ -386,15 +384,11 @@ class SlcMetadata:
                             [float(split_line[10]), float(split_line[9])],
                             [float(split_line[12]), float(split_line[11])],
                         ]
-                        burst_info[
-                            "burst {}".format(temp_dict["burst_num"])
-                        ] = temp_dict
+                        burst_info["burst {}".format(temp_dict["burst_num"])] = temp_dict
                 return burst_info
 
             with tempfile.TemporaryDirectory() as tmp_dir:
-                self.extract_archive_tofile(
-                    target_file=xml_path, outdir=tmp_dir, retry=3
-                )
+                self.extract_archive_tofile(target_file=xml_path, outdir=tmp_dir, retry=3)
 
                 # py_gamma parameters
                 cout = []
@@ -423,9 +417,7 @@ class SlcMetadata:
         with swath_obj as obj:
             ann_tree = etree.fromstring(obj.read())
             swath_meta["samples"] = int(
-                ann_tree.find(
-                    ".//imageAnnotation/imageInformation/numberOfSamples"
-                ).text
+                ann_tree.find(".//imageAnnotation/imageInformation/numberOfSamples").text
             )
             swath_meta["lines"] = int(
                 ann_tree.find(".//imageAnnotation/imageInformation/numberOfLines").text
@@ -670,9 +662,7 @@ class S1DataDownload(SlcMetadata):
         start_datetime = datetime.datetime.strptime(
             self.acquisition_start_time, self.dt_fmt_1
         )
-        start_date = (start_datetime - datetime.timedelta(days=1)).strftime(
-            self.date_fmt
-        )
+        start_date = (start_datetime - datetime.timedelta(days=1)).strftime(self.date_fmt)
         end_date = (start_datetime + datetime.timedelta(days=1)).strftime(self.date_fmt)
 
         acq_orbit_file = fnmatch.filter(
@@ -684,9 +674,7 @@ class S1DataDownload(SlcMetadata):
         if len(acq_orbit_file) > 1:
             acq_orbit_file = sorted(
                 acq_orbit_file,
-                key=lambda x: datetime.datetime.strptime(
-                    x.split("_")[5], self.dt_fmt_2
-                ),
+                key=lambda x: datetime.datetime.strptime(x.split("_")[5], self.dt_fmt_2),
             )
         return pjoin(_poeorb_path, acq_orbit_file[-1])
 
@@ -709,9 +697,7 @@ class S1DataDownload(SlcMetadata):
         )
         acq_date = start_datetime.strftime(self.date_fmt)
 
-        acq_orbit_file = fnmatch.filter(
-            orbit_files, "*V{d}*_{d}*.EOF".format(d=acq_date)
-        )
+        acq_orbit_file = fnmatch.filter(orbit_files, "*V{d}*_{d}*.EOF".format(d=acq_date))
 
         acq_orbit_file = [
             orbit_file
@@ -725,9 +711,7 @@ class S1DataDownload(SlcMetadata):
         if len(acq_orbit_file) > 1:
             acq_orbit_file = sorted(
                 acq_orbit_file,
-                key=lambda x: datetime.datetime.strptime(
-                    x.split("_")[5], self.dt_fmt_2
-                ),
+                key=lambda x: datetime.datetime.strptime(x.split("_")[5], self.dt_fmt_2),
             )
 
         return pjoin(_resorb_path, acq_orbit_file[-1])
@@ -786,9 +770,7 @@ class S1DataDownload(SlcMetadata):
             orbit_source_file = self.get_resorb_orbit_file()
             if not orbit_source_file:
                 _LOG.error("no orbit files found", slc_scene=self.scene)
-            orbit_destination_file = pjoin(
-                base_dir, os.path.basename(orbit_source_file)
-            )
+            orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
 
         if not os.path.exists(orbit_destination_file):
             shutil.copyfile(orbit_source_file, orbit_destination_file)
@@ -920,9 +902,7 @@ class Archive:
 
         # ------------------------------- #
         # - create "slc_metadata" table - #
-        cursor.execute(
-            _create_table_command(self.slc_table_name, self.slc_fields_dict),
-        )
+        cursor.execute(_create_table_command(self.slc_table_name, self.slc_fields_dict),)
 
         # add "slc_extent" column, which will contain
         # polygons of each slc acquisition footprint
@@ -964,9 +944,7 @@ class Archive:
         # --------------------------------- #
         # - create "slc_duplicates" table - #
         cursor.execute(
-            _create_table_command(
-                self.duplicate_table_name, self.duplicate_fields_dict,
-            ),
+            _create_table_command(self.duplicate_table_name, self.duplicate_fields_dict,),
         )
 
         self.conn.commit()
@@ -1105,9 +1083,7 @@ class Archive:
                 burst_temp = dict()
                 for name in self.burst_fieldnames:
                     burst_temp[name] = m_metadata[name]
-                burst_temp["burst_extent"] = [
-                    coord for coord in burst_temp["coordinate"]
-                ]
+                burst_temp["burst_extent"] = [coord for coord in burst_temp["coordinate"]]
                 burst_metadata[m_field] = burst_temp
                 del measurement_metadata[m_field]
 
@@ -1204,9 +1180,7 @@ class Archive:
                         xml_list.append(m_xml)
                         poly_wkt_list.append(
                             Polygon(
-                                self.metadata["measurements"][m_xml][mb_key][
-                                    "coordinate"
-                                ]
+                                self.metadata["measurements"][m_xml][mb_key]["coordinate"]
                             ),
                         )
                     slc_row_dict[_pol][mb_key] = {
@@ -1234,9 +1208,7 @@ class Archive:
                     xml_list = slc_row_dict[_pol][mb_key_pre]["xml_list"]
 
                     poly_wkt_list.append(
-                        shapely.wkt.loads(
-                            slc_row_dict[_pol][mb_key_pre]["convex_hull"],
-                        ),
+                        shapely.wkt.loads(slc_row_dict[_pol][mb_key_pre]["convex_hull"],),
                     )  # convex hull of previous complete row
 
                     append_info = []
@@ -1248,9 +1220,7 @@ class Archive:
                         iw_str += "{0}.{1}-".format(_iw, max_burst_nums[_i],)
                         poly_wkt_list.append(
                             Polygon(
-                                self.metadata["measurements"][m_xml][mb_key][
-                                    "coordinate"
-                                ]
+                                self.metadata["measurements"][m_xml][mb_key]["coordinate"]
                             ),
                         )
                         append_info.append([m_xml, max_burst_keys[_i]])
@@ -1425,10 +1395,7 @@ class Archive:
             self.slc_table_name,
             ", ".join(col_names),
             ", ".join(
-                [
-                    "GeomFromText(?, 4326)" if x == "slc_extent" else "?"
-                    for x in col_names
-                ]
+                ["GeomFromText(?, 4326)" if x == "slc_extent" else "?" for x in col_names]
             ),
         )
 
@@ -1578,10 +1545,7 @@ class Archive:
             self.slc_rows_table_name,
             ", ".join(col_names),
             ", ".join(
-                [
-                    "GeomFromText(?, 4326)" if x == "row_extent" else "?"
-                    for x in col_names
-                ]
+                ["GeomFromText(?, 4326)" if x == "row_extent" else "?" for x in col_names]
             ),
         )
 
@@ -1608,9 +1572,7 @@ class Archive:
         try:
             cursor.execute(slc_str, slc_values)
         except sqlite3.IntegrityError as err:
-            if str(err) == "UNIQUE constraint failed: {}.id".format(
-                self.slc_table_name
-            ):
+            if str(err) == "UNIQUE constraint failed: {}.id".format(self.slc_table_name):
                 _LOG.info(
                     "record already exists in slc_duplicate table",
                     pathname=self.file_location,
@@ -1777,9 +1739,7 @@ class Archive:
             arg_format.append("{}.orbit='{}'".format(self.slc_table_name, orbit))
 
         if track:
-            arg_format.append(
-                "{}.orbitNumber_rel= {}".format(self.slc_table_name, track)
-            )
+            arg_format.append("{}.orbitNumber_rel= {}".format(self.slc_table_name, track))
 
         if min_date_arg:
             arg_format.append(min_date_arg)
@@ -1805,10 +1765,7 @@ class Archive:
 
         query = """SELECT {0} from {1} WHERE {2}""".format(
             ", ".join(
-                [
-                    "AsText({})".format(col) if "extent" in col else col
-                    for col in columns
-                ]
+                ["AsText({})".format(col) if "extent" in col else col for col in columns]
             ),
             tables_join_string,
             " AND ".join(arg_format),
@@ -2156,9 +2113,7 @@ class SlcFrame:
     def get_slat_frame_coords(self):
         # add self.buffer_lat after np.arange call so that
         # len(get_slat_frame_coords) = len(get_elat_frame_coords)
-        return (
-            np.arange(self.north_lat, self.south_lat, self.width_lat) + self.buffer_lat
-        )
+        return np.arange(self.north_lat, self.south_lat, self.width_lat) + self.buffer_lat
 
     def get_elat_frame_coords(self):
         # subtract self.buffer_lat after np.arange call so that
@@ -2179,9 +2134,7 @@ class SlcFrame:
         df_bbox = []
         for i in range(nth_lat_frame.shape[0]):
             df_bbox.append(
-                box(
-                    self.west_lon, nth_lat_frame[i], self.east_lon, sth_lat_frame[i],
-                ).wkt
+                box(self.west_lon, nth_lat_frame[i], self.east_lon, sth_lat_frame[i],).wkt
             )
 
         return df_bbox
@@ -2222,9 +2175,7 @@ class SlcFrame:
         self, frame_num: int,
     ):
         """ returns a lon,lat coordinate list for the frame number. """
-        poly_shapely = self.get_bbox_wkt()[
-            frame_num - 1
-        ]  # frame num ranges from 1 to N
+        poly_shapely = self.get_bbox_wkt()[frame_num - 1]  # frame num ranges from 1 to N
         return list(shapely.wkt.loads(poly_shapely).exterior.coords)
 
 
