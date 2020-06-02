@@ -23,8 +23,7 @@ COMMON_PROCESSORS = [
 
 
 def get_wrapped_logger(
-    logger_name: str = "root",
-    **kwargs,
+    logger_name: str = "root", **kwargs,
 ):
     """ Returns a struct log equivalent for the named logger """
     logger = structlog.wrap_logger(
