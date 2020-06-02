@@ -21,10 +21,7 @@ _LOG = structlog.get_logger("insar")
 
 
 class SlcParFileParser:
-    def __init__(
-        self,
-        par_file: Path,
-    ) -> None:
+    def __init__(self, par_file: Path,) -> None:
         """
         Convenient access fields for SLC image parameter properties.
 
@@ -162,8 +159,7 @@ class BaselineProcess:
         return sorted(slc_dates, reverse=False)
 
     def _match_par(
-        self,
-        scene_date: datetime.date,
+        self, scene_date: datetime.date,
     ):
         """
         Returns the SLC parameter file for scene_date.
@@ -317,9 +313,7 @@ class BaselineProcess:
 
     @staticmethod
     def single_master_list(
-        master: datetime.date,
-        slaves: List[datetime.date],
-        outfile: Path,
+        master: datetime.date, slaves: List[datetime.date], outfile: Path,
     ) -> None:
         """
         Create single Master Interferogram List.
@@ -339,10 +333,7 @@ class BaselineProcess:
                 )
 
     @staticmethod
-    def daisy_chain_list(
-        scenes: List[datetime.date],
-        outfile: Path,
-    ) -> None:
+    def daisy_chain_list(scenes: List[datetime.date], outfile: Path,) -> None:
         """
         Create Daisy-chained Interferogram List.
 
@@ -362,11 +353,7 @@ class BaselineProcess:
                     fid.write(scene + "," + _scenes[num1] + "\n")
 
     @staticmethod
-    def llh2xyz(
-        latitude: float,
-        longitude: float,
-        height: float,
-    ) -> np.ndarray:
+    def llh2xyz(latitude: float, longitude: float, height: float,) -> np.ndarray:
         """
         Transform latitude, longitude, height to state vector position x, y, z.
 
@@ -475,11 +462,7 @@ class BaselineProcess:
 
     @staticmethod
     def epoch_baselines(
-        epochs,
-        bperp,
-        masidx,
-        slvidx,
-        supermaster,
+        epochs, bperp, masidx, slvidx, supermaster,
     ):
         """Determine relative perpendicular baselines of epochs from interferometric baselines.
 
@@ -692,10 +675,7 @@ class BaselineProcess:
 
     @staticmethod
     def plot_baseline_time_sm(
-        epochs,
-        Bperps,
-        master_ix,
-        filename,
+        epochs, Bperps, master_ix, filename,
     ):
         """
         Make a baseline time plot and save to disk
@@ -749,8 +729,7 @@ class BaselineProcess:
         date_range = date_max - date_min
         date_add = date_range.days / 15
         ax1.set_xlim(
-            date_min - timedelta(days=date_add),
-            date_max + timedelta(days=date_add),
+            date_min - timedelta(days=date_add), date_max + timedelta(days=date_add),
         )
 
         # set the Bperp axis range
@@ -780,11 +759,7 @@ class BaselineProcess:
 
     @staticmethod
     def plot_baseline_time_sbas(
-        epochs,
-        Bperps,
-        epoch1,
-        epoch2,
-        filename,
+        epochs, Bperps, epoch1, epoch2, filename,
     ):
         """
         Make a baseline time plot including IFG connections and save to disk
@@ -837,8 +812,7 @@ class BaselineProcess:
         date_range = date_max - date_min
         date_add = date_range.days / 15
         ax1.set_xlim(
-            date_min - timedelta(days=date_add),
-            date_max + timedelta(days=date_add),
+            date_min - timedelta(days=date_add), date_max + timedelta(days=date_add),
         )
 
         # set the Bperp axis range
