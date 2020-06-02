@@ -376,8 +376,7 @@ HANDLERS = {}
 
 
 def register_vcs_handler(
-    vcs,
-    method,
+    vcs, method,
 ):
     """Decorator to mark a method as the handler for a particular VCS."""
 
@@ -392,12 +391,7 @@ def register_vcs_handler(
 
 
 def run_command(
-    commands,
-    args,
-    cwd=None,
-    verbose=False,
-    hide_stderr=False,
-    env=None,
+    commands, args, cwd=None, verbose=False, hide_stderr=False, env=None,
 ):
     """Call the given command(s)."""
     assert isinstance(commands, list)
@@ -1015,9 +1009,7 @@ def git_get_keywords(versionfile_abs):
 
 @register_vcs_handler("git", "keywords")
 def git_versions_from_keywords(
-    keywords,
-    tag_prefix,
-    verbose,
+    keywords, tag_prefix, verbose,
 ):
     """Get version information from git keywords."""
     if not keywords:
@@ -1081,10 +1073,7 @@ def git_versions_from_keywords(
 
 @register_vcs_handler("git", "pieces_from_vcs")
 def git_pieces_from_vcs(
-    tag_prefix,
-    root,
-    verbose,
-    run_command=run_command,
+    tag_prefix, root, verbose, run_command=run_command,
 ):
     """Get version from 'git describe' in the root of the source tree.
 
@@ -1186,9 +1175,7 @@ def git_pieces_from_vcs(
 
 
 def do_vcs_install(
-    manifest_in,
-    versionfile_source,
-    ipy,
+    manifest_in, versionfile_source, ipy,
 ):
     """Git-specific installation logic for Versioneer.
 
@@ -1228,9 +1215,7 @@ def do_vcs_install(
 
 
 def versions_from_parentdir(
-    parentdir_prefix,
-    root,
-    verbose,
+    parentdir_prefix, root, verbose,
 ):
     """Try to determine the version from the parent directory name.
 
