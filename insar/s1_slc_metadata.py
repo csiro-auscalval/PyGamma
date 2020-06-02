@@ -140,9 +140,7 @@ class SlcMetadata:
                 for x in tree.find(".//gml:coordinates", namespaces).text.split()
             ]
             meta["crs"] = "epsg:{}".format(
-                tree.find(".//safe:footPrint", namespaces)
-                .attrib["srsName"]
-                .split("#")[1]
+                tree.find(".//safe:footPrint", namespaces).attrib["srsName"].split("#")[1]
             )
             meta["orbit"] = tree.find(".//s1:pass", namespaces).text[0]
 
@@ -235,9 +233,7 @@ class SlcMetadata:
                             [float(split_line[10]), float(split_line[9])],
                             [float(split_line[12]), float(split_line[11])],
                         ]
-                        burst_info[
-                            "burst {}".format(temp_dict["burst_num"])
-                        ] = temp_dict
+                        burst_info["burst {}".format(temp_dict["burst_num"])] = temp_dict
                 return burst_info
 
             with tempfile.TemporaryDirectory() as tmp_dir:
@@ -273,9 +269,7 @@ class SlcMetadata:
         with swath_obj as obj:
             ann_tree = etree.fromstring(obj.read())
             swath_meta["samples"] = int(
-                ann_tree.find(
-                    ".//imageAnnotation/imageInformation/numberOfSamples"
-                ).text
+                ann_tree.find(".//imageAnnotation/imageInformation/numberOfSamples").text
             )
             swath_meta["lines"] = int(
                 ann_tree.find(".//imageAnnotation/imageInformation/numberOfLines").text
@@ -404,9 +398,7 @@ class S1DataDownload(SlcMetadata):
         start_datetime = datetime.datetime.strptime(
             self.acquisition_start_time, self.dt_fmt_1
         )
-        start_date = (start_datetime - datetime.timedelta(days=1)).strftime(
-            self.date_fmt
-        )
+        start_date = (start_datetime - datetime.timedelta(days=1)).strftime(self.date_fmt)
         end_date = (start_datetime + datetime.timedelta(days=1)).strftime(self.date_fmt)
 
         acq_orbit_file = fnmatch.filter(
@@ -418,9 +410,7 @@ class S1DataDownload(SlcMetadata):
         if len(acq_orbit_file) > 1:
             acq_orbit_file = sorted(
                 acq_orbit_file,
-                key=lambda x: datetime.datetime.strptime(
-                    x.split("_")[5], self.dt_fmt_2
-                ),
+                key=lambda x: datetime.datetime.strptime(x.split("_")[5], self.dt_fmt_2),
             )
         return pjoin(_poeorb_path, acq_orbit_file[-1])
 
@@ -443,9 +433,7 @@ class S1DataDownload(SlcMetadata):
         )
         acq_date = start_datetime.strftime(self.date_fmt)
 
-        acq_orbit_file = fnmatch.filter(
-            orbit_files, "*V{d}*_{d}*.EOF".format(d=acq_date)
-        )
+        acq_orbit_file = fnmatch.filter(orbit_files, "*V{d}*_{d}*.EOF".format(d=acq_date))
 
         acq_orbit_file = [
             orbit_file
@@ -459,9 +447,7 @@ class S1DataDownload(SlcMetadata):
         if len(acq_orbit_file) > 1:
             acq_orbit_file = sorted(
                 acq_orbit_file,
-                key=lambda x: datetime.datetime.strptime(
-                    x.split("_")[5], self.dt_fmt_2
-                ),
+                key=lambda x: datetime.datetime.strptime(x.split("_")[5], self.dt_fmt_2),
             )
 
         return pjoin(_resorb_path, acq_orbit_file[-1])
@@ -762,9 +748,7 @@ class Archive:
                 burst_temp = dict()
                 for name in self.burst_fieldnames:
                     burst_temp[name] = m_metadata[name]
-                burst_temp["burst_extent"] = [
-                    coord for coord in burst_temp["coordinate"]
-                ]
+                burst_temp["burst_extent"] = [coord for coord in burst_temp["coordinate"]]
                 burst_metadata[m_field] = burst_temp
                 del measurement_metadata[m_field]
 
@@ -816,10 +800,7 @@ class Archive:
             self.slc_table_name,
             ", ".join(col_names),
             ", ".join(
-                [
-                    "GeomFromText(?, 4326)" if x == "slc_extent" else "?"
-                    for x in col_names
-                ]
+                ["GeomFromText(?, 4326)" if x == "slc_extent" else "?" for x in col_names]
             ),
         )
 
@@ -904,9 +885,7 @@ class Archive:
         try:
             cursor.execute(slc_str, slc_vals)
         except sqlite3.IntegrityError as err:
-            if str(err) == "UNIQUE constraint failed: {}.id".format(
-                self.slc_table_name
-            ):
+            if str(err) == "UNIQUE constraint failed: {}.id".format(self.slc_table_name):
                 _LOG.info("record already exists in database", pathname=yaml_file)
                 return
             else:
@@ -1012,10 +991,7 @@ class Archive:
 
         query = """SELECT {0} from {1} WHERE {2}""".format(
             ", ".join(
-                [
-                    "AsText({})".format(col) if "extent" in col else col
-                    for col in columns
-                ]
+                ["AsText({})".format(col) if "extent" in col else col for col in columns]
             ),
             tables_join_string,
             " AND ".join(arg_format),
