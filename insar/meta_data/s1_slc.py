@@ -37,10 +37,7 @@ class SlcMetadata:
     Metadata extraction class to scrap slc metadata from a sentinel-1 slc scene.
     """
 
-    def __init__(
-        self,
-        scene: Path,
-    ) -> None:
+    def __init__(self, scene: Path,) -> None:
         """
         Extracts metadata from a sentinel-1 SLC.
 
@@ -143,10 +140,7 @@ class SlcMetadata:
         return metadata
 
     def format_datetime_string(
-        self,
-        input_dt: str,
-        in_format: str,
-        out_format: str,
+        self, input_dt: str, in_format: str, out_format: str,
     ) -> str:
         """
         converts a date and time string from an input to an output format
@@ -181,10 +175,7 @@ class SlcMetadata:
         """
         return datetime.datetime.strptime(input_dt, in_format).strftime(out_format)
 
-    def get_metadata_essentials(
-        self,
-        manifest_file: Path,
-    ) -> Dict:
+    def get_metadata_essentials(self, manifest_file: Path,) -> Dict:
         """
         Extracts essential metadata required for S1DataDownload from a
         manifest safe file. Without this function, one would need to
@@ -232,10 +223,7 @@ class SlcMetadata:
 
         return req_meta
 
-    def metadata_manifest_safe(
-        self,
-        manifest_file: Path,
-    ) -> Dict:
+    def metadata_manifest_safe(self, manifest_file: Path,) -> Dict:
         """
         Extracts metadata from a manifest safe file.
 
@@ -355,10 +343,7 @@ class SlcMetadata:
 
         return meta
 
-    def metadata_swath(
-        self,
-        xml_file: Path,
-    ) -> Dict:
+    def metadata_swath(self, xml_file: Path,) -> Dict:
         """
         Extracts swath and bursts information from a xml file.
 
@@ -471,8 +456,7 @@ class SlcMetadata:
             self.archive_files = archive.namelist()
 
     def find_archive_files(
-        self,
-        pattern: str,
+        self, pattern: str,
     ):
         """
         Returns a matching name from a archive_file for given pattern
@@ -486,10 +470,7 @@ class SlcMetadata:
         ]
         return match_names
 
-    def extract_archive_BytesIO(
-        self,
-        target_file: Path,
-    ) -> BytesIO:
+    def extract_archive_BytesIO(self, target_file: Path,) -> BytesIO:
         """
         Extracts content from a target file within the slc zip archive
         as a _io.BytesIO object
@@ -529,10 +510,7 @@ class SlcMetadata:
             return file_obj
 
     def extract_archive_tofile(
-        self,
-        target_file: Path,
-        outdir: Path,
-        retry: Optional[int] = 0,
+        self, target_file: Path, outdir: Path, retry: Optional[int] = 0,
     ) -> None:
         """
         Extracts content from a target file within the slc zip archive
@@ -569,8 +547,7 @@ class SlcMetadata:
         #          FUNCTIONS           #
         # ---------------------------- #
         def _copy_target_contents(
-            o_file,
-            archive_contents,
+            o_file, archive_contents,
         ):
             # this function was adapated from
             # def _archive_download(name_outfile):
@@ -583,8 +560,7 @@ class SlcMetadata:
             return None
 
         def _check_byte_size(
-            o_file,
-            expected_size,
+            o_file, expected_size,
         ):
             # check the size (in Bytes) of o_file
             # against size of source file
@@ -824,10 +800,7 @@ class Archive:
     and facilitate an automated query into a database.
     """
 
-    def __init__(
-        self,
-        dbfile: Path,
-    ) -> None:
+    def __init__(self, dbfile: Path,) -> None:
         """
         Injest Sentinel-1 SLC metadata into a sqlite database.
 
@@ -843,8 +816,7 @@ class Archive:
         """
 
         def _create_table_command(
-            db_table_name,
-            db_column_dict,
+            db_table_name, db_column_dict,
         ):
             """
             Return the sqlite command (type <string>) that when
@@ -855,8 +827,7 @@ class Archive:
             )
 
         def _add_geom_column_command(
-            db_table_name,
-            db_geom_col_name,
+            db_table_name, db_geom_col_name,
         ):
             """
             Return the sqlite command (type <string>) that when executed,
@@ -1049,8 +1020,7 @@ class Archive:
 
     @staticmethod
     def get_corners(
-        lats: List[float],
-        lons: List[float],
+        lats: List[float], lons: List[float],
     ):
         """Returns corner from given latitudes and longitudes."""
 
@@ -1062,16 +1032,14 @@ class Archive:
         }
 
     def get_measurement_fieldnames(
-        self,
-        measurement_key: str,
+        self, measurement_key: str,
     ):
         """Returns all the measurement fieldnames for a slc scene."""
 
         return {k for k in self.metadata["measurements"][measurement_key].keys()}
 
     def get_measurement_metadata(
-        self,
-        measurement_key: str,
+        self, measurement_key: str,
     ):
         """
         Returns a copy of the metadata associated with all slc
@@ -1101,8 +1069,7 @@ class Archive:
         return slc_metadata
 
     def get_burst_names(
-        self,
-        measurement_key: str,
+        self, measurement_key: str,
     ):
         """
         Returns all the bursts contained
@@ -1117,8 +1084,7 @@ class Archive:
 
     @staticmethod
     def encode_string(
-        string: str,
-        encoding: Optional[str] = "utf-8",
+        string: str, encoding: Optional[str] = "utf-8",
     ):
         """Encodes binary values into a string."""
         if not isinstance(string, str):
@@ -1126,9 +1092,7 @@ class Archive:
         return string
 
     def get_swath_bursts_metadata(
-        self,
-        measurement_key,
-        burst_key=None,
+        self, measurement_key, burst_key=None,
     ):
         """Returns measurement or burst metadata."""
         measurement_metadata = self.get_measurement_metadata(measurement_key)
@@ -1155,8 +1119,7 @@ class Archive:
         return measurement_metadata
 
     def get_slc_row_extent(
-        self,
-        subswaths_dict,
+        self, subswaths_dict,
     ):
         """
 
@@ -1315,8 +1278,7 @@ class Archive:
         return sorted([self.encode_string(x[1]) for x in cursor.fetchall()])
 
     def get_colnames(
-        self,
-        table_name: str,
+        self, table_name: str,
     ):
         """
         Extracts the column names for a specified table name
@@ -1335,10 +1297,7 @@ class Archive:
         return sorted([self.encode_string(x[1]) for x in cursor.fetchall()])
 
     def get_rel_orbit_nums(
-        self,
-        orbit_node=None,
-        sensor_type=None,
-        rel_orb_num=None,
+        self, orbit_node=None, sensor_type=None, rel_orb_num=None,
     ):
         """
         Get the unique listings of the relative orbit numbers. A
@@ -1475,10 +1434,7 @@ class Archive:
 
         return insert_cmd, tuple(insertion_values)
 
-    def prepare_swath_metadata_insertion(
-        self,
-        measurement_key: str
-    ):
+    def prepare_swath_metadata_insertion(self, measurement_key: str):
         """ prepares swath metadata to be inserted into a database. """
         measurement_metadata = self.get_swath_bursts_metadata(measurement_key)
         col_names = self.get_colnames(self.swath_table_name)
@@ -1506,10 +1462,7 @@ class Archive:
         return insert_cmd, tuple(insertion_values)
 
     def prepare_burst_metadata_insertion(
-        self,
-        measurement_key: str,
-        burst_key: str,
-        row_id: str,
+        self, measurement_key: str, burst_key: str, row_id: str,
     ):
         """
         Prepares metadata from a single burst to be inserted into a database.
@@ -1581,10 +1534,7 @@ class Archive:
         return insert_cmd, tuple(insertion_values)
 
     def prepare_slc_row_insertion(
-        self,
-        polarization,
-        burst_key,
-        row_extent_dict,
+        self, polarization, burst_key, row_extent_dict,
     ):
         """
         Prepares metadata from a single burst to be inserted into a database.
@@ -1638,8 +1588,7 @@ class Archive:
         return insert_cmd, tuple(insertion_values)
 
     def archive_scene(
-        self,
-        metadata: Union[dict, str],
+        self, metadata: Union[dict, str],
     ):
         """
         archives a slc scene and its associated metadata
@@ -1785,10 +1734,7 @@ class Archive:
         self.conn.close()
 
     def __exit__(
-        self,
-        exc_type,
-        exc_val,
-        exc_tb,
+        self, exc_type, exc_val, exc_tb,
     ):
         self.close()
 
@@ -2241,8 +2187,7 @@ class SlcFrame:
         return df_bbox
 
     def generate_frame_polygon(
-        self,
-        shapefile_name: Optional[Path] = None,
+        self, shapefile_name: Optional[Path] = None,
     ):
         """
         generates a frame with associated extent for the
@@ -2267,16 +2212,14 @@ class SlcFrame:
         return geopandas_df
 
     def get_frame_extent(
-        self,
-        frame_num: int,
+        self, frame_num: int,
     ):
         """ returns a geo-pandas data frame for a frame_name. """
         gpd_df = self.generate_frame_polygon()
         return gpd_df.loc[gpd_df["frame_num"] == frame_num]
 
     def get_frame_coords_list(
-        self,
-        frame_num: int,
+        self, frame_num: int,
     ):
         """ returns a lon,lat coordinate list for the frame number. """
         poly_shapely = self.get_bbox_wkt()[
@@ -2385,8 +2328,7 @@ class Generate_kml:
         )
 
     def save_kml(
-        self,
-        kml_filename: Path,
+        self, kml_filename: Path,
     ):
         """ save kml """
         self.kml.save(kml_filename)
