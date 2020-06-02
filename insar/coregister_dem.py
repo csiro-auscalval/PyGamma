@@ -16,10 +16,7 @@ _LOG = structlog.get_logger("insar")
 
 
 class SlcParFileParser:
-    def __init__(
-        self,
-        par_file: Union[Path, str],
-    ) -> None:
+    def __init__(self, par_file: Union[Path, str],) -> None:
         """
         Convenient access fields for SLC image parameter properties.
         :param par_file:
@@ -41,10 +38,7 @@ class SlcParFileParser:
 
 
 class DemParFileParser:
-    def __init__(
-        self,
-        par_file: Union[Path, str],
-    ) -> None:
+    def __init__(self, par_file: Union[Path, str],) -> None:
         """
         Convenient access fileds for DEM image parameter properties.
         :param par_file:
@@ -178,9 +172,7 @@ class CoregisterDem:
 
     @staticmethod
     def dem_master_names(
-        slc_prefix: str,
-        r_slc_prefix: str,
-        outdir: Union[Path, str],
+        slc_prefix: str, r_slc_prefix: str, outdir: Union[Path, str],
     ) -> Dict:
         """
         Collate DEM master file names used need in CoregisterDem class.
@@ -228,10 +220,7 @@ class CoregisterDem:
         return attrs
 
     @staticmethod
-    def dem_filenames(
-        dem_prefix: str,
-        outdir: Path,
-    ) -> Dict:
+    def dem_filenames(dem_prefix: str, outdir: Path,) -> Dict:
         """
         Collate DEM file names used need in CoregisterDem class.
         :param dem_prefix:
@@ -342,10 +331,7 @@ class CoregisterDem:
         if self.dem_azpos is not None:
             self.dem_azpos = int(self.dem_azpos / self.rlks)
 
-    def copy_slc(
-        self,
-        raster_out: Optional[bool] = True,
-    ) -> None:
+    def copy_slc(self, raster_out: Optional[bool] = True,) -> None:
         """
         Copy SLC with options for data format conversion.
         :param raster_out:
@@ -495,10 +481,7 @@ class CoregisterDem:
                 )
                 raise Exception(msg)
 
-    def gen_dem_rdc(
-        self,
-        use_external_image: Optional[bool] = False,
-    ) -> None:
+    def gen_dem_rdc(self, use_external_image: Optional[bool] = False,) -> None:
         """
         Generate DEM coregistered to slc in rdc geometry.
         :param use_external_image:
@@ -773,9 +756,7 @@ class CoregisterDem:
             run_command(command, os.getcwd())
 
     def offset_calc(
-        self,
-        npoly: Optional[int] = 1,
-        use_external_image: Optional[bool] = False,
+        self, npoly: Optional[int] = 1, use_external_image: Optional[bool] = False,
     ) -> None:
         """Offset computation. (Need more information from InSAR team).
         :param npoly:
@@ -1383,8 +1364,7 @@ class CoregisterDem:
                 raise Exception(msg)
 
     def geocode(
-        self,
-        use_external_image: Optional[bool] = False,
+        self, use_external_image: Optional[bool] = False,
     ):
         """
         Method to geocode image files to radar geometry.
