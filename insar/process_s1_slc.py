@@ -557,9 +557,7 @@ class SlcProcess:
 
             # write out slc in and out tab files
             sub_slc_in = tmpdir.joinpath("sub_slc_input_tab")
-            self._write_tabs(
-                sub_slc_in, tab_params=tabs_param, slc_data_dir=os.getcwd()
-            )
+            self._write_tabs(sub_slc_in, tab_params=tabs_param, slc_data_dir=os.getcwd())
 
             sub_slc_out = tmpdir.joinpath("sub_slc_output_tab")
             self._write_tabs(sub_slc_out, _id=self.slc_prefix, slc_data_dir=tmpdir)
