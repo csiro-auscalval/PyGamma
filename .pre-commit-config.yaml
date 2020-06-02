@@ -1,0 +1,11 @@
+---
+repos:
+    - repo: https://github.com/ambv/black
+      rev: stable
+      hooks:
+          - id: black
+# TODO: Enable flake8 when the code can be updated to pass it.
+#     - repo: https://gitlab.com/pycqa/flake8
+#       rev: 3.7.9
+#       hooks:
+#           - id: flake8
