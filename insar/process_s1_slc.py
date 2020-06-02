@@ -75,11 +75,7 @@ class SlcProcess:
         self.orbit_file = None
         self.temp_slc = []
 
-    def swath_tab_names(
-        self,
-        swath: int,
-        pre_fix: str,
-    ) -> namedtuple:
+    def swath_tab_names(self, swath: int, pre_fix: str,) -> namedtuple:
         """Formats slc swath tab filenames using swath and pre_fix."""
 
         swath_tab = namedtuple("swath_tab", ["slc", "par", "tops_par"])
@@ -95,10 +91,7 @@ class SlcProcess:
             ),
         )
 
-    def slc_tab_names(
-        self,
-        pre_fix: str,
-    ) -> namedtuple:
+    def slc_tab_names(self, pre_fix: str,) -> namedtuple:
         """Formats slc tab filenames using prefix."""
 
         slc_tab = namedtuple("slc_tab", ["slc", "par", "tops_par"])
@@ -366,10 +359,7 @@ class SlcProcess:
                     ),
                 )
 
-    def phase_shift(
-        self,
-        swath: Optional[int] = 1,
-    ) -> None:
+    def phase_shift(self, swath: Optional[int] = 1,) -> None:
         """Perform phase shift correction.
 
         Phase shift-correction is needed for Sentinel-1 IW1 swath data collected
@@ -431,11 +421,7 @@ class SlcProcess:
                         tmpdir.joinpath(tab_names.par), slc_dir.joinpath(tab_names.par)
                     )
 
-    def mosiac_slc(
-        self,
-        rlks: Optional[int] = 12,
-        alks: Optional[int] = 2,
-    ) -> None:
+    def mosiac_slc(self, rlks: Optional[int] = 12, alks: Optional[int] = 2,) -> None:
         """
         Calculate SLC mosaic of Sentinel-1 TOPS burst SLC data.
 
@@ -627,11 +613,7 @@ class SlcProcess:
                     raise ValueError(err)
                 self.frame_resize(self.ref_master_tab, sub_slc_in)
 
-    def frame_resize(
-        self,
-        ref_slc_tab: Path,
-        full_slc_tab: Path,
-    ) -> None:
+    def frame_resize(self, ref_slc_tab: Path, full_slc_tab: Path,) -> None:
         """
         Resizes the full slc to the reference slc.
 
@@ -810,8 +792,7 @@ class SlcProcess:
             _make_png(tab)
 
     def main(
-        self,
-        write_png=True,
+        self, write_png=True,
     ):
         """Main method to execute SLC processing sequence need to produce SLC."""
         work_dir = self.output_dir.joinpath(self.scene_date)
