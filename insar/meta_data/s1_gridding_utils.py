@@ -23,15 +23,12 @@ _LOG = structlog.get_logger("insar")
 
 
 def generate_slc_metadata(
-    slc_scene: Path,
-    outdir: Optional[Path] = None,
-    yaml_file: Optional[bool] = False,
+    slc_scene: Path, outdir: Optional[Path] = None, yaml_file: Optional[bool] = False,
 ) -> Union[Dict, None]:
     """
     generate_slc_metadata extracts slc metadata from a S1 zip file
     denoted as slc_scene. This function is used in the 
-    slc-ingestion command (see process_slc_ingestion() in
-    /insar/scripts/grid_processing.py)
+    slc-ingestion and ard_insar commands
 
     Parameters
     ----------
@@ -86,12 +83,7 @@ def generate_slc_metadata(
         yaml.dump(slc_metadata, out_fid)
 
 
-def swath_bursts_extents(
-    bursts_df,
-    swt,
-    buf=0.01,
-    pol="VV",
-) -> Iterable:
+def swath_bursts_extents(bursts_df, swt, buf=0.01, pol="VV",) -> Iterable:
     """
     Method to form extents for overlapping bursts.
 
@@ -483,8 +475,7 @@ def grid_definition(
     """
 
     def _move_failed_shp(
-        shp_outdir,
-        failed_grid_shapefile,
+        shp_outdir, failed_grid_shapefile,
     ):
         # move shapefiles to a folder called "unsuitable" so that
         # they are not included in the search duing grid adjustment.
@@ -511,8 +502,7 @@ def grid_definition(
                 )
 
     def _remove_duplicates(
-        _adjacent_gdf,
-        _current_grid_shp,
+        _adjacent_gdf, _current_grid_shp,
     ):
         # Remove rows in _current_grid that exist in
         # _adjacent_gdf. To do this, the geometry
@@ -804,9 +794,7 @@ def grid_adjustment(
     random_hex = "FF%02X%02X%02X" % (r(), r(), r())
 
     def _add_overlapping_burst_to_grid_k(
-        iw_df,
-        iw_name,
-        adjacent_grid_shp,
+        iw_df, iw_name, adjacent_grid_shp,
     ):
         """
         Parameters
