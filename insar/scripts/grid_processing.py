@@ -846,6 +846,12 @@ def process_slc_ingestion(
                 _LOG.info("processing grid", grid=grid)
 
                 grid_dir = pjoin(slc_ym_dir, grid)
+                # In response to issue #84, errors using finder() arise
+                # when grid_dir is a file instead of a directory. Check.
+                if not os.path.isdir(grid_dir):
+                    # this is a file - go to next file
+                    continue
+
                 scenes_slc = finder(
                     target=str(grid_dir),
                     matchlist=[r"^S1[AB]_IW_SLC.*\.zip"],
