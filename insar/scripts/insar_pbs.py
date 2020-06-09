@@ -7,6 +7,7 @@ PBS submission scripts.
 from __future__ import print_function
 
 import os
+import sys
 from pathlib import Path
 import click
 from os.path import join as pjoin, dirname, exists, basename
@@ -345,10 +346,20 @@ def ard_package(
 
     pbs_scripts = []
     for task in tasklist:
-        track, frame = Path(task).name.split("_")
+        # new code -> frame = FXX, e.g. F04
+        track, frame = os.path.splitext(Path(task).name)[0].split("_")
 
         jobid = uuid.uuid4().hex[0:6]
-        job_dir = Path(workdir).joinpath(f"{track}_{frame}-{jobid}")
+        in_dir = Path(workdir).joinpath(f"{track}_{frame}")
+        job_dir = Path(workdir).joinpath(f"{track}_{frame}-pkg-{jobid}")
+
+        # In the old code, indir=task, where task is the shapefile.
+        # However, indir is meant to be thebase directory of InSAR
+        # datasets. This leads to errors as the package command as
+        # it expects the gamma outputs to be located there, e.g.
+        # /shp_dir/T147D_F03.shp/SLC, /shp_dir/T147D_F03.shp/DEM
+        # In the new code,
+        # indir = in_dir
 
         if not exists(job_dir):
             os.makedirs(job_dir)
@@ -358,13 +369,13 @@ def ard_package(
             env=env,
             track=track,
             frame=frame,
-            indir=task,
+            indir=in_dir,
             pkgdir=pkgdir,
             product=product,
             polarization=polarization,
         )
 
-        out_fname = job_dir.joinpath(f"{track}{frame}{jobid}.bash")
+        out_fname = job_dir.joinpath(f"pkg_{track}_{frame}_{jobid}.bash")
         with open(out_fname, "w") as src:
             src.writelines(pbs)
 
