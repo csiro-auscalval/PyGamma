@@ -7,7 +7,6 @@ PBS submission scripts.
 from __future__ import print_function
 
 import os
-import sys
 from pathlib import Path
 import click
 from os.path import join as pjoin, dirname, exists, basename
@@ -342,12 +341,13 @@ def ard_package(
     )
 
     with open(input_list, "r") as src:
-        tasklist = [fp.rstrip() for fp in src.readlines()]
+        # get a list of shapefiles as Path objects
+        tasklist = [Path(fp.rstrip()) for fp in src.readlines()]
 
     pbs_scripts = []
-    for task in tasklist:
+    for shp_task in tasklist:
         # new code -> frame = FXX, e.g. F04
-        track, frame = os.path.splitext(Path(task).name)[0].split("_")
+        track, frame = shp_task.stem.split("_")
 
         jobid = uuid.uuid4().hex[0:6]
         in_dir = Path(workdir).joinpath(f"{track}_{frame}")
