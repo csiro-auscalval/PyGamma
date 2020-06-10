@@ -240,6 +240,7 @@ class SLC:
     ):
 
         if product == "sar":
+            # currently, map_product("sar")["product_base"] = "SLC"
             for slc_scene_path in (
                 Path(stack_base_path)
                 .joinpath(map_product(product)["product_base"])
@@ -392,10 +393,10 @@ def package(
 
 @click.command()
 @click.option(
-    "--track", type=click.STRING, help="track name of the grid definition: `T001D`"
+    "--track", type=click.STRING, help="track name of the grid definition: \"T001D\""
 )
 @click.option(
-    "--frame", type=click.STRING, help="Frame name of the grid definition: `F02S`"
+    "--frame", type=click.STRING, help="Frame name of the grid definition: \"F02\""
 )
 @click.option(
     "--input-dir",
