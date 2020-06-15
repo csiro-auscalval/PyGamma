@@ -235,7 +235,7 @@ class SlcMetadata:
 
         Return
         ------
-            Dictionary containing relevant items & values from 
+            Dictionary containing relevant items & values from
             the manifest.safe file
         """
 
@@ -402,6 +402,19 @@ class SlcMetadata:
                     stderr_flag=False,
                 )
                 if stat == 0:
+                    if len(cout) == 0:
+                        # no lines returned due to py_gamma race condition
+                        # don't throw exception, let metadata retries feature work
+                        msg = "no bursts returned from pg.S1_burstloc"
+                        _LOG.error(
+                            msg,
+                            xml_file=xml_path,
+                            stat=stat,
+                            gamma_stdout=cout,
+                            gamma_stderr=cerr,
+                        )
+                        return {}  # _parse_S1_burstloc returns {} if cout empty
+
                     return _parse_s1_burstloc(cout)
                 else:
                     msg = "failed to execute pg.S1_burstloc"
