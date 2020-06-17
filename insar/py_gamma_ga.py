@@ -14,18 +14,15 @@ class AltGammaException(Exception):
     pass
 
 
-# ~ try:
-# ~ GAMMA_INSTALL_DIR = os.environ['GAMMA_INSTALL_DIR']
-# ~ except KeyError:
-# ~ msg = "GAMMA_INSTALL_DIR environment variable not set."
-# ~ raise AltGammaException(msg)
-
-
 # potential gamma packages
 _GAMMA_PACKAGES = ("DISP", "DIFF", "IPTA", "ISP", "LAT", "MSP", "GEO")
+
 GAMMA_INSTALL_DIR = None
 GAMMA_INSTALLED_PACKAGES = None
 GAMMA_INSTALLED_EXES = None
+
+COUT = "cout"
+CERR = "cerr"
 
 
 def find_gamma_installed_packages(install_dir):
@@ -39,7 +36,7 @@ def find_gamma_installed_packages(install_dir):
 
 
 def find_gamma_installed_exes(install_dir, packages):
-    ignored_exes = ["ASAR_XCA"]  # duplicate program, handles unrelated Envisat data
+    ignored_exes = ["ASAR_XCA"]  # duplicate program, for unrelated Envisat data
     dirs = [os.path.join(install_dir, p, "bin") for p in packages]
 
     exes = {}
@@ -61,10 +58,22 @@ def find_gamma_installed_exes(install_dir, packages):
     return exes
 
 
-# TODO: options for
-# 1: hard code all the EXEs we use into a module interface
-# 2: import all EXE names into the module scope like py_gamma
-# 3: lazier?/tricky: use __getattr__ in a class, but when/where to instantiate? factory func?
+def subprocess_wrapper(cmd, *args, **kwargs):
+    """Shim function to map py_gamma args to subprocess.run()."""
+    cmd_list = [cmd]
+    cmd_list.append(" ".join(args))
+
+    p = subprocess.run(
+        cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
+    )
+
+    if COUT in kwargs:
+        kwargs[COUT].extend(p.stdout.split("\n"))
+
+    if CERR in kwargs:
+        kwargs[CERR].extend(p.stderr.split("\n"))
+
+    return p.returncode
 
 
 class AltGamma:
@@ -84,7 +93,14 @@ class AltGamma:
             raise AttributeError(msg.format(name))
 
         cmd = os.path.join(self.install_dir, self._gamma_exes[name])
-        return functools.partial(subprocess.run, cmd)
+        return functools.partial(subprocess_wrapper, cmd)
 
 
-pg = AltGamma()
+try:
+    GAMMA_INSTALL_DIR = os.environ["GAMMA_INSTALL_DIR"]
+    # TODO: add exes here
+except KeyError:
+    # let user specify
+    pass
+
+pg = AltGamma(GAMMA_INSTALL_DIR) if GAMMA_INSTALL_DIR else AltGamma()

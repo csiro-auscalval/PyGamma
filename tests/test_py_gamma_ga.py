@@ -6,7 +6,7 @@ import os
 import unittest
 from unittest import mock
 from pprint import pprint
-from collections import Sequence
+from collections import Sequence, namedtuple
 
 import pytest
 from insar import py_gamma_ga
@@ -61,3 +61,57 @@ def test_getattr_function_lookup(pg):
 def test_getattr_function_not_exist(pg):
     with pytest.raises(AttributeError):
         pg.FakeMethod
+
+
+FakeCompletedProcess = namedtuple(
+    "FakeCompletedProcess", ["returncode", "stdout", "stderr",]
+)
+
+
+def fake_subprocess_run(cmd_list, *args, **kwargs):
+    return FakeCompletedProcess(0, "Line 1\nLine 2\nLine 3\n", "")
+
+
+def fake_subprocess_run2(cmd_list, *args, **kwargs):
+    return FakeCompletedProcess(0, "Line 1\nLine 2\nLine 3\n", None)
+
+
+def fake_subprocess_run_error(cmd_list, *args, **kwargs):
+    return FakeCompletedProcess(255, "Line 1\n", "ERROR: it broke!")
+
+
+def test_function_call_args_only(pg, monkeypatch):
+    monkeypatch.setattr(py_gamma_ga.subprocess, "run", fake_subprocess_run)
+
+    path = "fake_annotation_args_only.xml"
+    stat = pg.S1_burstloc(path)
+    assert stat == 0
+
+
+def test_function_call_args_kwargs(pg, monkeypatch):
+    for p in (fake_subprocess_run, fake_subprocess_run2):
+        monkeypatch.setattr(py_gamma_ga.subprocess, "run", fake_subprocess_run)
+
+        cout = []
+        cerr = []
+        path = "fake_annotation_arg_kwargs.xml"
+        stat = pg.S1_burstloc(
+            path, cout=cout, cerr=cerr, stdout_flag=False, stderr_flag=False
+        )
+        assert stat == 0
+        assert cout
+        assert cerr in ([], [""])
+
+
+def test_function_call_args_kwargs_error(pg, monkeypatch):
+    monkeypatch.setattr(py_gamma_ga.subprocess, "run", fake_subprocess_run_error)
+
+    cout = []
+    cerr = []
+    path = "fake_annotation_arg_kwargs_error.xml"
+    stat = pg.S1_burstloc(
+        path, cout=cout, cerr=cerr, stdout_flag=False, stderr_flag=False
+    )
+    assert stat != 0
+    assert cout
+    assert cerr not in ([], [""])
