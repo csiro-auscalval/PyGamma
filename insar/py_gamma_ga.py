@@ -80,7 +80,9 @@ class AltGamma:
     """Alternate interface class to temporarily(?) replace the py_gamma.py module."""
 
     def __init__(self, install_dir=None, gamma_exes=None):
-        self._gamma_exes = {}  # dict k= program, v=exe path relative to install dir
+        self._gamma_exes = (
+            gamma_exes if gamma_exes else {}
+        )  # k=program, v=exe path relative to install dir
         self.install_dir = install_dir
 
     def __getattr__(self, name):
