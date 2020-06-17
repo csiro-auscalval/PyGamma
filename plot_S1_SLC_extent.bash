@@ -149,9 +149,9 @@ third=`awk 'NR==3 {print $1}' sorted_end_times`
 
 
 ## Auto positioning of swaths on plot
-top="-1.9"
-middle="-2.2"
-bottom="-2.5"
+top="-2.9"
+middle="-3.2"
+bottom="-3.5"
 if [ $first == "IW1" ]; then
     pos1=$top
 elif [ $first == "IW2" ]; then
@@ -180,34 +180,48 @@ sw2_len=`echo $sw2_burst*0.9 | bc -l`
 sw3_len=`echo $sw3_burst*0.9 | bc -l`
 
 ## Adjust position based on length of swath
-pos1=`echo $pos1+30-$sw1_burst | bc -l` 
-pos2=`echo $pos2+30-$sw2_burst | bc -l` 
-pos3=`echo $pos3+30-$sw3_burst | bc -l` 
+pos1=`echo $pos1+27-$sw1_burst | bc -l` 
+pos2=`echo $pos2+27-$sw2_burst | bc -l` 
+pos3=`echo $pos3+27-$sw3_burst | bc -l` 
 
 ## Plot swaths
-gmtset PS_MEDIA A4
+gmtset PAPER_MEDIA A4
 outline="-JX21c/27c"
 range="-R0/100/0/100"
-psbasemap $outline $range -B+n -K -P > $psfile
-pstext $outline $range -F+cTL+f15p -O -K -P <<EOF >> $psfile
+psbasemap $outline $range -G -K -P > $psfile
+pstext $outline $range -O -K -P -m -N <<EOF >> $psfile
+> 0 100 12 0 4 LT 14p 6i l
 $project $track $scene $polar $header
 EOF
-psimage $slc_png -Dx14.8c/24.2c+w3.5c/3c -O -K -P >> $psfile
-pstext $outline $range -F+f12p -O -K -P <<EOF >> $psfile
-6 95 Swath 1 ($sw1_burst)
-EOF
-psimage $slc_png1 -Dx0c/$pos1"c"+w4.5c/$sw1_len"c" -O -K -P >> $psfile
-pstext $outline $range -F+f12p -O -K -P <<EOF >> $psfile
-32 95 Swath 2 ($sw2_burst)
-EOF
-psimage $slc_png2 -Dx5.5c/$pos2"c"+w4.5c/$sw2_len"c" -O -K -P >> $psfile
-pstext $outline $range -F+f12p -K -O -P <<EOF >> $psfile
-58 95 Swath 3 ($sw3_burst)
-EOF
-psimage $slc_png3 -Dx11c/$pos3"c"+w4.5c/$sw3_len"c" -O -P >> $psfile
 
-psconvert -Tf $psfile
+convert $slc_png slc.ras 
+psimage slc.ras -W3.5c/3c -C14.8c/24.2c -O -K -P >> $psfile
+pstext $outline $range -O -K -P -m -N <<EOF >> $psfile
+> 5 97 12 0 4 LT 13p 3i l
+Swath 1 ($sw1_burst)
+EOF
+
+convert $slc_png1 slc1.ras
+psimage slc1.ras -W4.5c/$sw1_len"c" -C0c/$pos1"c" -O -K -P >> $psfile
+pstext $outline $range -O -K -P -m -N <<EOF >> $psfile
+> 32 97 12 0 4 LT 13p 3i l
+Swath 2 ($sw2_burst)
+EOF
+
+convert $slc_png2 slc2.ras
+psimage slc2.ras -W4.5c/$sw2_len"c" -C5.5c/$pos2"c" -O -K -P >> $psfile
+pstext $outline $range -O -K -P -m -N <<EOF >> $psfile
+> 58 97 12 0 4 LT 13p 3i l
+Swath 3 ($sw3_burst)
+EOF
+
+convert $slc_png3 slc3.ras
+psimage slc3.ras -W4.5c/$sw3_len"c" -C11c/$pos3"c" -O -P >> $psfile
+
+ps2raster -A -Tf $psfile
+
 rm -rf $psfile sorted_end_times
+rm slc.ras slc1.ras slc2.ras slc3.ras
 
 cp $pdf $out_dir
 
