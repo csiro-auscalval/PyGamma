@@ -1,0 +1,90 @@
+"""
+TODO: Shim to substitute for py_gamma.py module which has race condition.
+"""
+
+import os
+import functools
+import subprocess
+import warnings
+
+
+class AltGammaException(Exception):
+    """Generic exception class for the alternate Gamma interface."""
+
+    pass
+
+
+# ~ try:
+# ~ GAMMA_INSTALL_DIR = os.environ['GAMMA_INSTALL_DIR']
+# ~ except KeyError:
+# ~ msg = "GAMMA_INSTALL_DIR environment variable not set."
+# ~ raise AltGammaException(msg)
+
+
+# potential gamma packages
+_GAMMA_PACKAGES = ("DISP", "DIFF", "IPTA", "ISP", "LAT", "MSP", "GEO")
+GAMMA_INSTALL_DIR = None
+GAMMA_INSTALLED_PACKAGES = None
+GAMMA_INSTALLED_EXES = None
+
+
+def find_gamma_installed_packages(install_dir):
+    res = tuple(n for n in _GAMMA_PACKAGES if n in os.listdir(install_dir))
+
+    if res is None or len(res) == 0:
+        msg = "No Gamma packages found in {}"
+        raise AltGammaException(msg.format(install_dir))
+
+    return res
+
+
+def find_gamma_installed_exes(install_dir, packages):
+    ignored_exes = ["ASAR_XCA"]  # duplicate program, handles unrelated Envisat data
+    dirs = [os.path.join(install_dir, p, "bin") for p in packages]
+
+    exes = {}
+    for d in dirs:
+        for dirpath, _, filenames in os.walk(d):
+            for f in filenames:
+                fullpath = os.path.join(dirpath, f)
+
+                if os.access(fullpath, os.R_OK):
+                    # only add executables
+                    if f in exes and f not in ignored_exes:
+                        msg = (
+                            "{} already exists in the Gamma exe lookup under {}. Skipped!"
+                        )
+                        warnings.warn(msg.format(f, exes[f]))
+
+                    exes[f] = fullpath
+
+    return exes
+
+
+# TODO: options for
+# 1: hard code all the EXEs we use into a module interface
+# 2: import all EXE names into the module scope like py_gamma
+# 3: lazier?/tricky: use __getattr__ in a class, but when/where to instantiate? factory func?
+
+
+class AltGamma:
+    """Alternate interface class to temporarily(?) replace the py_gamma.py module."""
+
+    def __init__(self, install_dir=None):
+        self._gamma_exes = {}  # dict k= program, v=exe path relative to install dir
+        self.install_dir = install_dir
+
+    def _get_gamma_exes(self):
+        # scan file system
+        raise NotImplementedError
+
+    def __getattr__(self, name):
+        if name not in self._gamma_exes:
+            msg = "Unrecognised Gamma program '{}', check calling function"
+            raise AttributeError(msg.format(name))
+
+        cmd = os.path.join(self.install_dir, self._gamma_exes[name])
+        return functools.partial(subprocess.run, cmd)
+
+
+pg = AltGamma()
