@@ -79,15 +79,12 @@ def subprocess_wrapper(cmd, *args, **kwargs):
 class AltGamma:
     """Alternate interface class to temporarily(?) replace the py_gamma.py module."""
 
-    def __init__(self, install_dir=None):
+    def __init__(self, install_dir=None, gamma_exes=None):
         self._gamma_exes = {}  # dict k= program, v=exe path relative to install dir
         self.install_dir = install_dir
 
-    def _get_gamma_exes(self):
-        # scan file system
-        raise NotImplementedError
-
     def __getattr__(self, name):
+        """Dynamic lookup of Gamma functions to methods to avoid hardcoding."""
         if name not in self._gamma_exes:
             msg = "Unrecognised Gamma program '{}', check calling function"
             raise AttributeError(msg.format(name))
@@ -103,4 +100,12 @@ except KeyError:
     # let user specify
     pass
 
-pg = AltGamma(GAMMA_INSTALL_DIR) if GAMMA_INSTALL_DIR else AltGamma()
+if GAMMA_INSTALL_DIR:
+    GAMMA_INSTALLED_PACKAGES = find_gamma_installed_packages(GAMMA_INSTALL_DIR)
+    GAMMA_INSTALLED_EXES = find_gamma_installed_exes(
+        GAMMA_INSTALL_DIR, GAMMA_INSTALLED_PACKAGES
+    )
+    pg = AltGamma(GAMMA_INSTALL_DIR, GAMMA_INSTALLED_EXES)
+else:
+    # assume user will configure manually
+    pg = AltGamma()
