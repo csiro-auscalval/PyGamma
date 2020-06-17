@@ -111,3 +111,8 @@ if GAMMA_INSTALL_DIR:
 else:
     # assume user will configure manually
     pg = AltGamma()
+
+
+def ParFile(*args, **kwargs):
+    msg = "py_gamma_ga shim does not yet handle ParFile"
+    raise NotImplementedError(msg)
