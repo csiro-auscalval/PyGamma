@@ -220,7 +220,10 @@ psimage slc3.ras -W4.5c/$sw3_len"c" -C11c/$pos3"c" -O -P >> $psfile
 
 ps2raster -A -Tf $psfile
 
+
 rm -rf $psfile sorted_end_times
+
+# Removing the temporary .ras files used by psimage
 rm slc.ras slc1.ras slc2.ras slc3.ras
 
 cp $pdf $out_dir
