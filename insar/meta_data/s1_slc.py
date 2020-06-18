@@ -25,7 +25,7 @@ from typing import Dict, List, Optional, Type, Union
 from shapely.ops import cascaded_union  # required for select_bursts_in_vector()
 from shapely.geometry import MultiPolygon, Polygon, box
 from spatialist import Vector, sqlite3, sqlite_setup
-import py_gamma as pg
+from insar.py_gamma_ga import pg
 from insar.xml_util import getNamespaces
 from insar.logs import get_wrapped_logger
 
@@ -235,7 +235,7 @@ class SlcMetadata:
 
         Return
         ------
-            Dictionary containing relevant items & values from 
+            Dictionary containing relevant items & values from
             the manifest.safe file
         """
 

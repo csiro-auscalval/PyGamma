@@ -11,7 +11,7 @@ import datetime
 import pandas as pd
 import structlog
 
-import py_gamma as pg
+from insar.py_gamma_ga import pg
 from insar.constant import SlcFilenames
 from insar.subprocess_utils import working_directory, run_command
 from insar.logs import get_wrapped_logger

@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 import structlog
 
-import py_gamma as pg
+from insar.py_gamma_ga import pg
 from insar.subprocess_utils import working_directory, run_command, environ
 from insar.logs import get_wrapped_logger
 
