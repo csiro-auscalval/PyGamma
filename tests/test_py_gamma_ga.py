@@ -1,7 +1,3 @@
-# TODO:
-# map func call names to gamma EXEs
-# map func args to subprocess call
-
 import os
 import unittest
 from unittest import mock
@@ -10,8 +6,6 @@ from collections import Sequence, namedtuple
 
 import pytest
 from insar import py_gamma_ga
-
-import pudb
 
 
 FAKE_INSTALL_DIR = "/fake/gamma/dir"
