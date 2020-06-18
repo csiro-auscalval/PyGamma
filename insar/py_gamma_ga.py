@@ -11,6 +11,8 @@ import functools
 import subprocess
 import warnings
 
+import py_gamma as py_gamma_broken
+
 
 class AltGammaException(Exception):
     """Generic exception class for the alternate Gamma interface."""
@@ -86,6 +88,9 @@ def subprocess_wrapper(cmd, *args, **kwargs):
 class AltGamma:
     """Alternate interface class to temporarily(?) replace the py_gamma.py module."""
 
+    # map through to the original
+    ParFile = py_gamma_broken.ParFile
+
     def __init__(self, install_dir=None, gamma_exes=None):
         # k=program, v=exe path relative to install dir
         self._gamma_exes = gamma_exes if gamma_exes else {}
@@ -104,7 +109,6 @@ class AltGamma:
 try:
     GAMMA_INSTALL_DIR = os.environ["GAMMA_INSTALL_DIR"]
 except KeyError:
-    # assume user will configure manually
     pass
 
 if GAMMA_INSTALL_DIR:
@@ -114,9 +118,5 @@ if GAMMA_INSTALL_DIR:
     )
     pg = AltGamma(GAMMA_INSTALL_DIR, GAMMA_INSTALLED_EXES)
 else:
+    # assume user will configure manually
     pg = AltGamma()
-
-
-def ParFile(*args, **kwargs):
-    msg = "py_gamma_ga shim does not yet handle ParFile"
-    raise NotImplementedError(msg)
