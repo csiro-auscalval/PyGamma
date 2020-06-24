@@ -74,7 +74,7 @@ Process a single stack Sentinel-1 SLC data to directly using a ARD pipeline from
 		   --end-date [%Y-%m-%d]    An end-date of SLC data acquisition.
 		   --workdir    PATH    A full path to a working directory to output logs.
 		   --outdir PATH    A full path to an output directory.
-		   --polarization LIST      Polarizations to be processed ["VV"|"VH"|"VV","VH"].	
+		   --polarization LIST      Polarizations to be processed (json strings) '["VV"|"VH"|"VV","VH"]'.	
 		   --cleanup TEXT   A flag[yes|no] to specify a clean up  of intermediary files. Highly recommended to cleanup to limit storage during production.
 		   --database-name  PATH   A full path to SLC-metata database with burst informations.
 		   --orbit  TEXT    A Sentinel-1 orbit [A|D].
@@ -86,9 +86,11 @@ Process a single stack Sentinel-1 SLC data to directly using a ARD pipeline from
 		   --local-scheduler    TEXT    only test using a `local-scheduler`.
 
 
-#### Example 
+#### Examples 
 
 	$gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --workers <number-of-workers> --local-scheduler 
+        $gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization '["VV"]' --workers <number-of-workers> --local-scheduler
+        $gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization '["VV","VH"]' --workers <number-of-workers> --local-scheduler
 
 #### Single stack packaging 
 The packaging of a single stack Sentinel-1 ARD processed using `gamma_insar ARD` workflow.
@@ -124,12 +126,16 @@ and submitted to NCI queue with parameters specified in a `required parameters`
              --end-date    [%Y-%m-%d|%Y-%m-%dT%H:%M:%S|%Y-%m-%d %H:%M:%S]  The end date of SLC acquisition
              --workdir PATH    The base working and scripts output directory.
              --outdir  PATH    The output directory for processed data
-             --ncpus   INTEGER The total number of cpus per job required if known(default=48)
+             --polarization TEXT    Polarizations to be processed VV or VH, arg
+                                    can be specified multiple times
+             --ncpus   INTEGER The total number of cpus per job required if known (default=48)
              --memory  INTEGER Total memory required if per node
-             --queue   TEXT    Queue to submit the job into (default=normal)
+             --queue   TEXT    Queue {express, normal, hugemem} to submit
+                               the job (default=normal)
              --hours   INTEGER Job walltime in hours (default=48)
              --email   TEXT    Notification email address.
-             --nodes   INTEGER Number of nodes to be requested(default=1)
+             --nodes   INTEGER Number of nodes to be requested (default=1)
+             --workers INTEGER Number of workers
              --jobfs   INTEGER Jobfs required per node (default=400)
              -s, --storage TEXT    Project storage you wish to use in PBS jobs
              --project TEXT        Project to compute under
@@ -139,6 +145,8 @@ and submitted to NCI queue with parameters specified in a `required parameters`
 #### Example 
 
 	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --ncpus 48 --memory 192 --queue normal --nodes 2 --jobfs 400 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization VV --ncpus 48 --memory 700 --queue hugemem --nodes 2 --workers 6 --jobfs 400 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization VV --polarization VH --ncpus 48 --memory 700 --queue hugemem --nodes 2 --workers 10 --jobfs 400 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
 
 #### Multi-stack packaging of InSAR ARD using PBS system
 Batch processing of packaging of InSAR ARD to be indexed using Open Data Cube tools eo-datasets. 
