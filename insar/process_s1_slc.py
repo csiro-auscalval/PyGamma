@@ -12,17 +12,11 @@ import pandas as pd
 import structlog
 
 import py_gamma as pg
-import subprocess
 from insar.constant import SlcFilenames
 from insar.subprocess_utils import working_directory, run_command
 from insar.logs import get_wrapped_logger
 
 _LOG = structlog.get_logger("insar")
-
-SLC_CAT_SCANSAR_EXE = (
-    "/g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20191203/ISP/bin/SLC_cat_ScanSAR"
-)
-
 
 class SlcProcess:
     def __init__(
