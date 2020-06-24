@@ -18,7 +18,6 @@ from insar.logs import get_wrapped_logger
 
 _LOG = structlog.get_logger("insar")
 
-
 class SlcProcess:
     def __init__(
         self,
@@ -68,8 +67,11 @@ class SlcProcess:
             "orbit_file": "*.EOF",
         }
         self.phase_shift_date = datetime.date(2015, 3, 15)
-        self.slc_tabs_params = None
-        self.slc_prefix = None
+        # slc_tabs_params will be a dict, created
+        # in read_raw_data() and used in
+        # concatenate()
+        self.slc_tabs_params = None  # dict
+        self.slc_prefix = None  # str
         self.acquisition_date = None
         self.slc_tab = None
         self.orbit_file = None
@@ -122,12 +124,18 @@ class SlcProcess:
         for save_file in self.slc_safe_files():
             _id = save_file.stem
             _concat_tabs[_id] = dict()
+            # _id = basename of .SAFE folder, e.g.
+            # S1A_IW_SLC__1SDV_20180103T191741_20180103T191808_019994_0220EE_1A2D
+
+            # add start time to dict
             dt_start = re.findall("[0-9]{8}T[0-9]{6}", _id)[0]
             start_datetime = datetime.datetime.strptime(dt_start, "%Y%m%dT%H%M%S")
             self.acquisition_date = start_datetime.date()
             _concat_tabs[_id]["datetime"] = start_datetime
 
             for swath in [1, 2, 3]:
+                # TODO: swath is <int>, never have an item as an
+                # TODO: <int> -> This should be changed
                 _concat_tabs[_id][swath] = dict()
                 tab_names = self.swath_tab_names(swath, _id)
                 raw_files = [
@@ -160,6 +168,10 @@ class SlcProcess:
                 sc_db = "-"  # scale factor for FCOMPLEX -> SCOMPLEX
                 noise_pwr = "-"  # noise intensity for each SLC sample in slant range
 
+                # par_S1_SLC creates the following three output files:
+                # 1. slc_par_pathname (*.slc.par)
+                # 2. slc_pathname (*.slc), and;
+                # 3. tops_par_pathname (*slc.TOPS_par).
                 stat = pg.par_S1_SLC(
                     geotiff_pathname,
                     annotation_xml_pathname,
@@ -200,7 +212,8 @@ class SlcProcess:
                 # assign orbit file name
                 self.orbit_file = raw_files[4]
 
-                # store names of flies to be removed later
+                # store the filenames of *slc, *.slc.par and
+                # *.slc.TOPS_par so that they can to be removed later
                 for item in [tab_names.slc, tab_names.par, tab_names.tops_par]:
                     self.temp_slc.append(item)
         self.slc_tabs_params = _concat_tabs
@@ -213,7 +226,7 @@ class SlcProcess:
         slc_data_dir: Optional[Union[Path, str]] = None,
     ) -> None:
         """
-        Writes tab files needed in SlcProcess.
+        Writes tab (ascii) files needed in SlcProcess.
 
         :param slc_tab_file:
             A full path of an slc tab file.
@@ -225,17 +238,27 @@ class SlcProcess:
             An Optional parameter to prepend (slc, par, tops_par) filenames to
             form full path.
         """
-
         if slc_tab_file.exists():
             _LOG.info(
                 "SLC tab file exists; skipping writing of SLC tab parameters",
                 pathname=slc_tab_file,
             )
             return
+        files_in_slc_tabs = []
         with open(slc_tab_file, "w") as fid:
             for swath in [1, 2, 3]:
                 if tab_params is None:
+                    # using swath_tab_names, create filenames for:
+                    # *_iw{swath}.slc
+                    # *_iw{swath}.slc.par
+                    # *_iw{swath}.slc.TOPS_par
+                    #
+                    # using _id. self.swath_tab_names should create
+                    # {_id}_{polarisation}_iw{swath}.slc
+                    # {_id}_{polarisation}_iw{swath}.slc.par
+                    # {_id}_{polarisation}_iw{swath}.slc.TOPS_par
                     tab_names = self.swath_tab_names(swath, _id)
+
                     _slc = tab_names.slc
                     _par = tab_names.par
                     _tops_par = tab_names.tops_par
@@ -249,79 +272,165 @@ class SlcProcess:
                     _par = Path(slc_data_dir).joinpath(_par).as_posix()
                     _tops_par = Path(slc_data_dir).joinpath(_tops_par).as_posix()
 
+                files_in_slc_tabs.append([_slc, _par, _tops_par])
                 fid.write(_slc + " " + _par + " " + _tops_par + "\n")
+
+        # useful to have easy access to the filenames
+        # that are listed in these slc_tabs.
+        return files_in_slc_tabs
 
     def concatenate(self) -> None:
         """Concatenate multi-scenes to create new frame."""
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-            start_tabs, *rest_tabs = sorted(
+
+            # slc_tabs_params is a multilayered dict()
+            # slc_tabs_params[SAFE_basename][dt]
+            # slc_tabs_params[SAFE_basename][swath1][slc]
+            # slc_tabs_params[SAFE_basename][swath1][par]
+            # slc_tabs_params[SAFE_basename][swath1][tops_par]
+
+            # Order slc_tabs_params based ascending date & time. The
+            # first slc_tabs_params[SAFE_basename] will be assigned
+            # as first_tabs, the remaining dicts will be stored in
+            # remaining_tabs. Note that first_tabs is a tuple,
+            # while remaining_tabs is a list of dictionaries
+            first_tabs, *remaining_tabs = sorted(
                 self.slc_tabs_params.items(), key=lambda x: x[1]["datetime"]
             )
-            _, _vals_start = start_tabs
-            _dt = _vals_start["datetime"]
+            _, _initial_dict = first_tabs
+            _dt = _initial_dict["datetime"]
 
-            if not rest_tabs:
+            if not remaining_tabs:
+                # There is only one acquisition for this day, hence
+                # remaining_tabs is None, and there is no need to
+                # concatenate files using pg.SLC_cat_ScanSAR.
+                # Instead, renaming the *.slc, *.slc.par and
+                # *.slc.TOPS_par files created from pg.par_S1_SLC.
                 self.slc_prefix = "{:04}{:02}{:02}".format(_dt.year, _dt.month, _dt.day)
                 self.slc_tab = Path(os.getcwd()).joinpath(
                     "{}_{}_tab".format(self.slc_prefix, self.polarization)
                 )
                 for swath in [1, 2, 3]:
                     _tab_names = self.swath_tab_names(swath, self.slc_prefix)
-                    os.rename(_vals_start[swath]["slc"], _tab_names.slc)
-                    os.rename(_vals_start[swath]["par"], _tab_names.par)
-                    os.rename(_vals_start[swath]["tops_par"], _tab_names.tops_par)
-                self._write_tabs(
+                    os.rename(_initial_dict[swath]["slc"], _tab_names.slc)
+                    os.rename(_initial_dict[swath]["par"], _tab_names.par)
+                    os.rename(_initial_dict[swath]["tops_par"], _tab_names.tops_par)
+
+                files_in_slc_tab = self._write_tabs(
                     self.slc_tab, _id=self.slc_prefix, slc_data_dir=os.getcwd()
                 )
+
             else:
-                slc_tab1 = None
-                for idx, item in enumerate(rest_tabs):
-                    _, _vals_stop = item
-                    if len(rest_tabs) == idx + 1:
-                        slc_prefix = "{:04}{:02}{:02}".format(
+                # multiple SLC acquisitions for this day. Use
+                # pg.SLC_cat_ScanSAR to concatenate these
+                # acquisitions into single files
+
+                slc_tab_ifile1 = None
+                slc_merged_tabs_list = []
+                files_in_slc_tab1 = []
+                files_in_slc_tab2 = []
+                files_in_slc_tab3 = []
+                for idx, safe_tuple in enumerate(remaining_tabs):
+                    # safe_tuple = (
+                    #     safe_basename,
+                    #     multi-layered dict
+                    # )
+                    safe_basename, _remaining_dict_idx = safe_tuple
+
+                    # _remaining_dict_idx = {
+                    #     'datetime': datetime object
+                    #     1: {
+                    #         'slc': *_iw1.slc filename
+                    #         'par': *_iw1.slc.par filename
+                    #         'tops_par': *_iw1.slc.TOPS_par filename
+                    #        }
+                    #     2: {
+                    #          'slc': *_iw2.slc filename
+                    #          'par': *_iw2.slc.par filename
+                    #          'tops_par': *_iw2.slc.TOPS_par filename
+                    #        }
+                    #     3: {
+                    #          'slc': *_iw3.slc filename
+                    #          'par': *_iw3.slc.par filename
+                    #          'tops_par': *_iw3.slc.TOPS_par filename
+                    #        }
+                    # }
+
+                    # specify slc_prefix
+                    if idx == len(remaining_tabs) - 1:
+                        # for the last iteration set slc_prefix
+                        # as year and date of acquisition. This
+                        # will be used in the merging table
+                        slc_prefix = "{0:04}{1:02}{2:02}".format(
                             _dt.year, _dt.month, _dt.day
                         )
                     else:
-                        slc_prefix = "{:04}{:02}{:02}{:02}{:02}{:02}".format(
+                        # it is crucial that slc_prefix is different
+                        # for every iteration, otherwise SLC_cat_ScanSAR
+                        # will attempt to overwrite the concatenated
+                        # files which cause SLC_cat_ScanSAR to
+                        # raise errors and then exit.
+                        slc_prefix = "{0:04}{1:02}{2:02}{3:02}{4:02}{5:02}_ix{6}".format(
                             _dt.year,
                             _dt.month,
                             _dt.day,
                             _dt.hour,
                             _dt.minute,
                             _dt.second,
+                            idx,
                         )
 
-                    # create slc_tab1 only at the beginning
-                    if slc_tab1 is None:
-                        slc_tab1 = tmpdir.joinpath(f"slc_tab1_{idx}")
+                    # create slc_tab_ifile1 only at the beginning
+                    if slc_tab_ifile1 is None:
+                        slc_tab_ifile1 = tmpdir.joinpath(f"slc_tab_input1_{idx}.txt")
+                        files_in_slc_tab1.append(
+                            self._write_tabs(
+                                slc_tab_ifile1,
+                                tab_params=_initial_dict,
+                                slc_data_dir=os.getcwd(),
+                            )
+                        )
+
+                    # create slc_tab_ifile2
+                    slc_tab_ifile2 = tmpdir.joinpath(f"slc_tab_input2_{idx}.txt")
+                    files_in_slc_tab2.append(
                         self._write_tabs(
-                            slc_tab1, tab_params=_vals_start, slc_data_dir=os.getcwd()
+                            slc_tab_ifile2,
+                            tab_params=_remaining_dict_idx,
+                            slc_data_dir=os.getcwd(),
                         )
-
-                    # create slc_tab2
-                    slc_tab2 = tmpdir.joinpath(f"slc_tab2_{idx}")
-                    self._write_tabs(
-                        slc_tab2, tab_params=_vals_stop, slc_data_dir=os.getcwd()
                     )
 
-                    # create slc_tab3 (merge tab)
-                    slc_tab3 = tmpdir.joinpath(f"slc_tab3_{idx}")
-                    self._write_tabs(slc_tab3, _id=slc_prefix, slc_data_dir=os.getcwd())
+                    # create slc_merge_tab_ofile (merge tab)
+                    slc_merge_tab_ofile = tmpdir.joinpath(f"slc_merged_tab_{idx}.txt")
+                    files_in_slc_tab3.append(
+                        self._write_tabs(
+                            slc_merge_tab_ofile, _id=slc_prefix, slc_data_dir=os.getcwd()
+                        )
+                    )
 
                     # concat sequential ScanSAR burst SLC images
                     # py_gamma parameters
                     cout = []
                     cerr = []
-                    slc_tab1_pathname = str(slc_tab1)
-                    slc_tab2_pathname = str(slc_tab2)
-                    slc_tab3_pathname = str(slc_tab3)
+                    tab_input1_path = str(slc_tab_ifile1)
+                    tab_input2_path = str(slc_tab_ifile2)
+                    tab_output_path = str(slc_merge_tab_ofile)
+                    slc_merged_tabs_list.append(tab_output_path)
 
+                    # SLC_cat_ScanSAR will perform concatenation. Here,
+                    # data from slc_tab_ifile2 are appended into
+                    # slc_tab_ifile1, with the merged output placed
+                    # into the files specified inside slc_merge_tab_ofile.
+                    #
+                    # At the end of the first iteration,
+                    #   tab_input1_path = tab_output_path
                     stat = pg.SLC_cat_ScanSAR(
-                        slc_tab1_pathname,
-                        slc_tab2_pathname,
-                        slc_tab3_pathname,
+                        tab_input1_path,
+                        tab_input2_path,
+                        tab_output_path,
                         cout=cout,
                         cerr=cerr,
                         stdout_flag=False,
@@ -332,17 +441,31 @@ class SlcProcess:
                         msg = "failed to execute pg.SLC_cat_ScanSAR"
                         _LOG.error(
                             msg,
-                            slc_tab1=slc_tab1_pathname,
-                            slc_tab2=slc_tab2_pathname,
-                            slc_tab3=slc_tab3_pathname,
+                            slc_tab1=tab_input1_path,
+                            slc_tab2=tab_input2_path,
+                            slc_tab3=tab_output_path,
+                            slc_tab1_files=files_in_slc_tab1[idx],
+                            slc_tab2_files=files_in_slc_tab2[idx],
+                            slc_tab3_files=files_in_slc_tab3[idx],
+                            iteration=idx,
                             stat=stat,
                             gamma_stdout=cout,
                             gamma_stderr=cerr,
                         )
                         raise Exception(msg)
 
-                    # assign slc_tab3 to slc_tab1 to perform series of concatenation
-                    slc_tab1 = slc_tab3
+                    # assign slc_merge_tab_ofile to slc_tab_ifile1
+                    # to perform series of concatenation
+                    slc_tab_ifile1 = slc_merge_tab_ofile
+
+                    # to conserve memory, delete temporary concatenated
+                    # files from the previous iteration. This code will
+                    # keep concatenated files from the last iteration.
+                    if idx > 0:
+                        # get temp. files of previus iterations
+                        for _swath_mfile_list in files_in_slc_tab3[idx-1]:
+                            for _mfile in _swath_mfile_list:
+                                os.remove(_mfile)
 
                 # clean up the temporary slc files after clean up
                 for fp in self.temp_slc:
@@ -353,11 +476,13 @@ class SlcProcess:
 
                 # set the slc_tab file name
                 self.slc_tab = shutil.move(
-                    slc_tab3,
+                    slc_merge_tab_ofile,
                     Path(os.getcwd()).joinpath(
                         "{}_{}_tab".format(slc_prefix, self.polarization)
                     ),
                 )
+            # end-else
+        # end-with
 
     def phase_shift(self, swath: Optional[int] = 1,) -> None:
         """Perform phase shift correction.
@@ -557,10 +682,14 @@ class SlcProcess:
 
             # write out slc in and out tab files
             sub_slc_in = tmpdir.joinpath("sub_slc_input_tab")
-            self._write_tabs(sub_slc_in, tab_params=tabs_param, slc_data_dir=os.getcwd())
+            files_in_slc_in = self._write_tabs(
+                sub_slc_in, tab_params=tabs_param, slc_data_dir=os.getcwd()
+            )
 
             sub_slc_out = tmpdir.joinpath("sub_slc_output_tab")
-            self._write_tabs(sub_slc_out, _id=self.slc_prefix, slc_data_dir=tmpdir)
+            files_in_slc_out = self._write_tabs(
+                sub_slc_out, _id=self.slc_prefix, slc_data_dir=tmpdir
+            )
 
             # run the subset
             # py_gamma parameters
@@ -660,7 +789,9 @@ class SlcProcess:
 
             # write output in a temp directory
             resize_slc_tab = tmpdir.joinpath("sub_slc_output_tab")
-            self._write_tabs(resize_slc_tab, _id=self.slc_prefix, slc_data_dir=tmpdir)
+            files_in_resize_tab = self._write_tabs(
+                resize_slc_tab, _id=self.slc_prefix, slc_data_dir=tmpdir
+            )
 
             # py_gamma parameters
             cout = []
