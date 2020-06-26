@@ -104,12 +104,13 @@ The packaging of a single stack Sentinel-1 ARD processed using `gamma_insar ARD`
           --input-dir PATH               The base directory of InSAR datasets
           --pkgdir PATH                  The base output packaged directory.
           --product TEXT                 The product to be packaged: sar|insar
-          --polarization <TEXT TEXT>...  Polarizations used in metadata consolidations
+          --polarization TEXT            Polarizations used in metadata consolidations
                                          for product.
 
 #### Example 
 
-	$package --track <track-name> --frame <frame-name> --input-dir <path-to-stack-folder> --pkgdir <path-to-pkg-output-dir> --product sar --polarization VV VH 
+	$package --track <track-name> --frame <frame-name> --input-dir <path-to-stack-folder> --pkgdir <path-to-pkg-output-dir> --product sar --polarization VV
+	$package --track <track-name> --frame <frame-name> --input-dir <path-to-stack-folder> --pkgdir <path-to-pkg-output-dir> --product sar --polarization VV --polarization VH
 
 
 #### Multi-stack processing using PBS system
@@ -121,26 +122,27 @@ and submitted to NCI queue with parameters specified in a `required parameters`
     
     usage:  pbs-insar
             [REQUIRED PARAMETERS]
-             --taskfile PATH    The file containing the list of tasks (full paths to vector-files) to beperformed
+             --taskfile PATH      The file containing the list of tasks (full
+                                  paths to vector-files) to be performed
              --start-date  [%Y-%m-%d|%Y-%m-%dT%H:%M:%S|%Y-%m-%d %H:%M:%S]  The start date of SLC acquisition
              --end-date    [%Y-%m-%d|%Y-%m-%dT%H:%M:%S|%Y-%m-%d %H:%M:%S]  The end date of SLC acquisition
-             --workdir PATH    The base working and scripts output directory.
-             --outdir  PATH    The output directory for processed data
-             --polarization TEXT    Polarizations to be processed VV or VH, arg
-                                    can be specified multiple times
-             --ncpus   INTEGER The total number of cpus per job required if known (default=48)
-             --memory  INTEGER Total memory required if per node
-             --queue   TEXT    Queue {express, normal, hugemem} to submit
-                               the job (default=normal)
-             --hours   INTEGER Job walltime in hours (default=48)
-             --email   TEXT    Notification email address.
-             --nodes   INTEGER Number of nodes to be requested (default=1)
-             --workers INTEGER Number of workers
-             --jobfs   INTEGER Jobfs required per node (default=400)
-             -s, --storage TEXT    Project storage you wish to use in PBS jobs
-             --project TEXT        Project to compute under
-             --env PATH            Environment script to source.
-             --test                Mock the job submission to PBS queue
+             --workdir PATH       The base working and scripts output directory.
+             --outdir  PATH       The output directory for processed data
+             --polarization TEXT  Polarizations to be processed VV or VH, arg
+                                  can be specified multiple times
+             --ncpus   INTEGER    The total number of cpus per job required if known (default=48)
+             --memory  INTEGER    Total memory required if per node
+             --queue   TEXT       Queue {express, normal, hugemem} to submit
+                                  the job (default=normal)
+             --hours   INTEGER    Job walltime in hours (default=48)
+             --email   TEXT       Notification email address.
+             --nodes   INTEGER    Number of nodes to be requested (default=1)
+             --workers INTEGER    Number of workers
+             --jobfs   INTEGER    Jobfs required per node (default=400)
+             -s, --storage TEXT   Project storage you wish to use in PBS jobs
+             --project TEXT       Project to compute under
+             --env PATH           Environment script to source.
+             --test               Mock the job submission to PBS queue
 
 #### Example 
 
@@ -157,28 +159,27 @@ to be packaged to be indexed into a data-cube.
     
     usage pbs-package
        [REQUIRED PARAMETERS]
-      --input-list PATH              full path to a file with list of track and
-                                     frames to be packaged
-      --workdir PATH                 The base working and scripts output
-                                     directory.
-      --pkgdir PATH                  The output directory for packaged data
-      --ncpus INTEGER                The total number of cpus per noderequired if
-                                     known
-      --memory INTEGER               Total memory required per node
-      --queue TEXT                   Queue to submit the job into
-      --hours INTEGER                Job walltime in hours.
-      --jobfs INTEGER                jobfs required per node
-      -s, --storage TEXT             Project storage you wish to use in PBS jobs
-      --project TEXT                 Project to compute under  [required]
-      --env PATH                     Environment script to source.  [required]
-      --product TEXT                 The product to be packaged: sar| insar
-      --polarization <TEXT TEXT>...  Polarizations used in metadata consolidations
-                                     for product.
-      --test                         mock the job submission to PBS queue
+      --input-list PATH     full path to a file with list of track and
+                            frames to be packaged
+      --workdir PATH        The base working and scripts output directory.
+      --pkgdir PATH         The output directory for packaged data
+      --ncpus INTEGER       The total number of cpus per node required if known
+      --memory INTEGER      Total memory required per node
+      --queue TEXT          Queue to submit the job into
+      --hours INTEGER       Job walltime in hours.
+      --jobfs INTEGER       jobfs required per node
+      -s, --storage TEXT    Project storage you wish to use in PBS jobs
+      --project TEXT        Project to compute under  [required]
+      --env PATH            Environment script to source.  [required]
+      --product TEXT        The product to be packaged: sar| insar
+      --polarization TEXT   Polarizations to be processed VV or VH, arg can be
+                            specified multiple times
+      --test                mock the job submission to PBS queue
 
 #### Example 
 
-	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV VH --queue normal --nodes 2 --jobfs 50 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --queue normal --nodes 2 --jobfs 50 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --polarization VH --queue normal --nodes 2 --jobfs 50 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
 
 ### Example SLC Metadata to YAML Extraction
 
