@@ -1,8 +1,6 @@
 import os
 import sys
-import unittest
 from unittest import mock
-from pprint import pprint
 from collections import Sequence, namedtuple
 
 import pytest
@@ -16,7 +14,8 @@ if PY_GAMMA_MODULE not in sys.modules:
     py_gamma_broken.ParFile.side_effect = NotImplementedError(msg.format("ParFile"))
     sys.modules[PY_GAMMA_MODULE] = py_gamma_broken
 
-from insar import py_gamma_ga
+# defer shim import to ensure dependencies exist or are mocked
+from insar import py_gamma_ga  # noqa
 
 
 FAKE_INSTALL_DIR = "/fake/gamma/dir"
@@ -65,7 +64,7 @@ def test_getattr_function_lookup(pg):
 
 def test_getattr_function_not_exist(pg):
     with pytest.raises(AttributeError):
-        pg.FakeMethod
+        assert pg.FakeMethod
 
 
 FakeCompletedProcess = namedtuple(
