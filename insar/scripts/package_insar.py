@@ -416,9 +416,9 @@ def package(
 )
 @click.option(
     "--polarization",
-    type=click.Tuple([str, str]),
-    default=("VV", "VH"),
-    help="Polarizations used in metadata consolidations for product.",
+    default=["VV", "VH"],
+    multiple=True,
+    help="Polarizations to be processed VV or VH, arg can be specified multiple times",
 )
 @click.option(
     "--log-pathname",
