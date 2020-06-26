@@ -242,6 +242,24 @@ def get_default_pbs_job_dirs(proc):
     return PBS_job_dirs(*args)
 
 
+Sentinel1_PBS_job_dirs = namedtuple('Sentinel1_PBS_job_dirs', ["resize_batch_dir",
+                                                               "subset_batch_dir",
+                                                               "resize_manual_dir",
+                                                               "subset_manual_dir"])
+
+
+def get_default_sentinel1_pbs_job_dirs(proc):
+    batch_dirs = ["resize_S1_slc_jobs",
+                  "subset_S1_slc_jobs"]
+
+    manual_dirs = ["resize_S1_slc_jobs",
+                   "subset_S1_slc_jobs"]
+
+    args = [os.path.join(proc.batch_job_dir, d) for d in batch_dirs]
+    args.extend([os.path.join(proc.manual_job_dir, d) for d in manual_dirs])
+    return Sentinel1_PBS_job_dirs(*args)
+
+
 class Config:
     """Stores config for the Gamma InSAR workflow."""
 

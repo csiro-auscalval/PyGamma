@@ -76,6 +76,14 @@ def test_pbs_job_dirs_none_setting(mock_proc):
         project.get_default_pbs_job_dirs(mock_proc)
 
 
+def test_sentinel1_pbs_job_dirs(mock_proc):
+    s1_pbs_dirs = project.get_default_sentinel1_pbs_job_dirs(mock_proc)
+    assert s1_pbs_dirs.resize_batch_dir == BATCH_BASE + "/resize_S1_slc_jobs"
+    assert s1_pbs_dirs.resize_manual_dir == MANUAL_BASE + "/resize_S1_slc_jobs"
+    assert s1_pbs_dirs.subset_batch_dir == BATCH_BASE + "/subset_S1_slc_jobs"
+    assert s1_pbs_dirs.subset_manual_dir == MANUAL_BASE + "/subset_S1_slc_jobs"
+
+
 FULL_PROC_VARIABLES_FILE = """##### GAMMA CONFIGURATION FILE #####
 
 
