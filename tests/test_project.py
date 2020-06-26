@@ -1,6 +1,7 @@
 import io
 from insar import project
 
+from unittest.mock import Mock
 import pytest
 
 
@@ -36,7 +37,43 @@ def test_read_unknown_settings():
     file_obj = io.StringIO(content)
 
     with pytest.raises(AttributeError):
-        project.ProcConfig.from_file(content)
+        project.ProcConfig.from_file(file_obj)
+
+
+# tests for the PBS job dirs section
+BATCH_BASE = 'tmp/pbs'
+MANUAL_BASE = 'tmp/manual'
+
+
+@pytest.fixture
+def mock_proc():
+    mproc = Mock()
+    mproc.batch_job_dir = BATCH_BASE
+    mproc.manual_job_dir = MANUAL_BASE
+    return mproc
+
+
+def test_pbs_job_dirs(mock_proc):
+    pbs_dirs = project.get_default_pbs_job_dirs(mock_proc)
+    assert len([x for x in dir(pbs_dirs) if x.endswith('_dir')]) == 14
+
+    # check subset of batch vars
+    assert pbs_dirs.extract_raw_batch_dir == BATCH_BASE + "/extract_raw_jobs"
+    assert pbs_dirs.dem_batch_dir == BATCH_BASE + "/dem_jobs"
+    assert pbs_dirs.ifg_batch_dir == BATCH_BASE + "/ifg_jobs"
+
+    # check subset of manual vars
+    assert pbs_dirs.extract_raw_manual_dir == MANUAL_BASE + '/extract_raw_jobs'
+    assert pbs_dirs.base_manual_dir == MANUAL_BASE + '/baseline_jobs'
+    assert pbs_dirs.ifg_manual_dir == MANUAL_BASE + '/ifg_jobs'
+
+
+def test_pbs_job_dirs_none_setting(mock_proc):
+    """Ensure failure if the proc settings aren't initialised properly"""
+    mock_proc.batch_job_dir = None
+
+    with pytest.raises(Exception):
+        project.get_default_pbs_job_dirs(mock_proc)
 
 
 FULL_PROC_VARIABLES_FILE = """##### GAMMA CONFIGURATION FILE #####

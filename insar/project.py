@@ -2,6 +2,9 @@
 Utilities for managing Gamma settings for the InSAR ARD workflow.
 """
 
+import os
+from collections import namedtuple
+
 
 class ProcConfig:
     """Container for Gamma proc files (collection of runtime settings)."""
@@ -192,6 +195,51 @@ def is_valid_config_line(line):
         if '=' in line:
             return True
     return False
+
+
+PBS_job_dirs = namedtuple('PBS_job_dirs', ['extract_raw_batch_dir',
+                                           'slc_batch_dir',
+                                           'ml_batch_dir',
+                                           'base_batch_dir',
+                                           'dem_batch_dir',
+                                           'co_slc_batch_dir',
+                                           'ifg_batch_dir',
+                                           'extract_raw_manual_dir',
+                                           'slc_manual_dir',
+                                           'ml_manual_dir',
+                                           'base_manual_dir',
+                                           'dem_manual_dir',
+                                           'co_slc_manual_dir',
+                                           'ifg_manual_dir'])
+
+
+def get_default_pbs_job_dirs(proc):
+    """
+    Return a PBS_job_dirs obj with the defaulted directory settings.
+
+    :param proc: ProcConfig obj
+    :return: default PBS_job_dirs obj
+    """
+
+    batch_dirs = ['extract_raw_jobs',
+                  'slc_jobs',
+                  'ml_slc_jobs',
+                  'baseline_jobs',
+                  'dem_jobs',
+                  'coreg_slc_jobs',
+                  'ifg_jobs']
+
+    manual_dirs = ['extract_raw_jobs',
+                   'slc_jobs',
+                   'ml_slc_jobs',
+                   'baseline_jobs',
+                   'dem_jobs',
+                   'coreg_slc_jobs',
+                   'ifg_jobs']
+
+    args = [os.path.join(proc.batch_job_dir, d) for d in batch_dirs]
+    args.extend([os.path.join(proc.manual_job_dir, d) for d in manual_dirs])
+    return PBS_job_dirs(*args)
 
 
 class Config:
