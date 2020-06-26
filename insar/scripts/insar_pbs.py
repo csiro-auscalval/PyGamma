@@ -47,13 +47,14 @@ gamma_insar ARD \
 PBS_PACKAGE_TEMPLATE = r"""{pbs_resources}
 
 source {env}
+export TMPDIR={job_dir}
 package \
     --track {track} \
     --frame {frame} \
     --input-dir {indir} \
     --pkgdir {pkgdir} \
     --product {product} \
-    --polarization {polarization}
+    {pol_arg}
 """
 
 FMT1 = "job{jobid}.bash"
@@ -195,7 +196,7 @@ def _submit_pbs(pbs_scripts, test):
     "--email",
     type=click.STRING,
     help="Notification email address.",
-    default="your.name@something.com",
+    default=None,
 )
 @click.option(
     "--nodes", type=click.INT, help="Number of nodes to be requested", default=1,
@@ -347,6 +348,12 @@ def ard_insar(
 @click.option(
     "--queue", type=click.STRING, help="Queue to submit the job into", default="normal",
 )
+@click.option(
+    "--email",
+    type=click.STRING,
+    help="Notification email address.",
+    default=None,
+)
 @click.option("--hours", type=click.INT, help="Job walltime in hours.", default=24)
 @click.option("--jobfs", help="jobfs required per node", default=50)
 @click.option(
@@ -371,26 +378,11 @@ def ard_insar(
     default="sar",
     help="The product to be packaged: sar| insar",
 )
-# TODO:
-# here, polarization only accepts "VV" "VH", i.e.
-#     --polarization "VV" "VH"
-# if you were to provide
-#     --polarization VV
-# the code will exit with an error. A better option is:
-#@click.option(
-#    "--polarization",
-#    default=["VV", "VH"],
-#    multiple=True,
-#    help="Polarizations to be processed VV or VH, arg can be specifid multiple times",
-#)
-# Thus to specify more than one polarizations one would need to:
-#     --polarization VV --polarization VH
-# Click will interpret this and give a tuple: ('VV', 'VH')
 @click.option(
     "--polarization",
-    type=click.Tuple([str, str]),
-    default=("VV", "VH"),
-    help="Polarizations used in metadata consolidations for product.",
+    default=["VV", "VH"],
+    multiple=True,
+    help="Polarizations to be processed VV or VH, arg can be specified multiple times",
 )
 @click.option(
     "--test",
@@ -406,6 +398,7 @@ def ard_package(
     ncpus: click.INT,
     memory: click.INT,
     queue: click.STRING,
+    email: click.STRING,
     hours: click.INT,
     jobfs: click.INT,
     storage: click.STRING,
@@ -429,7 +422,9 @@ def ard_package(
         warnings.warn(warn_msg.format("pkgdir"))
 
     storage_names = "".join([STORAGE.format(proj=p) for p in storage])
-    polarization = " ".join([p for p in polarization])
+
+    pol_arg = " ".join(["--polarization "+p for p in polarization])
+
     pbs_resource = PBS_RESOURCES.format(
         project_name=project,
         queue=queue,
@@ -439,6 +434,12 @@ def ard_package(
         jobfs_gb=jobfs,
         storages=storage_names,
     )
+    # for some reason {email} is absent in PBS_RESOURCES.
+    # Thus no email will be sent, even if specified.
+    # add email to pbs_resource here.
+    if email:
+        pbs_resource += "#PBS -M {}".format(email)
+
 
     with open(input_list, "r") as src:
         # get a list of shapefiles as Path objects
@@ -471,8 +472,9 @@ def ard_package(
             frame=frame,
             indir=in_dir,
             pkgdir=pkgdir,
+            job_dir=job_dir,
             product=product,
-            polarization=polarization,
+            pol_arg=pol_arg,
         )
 
         out_fname = job_dir.joinpath(f"pkg_{track}_{frame}_{jobid}.bash")
