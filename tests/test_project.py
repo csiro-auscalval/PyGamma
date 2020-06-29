@@ -84,6 +84,13 @@ def test_sentinel1_pbs_job_dirs(mock_proc):
     assert s1_pbs_dirs.subset_manual_dir == MANUAL_BASE + "/subset_S1_slc_jobs"
 
 
+def test_sentinel1_pbs_job_dirs_none_setting(mock_proc):
+    mock_proc.batch_job_dir = None
+
+    with pytest.raises(Exception):
+        project.get_default_sentinel1_pbs_job_dirs(mock_proc)
+
+
 FULL_PROC_VARIABLES_FILE = """##### GAMMA CONFIGURATION FILE #####
 
 
