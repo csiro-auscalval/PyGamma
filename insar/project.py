@@ -9,163 +9,160 @@ from collections import namedtuple
 class ProcConfig:
     """Container for Gamma proc files (collection of runtime settings)."""
 
-    def __init__(self, **kwargs):
-        # TODO: add to __slots__ ?
-        self.gamma_config = None
-        self.nci_path = None
-        self.envisat_orbits = None
-        self.ers_orbits = None
-        self.s1_orbits = None
-        self.s1_path = None
-        self.master_dem_image = None
-        self.slc_dir = None
-        self.dem_dir = None
-        self.int_dir = None
-        self.base_dir = None
-        self.list_dir = None
-        self.error_dir = None
-        self.pdf_dir = None
-        self.raw_data_dir = None
-        self.batch_job_dir = None
-        self.manual_job_dir = None
-        self.pre_proc_dir = None
-        self.scene_list = None
-        self.slave_list = None
-        self.ifg_list = None
-        self.frame_list = None
-        self.s1_burst_list = None
-        self.s1_download_list = None
-        self.remove_scene_list = None
-        self.project = None
-        self.track = None
-        self.dem_area = None
-        self.dem_name = None
-        self.mdss_data_dir = None
-        self.mdss_dem_tar = None
-        self.ext_image = None
-        self.polarisation = None
-        self.sensor = None
-        self.sensor_mode = None
-        self.ers_sensor = None
-        self.palsar2_type = None
-        self.multi_look = None
-        self.range_looks = None
-        self.azimuth_looks = None
-        self.process_method = None
-        self.ref_master_scene = None
-        self.min_connect = None
-        self.max_connect = None
-        self.post_process_method = None
-        self.extract_raw_data = None
-        self.do_slc = None
-        self.do_s1_resize = None
-        self.s1_resize_ref_slc = None
-        self.do_s1_burst_subset = None
-        self.coregister_dem = None
-        self.use_ext_image = None
-        self.coregister_slaves = None
-        self.process_ifgs = None
-        self.ifg_geotiff = None
-        self.clean_up = None
-        self.dem_patch_window = None
-        self.dem_rpos = None
-        self.dem_azpos = None
-        self.dem_offset = None
-        self.dem_offset_measure = None
-        self.dem_win = None
-        self.dem_snr = None
-        self.dem_rad_max = None
-        self.coreg_cc_thresh = None
-        self.coreg_model_params = None
-        self.coreg_window_size = None
-        self.coreg_num_windows = None
-        self.coreg_oversampling = None
-        self.coreg_num_iterations = None
-        self.slave_offset_measure = None
-        self.slave_win = None
-        self.slave_cc_thresh = None
-        self.coreg_s1_cc_thresh = None
-        self.coreg_s1_frac_thresh = None
-        self.coreg_s1_stdev_thresh = None
-        self.ifg_begin = None
-        self.ifg_end = None
-        self.ifg_coherence_threshold = None
-        self.ifg_unw_mask = None
-        self.ifg_patches_range = None
-        self.ifg_patches_azimuth = None
-        self.ifg_ref_point_range = None
-        self.ifg_ref_point_azimuth = None
-        self.ifg_exponent = None
-        self.ifg_filtering_window = None
-        self.ifg_coherence_window = None
-        self.ifg_iterative = None
-        self.ifg_thres = None
-        self.ifg_init_win = None
-        self.ifg_offset_win = None
-        self.post_ifg_da_threshold = None
-        self.post_ifg_area_range = None
-        self.post_ifg_area_azimuth = None
-        # self.post_ifg_area_range = None
-        # self.post_ifg_area_azimuth = None
-        self.post_ifg_patches_range = None
-        self.post_ifg_patches_azimuth = None
-        self.post_ifg_overlap_range = None
-        self.post_ifg_overlap_azimuth = None
-        self.nci_project = None
-        self.min_jobs = None
-        self.max_jobs = None
-        self.pbs_run_loc = None
-        self.queue = None
-        self.exp_queue = None
-        self.mdss_queue = None
-        self.raw_walltime = None
-        self.raw_mem = None
-        self.raw_ncpus = None
-        self.create_dem_walltime = None
-        self.create_dem_mem = None
-        self.create_dem_ncpus = None
-        self.slc_walltime = None
-        self.slc_mem = None
-        self.slc_ncpus = None
-        self.calc_walltime = None
-        self.calc_mem = None
-        self.calc_ncpus = None
-        self.base_walltime = None
-        self.base_mem = None
-        self.base_ncpus = None
-        self.ml_walltime = None
-        self.ml_mem = None
-        self.ml_ncpus = None
-        self.resize_walltime = None
-        self.resize_mem = None
-        self.resize_ncpus = None
-        self.dem_walltime = None
-        self.dem_mem = None
-        self.dem_ncpus = None
-        self.pix_walltime = None
-        self.pix_mem = None
-        self.pix_ncpus = None
-        self.coreg_walltime = None
-        self.coreg_mem = None
-        self.coreg_ncpus = None
-        self.ifg_walltime = None
-        self.ifg_mem = None
-        self.ifg_ncpus = None
-        self.post_walltime = None
-        self.post_mem = None
-        self.post_ncpus = None
-        self.error_walltime = None
-        self.error_mem = None
-        self.error_ncpus = None
-        self.image_walltime = None
-        self.image_mem = None
-        self.image_ncpus = None
+    # NB: use slots to prevent accidental addition of variables from typos
+    __slots__ = ['gamma_config',
+                 'nci_path',
+                 'envisat_orbits',
+                 'ers_orbits',
+                 's1_orbits',
+                 's1_path',
+                 'master_dem_image',
+                 'slc_dir',
+                 'dem_dir',
+                 'int_dir',
+                 'base_dir',
+                 'list_dir',
+                 'error_dir',
+                 'pdf_dir',
+                 'raw_data_dir',
+                 'batch_job_dir',
+                 'manual_job_dir',
+                 'pre_proc_dir',
+                 'scene_list',
+                 'slave_list',
+                 'ifg_list',
+                 'frame_list',
+                 's1_burst_list',
+                 's1_download_list',
+                 'remove_scene_list',
+                 'project',
+                 'track',
+                 'dem_area',
+                 'dem_name',
+                 'mdss_data_dir',
+                 'mdss_dem_tar',
+                 'ext_image',
+                 'polarisation',
+                 'sensor',
+                 'sensor_mode',
+                 'ers_sensor',
+                 'palsar2_type',
+                 'multi_look',
+                 'range_looks',
+                 'azimuth_looks',
+                 'process_method',
+                 'ref_master_scene',
+                 'min_connect',
+                 'max_connect',
+                 'post_process_method',
+                 'extract_raw_data',
+                 'do_slc',
+                 'do_s1_resize',
+                 's1_resize_ref_slc',
+                 'do_s1_burst_subset',
+                 'coregister_dem',
+                 'use_ext_image',
+                 'coregister_slaves',
+                 'process_ifgs',
+                 'ifg_geotiff',
+                 'clean_up',
+                 'dem_patch_window',
+                 'dem_rpos',
+                 'dem_azpos',
+                 'dem_offset',
+                 'dem_offset_measure',
+                 'dem_win',
+                 'dem_snr',
+                 'dem_rad_max',
+                 'coreg_cc_thresh',
+                 'coreg_model_params',
+                 'coreg_window_size',
+                 'coreg_num_windows',
+                 'coreg_oversampling',
+                 'coreg_num_iterations',
+                 'slave_offset_measure',
+                 'slave_win',
+                 'slave_cc_thresh',
+                 'coreg_s1_cc_thresh',
+                 'coreg_s1_frac_thresh',
+                 'coreg_s1_stdev_thresh',
+                 'ifg_begin',
+                 'ifg_end',
+                 'ifg_coherence_threshold',
+                 'ifg_unw_mask',
+                 'ifg_patches_range',
+                 'ifg_patches_azimuth',
+                 'ifg_ref_point_range',
+                 'ifg_ref_point_azimuth',
+                 'ifg_exponent',
+                 'ifg_filtering_window',
+                 'ifg_coherence_window',
+                 'ifg_iterative',
+                 'ifg_thres',
+                 'ifg_init_win',
+                 'ifg_offset_win',
+                 'post_ifg_da_threshold',
+                 'post_ifg_area_range',
+                 'post_ifg_area_azimuth',
+                 # 'post_ifg_area_range',
+                 # 'post_ifg_area_azimuth',
+                 'post_ifg_patches_range',
+                 'post_ifg_patches_azimuth',
+                 'post_ifg_overlap_range',
+                 'post_ifg_overlap_azimuth',
+                 'nci_project',
+                 'min_jobs',
+                 'max_jobs',
+                 'pbs_run_loc',
+                 'queue',
+                 'exp_queue',
+                 'mdss_queue',
+                 'raw_walltime',
+                 'raw_mem',
+                 'raw_ncpus',
+                 'create_dem_walltime',
+                 'create_dem_mem',
+                 'create_dem_ncpus',
+                 'slc_walltime',
+                 'slc_mem',
+                 'slc_ncpus',
+                 'calc_walltime',
+                 'calc_mem',
+                 'calc_ncpus',
+                 'base_walltime',
+                 'base_mem',
+                 'base_ncpus',
+                 'ml_walltime',
+                 'ml_mem',
+                 'ml_ncpus',
+                 'resize_walltime',
+                 'resize_mem',
+                 'resize_ncpus',
+                 'dem_walltime',
+                 'dem_mem',
+                 'dem_ncpus',
+                 'pix_walltime',
+                 'pix_mem',
+                 'pix_ncpus',
+                 'coreg_walltime',
+                 'coreg_mem',
+                 'coreg_ncpus',
+                 'ifg_walltime',
+                 'ifg_mem',
+                 'ifg_ncpus',
+                 'post_walltime',
+                 'post_mem',
+                 'post_ncpus',
+                 'error_walltime',
+                 'error_mem',
+                 'error_ncpus',
+                 'image_walltime',
+                 'image_mem',
+                 'image_ncpus', ]
 
+    def __init__(self, **kwargs):
         for k, v in kwargs.items():
-            if hasattr(self, k):
-                setattr(self, k, v)
-            else:
-                raise AttributeError(k)
+            setattr(self, k, v)
 
     @classmethod
     def from_file(cls, file_obj):
@@ -303,14 +300,14 @@ class DEMMasterNames:
             self.dem_master_gamma0_eqa_geo = self.dem_master_gamma0_eqa + ".tif"
 
             self.r_dem_master_slc_name = os.path.join(self.dem_master_dir, 'r' + proc.ref_master_scene) \
-                + "_" + proc.polarisation
+                                         + "_" + proc.polarisation
 
             self.r_dem_master_slc = self.r_dem_master_slc_name + ".slc"
             self.r_dem_master_slc_par = self.r_dem_master_slc + ".par"
 
             self.r_dem_master_mli_name = os.path.join(self.dem_master_dir, 'r' + proc.ref_master_scene) \
-                + "_" + proc.polarisation \
-                + "_" + proc.range_looks + "rlks"
+                                         + "_" + proc.polarisation \
+                                         + "_" + proc.range_looks + "rlks"
             self.r_dem_master_mli = self.r_dem_master_mli_name + ".mli"
             self.r_dem_master_mli_par = self.r_dem_master_mli + ".par"
             self.r_dem_master_mli_bmp = self.r_dem_master_mli + ".bmp"
