@@ -300,14 +300,14 @@ class DEMMasterNames:
             self.dem_master_gamma0_eqa_geo = self.dem_master_gamma0_eqa + ".tif"
 
             self.r_dem_master_slc_name = os.path.join(self.dem_master_dir, 'r' + proc.ref_master_scene) \
-                                         + "_" + proc.polarisation
+                + "_" + proc.polarisation
 
             self.r_dem_master_slc = self.r_dem_master_slc_name + ".slc"
             self.r_dem_master_slc_par = self.r_dem_master_slc + ".par"
 
             self.r_dem_master_mli_name = os.path.join(self.dem_master_dir, 'r' + proc.ref_master_scene) \
-                                         + "_" + proc.polarisation \
-                                         + "_" + proc.range_looks + "rlks"
+                + "_" + proc.polarisation \
+                + "_" + proc.range_looks + "rlks"
             self.r_dem_master_mli = self.r_dem_master_mli_name + ".mli"
             self.r_dem_master_mli_par = self.r_dem_master_mli + ".par"
             self.r_dem_master_mli_bmp = self.r_dem_master_mli + ".bmp"
