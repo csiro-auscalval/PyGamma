@@ -10,6 +10,7 @@ class ProcConfig:
     """Container for Gamma proc files (collection of runtime settings)."""
 
     def __init__(self, **kwargs):
+        # TODO: add to __slots__ ?
         self.gamma_config = None
         self.nci_path = None
         self.envisat_orbits = None
@@ -258,6 +259,61 @@ def get_default_sentinel1_pbs_job_dirs(proc):
     args = [os.path.join(proc.batch_job_dir, d) for d in batch_dirs]
     args.extend([os.path.join(proc.manual_job_dir, d) for d in manual_dirs])
     return Sentinel1_PBS_job_dirs(*args)
+
+
+class DEMMasterNames:
+    __slots__ = ['dem_master_dir',
+                 'dem_master_slc_name',
+                 'dem_master_slc',
+                 'dem_master_slc_par',
+                 'dem_master_mli_name',
+                 'dem_master_mli',
+                 'dem_master_mli_par',
+                 'dem_master_gamma0',
+                 'dem_master_gamma0_bmp',
+                 'dem_master_gamma0_eqa',
+                 'dem_master_gamma0_eqa_bmp',
+                 'dem_master_gamma0_eqa_geo',
+                 'r_dem_master_slc_name',
+                 'r_dem_master_slc',
+                 'r_dem_master_slc_par',
+                 'r_dem_master_mli_name',
+                 'r_dem_master_mli',
+                 'r_dem_master_mli_par',
+                 'r_dem_master_mli_bmp']
+
+    def __init__(self, proc=None):
+        if proc:
+            self.dem_master_dir = os.path.join(proc.slc_dir, proc.ref_master_scene)
+            self.dem_master_slc_name = os.path.join(self.dem_master_dir,
+                                                    proc.ref_master_scene + "_" + proc.polarisation)
+            self.dem_master_slc = self.dem_master_slc_name + ".slc"
+            self.dem_master_slc_par = self.dem_master_slc + ".par"
+
+            self.dem_master_mli_name = os.path.join(self.dem_master_dir, proc.ref_master_scene
+                                                    + "_" + proc.polarisation + "_"
+                                                    + proc.range_looks + "rlks")
+            self.dem_master_mli = self.dem_master_mli_name + ".mli"
+            self.dem_master_mli_par = self.dem_master_mli + ".par"
+
+            self.dem_master_gamma0 = self.dem_master_mli_name + ".gamma0"
+            self.dem_master_gamma0_bmp = self.dem_master_gamma0 + ".bmp"
+            self.dem_master_gamma0_eqa = self.dem_master_mli_name + "_eqa.gamma0"
+            self.dem_master_gamma0_eqa_bmp = self.dem_master_gamma0_eqa + ".bmp"
+            self.dem_master_gamma0_eqa_geo = self.dem_master_gamma0_eqa + ".tif"
+
+            self.r_dem_master_slc_name = os.path.join(self.dem_master_dir, 'r' + proc.ref_master_scene) \
+                + "_" + proc.polarisation
+
+            self.r_dem_master_slc = self.r_dem_master_slc_name + ".slc"
+            self.r_dem_master_slc_par = self.r_dem_master_slc + ".par"
+
+            self.r_dem_master_mli_name = os.path.join(self.dem_master_dir, 'r' + proc.ref_master_scene) \
+                + "_" + proc.polarisation \
+                + "_" + proc.range_looks + "rlks"
+            self.r_dem_master_mli = self.r_dem_master_mli_name + ".mli"
+            self.r_dem_master_mli_par = self.r_dem_master_mli + ".par"
+            self.r_dem_master_mli_bmp = self.r_dem_master_mli + ".bmp"
 
 
 class Config:

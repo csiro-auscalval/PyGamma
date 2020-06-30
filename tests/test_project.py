@@ -91,6 +91,56 @@ def test_sentinel1_pbs_job_dirs_none_setting(mock_proc):
         project.get_default_sentinel1_pbs_job_dirs(mock_proc)
 
 
+def test_default_dem_master_paths(mock_proc):
+    slc_dir = "slc-dir"
+    ref_master_scene = "master-scene"
+    polarisation = "polarisation"
+    range_looks = "range-looks"
+
+    mock_proc.slc_dir = slc_dir
+    mock_proc.ref_master_scene = ref_master_scene
+    mock_proc.polarisation = polarisation
+    mock_proc.range_looks = range_looks
+
+    cfg = project.DEMMasterNames(mock_proc)
+    assert len([x for x in dir(cfg) if x.startswith("dem_")]) == 12
+    assert len([x for x in dir(cfg) if x.startswith("r_dem_")]) == 7
+
+    assert cfg.dem_master_dir == "{}/{}".format(slc_dir, ref_master_scene)
+    assert cfg.dem_master_slc_name == "{}/{}_{}".format(cfg.dem_master_dir, ref_master_scene, polarisation)
+    assert cfg.dem_master_slc == cfg.dem_master_slc_name + ".slc"
+    assert cfg.dem_master_slc_par == cfg.dem_master_slc + ".par"
+
+    assert cfg.dem_master_mli_name == "{}/{}_{}_{}rlks".format(cfg.dem_master_dir, ref_master_scene,
+                                                               polarisation, range_looks)
+    assert cfg.dem_master_mli == cfg.dem_master_mli_name + ".mli"
+    assert cfg.dem_master_mli_par == cfg.dem_master_mli + ".par"
+
+    assert cfg.dem_master_gamma0 == cfg.dem_master_mli_name + ".gamma0"
+    assert cfg.dem_master_gamma0_bmp == cfg.dem_master_gamma0 + ".bmp"
+    assert cfg.dem_master_gamma0_eqa == cfg.dem_master_mli_name + "_eqa.gamma0"
+    assert cfg.dem_master_gamma0_eqa_bmp == cfg.dem_master_gamma0_eqa + ".bmp"
+    assert cfg.dem_master_gamma0_eqa_geo == cfg.dem_master_gamma0_eqa + ".tif"
+
+    assert cfg.r_dem_master_slc_name == "{}/r{}_{}".format(cfg.dem_master_dir, ref_master_scene, polarisation)
+    assert cfg.r_dem_master_slc == cfg.r_dem_master_slc_name + ".slc"
+    assert cfg.r_dem_master_slc_par == cfg.r_dem_master_slc + ".par"
+    assert cfg.r_dem_master_mli_name == "{}/r{}_{}_{}rlks".format(cfg.dem_master_dir, ref_master_scene,
+                                                                  polarisation, range_looks)
+
+    assert cfg.r_dem_master_mli == cfg.r_dem_master_mli_name + ".mli"
+    assert cfg.r_dem_master_mli_par == cfg.r_dem_master_mli + ".par"
+    assert cfg.r_dem_master_mli_bmp == cfg.r_dem_master_mli + ".bmp"
+
+
+def test_default_dem_master_paths_none_setting(mock_proc):
+    """Ensure incomplete proc settings prevent DEM config from being initialised."""
+    mock_proc.slc_dir = None
+
+    with pytest.raises(Exception):
+        project.DEMMasterNames(mock_proc)
+
+
 FULL_PROC_VARIABLES_FILE = """##### GAMMA CONFIGURATION FILE #####
 
 
