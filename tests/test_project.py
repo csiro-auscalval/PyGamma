@@ -23,12 +23,26 @@ def test_read_proc_file():
     assert pv.nci_path == "<user-defined>"
     assert pv.slc_dir == "SLC"
     assert pv.ifg_list == "ifgs.list"
+    assert pv.master_dem_image
+
+    # check secondary variables derived from the proc file
+    assert pv.dem_img == "{}/GAMMA_DEM_SRTM_1as_mosaic.img".format(pv.master_dem_image)
+    assert pv.proj_dir == "{}/{}/{}/GAMMA".format(pv.nci_path, pv.project, pv.sensor)
+    assert pv.raw_data_track_dir == "{}/{}".format(pv.raw_data_dir, pv.track)
+    assert pv.gamma_dem_dir == "{}/gamma_dem".format(pv.proj_dir)
+    assert pv.results_dir == "{}/{}/results".format(pv.proj_dir, pv.track)
+    assert pv.dem_noff1 == '0'
+    assert pv.dem_noff2 == '0'
+    assert pv.ifg_rpos == pv.dem_rpos
+    assert pv.ifg_azpos == pv.dem_azpos
 
 
-def test_read_incomplete_proc_file():
+def test_read_incomplete_proc_file_fails():
     """Ensure partial proc files can still be read."""
     file_obj = io.StringIO(FULL_PROC_VARIABLES_FILE[:207])
-    assert project.ProcConfig.from_file(file_obj)
+
+    with pytest.raises(AttributeError):
+        project.ProcConfig.from_file(file_obj)
 
 
 def test_read_unknown_settings():

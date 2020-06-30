@@ -158,11 +158,32 @@ class ProcConfig:
                  'error_ncpus',
                  'image_walltime',
                  'image_mem',
-                 'image_ncpus', ]
+                 'image_ncpus',
+
+                 # derived member vars
+                 'dem_img',
+                 'proj_dir',
+                 'raw_data_track_dir',
+                 'gamma_dem_dir',
+                 'results_dir',
+                 'dem_noff1',
+                 'dem_noff2',
+                 'ifg_rpos',
+                 'ifg_azpos', ]
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+        # now prepare the derived settings variables
+        self.dem_img = os.path.join(self.master_dem_image, 'GAMMA_DEM_SRTM_1as_mosaic.img')
+        self.proj_dir = os.path.join(self.nci_path, self.project, self.sensor, "GAMMA")
+        self.raw_data_track_dir = os.path.join(self.raw_data_dir, self.track)
+        self.gamma_dem_dir = os.path.join(self.proj_dir, "gamma_dem")
+        self.results_dir = os.path.join(self.proj_dir, self.track, "results")
+        self.dem_noff1, self.dem_noff2 = self.dem_offset.split(' ')
+        self.ifg_rpos = self.dem_rpos
+        self.ifg_azpos = self.dem_azpos
 
     @classmethod
     def from_file(cls, file_obj):
