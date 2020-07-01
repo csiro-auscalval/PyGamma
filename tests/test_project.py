@@ -31,8 +31,8 @@ def test_read_proc_file():
     assert pv.raw_data_track_dir == "{}/{}".format(pv.raw_data_dir, pv.track)
     assert pv.gamma_dem_dir == "{}/gamma_dem".format(pv.proj_dir)
     assert pv.results_dir == "{}/{}/results".format(pv.proj_dir, pv.track)
-    assert pv.dem_noff1 == '0'
-    assert pv.dem_noff2 == '0'
+    assert pv.dem_noff1 == "0"
+    assert pv.dem_noff2 == "0"
     assert pv.ifg_rpos == pv.dem_rpos
     assert pv.ifg_azpos == pv.dem_azpos
 
@@ -55,12 +55,13 @@ def test_read_unknown_settings():
 
 
 # tests for the PBS job dirs section
-BATCH_BASE = 'tmp/pbs'
-MANUAL_BASE = 'tmp/manual'
+BATCH_BASE = "tmp/pbs"
+MANUAL_BASE = "tmp/manual"
 
 
 @pytest.fixture
 def mproc():
+    """Mock the Gamma proc file/config settings."""
     mock_proc = Mock()
     mock_proc.batch_job_dir = BATCH_BASE
     mock_proc.manual_job_dir = MANUAL_BASE
@@ -79,7 +80,7 @@ def mproc():
 
 def test_pbs_job_dirs(mproc):
     pbs_dirs = project.get_default_pbs_job_dirs(mproc)
-    assert len([x for x in dir(pbs_dirs) if x.endswith('_dir')]) == 14
+    assert len([x for x in dir(pbs_dirs) if x.endswith("_dir")]) == 14
 
     # check subset of batch vars
     assert pbs_dirs.extract_raw_batch_dir == BATCH_BASE + "/extract_raw_jobs"
@@ -87,9 +88,9 @@ def test_pbs_job_dirs(mproc):
     assert pbs_dirs.ifg_batch_dir == BATCH_BASE + "/ifg_jobs"
 
     # check subset of manual vars
-    assert pbs_dirs.extract_raw_manual_dir == MANUAL_BASE + '/extract_raw_jobs'
-    assert pbs_dirs.base_manual_dir == MANUAL_BASE + '/baseline_jobs'
-    assert pbs_dirs.ifg_manual_dir == MANUAL_BASE + '/ifg_jobs'
+    assert pbs_dirs.extract_raw_manual_dir == MANUAL_BASE + "/extract_raw_jobs"
+    assert pbs_dirs.base_manual_dir == MANUAL_BASE + "/baseline_jobs"
+    assert pbs_dirs.ifg_manual_dir == MANUAL_BASE + "/ifg_jobs"
 
 
 def test_pbs_job_dirs_none_setting(mproc):
@@ -126,12 +127,15 @@ def test_default_dem_master_paths(mproc):
     assert len([x for x in dir(cfg) if x.startswith("r_dem_")]) == 7
 
     assert cfg.dem_master_dir == "{}/{}".format(slc_dir, ref_master_scene)
-    assert cfg.dem_master_slc_name == "{}/{}_{}".format(cfg.dem_master_dir, ref_master_scene, polarisation)
+    assert cfg.dem_master_slc_name == "{}/{}_{}".format(
+        cfg.dem_master_dir, ref_master_scene, polarisation
+    )
     assert cfg.dem_master_slc == cfg.dem_master_slc_name + ".slc"
     assert cfg.dem_master_slc_par == cfg.dem_master_slc + ".par"
 
-    assert cfg.dem_master_mli_name == "{}/{}_{}_{}rlks".format(cfg.dem_master_dir, ref_master_scene,
-                                                               polarisation, range_looks)
+    assert cfg.dem_master_mli_name == "{}/{}_{}_{}rlks".format(
+        cfg.dem_master_dir, ref_master_scene, polarisation, range_looks
+    )
     assert cfg.dem_master_mli == cfg.dem_master_mli_name + ".mli"
     assert cfg.dem_master_mli_par == cfg.dem_master_mli + ".par"
 
@@ -141,11 +145,14 @@ def test_default_dem_master_paths(mproc):
     assert cfg.dem_master_gamma0_eqa_bmp == cfg.dem_master_gamma0_eqa + ".bmp"
     assert cfg.dem_master_gamma0_eqa_geo == cfg.dem_master_gamma0_eqa + ".tif"
 
-    assert cfg.r_dem_master_slc_name == "{}/r{}_{}".format(cfg.dem_master_dir, ref_master_scene, polarisation)
+    assert cfg.r_dem_master_slc_name == "{}/r{}_{}".format(
+        cfg.dem_master_dir, ref_master_scene, polarisation
+    )
     assert cfg.r_dem_master_slc == cfg.r_dem_master_slc_name + ".slc"
     assert cfg.r_dem_master_slc_par == cfg.r_dem_master_slc + ".par"
-    assert cfg.r_dem_master_mli_name == "{}/r{}_{}_{}rlks".format(cfg.dem_master_dir, ref_master_scene,
-                                                                  polarisation, range_looks)
+    assert cfg.r_dem_master_mli_name == "{}/r{}_{}_{}rlks".format(
+        cfg.dem_master_dir, ref_master_scene, polarisation, range_looks
+    )
 
     assert cfg.r_dem_master_mli == cfg.r_dem_master_mli_name + ".mli"
     assert cfg.r_dem_master_mli_par == cfg.r_dem_master_mli + ".par"
@@ -165,15 +172,13 @@ def test_default_dem_file_names(mproc):
 
     assert cfg.dem == "{}/{}.dem".format(mproc.gamma_dem_dir, mproc.dem_name)
     assert cfg.dem_par == "{}.par".format(cfg.dem)
-    assert cfg.dem_master_name == "{}/{}_{}_{}rlks".format(mproc.dem_dir,
-                                                           mproc.ref_master_scene,
-                                                           mproc.polarisation,
-                                                           mproc.range_looks)
+    assert cfg.dem_master_name == "{}/{}_{}_{}rlks".format(
+        mproc.dem_dir, mproc.ref_master_scene, mproc.polarisation, mproc.range_looks
+    )
 
-    assert cfg.dem_diff == "{}/diff_{}_{}_{}rlks.par".format(mproc.dem_dir,
-                                                             mproc.ref_master_scene,
-                                                             mproc.polarisation,
-                                                             mproc.range_looks)
+    assert cfg.dem_diff == "{}/diff_{}_{}_{}rlks.par".format(
+        mproc.dem_dir, mproc.ref_master_scene, mproc.polarisation, mproc.range_looks
+    )
 
     assert cfg.rdc_dem == cfg.dem_master_name + "_rdc.dem"
 
@@ -221,7 +226,10 @@ def test_default_ifg_file_names(mproc):
 
     assert cfg.r_master_mli_name == "slc-dir/master/rmaster_polarisation_range-looksrlks"
     assert cfg.r_master_mli == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli"
-    assert cfg.r_master_mli_par == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli.par"
+    assert (
+        cfg.r_master_mli_par
+        == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli.par"
+    )
 
     assert cfg.r_slave_slc_name == "slc-dir/slave/rslave_polarisation"
     assert cfg.r_slave_slc == "slc-dir/slave/rslave_polarisation.slc"
@@ -230,7 +238,10 @@ def test_default_ifg_file_names(mproc):
     assert cfg.r_slave_mli_name == "slc-dir/slave/rslave_polarisation_range-looksrlks"
 
     # ignore vars after this as it's just testing string concatenation
-    assert cfg.master_slave_name == "INT/master-slave/master-slave_polarisation_range-looksrlks"
+    assert (
+        cfg.master_slave_name
+        == "INT/master-slave/master-slave_polarisation_range-looksrlks"
+    )
 
 
 FULL_PROC_VARIABLES_FILE = """##### GAMMA CONFIGURATION FILE #####
