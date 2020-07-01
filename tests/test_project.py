@@ -38,7 +38,7 @@ def test_read_proc_file():
 
 
 def test_read_incomplete_proc_file_fails():
-    """Ensure partial proc files can still be read."""
+    """Ensure partial proc files cannot be used."""
     file_obj = io.StringIO(FULL_PROC_VARIABLES_FILE[:207])
 
     with pytest.raises(AttributeError):
@@ -64,6 +64,16 @@ def mproc():
     mock_proc = Mock()
     mock_proc.batch_job_dir = BATCH_BASE
     mock_proc.manual_job_dir = MANUAL_BASE
+    mock_proc.slc_dir = "slc-dir"
+    mock_proc.ref_master_scene = "ref-master-scene"
+    mock_proc.polarisation = "polarisation"
+    mock_proc.range_looks = "range-looks"
+    mock_proc.gamma_dem_dir = "gamma-dem-dir"
+    mock_proc.dem_name = "dem-name"
+    mock_proc.dem_dir = "dem-dir"
+    mock_proc.results_dir = "results-dir"
+    mock_proc.track = "track"
+
     return mock_proc
 
 
@@ -107,14 +117,9 @@ def test_sentinel1_pbs_job_dirs_none_setting(mproc):
 
 def test_default_dem_master_paths(mproc):
     slc_dir = "slc-dir"
-    ref_master_scene = "master-scene"
+    ref_master_scene = "ref-master-scene"
     polarisation = "polarisation"
     range_looks = "range-looks"
-
-    mproc.slc_dir = slc_dir
-    mproc.ref_master_scene = ref_master_scene
-    mproc.polarisation = polarisation
-    mproc.range_looks = range_looks
 
     cfg = project.DEMMasterNames(mproc)
     assert len([x for x in dir(cfg) if x.startswith("dem_")]) == 12
@@ -156,15 +161,6 @@ def test_default_dem_master_paths_none_setting(mproc):
 
 
 def test_default_dem_file_names(mproc):
-    mproc.gamma_dem_dir = "gamma-dem-dir"
-    mproc.dem_name = "dem-name"
-    mproc.dem_dir = "dem-dir"
-    mproc.ref_master_scene = "ref_master_scene"
-    mproc.polarisation = "polarisation"
-    mproc.range_looks = "range_looks"
-    mproc.results_dir = "results-dir"
-    mproc.track = "track"
-
     cfg = project.DEMFileNames(mproc)
 
     assert cfg.dem == "{}/{}.dem".format(mproc.gamma_dem_dir, mproc.dem_name)
@@ -209,15 +205,11 @@ def test_default_dem_file_names(mproc):
     assert cfg.ext_image_sar == dem_master_name + "_ext_img.sar"
 
     assert cfg.dem_check_file == "results-dir/track_DEM_coreg_results"
-    assert cfg.lat_lon_pix == "dem-dir/track_range_looksrlks_sar_latlon.txt"
+    assert cfg.lat_lon_pix == "dem-dir/track_range-looksrlks_sar_latlon.txt"
 
 
 def test_default_ifg_file_names(mproc):
     mproc.int_dir = "INT"
-    mproc.slc_dir = "slc-dir"
-    mproc.polarisation = "polarisation"
-    mproc.range_looks = "range_looks"
-
     cfg = project.IfgFileNames(mproc, "master", "slave")
 
     assert cfg.ifg_dir == "INT/master-slave"
@@ -227,18 +219,18 @@ def test_default_ifg_file_names(mproc):
     assert cfg.r_master_slc == "slc-dir/master/rmaster_polarisation.slc"
     assert cfg.r_master_slc_par == "slc-dir/master/rmaster_polarisation.par"
 
-    assert cfg.r_master_mli_name == "slc-dir/master/rmaster_polarisation_range_looksrlks"
-    assert cfg.r_master_mli == "slc-dir/master/rmaster_polarisation_range_looksrlks.mli"
-    assert cfg.r_master_mli_par == "slc-dir/master/rmaster_polarisation_range_looksrlks.mli.par"
+    assert cfg.r_master_mli_name == "slc-dir/master/rmaster_polarisation_range-looksrlks"
+    assert cfg.r_master_mli == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli"
+    assert cfg.r_master_mli_par == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli.par"
 
     assert cfg.r_slave_slc_name == "slc-dir/slave/rslave_polarisation"
     assert cfg.r_slave_slc == "slc-dir/slave/rslave_polarisation.slc"
     assert cfg.r_slave_slc_par == "slc-dir/slave/rslave_polarisation.slc.par"
 
-    assert cfg.r_slave_mli_name == "slc-dir/slave/rslave_polarisation_range_looksrlks"
+    assert cfg.r_slave_mli_name == "slc-dir/slave/rslave_polarisation_range-looksrlks"
 
     # ignore vars after this as it's just testing string concatenation
-    assert cfg.master_slave_name == "INT/master-slave/master-slave_polarisation_range_looksrlks"
+    assert cfg.master_slave_name == "INT/master-slave/master-slave_polarisation_range-looksrlks"
 
 
 FULL_PROC_VARIABLES_FILE = """##### GAMMA CONFIGURATION FILE #####
