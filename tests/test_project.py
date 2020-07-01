@@ -60,15 +60,15 @@ MANUAL_BASE = 'tmp/manual'
 
 
 @pytest.fixture
-def mock_proc():
-    mproc = Mock()
-    mproc.batch_job_dir = BATCH_BASE
-    mproc.manual_job_dir = MANUAL_BASE
-    return mproc
+def mproc():
+    mock_proc = Mock()
+    mock_proc.batch_job_dir = BATCH_BASE
+    mock_proc.manual_job_dir = MANUAL_BASE
+    return mock_proc
 
 
-def test_pbs_job_dirs(mock_proc):
-    pbs_dirs = project.get_default_pbs_job_dirs(mock_proc)
+def test_pbs_job_dirs(mproc):
+    pbs_dirs = project.get_default_pbs_job_dirs(mproc)
     assert len([x for x in dir(pbs_dirs) if x.endswith('_dir')]) == 14
 
     # check subset of batch vars
@@ -82,41 +82,41 @@ def test_pbs_job_dirs(mock_proc):
     assert pbs_dirs.ifg_manual_dir == MANUAL_BASE + '/ifg_jobs'
 
 
-def test_pbs_job_dirs_none_setting(mock_proc):
+def test_pbs_job_dirs_none_setting(mproc):
     """Ensure failure if the proc settings aren't initialised properly"""
-    mock_proc.batch_job_dir = None
+    mproc.batch_job_dir = None
 
     with pytest.raises(Exception):
-        project.get_default_pbs_job_dirs(mock_proc)
+        project.get_default_pbs_job_dirs(mproc)
 
 
-def test_sentinel1_pbs_job_dirs(mock_proc):
-    s1_pbs_dirs = project.get_default_sentinel1_pbs_job_dirs(mock_proc)
+def test_sentinel1_pbs_job_dirs(mproc):
+    s1_pbs_dirs = project.get_default_sentinel1_pbs_job_dirs(mproc)
     assert s1_pbs_dirs.resize_batch_dir == BATCH_BASE + "/resize_S1_slc_jobs"
     assert s1_pbs_dirs.resize_manual_dir == MANUAL_BASE + "/resize_S1_slc_jobs"
     assert s1_pbs_dirs.subset_batch_dir == BATCH_BASE + "/subset_S1_slc_jobs"
     assert s1_pbs_dirs.subset_manual_dir == MANUAL_BASE + "/subset_S1_slc_jobs"
 
 
-def test_sentinel1_pbs_job_dirs_none_setting(mock_proc):
-    mock_proc.batch_job_dir = None
+def test_sentinel1_pbs_job_dirs_none_setting(mproc):
+    mproc.batch_job_dir = None
 
     with pytest.raises(Exception):
-        project.get_default_sentinel1_pbs_job_dirs(mock_proc)
+        project.get_default_sentinel1_pbs_job_dirs(mproc)
 
 
-def test_default_dem_master_paths(mock_proc):
+def test_default_dem_master_paths(mproc):
     slc_dir = "slc-dir"
     ref_master_scene = "master-scene"
     polarisation = "polarisation"
     range_looks = "range-looks"
 
-    mock_proc.slc_dir = slc_dir
-    mock_proc.ref_master_scene = ref_master_scene
-    mock_proc.polarisation = polarisation
-    mock_proc.range_looks = range_looks
+    mproc.slc_dir = slc_dir
+    mproc.ref_master_scene = ref_master_scene
+    mproc.polarisation = polarisation
+    mproc.range_looks = range_looks
 
-    cfg = project.DEMMasterNames(mock_proc)
+    cfg = project.DEMMasterNames(mproc)
     assert len([x for x in dir(cfg) if x.startswith("dem_")]) == 12
     assert len([x for x in dir(cfg) if x.startswith("r_dem_")]) == 7
 
@@ -147,37 +147,37 @@ def test_default_dem_master_paths(mock_proc):
     assert cfg.r_dem_master_mli_bmp == cfg.r_dem_master_mli + ".bmp"
 
 
-def test_default_dem_master_paths_none_setting(mock_proc):
+def test_default_dem_master_paths_none_setting(mproc):
     """Ensure incomplete proc settings prevent DEM config from being initialised."""
-    mock_proc.slc_dir = None
+    mproc.slc_dir = None
 
     with pytest.raises(Exception):
-        project.DEMMasterNames(mock_proc)
+        project.DEMMasterNames(mproc)
 
 
-def test_default_dem_file_names(mock_proc):
-    mock_proc.gamma_dem_dir = "gamma-dem-dir"
-    mock_proc.dem_name = "dem-name"
-    mock_proc.dem_dir = "dem-dir"
-    mock_proc.ref_master_scene = "ref_master_scene"
-    mock_proc.polarisation = "polarisation"
-    mock_proc.range_looks = "range_looks"
-    mock_proc.results_dir = "results-dir"
-    mock_proc.track = "track"
+def test_default_dem_file_names(mproc):
+    mproc.gamma_dem_dir = "gamma-dem-dir"
+    mproc.dem_name = "dem-name"
+    mproc.dem_dir = "dem-dir"
+    mproc.ref_master_scene = "ref_master_scene"
+    mproc.polarisation = "polarisation"
+    mproc.range_looks = "range_looks"
+    mproc.results_dir = "results-dir"
+    mproc.track = "track"
 
-    cfg = project.DEMFileNames(mock_proc)
+    cfg = project.DEMFileNames(mproc)
 
-    assert cfg.dem == "{}/{}.dem".format(mock_proc.gamma_dem_dir, mock_proc.dem_name)
+    assert cfg.dem == "{}/{}.dem".format(mproc.gamma_dem_dir, mproc.dem_name)
     assert cfg.dem_par == "{}.par".format(cfg.dem)
-    assert cfg.dem_master_name == "{}/{}_{}_{}rlks".format(mock_proc.dem_dir,
-                                                           mock_proc.ref_master_scene,
-                                                           mock_proc.polarisation,
-                                                           mock_proc.range_looks)
+    assert cfg.dem_master_name == "{}/{}_{}_{}rlks".format(mproc.dem_dir,
+                                                           mproc.ref_master_scene,
+                                                           mproc.polarisation,
+                                                           mproc.range_looks)
 
-    assert cfg.dem_diff == "{}/diff_{}_{}_{}rlks.par".format(mock_proc.dem_dir,
-                                                             mock_proc.ref_master_scene,
-                                                             mock_proc.polarisation,
-                                                             mock_proc.range_looks)
+    assert cfg.dem_diff == "{}/diff_{}_{}_{}rlks.par".format(mproc.dem_dir,
+                                                             mproc.ref_master_scene,
+                                                             mproc.polarisation,
+                                                             mproc.range_looks)
 
     assert cfg.rdc_dem == cfg.dem_master_name + "_rdc.dem"
 
