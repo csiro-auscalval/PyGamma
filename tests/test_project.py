@@ -212,6 +212,35 @@ def test_default_dem_file_names(mproc):
     assert cfg.lat_lon_pix == "dem-dir/track_range_looksrlks_sar_latlon.txt"
 
 
+def test_default_ifg_file_names(mproc):
+    mproc.int_dir = "INT"
+    mproc.slc_dir = "slc-dir"
+    mproc.polarisation = "polarisation"
+    mproc.range_looks = "range_looks"
+
+    cfg = project.IfgFileNames(mproc, "master", "slave")
+
+    assert cfg.ifg_dir == "INT/master-slave"
+    assert cfg.master_dir == "slc-dir/master"
+    assert cfg.slave_dir == "slc-dir/slave"
+    assert cfg.r_master_slc_name == "slc-dir/master/rmaster_polarisation"
+    assert cfg.r_master_slc == "slc-dir/master/rmaster_polarisation.slc"
+    assert cfg.r_master_slc_par == "slc-dir/master/rmaster_polarisation.par"
+
+    assert cfg.r_master_mli_name == "slc-dir/master/rmaster_polarisation_range_looksrlks"
+    assert cfg.r_master_mli == "slc-dir/master/rmaster_polarisation_range_looksrlks.mli"
+    assert cfg.r_master_mli_par == "slc-dir/master/rmaster_polarisation_range_looksrlks.mli.par"
+
+    assert cfg.r_slave_slc_name == "slc-dir/slave/rslave_polarisation"
+    assert cfg.r_slave_slc == "slc-dir/slave/rslave_polarisation.slc"
+    assert cfg.r_slave_slc_par == "slc-dir/slave/rslave_polarisation.slc.par"
+
+    assert cfg.r_slave_mli_name == "slc-dir/slave/rslave_polarisation_range_looksrlks"
+
+    # ignore vars after this as it's just testing string concatenation
+    assert cfg.master_slave_name == "INT/master-slave/master-slave_polarisation_range_looksrlks"
+
+
 FULL_PROC_VARIABLES_FILE = """##### GAMMA CONFIGURATION FILE #####
 
 

@@ -321,21 +321,20 @@ class DEMMasterNames:
             self.dem_master_gamma0_eqa_geo = self.dem_master_gamma0_eqa + ".tif"
 
             self.r_dem_master_slc_name = os.path.join(self.dem_master_dir, 'r' + proc.ref_master_scene) \
-                + "_" + proc.polarisation
+                                         + "_" + proc.polarisation
 
             self.r_dem_master_slc = self.r_dem_master_slc_name + ".slc"
             self.r_dem_master_slc_par = self.r_dem_master_slc + ".par"
 
             self.r_dem_master_mli_name = os.path.join(self.dem_master_dir, 'r' + proc.ref_master_scene) \
-                + "_" + proc.polarisation \
-                + "_" + proc.range_looks + "rlks"
+                                         + "_" + proc.polarisation \
+                                         + "_" + proc.range_looks + "rlks"
             self.r_dem_master_mli = self.r_dem_master_mli_name + ".mli"
             self.r_dem_master_mli_par = self.r_dem_master_mli + ".par"
             self.r_dem_master_mli_bmp = self.r_dem_master_mli + ".bmp"
 
 
 class DEMFileNames:
-
     __slots__ = ['dem',
                  'dem_par',
                  'dem_master_name',
@@ -371,7 +370,8 @@ class DEMFileNames:
     def __init__(self, proc):
         self.dem = os.path.join(proc.gamma_dem_dir, proc.dem_name + ".dem")
         self.dem_par = self.dem + ".par"
-        self.dem_master_name = os.path.join(proc.dem_dir, proc.ref_master_scene) + "_" + proc.polarisation + "_" + proc.range_looks + "rlks"
+        self.dem_master_name = os.path.join(proc.dem_dir,
+                                            proc.ref_master_scene) + "_" + proc.polarisation + "_" + proc.range_looks + "rlks"
         self.dem_diff = os.path.join(proc.dem_dir, "diff_{}_{}_{}rlks.par".format(proc.ref_master_scene,
                                                                                   proc.polarisation,
                                                                                   proc.range_looks))
@@ -404,6 +404,164 @@ class DEMFileNames:
 
         self.dem_check_file = os.path.join(proc.results_dir, proc.track + "_DEM_coreg_results")
         self.lat_lon_pix = os.path.join(proc.dem_dir, proc.track) + "_" + proc.range_looks + "rlks_sar_latlon.txt"
+
+
+class IfgFileNames:
+    __slots__ = ['ifg_dir',
+                 'master_dir',
+                 'slave_dir',
+                 'r_master_slc_name',
+                 'r_master_slc',
+                 'r_master_slc_par',
+                 'r_master_mli_name',
+                 'r_master_mli',
+                 'r_master_mli_par',
+                 'r_slave_slc_name',
+                 'r_slave_slc',
+                 'r_slave_slc_par',
+                 'r_slave_mli_name',
+                 'r_slave_mli',
+                 'r_slave_mli_par',
+                 'master_slave_name',
+                 'ifg_base',
+                 'ifg_base_init',
+                 'ifg_base_res',
+                 'ifg_base_temp',
+                 'ifg_bperp',
+                 'ifg_ccp',
+                 'ifg_coffs',
+                 'ifg_coffsets',
+                 'ifg_diff_par',
+                 'ifg_filt',
+                 'ifg_filt_float',
+                 'ifg_filt_geocode_bmp',
+                 'ifg_filt_geocode_out',
+                 'ifg_filt_geocode_png',
+                 'ifg_filt_mask',
+                 'ifg_filt_cc',
+                 'ifg_filt_cc_geocode_bmp',
+                 'ifg_filt_cc_geocode_out',
+                 'ifg_filt_cc_geocode_png',
+                 'ifg_flat',
+                 'ifg_flat_float',
+                 'ifg_flat_geocode_bmp',
+                 'ifg_flat_geocode_out',
+                 'ifg_flat_geocode_png',
+                 'ifg_flat_temp',
+                 'ifg_flat0',
+                 'ifg_flat1',
+                 'ifg_flat10',
+                 'ifg_flat_cc',
+                 'ifg_flat_cc_geocode_bmp',
+                 'ifg_flat_cc_geocode_out',
+                 'ifg_flat_cc_geocode_png',
+                 'ifg_flat_cc0',
+                 'ifg_flat_cc0_mask',
+                 'ifg_flat_cc10',
+                 'ifg_flat_cc10_mask',
+                 'ifg_gcp',
+                 'ifg_gcp_ph',
+                 'ifg_mask',
+                 'ifg_mask_thin',
+                 'ifg_off',
+                 'ifg_off10',
+                 'ifg_offs',
+                 'ifg_sim_diff',
+                 'ifg_sim_unw',
+                 'ifg_sim_unw0',
+                 'ifg_sim_unw1',
+                 'ifg_sim_unw_ph',
+                 'ifg_unw',
+                 'ifg_unw_geocode_bmp',
+                 'ifg_unw_geocode_out',
+                 'ifg_unw_geocode_png',
+                 'ifg_unw_mask',
+                 'ifg_unw_model',
+                 'ifg_unw_thin']
+
+    def __init__(self, proc, master, slave):
+        self.ifg_dir = os.path.join(proc.int_dir, "{}-{}".format(master, slave))
+        self.master_dir = os.path.join(proc.slc_dir, master)
+        self.slave_dir = os.path.join(proc.slc_dir, slave)
+
+        self.r_master_slc_name = os.path.join(self.master_dir, "r{}_{}".format(master, proc.polarisation))
+        self.r_master_slc = self.r_master_slc_name + ".slc"
+        self.r_master_slc_par = self.r_master_slc_name + ".par"
+
+        self.r_master_mli_name = os.path.join(self.master_dir, "r{}_{}_{}rlks".format(master,
+                                                                                      proc.polarisation,
+                                                                                      proc.range_looks))
+        self.r_master_mli = self.r_master_mli_name + ".mli"
+        self.r_master_mli_par = self.r_master_mli + ".par"
+
+        self.r_slave_slc_name = os.path.join(self.slave_dir, "r{}_{}".format(slave, proc.polarisation))
+        self.r_slave_slc = self.r_slave_slc_name + ".slc"
+        self.r_slave_slc_par = self.r_slave_slc + ".par"
+
+        self.r_slave_mli_name = os.path.join(self.slave_dir, "r{}_{}_{}rlks".format(slave,
+                                                                                    proc.polarisation,
+                                                                                    proc.range_looks))
+        self.r_slave_mli = self.r_slave_mli_name + ".mli"
+        self.r_slave_mli_par = self.r_slave_mli + ".par"
+        self.master_slave_name = os.path.join(self.ifg_dir, "{}-{}_{}_{}rlks".format(master,
+                                                                                     slave,
+                                                                                     proc.polarisation,
+                                                                                     proc.range_looks))
+        self.ifg_base = self.master_slave_name + "_base.par"
+        self.ifg_base_init = self.master_slave_name + "_base_init.par"
+        self.ifg_base_res = self.master_slave_name + "_base_res.par"
+        self.ifg_base_temp = self.master_slave_name + "_base_temp.par"
+        self.ifg_bperp = self.master_slave_name + "_bperp.par"
+        self.ifg_ccp = self.master_slave_name + ".ccp"
+        self.ifg_coffs = self.master_slave_name + ".coffs"
+        self.ifg_coffsets = self.master_slave_name + ".coffsets"
+        self.ifg_diff_par = self.master_slave_name + "_diff.par"
+        self.ifg_filt = self.master_slave_name + "_filt.int"
+        self.ifg_filt_float = self.master_slave_name + "_filt_int.flt"
+        self.ifg_filt_geocode_bmp = self.master_slave_name + "_filt_eqa_int.bmp"
+        self.ifg_filt_geocode_out = self.master_slave_name + "_filt_eqa.int"
+        self.ifg_filt_geocode_png = self.master_slave_name + "_filt_eqa_int.png"
+        self.ifg_filt_mask = self.master_slave_name + "_filt_mask.int"
+        self.ifg_filt_cc = self.master_slave_name + "_filt.cc"
+        self.ifg_filt_cc_geocode_bmp = self.master_slave_name + "_filt_eqa_cc.bmp"
+        self.ifg_filt_cc_geocode_out = self.master_slave_name + "_filt_eqa.cc"
+        self.ifg_filt_cc_geocode_png = self.master_slave_name + "_filt_eqa_cc.png"
+        self.ifg_flat = self.master_slave_name + "_flat.int"
+        self.ifg_flat_float = self.master_slave_name + "_flat_int.flt"
+        self.ifg_flat_geocode_bmp = self.master_slave_name + "_flat_eqa_int.bmp"
+        self.ifg_flat_geocode_out = self.master_slave_name + "_flat_eqa.int"
+        self.ifg_flat_geocode_png = self.master_slave_name + "_flat_eqa_int.png"
+        self.ifg_flat_temp = self.master_slave_name + "_flat_temp.int"
+        self.ifg_flat0 = self.master_slave_name + "_flat0.int"
+        self.ifg_flat1 = self.master_slave_name + "_flat1.int"
+        self.ifg_flat10 = self.master_slave_name + "_flat10.int"
+        self.ifg_flat_cc = self.master_slave_name + "_flat.cc"
+        self.ifg_flat_cc_geocode_bmp = self.master_slave_name + "_flat_eqa_cc.bmp"
+        self.ifg_flat_cc_geocode_out = self.master_slave_name + "_flat_eqa.cc"
+        self.ifg_flat_cc_geocode_png = self.master_slave_name + "_flat_eqa_cc.png"
+        self.ifg_flat_cc0 = self.master_slave_name + "_flat0.cc"
+        self.ifg_flat_cc0_mask = self.master_slave_name + "_flat0_cc_mask.ras"
+        self.ifg_flat_cc10 = self.master_slave_name + "_flat10.cc"
+        self.ifg_flat_cc10_mask = self.master_slave_name + "_flat10_cc_mask.ras"
+        self.ifg_gcp = self.master_slave_name + ".gcp"
+        self.ifg_gcp_ph = self.master_slave_name + ".gcp_ph"
+        self.ifg_mask = self.master_slave_name + "_mask.ras"
+        self.ifg_mask_thin = self.master_slave_name + "_mask_thin.ras"
+        self.ifg_off = self.master_slave_name + "_off.par"
+        self.ifg_off10 = self.master_slave_name + "_off10.par"
+        self.ifg_offs = self.master_slave_name + ".offs"
+        self.ifg_sim_diff = self.master_slave_name + "_sim_diff.unw"
+        self.ifg_sim_unw = self.master_slave_name + "_sim.unw"
+        self.ifg_sim_unw0 = self.master_slave_name + "_sim0.unw"
+        self.ifg_sim_unw1 = self.master_slave_name + "_sim1.unw"
+        self.ifg_sim_unw_ph = self.master_slave_name + "_sim_ph.unw"
+        self.ifg_unw = self.master_slave_name + ".unw"
+        self.ifg_unw_geocode_bmp = self.master_slave_name + "_eqa_unw.bmp"
+        self.ifg_unw_geocode_out = self.master_slave_name + "_eqa.unw"
+        self.ifg_unw_geocode_png = self.master_slave_name + "_eqa_unw.png"
+        self.ifg_unw_mask = self.master_slave_name + "_mask.unw"
+        self.ifg_unw_model = self.master_slave_name + "_model.unw"
+        self.ifg_unw_thin = self.master_slave_name + "_thin.unw"
 
 
 class Config:
