@@ -334,6 +334,78 @@ class DEMMasterNames:
             self.r_dem_master_mli_bmp = self.r_dem_master_mli + ".bmp"
 
 
+class DEMFileNames:
+
+    __slots__ = ['dem',
+                 'dem_par',
+                 'dem_master_name',
+                 'dem_diff',
+                 'rdc_dem',
+                 'eqa_dem',
+                 'eqa_dem_par',
+                 'seamask',
+                 'dem_lt_rough',
+                 'dem_lt_fine',
+                 'dem_eqa_sim_sar',
+                 'dem_rdc_sim_sar',
+                 'dem_loc_inc',
+                 'dem_rdc_inc',
+                 'dem_lsmap',
+                 'ellip_pix_sigma0',
+                 'dem_pix_gam',
+                 'dem_pix_gam_bmp',
+                 'dem_off',
+                 'dem_offs',
+                 'dem_ccp',
+                 'dem_offsets',
+                 'dem_coffs',
+                 'dem_coffsets',
+                 'dem_lv_theta',
+                 'dem_lv_phi',
+                 'ext_image_flt',
+                 'ext_image_init_sar',
+                 'ext_image_sar',
+                 'dem_check_file',
+                 'lat_lon_pix']
+
+    def __init__(self, proc):
+        self.dem = os.path.join(proc.gamma_dem_dir, proc.dem_name + ".dem")
+        self.dem_par = self.dem + ".par"
+        self.dem_master_name = os.path.join(proc.dem_dir, proc.ref_master_scene) + "_" + proc.polarisation + "_" + proc.range_looks + "rlks"
+        self.dem_diff = os.path.join(proc.dem_dir, "diff_{}_{}_{}rlks.par".format(proc.ref_master_scene,
+                                                                                  proc.polarisation,
+                                                                                  proc.range_looks))
+        # following block is semi useless as it's testing string concatenation
+        self.rdc_dem = self.dem_master_name + "_rdc.dem"
+        self.eqa_dem = self.dem_master_name + "_eqa.dem"
+        self.eqa_dem_par = self.eqa_dem + ".par"
+        self.seamask = self.dem_master_name + "_eqa_seamask.tif"
+        self.dem_lt_rough = self.dem_master_name + "_rough_eqa_to_rdc.lt"
+        self.dem_lt_fine = self.dem_master_name + "_eqa_to_rdc.lt"
+        self.dem_eqa_sim_sar = self.dem_master_name + "_eqa.sim"
+        self.dem_rdc_sim_sar = self.dem_master_name + "_rdc.sim"
+        self.dem_loc_inc = self.dem_master_name + "_eqa.linc"
+        self.dem_rdc_inc = self.dem_master_name + "_rdc.linc"
+        self.dem_lsmap = self.dem_master_name + "_eqa.lsmap"
+        self.ellip_pix_sigma0 = self.dem_master_name + "_ellip_pix_sigma0"
+        self.dem_pix_gam = self.dem_master_name + "_rdc_pix_gamma0"
+        self.dem_pix_gam_bmp = self.dem_pix_gam + ".bmp"
+        self.dem_off = self.dem_master_name + ".off"
+        self.dem_offs = self.dem_master_name + ".offs"
+        self.dem_ccp = self.dem_master_name + ".ccp"
+        self.dem_offsets = self.dem_master_name + ".offsets"
+        self.dem_coffs = self.dem_master_name + ".coffs"
+        self.dem_coffsets = self.dem_master_name + ".coffsets"
+        self.dem_lv_theta = self.dem_master_name + "_eqa.lv_theta"
+        self.dem_lv_phi = self.dem_master_name + "_eqa.lv_phi"
+        self.ext_image_flt = self.dem_master_name + "_ext_img_sar.flt"
+        self.ext_image_init_sar = self.dem_master_name + "_ext_img_init.sar"
+        self.ext_image_sar = self.dem_master_name + "_ext_img.sar"
+
+        self.dem_check_file = os.path.join(proc.results_dir, proc.track + "_DEM_coreg_results")
+        self.lat_lon_pix = os.path.join(proc.dem_dir, proc.track) + "_" + proc.range_looks + "rlks_sar_latlon.txt"
+
+
 class Config:
     """Stores config for the Gamma InSAR workflow."""
 

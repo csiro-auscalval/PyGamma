@@ -155,6 +155,63 @@ def test_default_dem_master_paths_none_setting(mock_proc):
         project.DEMMasterNames(mock_proc)
 
 
+def test_default_dem_file_names(mock_proc):
+    mock_proc.gamma_dem_dir = "gamma-dem-dir"
+    mock_proc.dem_name = "dem-name"
+    mock_proc.dem_dir = "dem-dir"
+    mock_proc.ref_master_scene = "ref_master_scene"
+    mock_proc.polarisation = "polarisation"
+    mock_proc.range_looks = "range_looks"
+    mock_proc.results_dir = "results-dir"
+    mock_proc.track = "track"
+
+    cfg = project.DEMFileNames(mock_proc)
+
+    assert cfg.dem == "{}/{}.dem".format(mock_proc.gamma_dem_dir, mock_proc.dem_name)
+    assert cfg.dem_par == "{}.par".format(cfg.dem)
+    assert cfg.dem_master_name == "{}/{}_{}_{}rlks".format(mock_proc.dem_dir,
+                                                           mock_proc.ref_master_scene,
+                                                           mock_proc.polarisation,
+                                                           mock_proc.range_looks)
+
+    assert cfg.dem_diff == "{}/diff_{}_{}_{}rlks.par".format(mock_proc.dem_dir,
+                                                             mock_proc.ref_master_scene,
+                                                             mock_proc.polarisation,
+                                                             mock_proc.range_looks)
+
+    assert cfg.rdc_dem == cfg.dem_master_name + "_rdc.dem"
+
+    # NB: rest of these are only string concatenation, so probably not worth testing!
+    dem_master_name = cfg.dem_master_name
+    assert cfg.eqa_dem == dem_master_name + "_eqa.dem"
+    # assert cfg.eqa_dem_par == eqa_dem.par
+    assert cfg.seamask == dem_master_name + "_eqa_seamask.tif"
+    assert cfg.dem_lt_rough == dem_master_name + "_rough_eqa_to_rdc.lt"
+    assert cfg.dem_lt_fine == dem_master_name + "_eqa_to_rdc.lt"
+    assert cfg.dem_eqa_sim_sar == dem_master_name + "_eqa.sim"
+    assert cfg.dem_rdc_sim_sar == dem_master_name + "_rdc.sim"
+    assert cfg.dem_loc_inc == dem_master_name + "_eqa.linc"
+    assert cfg.dem_rdc_inc == dem_master_name + "_rdc.linc"
+    assert cfg.dem_lsmap == dem_master_name + "_eqa.lsmap"
+    assert cfg.ellip_pix_sigma0 == dem_master_name + "_ellip_pix_sigma0"
+    assert cfg.dem_pix_gam == dem_master_name + "_rdc_pix_gamma0"
+    # assert cfg.dem_pix_gam_bmp == dem_pix_gam".bmp"
+    assert cfg.dem_off == dem_master_name + ".off"
+    assert cfg.dem_offs == dem_master_name + ".offs"
+    assert cfg.dem_ccp == dem_master_name + ".ccp"
+    assert cfg.dem_offsets == dem_master_name + ".offsets"
+    assert cfg.dem_coffs == dem_master_name + ".coffs"
+    assert cfg.dem_coffsets == dem_master_name + ".coffsets"
+    assert cfg.dem_lv_theta == dem_master_name + "_eqa.lv_theta"
+    assert cfg.dem_lv_phi == dem_master_name + "_eqa.lv_phi"
+    assert cfg.ext_image_flt == dem_master_name + "_ext_img_sar.flt"
+    assert cfg.ext_image_init_sar == dem_master_name + "_ext_img_init.sar"
+    assert cfg.ext_image_sar == dem_master_name + "_ext_img.sar"
+
+    assert cfg.dem_check_file == "results-dir/track_DEM_coreg_results"
+    assert cfg.lat_lon_pix == "dem-dir/track_range_looksrlks_sar_latlon.txt"
+
+
 FULL_PROC_VARIABLES_FILE = """##### GAMMA CONFIGURATION FILE #####
 
 
