@@ -7,14 +7,16 @@ PBS submission scripts.
 from __future__ import print_function
 
 import os
-from pathlib import Path
-import click
-from os.path import join as pjoin, dirname, exists, basename
-import subprocess
 import uuid
 import time
+import json
+import click
+import warnings
+import subprocess
+from pathlib import Path
+from os.path import join as pjoin, dirname, exists, basename
 
-
+# Note that {email} is absent from PBS_RESOURCES
 PBS_RESOURCES = """#!/bin/bash
 #PBS -P {project_name}
 #PBS -q {queue}
@@ -30,13 +32,29 @@ PBS_TEMPLATE = r"""{pbs_resources}
 
 source {env}
 export OMP_NUM_THREADS={num_threads}
-gamma_insar ARD --vector-file-list {vector_file_list} --start-date {start_date} --end-date {end_date} --workdir {workdir} --outdir {outdir} --workers {worker} --local-scheduler
+export TMPDIR={workdir}
+gamma_insar ARD \
+    --vector-file-list {vector_file_list} \
+    --start-date {start_date} \
+    --end-date {end_date} \
+    --workdir {workdir} \
+    --outdir {outdir} \
+    --polarization '{json_polar}' \
+    --workers {worker} \
+    --local-scheduler
 """
 
 PBS_PACKAGE_TEMPLATE = r"""{pbs_resources}
 
 source {env}
-package --track {track} --frame {frame} --input-dir {indir} --pkgdir {pkgdir} --product {product} --polarization {polarization}
+export TMPDIR={job_dir}
+package \
+    --track {track} \
+    --frame {frame} \
+    --input-dir {indir} \
+    --pkgdir {pkgdir} \
+    --product {product} \
+    {pol_arg}
 """
 
 FMT1 = "job{jobid}.bash"
@@ -62,8 +80,10 @@ def _gen_pbs(
     outdir,
     start_date,
     end_date,
+    json_polar,
     pbs_resource,
     cpu_count,
+    num_workers,
     num_threads,
 ):
     """
@@ -90,7 +110,8 @@ def _gen_pbs(
             end_date=end_date,
             workdir=job_dir,
             outdir=outdir,
-            worker=int(cpu_count / num_threads),
+            json_polar=json_polar,
+            worker=num_workers,
             num_threads=num_threads,
         )
 
@@ -150,6 +171,12 @@ def _submit_pbs(pbs_scripts, test):
     help="The output directory for processed data",
 )
 @click.option(
+    "--polarization",
+    default=["VV", "VH"],
+    multiple=True,
+    help="Polarizations to be processed VV or VH, arg can be specified multiple times",
+)
+@click.option(
     "--ncpus",
     type=click.INT,
     help="The total number of cpus per job" "required if known",
@@ -159,17 +186,23 @@ def _submit_pbs(pbs_scripts, test):
     "--memory", type=click.INT, help="Total memory required if per node", default=48 * 4,
 )
 @click.option(
-    "--queue", type=click.STRING, help="Queue to submit the job into", default="normal",
+    "--queue",
+    type=click.STRING,
+    help="Queue {express, normal, hugemem} to submit the job",
+    default="normal",
 )
 @click.option("--hours", type=click.INT, help="Job walltime in hours.", default=24)
 @click.option(
     "--email",
     type=click.STRING,
     help="Notification email address.",
-    default="your.name@something.com",
+    default=None,
 )
 @click.option(
     "--nodes", type=click.INT, help="Number of nodes to be requested", default=1,
+)
+@click.option(
+    "--workers", type=click.INT, help="Number of workers", default=0,
 )
 @click.option("--jobfs", type=click.INT, help="Jobfs required per node", default=400)
 @click.option(
@@ -198,12 +231,14 @@ def ard_insar(
     end_date: click.DateTime,
     workdir: click.Path,
     outdir: click.Path,
+    polarization: click.Tuple,
     ncpus: click.INT,
     memory: click.INT,
     queue: click.INT,
     hours: click.INT,
     email: click.STRING,
     nodes: click.INT,
+    workers: click.INT,
     jobfs: click.INT,
     storage: click.STRING,
     project: click.STRING,
@@ -213,6 +248,32 @@ def ard_insar(
     """
     consolidates batch processing job script creation and submission of pbs jobs
     """
+    # for GADI, a warning is provided in case the user
+    # sets workdir or outdir to their home directory
+    warn_msg = (
+        "\nGADI's /home directory was specified as the {}, which "
+        "may not have enough memory storarge for SLC processing"
+    )
+    if workdir.find("home") != -1:
+        warnings.warn(warn_msg.format("workdir"))
+
+    if outdir.find("home") != -1:
+        warnings.warn(warn_msg.format("outdir"))
+
+    if (queue != "normal") and (queue != "express") and (queue != "hugemem"):
+        warnings.warn("\nqueue must either be normal, express or hugemem")
+        # set queue to normal
+        queue = "normal"
+
+    # The polarization command for gamma_insar ARD is a Luigi
+    # ListParameter, where the list is a <JSON string>
+    # e.g.
+    #    --polarization '["VV"]'
+    #    --polarization '["VH"]'
+    #    --polarization '["VV","VH"]'
+    # The json module can achieve this by: json.dumps(polarization)
+    json_pol = json.dumps(list(polarization))
+
     start_date = start_date.date()
     end_date = end_date.date()
 
@@ -230,8 +291,18 @@ def ard_insar(
         cpu_count=ncpus,
         jobfs_gb=jobfs,
         storages=storage_names,
-        email=email,
     )
+    # for some reason {email} is absent in PBS_RESOURCES.
+    # Thus no email will be sent, even if specified.
+    # add email to pbs_resources here.
+    if email:
+        pbs_resources += "#PBS -M {}".format(email)
+
+    # Get the number of workers
+    if workers <= 0:
+        num_workers = int(ncpus / num_threads)
+    else:
+        num_workers = workers
 
     pbs_scripts = _gen_pbs(
         scattered_tasklist,
@@ -240,8 +311,10 @@ def ard_insar(
         outdir,
         start_date,
         end_date,
+        json_pol,
         pbs_resources,
         ncpus,
+        num_workers,
         num_threads,
     )
     _submit_pbs(pbs_scripts, test)
@@ -275,6 +348,12 @@ def ard_insar(
 @click.option(
     "--queue", type=click.STRING, help="Queue to submit the job into", default="normal",
 )
+@click.option(
+    "--email",
+    type=click.STRING,
+    help="Notification email address.",
+    default=None,
+)
 @click.option("--hours", type=click.INT, help="Job walltime in hours.", default=24)
 @click.option("--jobfs", help="jobfs required per node", default=50)
 @click.option(
@@ -301,9 +380,9 @@ def ard_insar(
 )
 @click.option(
     "--polarization",
-    type=click.Tuple([str, str]),
-    default=("VV", "VH"),
-    help="Polarizations used in metadata consolidations for product.",
+    default=["VV", "VH"],
+    multiple=True,
+    help="Polarizations to be processed VV or VH, arg can be specified multiple times",
 )
 @click.option(
     "--test",
@@ -319,6 +398,7 @@ def ard_package(
     ncpus: click.INT,
     memory: click.INT,
     queue: click.STRING,
+    email: click.STRING,
     hours: click.INT,
     jobfs: click.INT,
     storage: click.STRING,
@@ -328,8 +408,23 @@ def ard_package(
     polarization: click.Tuple,
     test: click.BOOL,
 ):
+
+    # for GADI, a warning is provided in case the user
+    # sets workdir and pkgdir to their home directory
+    warn_msg = (
+        "\nGADI's /home directory was specified as the {}, which "
+        "may not have enough memory storarge for packaging"
+    )
+    if workdir.find("home") != -1:
+        warnings.warn(warn_msg.format("workdir"))
+
+    if pkgdir.find("home") != -1:
+        warnings.warn(warn_msg.format("pkgdir"))
+
     storage_names = "".join([STORAGE.format(proj=p) for p in storage])
-    polarization = " ".join([p for p in polarization])
+
+    pol_arg = " ".join(["--polarization "+p for p in polarization])
+
     pbs_resource = PBS_RESOURCES.format(
         project_name=project,
         queue=queue,
@@ -339,6 +434,12 @@ def ard_package(
         jobfs_gb=jobfs,
         storages=storage_names,
     )
+    # for some reason {email} is absent in PBS_RESOURCES.
+    # Thus no email will be sent, even if specified.
+    # add email to pbs_resource here.
+    if email:
+        pbs_resource += "#PBS -M {}".format(email)
+
 
     with open(input_list, "r") as src:
         # get a list of shapefiles as Path objects
@@ -354,7 +455,7 @@ def ard_package(
         job_dir = Path(workdir).joinpath(f"{track}_{frame}-pkg-{jobid}")
 
         # In the old code, indir=task, where task is the shapefile.
-        # However, indir is meant to be thebase directory of InSAR
+        # However, indir is meant to be the base directory of InSAR
         # datasets. This leads to errors as the package command as
         # it expects the gamma outputs to be located there, e.g.
         # /shp_dir/T147D_F03.shp/SLC, /shp_dir/T147D_F03.shp/DEM
@@ -371,8 +472,9 @@ def ard_package(
             frame=frame,
             indir=in_dir,
             pkgdir=pkgdir,
+            job_dir=job_dir,
             product=product,
-            polarization=polarization,
+            pol_arg=pol_arg,
         )
 
         out_fname = job_dir.joinpath(f"pkg_{track}_{frame}_{jobid}.bash")

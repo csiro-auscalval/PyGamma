@@ -75,9 +75,9 @@ def on_failure(task, exception):
 
 
 @luigi.Task.event_handler(luigi.Event.SUCCESS)
-def on_success(task, exception):
+def on_success(task):
     """Capture any Task Succes here."""
-    TASK_LOGGER.exception(
+    TASK_LOGGER.info(
         task=task.get_task_family(),
         params=task.to_str_params(),
         track=getattr(task, "track", ""),
