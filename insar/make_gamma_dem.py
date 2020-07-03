@@ -12,7 +12,7 @@ import rasterio
 from spatialist import Vector
 import structlog
 
-import py_gamma as pg
+from insar.py_gamma_ga import pg
 
 from insar.subprocess_utils import run_command
 from insar.logs import get_wrapped_logger

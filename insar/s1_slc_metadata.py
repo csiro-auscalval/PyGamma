@@ -22,7 +22,7 @@ import yaml
 from shapely.geometry import Polygon, box
 from shapely.ops import cascaded_union
 from spatialist import Vector, sqlite3, sqlite_setup
-import py_gamma as pg
+from insar.py_gamma_ga import pg
 
 from insar.xml_util import getNamespaces
 from insar.logs import get_wrapped_logger

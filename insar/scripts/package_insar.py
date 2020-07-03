@@ -9,7 +9,7 @@ import attr
 import pandas as pd
 import click
 
-import py_gamma as pg
+from insar.py_gamma_ga import pg
 from eodatasets3 import DatasetAssembler
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata
 from insar.logs import COMMON_PROCESSORS
@@ -393,10 +393,10 @@ def package(
 
 @click.command()
 @click.option(
-    "--track", type=click.STRING, help="track name of the grid definition: \"T001D\""
+    "--track", type=click.STRING, help='track name of the grid definition: "T001D"'
 )
 @click.option(
-    "--frame", type=click.STRING, help="Frame name of the grid definition: \"F02\""
+    "--frame", type=click.STRING, help='Frame name of the grid definition: "F02"'
 )
 @click.option(
     "--input-dir",

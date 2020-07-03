@@ -4,7 +4,7 @@ import math
 from typing import List, Tuple, Optional, Union
 from pathlib import Path
 import structlog
-import py_gamma as pg
+from insar.py_gamma_ga import pg
 
 from insar.constant import MliFilenames
 from insar.subprocess_utils import working_directory

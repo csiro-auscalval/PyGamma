@@ -14,7 +14,7 @@ import re
 import shutil
 import structlog
 
-import py_gamma as pg
+from insar.py_gamma_ga import pg
 
 from insar.subprocess_utils import working_directory, run_command
 
@@ -49,7 +49,7 @@ class DemParFileParser:
         """
         Convenient access fields for DEM image parameter properties.
 
-        :param par_file: 
+        :param par_file:
             A full path to a DEM parameter file.
         """
         self.par_file = Path(par_file).as_posix()
@@ -86,29 +86,29 @@ class CoregisterSlc:
         """
         Co-registers Sentinel-1 IW SLC to a chosen master SLC geometry.
 
-        :param slc_master: 
-            A full path to a master (reference) SLC image file. 
-        :param slc_slave: 
+        :param slc_master:
+            A full path to a master (reference) SLC image file.
+        :param slc_slave:
             A full Path to a slave SLC image file.
-        :param slave_mli: 
+        :param slave_mli:
             A full path to a slave image multi-looked image file.
-        :param range_looks: 
+        :param range_looks:
             A range look value.
-        :param azimuth_looks: 
+        :param azimuth_looks:
             An azimuth look value.
-        :param ellip_pix_sigma0: 
+        :param ellip_pix_sigma0:
             A full path to a sigma0 product generated during master-dem co-registration.
-        :param dem_pix_gamma0: 
+        :param dem_pix_gamma0:
             A full path to a gamma0 product generated during master-dem co-registration.
-        :param r_dem_master_mli: 
+        :param r_dem_master_mli:
             A full path to a reference multi-looked image parameter file.
-        :param rdc_dem: 
+        :param rdc_dem:
             A full path to a dem (height map) in RDC of master SLC.
-        :param eqa_dem_par: 
+        :param eqa_dem_par:
             A full path to a eqa dem par generated during master-dem co-registration.
-        :param dem_lt_fine: 
+        :param dem_lt_fine:
             A full path to a eqa_to_rdc look-up table generated during master-dem co-registration.
-        :param outdir: 
+        :param outdir:
             A full path to a output directory.
         """
         self.slc_master = slc_master
@@ -169,13 +169,13 @@ class CoregisterSlc:
     def swath_tab_names(swath: int, prefix: str,) -> namedtuple:
         """
         Returns namedtuple swath-slc names.
-        
-        :param swath: 
+
+        :param swath:
             An IW swath number.
-        :param prefix: 
+        :param prefix:
             A prefix of full SLC name.
 
-        :returns: 
+        :returns:
             A namedtuples containing the names of slc, par and tops_par.
         """
 
@@ -317,13 +317,13 @@ class CoregisterSlc:
     def _grep_stdout(std_output: list, match_start_string: str,) -> str:
         """
         A helper method to return matched string from std_out.
-        
-        :param std_output: 
-            A list containing the std output collected by py_gamma.
-        :param mathch_start_string: 
-            A case sensitive string to be scanned in stdout. 
 
-        :returns: 
+        :param std_output:
+            A list containing the std output collected by py_gamma.
+        :param mathch_start_string:
+            A case sensitive string to be scanned in stdout.
+
+        :returns:
             A full string line of the matched string.
         """
         for line in std_output:
@@ -336,16 +336,16 @@ class CoregisterSlc:
         offset_file: Union[Path, str], match_start_string: Optional[str] = None,
     ) -> Union[Dict, List]:
         """
-        Method to read an offset parameter file. 
+        Method to read an offset parameter file.
 
-        :param offset_file: 
-            A full path to a offset parameter file. 
-        :param match_start_string: 
+        :param offset_file:
+            A full path to a offset parameter file.
+        :param match_start_string:
             An Optional case sensitive string to be search in a dictionary keys.
 
-        :returns: 
+        :returns:
             A full key, values generated from the offset files or a  value
-            that matched the Optional match_start_string key. 
+            that matched the Optional match_start_string key.
         """
         with open(offset_file, "r") as fid:
             tmp_dict = dict()
@@ -954,7 +954,7 @@ class CoregisterSlc:
 
     def generate_normalised_backscatter(self):
         """
-        Normalised radar backscatter. 
+        Normalised radar backscatter.
 
 
         Generate Gamma0 backscatter image for slave scene according to equation in
