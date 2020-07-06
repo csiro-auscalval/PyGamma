@@ -98,9 +98,13 @@ class AltGamma:
 
     def __getattr__(self, name):
         """Dynamically lookup Gamma programs as methods to avoid hardcoding."""
+        if self.install_dir is None:
+            msg = 'Gamma install_dir not set. Check the GAMMA_INSTALL_DIR env var, or the setup code!'
+            raise AltGammaException(msg)
+
         if name not in self._gamma_exes:
-            msg = "Unrecognised Gamma program '{}', check calling function"
-            raise AttributeError(msg.format(name))
+            msg = "Unrecognised Gamma program '{}', check calling function.\nKnown GAMMA exes:\n{}"
+            raise AttributeError(msg.format(name, self._gamma_exes))
 
         cmd = os.path.join(self.install_dir, self._gamma_exes[name])
         return functools.partial(subprocess_wrapper, cmd)
@@ -119,4 +123,5 @@ if GAMMA_INSTALL_DIR:
     pg = AltGamma(GAMMA_INSTALL_DIR, GAMMA_INSTALLED_EXES)
 else:
     # assume user will configure manually
+    warnings.warn('GAMMA_INSTALL_DIR not set, user needs to configure this in code...')
     pg = AltGamma()
