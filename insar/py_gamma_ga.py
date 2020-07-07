@@ -46,7 +46,9 @@ def find_gamma_installed_exes(install_dir, packages):
     """
     Search package dirs for Gamma exes.
 
-    Returns {k=exe_name: v=exe_relative_path}.
+    :param install_dir: base dir str of the Gamma install
+    :param packages: sequence of strings of Gamma packages ("ISP", "DIFF" etc)
+    :returns: mapping {k=exe_name: v=exe_relative_path}.
     """
     ignored_exes = ["ASAR_XCA"]  # duplicate program, for unrelated Envisat data
     dirs = [os.path.join(install_dir, p, "bin") for p in packages]
@@ -68,7 +70,7 @@ def find_gamma_installed_exes(install_dir, packages):
 
 
 def subprocess_wrapper(cmd, *args, **kwargs):
-    """Shim function to map py_gamma args to subprocess.run()."""
+    """Shim to map AltGamma methods to subprocess.run() calls for running Gamma EXEs."""
     cmd_list = [cmd, " ".join(args)]
 
     p = subprocess.run(
@@ -85,12 +87,20 @@ def subprocess_wrapper(cmd, *args, **kwargs):
 
 
 class AltGamma:
-    """Alternate interface class to temporarily(?) replace the py_gamma.py module."""
+    """
+    Alternate interface class/shim to temporarily(?) replace the py_gamma.py module.
+    """
 
     # map through to the original
     ParFile = py_gamma_broken.ParFile
 
     def __init__(self, install_dir=None, gamma_exes=None):
+        """
+        Create an AltGamma shim class.
+        :param install_dir: base install dir str of Gamma. If None is specified, the install dir must
+                            be configured elsewhere for the dynamic
+        :param gamma_exes: Mapping of {k=exe_name: v=exe_relative_path}
+        """
         # k=program, v=exe path relative to install dir
         self._gamma_exes = gamma_exes if gamma_exes else {}
         self.install_dir = install_dir
@@ -98,11 +108,13 @@ class AltGamma:
     def __getattr__(self, name):
         """Dynamically lookup Gamma programs as methods to avoid hardcoding."""
         if self.install_dir is None:
-            msg = 'Gamma install_dir not set. Check the GAMMA_INSTALL_DIR env var, or the setup code!'
+            msg = "AltGamma shim install_dir not set. Check for the GAMMA_INSTALL_DIR environ var, " \
+                  "or ensure the setup code manually sets the install dir."
             raise AltGammaException(msg)
 
         if name not in self._gamma_exes:
-            msg = "Unrecognised Gamma program '{}', check calling function.\nKnown GAMMA exes:\n{}"
+            msg = "Unrecognised attribute '{}'. Check the calling function name, or for unimplemented" \
+                  "attributes.\nKnown GAMMA exes for this shim are:\n{}"
             raise AttributeError(msg.format(name, self._gamma_exes))
 
         cmd = os.path.join(self.install_dir, self._gamma_exes[name])
@@ -112,6 +124,7 @@ class AltGamma:
 try:
     GAMMA_INSTALL_DIR = os.environ["GAMMA_INSTALL_DIR"]
 except KeyError:
+    # skip this under the assumption users will manually configure the shim
     pass
 
 if GAMMA_INSTALL_DIR:
