@@ -69,8 +69,7 @@ def find_gamma_installed_exes(install_dir, packages):
 
 def subprocess_wrapper(cmd, *args, **kwargs):
     """Shim function to map py_gamma args to subprocess.run()."""
-    cmd_list = [cmd]
-    cmd_list.append(" ".join(args))
+    cmd_list = [cmd, " ".join(args)]
 
     p = subprocess.run(
         cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
@@ -121,6 +120,10 @@ if GAMMA_INSTALL_DIR:
         GAMMA_INSTALL_DIR, GAMMA_INSTALLED_PACKAGES
     )
     pg = AltGamma(GAMMA_INSTALL_DIR, GAMMA_INSTALLED_EXES)
+
+    # HACK: InSAR packaging workflow requires pg.__file__, fake it so the AltGamma shim looks
+    # like the actual py_gamma module. Hopefully this shouldn't break anything.
+    pg.__file__ = os.path.join(GAMMA_INSTALL_DIR, "py_gamma.py")
 else:
     # assume user will configure manually
     warnings.warn('GAMMA_INSTALL_DIR not set, user needs to configure this in code...')

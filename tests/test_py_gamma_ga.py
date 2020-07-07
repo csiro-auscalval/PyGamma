@@ -39,9 +39,10 @@ def pg():
     # simulates 'import py_gamma as pg'
     iface = py_gamma_ga.AltGamma(FAKE_INSTALL_DIR)
     iface._gamma_exes = {
-        "S1_burstloc": "/path/ISP/bin/S1_burstloc",
-        "fake_gamma": "/path/ISP/bin/fake_gamma",
+        "S1_burstloc": "/fake/gamma/dir/ISP/bin/S1_burstloc",
+        "fake_gamma": "/fake/gamma/dir/ISP/bin/fake_gamma",
     }
+    iface.__file__ = "{}/py_gamma.py".format(FAKE_INSTALL_DIR)
     return iface
 
 
@@ -52,6 +53,11 @@ def test_getattr_function_lookup(pg):
 def test_getattr_function_not_exist(pg):
     with pytest.raises(AttributeError):
         assert pg.FakeMethod
+
+
+def test_dunder_file(pg):
+    # ensure the default hack __file__ is set
+    assert pg.__file__ == FAKE_INSTALL_DIR + "/py_gamma.py"
 
 
 FakeCompletedProcess = namedtuple(
