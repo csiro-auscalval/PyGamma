@@ -3,6 +3,7 @@ Utilities for managing Gamma settings for the InSAR ARD workflow.
 """
 
 import os
+import pathlib
 from collections import namedtuple
 
 
@@ -173,17 +174,23 @@ class ProcConfig:
     ]
 
     def __init__(self, **kwargs):
+        """
+        Create a ProcConfig instance.
+        :param kwargs: mapping of keywords and values from a proc config settings file.
+        """
         for k, v in kwargs.items():
+            # auto convert string paths to Paths to clean up workflow file handling
+            if '_path' in k or '_dir' in k or '_img' in k:
+                v = pathlib.Path(v)
             setattr(self, k, v)
 
-        # now prepare the derived settings variables
-        self.dem_img = os.path.join(
-            self.master_dem_image, "GAMMA_DEM_SRTM_1as_mosaic.img"
-        )
-        self.proj_dir = os.path.join(self.nci_path, self.project, self.sensor, "GAMMA")
-        self.raw_data_track_dir = os.path.join(self.raw_data_dir, self.track)
-        self.gamma_dem_dir = os.path.join(self.proj_dir, "gamma_dem")
-        self.results_dir = os.path.join(self.proj_dir, self.track, "results")
+        # prepare derived settings variables
+        self.dem_img = pathlib.Path(self.master_dem_image) / "GAMMA_DEM_SRTM_1as_mosaic.img"
+        self.proj_dir = pathlib.Path(self.nci_path) / self.project / self.sensor / "GAMMA"
+        self.raw_data_track_dir = pathlib.Path(self.raw_data_dir) / self.track
+        self.gamma_dem_dir = pathlib.Path(self.proj_dir) / "gamma_dem"
+        self.results_dir = pathlib.Path(self.proj_dir) / self.track / "results"
+
         self.dem_noff1, self.dem_noff2 = self.dem_offset.split(" ")
         self.ifg_rpos = self.dem_rpos
         self.ifg_azpos = self.dem_azpos
@@ -216,8 +223,7 @@ def is_valid_config_line(line):
     Assumes line has been stripped of whitespace.
     """
     if not line.startswith("#"):
-        if "=" in line:
-            return True
+        return "=" in line
     return False
 
 
@@ -270,8 +276,8 @@ def get_default_pbs_job_dirs(proc):
         "ifg_jobs",
     ]
 
-    args = [os.path.join(proc.batch_job_dir, d) for d in batch_dirs]
-    args.extend([os.path.join(proc.manual_job_dir, d) for d in manual_dirs])
+    args = [pathlib.Path(proc.batch_job_dir) / d for d in batch_dirs]
+    args.extend([pathlib.Path(proc.manual_job_dir) / d for d in manual_dirs])
     return PBS_job_dirs(*args)
 
 
@@ -286,8 +292,8 @@ def get_default_sentinel1_pbs_job_dirs(proc):
 
     manual_dirs = ["resize_S1_slc_jobs", "subset_S1_slc_jobs"]
 
-    args = [os.path.join(proc.batch_job_dir, d) for d in batch_dirs]
-    args.extend([os.path.join(proc.manual_job_dir, d) for d in manual_dirs])
+    args = [pathlib.Path(proc.batch_job_dir) / d for d in batch_dirs]
+    args.extend([pathlib.Path(proc.manual_job_dir) / d for d in manual_dirs])
     return Sentinel1_PBS_job_dirs(*args)
 
 

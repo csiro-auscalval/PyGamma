@@ -20,17 +20,17 @@ def test_read_proc_file():
     assert file_obj.closed is False
 
     pv = project.ProcConfig.from_file(file_obj)
-    assert pv.nci_path == "<user-defined>"
-    assert pv.slc_dir == "SLC"
+    assert pv.nci_path.as_posix() == "<user-defined>"
+    assert pv.slc_dir.as_posix() == "SLC"
     assert pv.ifg_list == "ifgs.list"
     assert pv.master_dem_image
 
     # check secondary variables derived from the proc file
-    assert pv.dem_img == "{}/GAMMA_DEM_SRTM_1as_mosaic.img".format(pv.master_dem_image)
-    assert pv.proj_dir == "{}/{}/{}/GAMMA".format(pv.nci_path, pv.project, pv.sensor)
-    assert pv.raw_data_track_dir == "{}/{}".format(pv.raw_data_dir, pv.track)
-    assert pv.gamma_dem_dir == "{}/gamma_dem".format(pv.proj_dir)
-    assert pv.results_dir == "{}/{}/results".format(pv.proj_dir, pv.track)
+    assert pv.dem_img.as_posix() == "{}/GAMMA_DEM_SRTM_1as_mosaic.img".format(pv.master_dem_image)
+    assert pv.proj_dir.as_posix() == "{}/{}/{}/GAMMA".format(pv.nci_path, pv.project, pv.sensor)
+    assert pv.raw_data_track_dir.as_posix() == "{}/{}".format(pv.raw_data_dir, pv.track)
+    assert pv.gamma_dem_dir.as_posix() == "{}/gamma_dem".format(pv.proj_dir)
+    assert pv.results_dir.as_posix() == "{}/{}/results".format(pv.proj_dir, pv.track)
     assert pv.dem_noff1 == "0"
     assert pv.dem_noff2 == "0"
     assert pv.ifg_rpos == pv.dem_rpos
@@ -83,14 +83,14 @@ def test_pbs_job_dirs(mproc):
     assert len([x for x in dir(pbs_dirs) if x.endswith("_dir")]) == 14
 
     # check subset of batch vars
-    assert pbs_dirs.extract_raw_batch_dir == BATCH_BASE + "/extract_raw_jobs"
-    assert pbs_dirs.dem_batch_dir == BATCH_BASE + "/dem_jobs"
-    assert pbs_dirs.ifg_batch_dir == BATCH_BASE + "/ifg_jobs"
+    assert pbs_dirs.extract_raw_batch_dir.as_posix() == BATCH_BASE + "/extract_raw_jobs"
+    assert pbs_dirs.dem_batch_dir.as_posix() == BATCH_BASE + "/dem_jobs"
+    assert pbs_dirs.ifg_batch_dir.as_posix() == BATCH_BASE + "/ifg_jobs"
 
     # check subset of manual vars
-    assert pbs_dirs.extract_raw_manual_dir == MANUAL_BASE + "/extract_raw_jobs"
-    assert pbs_dirs.base_manual_dir == MANUAL_BASE + "/baseline_jobs"
-    assert pbs_dirs.ifg_manual_dir == MANUAL_BASE + "/ifg_jobs"
+    assert pbs_dirs.extract_raw_manual_dir.as_posix() == MANUAL_BASE + "/extract_raw_jobs"
+    assert pbs_dirs.base_manual_dir.as_posix() == MANUAL_BASE + "/baseline_jobs"
+    assert pbs_dirs.ifg_manual_dir.as_posix() == MANUAL_BASE + "/ifg_jobs"
 
 
 def test_pbs_job_dirs_none_setting(mproc):
@@ -103,10 +103,10 @@ def test_pbs_job_dirs_none_setting(mproc):
 
 def test_sentinel1_pbs_job_dirs(mproc):
     s1_pbs_dirs = project.get_default_sentinel1_pbs_job_dirs(mproc)
-    assert s1_pbs_dirs.resize_batch_dir == BATCH_BASE + "/resize_S1_slc_jobs"
-    assert s1_pbs_dirs.resize_manual_dir == MANUAL_BASE + "/resize_S1_slc_jobs"
-    assert s1_pbs_dirs.subset_batch_dir == BATCH_BASE + "/subset_S1_slc_jobs"
-    assert s1_pbs_dirs.subset_manual_dir == MANUAL_BASE + "/subset_S1_slc_jobs"
+    assert s1_pbs_dirs.resize_batch_dir.as_posix() == BATCH_BASE + "/resize_S1_slc_jobs"
+    assert s1_pbs_dirs.resize_manual_dir.as_posix() == MANUAL_BASE + "/resize_S1_slc_jobs"
+    assert s1_pbs_dirs.subset_batch_dir.as_posix() == BATCH_BASE + "/subset_S1_slc_jobs"
+    assert s1_pbs_dirs.subset_manual_dir.as_posix() == MANUAL_BASE + "/subset_S1_slc_jobs"
 
 
 def test_sentinel1_pbs_job_dirs_none_setting(mproc):
