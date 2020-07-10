@@ -126,37 +126,40 @@ def test_default_dem_master_paths(mproc):
     assert len([x for x in dir(cfg) if x.startswith("dem_")]) == 12
     assert len([x for x in dir(cfg) if x.startswith("r_dem_")]) == 7
 
-    assert cfg.dem_master_dir == "{}/{}".format(slc_dir, ref_master_scene)
-    assert cfg.dem_master_slc_name == "{}/{}_{}".format(
+    # pathlib.Path objs are immutable, requiring as_posix() & changing full ext using with_suffix()
+    # some of this is a bit ugly
+    assert cfg.dem_master_dir.as_posix() == "{}/{}".format(slc_dir, ref_master_scene)
+    assert cfg.dem_master_slc_name.as_posix() == "{}/{}_{}".format(
         cfg.dem_master_dir, ref_master_scene, polarisation
     )
-    assert cfg.dem_master_slc == cfg.dem_master_slc_name + ".slc"
-    assert cfg.dem_master_slc_par == cfg.dem_master_slc + ".par"
+    assert cfg.dem_master_slc == cfg.dem_master_slc_name.with_suffix(".slc")
+    assert cfg.dem_master_slc_par == cfg.dem_master_slc.with_suffix(".slc.par")
 
-    assert cfg.dem_master_mli_name == "{}/{}_{}_{}rlks".format(
+    assert cfg.dem_master_mli_name.as_posix() == "{}/{}_{}_{}rlks".format(
         cfg.dem_master_dir, ref_master_scene, polarisation, range_looks
     )
-    assert cfg.dem_master_mli == cfg.dem_master_mli_name + ".mli"
-    assert cfg.dem_master_mli_par == cfg.dem_master_mli + ".par"
+    assert cfg.dem_master_mli == cfg.dem_master_mli_name.with_suffix(".mli")
+    assert cfg.dem_master_mli_par == cfg.dem_master_mli.with_suffix(".mli.par")
 
-    assert cfg.dem_master_gamma0 == cfg.dem_master_mli_name + ".gamma0"
-    assert cfg.dem_master_gamma0_bmp == cfg.dem_master_gamma0 + ".bmp"
-    assert cfg.dem_master_gamma0_eqa == cfg.dem_master_mli_name + "_eqa.gamma0"
-    assert cfg.dem_master_gamma0_eqa_bmp == cfg.dem_master_gamma0_eqa + ".bmp"
-    assert cfg.dem_master_gamma0_eqa_geo == cfg.dem_master_gamma0_eqa + ".tif"
+    assert cfg.dem_master_gamma0 == cfg.dem_master_mli_name.with_suffix(".gamma0")
+    assert cfg.dem_master_gamma0_bmp == cfg.dem_master_gamma0.with_suffix(".gamma0.bmp")
+    assert cfg.dem_master_gamma0_eqa.as_posix() == cfg.dem_master_mli_name.as_posix() + "_eqa.gamma0"
+    assert cfg.dem_master_gamma0_eqa_bmp.as_posix() == cfg.dem_master_gamma0_eqa.as_posix() + ".bmp"
+    assert cfg.dem_master_gamma0_eqa_geo.as_posix() == cfg.dem_master_gamma0_eqa.as_posix() + ".tif"
 
-    assert cfg.r_dem_master_slc_name == "{}/r{}_{}".format(
+    assert cfg.r_dem_master_slc_name.as_posix() == "{}/r{}_{}".format(
         cfg.dem_master_dir, ref_master_scene, polarisation
     )
-    assert cfg.r_dem_master_slc == cfg.r_dem_master_slc_name + ".slc"
-    assert cfg.r_dem_master_slc_par == cfg.r_dem_master_slc + ".par"
-    assert cfg.r_dem_master_mli_name == "{}/r{}_{}_{}rlks".format(
+    assert cfg.r_dem_master_slc == cfg.r_dem_master_slc_name.with_suffix(".slc")
+    assert cfg.r_dem_master_slc_par == cfg.r_dem_master_slc.with_suffix(".slc.par")
+
+    assert cfg.r_dem_master_mli_name.as_posix() == "{}/r{}_{}_{}rlks".format(
         cfg.dem_master_dir, ref_master_scene, polarisation, range_looks
     )
 
-    assert cfg.r_dem_master_mli == cfg.r_dem_master_mli_name + ".mli"
-    assert cfg.r_dem_master_mli_par == cfg.r_dem_master_mli + ".par"
-    assert cfg.r_dem_master_mli_bmp == cfg.r_dem_master_mli + ".bmp"
+    assert cfg.r_dem_master_mli == cfg.r_dem_master_mli_name.with_suffix(".mli")
+    assert cfg.r_dem_master_mli_par == cfg.r_dem_master_mli.with_suffix(".mli.par")
+    assert cfg.r_dem_master_mli_bmp == cfg.r_dem_master_mli.with_suffix(".mli.bmp")
 
 
 def test_default_dem_master_paths_none_setting(mproc):

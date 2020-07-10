@@ -289,7 +289,6 @@ Sentinel1_PBS_job_dirs = namedtuple(
 
 def get_default_sentinel1_pbs_job_dirs(proc):
     batch_dirs = ["resize_S1_slc_jobs", "subset_S1_slc_jobs"]
-
     manual_dirs = ["resize_S1_slc_jobs", "subset_S1_slc_jobs"]
 
     args = [pathlib.Path(proc.batch_job_dir) / d for d in batch_dirs]
@@ -322,51 +321,38 @@ class DEMMasterNames:
 
     def __init__(self, proc=None):
         if proc:
-            self.dem_master_dir = os.path.join(proc.slc_dir, proc.ref_master_scene)
-            self.dem_master_slc_name = os.path.join(
-                self.dem_master_dir, proc.ref_master_scene + "_" + proc.polarisation
-            )
-            self.dem_master_slc = self.dem_master_slc_name + ".slc"
-            self.dem_master_slc_par = self.dem_master_slc + ".par"
+            self.dem_master_dir = pathlib.Path(proc.slc_dir) / proc.ref_master_scene
 
-            self.dem_master_mli_name = os.path.join(
-                self.dem_master_dir,
-                proc.ref_master_scene
-                + "_"
-                + proc.polarisation
-                + "_"
-                + proc.range_looks
-                + "rlks",
-            )
-            self.dem_master_mli = self.dem_master_mli_name + ".mli"
-            self.dem_master_mli_par = self.dem_master_mli + ".par"
+            suffix = proc.ref_master_scene + "_" + proc.polarisation
+            self.dem_master_slc_name = pathlib.Path(self.dem_master_dir) / suffix
 
-            self.dem_master_gamma0 = self.dem_master_mli_name + ".gamma0"
-            self.dem_master_gamma0_bmp = self.dem_master_gamma0 + ".bmp"
-            self.dem_master_gamma0_eqa = self.dem_master_mli_name + "_eqa.gamma0"
-            self.dem_master_gamma0_eqa_bmp = self.dem_master_gamma0_eqa + ".bmp"
-            self.dem_master_gamma0_eqa_geo = self.dem_master_gamma0_eqa + ".tif"
+            self.dem_master_slc = pathlib.Path(self.dem_master_dir) / (suffix + ".slc")
+            self.dem_master_slc_par = pathlib.Path(self.dem_master_dir) / (suffix + ".slc.par")
 
-            self.r_dem_master_slc_name = (
-                os.path.join(self.dem_master_dir, "r" + proc.ref_master_scene)
-                + "_"
-                + proc.polarisation
-            )
+            suffix_lks = proc.ref_master_scene + "_" + proc.polarisation + "_" + proc.range_looks + "rlks"
+            self.dem_master_mli_name = pathlib.Path(self.dem_master_dir) / suffix_lks
 
-            self.r_dem_master_slc = self.r_dem_master_slc_name + ".slc"
-            self.r_dem_master_slc_par = self.r_dem_master_slc + ".par"
+            self.dem_master_mli = pathlib.Path(self.dem_master_dir) / (suffix_lks + ".mli")
+            self.dem_master_mli_par = pathlib.Path(self.dem_master_dir) / (suffix_lks + ".mli.par")
+            self.dem_master_gamma0 = pathlib.Path(self.dem_master_dir) / (suffix_lks + ".gamma0")
+            self.dem_master_gamma0_bmp = pathlib.Path(self.dem_master_dir) / (suffix_lks + ".gamma0.bmp")
 
-            self.r_dem_master_mli_name = (
-                os.path.join(self.dem_master_dir, "r" + proc.ref_master_scene)
-                + "_"
-                + proc.polarisation
-                + "_"
-                + proc.range_looks
-                + "rlks"
-            )
-            self.r_dem_master_mli = self.r_dem_master_mli_name + ".mli"
-            self.r_dem_master_mli_par = self.r_dem_master_mli + ".par"
-            self.r_dem_master_mli_bmp = self.r_dem_master_mli + ".bmp"
+            self.dem_master_gamma0_eqa = pathlib.Path(self.dem_master_dir) / (suffix_lks + "_eqa.gamma0")
+            self.dem_master_gamma0_eqa_bmp = pathlib.Path(self.dem_master_dir) / (suffix_lks + "_eqa.gamma0.bmp")
+            self.dem_master_gamma0_eqa_geo = pathlib.Path(self.dem_master_dir) / (suffix_lks + "_eqa.gamma0.tif")
+
+            suffix_slc = "r{}_{}".format(proc.ref_master_scene, proc.polarisation)
+            self.r_dem_master_slc_name = pathlib.Path(self.dem_master_dir) / suffix_slc
+
+            self.r_dem_master_slc = pathlib.Path(self.dem_master_dir) / (suffix_slc + ".slc")
+            self.r_dem_master_slc_par = pathlib.Path(self.dem_master_dir) / (suffix_slc + ".slc.par")
+
+            suffix_mli = "r{}_{}_{}rlks".format(proc.ref_master_scene, proc.polarisation, proc.range_looks)
+            self.r_dem_master_mli_name = pathlib.Path(self.dem_master_dir) / suffix_mli
+
+            self.r_dem_master_mli = pathlib.Path(self.dem_master_dir) / (suffix_mli + ".mli")
+            self.r_dem_master_mli_par = pathlib.Path(self.dem_master_dir) / (suffix_mli + ".mli.par")
+            self.r_dem_master_mli_bmp = pathlib.Path(self.dem_master_dir) / (suffix_mli + ".mli.bmp")
 
 
 class DEMFileNames:
@@ -421,7 +407,7 @@ class DEMFileNames:
                 proc.ref_master_scene, proc.polarisation, proc.range_looks
             ),
         )
-        # following block is semi useless as it's testing string concatenation
+
         self.rdc_dem = self.dem_master_name + "_rdc.dem"
         self.eqa_dem = self.dem_master_name + "_eqa.dem"
         self.eqa_dem_par = self.eqa_dem + ".par"
