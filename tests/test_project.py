@@ -1,4 +1,5 @@
 import io
+import pathlib
 from insar import project
 
 from unittest.mock import Mock
@@ -217,32 +218,31 @@ def test_default_dem_file_names(mproc):
 
 
 def test_default_ifg_file_names(mproc):
-    mproc.int_dir = "INT"
-    cfg = project.IfgFileNames(mproc, "master", "slave")
+    mproc.int_dir = pathlib.Path("INT")
+    master = pathlib.Path("master")
+    slave = pathlib.Path("slave")
+    cfg = project.IfgFileNames(mproc, master, slave)
 
-    assert cfg.ifg_dir == "INT/master-slave"
-    assert cfg.master_dir == "slc-dir/master"
-    assert cfg.slave_dir == "slc-dir/slave"
-    assert cfg.r_master_slc_name == "slc-dir/master/rmaster_polarisation"
-    assert cfg.r_master_slc == "slc-dir/master/rmaster_polarisation.slc"
-    assert cfg.r_master_slc_par == "slc-dir/master/rmaster_polarisation.par"
+    assert cfg.ifg_dir.as_posix() == "INT/master-slave"
+    assert cfg.master_dir.as_posix() == "slc-dir/master"
+    assert cfg.slave_dir.as_posix() == "slc-dir/slave"
+    assert cfg.r_master_slc_name.as_posix() == "slc-dir/master/rmaster_polarisation"
+    assert cfg.r_master_slc.as_posix() == "slc-dir/master/rmaster_polarisation.slc"
+    assert cfg.r_master_slc_par.as_posix() == "slc-dir/master/rmaster_polarisation.par"
 
-    assert cfg.r_master_mli_name == "slc-dir/master/rmaster_polarisation_range-looksrlks"
-    assert cfg.r_master_mli == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli"
-    assert (
-        cfg.r_master_mli_par
-        == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli.par"
-    )
+    assert cfg.r_master_mli_name.as_posix() == "slc-dir/master/rmaster_polarisation_range-looksrlks"
+    assert cfg.r_master_mli.as_posix() == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli"
+    assert cfg.r_master_mli_par.as_posix() == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli.par"
 
-    assert cfg.r_slave_slc_name == "slc-dir/slave/rslave_polarisation"
-    assert cfg.r_slave_slc == "slc-dir/slave/rslave_polarisation.slc"
-    assert cfg.r_slave_slc_par == "slc-dir/slave/rslave_polarisation.slc.par"
+    assert cfg.r_slave_slc_name.as_posix() == "slc-dir/slave/rslave_polarisation"
+    assert cfg.r_slave_slc.as_posix() == "slc-dir/slave/rslave_polarisation.slc"
+    assert cfg.r_slave_slc_par.as_posix() == "slc-dir/slave/rslave_polarisation.slc.par"
 
-    assert cfg.r_slave_mli_name == "slc-dir/slave/rslave_polarisation_range-looksrlks"
+    assert cfg.r_slave_mli_name.as_posix() == "slc-dir/slave/rslave_polarisation_range-looksrlks"
 
     # ignore vars after this as it's just testing string concatenation
     assert (
-        cfg.master_slave_name
+        cfg.master_slave_name.as_posix()
         == "INT/master-slave/master-slave_polarisation_range-looksrlks"
     )
 
