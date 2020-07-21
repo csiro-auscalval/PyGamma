@@ -1,22 +1,11 @@
-import sys
 import pathlib
 from unittest import mock
 
+from insar import process_ifg
 from insar.process_ifg import ProcessIfgException
 from insar.project import ProcConfig, IfgFileNames
 
 import pytest
-
-
-PY_GAMMA_MODULE = "py_gamma"
-
-if PY_GAMMA_MODULE not in sys.modules:
-    # mock Gamma for local testing
-    py_gamma_mock = mock.Mock()
-    msg = "This is a mock py_gamma, Gamma not found/installed on this platform"
-    sys.modules[PY_GAMMA_MODULE] = py_gamma_mock
-
-from insar import process_ifg  # noqa
 
 
 # FIXME: tweak settings to ensure working dir doesn't have to be changed for INT processing

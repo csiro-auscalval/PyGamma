@@ -1,8 +1,16 @@
+import socket
 import structlog
 from insar.project import ProcConfig, IfgFileNames
 
-# TODO: add try/except guard block for import, check hostname for to handle tests locally & gadi
-import py_gamma as pg
+try:
+    import py_gamma as pg
+except ImportError as iex:
+    pg = None
+    hostname = socket.gethostname()
+
+    if hostname.startswith('gadi'):
+        # something odd here if can't find py_gamma path on NCI
+        raise iex
 
 
 _LOG = structlog.get_logger("insar")

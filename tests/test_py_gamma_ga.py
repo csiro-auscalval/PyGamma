@@ -1,21 +1,8 @@
 import os
-import sys
-from unittest import mock
 from collections import Sequence, namedtuple
+from insar import py_gamma_ga
 
 import pytest
-
-PY_GAMMA_MODULE = "py_gamma"
-
-if PY_GAMMA_MODULE not in sys.modules:
-    # mock out the import for local testing
-    py_gamma_broken = mock.Mock()
-    msg = "This is a mock py_gamma.{}, Gamma not found/installed on this platform"
-    py_gamma_broken.ParFile.side_effect = NotImplementedError(msg.format("ParFile"))
-    sys.modules[PY_GAMMA_MODULE] = py_gamma_broken
-
-# defer shim import to ensure dependencies exist or are mocked
-from insar import py_gamma_ga  # noqa
 
 
 FAKE_INSTALL_DIR = "/fake/gamma/dir"
@@ -32,7 +19,7 @@ def test_find_gamma_installed_packages(monkeypatch):
 def test_find_gamma_installed_exes(monkeypatch):
     def dummy_walk(_):
         """Fake os.walk()"""
-        yield ("/some/dir", "", ["S1_burstloc", "FakeProg"])
+        yield "/some/dir", "", ["S1_burstloc", "FakeProg"]
 
     def dummy_access(path, flag):
         """Fake os.access()"""
