@@ -88,6 +88,7 @@ class ProcConfig:
         "coreg_s1_cc_thresh",
         "coreg_s1_frac_thresh",
         "coreg_s1_stdev_thresh",
+
         "ifg_begin",
         "ifg_end",
         "ifg_coherence_threshold",
@@ -103,6 +104,7 @@ class ProcConfig:
         "ifg_thres",
         "ifg_init_win",
         "ifg_offset_win",
+
         "post_ifg_da_threshold",
         "post_ifg_area_range",
         "post_ifg_area_azimuth",
@@ -203,9 +205,7 @@ class ProcConfig:
         :param file_obj: an open file like object
         :return: new ProcConfig object
         """
-        raw_lines = [
-            line.strip() for line in file_obj.readlines() if is_valid_config_line(line)
-        ]
+        raw_lines = [line.strip() for line in file_obj.readlines() if is_valid_config_line(line)]
         kv_pairs = [line.split("=") for line in raw_lines]
 
         # rename any keys with hyphens
@@ -365,6 +365,7 @@ class DEMFileNames:
         "eqa_dem",
         "eqa_dem_par",
         "seamask",
+
         "dem_lt_rough",
         "dem_lt_fine",
         "dem_eqa_sim_sar",
@@ -372,6 +373,7 @@ class DEMFileNames:
         "dem_loc_inc",
         "dem_rdc_inc",
         "dem_lsmap",
+
         "ellip_pix_sigma0",
         "dem_pix_gam",
         "dem_pix_gam_bmp",
@@ -383,6 +385,7 @@ class DEMFileNames:
         "dem_coffsets",
         "dem_lv_theta",
         "dem_lv_phi",
+
         "ext_image_flt",
         "ext_image_init_sar",
         "ext_image_sar",
@@ -456,12 +459,14 @@ class IfgFileNames:
         "r_master_mli_name",
         "r_master_mli",
         "r_master_mli_par",
+
         "r_slave_slc_name",
         "r_slave_slc",
         "r_slave_slc_par",
         "r_slave_mli_name",
         "r_slave_mli",
         "r_slave_mli_par",
+
         "master_slave_name",
         "ifg_base",
         "ifg_base_init",
@@ -472,6 +477,7 @@ class IfgFileNames:
         "ifg_coffs",
         "ifg_coffsets",
         "ifg_diff_par",
+
         "ifg_filt",
         "ifg_filt_float",
         "ifg_filt_geocode_bmp",
@@ -482,6 +488,7 @@ class IfgFileNames:
         "ifg_filt_cc_geocode_bmp",
         "ifg_filt_cc_geocode_out",
         "ifg_filt_cc_geocode_png",
+
         "ifg_flat",
         "ifg_flat_float",
         "ifg_flat_geocode_bmp",
@@ -499,6 +506,7 @@ class IfgFileNames:
         "ifg_flat_cc0_mask",
         "ifg_flat_cc10",
         "ifg_flat_cc10_mask",
+
         "ifg_gcp",
         "ifg_gcp_ph",
         "ifg_mask",
