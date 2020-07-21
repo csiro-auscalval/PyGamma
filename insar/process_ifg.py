@@ -61,12 +61,12 @@ def calc_int(pc: ProcConfig,
                                  ic.ifg_off,  # (input) ISP offset/interferogram parameter file
                                  ic.ifg_offs,  # (output) offset estimates in range and azimuth (fcomplex)
                                  ic.ifg_ccp,  # (output) cross-correlation of each patch (0.0->1.0) (float)
-                                 const.RANGE_PATCH_SIZE,  # (range pixels, enter - for default from offset parameter file)
-                                 const.AZIMUTH_PATCH_SIZE, # (azimuth lines, enter - for default from offset parameter file)
+                                 const.RANGE_PATCH_SIZE,
+                                 const.AZIMUTH_PATCH_SIZE,
                                  const.NO_OUTPUT,  # (output) range and azimuth offsets and cross-correlation data
-                                 const.SLC_OVERSAMPLING_FACTOR_DEFAULT,  # (integer 2**N (1,2,4), enter - for default: 2)
-                                 const.NUM_OFFSET_ESTIMATES_RANGE,  # or "-" for default from offset parameter file
-                                 const.NUM_OFFSET_ESTIMATES_AZIMUTH,  # or "-" for default from offset parameter file
+                                 const.SLC_OVERSAMPLING_FACTOR_DEFAULT,
+                                 const.NUM_OFFSET_ESTIMATES_RANGE,
+                                 const.NUM_OFFSET_ESTIMATES_AZIMUTH,
                                  const.CROSS_CORRELATION_THRESHOLD,
                                  cout=cout,
                                  cerr=cerr)
