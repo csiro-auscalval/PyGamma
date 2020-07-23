@@ -59,7 +59,177 @@ Linux
 	$module use <path/to/a/module/file/location>
 	$module load <module name>
 
+### The InSAR Workflow
+Several preliminary steps are required to generate backscatter and interferometry products.
+1) Extract SLC metadata from the Sentinel-1 zip files and store
+   that information into yaml files. This needs to be done once
+   for a given time frame of the user's choosing
+   (see YAML Extraction example).
+
+2) Generate an sqlite database from all the yamls created in (1).
+   This db file is used for fast quering. This needs to be done
+   (see Database Creation example)
+
+3) Generate grids for a given time frame, region-of-interest,
+   latitude width and buffer size. This step requires the
+   db file from (2) and generates shp files (and kml files
+   if specified - see Grid Generation example)
+
+4) Adjust/reconfigure the grids generated in the previous step.
+   This is an optional step, see,
+   grid-definition grid-adjustment --help
+
+5) Create task-files. The shp files from (3) are needed
+   (see Task File Creation example)
+
+6) Generate backscatter products (see Multi-stack packaging example)
+
+7) Package backscatter (see Multi-stack packaging example)
+
 ### Usage
+#### Example SLC Metadata to YAML Extraction
+
+Run this step to extract the SLC acquisition details into YAML files for a single month.
+
+Create a PBS job script on `Gadi` using this template:
+
+```BASH
+#!/bin/bash
+#PBS -P u46
+#PBS -q express  # for faster turnaround in the queue
+#PBS -l walltime=05:00:00,mem=4GB,ncpus=1
+#PBS -l wd
+#PBS -l storage=gdata/v10+gdata/dg9+gdata/fj7+gdata/up71
+#PBS -me
+#PBS -M <your-email@some.domain>
+
+pushd $HOME/<your-project-dir>/gamma_insar/configs
+source insar.env
+popd
+
+slc-archive slc-ingestion \
+    --save-yaml \
+    --yaml-dir <dir-to-save-generated-yamls> \
+    --year <year-to-process> \
+    --month <month-to-process> \
+    --slc-dir /g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC \  # change if required
+    --database-name <filename-to-save-sqlite-db-to> \
+    --log-pathname <filename-to-save-log-to>
+```
+
+Then submit with `qsub` from somewhere in your `$HOME` dir. If your groups are correctly set, the `source insar.env` line should complete without errors or warnings. The run time should be around 70 minutes.
+
+#### Database Creation
+Run this step to create an sqlite database (.db) file from SLC metadata stored in the yaml files
+
+Create a PBS job script on `Gadi` using this template:
+
+```BASH
+#!/bin/bash
+#PBS -P u46
+#PBS -q normal
+#PBS -l walltime=10:00:00,mem=4GB,ncpus=1
+#PBS -l wd
+#PBS -l storage=gdata/v10+gdata/dg9+gdata/fj7+gdata/up71
+#PBS -me
+#PBS -M <your-email@some.domain>
+
+source <path-to-insar.env>
+
+slc-archive slc-ingest-yaml \
+        --database-name <output-sqlite-database-filename> \
+        --yaml-dir <base-dir-containing-yaml-files> \
+        --log-pathname <output-json-log-filename>
+```
+Then submit with `qsub`. The run time can be quite long depending on how many yaml files there are.
+
+#### NSW and VIC S1A Grid Generation example
+Run this step to create grids
+Create a PBS job script on `Gadi` using this template:
+
+```BASH
+#!/bin/bash
+#PBS -P u46
+#PBS -q normal
+#PBS -l walltime=05:00:00,mem=4GB,ncpus=1
+#PBS -l wd
+#PBS -l storage=gdata/v10+gdata/dg9+gdata/fj7+gdata/up71
+#PBS -me
+#PBS -M <your-email@some.domain>
+
+source <path-to-insar.env>
+
+grid-definition grid-generation-new \
+    --database-path <sqlite-database-filename> \
+    --out-dir <dir-to-save-shape-files> \
+    --latitude-width <positive-float-for-latitude-width> \
+    --latitude-buffer <positive-float-for-buffer> \
+    --log-pathname <output-json-log-filename> \
+    --create-kml \	# ignore if kml files are not desired
+    --sensor S1A \      # ignore if S1A and S1B are required
+    --start-date <YYYY-MM-DD> \
+    --end-date <YYYY-MM-DD> \
+    --northern-latitude -27.0 \		# decimal degrees North
+    --western-longitude 138.0 \		# decimal degrees East
+    --southern-latitude -39.2 \		# decimal degrees South
+    --eastern-longitude 153.8		# decimal degrees West
+
+```
+Then submit with `qsub`. 
+
+#### Australia-wide S1A and S1B Grid Generation example
+Run this step to create grids
+Create a PBS job script on `Gadi` using this template:
+
+```BASH
+#!/bin/bash
+#PBS -P u46
+#PBS -q normal
+#PBS -l walltime=05:00:00,mem=4GB,ncpus=1
+#PBS -l wd
+#PBS -l storage=gdata/v10+gdata/dg9+gdata/fj7+gdata/up71
+#PBS -me
+#PBS -M <your-email@some.domain>
+
+source <path-to-insar.env>
+
+grid-definition grid-generation-new \
+    --database-path <sqlite-database-filename> \
+    --out-dir <dir-to-save-shape-files> \
+    --latitude-width <positive-float-for-latitude-width> \
+    --latitude-buffer <positive-float-for-buffer> \
+    --log-pathname <output-json-log-filename> \
+    --create-kml \      # ignore if kml files are not desired
+    --start-date <YYYY-MM-DD> \
+    --end-date <YYYY-MM-DD>
+
+```
+Then submit with `qsub`.
+
+#### Task File Creation example
+Run this step to create task-files needed to generate backscattering/interferometry products
+Create a PBS job script on `Gadi` using this template:
+
+```BASH
+#!/bin/bash
+#PBS -P u46
+#PBS -q normal
+#PBS -l walltime=05:00:00,mem=4GB,ncpus=1
+#PBS -l wd
+#PBS -l storage=gdata/v10+gdata/dg9+gdata/fj7+gdata/up71
+#PBS -me
+#PBS -M <your-email@some.domain>
+
+source <path-to-insar.env>
+
+create-task-files insar-files \
+    --input-path <dir-to-shp-files> \
+    --out-dir <dir-to-save-task-files>
+
+```
+Then submit with `qsub`.
+
+
 #### Single Stack processing 
 The workflow is managed by a luigi-scheduler and parameters can be set in `luigi.cfg` file.
 
@@ -89,8 +259,8 @@ Process a single stack Sentinel-1 SLC data to directly using a ARD pipeline from
 #### Examples 
 
 	$gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --workers <number-of-workers> --local-scheduler 
-        $gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization '["VV"]' --workers <number-of-workers> --local-scheduler
-        $gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization '["VV","VH"]' --workers <number-of-workers> --local-scheduler
+	$gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization '["VV"]' --workers <number-of-workers> --local-scheduler
+	$gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization '["VV","VH"]' --workers <number-of-workers> --local-scheduler
 
 #### Single stack packaging 
 The packaging of a single stack Sentinel-1 ARD processed using `gamma_insar ARD` workflow.
@@ -131,14 +301,14 @@ and submitted to NCI queue with parameters specified in a `required parameters`
              --polarization TEXT  Polarizations to be processed VV or VH, arg
                                   can be specified multiple times
              --ncpus   INTEGER    The total number of cpus per job required if known (default=48)
-             --memory  INTEGER    Total memory required if per node
+             --memory  INTEGER    Total memory required if per node - recommend to use 700
              --queue   TEXT       Queue {express, normal, hugemem} to submit
-                                  the job (default=normal)
+                                  the job (default=normal) - recommend to use hugemem
              --hours   INTEGER    Job walltime in hours (default=48)
              --email   TEXT       Notification email address.
              --nodes   INTEGER    Number of nodes to be requested (default=1)
              --workers INTEGER    Number of workers
-             --jobfs   INTEGER    Jobfs required per node (default=400)
+             --jobfs   INTEGER    Jobfs required per node (default=2)
              -s, --storage TEXT   Project storage you wish to use in PBS jobs
              --project TEXT       Project to compute under
              --env PATH           Environment script to source.
@@ -146,9 +316,9 @@ and submitted to NCI queue with parameters specified in a `required parameters`
 
 #### Example 
 
-	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --ncpus 48 --memory 192 --queue normal --nodes 2 --jobfs 400 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
-	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization VV --ncpus 48 --memory 700 --queue hugemem --nodes 2 --workers 6 --jobfs 400 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
-	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization VV --polarization VH --ncpus 48 --memory 700 --queue hugemem --nodes 2 --workers 10 --jobfs 400 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --ncpus 48 --memory 700 --queue hugemem --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization VV --ncpus 48 --memory 700 --queue hugemem --nodes 2 --workers 6 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization VV --polarization VH --ncpus 48 --memory 700 --queue hugemem --nodes 2 --workers 10 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
 
 #### Multi-stack packaging of InSAR ARD using PBS system
 Batch processing of packaging of InSAR ARD to be indexed using Open Data Cube tools eo-datasets. 
@@ -178,36 +348,6 @@ to be packaged to be indexed into a data-cube.
 
 #### Example 
 
-	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --queue normal --nodes 2 --jobfs 50 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
-	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --polarization VH --queue normal --nodes 2 --jobfs 50 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --queue normal --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --polarization VH --queue normal --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
 
-### Example SLC Metadata to YAML Extraction
-
-Run this step to extract the SLC acquisition details into YAML files.
-
-Create a PBS job script on `Gadi` using this template:
-
-```BASH
-#!/bin/bash
-#PBS -P u46
-#PBS -q express  # for faster turnaround in the queue
-#PBS -l walltime=05:00:00,mem=4GB,ncpus=1
-#PBS -l wd
-#PBS -l storage=gdata/v10+gdata/dg9+gdata/fj7+gdata/up71
-#PBS -me
-#PBS -M <your-email@some.domain>
-
-pushd $HOME/<your-project-dir>/gamma_insar/configs
-source insar.env
-popd
-
-slc-archive slc-ingestion \
-    --save-yaml \
-    --yaml-dir <dir-to-save-generated-yamls> \
-    --year <year-to-process> --month <month-to-process> \
-    --slc-dir /g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC \  # change if required
-    --database-name <filename-to-save-sqlite-db-to> \
-    --log-pathname <filename-to-save-log-to>
-```
-
-Then submit with `qsub` from somewhere in your `$HOME` dir. If your groups are correctly set, the `source insar.env` line should complete without errors or warnings. The run time should be around 70 minutes.
