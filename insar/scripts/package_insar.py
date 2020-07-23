@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
-from typing import Dict, Iterable, List, Optional, Union
-from pathlib import Path
-import datetime
-
-import structlog
+import os
+import yaml
 import attr
-import pandas as pd
 import click
+import datetime
+import structlog
+import pandas as pd
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Union
 
 from insar.py_gamma_ga import pg
 from eodatasets3 import DatasetAssembler
@@ -44,14 +45,18 @@ def map_product(product: str) -> Dict:
     return _map_dict[product]
 
 
-def _get_metadata(par_file: Union[Path, str]) -> Dict:
+def get_image_metadata_dict(par_file: Union[Path, str]) -> Dict:
     """
-    Returns metadata used in back  product generation.
+    Returns metadata used in backscatter product generation.
 
-    :param par_file:
-        A full path to a parameter file used in generating backscatter product.
+    Parameters
+    ----------
+    par_file: Path or str
+        A full path to the image parameter file (*.mli.par)
+        used in generating the backscatter product.
 
-    :returns:
+    Returns
+    -------
         A dict with parameters used in generating a backscatter product.
     """
 
@@ -134,20 +139,26 @@ def _get_metadata(par_file: Union[Path, str]) -> Dict:
     return _metadata
 
 
-def _slc_files(
+def get_s1_files(
     burst_data: Union[Path, str, pd.DataFrame], acquisition_date: datetime.date,
-) -> Iterable[str]:
+) -> List:
     """
-    Returns the SLC files used in forming Single-Look-Composite image.
+    Returns a list of Sentinel-1 files used in forming
+    Single-Look-Composite image.
 
-    :param burst_data:
+    Parameters
+    ----------
+
+    burst_data: Path, str, or pd.DataFrame
         A burst information data of a whole SLC stack. Either pandas
         DataFrame or csv file.
-    :param acquisition_date:
+
+    acquisition_date: datetime.date
         A date of the acquisition.
 
-    :returns:
-        A dict with parameters used in generating SLC image file.
+    Returns
+    -------
+        A list containing the S1 zip paths
     """
     if not isinstance(burst_data, pd.DataFrame):
         burst_data = pd.read_csv(Path(burst_data).as_posix())
@@ -158,10 +169,60 @@ def _slc_files(
     )
     _subset_burst_data = burst_data[burst_data["date"] == acquisition_date]
 
-    return [item for item in _subset_burst_data.url.unique()]
+    return [s1_zip for s1_zip in _subset_burst_data.url.unique()]
 
 
-def _find_products(
+def get_slc_metadata_dict(
+    s1_zip_list: list, yaml_base_dir: Union[Path, str, None],
+) -> Dict:
+    """
+    Returns a multi-layered dictionary containing SLC metadata
+    for each s1 zip in the given list
+
+    Parameters
+    ----------
+
+    s1_zip_list: list
+        A list of s1 zip files
+
+    yaml_base_dir: Path, str or None
+        the path to the yaml base directory
+
+    Returns
+    -------
+    A multi-layered dictionary containing SLC metadata.
+    """
+    if yaml_base_dir:
+        yaml_metadata = dict()
+        for s1_zip in s1_zip_list:
+            # create the filename of the yaml from the s1 zip
+            yaml_file = Path(
+                os.path.splitext(
+                    os.path.join(yaml_base_dir, *list(Path(s1_zip).parts[-4:]))
+                )[0]
+                + ".yaml"
+            )
+            if yaml_file.is_file:
+                # check that yaml file exists & load as a dictionary
+                with open(yaml_file, "r") as in_fid:
+                    slc_metadata = yaml.load(in_fid, Loader=yaml.FullLoader)
+
+            else:
+                # yaml file doesn't exist. Generate slc metadata
+                slc_metadata = generate_slc_metadata(Path(s1_zip))
+
+            yaml_metadata[Path(s1_zip).stem] = slc_metadata
+    else:
+        # if yaml_base_dir is None
+        yaml_metadata = {
+            Path(s1_zip).stem: generate_slc_metadata(Path(s1_zip))
+            for s1_zip in s1_zip_list
+        }
+
+    return yaml_metadata
+
+
+def find_products(
     base_dir: Union[Path, str], product_suffixs: Iterable[str],
 ) -> List[Path]:
     """Returns List of matched suffix files from base_dir."""
@@ -237,6 +298,7 @@ class SLC:
         _pols: Iterable[str],
         stack_base_path: Union[Path, str],
         product: str,
+        yaml_base_dir: Union[Path, str, None],
     ):
 
         if product == "sar":
@@ -269,38 +331,53 @@ class SLC:
                     ]
                     if par_files:
                         break
-                if par_files is None:
+
+                # at this point par_files could be: None, [], or [some_file]
+                # log error if None or []
+                if not par_files:
                     package_status = False
                     _LOG.info(
-                        f"missing required parameter needed for packaging"
-                        f"for in {slc_scene_path}"
+                        f"missing required parameter needed for packaging "
+                        f"for {slc_scene_path}"
                     )
                     _LOG.info(
                         "missing parameter required for packaging",
                         slc_path=str(slc_scene_path),
                     )
+                    # raise exception and exit here
+                    raise Exception(
+                        f"missing required parameter needed "
+                        f"for packaging for {slc_scene_path}"
+                    )
 
                 scene_date = datetime.datetime.strptime(
                     slc_scene_path.name, "%Y%m%d"
                 ).date()
-                slc_urls = _slc_files(burst_data, scene_date)
+
+                # get a list of the S1*zip files. These will be used
+                # to find the respective yaml files. If these yamls
+                # do not exist or if the user did not provide a
+                # yaml directory, then the S1 zips are used to
+                # extract metadata (this requires pygamma)
+                s1_zip_list = get_s1_files(burst_data, scene_date)
+
+                # get multi-layered slc metadata dict
+                slc_metadata_dict = get_slc_metadata_dict(s1_zip_list, yaml_base_dir)
+
                 yield cls(
                     track=_track,
                     frame=_frame,
                     par_file=par_files[0],
                     slc_path=slc_scene_path,
                     dem_path=dem_path,
-                    slc_metadata={
-                        Path(_url).stem: generate_slc_metadata(Path(_url))
-                        for _url in slc_urls
-                    },
+                    slc_metadata=slc_metadata_dict,
                     status=package_status,
                 )
         else:
             raise NotImplementedError(f"packaging of {product} is not implemented")
 
 
-def _slc_attrs(doc: Dict) -> Dict:
+def get_slc_attrs(doc: Dict) -> Dict:
     """
     Returns a properties common to a esa s1_slc from a doc.
     """
@@ -326,14 +403,26 @@ def package(
     frame: str,
     track_frame_base: Union[Path, str],
     out_directory: Union[Path, str],
+    yaml_base_dir: Union[Path, str, None],
     product: Optional[str] = PRODUCTS[0],
     polarizations: Optional[Iterable[str]] = ("VV", "VH"),
     common_attrs: Optional[Dict] = None,
 ) -> None:
 
+    # pg.__file__ doesn't work with the shim. The following error is generated
+    # AttributeError: Unrecognised Gamma program '__file__', check calling
+    # function
+    # software_name, version = Path(pg.__file__).parent.name.split("-")
+
+    # use the environmental variable to get software name & version
+    software_name,version = os.path.split(os.environ["GAMMA_INSTALL_DIR"])[-1].split("-")
+    url = "http://www/gamma-rs.ch"
+
     # Both the VV and VH polarizations has have identical SLC and burst informations.
     # Only properties from one polarization is gathered for packaging.
-    for slc in SLC.for_path(track, frame, polarizations, track_frame_base, product):
+    for slc in SLC.for_path(
+        track, frame, polarizations, track_frame_base, product, yaml_base_dir
+    ):
         _LOG.info("processing slc scene", slc_scene=str(slc.slc_path))
 
         # skip packaging for missing parameters files needed to extract metadata
@@ -342,13 +431,13 @@ def package(
 
         with DatasetAssembler(Path(out_directory), naming_conventions="dea") as p:
             esa_metadata_slc = slc.slc_metadata
-            ard_slc_metadata = _get_metadata(slc.par_file)
+            ard_slc_metadata = get_image_metadata_dict(slc.par_file)
 
             # extract the common slc attributes from ESA SLC files
             # subsequent slc all have the same common SLC attributes
             if common_attrs is None:
                 for _, _meta in esa_metadata_slc.items():
-                    common_attrs = _slc_attrs(_meta["properties"])
+                    common_attrs = get_slc_attrs(_meta["properties"])
                     break
 
             product_attrs = map_product(product)
@@ -369,9 +458,7 @@ def package(
             # TODO need better logical mechanism to determine dataset_version
             p.dataset_version = "1.0.0"
 
-            # not software version
-            software_name, version = Path(pg.__file__).parent.name.split("-")
-            url = "http://www/gamma-rs.ch"
+            # note the software version
             p.note_software_version(software_name, url, version)
 
             for _key, _val in ard_slc_metadata.items():
@@ -382,11 +469,11 @@ def package(
                 p.extend_user_metadata(key, val)
 
             # find backscatter files and write
-            _write_measurements(p, _find_products(slc.slc_path, product_attrs["suffixs"]))
+            _write_measurements(p, find_products(slc.slc_path, product_attrs["suffixs"]))
 
             # find angles files and write
             _write_angles_measurements(
-                p, _find_products(slc.dem_path, product_attrs["angles"])
+                p, find_products(slc.dem_path, product_attrs["angles"])
             )
             p.done()
 
@@ -409,6 +496,12 @@ def package(
     help="The base output packaged directory.",
 )
 @click.option(
+    "--yaml-dir",
+    type=click.Path(dir_okay=True, file_okay=False),
+    default=None,
+    help="The base directory containing yaml files",
+)
+@click.option(
     "--product",
     type=click.STRING,
     default="sar",
@@ -427,7 +520,7 @@ def package(
     default="packaging-insar-data.jsonl",
 )
 def main(
-    track, frame, input_dir, pkgdir, product, polarization, log_pathname,
+    track, frame, input_dir, pkgdir, yaml_dir, product, polarization, log_pathname,
 ):
 
     with open(log_pathname, "w") as fobj:
@@ -439,6 +532,7 @@ def main(
             frame=frame,
             track_frame_base=input_dir,
             out_directory=pkgdir,
+            yaml_base_dir=yaml_dir,
             product=product,
             polarizations=polarization,
         )
@@ -447,6 +541,7 @@ def main(
             frame=frame,
             track_frame_base=input_dir,
             out_directory=pkgdir,
+            yaml_base_dir=yaml_dir,
             product=product,
             polarizations=polarization,
         )
