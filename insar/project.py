@@ -88,7 +88,6 @@ class ProcConfig:
         "coreg_s1_cc_thresh",
         "coreg_s1_frac_thresh",
         "coreg_s1_stdev_thresh",
-
         "ifg_begin",
         "ifg_end",
         "ifg_coherence_threshold",
@@ -104,7 +103,6 @@ class ProcConfig:
         "ifg_thres",
         "ifg_init_win",
         "ifg_offset_win",
-
         "post_ifg_da_threshold",
         "post_ifg_area_range",
         "post_ifg_area_azimuth",
@@ -182,12 +180,14 @@ class ProcConfig:
         """
         for k, v in kwargs.items():
             # auto convert string paths to Paths to clean up workflow file handling
-            if '_path' in k or '_dir' in k or '_img' in k:
+            if "_path" in k or "_dir" in k or "_img" in k:
                 v = pathlib.Path(v)
             setattr(self, k, v)
 
         # prepare derived settings variables
-        self.dem_img = pathlib.Path(self.master_dem_image) / "GAMMA_DEM_SRTM_1as_mosaic.img"
+        self.dem_img = (
+            pathlib.Path(self.master_dem_image) / "GAMMA_DEM_SRTM_1as_mosaic.img"
+        )
         self.proj_dir = pathlib.Path(self.nci_path) / self.project / self.sensor / "GAMMA"
         self.raw_data_track_dir = pathlib.Path(self.raw_data_dir) / self.track
         self.gamma_dem_dir = pathlib.Path(self.proj_dir) / "gamma_dem"
@@ -205,7 +205,9 @@ class ProcConfig:
         :param file_obj: an open file like object
         :return: new ProcConfig object
         """
-        raw_lines = [line.strip() for line in file_obj.readlines() if is_valid_config_line(line)]
+        raw_lines = [
+            line.strip() for line in file_obj.readlines() if is_valid_config_line(line)
+        ]
         kv_pairs = [line.split("=") for line in raw_lines]
 
         # rename any keys with hyphens
@@ -327,32 +329,67 @@ class DEMMasterNames:
             self.dem_master_slc_name = pathlib.Path(self.dem_master_dir) / suffix
 
             self.dem_master_slc = pathlib.Path(self.dem_master_dir) / (suffix + ".slc")
-            self.dem_master_slc_par = pathlib.Path(self.dem_master_dir) / (suffix + ".slc.par")
+            self.dem_master_slc_par = pathlib.Path(self.dem_master_dir) / (
+                suffix + ".slc.par"
+            )
 
-            suffix_lks = proc.ref_master_scene + "_" + proc.polarisation + "_" + proc.range_looks + "rlks"
+            suffix_lks = (
+                proc.ref_master_scene
+                + "_"
+                + proc.polarisation
+                + "_"
+                + proc.range_looks
+                + "rlks"
+            )
             self.dem_master_mli_name = pathlib.Path(self.dem_master_dir) / suffix_lks
 
-            self.dem_master_mli = pathlib.Path(self.dem_master_dir) / (suffix_lks + ".mli")
-            self.dem_master_mli_par = pathlib.Path(self.dem_master_dir) / (suffix_lks + ".mli.par")
-            self.dem_master_gamma0 = pathlib.Path(self.dem_master_dir) / (suffix_lks + ".gamma0")
-            self.dem_master_gamma0_bmp = pathlib.Path(self.dem_master_dir) / (suffix_lks + ".gamma0.bmp")
+            self.dem_master_mli = pathlib.Path(self.dem_master_dir) / (
+                suffix_lks + ".mli"
+            )
+            self.dem_master_mli_par = pathlib.Path(self.dem_master_dir) / (
+                suffix_lks + ".mli.par"
+            )
+            self.dem_master_gamma0 = pathlib.Path(self.dem_master_dir) / (
+                suffix_lks + ".gamma0"
+            )
+            self.dem_master_gamma0_bmp = pathlib.Path(self.dem_master_dir) / (
+                suffix_lks + ".gamma0.bmp"
+            )
 
-            self.dem_master_gamma0_eqa = pathlib.Path(self.dem_master_dir) / (suffix_lks + "_eqa.gamma0")
-            self.dem_master_gamma0_eqa_bmp = pathlib.Path(self.dem_master_dir) / (suffix_lks + "_eqa.gamma0.bmp")
-            self.dem_master_gamma0_eqa_geo = pathlib.Path(self.dem_master_dir) / (suffix_lks + "_eqa.gamma0.tif")
+            self.dem_master_gamma0_eqa = pathlib.Path(self.dem_master_dir) / (
+                suffix_lks + "_eqa.gamma0"
+            )
+            self.dem_master_gamma0_eqa_bmp = pathlib.Path(self.dem_master_dir) / (
+                suffix_lks + "_eqa.gamma0.bmp"
+            )
+            self.dem_master_gamma0_eqa_geo = pathlib.Path(self.dem_master_dir) / (
+                suffix_lks + "_eqa.gamma0.tif"
+            )
 
             suffix_slc = "r{}_{}".format(proc.ref_master_scene, proc.polarisation)
             self.r_dem_master_slc_name = pathlib.Path(self.dem_master_dir) / suffix_slc
 
-            self.r_dem_master_slc = pathlib.Path(self.dem_master_dir) / (suffix_slc + ".slc")
-            self.r_dem_master_slc_par = pathlib.Path(self.dem_master_dir) / (suffix_slc + ".slc.par")
+            self.r_dem_master_slc = pathlib.Path(self.dem_master_dir) / (
+                suffix_slc + ".slc"
+            )
+            self.r_dem_master_slc_par = pathlib.Path(self.dem_master_dir) / (
+                suffix_slc + ".slc.par"
+            )
 
-            suffix_mli = "r{}_{}_{}rlks".format(proc.ref_master_scene, proc.polarisation, proc.range_looks)
+            suffix_mli = "r{}_{}_{}rlks".format(
+                proc.ref_master_scene, proc.polarisation, proc.range_looks
+            )
             self.r_dem_master_mli_name = pathlib.Path(self.dem_master_dir) / suffix_mli
 
-            self.r_dem_master_mli = pathlib.Path(self.dem_master_dir) / (suffix_mli + ".mli")
-            self.r_dem_master_mli_par = pathlib.Path(self.dem_master_dir) / (suffix_mli + ".mli.par")
-            self.r_dem_master_mli_bmp = pathlib.Path(self.dem_master_dir) / (suffix_mli + ".mli.bmp")
+            self.r_dem_master_mli = pathlib.Path(self.dem_master_dir) / (
+                suffix_mli + ".mli"
+            )
+            self.r_dem_master_mli_par = pathlib.Path(self.dem_master_dir) / (
+                suffix_mli + ".mli.par"
+            )
+            self.r_dem_master_mli_bmp = pathlib.Path(self.dem_master_dir) / (
+                suffix_mli + ".mli.bmp"
+            )
 
 
 class DEMFileNames:
@@ -365,7 +402,6 @@ class DEMFileNames:
         "eqa_dem",
         "eqa_dem_par",
         "seamask",
-
         "dem_lt_rough",
         "dem_lt_fine",
         "dem_eqa_sim_sar",
@@ -373,7 +409,6 @@ class DEMFileNames:
         "dem_loc_inc",
         "dem_rdc_inc",
         "dem_lsmap",
-
         "ellip_pix_sigma0",
         "dem_pix_gam",
         "dem_pix_gam_bmp",
@@ -385,7 +420,6 @@ class DEMFileNames:
         "dem_coffsets",
         "dem_lv_theta",
         "dem_lv_phi",
-
         "ext_image_flt",
         "ext_image_init_sar",
         "ext_image_sar",
@@ -459,14 +493,12 @@ class IfgFileNames:
         "r_master_mli_name",
         "r_master_mli",
         "r_master_mli_par",
-
         "r_slave_slc_name",
         "r_slave_slc",
         "r_slave_slc_par",
         "r_slave_mli_name",
         "r_slave_mli",
         "r_slave_mli_par",
-
         "master_slave_name",
         "ifg_base",
         "ifg_base_init",
@@ -477,7 +509,6 @@ class IfgFileNames:
         "ifg_coffs",
         "ifg_coffsets",
         "ifg_diff_par",
-
         "ifg_filt",
         "ifg_filt_float",
         "ifg_filt_geocode_bmp",
@@ -488,7 +519,6 @@ class IfgFileNames:
         "ifg_filt_cc_geocode_bmp",
         "ifg_filt_cc_geocode_out",
         "ifg_filt_cc_geocode_png",
-
         "ifg_flat",
         "ifg_flat_float",
         "ifg_flat_geocode_bmp",
@@ -506,7 +536,6 @@ class IfgFileNames:
         "ifg_flat_cc0_mask",
         "ifg_flat_cc10",
         "ifg_flat_cc10_mask",
-
         "ifg_gcp",
         "ifg_gcp_ph",
         "ifg_mask",
@@ -533,12 +562,16 @@ class IfgFileNames:
         self.master_dir = proc.slc_dir / master
         self.slave_dir = proc.slc_dir / slave
 
-        self.r_master_slc_name = self.master_dir / "r{}_{}".format(master, proc.polarisation)
+        self.r_master_slc_name = self.master_dir / "r{}_{}".format(
+            master, proc.polarisation
+        )
 
         self.r_master_slc = self.r_master_slc_name.with_suffix(".slc")
         self.r_master_slc_par = self.r_master_slc_name.with_suffix(".par")
 
-        self.r_master_mli_name = self.master_dir / "r{}_{}_{}rlks".format(master, proc.polarisation, proc.range_looks)
+        self.r_master_mli_name = self.master_dir / "r{}_{}_{}rlks".format(
+            master, proc.polarisation, proc.range_looks
+        )
         self.r_master_mli = self.r_master_mli_name.with_suffix(".mli")
         self.r_master_mli_par = self.r_master_mli.with_suffix(".mli.par")
 
@@ -546,12 +579,16 @@ class IfgFileNames:
 
         self.r_slave_slc = self.r_slave_slc_name.with_suffix(".slc")
         self.r_slave_slc_par = self.r_slave_slc.with_suffix(".slc.par")
-        self.r_slave_mli_name = self.slave_dir / "r{}_{}_{}rlks".format(slave, proc.polarisation, proc.range_looks)
+        self.r_slave_mli_name = self.slave_dir / "r{}_{}_{}rlks".format(
+            slave, proc.polarisation, proc.range_looks
+        )
         self.r_slave_mli = self.r_slave_mli_name.with_suffix(".mli")
         self.r_slave_mli_par = self.r_slave_mli.with_suffix(".par")
 
         # use intermed str as pathlib.Path doesn't handle filename concatenation
-        _master_slave_name = "{}-{}_{}_{}rlks".format(master, slave, proc.polarisation, proc.range_looks)
+        _master_slave_name = "{}-{}_{}_{}rlks".format(
+            master, slave, proc.polarisation, proc.range_looks
+        )
         self.master_slave_name = self.ifg_dir / _master_slave_name
 
         self.ifg_base = self.ifg_dir / (_master_slave_name + "_base.par")
@@ -572,9 +609,13 @@ class IfgFileNames:
         self.ifg_filt_geocode_png = pathlib.Path(_master_slave_name + "_filt_eqa_int.png")
         self.ifg_filt_mask = pathlib.Path(_master_slave_name + "_filt_mask.int")
         self.ifg_filt_cc = pathlib.Path(_master_slave_name + "_filt.cc")
-        self.ifg_filt_cc_geocode_bmp = pathlib.Path(_master_slave_name + "_filt_eqa_cc.bmp")
+        self.ifg_filt_cc_geocode_bmp = pathlib.Path(
+            _master_slave_name + "_filt_eqa_cc.bmp"
+        )
         self.ifg_filt_cc_geocode_out = pathlib.Path(_master_slave_name + "_filt_eqa.cc")
-        self.ifg_filt_cc_geocode_png = pathlib.Path(_master_slave_name + "_filt_eqa_cc.png")
+        self.ifg_filt_cc_geocode_png = pathlib.Path(
+            _master_slave_name + "_filt_eqa_cc.png"
+        )
 
         self.ifg_flat = pathlib.Path(_master_slave_name + "_flat.int")
         self.ifg_flat_float = pathlib.Path(_master_slave_name + "_flat_int.flt")
@@ -586,9 +627,13 @@ class IfgFileNames:
         self.ifg_flat1 = pathlib.Path(_master_slave_name + "_flat1.int")
         self.ifg_flat10 = pathlib.Path(_master_slave_name + "_flat10.int")
         self.ifg_flat_cc = pathlib.Path(_master_slave_name + "_flat.cc")
-        self.ifg_flat_cc_geocode_bmp = pathlib.Path(_master_slave_name + "_flat_eqa_cc.bmp")
+        self.ifg_flat_cc_geocode_bmp = pathlib.Path(
+            _master_slave_name + "_flat_eqa_cc.bmp"
+        )
         self.ifg_flat_cc_geocode_out = pathlib.Path(_master_slave_name + "_flat_eqa.cc")
-        self.ifg_flat_cc_geocode_png = pathlib.Path(_master_slave_name + "_flat_eqa_cc.png")
+        self.ifg_flat_cc_geocode_png = pathlib.Path(
+            _master_slave_name + "_flat_eqa_cc.png"
+        )
         self.ifg_flat_cc0 = pathlib.Path(_master_slave_name + "_flat0.cc")
         self.ifg_flat_cc0_mask = pathlib.Path(_master_slave_name + "_flat0_cc_mask.ras")
         self.ifg_flat_cc10 = pathlib.Path(_master_slave_name + "_flat10.cc")

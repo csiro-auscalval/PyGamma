@@ -9,7 +9,7 @@ except ImportError as iex:
     pg = None
     hostname = socket.gethostname()
 
-    if hostname.startswith('gadi'):
+    if hostname.startswith("gadi"):
         # something odd here if can't find py_gamma path on NCI
         raise iex
 
@@ -17,9 +17,7 @@ except ImportError as iex:
 _LOG = structlog.get_logger("insar")
 
 
-def calc_int(pc: ProcConfig,
-             ic: IfgFileNames,
-             clean_up):
+def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
     """
     Perform InSAR INT processing step.
     :param pc: ProcConfig settings obj
@@ -31,15 +29,17 @@ def calc_int(pc: ProcConfig,
     if not ic.ifg_off.exists():
         cout = []
         cerr = []
-        stat = pg.create_offset(ic.r_master_slc_par,
-                                ic.r_slave_slc_par,
-                                ic.ifg_off,
-                                const.OFFSET_ESTIMATION_INTENSITY_CROSS_CORRELATION,
-                                pc.range_looks,
-                                pc.azimuth_looks,
-                                const.NON_INTERACTIVE,
-                                cout=cout,
-                                cerr=cerr)
+        stat = pg.create_offset(
+            ic.r_master_slc_par,
+            ic.r_slave_slc_par,
+            ic.ifg_off,
+            const.OFFSET_ESTIMATION_INTENSITY_CROSS_CORRELATION,
+            pc.range_looks,
+            pc.azimuth_looks,
+            const.NON_INTERACTIVE,
+            cout=cout,
+            cerr=cerr,
+        )
 
         if stat:
             msg = "failed to execute pg.create_offset"
@@ -48,28 +48,30 @@ def calc_int(pc: ProcConfig,
 
         # 2-pass differential interferometry without phase unwrapping (CSK spotlight)
         if pc.sensor == "CSK" and pc.sensor_mode == "SP":
-            raise NotImplementedError('Not required for Sentinel 1 processing')
+            raise NotImplementedError("Not required for Sentinel 1 processing")
         else:
             cout = []
             cerr = []
 
             # TODO: do any outputs need to be processed?
-            stat = pg.offset_pwr(ic.r_master_slc,  # (input) single-look complex image 1 (reference)
-                                 ic.r_slave_slc,  # (input) single-look complex image 2
-                                 ic.r_master_slc_par,  # (input) SLC-1 ISP image parameter file
-                                 ic.r_slave_slc_par,  # (input) SLC-2 ISP image parameter file
-                                 ic.ifg_off,  # (input) ISP offset/interferogram parameter file
-                                 ic.ifg_offs,  # (output) offset estimates in range and azimuth (fcomplex)
-                                 ic.ifg_ccp,  # (output) cross-correlation of each patch (0.0->1.0) (float)
-                                 const.RANGE_PATCH_SIZE,
-                                 const.AZIMUTH_PATCH_SIZE,
-                                 const.NO_OUTPUT,  # (output) range and azimuth offsets and cross-correlation data
-                                 const.SLC_OVERSAMPLING_FACTOR_DEFAULT,
-                                 const.NUM_OFFSET_ESTIMATES_RANGE,
-                                 const.NUM_OFFSET_ESTIMATES_AZIMUTH,
-                                 const.CROSS_CORRELATION_THRESHOLD,
-                                 cout=cout,
-                                 cerr=cerr)
+            stat = pg.offset_pwr(
+                ic.r_master_slc,  # (input) single-look complex image 1 (reference)
+                ic.r_slave_slc,  # (input) single-look complex image 2
+                ic.r_master_slc_par,  # (input) SLC-1 ISP image parameter file
+                ic.r_slave_slc_par,  # (input) SLC-2 ISP image parameter file
+                ic.ifg_off,  # (input) ISP offset/interferogram parameter file
+                ic.ifg_offs,  # (output) offset estimates in range and azimuth (fcomplex)
+                ic.ifg_ccp,  # (output) cross-correlation of each patch (0.0->1.0) (float)
+                const.RANGE_PATCH_SIZE,
+                const.AZIMUTH_PATCH_SIZE,
+                const.NO_OUTPUT,  # (output) range and azimuth offsets and cross-correlation data
+                const.SLC_OVERSAMPLING_FACTOR_DEFAULT,
+                const.NUM_OFFSET_ESTIMATES_RANGE,
+                const.NUM_OFFSET_ESTIMATES_AZIMUTH,
+                const.CROSS_CORRELATION_THRESHOLD,
+                cout=cout,
+                cerr=cerr,
+            )
             if stat:
                 msg = "failed to execute pg.offset_pwr"
                 _LOG.error(msg, stat=stat, gamma_stdout=cout, gamma_stderr=cerr)
@@ -77,13 +79,15 @@ def calc_int(pc: ProcConfig,
 
             cout = []
             cerr = []
-            stat = pg.offset_fit(ic.ifg_offs,
-                                 ic.ifg_ccp,
-                                 ic.ifg_off,
-                                 ic.ifg_coffs,
-                                 ic.ifg_coffsets,
-                                 cout=cout,
-                                 cerr=cerr)
+            stat = pg.offset_fit(
+                ic.ifg_offs,
+                ic.ifg_ccp,
+                ic.ifg_off,
+                ic.ifg_coffs,
+                ic.ifg_coffsets,
+                cout=cout,
+                cerr=cerr,
+            )
 
             if stat:
                 msg = "failed to execute pg.offset_fit"
@@ -95,19 +99,21 @@ def calc_int(pc: ProcConfig,
             try:
                 p.unlink()
             except FileNotFoundError:
-                _LOG.error('Could not delete {}'.format(p))
+                _LOG.error("Could not delete {}".format(p))
 
     cout = []
     cerr = []
 
     # Create differential interferogram parameter file
-    stat = pg.create_diff_par(ic.ifg_off,
-                              const.NOT_PROVIDED,
-                              ic.ifg_diff_par,
-                              const.DIFF_PAR_OFFSET,
-                              const.NON_INTERACTIVE,
-                              cout=cout,
-                              cerr=cerr)
+    stat = pg.create_diff_par(
+        ic.ifg_off,
+        const.NOT_PROVIDED,
+        ic.ifg_diff_par,
+        const.DIFF_PAR_OFFSET,
+        const.NON_INTERACTIVE,
+        cout=cout,
+        cerr=cerr,
+    )
     if stat:
         msg = "failed to execute pg.create_diff_par"
         _LOG.error(msg, stat=stat, gamma_stdout=cout, gamma_stderr=cerr)

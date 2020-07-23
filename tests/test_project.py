@@ -27,8 +27,12 @@ def test_read_proc_file():
     assert pv.master_dem_image
 
     # check secondary variables derived from the proc file
-    assert pv.dem_img.as_posix() == "{}/GAMMA_DEM_SRTM_1as_mosaic.img".format(pv.master_dem_image)
-    assert pv.proj_dir.as_posix() == "{}/{}/{}/GAMMA".format(pv.nci_path, pv.project, pv.sensor)
+    assert pv.dem_img.as_posix() == "{}/GAMMA_DEM_SRTM_1as_mosaic.img".format(
+        pv.master_dem_image
+    )
+    assert pv.proj_dir.as_posix() == "{}/{}/{}/GAMMA".format(
+        pv.nci_path, pv.project, pv.sensor
+    )
     assert pv.raw_data_track_dir.as_posix() == "{}/{}".format(pv.raw_data_dir, pv.track)
     assert pv.gamma_dem_dir.as_posix() == "{}/gamma_dem".format(pv.proj_dir)
     assert pv.results_dir.as_posix() == "{}/{}/results".format(pv.proj_dir, pv.track)
@@ -144,9 +148,18 @@ def test_default_dem_master_paths(mproc):
 
     assert cfg.dem_master_gamma0 == cfg.dem_master_mli_name.with_suffix(".gamma0")
     assert cfg.dem_master_gamma0_bmp == cfg.dem_master_gamma0.with_suffix(".gamma0.bmp")
-    assert cfg.dem_master_gamma0_eqa.as_posix() == cfg.dem_master_mli_name.as_posix() + "_eqa.gamma0"
-    assert cfg.dem_master_gamma0_eqa_bmp.as_posix() == cfg.dem_master_gamma0_eqa.as_posix() + ".bmp"
-    assert cfg.dem_master_gamma0_eqa_geo.as_posix() == cfg.dem_master_gamma0_eqa.as_posix() + ".tif"
+    assert (
+        cfg.dem_master_gamma0_eqa.as_posix()
+        == cfg.dem_master_mli_name.as_posix() + "_eqa.gamma0"
+    )
+    assert (
+        cfg.dem_master_gamma0_eqa_bmp.as_posix()
+        == cfg.dem_master_gamma0_eqa.as_posix() + ".bmp"
+    )
+    assert (
+        cfg.dem_master_gamma0_eqa_geo.as_posix()
+        == cfg.dem_master_gamma0_eqa.as_posix() + ".tif"
+    )
 
     assert cfg.r_dem_master_slc_name.as_posix() == "{}/r{}_{}".format(
         cfg.dem_master_dir, ref_master_scene, polarisation
@@ -230,15 +243,27 @@ def test_default_ifg_file_names(mproc):
     assert cfg.r_master_slc.as_posix() == "slc-dir/master/rmaster_polarisation.slc"
     assert cfg.r_master_slc_par.as_posix() == "slc-dir/master/rmaster_polarisation.par"
 
-    assert cfg.r_master_mli_name.as_posix() == "slc-dir/master/rmaster_polarisation_range-looksrlks"
-    assert cfg.r_master_mli.as_posix() == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli"
-    assert cfg.r_master_mli_par.as_posix() == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli.par"
+    assert (
+        cfg.r_master_mli_name.as_posix()
+        == "slc-dir/master/rmaster_polarisation_range-looksrlks"
+    )
+    assert (
+        cfg.r_master_mli.as_posix()
+        == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli"
+    )
+    assert (
+        cfg.r_master_mli_par.as_posix()
+        == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli.par"
+    )
 
     assert cfg.r_slave_slc_name.as_posix() == "slc-dir/slave/rslave_polarisation"
     assert cfg.r_slave_slc.as_posix() == "slc-dir/slave/rslave_polarisation.slc"
     assert cfg.r_slave_slc_par.as_posix() == "slc-dir/slave/rslave_polarisation.slc.par"
 
-    assert cfg.r_slave_mli_name.as_posix() == "slc-dir/slave/rslave_polarisation_range-looksrlks"
+    assert (
+        cfg.r_slave_mli_name.as_posix()
+        == "slc-dir/slave/rslave_polarisation_range-looksrlks"
+    )
 
     # ignore vars after this as it's just testing string concatenation
     assert (

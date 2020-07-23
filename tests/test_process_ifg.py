@@ -50,7 +50,7 @@ def test_calc_int(monkeypatch, pg_int_mock, pc_mock, ic_mock):
     # craftily substitute the 'pg' py_gamma obj for a mock: avoids a missing import when testing
     # locally, or calling the real thing on Gadi...
     # TODO: monkeypatch or use unittest.mock's patch? Which is better?
-    monkeypatch.setattr(process_ifg, 'pg', pg_int_mock)
+    monkeypatch.setattr(process_ifg, "pg", pg_int_mock)
 
     ic_mock.ifg_off = mock.Mock(spec=pathlib.Path)
     ic_mock.ifg_off.exists.return_value = False  # offset not yet processed
@@ -70,7 +70,7 @@ def test_calc_int(monkeypatch, pg_int_mock, pc_mock, ic_mock):
 
 
 def test_calc_int_with_cleanup(monkeypatch, pg_int_mock, pc_mock, ic_mock):
-    monkeypatch.setattr(process_ifg, 'pg', pg_int_mock)
+    monkeypatch.setattr(process_ifg, "pg", pg_int_mock)
 
     ic_mock.ifg_off = mock.Mock(spec=pathlib.Path)
     ic_mock.ifg_off.exists.return_value = False  # offset not yet processed
@@ -85,9 +85,7 @@ def test_calc_int_with_cleanup(monkeypatch, pg_int_mock, pc_mock, ic_mock):
     assert ic_mock.ifg_coffs.unlink.called is False
     assert ic_mock.ifg_coffsets.unlink.called is False
 
-    process_ifg.calc_int(pc_mock,
-                         ic_mock,
-                         clean_up=True)
+    process_ifg.calc_int(pc_mock, ic_mock, clean_up=True)
 
     assert ic_mock.ifg_offs.unlink.called
     assert ic_mock.ifg_ccp.unlink.called
@@ -96,11 +94,13 @@ def test_calc_int_with_cleanup(monkeypatch, pg_int_mock, pc_mock, ic_mock):
 
 
 def test_calc_int_with_errors(monkeypatch, pg_int_mock, pc_mock, ic_mock):
-    monkeypatch.setattr(process_ifg, 'pg', pg_int_mock)
+    monkeypatch.setattr(process_ifg, "pg", pg_int_mock)
 
-    log_mock = mock.Mock(spec=structlog.stdlib.BoundLogger)  # this spec has base error(), msg() etc
+    log_mock = mock.Mock(
+        spec=structlog.stdlib.BoundLogger
+    )  # this spec has base error(), msg() etc
     assert log_mock.error.called is False
-    monkeypatch.setattr(process_ifg, '_LOG', log_mock)
+    monkeypatch.setattr(process_ifg, "_LOG", log_mock)
 
     ic_mock.ifg_off = mock.Mock(spec=pathlib.Path)
     ic_mock.ifg_off.exists.return_value = False

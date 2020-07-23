@@ -26,8 +26,8 @@ NUM_OFFSET_ESTIMATES_AZIMUTH = 256
 CROSS_CORRELATION_THRESHOLD = 0.1
 
 NON_INTERACTIVE = 0
-NOT_PROVIDED = '-'
-NO_OUTPUT = '-'
+NOT_PROVIDED = "-"
+NO_OUTPUT = "-"
 
 DIFF_PAR_OFFSET = 0  # ISP offset and interferogram parameters
 DIFF_PAR_SLC_MLI = 1  # ISP SLC/MLI parameters (default)
