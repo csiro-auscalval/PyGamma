@@ -17,6 +17,7 @@ except ImportError as iex:
 _LOG = structlog.get_logger("insar")
 
 
+# TODO: do any pg.<function_name> outputs need to be kept or processed?
 def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
     """
     Perform InSAR INT processing step.
@@ -29,6 +30,7 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
     if not ic.ifg_off.exists():
         cout = []
         cerr = []
+
         stat = pg.create_offset(
             ic.r_master_slc_par,
             ic.r_slave_slc_par,
@@ -43,7 +45,15 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
 
         if stat:
             msg = "failed to execute pg.create_offset"
-            _LOG.error(msg, stat=stat, gamma_stdout=cout, gamma_stderr=cerr)
+            _LOG.error(
+                msg,
+                stat=stat,
+                slc1_par=ic.r_master_slc_par,
+                slc2_par=ic.r_slave_slc_par,
+                gamma_stdout=cout,
+                gamma_stderr=cerr,
+            )
+
             raise ProcessIfgException(msg)
 
         # 2-pass differential interferometry without phase unwrapping (CSK spotlight)
@@ -53,7 +63,6 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
             cout = []
             cerr = []
 
-            # TODO: do any outputs need to be processed?
             stat = pg.offset_pwr(
                 ic.r_master_slc,  # (input) single-look complex image 1 (reference)
                 ic.r_slave_slc,  # (input) single-look complex image 2
@@ -74,11 +83,22 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
             )
             if stat:
                 msg = "failed to execute pg.offset_pwr"
-                _LOG.error(msg, stat=stat, gamma_stdout=cout, gamma_stderr=cerr)
+                _LOG.error(
+                    msg,
+                    stat=stat,
+                    slc1=ic.r_master_slc,
+                    slc2=ic.r_slave_slc,
+                    slc1_par=ic.r_master_slc_par,
+                    slc2_par=ic.r_slave_slc_par,
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr,
+                )
+
                 raise ProcessIfgException(msg)
 
             cout = []
             cerr = []
+
             stat = pg.offset_fit(
                 ic.ifg_offs,
                 ic.ifg_ccp,
@@ -91,7 +111,16 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
 
             if stat:
                 msg = "failed to execute pg.offset_fit"
-                _LOG.error(msg, stat=stat, gamma_stdout=cout, gamma_stderr=cerr)
+                _LOG.error(
+                    msg,
+                    stat=stat,
+                    offs=ic.ifg_offs,
+                    ccp=ic.ifg_ccp,
+                    off_par=ic.ifg_off,  # TODO: should ifg_off be renamed ifg_off_par in settings?
+                    gamma_stdout=cout,
+                    gamma_stderr=cerr,
+                )
+
                 raise ProcessIfgException(msg)
 
     if clean_up:
@@ -112,7 +141,14 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
     )
     if stat:
         msg = "failed to execute pg.create_diff_par"
-        _LOG.error(msg, stat=stat, gamma_stdout=cout, gamma_stderr=cerr)
+        _LOG.error(
+            msg,
+            stat=stat,
+            par1=ic.ifg_off,
+            diff_par=ic.ifg_diff_par,
+            gamma_stdout=cout,
+            gamma_stderr=cerr,
+        )
         raise ProcessIfgException(msg)
 
 
