@@ -64,8 +64,8 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
                 ic.ifg_ccp,  # (output) cross-correlation of each patch (0.0->1.0) (float)
                 const.RANGE_PATCH_SIZE,
                 const.AZIMUTH_PATCH_SIZE,
-                const.NO_OUTPUT,  # (output) range and azimuth offsets and cross-correlation data
-                const.SLC_OVERSAMPLING_FACTOR_DEFAULT,
+                const.NOT_PROVIDED,  # (output) range and azimuth offsets and cross-correlation data
+                const.NOT_PROVIDED,
                 const.NUM_OFFSET_ESTIMATES_RANGE,
                 const.NUM_OFFSET_ESTIMATES_AZIMUTH,
                 const.CROSS_CORRELATION_THRESHOLD,
