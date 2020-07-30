@@ -6,19 +6,13 @@ from insar.process_ifg import ProcessIfgException
 from insar.project import ProcConfig, IfgFileNames
 
 import structlog
-
 import pytest
 
 
-# FIXME: tweak settings to ensure working dir doesn't have to be changed for INT processing
-# TODO: can monkeypatch be done at higher level scope?
+# FIXME: tweak settings to ensure working dir doesn't have to be changed for INT processing (do in workflow)
 
 
-def create_mocks(count, spec=None):
-    """Lazily create a bunch of like mocks (useful for large blocks of args)."""
-    return [mock.Mock(spec=spec) for _ in range(count)]
-
-
+# TODO: can monkeypatch be done at higher level scope to apply to multiple test funcs?
 @pytest.fixture
 def pg_int_mock():
     """Create basic mock of the py_gamma module for INT processing step."""
