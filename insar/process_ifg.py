@@ -95,11 +95,7 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
                 raise ProcessIfgException(msg)
 
     if clean_up:
-        for p in (ic.ifg_offs, ic.ifg_ccp, ic.ifg_coffs, ic.ifg_coffsets):
-            try:
-                p.unlink()
-            except FileNotFoundError:
-                _LOG.error("Could not delete {}".format(p))
+        remove_files(ic.ifg_offs, ic.ifg_ccp, ic.ifg_coffs, ic.ifg_coffsets)
 
     cout = []
     cerr = []
@@ -118,6 +114,21 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
         msg = "failed to execute pg.create_diff_par"
         _LOG.error(msg, stat=stat, gamma_stdout=cout, gamma_stderr=cerr)
         raise ProcessIfgException(msg)
+
+
+def remove_files(*args):
+    """
+    Attempts to remove the given files, logging any failures
+    :param args: pathlib.Path like objects
+    """
+    for path in args:
+        try:
+            if path:
+                path.unlink()
+        except FileNotFoundError:
+            _LOG.error("Could not delete {}".format(path))
+
+        # TODO: add more exception handlers?
 
 
 class ProcessIfgException(Exception):
