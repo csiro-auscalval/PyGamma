@@ -3,7 +3,7 @@ from unittest import mock
 
 from insar import process_ifg
 from insar.process_ifg import ProcessIfgException
-from insar.project import ProcConfig, IfgFileNames
+from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 
 import structlog
 import pytest
@@ -104,3 +104,94 @@ def test_calc_int_with_errors(monkeypatch, pg_int_mock, pc_mock, ic_mock):
         process_ifg.calc_int(pc_mock, ic_mock, clean_up=False)
 
     assert log_mock.error.called
+
+
+@pytest.fixture
+def pg_flat_mock():
+    """Create basic mock of the py_gamma module for the INT processing step."""
+    pg_mock = mock.Mock()
+    pg_mock.base_orbit.return_value = 0
+    pg_mock.phase_sim_orb.return_value = 0
+    pg_mock.SLC_diff_intf.return_value = 0
+    pg_mock.base_init.return_value = 0
+    pg_mock.base_add.return_value = 0
+    pg_mock.phase_sim.return_value = 0
+
+    pg_mock.gcp_phase.return_value = 0
+    pg_mock.sub_phase.return_value = 0
+    pg_mock.mcf.return_value = 0
+    pg_mock.base_ls.return_value = 0
+    pg_mock.cc_wave.return_value = 0
+    pg_mock.rascc_mask.return_value = 0
+    pg_mock.multi_cpx.return_value = 0
+    pg_mock.multi_real.return_value = 0
+    pg_mock.base_perp.return_value = 0
+    pg_mock.extract_gcp.return_value = 0
+    return pg_mock
+
+
+@pytest.fixture
+def dc_mock():
+    """Default mock for DEMFileNames config."""
+    dcm = mock.Mock(spec=DEMFileNames)
+    return dcm
+
+
+def test_generate_init_flattened_ifg(
+    monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock
+):
+    monkeypatch.setattr(process_ifg, "pg", pg_flat_mock)
+
+    assert pg_flat_mock.base_orbit.called is False
+    assert pg_flat_mock.phase_sim_orb.called is False
+    assert pg_flat_mock.SLC_diff_intf.called is False
+    assert pg_flat_mock.base_init.called is False
+    assert pg_flat_mock.base_add.called is False
+    assert pg_flat_mock.phase_sim.called is False
+
+    process_ifg.generate_init_flattened_ifg(pc_mock, ic_mock, dc_mock, clean_up=False)
+
+    assert pg_flat_mock.base_orbit.called
+    assert pg_flat_mock.phase_sim_orb.called
+    assert pg_flat_mock.SLC_diff_intf.call_count == 2
+    assert pg_flat_mock.base_init.called
+    assert pg_flat_mock.base_add.called
+    assert pg_flat_mock.phase_sim.called
+
+
+def test_generate_final_flattened_ifg(
+    monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock
+):
+    # test refinement of baseline model using ground control points
+    monkeypatch.setattr(process_ifg, "pg", pg_flat_mock)
+
+    assert pg_flat_mock.multi_cpx.called is False
+    assert pg_flat_mock.cc_wave.called is False
+    assert pg_flat_mock.rascc_mask.called is False
+    assert pg_flat_mock.mcf.called is False
+    assert pg_flat_mock.multi_real.called is False
+    assert pg_flat_mock.sub_phase.called is False
+    assert pg_flat_mock.extract_gcp.called is False
+    assert pg_flat_mock.gcp_phase.called is False
+    assert pg_flat_mock.base_ls.called is False
+    assert pg_flat_mock.phase_sim.called is False
+    assert pg_flat_mock.SLC_diff_intf.called is False
+    assert pg_flat_mock.base_perp.called is False
+
+    width10, ifg_width = 101, 99  # fake
+    process_ifg.generate_final_flattened_ifg(
+        pc_mock, ic_mock, dc_mock, width10, ifg_width, clean_up=False
+    )
+
+    assert pg_flat_mock.multi_cpx.called
+    assert pg_flat_mock.cc_wave.call_count == 2
+    assert pg_flat_mock.rascc_mask.call_count == 2
+    assert pg_flat_mock.mcf.called
+    assert pg_flat_mock.multi_real.called
+    assert pg_flat_mock.sub_phase.call_count == 2
+    assert pg_flat_mock.extract_gcp.called
+    assert pg_flat_mock.gcp_phase.called
+    assert pg_flat_mock.base_ls.called
+    assert pg_flat_mock.phase_sim.called
+    assert pg_flat_mock.SLC_diff_intf.called
+    assert pg_flat_mock.base_perp.call_count == 2
