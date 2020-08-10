@@ -947,21 +947,14 @@ def generate_final_flattened_ifg(
 
         raise ProcessIfgException(msg)
 
-    cout = []
-    cerr = []
-
-    # FIXME: replace this by copying content to a file instead of rerunning EXE
-    stat = pg.base_perp(
-        ic.ifg_base, ic.r_master_slc_par, ic.ifg_off, cout=cout, cerr=cerr
-    )
-
-    if stat:
-        msg = "failed to execute pg.base_perp"
-        _LOG.error(
-            msg, stat=stat, gamma_stdout=cout, gamma_stderr=cerr,
-        )
-
-        raise ProcessIfgException(msg)
+    # copy content to bperp file instead of rerunning EXE (like the old Bash code)
+    try:
+        with ic.ifg_bperp.open("w") as f:
+            f.writelines(cout)
+    except IOError as ex:
+        msg = "Failed to write ifg_bperp"
+        _LOG.error(msg, exception=ex)
+        raise ex
 
 
 def remove_files(*args):

@@ -35,6 +35,7 @@ def pc_mock():
 def ic_mock():
     """Returns basic mock to simulate an IfgFileNames object."""
     ic = mock.Mock(spec=IfgFileNames)
+    ic.ifg_bperp = mock.MagicMock(spec=pathlib.Path)
     return ic
 
 
@@ -194,4 +195,4 @@ def test_generate_final_flattened_ifg(
     assert pg_flat_mock.base_ls.called
     assert pg_flat_mock.phase_sim.called
     assert pg_flat_mock.SLC_diff_intf.called
-    assert pg_flat_mock.base_perp.call_count == 2
+    assert pg_flat_mock.base_perp.call_count == 1
