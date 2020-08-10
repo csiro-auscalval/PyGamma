@@ -171,7 +171,8 @@ def generate_init_flattened_ifg(
     cout = []
     cerr = []
 
-    # calculate initial baseline (TODO: of what?)
+    # calculate initial baseline of interferogram (i.e. the spatial distance between the two
+    # satellite positions at the time of acquisition of first and second image).
     stat = pg.base_orbit(
         ic.r_master_slc_par, ic.r_slave_slc_par, ic.ifg_base_init, cout=cout, cerr=cerr
     )
@@ -427,9 +428,9 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
+    # TODO: should these be constants or function args with GA default values?
     n_range_looks = 10
     n_azimuth_looks = 10
-    loff = 0
 
     stat = pg.multi_cpx(
         ic.ifg_flat1,
@@ -438,7 +439,7 @@ def generate_final_flattened_ifg(
         ic.ifg_off10,
         n_range_looks,
         n_azimuth_looks,
-        loff,
+        const.NOT_PROVIDED,  # line offset
         const.DISPLAY_TO_EOF,
         cout=cout,
         cerr=cerr,
@@ -464,7 +465,9 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    bx, by = 7, 7  # TODO: why are these hard coded?
+    # TODO: why are these hard coded?
+    # TODO: should these be converted to args that can be overridden?
+    bx, by = 7, 7
 
     stat = pg.cc_wave(
         ic.ifg_flat10,
@@ -493,33 +496,28 @@ def generate_final_flattened_ifg(
         raise ProcessIfgException(msg)
 
     # Generate validity mask with high coherence threshold for unwrapping
-    cc_thresh = 0.7
     cout = []
     cerr = []
 
-    start_cc = 1
-    start_pwr = 1
-    pixavr = 1
-    pixavaz = 1
-    pwr_thresh = 0
-    left_right_flipping = 1
+    # TODO: should this be an arg or a constant?
+    cc_threshold = 0.7
 
     stat = pg.rascc_mask(
         ic.ifg_flat_cc10,
         const.NOT_PROVIDED,
         width10,
-        start_cc,
-        start_pwr,
+        const.NOT_PROVIDED,  # start_cc
+        const.NOT_PROVIDED,  # start_pwr
         const.DISPLAY_TO_EOF,
-        pixavr,
-        pixavaz,
-        cc_thresh,
-        pwr_thresh,
+        const.NOT_PROVIDED,  # pixavr
+        const.NOT_PROVIDED,  # pixavaz
+        cc_threshold,
+        const.NOT_PROVIDED,  # pwr_thresh
         const.NOT_PROVIDED,
-        cc_thresh,
+        cc_threshold,
         const.NOT_PROVIDED,  # scale
         const.NOT_PROVIDED,  # exp
-        left_right_flipping,
+        const.NOT_PROVIDED,  # left_right_flipping
         ic.ifg_flat_cc10_mask,
         cout=cout,
         cerr=cerr,
@@ -541,12 +539,6 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    # TODO: should these be made into constants or args?
-    roff = 0
-    loff = 0
-    npat_r = 1
-    npat_az = 1
-
     stat = pg.mcf(
         ic.ifg_flat10,
         ic.ifg_flat_cc10,
@@ -554,12 +546,12 @@ def generate_final_flattened_ifg(
         ic.ifg_flat10.unw,
         width10,
         const.TRIANGULATION_MODE_DELAUNAY,
-        roff,
-        loff,
+        const.NOT_PROVIDED,  # roff: offset to starting range of section to unwrap
+        const.NOT_PROVIDED,  # loff: offset to starting line of section to unwrap
         const.NOT_PROVIDED,
         const.NOT_PROVIDED,
-        npat_r,
-        npat_az,
+        const.NUM_RANGE_PATCHES,
+        const.NUM_AZIMUTH_PATCHES,
         cout=cout,
         cerr=cerr,
     )
@@ -581,9 +573,9 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
+    # TODO: should these be args or constants?
     range_looks_magnification = -10
     azimuth_looks_magnification = -10
-    loff = 0
 
     stat = pg.multi_real(
         ic.ifg_flat10.unw,
@@ -592,7 +584,7 @@ def generate_final_flattened_ifg(
         ic.ifg_off,
         range_looks_magnification,
         azimuth_looks_magnification,
-        loff,
+        const.NOT_PROVIDED,  # line offset
         const.DISPLAY_TO_EOF,
         cout=cout,
         cerr=cerr,
@@ -617,10 +609,7 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    sub_phase_subtract_mode = 0
-    sub_phase_add_phase_mode = 1
-
-    # FIXME: fix with temp file names container to avoid path manipulation in processing code
+    # FIXME: create temp file names container to avoid path manipulation in processing code
     ifg_flat_int1 = ic.ifg_flat.with_suffix(".int1.unw")
 
     stat = pg.sub_phase(
@@ -629,7 +618,7 @@ def generate_final_flattened_ifg(
         ic.ifg_diff_par,
         ifg_flat_int1,
         const.DTYPE_FLOAT,
-        sub_phase_add_phase_mode,
+        const.SUB_PHASE_ADD_PHASE_MODE,
         cout=cout,
         cerr=cerr,
     )
@@ -685,30 +674,22 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    start_cc = 1
-    start_pwr = 1
-    pixavr = 1
-    pixavaz = 1
-    cc_threshold = 0.7
-    pwr_threshold = 0
-    left_right_flipping = 1
-
     stat = pg.rascc_mask(
         ic.ifg_flat_cc0,
         const.NOT_PROVIDED,
         ifg_width,
-        start_cc,
-        start_pwr,
+        const.NOT_PROVIDED,  # start_cc
+        const.NOT_PROVIDED,  # start_pwr
         const.DISPLAY_TO_EOF,
-        pixavr,
-        pixavaz,
-        cc_threshold,
-        pwr_threshold,
+        const.NOT_PROVIDED,  # num pixels to average in range
+        const.NOT_PROVIDED,  # num pixels to average in azimuth
+        cc_threshold,  # NB: reuse threshold from other pg.rascc_mask() call
+        const.NOT_PROVIDED,  # pwr_threshold
         const.NOT_PROVIDED,
         const.NOT_PROVIDED,
         const.NOT_PROVIDED,
         const.NOT_PROVIDED,
-        left_right_flipping,
+        const.NOT_PROVIDED,  # left_right_flipping flag
         ic.ifg_flat_cc0_mask,
         cout=cout,
         cerr=cerr,
@@ -731,6 +712,7 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
+    # TODO: should these be function args or constants?
     nr = 100
     naz = 100
 
@@ -790,24 +772,17 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    ph_flag = 0
-    bc_flag = 1
-    bn_flag = 1
-    bcdot_flag = 1
-    bndot_flag = 1
-    bperp_min = 10
-
     stat = pg.base_ls(
         ic.r_master_slc_par,
         ic.ifg_off,
         ic.ifg_gcp_ph,
         ic.ifg_base,
-        ph_flag,
-        bc_flag,
-        bn_flag,
-        bcdot_flag,
-        bndot_flag,
-        bperp_min,
+        const.NOT_PROVIDED,  # ph_flag
+        const.NOT_PROVIDED,  # bc_flag
+        const.NOT_PROVIDED,  # bn_flag
+        const.NOT_PROVIDED,  # bcdot_flag
+        const.NOT_PROVIDED,  # bndot_flag
+        const.NOT_PROVIDED,  # bperp_min
         cout=cout,
         cerr=cerr,
     )
@@ -832,17 +807,14 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    ph_flag = 0
-    bflag = 1
-
     stat = pg.phase_sim(
         ic.r_master_slc_par,
         ic.ifg_off,
         ic.ifg_base,
         dc.rdc_dem,
         ic.ifg_sim_unw,
-        ph_flag,
-        bflag,
+        const.NOT_PROVIDED,  # ph_flag
+        const.B_FLAG_PRECISION_BASELINE,
         cout=cout,
         cerr=cerr,
     )
@@ -873,7 +845,7 @@ def generate_final_flattened_ifg(
         ic.ifg_diff_par,
         ic.ifg_flat,
         const.DTYPE_FCOMPLEX,
-        sub_phase_subtract_mode,
+        const.SUB_PHASE_SUBTRACT_MODE,
         cout=cout,
         cerr=cerr,
     )
@@ -915,12 +887,6 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    sps_flag = 1
-    azf_flg = 0
-    rbw_min = 0.25
-    rp1_flg = 1
-    rp2_flg = 1
-
     stat = pg.SLC_diff_intf(
         ic.r_master_slc,
         ic.r_slave_slc,
@@ -931,11 +897,11 @@ def generate_final_flattened_ifg(
         ic.ifg_flat,
         pc.range_looks,
         pc.azimuth_looks,
-        sps_flag,
-        azf_flg,
-        rbw_min,
-        rp1_flg,
-        rp2_flg,
+        const.NOT_PROVIDED,  # sps_flag
+        const.AZIMUTH_COMMON_BAND_NO_FILTER,
+        const.NOT_PROVIDED,  # rbw_min
+        const.NOT_PROVIDED,  # rp1 flag
+        const.NOT_PROVIDED,  # rp2 flag
         cout=cout,
         cerr=cerr,
     )
@@ -984,6 +950,7 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
+    # FIXME: replace this by copying content to a file instead of rerunning EXE
     stat = pg.base_perp(
         ic.ifg_base, ic.r_master_slc_par, ic.ifg_off, cout=cout, cerr=cerr
     )
