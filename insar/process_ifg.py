@@ -168,11 +168,11 @@ def generate_init_flattened_ifg(
     :param clean_up:
     """
 
+    # calculate initial baseline of interferogram (i.e. the spatial distance between the two
+    # satellite positions at the time of acquisition of first and second image).
     cout = []
     cerr = []
 
-    # calculate initial baseline of interferogram (i.e. the spatial distance between the two
-    # satellite positions at the time of acquisition of first and second image).
     stat = pg.base_orbit(
         ic.r_master_slc_par, ic.r_slave_slc_par, ic.ifg_base_init, cout=cout, cerr=cerr
     )
@@ -191,11 +191,11 @@ def generate_init_flattened_ifg(
 
         raise ProcessIfgException(msg)
 
+    # Simulate phase from the DEM & linear baseline model
+    # linear baseline model may be inadequate for longer scenes, in which case use phase_sim_orb
     cout = []
     cerr = []
 
-    # Simulate phase from the DEM & linear baseline model
-    # linear baseline model may be inadequate for longer scenes, in which case use phase_sim_orb
     stat = pg.phase_sim_orb(
         ic.r_master_slc_par,
         ic.r_slave_slc_par,
@@ -225,12 +225,12 @@ def generate_init_flattened_ifg(
 
         raise ProcessIfgException(msg)
 
-    cout = []
-    cerr = []
-
     # Calculate initial flattened interferogram (baselines from orbit)
     # Multi-look complex interferogram generation from co-registered SLC data and a simulated
     # interferogram derived from a DEM.
+    cout = []
+    cerr = []
+
     stat = pg.SLC_diff_intf(
         ic.r_master_slc,
         ic.r_slave_slc,
@@ -428,17 +428,13 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    # TODO: should these be constants or function args with GA default values?
-    n_range_looks = 10
-    n_azimuth_looks = 10
-
     stat = pg.multi_cpx(
         ic.ifg_flat1,
         ic.ifg_off,
         ic.ifg_flat10,
         ic.ifg_off10,
-        n_range_looks,
-        n_azimuth_looks,
+        const.NUM_RANGE_LOOKS,
+        const.NUM_AZIMUTH_LOOKS,
         const.NOT_PROVIDED,  # line offset
         const.DISPLAY_TO_EOF,
         cout=cout,
@@ -465,18 +461,14 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    # TODO: why are these hard coded?
-    # TODO: should these be converted to args that can be overridden?
-    bx, by = 7, 7
-
     stat = pg.cc_wave(
         ic.ifg_flat10,
         const.NOT_PROVIDED,
         const.NOT_PROVIDED,
         ic.ifg_flat_cc10,
         width10,
-        bx,
-        by,
+        const.BX,
+        const.BY,
         const.ESTIMATION_WINDOW_TRIANGULAR,
         cout=cout,
         cerr=cerr,
@@ -499,9 +491,6 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    # TODO: should this be an arg or a constant?
-    cc_threshold = 0.7
-
     stat = pg.rascc_mask(
         ic.ifg_flat_cc10,
         const.NOT_PROVIDED,
@@ -511,10 +500,10 @@ def generate_final_flattened_ifg(
         const.DISPLAY_TO_EOF,
         const.NOT_PROVIDED,  # pixavr
         const.NOT_PROVIDED,  # pixavaz
-        cc_threshold,
+        const.MASKING_COHERENCE_THRESHOLD,
         const.NOT_PROVIDED,  # pwr_thresh
-        const.NOT_PROVIDED,
-        cc_threshold,
+        const.NOT_PROVIDED,  # cc_min
+        const.MASKING_COHERENCE_THRESHOLD,  # cc_max
         const.NOT_PROVIDED,  # scale
         const.NOT_PROVIDED,  # exp
         const.NOT_PROVIDED,  # left_right_flipping
@@ -573,17 +562,13 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    # TODO: should these be args or constants?
-    range_looks_magnification = -10
-    azimuth_looks_magnification = -10
-
     stat = pg.multi_real(
         ic.ifg_flat10.unw,
         ic.ifg_off10,
         ic.ifg_flat1.unw,
         ic.ifg_off,
-        range_looks_magnification,
-        azimuth_looks_magnification,
+        const.RANGE_LOOKS_MAGNIFICATION,
+        const.AZIMUTH_LOOKS_MAGNIFICATION,
         const.NOT_PROVIDED,  # line offset
         const.DISPLAY_TO_EOF,
         cout=cout,
@@ -683,12 +668,12 @@ def generate_final_flattened_ifg(
         const.DISPLAY_TO_EOF,
         const.NOT_PROVIDED,  # num pixels to average in range
         const.NOT_PROVIDED,  # num pixels to average in azimuth
-        cc_threshold,  # NB: reuse threshold from other pg.rascc_mask() call
+        const.MASKING_COHERENCE_THRESHOLD,  # NB: reuse threshold from other pg.rascc_mask() call
         const.NOT_PROVIDED,  # pwr_threshold
-        const.NOT_PROVIDED,
-        const.NOT_PROVIDED,
-        const.NOT_PROVIDED,
-        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,  # cc_min
+        const.NOT_PROVIDED,  # cc_max
+        const.NOT_PROVIDED,  # scale
+        const.NOT_PROVIDED,  # exp
         const.NOT_PROVIDED,  # left_right_flipping flag
         ic.ifg_flat_cc0_mask,
         cout=cout,
@@ -712,12 +697,13 @@ def generate_final_flattened_ifg(
     cout = []
     cerr = []
 
-    # TODO: should these be function args or constants?
-    nr = 100
-    naz = 100
-
     stat = pg.extract_gcp(
-        dc.rdc_dem, ic.ifg_off, ic.ifg_gcp, nr, naz, ic.ifg_flat_cc0_mask
+        dc.rdc_dem,
+        ic.ifg_off,
+        ic.ifg_gcp,
+        const.NUM_GCP_POINTS_RANGE,
+        const.NUM_GCP_POINTS_AZIMUTH,
+        ic.ifg_flat_cc0_mask,
     )
 
     if stat:
@@ -741,14 +727,13 @@ def generate_final_flattened_ifg(
     ifg_flat1_unw = ic.ifg_flat.with_suffix(
         ".int1.unw"
     )  # TODO: move to temp file container
-    window_size = 3
 
     stat = pg.gcp_phase(
         ifg_flat1_unw,
         ic.ifg_off,
         ic.ifg_gcp,
         ic.ifg_gcp_ph,
-        window_size,
+        const.GCP_PHASE_WINDOW_SIZE,
         cout=cout,
         cerr=cerr,
     )
@@ -925,7 +910,6 @@ def generate_final_flattened_ifg(
         raise ProcessIfgException(msg)
 
     # Calculate perpendicular baselines
-    # FIXME: why do base_perp twice with the same args as per the BASH code???
     cout = []
     cerr = []
 
