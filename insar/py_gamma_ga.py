@@ -97,16 +97,21 @@ class GammaInterface:
     # map through to the original
     ParFile = py_gamma_broken.ParFile
 
-    def __init__(self, install_dir=None, gamma_exes=None):
+    def __init__(self, install_dir=None, gamma_exes=None, subprocess_func=None):
         """
         Create an GammaInterface shim class.
         :param install_dir: base install dir str of Gamma. If None is specified, the install dir must
                             be configured elsewhere for the dynamic
         :param gamma_exes: Mapping of {k=exe_name: v=exe_relative_path}
+        :param subprocess_func: function to call Gamma exes, with signature (gamma_cmd_name, *args, **kwargs)
+                                see subprocess_wrapper() in this module for an example.
         """
         # k=program, v=exe path relative to install dir
         self._gamma_exes = gamma_exes if gamma_exes else {}
         self.install_dir = install_dir
+        self.subprocess_func = (
+            subprocess_wrapper if subprocess_func is None else subprocess_func
+        )
 
     def __getattr__(self, name):
         """Dynamically lookup Gamma programs as methods to avoid hardcoding."""
@@ -125,7 +130,7 @@ class GammaInterface:
             raise AttributeError(msg.format(name, self._gamma_exes))
 
         cmd = os.path.join(self.install_dir, self._gamma_exes[name])
-        return functools.partial(subprocess_wrapper, cmd)
+        return functools.partial(self.subprocess_func, cmd)
 
 
 try:
