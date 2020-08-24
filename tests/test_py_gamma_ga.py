@@ -37,7 +37,7 @@ def test_find_gamma_installed_exes(monkeypatch):
 @pytest.fixture
 def pg():
     # simulates 'import py_gamma as pg'
-    iface = py_gamma_ga.AltGamma(FAKE_INSTALL_DIR)
+    iface = py_gamma_ga.GammaInterface(FAKE_INSTALL_DIR)
     iface._gamma_exes = {
         "S1_burstloc": "/fake/gamma/dir/ISP/bin/S1_burstloc",
         "fake_gamma": "/fake/gamma/dir/ISP/bin/fake_gamma",

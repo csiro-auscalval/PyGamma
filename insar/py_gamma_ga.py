@@ -70,7 +70,7 @@ def find_gamma_installed_exes(install_dir, packages):
 
 
 def subprocess_wrapper(cmd, *args, **kwargs):
-    """Shim to map AltGamma methods to subprocess.run() calls for running Gamma EXEs."""
+    """Shim to map GammaInterface methods to subprocess.run() calls for running Gamma EXEs."""
     cmd_list = [cmd, " ".join(args)]
 
     p = subprocess.run(
@@ -86,9 +86,12 @@ def subprocess_wrapper(cmd, *args, **kwargs):
     return p.returncode
 
 
-class AltGamma:
+class GammaInterface:
     """
-    Alternate interface class/shim to temporarily(?) replace the py_gamma.py module.
+    Alternate interface class/shim to temporarily(?) replace the official py_gamma.py module.
+
+    The GAMMA supplied py_gamma.py module is fairly new (as of July/Aug 2020) & has problems which
+    this module is designed to work around.
     """
 
     # map through to the original
@@ -96,7 +99,7 @@ class AltGamma:
 
     def __init__(self, install_dir=None, gamma_exes=None):
         """
-        Create an AltGamma shim class.
+        Create an GammaInterface shim class.
         :param install_dir: base install dir str of Gamma. If None is specified, the install dir must
                             be configured elsewhere for the dynamic
         :param gamma_exes: Mapping of {k=exe_name: v=exe_relative_path}
@@ -108,13 +111,17 @@ class AltGamma:
     def __getattr__(self, name):
         """Dynamically lookup Gamma programs as methods to avoid hardcoding."""
         if self.install_dir is None:
-            msg = "AltGamma shim install_dir not set. Check for the GAMMA_INSTALL_DIR environ var, " \
-                  "or ensure the setup code manually sets the install dir."
+            msg = (
+                "GammaInterface shim install_dir not set. Check for the GAMMA_INSTALL_DIR environ var, "
+                "or ensure the setup code manually sets the install dir."
+            )
             raise AltGammaException(msg)
 
         if name not in self._gamma_exes:
-            msg = "Unrecognised attribute '{}'. Check the calling function name, or for unimplemented" \
-                  "attributes.\nKnown GAMMA exes for this shim are:\n{}"
+            msg = (
+                "Unrecognised attribute '{}'. Check the calling function name, or for unimplemented"
+                "attributes.\nKnown GAMMA exes for this shim are:\n{}"
+            )
             raise AttributeError(msg.format(name, self._gamma_exes))
 
         cmd = os.path.join(self.install_dir, self._gamma_exes[name])
@@ -132,12 +139,12 @@ if GAMMA_INSTALL_DIR:
     GAMMA_INSTALLED_EXES = find_gamma_installed_exes(
         GAMMA_INSTALL_DIR, GAMMA_INSTALLED_PACKAGES
     )
-    pg = AltGamma(GAMMA_INSTALL_DIR, GAMMA_INSTALLED_EXES)
+    pg = GammaInterface(GAMMA_INSTALL_DIR, GAMMA_INSTALLED_EXES)
 
-    # HACK: InSAR packaging workflow requires pg.__file__, fake it so the AltGamma shim looks
+    # HACK: InSAR packaging workflow requires pg.__file__, fake it so the GammaInterface shim looks
     # like the actual py_gamma module. Hopefully this shouldn't break anything.
     pg.__file__ = os.path.join(GAMMA_INSTALL_DIR, "py_gamma.py")
 else:
     # assume user will configure manually
-    warnings.warn('GAMMA_INSTALL_DIR not set, user needs to configure this in code...')
-    pg = AltGamma()
+    warnings.warn("GAMMA_INSTALL_DIR not set, user needs to configure this in code...")
+    pg = GammaInterface()
