@@ -14,6 +14,10 @@ SCENE_DATE_FMT = "%Y%m%d"
 COREG_JOB_FILE_FMT = "{master}_{slave}.bash"
 COREG_JOB_ERROR_FILE_FMT = "{master}_{slave}.error"
 
+# generic Gamma interface
+COUT = "cout"
+CERR = "cerr"
+
 # constants for process_ifg
 OFFSET_ESTIMATION_INTENSITY_CROSS_CORRELATION = 1
 OFFSET_ESTIMATION_FRINGE_VISIBILITY = 2

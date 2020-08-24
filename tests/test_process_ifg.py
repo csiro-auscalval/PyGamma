@@ -1,7 +1,8 @@
 import pathlib
 from unittest import mock
 
-from insar import process_ifg
+import insar.constant as const
+from insar import process_ifg, py_gamma_ga
 from insar.process_ifg import ProcessIfgException
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 
@@ -88,46 +89,60 @@ def test_calc_int_with_cleanup(monkeypatch, pg_int_mock, pc_mock, ic_mock):
     assert ic_mock.ifg_coffsets.unlink.called
 
 
-def test_calc_int_with_errors(monkeypatch, pg_int_mock, pc_mock, ic_mock):
-    monkeypatch.setattr(process_ifg, "pg", pg_int_mock)
+def test_error_handling_decorator(monkeypatch):
+    # force all fake subprocess calls to fail
+    fake_subprocess = mock.Mock(return_value=-1)
 
-    log_mock = mock.Mock(
-        spec=structlog.stdlib.BoundLogger
-    )  # this spec has base error(), msg() etc
+    pgi = py_gamma_ga.GammaInterface(
+        install_dir="./fake-install",
+        gamma_exes={"create_offset": "fake-EXE-name"},
+        subprocess_func=process_ifg.decorator(fake_subprocess),
+    )
+
+    # ensure mock logger has all core error(), msg() etc logging functions
+    log_mock = mock.Mock(spec=structlog.stdlib.BoundLogger)
     assert log_mock.error.called is False
     monkeypatch.setattr(process_ifg, "_LOG", log_mock)
 
-    ic_mock.ifg_off = mock.Mock(spec=pathlib.Path)
-    ic_mock.ifg_off.exists.return_value = False
-    pg_int_mock.create_offset.return_value = -1
-
     with pytest.raises(ProcessIfgException):
-        process_ifg.calc_int(pc_mock, ic_mock, clean_up=False)
+        pgi.create_offset(1, 2, 3, key="value")
 
     assert log_mock.error.called
+    has_cout = has_cerr = False
+
+    for c in log_mock.error.call_args:
+        if const.COUT in c:
+            has_cout = True
+
+        if const.CERR in c:
+            has_cerr = True
+
+    assert has_cout
+    assert has_cerr
 
 
 @pytest.fixture
 def pg_flat_mock():
     """Create basic mock of the py_gamma module for the INT processing step."""
     pg_mock = mock.Mock()
-    pg_mock.base_orbit.return_value = 0
-    pg_mock.phase_sim_orb.return_value = 0
-    pg_mock.SLC_diff_intf.return_value = 0
-    pg_mock.base_init.return_value = 0
-    pg_mock.base_add.return_value = 0
-    pg_mock.phase_sim.return_value = 0
+    ret = (0, "cout", "cerr")
+    pg_mock.base_orbit.return_value = ret
+    pg_mock.phase_sim_orb.return_value = ret
+    pg_mock.SLC_diff_intf.return_value = ret
+    pg_mock.base_init.return_value = ret
+    pg_mock.base_add.return_value = ret
+    pg_mock.phase_sim.return_value = ret
 
-    pg_mock.gcp_phase.return_value = 0
-    pg_mock.sub_phase.return_value = 0
-    pg_mock.mcf.return_value = 0
-    pg_mock.base_ls.return_value = 0
-    pg_mock.cc_wave.return_value = 0
-    pg_mock.rascc_mask.return_value = 0
-    pg_mock.multi_cpx.return_value = 0
-    pg_mock.multi_real.return_value = 0
-    pg_mock.base_perp.return_value = 0
-    pg_mock.extract_gcp.return_value = 0
+    pg_mock.gcp_phase.return_value = ret
+    pg_mock.sub_phase.return_value = ret
+    pg_mock.mcf.return_value = ret
+    pg_mock.base_ls.return_value = ret
+    pg_mock.cc_wave.return_value = ret
+    pg_mock.rascc_mask.return_value = ret
+    pg_mock.multi_cpx.return_value = ret
+    pg_mock.multi_real.return_value = ret
+    pg_mock.base_perp.return_value = ret
+    pg_mock.extract_gcp.return_value = ret
     return pg_mock
 
 
