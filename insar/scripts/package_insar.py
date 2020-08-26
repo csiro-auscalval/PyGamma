@@ -198,7 +198,7 @@ def get_slc_metadata_dict(
             # create the filename of the yaml from the s1 zip
             yaml_file = Path(
                 os.path.splitext(
-                    os.path.join(yaml_base_dir, *list(Path(s1_zip).parts[-4:]))
+                    os.path.join(yaml_base_dir, *list(Path(s1_zip).parts[-4:]))  # parts[-4:] returns the CopHub directory structure we then replicate. e.g (yyyy, yyyy-mm, xy-region, zip name)
                 )[0]
                 + ".yaml"
             )
