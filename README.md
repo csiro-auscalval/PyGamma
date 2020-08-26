@@ -308,7 +308,7 @@ and submitted to NCI queue with parameters specified in a `required parameters`
              --email   TEXT       Notification email address.
              --nodes   INTEGER    Number of nodes to be requested (default=1)
              --workers INTEGER    Number of workers
-             --jobfs   INTEGER    Jobfs required per node (default=2)
+             --jobfs   INTEGER    Jobfs required in GB per node (default=2)
              -s, --storage TEXT   Project storage you wish to use in PBS jobs
              --project TEXT       Project to compute under
              --env PATH           Environment script to source.
