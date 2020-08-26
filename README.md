@@ -301,7 +301,7 @@ and submitted to NCI queue with parameters specified in a `required parameters`
              --polarization TEXT  Polarizations to be processed VV or VH, arg
                                   can be specified multiple times
              --ncpus   INTEGER    The total number of cpus per job required if known (default=48)
-             --memory  INTEGER    Total memory required if per node - recommend to use 700
+             --memory  INTEGER    Total memory in GB required if per node - recommend to use 700
              --queue   TEXT       Queue {express, normal, hugemem} to submit
                                   the job (default=normal) - recommend to use hugemem
              --hours   INTEGER    Job walltime in hours (default=48)
@@ -350,4 +350,3 @@ to be packaged to be indexed into a data-cube.
 
 	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --queue normal --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
 	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --polarization VH --queue normal --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
-
