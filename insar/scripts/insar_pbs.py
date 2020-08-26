@@ -355,7 +355,7 @@ def ard_insar(
     default=None,
 )
 @click.option("--hours", type=click.INT, help="Job walltime in hours.", default=24)
-@click.option("--jobfs", help="jobfs required per node", default=2)
+@click.option("--jobfs", help="jobfs required in GB per node", default=2)
 @click.option(
     "--storage",
     "-s",
