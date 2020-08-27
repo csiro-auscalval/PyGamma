@@ -211,3 +211,27 @@ def test_generate_final_flattened_ifg(
     assert pg_flat_mock.phase_sim.called
     assert pg_flat_mock.SLC_diff_intf.called
     assert pg_flat_mock.base_perp.call_count == 1
+
+
+@pytest.fixture
+def pg_filt_mock():
+    """Create basic mock of the py_gamma module for the INT processing step."""
+    pgm = mock.Mock()
+    pgm.cc_wave.return_value = 0
+    pgm.adf.return_value = 0
+    return pgm
+
+
+def test_calc_filt(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
+    monkeypatch.setattr(process_ifg, "pg", pg_filt_mock)
+
+    ic_mock.ifg_flat = mock.Mock()
+    ic_mock.ifg_flat.exists.return_code = True
+
+    assert pg_filt_mock.cc_wave.called is False
+    assert pg_filt_mock.adf.called is False
+
+    process_ifg.calc_filt(pc_mock, ic_mock, ifg_width=230)
+
+    assert pg_filt_mock.cc_wave.called
+    assert pg_filt_mock.adf.called

@@ -466,6 +466,51 @@ def generate_final_flattened_ifg(
         raise ex
 
 
+def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
+    """
+    TODO docs
+    :param pc:
+    :param ic:
+    :param ifg_width:
+    :return:
+    """
+
+    if not ic.ifg_flat.exists():
+        msg = "cannot locate (*.flat) flattened interferogram: {}. Was FLAT executed?".format(
+            ic.ifg_flat
+        )
+        _LOG.error(msg)
+        raise ProcessIfgException(msg)
+
+    # calculate coherence of flattened interferogram
+    # WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
+    pg.cc_wave(
+        ic.ifg_flat,  # normalised complex interferogram
+        ic.r_master_mli,  # multi-look intensity image of the first scene (float)
+        ic.r_slave_mli,  # multi-look intensity image of the second scene (float)
+        ic.ifg_flat_cc,  # interferometric correlation coefficient (float)
+        ifg_width,  # number of samples/line
+        pc.ifg_coherence_window,  # estimation window size in columns
+        pc.ifg_coherence_window,  # estimation window size in lines
+        const.ESTIMATION_WINDOW_TRIANGULAR,  # estimation window "shape/style"
+    )
+
+    # Smooth the phase by Goldstein-Werner filter
+    pg.adf(
+        ic.ifg_flat,
+        ic.ifg_filt,
+        ic.ifg_filt_cc,
+        ifg_width,
+        pc.ifg_exponent,
+        pc.ifg_filtering_window,
+        pc.ifg_coherence_window,
+        const.NOT_PROVIDED,  # step
+        const.NOT_PROVIDED,  # loff
+        const.NOT_PROVIDED,  # nlines
+        const.NOT_PROVIDED,  # minimum fraction of points required to be non-zero in the filter window (default=0.700)
+    )
+
+
 def remove_files(*args):
     """
     Attempts to remove the given files, logging any failures
