@@ -14,7 +14,7 @@ import warnings
 import py_gamma as py_gamma_broken
 
 
-class AltGammaException(Exception):
+class GammaInterfaceException(Exception):
     """Generic exception class for the alternate Gamma interface."""
 
     pass
@@ -37,7 +37,7 @@ def find_gamma_installed_packages(install_dir):
 
     if res is None or len(res) == 0:
         msg = "No Gamma packages found in {}"
-        raise AltGammaException(msg.format(install_dir))
+        raise GammaInterfaceException(msg.format(install_dir))
 
     return res
 
@@ -120,7 +120,7 @@ class GammaInterface:
                 "GammaInterface shim install_dir not set. Check for the GAMMA_INSTALL_DIR environ var, "
                 "or ensure the setup code manually sets the install dir."
             )
-            raise AltGammaException(msg)
+            raise GammaInterfaceException(msg)
 
         if name not in self._gamma_exes:
             msg = (
