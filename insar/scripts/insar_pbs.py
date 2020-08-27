@@ -204,7 +204,7 @@ def _submit_pbs(pbs_scripts, test):
 @click.option(
     "--workers", type=click.INT, help="Number of workers", default=0,
 )
-@click.option("--jobfs", type=click.INT, help="Jobfs required per node", default=400)
+@click.option("--jobfs", type=click.INT, help="Jobfs required in GB per node", default=2)
 @click.option(
     "--storage",
     "-s",
@@ -355,7 +355,7 @@ def ard_insar(
     default=None,
 )
 @click.option("--hours", type=click.INT, help="Job walltime in hours.", default=24)
-@click.option("--jobfs", help="jobfs required per node", default=50)
+@click.option("--jobfs", help="jobfs required in GB per node", default=2)
 @click.option(
     "--storage",
     "-s",
