@@ -465,23 +465,6 @@ def generate_final_flattened_ifg(
         _LOG.error(msg, exception=ex)
         raise ex
 
-
-def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
-    """
-    TODO docs
-    :param pc:
-    :param ic:
-    :param ifg_width:
-    :return:
-    """
-
-    if not ic.ifg_flat.exists():
-        msg = "cannot locate (*.flat) flattened interferogram: {}. Was FLAT executed?".format(
-            ic.ifg_flat
-        )
-        _LOG.error(msg)
-        raise ProcessIfgException(msg)
-
     # calculate coherence of flattened interferogram
     # WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
     pg.cc_wave(
@@ -494,6 +477,22 @@ def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
         pc.ifg_coherence_window,  # estimation window size in lines
         const.ESTIMATION_WINDOW_TRIANGULAR,  # estimation window "shape/style"
     )
+
+
+def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
+    """
+    TODO docs
+    :param pc:
+    :param ic:
+    :param ifg_width:
+    :return:
+    """
+    if not ic.ifg_flat.exists():
+        msg = "cannot locate (*.flat) flattened interferogram: {}. Was FLAT executed?".format(
+            ic.ifg_flat
+        )
+        _LOG.error(msg, missing_file=ic.ifg_flat)
+        raise ProcessIfgException(msg)
 
     # Smooth the phase by Goldstein-Werner filter
     pg.adf(

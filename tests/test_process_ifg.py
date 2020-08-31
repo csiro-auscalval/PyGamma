@@ -125,7 +125,7 @@ def test_error_handling_decorator(monkeypatch):
 def pg_flat_mock():
     """Create basic mock of the py_gamma module for the INT processing step."""
     pg_mock = mock.Mock()
-    ret = (0, "cout", "cerr")
+    ret = (0, "cout-fake-content", "cerr-fake-content")
     pg_mock.base_orbit.return_value = ret
     pg_mock.phase_sim_orb.return_value = ret
     pg_mock.SLC_diff_intf.return_value = ret
@@ -200,7 +200,7 @@ def test_generate_final_flattened_ifg(
     )
 
     assert pg_flat_mock.multi_cpx.called
-    assert pg_flat_mock.cc_wave.call_count == 2
+    assert pg_flat_mock.cc_wave.call_count == 3
     assert pg_flat_mock.rascc_mask.call_count == 2
     assert pg_flat_mock.mcf.called
     assert pg_flat_mock.multi_real.called
@@ -217,7 +217,6 @@ def test_generate_final_flattened_ifg(
 def pg_filt_mock():
     """Create basic mock of the py_gamma module for the INT processing step."""
     pgm = mock.Mock()
-    pgm.cc_wave.return_value = 0
     pgm.adf.return_value = 0
     return pgm
 
@@ -226,12 +225,18 @@ def test_calc_filt(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
     monkeypatch.setattr(process_ifg, "pg", pg_filt_mock)
 
     ic_mock.ifg_flat = mock.Mock()
-    ic_mock.ifg_flat.exists.return_code = True
+    ic_mock.ifg_flat.exists.return_value = True
 
-    assert pg_filt_mock.cc_wave.called is False
     assert pg_filt_mock.adf.called is False
-
     process_ifg.calc_filt(pc_mock, ic_mock, ifg_width=230)
-
-    assert pg_filt_mock.cc_wave.called
     assert pg_filt_mock.adf.called
+
+
+def test_calc_filt_no_flat_file(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
+    monkeypatch.setattr(process_ifg, "pg", pg_filt_mock)
+
+    ic_mock.ifg_flat = mock.Mock()
+    ic_mock.ifg_flat.exists.return_value = False
+
+    with pytest.raises(ProcessIfgException):
+        process_ifg.calc_filt(pc_mock, ic_mock, ifg_width=180)
