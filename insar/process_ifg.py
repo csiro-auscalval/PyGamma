@@ -1,4 +1,5 @@
 import socket
+import pathlib
 import structlog
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 import insar.constant as const
@@ -79,11 +80,11 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
             raise NotImplementedError("Not required for Sentinel 1 processing")
         else:
             pg.offset_pwr(
-                ic.r_master_slc,  # (input) single-look complex image 1 (reference)
-                ic.r_slave_slc,  # (input) single-look complex image 2
-                ic.r_master_slc_par,  # (input) SLC-1 ISP image parameter file
-                ic.r_slave_slc_par,  # (input) SLC-2 ISP image parameter file
-                ic.ifg_off,  # (input) ISP offset/interferogram parameter file
+                ic.r_master_slc,  # single-look complex image 1 (reference)
+                ic.r_slave_slc,  # single-look complex image 2
+                ic.r_master_slc_par,  # SLC-1 ISP image parameter file
+                ic.r_slave_slc_par,  # SLC-2 ISP image parameter file
+                ic.ifg_off,  # ISP offset/interferogram parameter file
                 ic.ifg_offs,  # (output) offset estimates in range and azimuth (fcomplex)
                 ic.ifg_ccp,  # (output) cross-correlation of each patch (0.0->1.0) (float)
                 const.RANGE_PATCH_SIZE,
@@ -508,6 +509,154 @@ def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
         const.NOT_PROVIDED,  # nlines
         const.NOT_PROVIDED,  # minimum fraction of points required to be non-zero in the filter window (default=0.700)
     )
+
+
+# TODO unw == unwrapped?
+def calc_unw(pc: ProcConfig, ic: IfgFileNames, ifg_width, clean_up):
+    """
+    TODO: docs
+    :param pc:
+    :param ic:
+    :param ifg_width:
+    :param clean_up: bool, True to clean up temporary files during run
+    :return:
+    """
+
+    if not ic.ifg_filt.exists():
+        msg = "cannot locate (*.filt) filtered interferogram: {}. Was FILT executed?".format(
+            ic.ifg_filt
+        )
+        _LOG.error(msg, missing_file=ic.ifg_filt)
+        raise ProcessIfgException(msg)
+
+    pg.rascc_mask(
+        ic.ifg_filt_cc,  # <cc> coherence image (float)
+        const.NOT_PROVIDED,  # <pwr> intensity image (float)
+        ifg_width,  # number of samples/row
+        const.RASCC_MASK_DEFAULT_COHERENCE_STARTING_LINE,
+        const.RASCC_MASK_DEFAULT_INTENSITY_STARTING_LINE,
+        const.RASCC_TO_EOF,  # [nlines] number of lines to display
+        const.N_PIXELS_DEFAULT_RANGE_AVERAGE,  # number of pixels to average in range
+        const.N_PIXELS_DEFAULT_AZIMUTH_AVERAGE,  # number of pixels to average in azimuth
+        pc.ifg_coherence_threshold,  # masking threshold
+        const.RASCC_DEFAULT_INTENSITY_THRESHOLD,  # intensity threshold
+        const.NOT_PROVIDED,  # [cc_min] minimum coherence value for color display
+        const.NOT_PROVIDED,  # [cc_max] maximum coherence value for color display
+        const.NOT_PROVIDED,  # [scale] intensity image display scale factor
+        const.NOT_PROVIDED,  # [exp] intensity display exponent
+        const.LEFT_RIGHT_FLIPPING_NORMAL,  # [LR] left/right flipping flag
+        ic.ifg_mask,  # [rasf] (output) validity mask
+    )
+
+    if pc.multi_look <= const.RASCC_THINNING_THRESHOLD:
+        unwrapped_tmp = calc_unw_thinning(pc, ic, ifg_width, clean_up=clean_up)
+    else:
+        msg = (
+            "Processing for unwrapping the full interferogram without masking not implemented. "
+            "GA's InSAR team use multilooks=2 for Sentinel-1 ARD product generation."
+        )
+        raise NotImplementedError(msg)
+
+    if pc.ifg_unw_mask.lower() == "yes":
+        # Mask unwrapped interferogram for low coherence areas below threshold
+        pg.mask_data(
+            unwrapped_tmp,  # input file
+            ifg_width,
+            ic.ifg_unw,  # output file
+            ic.ifg_mask,
+            const.DTYPE_FLOAT,
+        )
+        remove_files(unwrapped_tmp)
+    else:
+        unwrapped_tmp.rename(ic.ifg_unw)
+
+
+def calc_unw_thinning(
+    pc: ProcConfig,
+    ic: IfgFileNames,
+    ifg_width,
+    num_sampling_reduction_runs=3,
+    clean_up=False,
+):
+    """
+    TODO docs
+    :param pc:
+    :param ic:
+    :param ifg_width:
+    :param num_sampling_reduction_runs:
+    :param clean_up:
+    :return: dest TODO unwrapped ifg
+    """
+    # Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser
+    # network which can be interpolated and used as a model for unwrapping the full interferogram
+
+    # TODO: are these constants ok here, or better in constants.py?
+    thresh_1st = pc.ifg_coherence_threshold + 0.2
+    thresh_max = thresh_1st + 0.2
+
+    # TODO: can the output file ic.ifg_mask_thin exist?
+    pg.rascc_mask_thinning(
+        ic.ifg_mask,  # validity mask
+        ic.ifg_filt_cc,  # file for adaptive sampling reduction, e.g. coherence (float)
+        ifg_width,
+        ic.ifg_mask_thin,  # (output) validity mask with reduced sampling
+        num_sampling_reduction_runs,
+        pc.ifg_coherence_threshold,
+        thresh_1st,
+        thresh_max,
+    )
+
+    # Unwrapping with validity mask (Phase unwrapping using Minimum Cost Flow (MCF) triangulation)
+    pg.mcf(
+        ic.ifg_filt,  # interferogram
+        ic.ifg_filt_cc,  # weight factors file (float)
+        ic.ifg_mask_thin,  # validity mask file
+        ic.ifg_unw_thin,  # (output) unwrapped phase image (*.unw) (float)
+        ifg_width,  # number of samples per row
+        const.TRIANGULATION_MODE_DELAUNAY,
+        const.NOT_PROVIDED,  # r offset
+        const.NOT_PROVIDED,  # l offset
+        const.NOT_PROVIDED,  # num of range samples
+        const.NOT_PROVIDED,  # nlines
+        pc.ifg_patches_range,  # number of patches (tiles?) in range
+        pc.ifg_patches_azimuth,  # num of lines of section to unwrap
+        const.NOT_PROVIDED,  # overlap between patches in pixels
+        pc.ifg_ref_point_range,  # phase reference range offset
+        pc.ifg_ref_point_azimuth,  # phase reference azimuth offset
+        const.INIT_FLAG_SET_PHASE_0_AT_INITIAL,
+    )
+
+    # Interpolate sparse unwrapped points to give unwrapping model
+    # Weighted interpolation of gaps in 2D data using adaptive interpolation
+    pg.interp_ad(
+        ic.ifg_unw_thin,
+        ic.ifg_unw_model,
+        ifg_width,
+        const.MAX_INTERP_WINDOW_RADIUS,  # maximum interpolation window radius
+        const.NPOINTS_MIN_FOR_INTERP,  # minimum number of points used for interpolation
+        const.NPOINT_MAX_FOR_INTERP,  # maximum number of points used for interpolation
+        const.WEIGHTING_MODE_2,
+    )
+
+    # Use model to unwrap filtered interferogram
+    dest = pathlib.Path(
+        "temp-unwapped-filtered-ifg"
+    )  # TODO: handle paths in temp file struct
+
+    pg.unw_model(
+        ic.ifg_filt,  # complex interferogram
+        ic.ifg_unw_model,  # approximate unwrapped phase model (float)
+        dest,  # output file
+        ifg_width,
+        pc.ifg_ref_point_range,  # xinit
+        pc.ifg_ref_point_azimuth,  # # yinit
+        const.REF_POINT_PHASE,  # reference point phase (radians) (enter - for phase at the reference point ))
+    )
+
+    if clean_up:
+        remove_files(ic.ifg_unw_thin, ic.ifg_unw_model)
+
+    return dest
 
 
 def remove_files(*args):
