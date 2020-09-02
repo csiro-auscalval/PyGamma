@@ -29,6 +29,30 @@ python setup.py install --prefix=$CUSTOM_PY_INSTALL
 
 If the `source configs/insar.env` command does not complete cleanly (e.g. cannot find a dir of modules), check your group memberships.
 
+## Developing GAMMA-INSAR
+
+### Local Runtime Environment Setup
+
+Note that the Gamma InSAR code can only be run on NCI's `Gadi` system. Only unit tests can be run with local repositories (run on Linux and Mac/OS X).
+
+TODO: document setting up a local virtual env.
+
+### Running unit tests & code coverage
+
+Gamma-InSAR uses pytest for execute the unittests.
+
+```BASH
+cd <gamma-insar project dir>
+echo $PYTHONPATH  # should contain the gamma_insar dir
+py.test -q  # should complete with 0 errors and some warnings
+
+# run tests & display coverage report at the terminal
+py.test -q --disable-warnings --cov=insar
+
+# run tests & generate an interactive HTML report
+py.test -q --disable-warnings --cov-report=html --cov=insar tests
+```
+
 ## Operating System tested
 
 Linux
