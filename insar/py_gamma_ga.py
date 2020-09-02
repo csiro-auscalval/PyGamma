@@ -11,7 +11,13 @@ import functools
 import subprocess
 import warnings
 
+import structlog
+
+# TODO: this needs a guard block to distinguish between platforms with(out) Gamma
 import py_gamma as py_gamma_broken
+
+
+_LOG = structlog.get_logger("insar")
 
 
 class GammaInterfaceException(Exception):
@@ -77,6 +83,8 @@ def subprocess_wrapper(cmd, *args, **kwargs):
         cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
     )
 
+    _LOG.info("Gamma's '{}' called: {}".format(cmd, cmd_list))
+
     if COUT in kwargs:
         kwargs[COUT].extend(p.stdout.split("\n"))
 
@@ -112,6 +120,8 @@ class GammaInterface:
         self.subprocess_func = (
             subprocess_wrapper if subprocess_func is None else subprocess_func
         )
+
+        _LOG.info("Using GAMMA install {}".format(install_dir))
 
     def __getattr__(self, name):
         """Dynamically lookup Gamma programs as methods to avoid hardcoding."""

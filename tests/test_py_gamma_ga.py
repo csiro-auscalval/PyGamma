@@ -1,4 +1,5 @@
 import os
+from unittest import mock
 from collections import Sequence, namedtuple
 from insar import py_gamma_ga
 
@@ -80,9 +81,14 @@ def fake_subprocess_run_error(cmd_list, *args, **kwargs):
 def test_function_call_args_only(pg, monkeypatch):
     monkeypatch.setattr(py_gamma_ga.subprocess, "run", fake_subprocess_run)
 
+    minfo = mock.Mock()
+    monkeypatch.setattr(py_gamma_ga._LOG, "info", minfo)
+
     path = "fake_annotation_args_only.xml"
+    assert minfo.called is False
     stat = pg.S1_burstloc(path)
     assert stat == 0
+    assert minfo.called
 
 
 def test_function_call_args_kwargs(pg, monkeypatch):
