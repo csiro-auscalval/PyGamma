@@ -39,7 +39,7 @@ TODO: document setting up a local virtual env.
 
 ### Running unit tests & code coverage
 
-Gamma-InSAR uses pytest for execute the unittests.
+Gamma-InSAR uses pytest for execute the unittests. Note that running `coverage.py` alone **does not accurately record coverage results!** The pytest-cov tool is required to measure this correctly.
 
 ```BASH
 cd <gamma-insar project dir>
