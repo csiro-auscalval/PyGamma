@@ -548,7 +548,11 @@ def calc_unw(pc: ProcConfig, ic: IfgFileNames, ifg_width, clean_up):
         ic.ifg_mask,  # [rasf] (output) validity mask
     )
 
-    if pc.multi_look <= const.RASCC_THINNING_THRESHOLD:
+    if (
+        const.RASCC_MIN_THINNING_THRESHOLD
+        <= pc.multi_look
+        <= const.RASCC_THINNING_THRESHOLD
+    ):
         unwrapped_tmp = calc_unw_thinning(pc, ic, ifg_width, clean_up=clean_up)
     else:
         msg = (
@@ -589,10 +593,8 @@ def calc_unw_thinning(
     """
     # Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser
     # network which can be interpolated and used as a model for unwrapping the full interferogram
-
-    # TODO: are these constants ok here, or better in constants.py?
-    thresh_1st = pc.ifg_coherence_threshold + 0.2
-    thresh_max = thresh_1st + 0.2
+    thresh_1st = pc.ifg_coherence_threshold + const.RASCC_THRESHOLD_INCREMENT
+    thresh_max = thresh_1st + const.RASCC_THRESHOLD_INCREMENT
 
     # TODO: can the output file ic.ifg_mask_thin exist?
     pg.rascc_mask_thinning(
@@ -641,7 +643,7 @@ def calc_unw_thinning(
     # Use model to unwrap filtered interferogram
     dest = pathlib.Path(
         "temp-unwapped-filtered-ifg"
-    )  # TODO: handle paths in temp file struct
+    )  # TODO: handle paths in temp file struct or use tempfile module?
 
     pg.unw_model(
         ic.ifg_filt,  # complex interferogram
@@ -650,7 +652,7 @@ def calc_unw_thinning(
         ifg_width,
         pc.ifg_ref_point_range,  # xinit
         pc.ifg_ref_point_azimuth,  # # yinit
-        const.REF_POINT_PHASE,  # reference point phase (radians) (enter - for phase at the reference point ))
+        const.REF_POINT_PHASE,  # reference point phase (radians)
     )
 
     if clean_up:
