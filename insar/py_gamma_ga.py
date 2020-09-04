@@ -83,7 +83,7 @@ def subprocess_wrapper(cmd, *args, **kwargs):
         cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
     )
 
-    _LOG.info("Gamma's '{}' called: {}".format(cmd, cmd_list))
+    _LOG.info("calling Gamma", cmd=cmd, cmd_list=cmd_list)
 
     if COUT in kwargs:
         kwargs[COUT].extend(p.stdout.split("\n"))
@@ -121,7 +121,7 @@ class GammaInterface:
             subprocess_wrapper if subprocess_func is None else subprocess_func
         )
 
-        _LOG.info("Using GAMMA install {}".format(install_dir))
+        _LOG.info("GAMMA install location", install_dir=install_dir)
 
     def __getattr__(self, name):
         """Dynamically lookup Gamma programs as methods to avoid hardcoding."""
