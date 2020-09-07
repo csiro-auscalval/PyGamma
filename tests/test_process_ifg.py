@@ -1,4 +1,5 @@
 import pathlib
+import subprocess
 from unittest import mock
 
 import insar.constant as const
@@ -11,7 +12,7 @@ import pytest
 
 
 # FIXME: tweak settings to ensure working dir doesn't have to be changed for INT processing (do in workflow)
-
+# FIXME: change all mocks to return (return_code, cout, cerr) as per decorator
 
 # TODO: can monkeypatch be done at higher level scope to apply to multiple test funcs?
 @pytest.fixture
@@ -305,3 +306,200 @@ def test_calc_unw_thinning(monkeypatch, pg_unw_mock, pc_mock, ic_mock):
     assert pg_unw_mock.mcf.called
     assert pg_unw_mock.interp_ad.called
     assert pg_unw_mock.unw_model.called
+
+
+@pytest.fixture
+def pg_geocode_mock():
+    """Basic mock for pygamma calls in GEOCODE"""
+    pgm = mock.Mock()
+    ret = (0, ["cout for pg_geocode_mock"], ["cerr for pg_geocode_mock"])
+
+    pgm.geocode_back.return_value = ret
+    pgm.mask_data.return_value = ret
+    pgm.convert.return_value = ret
+    pgm.kml_map.return_value = ret
+    pgm.cpx_to_real.return_value = ret
+    pgm.rascc.return_value = ret
+    pgm.ras2ras.return_value = ret
+    pgm.rasrmg.return_value = ret
+    pgm.data2geotiff.return_value = ret
+    return pgm
+
+
+# TODO: can fixtures call other fixtures to get their setup? (e.g. mock pg inside another fixture?)
+def test_geocode_unwrapped_ifg(monkeypatch, ic_mock, dc_mock, pg_geocode_mock):
+    monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
+
+    # patch at the subprocess level for testing this part of convert() in geocode step
+    m_subprocess = mock.Mock(spec=subprocess)
+    m_subprocess.run.return_value = 0
+    monkeypatch.setattr(process_ifg, "subprocess", m_subprocess)
+
+    m_remove = mock.Mock()
+    monkeypatch.setattr(process_ifg, "remove_files", m_remove)
+
+    assert pg_geocode_mock.geocode_back.called is False
+    assert pg_geocode_mock.mask_data.called is False
+    assert pg_geocode_mock.rasrmg.called is False
+    assert pg_geocode_mock.kml_map.called is False
+
+    assert m_subprocess.run.called is False
+    assert m_remove.called is False
+
+    width_in, width_out = 5, 7  # fake values
+    process_ifg.geocode_unwrapped_ifg(ic_mock, dc_mock, width_in, width_out)
+
+    assert pg_geocode_mock.geocode_back.called
+    assert pg_geocode_mock.mask_data.called
+    assert pg_geocode_mock.rasrmg.called
+    assert pg_geocode_mock.kml_map.called
+
+    assert m_subprocess.run.called
+    assert m_remove.called
+
+
+def test_geocode_flattened_ifg(monkeypatch, ic_mock, dc_mock, pg_geocode_mock):
+    monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
+
+    # patch convert function for testing this part of geocode step
+    m_convert = mock.Mock(spec=process_ifg.convert)
+    monkeypatch.setattr(process_ifg, "convert", m_convert)
+
+    m_remove = mock.Mock()
+    monkeypatch.setattr(process_ifg, "remove_files", m_remove)
+
+    assert pg_geocode_mock.cpx_to_real.called is False
+    assert pg_geocode_mock.geocode_back.called is False
+    assert pg_geocode_mock.mask_data.called is False
+    assert pg_geocode_mock.rasrmg.called is False
+    assert pg_geocode_mock.kml_map.called is False
+    assert m_convert.called is False
+    assert m_remove.called is False
+
+    width_in, width_out = 9, 13  # fake values
+    process_ifg.geocode_flattened_ifg(ic_mock, dc_mock, width_in, width_out)
+
+    assert pg_geocode_mock.cpx_to_real.called
+    assert pg_geocode_mock.geocode_back.called
+    assert pg_geocode_mock.mask_data.called
+    assert pg_geocode_mock.rasrmg.called
+    assert pg_geocode_mock.kml_map.called
+    assert m_convert.called
+    assert m_remove.called
+
+
+def test_geocode_filtered_ifg(monkeypatch, ic_mock, dc_mock, pg_geocode_mock):
+    monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
+
+    # patch convert function for testing this part of geocode step
+    m_convert = mock.Mock(spec=process_ifg.convert)
+    monkeypatch.setattr(process_ifg, "convert", m_convert)
+
+    m_remove = mock.Mock()
+    monkeypatch.setattr(process_ifg, "remove_files", m_remove)
+
+    assert pg_geocode_mock.cpx_to_real.called is False
+    assert pg_geocode_mock.geocode_back.called is False
+    assert pg_geocode_mock.mask_data.called is False
+    assert pg_geocode_mock.rasrmg.called is False
+    assert pg_geocode_mock.kml_map.called is False
+    assert m_convert.called is False
+    assert m_remove.called is False
+
+    width_in, width_out = 15, 19  # fake values
+    process_ifg.geocode_filtered_ifg(ic_mock, dc_mock, width_in, width_out)
+
+    assert pg_geocode_mock.cpx_to_real.called
+    assert pg_geocode_mock.geocode_back.called
+    assert pg_geocode_mock.mask_data.called
+    assert pg_geocode_mock.rasrmg.called
+    assert pg_geocode_mock.kml_map.called
+    assert m_convert.called
+    assert m_remove.called
+
+
+def test_geocode_flat_coherence_file(monkeypatch, ic_mock, dc_mock, pg_geocode_mock):
+    monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
+
+    # patch convert function for testing this part of geocode step
+    m_convert = mock.Mock(spec=process_ifg.convert)
+    monkeypatch.setattr(process_ifg, "convert", m_convert)
+
+    m_remove = mock.Mock()
+    monkeypatch.setattr(process_ifg, "remove_files", m_remove)
+
+    assert pg_geocode_mock.geocode_back.called is False
+    assert pg_geocode_mock.rascc.called is False
+    assert pg_geocode_mock.ras2ras.called is False
+    assert pg_geocode_mock.kml_map.called is False
+    assert m_convert.called is False
+
+    width_in, width_out = 33, 37  # fake values
+    process_ifg.geocode_flat_coherence_file(ic_mock, dc_mock, width_in, width_out)
+
+    assert pg_geocode_mock.geocode_back.called
+    assert pg_geocode_mock.rascc.called
+    assert pg_geocode_mock.ras2ras.called
+    assert pg_geocode_mock.kml_map.called
+    assert m_convert.called
+
+
+def test_geocode_filtered_coherence_file(monkeypatch, ic_mock, dc_mock, pg_geocode_mock):
+    monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
+
+    m_convert = mock.Mock(spec=process_ifg.convert)
+    monkeypatch.setattr(process_ifg, "convert", m_convert)
+    m_remove = mock.Mock()
+    monkeypatch.setattr(process_ifg, "remove_files", m_remove)
+
+    assert pg_geocode_mock.geocode_back.called is False
+    assert pg_geocode_mock.rascc.called is False
+    assert pg_geocode_mock.ras2ras.called is False
+    assert pg_geocode_mock.kml_map.called is False
+    assert m_convert.called is False
+
+    width_in, width_out = 43, 31  # fake values
+    process_ifg.geocode_filtered_coherence_file(ic_mock, dc_mock, width_in, width_out)
+
+    assert pg_geocode_mock.geocode_back.called
+    assert pg_geocode_mock.rascc.called
+    assert pg_geocode_mock.ras2ras.called
+    assert pg_geocode_mock.kml_map.called
+    assert m_convert.called
+
+
+def test_do_geocode(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock):
+    """Test the full geocode step"""
+    monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
+
+    pc_mock.ifg_geotiff.lower.return_value = "yes"
+
+    m_geocode_unwrapped_ifg = mock.Mock()
+    m_geocode_flattened_ifg = mock.Mock()
+    m_geocode_filtered_ifg = mock.Mock()
+    m_geocode_flat_coherence_file = mock.Mock()
+    m_geocode_filtered_coherence_file = mock.Mock()
+    m_remove_files = mock.Mock()
+
+    monkeypatch.setattr(process_ifg, "geocode_unwrapped_ifg", m_geocode_unwrapped_ifg)
+    monkeypatch.setattr(process_ifg, "geocode_flattened_ifg", m_geocode_flattened_ifg)
+    monkeypatch.setattr(process_ifg, "geocode_filtered_ifg", m_geocode_filtered_ifg)
+    monkeypatch.setattr(
+        process_ifg, "geocode_flat_coherence_file", m_geocode_flat_coherence_file
+    )
+    monkeypatch.setattr(
+        process_ifg, "geocode_filtered_coherence_file", m_geocode_filtered_coherence_file
+    )
+    monkeypatch.setattr(process_ifg, "remove_files", m_remove_files)
+
+    width_in, width_out = 58, 67  # fake values
+    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, width_in, width_out)
+
+    assert m_geocode_unwrapped_ifg.called
+    assert m_geocode_flattened_ifg.called
+    assert m_geocode_filtered_ifg.called
+    assert m_geocode_flat_coherence_file.called
+    assert m_geocode_filtered_ifg.called
+
+    assert pg_geocode_mock.data2geotiff.call_count == 5
+    assert m_remove_files.call_count == len(const.TEMP_FILE_GLOBS)
