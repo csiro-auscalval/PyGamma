@@ -77,7 +77,8 @@ def find_gamma_installed_exes(install_dir, packages):
 
 def subprocess_wrapper(cmd, *args, **kwargs):
     """Shim to map GammaInterface methods to subprocess.run() calls for running Gamma EXEs."""
-    cmd_list = [cmd, " ".join(args)]
+    cmd_list = [cmd]
+    cmd_list.extend(str(a) for a in args)
 
     p = subprocess.run(
         cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
