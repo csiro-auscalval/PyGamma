@@ -688,43 +688,41 @@ def do_geocode(
     geocode_filtered_coherence_file(ic, dc, width_in, width_out)
 
     # Geotiff geocoded outputs
-    # TODO: add derived GeoTIFF file names to settings in IfgFileNames
-    #       to prevent mucking about with path suffixes here (better handled in settings)
     if pc.ifg_geotiff.lower() == "yes":
         # unw
         pg.data2geotiff(
             dc.eqa_dem_par,
             ic.ifg_unw_geocode_out,
             dtype_out,
-            ic.ifg_unw_geocode_out.with_suffix(".unw.tif"),
+            ic.ifg_unw_geocode_out_tiff,
         )
         # flat ifg
         pg.data2geotiff(
             dc.eqa_dem_par,
             ic.ifg_flat_geocode_out,
             dtype_out,
-            ic.ifg_flat_geocode_out.with_suffix(".int.tif"),
+            ic.ifg_flat_geocode_out_tiff,
         )
         # filt ifg
         pg.data2geotiff(
             dc.eqa_dem_par,
             ic.ifg_filt_geocode_out,
             dtype_out,
-            ic.ifg_filt_geocode_out.with_suffix(".int.tif"),
+            ic.ifg_filt_geocode_out_tiff,
         )
         # flat cc
         pg.data2geotiff(
             dc.eqa_dem_par,
             ic.ifg_flat_cc_geocode_out,
             dtype_out,
-            ic.ifg_flat_cc_geocode_out.with_suffix(".cc.tif"),
+            ic.ifg_flat_cc_geocode_out_tiff,
         )
         # filt cc
         pg.data2geotiff(
             dc.eqa_dem_par,
             ic.ifg_filt_cc_geocode_out,
             dtype_out,
-            ic.ifg_filt_cc_geocode_out.with_suffix(".cc.tif"),
+            ic.ifg_filt_cc_geocode_out_tiff,
         )
 
     # TF: also remove all binaries and .ras files to save disc space
