@@ -271,6 +271,20 @@ def test_default_ifg_file_names(mproc):
         == "INT/master-slave/master-slave_polarisation_range-looksrlks"
     )
 
+    # tests for the GEOCODE() output filenames
+    assert cfg.ifg_unw_geocode_out_tiff.as_posix().count(".") == 1
+    assert cfg.ifg_flat_geocode_out_tiff.as_posix().count(".") == 1
+    assert cfg.ifg_filt_geocode_out_tiff.as_posix().count(".") == 1
+    assert cfg.ifg_flat_cc_geocode_out_tiff.as_posix().count(".") == 1
+    assert cfg.ifg_filt_cc_geocode_out_tiff.as_posix().count(".") == 1
+
+    ms_base = "master-slave_polarisation_range-looksrlks{}"
+    assert cfg.ifg_unw_geocode_out_tiff.as_posix() == ms_base.format("_eqa_unw.tif")
+    assert cfg.ifg_flat_geocode_out_tiff.as_posix().endswith("_flat_eqa_int.tif")
+    assert cfg.ifg_filt_geocode_out_tiff.as_posix().endswith("_filt_eqa_int.tif")
+    assert cfg.ifg_flat_cc_geocode_out_tiff.as_posix().endswith("_flat_eqa_cc.tif")
+    assert cfg.ifg_filt_cc_geocode_out_tiff.as_posix().endswith("_filt_eqa_cc.tif")
+
 
 FULL_PROC_VARIABLES_FILE = """##### GAMMA CONFIGURATION FILE #####
 

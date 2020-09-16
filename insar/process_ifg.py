@@ -1,5 +1,7 @@
 import socket
 import pathlib
+import subprocess
+
 import structlog
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 import insar.constant as const
@@ -659,6 +661,356 @@ def calc_unw_thinning(
         remove_files(ic.ifg_unw_thin, ic.ifg_unw_model)
 
     return dest
+
+
+def do_geocode(
+    pc: ProcConfig,
+    ic: IfgFileNames,
+    dc: DEMFileNames,
+    width_in,
+    width_out,
+    dtype_out=const.DTYPE_GEOTIFF_FLOAT,
+):
+    """
+    TODO
+    :param pc:
+    :param ic:
+    :param dc:
+    :param width_in:
+    :param width_out:
+    :param dtype_out:
+    """
+
+    geocode_unwrapped_ifg(ic, dc, width_in, width_out)
+    geocode_flattened_ifg(ic, dc, width_in, width_out)
+    geocode_filtered_ifg(ic, dc, width_in, width_out)
+    geocode_flat_coherence_file(ic, dc, width_in, width_out)
+    geocode_filtered_coherence_file(ic, dc, width_in, width_out)
+
+    # Geotiff geocoded outputs
+    if pc.ifg_geotiff.lower() == "yes":
+        # unw
+        pg.data2geotiff(
+            dc.eqa_dem_par,
+            ic.ifg_unw_geocode_out,
+            dtype_out,
+            ic.ifg_unw_geocode_out_tiff,
+        )
+        # flat ifg
+        pg.data2geotiff(
+            dc.eqa_dem_par,
+            ic.ifg_flat_geocode_out,
+            dtype_out,
+            ic.ifg_flat_geocode_out_tiff,
+        )
+        # filt ifg
+        pg.data2geotiff(
+            dc.eqa_dem_par,
+            ic.ifg_filt_geocode_out,
+            dtype_out,
+            ic.ifg_filt_geocode_out_tiff,
+        )
+        # flat cc
+        pg.data2geotiff(
+            dc.eqa_dem_par,
+            ic.ifg_flat_cc_geocode_out,
+            dtype_out,
+            ic.ifg_flat_cc_geocode_out_tiff,
+        )
+        # filt cc
+        pg.data2geotiff(
+            dc.eqa_dem_par,
+            ic.ifg_filt_cc_geocode_out,
+            dtype_out,
+            ic.ifg_filt_cc_geocode_out_tiff,
+        )
+
+    # TF: also remove all binaries and .ras files to save disc space
+    #     keep flat.int since this is currently used as input for stamps processing
+    # TODO: move paths to dedicated mgmt class
+    current = pathlib.Path(".")
+    all_paths = [tuple(current.glob(pattern)) for pattern in const.TEMP_FILE_GLOBS]
+
+    for path in all_paths:
+        remove_files(*path)
+
+
+def geocode_unwrapped_ifg(ic: IfgFileNames, dc: DEMFileNames, width_in, width_out):
+    """
+    TODO
+    :param ic:
+    :param dc:
+    :param width_in:
+    :param width_out:
+    """
+    dest = pathlib.Path("temp-geocode_unwrapped_ifg")
+
+    # Use bicubic spline interpolation for geocoded unwrapped interferogram
+    pg.geocode_back(ic.ifg_unw, width_in, dc.dem_lt_fine, dest, width_out)
+    pg.mask_data(dest, width_out, ic.ifg_unw_geocode_out, dc.seamask)
+
+    # make quick-look png image
+    rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_bmp)
+    convert(ic.ifg_unw_geocode_bmp)
+    kml_map(ic.ifg_unw_geocode_png, dc.eqa_dem_par)
+    remove_files(ic.ifg_unw_geocode_bmp, dest)
+
+
+def geocode_flattened_ifg(
+    ic: IfgFileNames, dc: DEMFileNames, width_in, width_out,
+):
+    """
+    TODO
+    :param ic:
+    :param dc:
+    :param width_in:
+    :param width_out:
+    """
+    # # Use bicubic spline interpolation for geocoded flattened interferogram
+    # convert to float and extract phase
+    pg.cpx_to_real(
+        ic.ifg_flat, ic.ifg_flat_float, width_in, const.CPX_TO_REAL_OUTPUT_TYPE_PHASE
+    )
+
+    dest = pathlib.Path("temp-ifg_flat_float-resampled")
+    pg.geocode_back(ic.ifg_flat_float, width_in, dc.dem_lt_fine, dest, width_out)
+
+    # apply sea mask to phase data
+    pg.mask_data(dest, width_out, ic.ifg_flat_geocode_out, dc.seamask)
+
+    # make quick-look png image
+    rasrmg_wrapper(ic.ifg_flat_geocode_out, width_out, ic.ifg_flat_geocode_bmp)
+    convert(ic.ifg_flat_geocode_bmp)
+    kml_map(ic.ifg_flat_geocode_png, dc.eqa_dem_par)
+    remove_files(ic.ifg_flat_geocode_bmp, dest, ic.ifg_flat_float)
+
+
+def geocode_filtered_ifg(ic: IfgFileNames, dc: DEMFileNames, width_in, width_out):
+    """
+    TODO:
+    :param ic:
+    :param dc:
+    :param width_in:
+    :param width_out:
+    :return:
+    """
+    pg.cpx_to_real(
+        ic.ifg_filt, ic.ifg_filt_float, width_in, const.CPX_TO_REAL_OUTPUT_TYPE_PHASE
+    )
+
+    dest = pathlib.Path("temp-geocode_filtered_ifg-resampled")
+    pg.geocode_back(ic.ifg_filt_float, width_in, dc.dem_lt_fine, dest, width_out)
+
+    # apply sea mask to phase data
+    pg.mask_data(dest, width_out, ic.ifg_filt_geocode_out, dc.seamask)
+
+    # make quick-look png image
+    rasrmg_wrapper(ic.ifg_filt_geocode_out, width_out, ic.ifg_filt_geocode_bmp)
+    convert(ic.ifg_filt_geocode_bmp)
+    kml_map(ic.ifg_filt_geocode_png, dc.eqa_dem_par)
+    remove_files(ic.ifg_filt_geocode_bmp, dest, ic.ifg_filt_float)
+
+
+def geocode_flat_coherence_file(
+    ic: IfgFileNames, dc: DEMFileNames, width_in, width_out,
+):
+    """
+    TODO
+    :param ic:
+    :param dc:
+    :param width_in:
+    :param width_out:
+    """
+    pg.geocode_back(
+        ic.ifg_flat_cc, width_in, dc.dem_lt_fine, ic.ifg_flat_cc_geocode_out, width_out
+    )
+
+    # make quick-look png image
+    dest = pathlib.Path("temp-geocode_flat_coherence_file.bmp")
+    rascc_wrapper(ic.ifg_flat_cc_geocode_out, width_out, dest)
+    pg.ras2ras(dest, ic.ifg_flat_cc_geocode_bmp, const.RAS2RAS_GREY_COLOUR_MAP)
+    convert(ic.ifg_flat_cc_geocode_bmp)
+    kml_map(ic.ifg_flat_cc_geocode_png, dc.eqa_dem_par)
+    remove_files(ic.ifg_flat_cc_geocode_bmp, dest)
+
+
+def geocode_filtered_coherence_file(
+    ic: IfgFileNames, dc: DEMFileNames, width_in, width_out,
+):
+    """
+    TODO:
+    :param ic:
+    :param dc:
+    :param width_in:
+    :param width_out:
+    """
+    pg.geocode_back(
+        ic.ifg_filt_cc, width_in, dc.dem_lt_fine, ic.ifg_filt_cc_geocode_out, width_out
+    )
+
+    # make quick-look png image
+    dest = pathlib.Path("temp-geocode_geocoded_filter_coherence_file.bmp")
+    rascc_wrapper(ic.ifg_filt_cc_geocode_out, width_out, dest)
+    pg.ras2ras(dest, ic.ifg_filt_cc_geocode_bmp, const.RAS2RAS_GREY_COLOUR_MAP)
+    convert(ic.ifg_filt_cc_geocode_bmp)
+    kml_map(ic.ifg_filt_cc_geocode_png, dc.eqa_dem_par)
+    remove_files(ic.ifg_filt_cc_geocode_bmp, dest)
+
+
+def rasrmg_wrapper(
+    input_file,
+    width_out,
+    output_file,
+    pwr=const.NOT_PROVIDED,
+    start_pwr=const.DEFAULT_STARTING_LINE,
+    start_unw=const.DEFAULT_STARTING_LINE,
+    nlines=const.DISPLAY_TO_EOF,
+    pixavr=const.RAS_PIXEL_AVERAGE_RANGE,
+    pixavaz=const.RAS_PIXEL_AVERAGE_AZIMUTH,
+    ph_scale=const.RAS_PH_SCALE,
+    scale=const.RAS_SCALE,
+    exp=const.RAS_EXP,
+    ph_offset=const.RAS_PH_OFFSET,
+    leftright=const.LEFT_RIGHT_FLIPPING_NORMAL,
+):
+    """
+    Helper function to default rasrmg args to Geoscience Australia InSAR defaults.
+
+    Generate 8-bit raster graphics image from unwrapped phase & intensity data
+    TODO: skips some variables in docs (cc, start_cc & cc_min)
+
+    :param input_file: unwrapped phase data
+    :param width_out: samples per row of unwrapped phase and intensity files
+    :param output_file:
+    :param pwr: intensity data (float, enter - for none)
+    :param start_pwr:starting line of unwrapped phase file ('-' for default: 1)
+    :param start_unw: starting line of intensity file ('-' for default: 1)
+    :param nlines: number of lines to display (- or 0 for default: to end of file)
+    :param pixavr: number of pixels to average in range
+    :param pixavaz: number of pixels to average in azimuth
+    :param ph_scale: phase display scale factor (enter - for default: 0.33333)
+    :param scale: pwr display scale factor (- for default: 1.0)
+    :param exp: pwr display exponent (- for default: default: 0.35)
+    :param ph_offset: phase offset in radians subtracted from unw ( - is default: 0.0)
+    :param leftright: left/right mirror image (- is default, 1: normal (default), -1: mirror image)
+    :return:
+    """
+
+    # docs from gadi "/g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20191203/DISP/bin/rasrmg -h"
+    # as they do not exist as HTML in the GAMMA install
+    pg.rasrmg(
+        input_file,
+        pwr,
+        width_out,
+        start_unw,
+        start_pwr,
+        nlines,
+        pixavr,
+        pixavaz,
+        ph_scale,
+        scale,
+        exp,
+        ph_offset,
+        leftright,
+        output_file,
+    )
+
+
+def rascc_wrapper(
+    input_file,
+    width_out,
+    output_file,
+    pwr=const.NOT_PROVIDED,
+    start_cc=const.DEFAULT_STARTING_LINE,
+    start_pwr=const.DEFAULT_STARTING_LINE,
+    nlines=const.DISPLAY_TO_EOF,
+    pixavr=const.RAS_PIXEL_AVERAGE_RANGE,
+    pixavaz=const.RAS_PIXEL_AVERAGE_AZIMUTH,
+    cmin=const.RASCC_MIN_CORRELATION,
+    cmax=const.RASCC_MAX_CORRELATION,
+    scale=const.RAS_SCALE,
+    exp=const.RAS_EXP,
+    leftright=const.LEFT_RIGHT_FLIPPING_NORMAL,
+):
+    """
+    Helper function to default rascc args to Geoscience Australia InSAR defaults.
+
+    Generate 8-bit raster graphics image of correlation coefficient + intensity data
+
+    :param input_file:
+    :param width_out:
+    :param output_file:
+    :param pwr:
+    :param start_cc:
+    :param start_pwr:
+    :param nlines:
+    :param pixavr:
+    :param pixavaz:
+    :param cmin:
+    :param cmax:
+    :param scale:
+    :param exp:
+    :param leftright:
+    :return:
+    """
+    # docs from gadi "/g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20191203/DISP/bin/rascc -h"
+    # as they do not exist as HTML in the GAMMA install
+    pg.rascc(
+        input_file,
+        pwr,
+        width_out,
+        start_cc,
+        start_pwr,
+        nlines,
+        pixavr,
+        pixavaz,
+        cmin,
+        cmax,
+        scale,
+        exp,
+        leftright,
+        output_file,
+    )
+
+
+def convert(input_file):
+    """
+    Run an ImageMagick command to convert a BMP to PNG.
+    :param input_file: BMP
+    """
+    args = [
+        input_file,  # a BMP
+        "-transparent black",
+        input_file.with_suffix(".png"),
+    ]
+
+    try:
+        subprocess.run(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            check=True,
+        )
+        _LOG.info("Calling ImageMagick's convert", args=args)
+    except subprocess.CalledProcessError as cpe:
+        msg = "failed to execute ImageMagick's convert"
+        _LOG.error(msg, stat=cpe.returncode, stdout=cpe.stdout, stderr=cpe.stderr)
+        raise ProcessIfgException(msg)
+
+
+def kml_map(input_file, dem_par, output_file=None):
+    """
+    Generates KML format XML with link to an image using geometry from a dem_par.
+    :param input_file:
+    :param dem_par:
+    :param output_file:
+    :return:
+    """
+    if output_file is None:
+        output_file = input_file.with_suffix(".kml")
+
+    pg.kml_map(input_file, dem_par, output_file)
 
 
 def remove_files(*args):

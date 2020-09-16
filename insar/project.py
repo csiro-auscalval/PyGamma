@@ -555,6 +555,12 @@ class IfgFileNames:
         "ifg_unw_mask",
         "ifg_unw_model",
         "ifg_unw_thin",
+        # vars for GeoTIFF outputs
+        "ifg_unw_geocode_out_tiff",
+        "ifg_flat_geocode_out_tiff",
+        "ifg_filt_geocode_out_tiff",
+        "ifg_flat_cc_geocode_out_tiff",
+        "ifg_filt_cc_geocode_out_tiff",
     ]
 
     def __init__(self, proc, master, slave):
@@ -659,6 +665,20 @@ class IfgFileNames:
         self.ifg_unw_mask = pathlib.Path(_master_slave_name + "_mask.unw")
         self.ifg_unw_model = pathlib.Path(_master_slave_name + "_model.unw")
         self.ifg_unw_thin = pathlib.Path(_master_slave_name + "_thin.unw")
+
+        self.ifg_unw_geocode_out_tiff = pathlib.Path(_master_slave_name + "_eqa_unw.tif")
+        self.ifg_flat_geocode_out_tiff = pathlib.Path(
+            _master_slave_name + "_flat_eqa_int.tif"
+        )
+        self.ifg_filt_geocode_out_tiff = pathlib.Path(
+            _master_slave_name + "_filt_eqa_int.tif"
+        )
+        self.ifg_flat_cc_geocode_out_tiff = pathlib.Path(
+            _master_slave_name + "_flat_eqa_cc.tif"
+        )
+        self.ifg_filt_cc_geocode_out_tiff = pathlib.Path(
+            _master_slave_name + "_filt_eqa_cc.tif"
+        )
 
 
 class Config:
