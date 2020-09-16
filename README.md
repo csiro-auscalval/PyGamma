@@ -29,33 +29,92 @@ python setup.py install --prefix=$CUSTOM_PY_INSTALL
 
 If the `source configs/insar.env` command does not complete cleanly (e.g. cannot find a dir of modules), check your group memberships.
 
-## Developing GAMMA-INSAR
+## Testing GAMMA-INSAR
 
-### Local Runtime Environment Setup
+Testing `gamma_insar` is handled in several parts due to complexities with the code and external dependencies. The parts are:
 
-Note that the Gamma InSAR code can only be run on NCI's `Gadi` system. Only unit tests can be run with local repositories (run on Linux and Mac/OS X).
+* Local unit tests
+* Unit tests on `gadi`
+* Integration tests on `gadi`
 
-TODO: document setting up a local virtual env.
+The `Gamma` software dependency only exists on a few hosts, so local unit testing is designed around the assumption `Gamma` is not accessible. The Gamma InSAR code can only be run on NCI's `gadi` system at present.
 
-### Running unit tests & code coverage
+Gamma-InSAR uses pytest to execute the unittests. Code test coverage is checked with pytest-cov. Note that running `coverage.py` alone with this repo **does not accurately record coverage results!** The `pytest-cov` tool is required to measure coverage correctly.
 
-Gamma-InSAR uses pytest for execute the unittests. Note that running `coverage.py` alone **does not accurately record coverage results!** The pytest-cov tool is required to measure this correctly.
+### Running unit tests on `Gadi`
+
+To run unit tests on `gadi`, login and use these commands:
+
+```BASH
+module use /g/data/v10/public/modules/modulefiles
+module load dea
+
+cd <your gamma-insar project dir>
+export PYTHONPATH=`pwd`  # note the backticks
+
+# assuming the correct git branch is checked out
+pytest --disable-warnings -q  # should be error free
+```
+
+NB: `gadi` or the environment can be slow. The unittests may take up to 30 seconds to complete, although the tests only take a few seconds.
+
+To check code test coverage:
+
+```BASH
+# run tests & display coverage report at the terminal
+pytest -q --disable-warnings --cov=insar
+
+# run tests & generate an interactive HTML report
+pytest -q --disable-warnings --cov-report=html --cov=insar tests
+```
+
+The report is saved to `coverage_html_report` in the project dir.
+
+### Testing Locally
+
+#### Runtime Environment Setup
+
+ Only unit tests can be run with local `gamma_insar` repositories. First, setup a local Python virtual environment (only needs to be done once):
+
+```BASH
+# check out the gamma_insar project locally
+cd <your gamma-insar project dir>
+python3 -m venv .gamma  # creates virtual environment in ".gamma" dir
+source .gamma/bin/activate  # prompt should change slightly
+pip install --upgrade pip
+pip install -r requirements_unittest.txt
+```
+
+#### Running unit tests & code coverage locally
+
+If the virtual environment has not been activated, use the following:
 
 ```BASH
 cd <gamma-insar project dir>
-echo $PYTHONPATH  # should contain the gamma_insar dir
-py.test -q  # should complete with 0 errors and some warnings
+source .gamma/bin/activate  # prompt should change slightly
+```
 
-# run tests & display coverage report at the terminal
-py.test -q --disable-warnings --cov=insar
+To run the tests from the project dir:
+
+```BASH
+export PYTHONPATH=`pwd`  # or set this in your profile
+pytest -q  # should complete with 0 errors and some warnings
+```
+
+To check code test coverage locally:
+
+```BASH
+# run tests, collect coverage & report results at the terminal
+pytest -q --disable-warnings --cov=insar
 
 # run tests & generate an interactive HTML report
-py.test -q --disable-warnings --cov-report=html --cov=insar tests
+pytest -q --disable-warnings --cov-report=html --cov=insar tests
 ```
 
 ## Operating System tested
 
-Linux
+* Linux
+* OS X 10.13 (unit tests only)
 
 ## Supported Satellites and Sensors
 * Sentinel-1A/B
@@ -79,7 +138,7 @@ Linux
 
 
 ## NCI Module
-    
+
 	$module use <path/to/a/module/file/location>
 	$module load <module name>
 
@@ -199,7 +258,7 @@ grid-definition grid-generation-new \
     --eastern-longitude 153.8		# decimal degrees West
 
 ```
-Then submit with `qsub`. 
+Then submit with `qsub`.
 
 #### Australia-wide S1A and S1B Grid Generation example
 Run this step to create grids
@@ -254,7 +313,7 @@ create-task-files insar-files \
 Then submit with `qsub`.
 
 
-#### Single Stack processing 
+#### Single Stack processing
 The workflow is managed by a luigi-scheduler and parameters can be set in `luigi.cfg` file.
 
 Process a single stack Sentinel-1 SLC data to directly using a ARD pipeline from the command line.
@@ -268,7 +327,7 @@ Process a single stack Sentinel-1 SLC data to directly using a ARD pipeline from
 		   --end-date [%Y-%m-%d]    An end-date of SLC data acquisition.
 		   --workdir    PATH    A full path to a working directory to output logs.
 		   --outdir PATH    A full path to an output directory.
-		   --polarization LIST      Polarizations to be processed (json strings) '["VV"|"VH"|"VV","VH"]'.	
+		   --polarization LIST      Polarizations to be processed (json strings) '["VV"|"VH"|"VV","VH"]'.
 		   --cleanup TEXT   A flag[yes|no] to specify a clean up  of intermediary files. Highly recommended to cleanup to limit storage during production.
 		   --database-name  PATH   A full path to SLC-metata database with burst informations.
 		   --orbit  TEXT    A Sentinel-1 orbit [A|D].
@@ -280,18 +339,18 @@ Process a single stack Sentinel-1 SLC data to directly using a ARD pipeline from
 		   --local-scheduler    TEXT    only test using a `local-scheduler`.
 
 
-#### Examples 
+#### Examples
 
-	$gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --workers <number-of-workers> --local-scheduler 
+	$gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --workers <number-of-workers> --local-scheduler
 	$gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization '["VV"]' --workers <number-of-workers> --local-scheduler
 	$gamma_insar ARD --vector-file <path-to-vector-file> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization '["VV","VH"]' --workers <number-of-workers> --local-scheduler
 
-#### Single stack packaging 
+#### Single stack packaging
 The packaging of a single stack Sentinel-1 ARD processed using `gamma_insar ARD` workflow.
 
     $package --help
-    
-    usage: package 
+
+    usage: package
           [REQUIRED PARAMETERS]
           --track TEXT                   track name of the grid definition: `T001D`
           --frame TEXT                   Frame name of the grid definition: `F02S`
@@ -301,7 +360,7 @@ The packaging of a single stack Sentinel-1 ARD processed using `gamma_insar ARD`
           --polarization TEXT            Polarizations used in metadata consolidations
                                          for product.
 
-#### Example 
+#### Example
 
 	$package --track <track-name> --frame <frame-name> --input-dir <path-to-stack-folder> --pkgdir <path-to-pkg-output-dir> --product sar --polarization VV
 	$package --track <track-name> --frame <frame-name> --input-dir <path-to-stack-folder> --pkgdir <path-to-pkg-output-dir> --product sar --polarization VV --polarization VH
@@ -312,8 +371,8 @@ Batch processing of multiple stacks Sentinel-1 SLC data to ARD using PBS module 
 The list of the full-path-to-vector-files in a `taskfile` is divided into number of batches (nodes)
 and submitted to NCI queue with parameters specified in a `required parameters`
 
-    $pbs-insar --help 
-    
+    $pbs-insar --help
+
     usage:  pbs-insar
             [REQUIRED PARAMETERS]
              --taskfile PATH      The file containing the list of tasks (full
@@ -338,19 +397,19 @@ and submitted to NCI queue with parameters specified in a `required parameters`
              --env PATH           Environment script to source.
              --test               Mock the job submission to PBS queue
 
-#### Example 
+#### Example
 
-	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --ncpus 48 --memory 700 --queue hugemem --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
-	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization VV --ncpus 48 --memory 700 --queue hugemem --nodes 2 --workers 6 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
-	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization VV --polarization VH --ncpus 48 --memory 700 --queue hugemem --nodes 2 --workers 10 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --ncpus 48 --memory 700 --queue hugemem --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile>
+	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization VV --ncpus 48 --memory 700 --queue hugemem --nodes 2 --workers 6 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile>
+	$pbs-insar --taskfile <path-to-taskfile> --start-date <start-date> --end-date <end-date> --workdir <path-to-workdir> --outdir <path-to-outdir> --polarization VV --polarization VH --ncpus 48 --memory 700 --queue hugemem --nodes 2 --workers 10 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile>
 
 #### Multi-stack packaging of InSAR ARD using PBS system
-Batch processing of packaging of InSAR ARD to be indexed using Open Data Cube tools eo-datasets. 
-The `input-list` containing the full path to stack processed can be submitted to NCI PBS system 
-to be packaged to be indexed into a data-cube. 
+Batch processing of packaging of InSAR ARD to be indexed using Open Data Cube tools eo-datasets.
+The `input-list` containing the full path to stack processed can be submitted to NCI PBS system
+to be packaged to be indexed into a data-cube.
 
-    $pbs-package --help 
-    
+    $pbs-package --help
+
     usage pbs-package
        [REQUIRED PARAMETERS]
       --input-list PATH     full path to a file with list of track and
@@ -370,7 +429,7 @@ to be packaged to be indexed into a data-cube.
                             specified multiple times
       --test                mock the job submission to PBS queue
 
-#### Example 
+#### Example
 
-	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --queue normal --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
-	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --polarization VH --queue normal --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile> 
+	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --queue normal --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile>
+	$pbs-package --input-list <path-to-input-list> --workdir <path-to-workdir> --pkgdir <path-to-pkgdir> --ncpus 8--memory 32 --product sar --polarization VV --polarization VH --queue normal --nodes 2 --jobfs 2 -s <project1> -s <project2> --project <project-name> --env <path-to-envfile>
