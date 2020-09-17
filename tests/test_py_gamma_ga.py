@@ -1,4 +1,5 @@
 import os
+import subprocess
 from unittest import mock
 from collections import Sequence, namedtuple
 from insar import py_gamma_ga
@@ -61,8 +62,46 @@ def test_dunder_file(pg):
     assert pg.__file__ == FAKE_INSTALL_DIR + "/py_gamma.py"
 
 
+def test_function_call_single_arg(monkeypatch, pg):
+    # ensure subprocess.run() is called correctly with single args in list
+    mrun = mock.Mock()
+    monkeypatch.setattr(py_gamma_ga.subprocess, "run", mrun)
+
+    path = "/tmp/does-not-exist/fake_path"
+    pg.S1_burstloc(path)
+
+    # ensure all command args are separate
+    mrun.assert_called_with(
+        ["/fake/gamma/dir/ISP/bin/S1_burstloc", path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+    )
+
+
+def test_function_call_multi_args(monkeypatch, pg):
+    # ensure subprocess.run() gets multiple args correctly (command is a list of args)
+    mrun = mock.Mock()
+    monkeypatch.setattr(py_gamma_ga.subprocess, "run", mrun)
+
+    path = "/tmp/does-not-exist/fake_path"
+    arg0 = "a-fake-value"
+    arg1 = 2.0
+    arg2 = 3
+
+    pg.S1_burstloc(path, arg0, arg1, arg2)
+
+    # ensure all command args are separate strings
+    mrun.assert_called_with(
+        ["/fake/gamma/dir/ISP/bin/S1_burstloc", path, arg0, str(arg1), str(arg2)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+    )
+
+
 FakeCompletedProcess = namedtuple(
-    "FakeCompletedProcess", ["returncode", "stdout", "stderr",]
+    "FakeCompletedProcess", ["returncode", "stdout", "stderr"]
 )
 
 
