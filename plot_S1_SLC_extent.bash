@@ -187,9 +187,9 @@ sw2_len=`echo $sw2_burst*0.9 | bc -l`
 sw3_len=`echo $sw3_burst*0.9 | bc -l`
 
 ## Adjust position based on length of swath
-pos1=`echo $pos1+29-$msw_burst | bc -l` 
-pos2=`echo $pos2+29-$msw_burst | bc -l` 
-pos3=`echo $pos3+29-$msw_burst | bc -l` 
+pos1=`echo $pos1+28-$msw_burst | bc -l` 
+pos2=`echo $pos2+28-$msw_burst | bc -l` 
+pos3=`echo $pos3+28-$msw_burst | bc -l` 
 
 ## Plot swaths
 gmtset PAPER_MEDIA A4
