@@ -149,9 +149,9 @@ third=`awk 'NR==3 {print $1}' sorted_end_times`
 
 
 ## Auto positioning of swaths on plot
-top="-2.9"
-middle="-3.2"
-bottom="-3.5"
+top="-2.0"      
+middle="-2.3"
+bottom="-2.6"
 if [ $first == "IW1" ]; then
     pos1=$top
 elif [ $first == "IW2" ]; then
@@ -175,14 +175,21 @@ elif [ $third == "IW3" ]; then
 fi
 
 ## Auto length of swaths
+# min burst number selection
+min_number() {
+    printf "%s\n" "$@" | sort -g | head -n1
+}
+
+msw_burst="$(min_number $sw1_burst $sw2_burst $sw3_burst)"
+
 sw1_len=`echo $sw1_burst*0.9 | bc -l`
 sw2_len=`echo $sw2_burst*0.9 | bc -l`
 sw3_len=`echo $sw3_burst*0.9 | bc -l`
 
 ## Adjust position based on length of swath
-pos1=`echo $pos1+27-$sw1_burst | bc -l` 
-pos2=`echo $pos2+27-$sw2_burst | bc -l` 
-pos3=`echo $pos3+27-$sw3_burst | bc -l` 
+pos1=`echo $pos1+28-$msw_burst | bc -l` 
+pos2=`echo $pos2+28-$msw_burst | bc -l` 
+pos3=`echo $pos3+28-$msw_burst | bc -l` 
 
 ## Plot swaths
 gmtset PAPER_MEDIA A4
@@ -197,26 +204,26 @@ EOF
 convert $slc_png slc.ras 
 psimage slc.ras -W3.5c/3c -C14.8c/24.2c -O -K -P >> $psfile
 pstext $outline $range -O -K -P -m -N <<EOF >> $psfile
-> 5 97 12 0 4 LT 13p 3i l
+> 6 98 12 0 4 LT 13p 3i l
 Swath 1 ($sw1_burst)
 EOF
 
 convert $slc_png1 slc1.ras
-psimage slc1.ras -W4.5c/$sw1_len"c" -C0c/$pos1"c" -O -K -P >> $psfile
+psimage slc1.ras -W4.5c/$sw1_len"c" -C0.2c/$pos1"c" -O -K -P >> $psfile
 pstext $outline $range -O -K -P -m -N <<EOF >> $psfile
-> 32 97 12 0 4 LT 13p 3i l
+> 29 98 12 0 4 LT 13p 3i l
 Swath 2 ($sw2_burst)
 EOF
 
 convert $slc_png2 slc2.ras
-psimage slc2.ras -W4.5c/$sw2_len"c" -C5.5c/$pos2"c" -O -K -P >> $psfile
+psimage slc2.ras -W4.5c/$sw2_len"c" -C5.1c/$pos2"c" -O -K -P >> $psfile
 pstext $outline $range -O -K -P -m -N <<EOF >> $psfile
-> 58 97 12 0 4 LT 13p 3i l
+> 53 98 12 0 4 LT 13p 3i l
 Swath 3 ($sw3_burst)
 EOF
 
 convert $slc_png3 slc3.ras
-psimage slc3.ras -W4.5c/$sw3_len"c" -C11c/$pos3"c" -O -P >> $psfile
+psimage slc3.ras -W4.5c/$sw3_len"c" -C10.0c/$pos3"c" -O -P >> $psfile
 
 ps2raster -A -Tf $psfile
 
