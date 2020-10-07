@@ -57,6 +57,21 @@ def decorator(func):
 pg = GammaInterface(subprocess_func=decorator(subprocess_wrapper))
 
 
+def get_ifg_width(r_master_mli_par):
+    """
+    Return range/sample width from dem diff file.
+    :param r_master_mli_par: open file-like obj
+    :return: width as integer
+    """
+    for line in r_master_mli_par.readlines():
+        if const.MatchStrings.SLC_RANGE_SAMPLES.value in line:
+            _, value = line.split()
+            return int(value)
+
+    msg = 'Cannot locate "{}" value in resampled master MLI'
+    raise ProcessIfgException(msg.format(const.MatchStrings.SLC_RANGE_SAMPLES.value))
+
+
 def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
     """
     Perform InSAR INT processing step.
@@ -235,7 +250,7 @@ def generate_init_flattened_ifg(
 
 # NB: this function is a bit long and ugly due to the volume of chained calls for the workflow
 def generate_final_flattened_ifg(
-    pc: ProcConfig, ic: IfgFileNames, dc: DEMFileNames, width10, ifg_width, clean_up
+    pc: ProcConfig, ic: IfgFileNames, dc: DEMFileNames, ifg_width, clean_up
 ):
     """
     Perform refinement of baseline model using ground control points

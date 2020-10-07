@@ -1,3 +1,4 @@
+import io
 import pathlib
 import subprocess
 from unittest import mock
@@ -39,6 +40,19 @@ def ic_mock():
     ic = mock.Mock(spec=IfgFileNames)
     ic.ifg_bperp = mock.MagicMock(spec=pathlib.Path)
     return ic
+
+
+def test_get_ifg_width():
+    # content from gadi:/g/data/dg9/INSAR_ANALYSIS/CAMDEN/S1/GAMMA/T147D/SLC/20200105/r20200105_VV_8rlks.mli.par
+    c = "line_header_size:                  0\nrange_samples:                  8630\nazimuth_lines:                85\n"
+    config = io.StringIO(c)
+    assert process_ifg.get_ifg_width(config) == 8630
+
+
+def test_get_ifg_width_not_found():
+    config = io.StringIO("Fake line 0\nFake line 1\nFake line 2\n")
+    with pytest.raises(ProcessIfgException):
+        process_ifg.get_ifg_width(config)
 
 
 def test_calc_int(monkeypatch, pg_int_mock, pc_mock, ic_mock):
