@@ -552,3 +552,25 @@ def test_do_geocode(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock):
 
     assert pg_geocode_mock.data2geotiff.call_count == 5
     assert m_remove_files.call_count == len(const.TEMP_FILE_GLOBS)
+
+
+def test_get_width_in():
+    config = io.StringIO("Fake line\nrange_samp_1: 45\nAnother fake\n")
+    assert process_ifg.get_width_in(config) == 45
+
+
+def test_get_width_in_not_found():
+    config = io.StringIO("Fake line 0\nFake line 1\nFake line 2\n")
+    with pytest.raises(ProcessIfgException):
+        process_ifg.get_width_in(config)
+
+
+def test_get_width_out():
+    config = io.StringIO("Fake line\nwidth: 32\nAnother fake\n")
+    assert process_ifg.get_width_out(config) == 32
+
+
+def test_get_width_out_not_found():
+    config = io.StringIO("Fake line 0\nFake line 1\nFake line 2\n")
+    with pytest.raises(ProcessIfgException):
+        process_ifg.get_width_out(config)

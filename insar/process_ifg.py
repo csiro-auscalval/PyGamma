@@ -21,6 +21,9 @@ except ImportError as iex:
 _LOG = structlog.get_logger("insar")
 
 
+# TODO: add type hinting
+
+
 # customise the py_gamma calling interface to automate repetitive tasks
 def decorator(func):
     """
@@ -766,6 +769,36 @@ def do_geocode(
 
     for path in all_paths:
         remove_files(*path)
+
+
+def get_width_in(dem_diff):
+    """
+    Return range/sample width from dem diff file.
+    :param dem_diff: open file-like obj
+    :return: width as integer
+    """
+    for line in dem_diff.readlines():
+        if "range_samp_1:" in line:
+            _, value = line.split()
+            return int(value)
+
+    msg = 'Cannot locate "range_samp_1" value in DEM diff file'
+    raise ProcessIfgException(msg)
+
+
+def get_width_out(dem_eqa_par):
+    """
+    Return range field from eqa_dem_par file
+    :param dem_eqa_par: open file like obj
+    :return: width as integer
+    """
+    for line in dem_eqa_par.readlines():
+        if "width:" in line:
+            _, value = line.split()
+            return int(value)
+
+    msg = 'Cannot locate "width" value in DEM eqa param file'
+    raise ProcessIfgException(msg)
 
 
 def geocode_unwrapped_ifg(ic: IfgFileNames, dc: DEMFileNames, width_in, width_out):
