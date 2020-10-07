@@ -703,19 +703,18 @@ def do_geocode(
     pc: ProcConfig,
     ic: IfgFileNames,
     dc: DEMFileNames,
-    width_in,
-    width_out,
     dtype_out=const.DTYPE_GEOTIFF_FLOAT,
 ):
     """
     TODO
-    :param pc:
-    :param ic:
-    :param dc:
-    :param width_in:
-    :param width_out:
+    :param pc: ProcConfig obj
+    :param ic: IfgFileNames obj
+    :param dc: DEMFileNames obj
     :param dtype_out:
     """
+    # TODO: figure out how to fix the "buried" I/O here
+    width_in = get_width_in(dc.dem_diff.open())
+    width_out = get_width_out(dc.eqa_dem_par.open())
 
     geocode_unwrapped_ifg(ic, dc, width_in, width_out)
     geocode_flattened_ifg(ic, dc, width_in, width_out)

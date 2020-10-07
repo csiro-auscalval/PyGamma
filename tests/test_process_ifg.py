@@ -523,6 +523,13 @@ def test_do_geocode(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock):
 
     pc_mock.ifg_geotiff.lower.return_value = "yes"
 
+    # mock the width config file readers
+    m_width_in = mock.Mock(return_value=22)
+    m_width_out = mock.Mock(return_value=11)
+    monkeypatch.setattr(process_ifg, "get_width_in", m_width_in)
+    monkeypatch.setattr(process_ifg, "get_width_out", m_width_out)
+
+    # mock individual processing blocks as they're tested elsewhere
     m_geocode_unwrapped_ifg = mock.Mock()
     m_geocode_flattened_ifg = mock.Mock()
     m_geocode_filtered_ifg = mock.Mock()
@@ -541,8 +548,7 @@ def test_do_geocode(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock):
     )
     monkeypatch.setattr(process_ifg, "remove_files", m_remove_files)
 
-    width_in, width_out = 58, 67  # fake values
-    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, width_in, width_out)
+    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock)
 
     assert m_geocode_unwrapped_ifg.called
     assert m_geocode_flattened_ifg.called
