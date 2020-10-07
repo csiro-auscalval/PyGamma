@@ -195,9 +195,13 @@ def test_generate_final_flattened_ifg(
     assert pg_flat_mock.SLC_diff_intf.called is False
     assert pg_flat_mock.base_perp.called is False
 
-    width10, ifg_width = 101, 99  # fake
+    fake_width10 = 400
+    m_get_width10 = mock.Mock(return_value=fake_width10)
+    monkeypatch.setattr(process_ifg, "get_width10", m_get_width10)
+
+    fake_ifg_width = 99
     process_ifg.generate_final_flattened_ifg(
-        pc_mock, ic_mock, dc_mock, width10, ifg_width, clean_up=False
+        pc_mock, ic_mock, dc_mock, fake_ifg_width, clean_up=False
     )
 
     assert pg_flat_mock.multi_cpx.called
@@ -212,6 +216,37 @@ def test_generate_final_flattened_ifg(
     assert pg_flat_mock.phase_sim.called
     assert pg_flat_mock.SLC_diff_intf.called
     assert pg_flat_mock.base_perp.call_count == 1
+
+
+def _get_mock_file_and_path(fake_content):
+    """
+    Helper function to mock out pathlib.Path.open() and file.readlines()
+    :param fake_content: Sequence of values for file.readlines() to emit
+    :return: (file_mock, path_mock)
+    """
+    # file like object to be returned from context manager
+    m_file = mock.MagicMock()
+    m_file.readlines.return_value = fake_content
+
+    # TRICKY: mock chain of open() calls, context manager etc to return custom file mock
+    m_path = mock.MagicMock(spec=pathlib.Path)
+    m_path.open.return_value.__enter__.return_value = m_file
+    return m_file, m_path
+
+
+def test_get_width10(monkeypatch):
+    _, m_path = _get_mock_file_and_path(
+        ["a    1\n", "interferogram_width:         43\n", "b         24\n"]
+    )
+    width = process_ifg.get_width10(m_path)
+    assert width == 43, "got {}".format(width)
+
+
+def test_get_width10_not_found():
+    _, m_path = _get_mock_file_and_path(["fake1    1\n", "fake2    2\n"])
+
+    with pytest.raises(ProcessIfgException):
+        process_ifg.get_width10(m_path)
 
 
 @pytest.fixture

@@ -258,6 +258,8 @@ def generate_final_flattened_ifg(
         const.DISPLAY_TO_EOF,
     )
 
+    width10 = get_width10(ic.ifg_off10)
+
     # Generate coherence image
     pg.cc_wave(
         ic.ifg_flat10,
@@ -480,6 +482,22 @@ def generate_final_flattened_ifg(
         pc.ifg_coherence_window,  # estimation window size in lines
         const.ESTIMATION_WINDOW_TRIANGULAR,  # estimation window "shape/style"
     )
+
+
+def get_width10(ifg_off10_path):
+    """
+    Return range/sample width from ifg_off10
+    :param ifg_off10_path: Path type obj
+    :return: width as integer
+    """
+    with ifg_off10_path.open() as f:
+        for line in f.readlines():
+            if const.MatchStrings.IFG_AZIMUTH_LINES.value in line:
+                _, value = line.split()
+                return int(value)
+
+    msg = 'Cannot locate "{}" value in ifg offsets10 file'
+    raise ProcessIfgException(msg.format(const.MatchStrings.IFG_AZIMUTH_LINES.value))
 
 
 def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
