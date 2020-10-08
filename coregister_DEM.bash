@@ -328,6 +328,9 @@ GEOCODE()
     GM convert $dem_master_gamma0_eqa_bmp -transparent black ${dem_master_gamma0_eqa_bmp/.bmp}.png
     GM data2geotiff $eqa_dem_par $dem_master_gamma0_eqa 2 $dem_master_gamma0_eqa_geo 0.0
 
+    # Output DEM as GeoTIFF
+    GM data2geotiff $eqa_dem_par $eqa_dem 2 $track"_dem.tif" 0.0
+
     cd $dem_master_dir
     name=`ls *eqa*gamma0.png`
     GM kml_map $name $eqa_dem_par ${name/.png}.kml
