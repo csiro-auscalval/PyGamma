@@ -1,5 +1,6 @@
 import io
 import pathlib
+import functools
 import subprocess
 from unittest import mock
 
@@ -38,8 +39,94 @@ def pc_mock():
 def ic_mock():
     """Returns basic mock to simulate an IfgFileNames object."""
     ic = mock.Mock(spec=IfgFileNames)
-    ic.ifg_bperp = mock.MagicMock(spec=pathlib.Path)
+
+    mock_path = functools.partial(mock.MagicMock, spec=pathlib.Path)
+    ic.ifg_bperp = mock_path()
+    ic.r_master_slc = mock_path()
+    ic.r_master_mli = mock_path()
+    ic.r_slave_slc = mock_path()
+    ic.r_slave_mli = mock_path()
     return ic
+
+
+def test_run_workflow_full(monkeypatch, pc_mock, ic_mock, dc_mock):
+    """Test workflow runs from end to end"""
+
+    # mock out larger elements like modules/dependencies
+    m_pathlib = mock.MagicMock()
+    monkeypatch.setattr(process_ifg, "pathlib", m_pathlib)
+
+    m_pygamma = mock.MagicMock()
+    m_pygamma.base_perp.return_value = "fake-stat", "fake-cout", "fake-cerr"
+    monkeypatch.setattr(process_ifg, "pg", m_pygamma)
+
+    m_subprocess = mock.Mock()
+    monkeypatch.setattr(process_ifg, "subprocess", m_subprocess)
+
+    # mock out smaller helper functions (prevent I/O etc)
+    m_remove_files = mock.Mock()
+    monkeypatch.setattr(process_ifg, "remove_files", m_remove_files)
+
+    fake_width10 = 334
+    fake_width_in = 77
+    fake_width_out = 66
+    monkeypatch.setattr(process_ifg, "get_width10", lambda _: fake_width10)
+    monkeypatch.setattr(process_ifg, "get_width_in", lambda _: fake_width_in)
+    monkeypatch.setattr(process_ifg, "get_width_out", lambda _: fake_width_out)
+
+    # mock required individual values
+    pc_mock.multi_look = 2
+    pc_mock.ifg_coherence_threshold = 5
+    pc_mock.ifg_geotiff.lower.return_value = "yes"
+    ic_mock.ifg_off.exists.return_value = False
+
+    # finally run the workflow :-)
+    process_ifg.run_workflow(pc_mock, ic_mock, dc_mock, ifg_width=204, clean_up=True)
+
+    # check some of the funcs in each step are called
+    assert m_pygamma.create_offset.called
+    assert m_pygamma.base_orbit.called
+    assert m_pygamma.multi_cpx.called
+    assert m_pygamma.adf.called
+    assert m_pygamma.rascc_mask.called
+    assert m_pygamma.interp_ad.called
+    assert m_pygamma.data2geotiff.called
+    assert m_remove_files.call_count > 10
+    assert m_subprocess.run.called
+
+
+def test_run_workflow_missing_r_master_slc(ic_mock):
+    ic_mock.r_master_slc.exists.return_value = False
+
+    with pytest.raises(ProcessIfgException):
+        process_ifg.run_workflow(pc_mock, ic_mock, dc_mock, ifg_width=10, clean_up=True)
+
+
+def test_run_workflow_missing_r_master_mli(ic_mock):
+    ic_mock.r_master_slc.exists.return_value = True
+    ic_mock.r_master_mli.exists.return_value = False
+
+    with pytest.raises(ProcessIfgException):
+        process_ifg.run_workflow(pc_mock, ic_mock, dc_mock, ifg_width=11, clean_up=True)
+
+
+def test_run_workflow_missing_r_slave_slc(ic_mock):
+    ic_mock.r_master_slc.exists.return_value = True
+    ic_mock.r_master_mli.exists.return_value = True
+    ic_mock.r_slave_slc.exists.return_value = False
+
+    with pytest.raises(ProcessIfgException):
+        process_ifg.run_workflow(pc_mock, ic_mock, dc_mock, ifg_width=12, clean_up=True)
+
+
+def test_run_workflow_missing_r_slave_mli(ic_mock):
+    ic_mock.r_master_slc.exists.return_value = True
+    ic_mock.r_master_mli.exists.return_value = True
+    ic_mock.r_slave_slc.exists.return_value = True
+    ic_mock.r_slave_mli.exists.return_value = False
+
+    with pytest.raises(ProcessIfgException):
+        process_ifg.run_workflow(pc_mock, ic_mock, dc_mock, ifg_width=13, clean_up=True)
 
 
 def test_get_ifg_width():
@@ -248,7 +335,7 @@ def _get_mock_file_and_path(fake_content):
     return m_file, m_path
 
 
-def test_get_width10(monkeypatch):
+def test_get_width10():
     _, m_path = _get_mock_file_and_path(
         ["a    1\n", "interferogram_width:         43\n", "b         24\n"]
     )

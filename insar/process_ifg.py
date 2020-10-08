@@ -60,6 +60,45 @@ def decorator(func):
 pg = GammaInterface(subprocess_func=decorator(subprocess_wrapper))
 
 
+# FIXME: set working dir (do outside workflow to reduce buried I/O)
+# mkdir -p $ifg_dir
+# cd $ifg_dir
+def run_workflow(
+    pc: ProcConfig,
+    ic: IfgFileNames,
+    dc: DEMFileNames,
+    ifg_width: int,
+    clean_up: bool,  # TODO: should clean_up apply to everything, or just specific steps?
+):
+
+    _validate_input_files(ic)
+
+    # future version might want to allow selection of steps (skipped for simplicity Oct 2020)
+    calc_int(pc, ic, clean_up)
+    generate_init_flattened_ifg(pc, ic, dc, clean_up)
+    generate_final_flattened_ifg(pc, ic, dc, ifg_width, clean_up)
+    calc_filt(pc, ic, ifg_width)
+    calc_unw(pc, ic, ifg_width, clean_up)
+    calc_unw_thinning(pc, ic, ifg_width, clean_up=clean_up)
+    do_geocode(pc, ic, dc)
+
+
+def _validate_input_files(ic: IfgFileNames):
+    msg = "Cannot locate {}. Please run 'coregister_DEM' then 'coregister_slave SLC' steps for each acquisition"
+
+    if not ic.r_master_slc.exists():
+        raise ProcessIfgException(msg.format("resampled master SLC"))
+
+    if not ic.r_master_mli.exists():
+        raise ProcessIfgException(msg.format("resampled master MLI"))
+
+    if not ic.r_slave_slc.exists():
+        raise ProcessIfgException(msg.format("resampled slave SLC"))
+
+    if not ic.r_slave_mli.exists():
+        raise ProcessIfgException(msg.format("resampled slave MLI"))
+
+
 def get_ifg_width(r_master_mli_par):
     """
     Return range/sample width from dem diff file.
