@@ -299,7 +299,6 @@ def generate_final_flattened_ifg(
     :param pc:
     :param ic:
     :param dc:
-    :param width10:
     :param ifg_width:
     :param clean_up:
     """
@@ -524,7 +523,7 @@ def generate_final_flattened_ifg(
             f.writelines(cout)
     except IOError as ex:
         msg = "Failed to write ifg_bperp"
-        _LOG.error(msg, exception=ex)
+        _LOG.error(msg, exception=str(ex))
         raise ex
 
     # calculate coherence of flattened interferogram
@@ -1100,7 +1099,7 @@ def convert(input_file):
     except subprocess.CalledProcessError as cpe:
         msg = "failed to execute ImageMagick's convert"
         _LOG.error(msg, stat=cpe.returncode, stdout=cpe.stdout, stderr=cpe.stderr)
-        raise ProcessIfgException(msg)
+        raise cpe
 
 
 def kml_map(input_file, dem_par, output_file=None):
