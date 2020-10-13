@@ -277,8 +277,10 @@ class MatchStrings(Enum):
     SLC_AZIMUTH_LINES = "azimuth_lines"
 
     # ifg directory
-    IFG_RANGE_SAMPLES = "interferogram_azimuth_lines:"
-    IFG_AZIMUTH_LINES = "interferogram_width:"
+    IFG_AZIMUTH_LINES = "interferogram_azimuth_lines:"
+
+    # identifies with parameter name in GAMMA & keeps terminology in reference to radar geometry
+    IFG_RANGE_SAMPLES = "interferogram_width:"
 
     # dem directory
     DEM_USAGE_NOTE = "USAGE NOTE:"

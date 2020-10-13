@@ -548,12 +548,12 @@ def get_width10(ifg_off10_path):
     """
     with ifg_off10_path.open() as f:
         for line in f.readlines():
-            if const.MatchStrings.IFG_AZIMUTH_LINES.value in line:
+            if const.MatchStrings.IFG_RANGE_SAMPLES.value in line:
                 _, value = line.split()
                 return int(value)
 
     msg = 'Cannot locate "{}" value in ifg offsets10 file'
-    raise ProcessIfgException(msg.format(const.MatchStrings.IFG_AZIMUTH_LINES.value))
+    raise ProcessIfgException(msg.format(const.MatchStrings.IFG_RANGE_SAMPLES.value))
 
 
 def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
