@@ -80,7 +80,7 @@ def run_workflow(
     calc_filt(pc, ic, ifg_width)
     calc_unw(pc, ic, ifg_width, clean_up)
     calc_unw_thinning(pc, ic, ifg_width, clean_up=clean_up)
-    do_geocode(pc, ic, dc)
+    do_geocode(pc, ic, dc, ifg_width)
 
 
 def _validate_input_files(ic: IfgFileNames):
@@ -741,6 +741,7 @@ def do_geocode(
     pc: ProcConfig,
     ic: IfgFileNames,
     dc: DEMFileNames,
+    ifg_width: int,
     dtype_out=const.DTYPE_GEOTIFF_FLOAT,
 ):
     """
@@ -748,10 +749,16 @@ def do_geocode(
     :param pc: ProcConfig obj
     :param ic: IfgFileNames obj
     :param dc: DEMFileNames obj
+    :param ifg_width:
     :param dtype_out:
     """
     # TODO: figure out how to fix the "buried" I/O here
     width_in = get_width_in(dc.dem_diff.open())
+
+    # sanity check the widths match from separate data sources
+    if width_in != ifg_width:
+        raise ProcessIfgException("width_in != ifg_width. Check for a processing error")
+
     width_out = get_width_out(dc.eqa_dem_par.open())
 
     geocode_unwrapped_ifg(ic, dc, width_in, width_out)
@@ -811,6 +818,10 @@ def do_geocode(
 def get_width_in(dem_diff):
     """
     Return range/sample width from dem diff file.
+
+    Obtains width from independent source to get_ifg_width(), allowing errors to be identified if
+    there are problems with a particular processing step.
+
     :param dem_diff: open file-like obj
     :return: width as integer
     """

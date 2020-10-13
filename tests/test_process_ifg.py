@@ -99,7 +99,9 @@ def test_run_workflow_full(
     ic_mock.ifg_off.exists.return_value = False
 
     # finally run the workflow :-)
-    process_ifg.run_workflow(pc_mock, ic_mock, dc_mock, ifg_width=204, clean_up=True)
+    process_ifg.run_workflow(
+        pc_mock, ic_mock, dc_mock, ifg_width=fake_width_in, clean_up=True
+    )
 
     # check some of the funcs in each step are called
     assert m_pygamma.create_offset.called
@@ -665,7 +667,8 @@ def test_do_geocode(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock, rem
     pc_mock.ifg_geotiff.lower.return_value = "yes"
 
     # mock the width config file readers
-    m_width_in = mock.Mock(return_value=22)
+    fake_ifg_width = 22
+    m_width_in = mock.Mock(return_value=fake_ifg_width)
     m_width_out = mock.Mock(return_value=11)
     monkeypatch.setattr(process_ifg, "get_width_in", m_width_in)
     monkeypatch.setattr(process_ifg, "get_width_out", m_width_out)
@@ -688,7 +691,7 @@ def test_do_geocode(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock, rem
     )
     monkeypatch.setattr(process_ifg, "remove_files", remove_mock)
 
-    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock)
+    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, fake_ifg_width)
 
     assert m_width_in.called
     assert m_width_out.called
@@ -703,9 +706,12 @@ def test_do_geocode(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock, rem
 
 
 def test_do_geocode_no_geotiff(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock):
+    fake_ifg_width = 32
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
     pc_mock.ifg_geotiff.lower.return_value = "no"
-    monkeypatch.setattr(process_ifg, "get_width_in", mock.Mock(return_value=32))
+    monkeypatch.setattr(
+        process_ifg, "get_width_in", mock.Mock(return_value=fake_ifg_width)
+    )
     monkeypatch.setattr(process_ifg, "get_width_out", mock.Mock(return_value=31))
 
     monkeypatch.setattr(process_ifg, "geocode_unwrapped_ifg", mock.Mock())
@@ -714,9 +720,25 @@ def test_do_geocode_no_geotiff(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocod
     monkeypatch.setattr(process_ifg, "geocode_flat_coherence_file", mock.Mock())
     monkeypatch.setattr(process_ifg, "geocode_filtered_coherence_file", mock.Mock())
 
-    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock)
+    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, fake_ifg_width)
 
     assert pg_geocode_mock.data2geotiff.called is False
+
+
+def test_do_geocode_width_mismatch(
+    monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock
+):
+    monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
+    pc_mock.ifg_geotiff.lower.return_value = "no"
+
+    fake_ifg_width = 10
+    fake_width_in = 20
+    monkeypatch.setattr(
+        process_ifg, "get_width_in", mock.Mock(return_value=fake_width_in)
+    )
+
+    with pytest.raises(ProcessIfgException):
+        process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, fake_ifg_width)
 
 
 def test_get_width_in():
