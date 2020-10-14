@@ -21,6 +21,9 @@ except ImportError as iex:
 _LOG = structlog.get_logger("insar")
 
 
+# TODO: add type hinting
+
+
 # customise the py_gamma calling interface to automate repetitive tasks
 def decorator(func):
     """
@@ -55,6 +58,60 @@ def decorator(func):
 
 # Customise Gamma shim to automatically handle basic error checking and logging
 pg = GammaInterface(subprocess_func=decorator(subprocess_wrapper))
+
+
+# FIXME: set working dir (do outside workflow to reduce buried I/O)
+# mkdir -p $ifg_dir
+# cd $ifg_dir
+def run_workflow(
+    pc: ProcConfig,
+    ic: IfgFileNames,
+    dc: DEMFileNames,
+    ifg_width: int,
+    clean_up: bool,  # TODO: should clean_up apply to everything, or just specific steps?
+):
+
+    _validate_input_files(ic)
+
+    # future version might want to allow selection of steps (skipped for simplicity Oct 2020)
+    calc_int(pc, ic, clean_up)
+    generate_init_flattened_ifg(pc, ic, dc, clean_up)
+    generate_final_flattened_ifg(pc, ic, dc, ifg_width, clean_up)
+    calc_filt(pc, ic, ifg_width)
+    calc_unw(pc, ic, ifg_width, clean_up)
+    calc_unw_thinning(pc, ic, ifg_width, clean_up=clean_up)
+    do_geocode(pc, ic, dc, ifg_width)
+
+
+def _validate_input_files(ic: IfgFileNames):
+    msg = "Cannot locate {}. Please run 'coregister_DEM' then 'coregister_slave SLC' steps for each acquisition"
+
+    if not ic.r_master_slc.exists():
+        raise ProcessIfgException(msg.format("resampled master SLC"))
+
+    if not ic.r_master_mli.exists():
+        raise ProcessIfgException(msg.format("resampled master MLI"))
+
+    if not ic.r_slave_slc.exists():
+        raise ProcessIfgException(msg.format("resampled slave SLC"))
+
+    if not ic.r_slave_mli.exists():
+        raise ProcessIfgException(msg.format("resampled slave MLI"))
+
+
+def get_ifg_width(r_master_mli_par):
+    """
+    Return range/sample width from dem diff file.
+    :param r_master_mli_par: open file-like obj
+    :return: width as integer
+    """
+    for line in r_master_mli_par.readlines():
+        if const.MatchStrings.SLC_RANGE_SAMPLES.value in line:
+            _, value = line.split()
+            return int(value)
+
+    msg = 'Cannot locate "{}" value in resampled master MLI'
+    raise ProcessIfgException(msg.format(const.MatchStrings.SLC_RANGE_SAMPLES.value))
 
 
 def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
@@ -235,14 +292,13 @@ def generate_init_flattened_ifg(
 
 # NB: this function is a bit long and ugly due to the volume of chained calls for the workflow
 def generate_final_flattened_ifg(
-    pc: ProcConfig, ic: IfgFileNames, dc: DEMFileNames, width10, ifg_width, clean_up
+    pc: ProcConfig, ic: IfgFileNames, dc: DEMFileNames, ifg_width, clean_up
 ):
     """
     Perform refinement of baseline model using ground control points
     :param pc:
     :param ic:
     :param dc:
-    :param width10:
     :param ifg_width:
     :param clean_up:
     """
@@ -257,6 +313,8 @@ def generate_final_flattened_ifg(
         const.NOT_PROVIDED,  # line offset
         const.DISPLAY_TO_EOF,
     )
+
+    width10 = get_width10(ic.ifg_off10)
 
     # Generate coherence image
     pg.cc_wave(
@@ -465,7 +523,7 @@ def generate_final_flattened_ifg(
             f.writelines(cout)
     except IOError as ex:
         msg = "Failed to write ifg_bperp"
-        _LOG.error(msg, exception=ex)
+        _LOG.error(msg, exception=str(ex))
         raise ex
 
     # calculate coherence of flattened interferogram
@@ -480,6 +538,22 @@ def generate_final_flattened_ifg(
         pc.ifg_coherence_window,  # estimation window size in lines
         const.ESTIMATION_WINDOW_TRIANGULAR,  # estimation window "shape/style"
     )
+
+
+def get_width10(ifg_off10_path):
+    """
+    Return range/sample width from ifg_off10
+    :param ifg_off10_path: Path type obj
+    :return: width as integer
+    """
+    with ifg_off10_path.open() as f:
+        for line in f.readlines():
+            if const.MatchStrings.IFG_RANGE_SAMPLES.value in line:
+                _, value = line.split()
+                return int(value)
+
+    msg = 'Cannot locate "{}" value in ifg offsets10 file'
+    raise ProcessIfgException(msg.format(const.MatchStrings.IFG_RANGE_SAMPLES.value))
 
 
 def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
@@ -667,19 +741,25 @@ def do_geocode(
     pc: ProcConfig,
     ic: IfgFileNames,
     dc: DEMFileNames,
-    width_in,
-    width_out,
+    ifg_width: int,
     dtype_out=const.DTYPE_GEOTIFF_FLOAT,
 ):
     """
     TODO
-    :param pc:
-    :param ic:
-    :param dc:
-    :param width_in:
-    :param width_out:
+    :param pc: ProcConfig obj
+    :param ic: IfgFileNames obj
+    :param dc: DEMFileNames obj
+    :param ifg_width:
     :param dtype_out:
     """
+    # TODO: figure out how to fix the "buried" I/O here
+    width_in = get_width_in(dc.dem_diff.open())
+
+    # sanity check the widths match from separate data sources
+    if width_in != ifg_width:
+        raise ProcessIfgException("width_in != ifg_width. Check for a processing error")
+
+    width_out = get_width_out(dc.eqa_dem_par.open())
 
     geocode_unwrapped_ifg(ic, dc, width_in, width_out)
     geocode_flattened_ifg(ic, dc, width_in, width_out)
@@ -733,6 +813,40 @@ def do_geocode(
 
     for path in all_paths:
         remove_files(*path)
+
+
+def get_width_in(dem_diff):
+    """
+    Return range/sample width from dem diff file.
+
+    Obtains width from independent source to get_ifg_width(), allowing errors to be identified if
+    there are problems with a particular processing step.
+
+    :param dem_diff: open file-like obj
+    :return: width as integer
+    """
+    for line in dem_diff.readlines():
+        if "range_samp_1:" in line:
+            _, value = line.split()
+            return int(value)
+
+    msg = 'Cannot locate "range_samp_1" value in DEM diff file'
+    raise ProcessIfgException(msg)
+
+
+def get_width_out(dem_eqa_par):
+    """
+    Return range field from eqa_dem_par file
+    :param dem_eqa_par: open file like obj
+    :return: width as integer
+    """
+    for line in dem_eqa_par.readlines():
+        if "width:" in line:
+            _, value = line.split()
+            return int(value)
+
+    msg = 'Cannot locate "width" value in DEM eqa param file'
+    raise ProcessIfgException(msg)
 
 
 def geocode_unwrapped_ifg(ic: IfgFileNames, dc: DEMFileNames, width_in, width_out):
@@ -996,7 +1110,7 @@ def convert(input_file):
     except subprocess.CalledProcessError as cpe:
         msg = "failed to execute ImageMagick's convert"
         _LOG.error(msg, stat=cpe.returncode, stdout=cpe.stdout, stderr=cpe.stderr)
-        raise ProcessIfgException(msg)
+        raise cpe
 
 
 def kml_map(input_file, dem_par, output_file=None):
