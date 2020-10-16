@@ -14,17 +14,20 @@ import pytest
 
 
 # FIXME: tweak settings to ensure working dir doesn't have to be changed for INT processing (do in workflow)
-# FIXME: change all mocks to return (return_code, cout, cerr) as per decorator
-
 # TODO: can monkeypatch be done at higher level scope to apply to multiple test funcs?
+
+PG_RETURN_VALUE = (0, ["default-cout"], ["default-cerr"])
+PG_RETURN_VALUE_FAIL = (-1, ["cout-with-error"], ["cerr-with-error"])
+
+
 @pytest.fixture
 def pg_int_mock():
     """Create basic mock of the py_gamma module for INT processing step."""
     pg_mock = mock.NonCallableMock()
-    pg_mock.create_offset.return_value = 0
-    pg_mock.offset_pwr.return_value = 0
-    pg_mock.offset_fit.return_value = 0
-    pg_mock.create_diff_par.return_value = 0
+    pg_mock.create_offset.return_value = PG_RETURN_VALUE
+    pg_mock.offset_pwr.return_value = PG_RETURN_VALUE
+    pg_mock.offset_fit.return_value = PG_RETURN_VALUE
+    pg_mock.create_diff_par.return_value = PG_RETURN_VALUE
     return pg_mock
 
 
@@ -91,7 +94,7 @@ def test_run_workflow_full(
     monkeypatch.setattr(process_ifg, "pathlib", m_pathlib)
 
     m_pygamma = mock.NonCallableMock()
-    m_pygamma.base_perp.return_value = "fake-stat", "fake-cout", "fake-cerr"
+    m_pygamma.base_perp.return_value = PG_RETURN_VALUE
     monkeypatch.setattr(process_ifg, "pg", m_pygamma)
     monkeypatch.setattr(process_ifg, "subprocess", subprocess_mock)
 
@@ -186,7 +189,6 @@ def test_calc_int(monkeypatch, pg_int_mock, pc_mock, ic_mock):
 
     # craftily substitute the 'pg' py_gamma obj for a mock: avoids a missing import when testing
     # locally, or calling the real thing on Gadi...
-    # TODO: monkeypatch or use unittest.mock's patch? Which is better?
     monkeypatch.setattr(process_ifg, "pg", pg_int_mock)
 
     ic_mock.ifg_off = mock.Mock(spec=pathlib.Path)
@@ -233,7 +235,7 @@ def test_calc_int_with_cleanup(monkeypatch, pg_int_mock, pc_mock, ic_mock):
 def test_error_handling_decorator(monkeypatch):
     # force all fake subprocess calls to fail
     m_subprocess_wrapper = mock.Mock()
-    m_subprocess_wrapper.return_value = -1
+    m_subprocess_wrapper.return_value = PG_RETURN_VALUE_FAIL
 
     pgi = py_gamma_ga.GammaInterface(
         install_dir="./fake-install",
@@ -265,26 +267,25 @@ def test_error_handling_decorator(monkeypatch):
 
 @pytest.fixture
 def pg_flat_mock():
-    """Create basic mock of the py_gamma module for the INT processing step."""
+    """Create basic mock of the py_gamma module for the FLAT processing step."""
     pg_mock = mock.NonCallableMock()
-    ret = (0, "cout-fake-content", "cerr-fake-content")
-    pg_mock.base_orbit.return_value = ret
-    pg_mock.phase_sim_orb.return_value = ret
-    pg_mock.SLC_diff_intf.return_value = ret
-    pg_mock.base_init.return_value = ret
-    pg_mock.base_add.return_value = ret
-    pg_mock.phase_sim.return_value = ret
+    pg_mock.base_orbit.return_value = PG_RETURN_VALUE
+    pg_mock.phase_sim_orb.return_value = PG_RETURN_VALUE
+    pg_mock.SLC_diff_intf.return_value = PG_RETURN_VALUE
+    pg_mock.base_init.return_value = PG_RETURN_VALUE
+    pg_mock.base_add.return_value = PG_RETURN_VALUE
+    pg_mock.phase_sim.return_value = PG_RETURN_VALUE
 
-    pg_mock.gcp_phase.return_value = ret
-    pg_mock.sub_phase.return_value = ret
-    pg_mock.mcf.return_value = ret
-    pg_mock.base_ls.return_value = ret
-    pg_mock.cc_wave.return_value = ret
-    pg_mock.rascc_mask.return_value = ret
-    pg_mock.multi_cpx.return_value = ret
-    pg_mock.multi_real.return_value = ret
-    pg_mock.base_perp.return_value = ret
-    pg_mock.extract_gcp.return_value = ret
+    pg_mock.gcp_phase.return_value = PG_RETURN_VALUE
+    pg_mock.sub_phase.return_value = PG_RETURN_VALUE
+    pg_mock.mcf.return_value = PG_RETURN_VALUE
+    pg_mock.base_ls.return_value = PG_RETURN_VALUE
+    pg_mock.cc_wave.return_value = PG_RETURN_VALUE
+    pg_mock.rascc_mask.return_value = PG_RETURN_VALUE
+    pg_mock.multi_cpx.return_value = PG_RETURN_VALUE
+    pg_mock.multi_real.return_value = PG_RETURN_VALUE
+    pg_mock.base_perp.return_value = PG_RETURN_VALUE
+    pg_mock.extract_gcp.return_value = PG_RETURN_VALUE
     return pg_mock
 
 
@@ -406,9 +407,9 @@ def test_get_width10_not_found():
 
 @pytest.fixture
 def pg_filt_mock():
-    """Create basic mock of the py_gamma module for the INT processing step."""
+    """Create basic mock of the py_gamma module for the FILT processing step."""
     pgm = mock.NonCallableMock()
-    pgm.adf.return_value = 0
+    pgm.adf.return_value = PG_RETURN_VALUE
     return pgm
 
 
@@ -431,13 +432,14 @@ def test_calc_filt_no_flat_file(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
 
 @pytest.fixture
 def pg_unw_mock():
+    """Basic mock of the py_gamma module for the UNW processing step."""
     pgm = mock.NonCallableMock()
-    pgm.rascc_mask.return_value = 0
-    pgm.rascc_mask_thinning.return_value = 0
-    pgm.mcf.return_value = 0
-    pgm.interp_ad.return_value = 0
-    pgm.unw_model.return_value = 0
-    pgm.mask_data.return_value = 0
+    pgm.rascc_mask.return_value = PG_RETURN_VALUE
+    pgm.rascc_mask_thinning.return_value = PG_RETURN_VALUE
+    pgm.mcf.return_value = PG_RETURN_VALUE
+    pgm.interp_ad.return_value = PG_RETURN_VALUE
+    pgm.unw_model.return_value = PG_RETURN_VALUE
+    pgm.mask_data.return_value = PG_RETURN_VALUE
     return pgm
 
 
@@ -515,17 +517,15 @@ def test_calc_unw_thinning(monkeypatch, pg_unw_mock, pc_mock, ic_mock):
 def pg_geocode_mock():
     """Basic mock for pygamma calls in GEOCODE"""
     pgm = mock.NonCallableMock()
-    ret = (0, ["cout for pg_geocode_mock"], ["cerr for pg_geocode_mock"])
-
-    pgm.geocode_back.return_value = ret
-    pgm.mask_data.return_value = ret
-    pgm.convert.return_value = ret
-    pgm.kml_map.return_value = ret
-    pgm.cpx_to_real.return_value = ret
-    pgm.rascc.return_value = ret
-    pgm.ras2ras.return_value = ret
-    pgm.rasrmg.return_value = ret
-    pgm.data2geotiff.return_value = ret
+    pgm.geocode_back.return_value = PG_RETURN_VALUE
+    pgm.mask_data.return_value = PG_RETURN_VALUE
+    pgm.convert.return_value = PG_RETURN_VALUE
+    pgm.kml_map.return_value = PG_RETURN_VALUE
+    pgm.cpx_to_real.return_value = PG_RETURN_VALUE
+    pgm.rascc.return_value = PG_RETURN_VALUE
+    pgm.ras2ras.return_value = PG_RETURN_VALUE
+    pgm.rasrmg.return_value = PG_RETURN_VALUE
+    pgm.data2geotiff.return_value = PG_RETURN_VALUE
     return pgm
 
 
