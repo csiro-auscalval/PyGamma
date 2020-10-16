@@ -117,19 +117,19 @@ def run_workflow(
 
 
 def _validate_input_files(ic: IfgFileNames):
-    msg = "Cannot locate {}. Please run 'coregister_DEM' then 'coregister_slave SLC' steps for each acquisition"
+    msg = "Cannot locate resampled {}. Run 'coregister_DEM' then 'coregister_slave SLC' steps for each acquisition"
 
     if not ic.r_master_slc.exists():
-        raise ProcessIfgException(msg.format("resampled master SLC"))
+        raise ProcessIfgException(msg.format("master SLC"))
 
     if not ic.r_master_mli.exists():
-        raise ProcessIfgException(msg.format("resampled master MLI"))
+        raise ProcessIfgException(msg.format("master MLI"))
 
     if not ic.r_slave_slc.exists():
-        raise ProcessIfgException(msg.format("resampled slave SLC"))
+        raise ProcessIfgException(msg.format("slave SLC"))
 
     if not ic.r_slave_mli.exists():
-        raise ProcessIfgException(msg.format("resampled slave MLI"))
+        raise ProcessIfgException(msg.format("slave MLI"))
 
 
 def get_ifg_width(r_master_mli_par):
