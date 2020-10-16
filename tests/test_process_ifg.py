@@ -6,7 +6,7 @@ from unittest import mock
 
 import insar.constant as const
 from insar import process_ifg, py_gamma_ga
-from insar.process_ifg import ProcessIfgException
+from insar.process_ifg import ProcessIfgException, TempFileConfig
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 
 import structlog
@@ -20,7 +20,7 @@ import pytest
 @pytest.fixture
 def pg_int_mock():
     """Create basic mock of the py_gamma module for INT processing step."""
-    pg_mock = mock.Mock()
+    pg_mock = mock.NonCallableMock()
     pg_mock.create_offset.return_value = 0
     pg_mock.offset_pwr.return_value = 0
     pg_mock.offset_fit.return_value = 0
@@ -75,7 +75,7 @@ def subprocess_mock():
 
     Can be too broad as it prevents access to subprocess exceptions.
     """
-    m_subprocess = mock.Mock(spec=subprocess)
+    m_subprocess = mock.NonCallableMock(spec=subprocess)
     m_subprocess.PIPE = "Fake pipe"
     return m_subprocess
 
@@ -86,10 +86,11 @@ def test_run_workflow_full(
     """Test workflow runs from end to end"""
 
     # mock out larger elements like modules/dependencies
-    m_pathlib = mock.MagicMock()
+    m_pathlib = mock.NonCallableMock()
+    m_pathlib.Path.return_value.glob.return_value = ["fake-path0", "fake-path1"]
     monkeypatch.setattr(process_ifg, "pathlib", m_pathlib)
 
-    m_pygamma = mock.MagicMock()
+    m_pygamma = mock.NonCallableMock()
     m_pygamma.base_perp.return_value = "fake-stat", "fake-cout", "fake-cerr"
     monkeypatch.setattr(process_ifg, "pg", m_pygamma)
     monkeypatch.setattr(process_ifg, "subprocess", subprocess_mock)
@@ -229,14 +230,15 @@ def test_calc_int_with_cleanup(monkeypatch, pg_int_mock, pc_mock, ic_mock):
     assert ic_mock.ifg_coffsets.unlink.called
 
 
-def test_error_handling_decorator(monkeypatch, subprocess_mock):
+def test_error_handling_decorator(monkeypatch):
     # force all fake subprocess calls to fail
-    subprocess_mock.run.return_value = -1
+    m_subprocess_wrapper = mock.Mock()
+    m_subprocess_wrapper.return_value = -1
 
     pgi = py_gamma_ga.GammaInterface(
         install_dir="./fake-install",
         gamma_exes={"create_offset": "fake-EXE-name"},
-        subprocess_func=process_ifg.decorator(subprocess_mock),
+        subprocess_func=process_ifg.decorator(m_subprocess_wrapper),
     )
 
     # ensure mock logger has all core error(), msg() etc logging functions
@@ -264,7 +266,7 @@ def test_error_handling_decorator(monkeypatch, subprocess_mock):
 @pytest.fixture
 def pg_flat_mock():
     """Create basic mock of the py_gamma module for the INT processing step."""
-    pg_mock = mock.Mock()
+    pg_mock = mock.NonCallableMock()
     ret = (0, "cout-fake-content", "cerr-fake-content")
     pg_mock.base_orbit.return_value = ret
     pg_mock.phase_sim_orb.return_value = ret
@@ -289,7 +291,7 @@ def pg_flat_mock():
 @pytest.fixture
 def dc_mock():
     """Default mock for DEMFileNames config."""
-    dcm = mock.Mock(spec=DEMFileNames)
+    dcm = mock.NonCallableMock(spec=DEMFileNames)
     return dcm
 
 
@@ -378,7 +380,7 @@ def _get_mock_file_and_path(fake_content):
     :return: (file_mock, path_mock)
     """
     # file like object to be returned from context manager
-    m_file = mock.MagicMock()
+    m_file = mock.NonCallableMock()
     m_file.readlines.return_value = fake_content
 
     # TRICKY: mock chain of open() calls, context manager etc to return custom file mock
@@ -405,15 +407,13 @@ def test_get_width10_not_found():
 @pytest.fixture
 def pg_filt_mock():
     """Create basic mock of the py_gamma module for the INT processing step."""
-    pgm = mock.Mock()
+    pgm = mock.NonCallableMock()
     pgm.adf.return_value = 0
     return pgm
 
 
 def test_calc_filt(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
     monkeypatch.setattr(process_ifg, "pg", pg_filt_mock)
-
-    ic_mock.ifg_flat = mock.Mock()
     ic_mock.ifg_flat.exists.return_value = True
 
     assert pg_filt_mock.adf.called is False
@@ -423,8 +423,6 @@ def test_calc_filt(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
 
 def test_calc_filt_no_flat_file(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
     monkeypatch.setattr(process_ifg, "pg", pg_filt_mock)
-
-    ic_mock.ifg_flat = mock.Mock()
     ic_mock.ifg_flat.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
@@ -433,7 +431,7 @@ def test_calc_filt_no_flat_file(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
 
 @pytest.fixture
 def pg_unw_mock():
-    pgm = mock.Mock()
+    pgm = mock.NonCallableMock()
     pgm.rascc_mask.return_value = 0
     pgm.rascc_mask_thinning.return_value = 0
     pgm.mcf.return_value = 0
@@ -516,7 +514,7 @@ def test_calc_unw_thinning(monkeypatch, pg_unw_mock, pc_mock, ic_mock):
 @pytest.fixture
 def pg_geocode_mock():
     """Basic mock for pygamma calls in GEOCODE"""
-    pgm = mock.Mock()
+    pgm = mock.NonCallableMock()
     ret = (0, ["cout for pg_geocode_mock"], ["cerr for pg_geocode_mock"])
 
     pgm.geocode_back.return_value = ret
@@ -697,7 +695,7 @@ def test_do_geocode(
     monkeypatch.setattr(process_ifg, "get_width_in", m_width_in)
     monkeypatch.setattr(process_ifg, "get_width_out", m_width_out)
 
-    # mock individual processing blocks as they're tested elsewhere
+    # mock individual processing functions as they're tested elsewhere
     m_geocode_unwrapped_ifg = mock.Mock()
     m_geocode_flattened_ifg = mock.Mock()
     m_geocode_filtered_ifg = mock.Mock()
@@ -790,17 +788,18 @@ def test_get_width_out_not_found():
 
 
 def test_convert(monkeypatch):
-    m_file = mock.Mock()
+    m_file = mock.NonCallableMock()
     m_run = mock.Mock(return_value=0)
     monkeypatch.setattr(process_ifg.subprocess, "run", m_run)
 
     assert m_run.called is False
     process_ifg.convert(m_file)
     assert m_run.called is True
+    assert m_file.called is False
 
 
 def test_convert_subprocess_exception(monkeypatch):
-    m_file = mock.Mock()
+    m_file = mock.NonCallableMock()
     m_run = mock.Mock(
         side_effect=subprocess.CalledProcessError(returncode=-1, cmd="Fake_cmd")
     )
@@ -815,10 +814,10 @@ def test_remove_files_empty_path():
 
 
 def test_remove_files_with_error(monkeypatch):
-    m_file_not_found = mock.Mock()
+    m_file_not_found = mock.NonCallableMock()
     m_file_not_found.unlink.side_effect = FileNotFoundError("Fake File Not Found")
 
-    m_log = mock.Mock()
+    m_log = mock.NonCallableMock()
     monkeypatch.setattr(process_ifg, "_LOG", m_log)
 
     # file not found should be logged but ignored
