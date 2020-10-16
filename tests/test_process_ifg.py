@@ -31,7 +31,7 @@ def pg_int_mock():
 @pytest.fixture
 def pc_mock():
     """Returns basic mock to simulate a ProcConfig object."""
-    pc = mock.Mock(spec=ProcConfig)
+    pc = mock.NonCallableMock(spec=ProcConfig)
     pc.multi_look = 2  # always 2 for Sentinel 1
     pc.ifg_coherence_threshold = 2.5  # fake value
     return pc
@@ -40,7 +40,7 @@ def pc_mock():
 @pytest.fixture
 def ic_mock():
     """Returns basic mock to simulate an IfgFileNames object."""
-    ic = mock.Mock(spec=IfgFileNames)
+    ic = mock.NonCallableMock(spec=IfgFileNames)
 
     mock_path = functools.partial(mock.MagicMock, spec=pathlib.Path)
     ic.ifg_bperp = mock_path()
@@ -48,7 +48,17 @@ def ic_mock():
     ic.r_master_mli = mock_path()
     ic.r_slave_slc = mock_path()
     ic.r_slave_mli = mock_path()
+
+    ic.ifg_flat1 = mock_path()
+    ic.ifg_flat10 = mock_path()
     return ic
+
+
+@pytest.fixture
+def tc_mock():
+    """Returns basic mock to simulate a TempFileConfig object."""
+    tc = mock.NonCallableMock(spec=TempFileConfig)
+    return tc
 
 
 @pytest.fixture
@@ -71,7 +81,7 @@ def subprocess_mock():
 
 
 def test_run_workflow_full(
-    monkeypatch, pc_mock, ic_mock, dc_mock, remove_mock, subprocess_mock
+    monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, remove_mock, subprocess_mock
 ):
     """Test workflow runs from end to end"""
 
@@ -100,7 +110,7 @@ def test_run_workflow_full(
 
     # finally run the workflow :-)
     process_ifg.run_workflow(
-        pc_mock, ic_mock, dc_mock, ifg_width=fake_width_in, clean_up=True
+        pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=fake_width_in, clean_up=True
     )
 
     # check some of the funcs in each step are called
@@ -115,38 +125,46 @@ def test_run_workflow_full(
     assert subprocess_mock.run.called
 
 
-def test_run_workflow_missing_r_master_slc(ic_mock):
+def test_run_workflow_missing_r_master_slc(ic_mock, tc_mock):
     ic_mock.r_master_slc.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
-        process_ifg.run_workflow(pc_mock, ic_mock, dc_mock, ifg_width=10, clean_up=True)
+        process_ifg.run_workflow(
+            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=10, clean_up=True
+        )
 
 
-def test_run_workflow_missing_r_master_mli(ic_mock):
+def test_run_workflow_missing_r_master_mli(ic_mock, tc_mock):
     ic_mock.r_master_slc.exists.return_value = True
     ic_mock.r_master_mli.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
-        process_ifg.run_workflow(pc_mock, ic_mock, dc_mock, ifg_width=11, clean_up=True)
+        process_ifg.run_workflow(
+            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=11, clean_up=True
+        )
 
 
-def test_run_workflow_missing_r_slave_slc(ic_mock):
+def test_run_workflow_missing_r_slave_slc(ic_mock, tc_mock):
     ic_mock.r_master_slc.exists.return_value = True
     ic_mock.r_master_mli.exists.return_value = True
     ic_mock.r_slave_slc.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
-        process_ifg.run_workflow(pc_mock, ic_mock, dc_mock, ifg_width=12, clean_up=True)
+        process_ifg.run_workflow(
+            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=12, clean_up=True
+        )
 
 
-def test_run_workflow_missing_r_slave_mli(ic_mock):
+def test_run_workflow_missing_r_slave_mli(ic_mock, tc_mock):
     ic_mock.r_master_slc.exists.return_value = True
     ic_mock.r_master_mli.exists.return_value = True
     ic_mock.r_slave_slc.exists.return_value = True
     ic_mock.r_slave_mli.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
-        process_ifg.run_workflow(pc_mock, ic_mock, dc_mock, ifg_width=13, clean_up=True)
+        process_ifg.run_workflow(
+            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=13, clean_up=True
+        )
 
 
 def test_get_ifg_width():
@@ -298,7 +316,7 @@ def test_generate_init_flattened_ifg(
 
 
 def test_generate_final_flattened_ifg(
-    monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock
+    monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock, tc_mock
 ):
     # test refinement of baseline model using ground control points
     monkeypatch.setattr(process_ifg, "pg", pg_flat_mock)
@@ -322,7 +340,7 @@ def test_generate_final_flattened_ifg(
 
     fake_ifg_width = 99
     process_ifg.generate_final_flattened_ifg(
-        pc_mock, ic_mock, dc_mock, fake_ifg_width, clean_up=False
+        pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width, clean_up=False
     )
 
     assert pg_flat_mock.multi_cpx.called
@@ -340,7 +358,7 @@ def test_generate_final_flattened_ifg(
 
 
 def test_generate_final_flattened_ifg_bperp_write_fail(
-    monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock
+    monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock, tc_mock
 ):
     monkeypatch.setattr(process_ifg, "get_width10", lambda _: 52)
     monkeypatch.setattr(process_ifg, "pg", pg_flat_mock)
@@ -349,7 +367,7 @@ def test_generate_final_flattened_ifg_bperp_write_fail(
     with pytest.raises(IOError):
         fake_ifg_width = 99
         process_ifg.generate_final_flattened_ifg(
-            pc_mock, ic_mock, dc_mock, fake_ifg_width, clean_up=False
+            pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width, clean_up=False
         )
 
 
@@ -515,7 +533,7 @@ def pg_geocode_mock():
 
 # TODO: can fixtures call other fixtures to get their setup? (e.g. mock pg inside another fixture?)
 def test_geocode_unwrapped_ifg(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, remove_mock, subprocess_mock
+    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock, subprocess_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -534,7 +552,7 @@ def test_geocode_unwrapped_ifg(
     assert remove_mock.called is False
 
     width_in, width_out = 5, 7  # fake values
-    process_ifg.geocode_unwrapped_ifg(ic_mock, dc_mock, width_in, width_out)
+    process_ifg.geocode_unwrapped_ifg(ic_mock, dc_mock, tc_mock, width_in, width_out)
 
     assert pg_geocode_mock.geocode_back.called
     assert pg_geocode_mock.mask_data.called
@@ -546,7 +564,7 @@ def test_geocode_unwrapped_ifg(
 
 
 def test_geocode_flattened_ifg(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, remove_mock
+    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -565,7 +583,7 @@ def test_geocode_flattened_ifg(
     assert remove_mock.called is False
 
     width_in, width_out = 9, 13  # fake values
-    process_ifg.geocode_flattened_ifg(ic_mock, dc_mock, width_in, width_out)
+    process_ifg.geocode_flattened_ifg(ic_mock, dc_mock, tc_mock, width_in, width_out)
 
     assert pg_geocode_mock.cpx_to_real.called
     assert pg_geocode_mock.geocode_back.called
@@ -577,7 +595,7 @@ def test_geocode_flattened_ifg(
 
 
 def test_geocode_filtered_ifg(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, remove_mock
+    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -596,7 +614,7 @@ def test_geocode_filtered_ifg(
     assert remove_mock.called is False
 
     width_in, width_out = 15, 19  # fake values
-    process_ifg.geocode_filtered_ifg(ic_mock, dc_mock, width_in, width_out)
+    process_ifg.geocode_filtered_ifg(ic_mock, dc_mock, tc_mock, width_in, width_out)
 
     assert pg_geocode_mock.cpx_to_real.called
     assert pg_geocode_mock.geocode_back.called
@@ -608,7 +626,7 @@ def test_geocode_filtered_ifg(
 
 
 def test_geocode_flat_coherence_file(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, remove_mock
+    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -625,7 +643,9 @@ def test_geocode_flat_coherence_file(
     assert m_convert.called is False
 
     width_in, width_out = 33, 37  # fake values
-    process_ifg.geocode_flat_coherence_file(ic_mock, dc_mock, width_in, width_out)
+    process_ifg.geocode_flat_coherence_file(
+        ic_mock, dc_mock, tc_mock, width_in, width_out
+    )
 
     assert pg_geocode_mock.geocode_back.called
     assert pg_geocode_mock.rascc.called
@@ -635,7 +655,7 @@ def test_geocode_flat_coherence_file(
 
 
 def test_geocode_filtered_coherence_file(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, remove_mock
+    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -651,7 +671,9 @@ def test_geocode_filtered_coherence_file(
     assert m_convert.called is False
 
     width_in, width_out = 43, 31  # fake values
-    process_ifg.geocode_filtered_coherence_file(ic_mock, dc_mock, width_in, width_out)
+    process_ifg.geocode_filtered_coherence_file(
+        ic_mock, dc_mock, tc_mock, width_in, width_out
+    )
 
     assert pg_geocode_mock.geocode_back.called
     assert pg_geocode_mock.rascc.called
@@ -660,7 +682,9 @@ def test_geocode_filtered_coherence_file(
     assert m_convert.called
 
 
-def test_do_geocode(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock, remove_mock):
+def test_do_geocode(
+    monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, pg_geocode_mock, remove_mock
+):
     """Test the full geocode step"""
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -691,7 +715,7 @@ def test_do_geocode(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock, rem
     )
     monkeypatch.setattr(process_ifg, "remove_files", remove_mock)
 
-    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, fake_ifg_width)
+    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width)
 
     assert m_width_in.called
     assert m_width_out.called
@@ -705,7 +729,9 @@ def test_do_geocode(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock, rem
     assert remove_mock.call_count == len(const.TEMP_FILE_GLOBS)
 
 
-def test_do_geocode_no_geotiff(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock):
+def test_do_geocode_no_geotiff(
+    monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, pg_geocode_mock
+):
     fake_ifg_width = 32
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
     pc_mock.ifg_geotiff.lower.return_value = "no"
@@ -720,13 +746,13 @@ def test_do_geocode_no_geotiff(monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocod
     monkeypatch.setattr(process_ifg, "geocode_flat_coherence_file", mock.Mock())
     monkeypatch.setattr(process_ifg, "geocode_filtered_coherence_file", mock.Mock())
 
-    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, fake_ifg_width)
+    process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width)
 
     assert pg_geocode_mock.data2geotiff.called is False
 
 
 def test_do_geocode_width_mismatch(
-    monkeypatch, pc_mock, ic_mock, dc_mock, pg_geocode_mock
+    monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, pg_geocode_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
     pc_mock.ifg_geotiff.lower.return_value = "no"
@@ -738,7 +764,7 @@ def test_do_geocode_width_mismatch(
     )
 
     with pytest.raises(ProcessIfgException):
-        process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, fake_ifg_width)
+        process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width)
 
 
 def test_get_width_in():
@@ -798,3 +824,21 @@ def test_remove_files_with_error(monkeypatch):
     # file not found should be logged but ignored
     process_ifg.remove_files(m_file_not_found)
     assert m_log.error.called
+
+
+def test_temp_files(ic_mock):
+    tc = process_ifg.TempFileConfig(ic_mock)
+
+    # check paths in FLAT/flattening step
+    assert tc.ifg_flat10_unw.as_posix()
+    assert tc.ifg_flat1_unw.as_posix()
+    assert tc.ifg_flat_diff_int_unw.as_posix()
+
+    # check paths in geocoding steps
+    assert tc.geocode_unwrapped_ifg.as_posix()
+    assert tc.geocode_flat_ifg.as_posix()
+    assert tc.geocode_filt_ifg.as_posix()
+    assert tc.geocode_flat_coherence_file.as_posix()
+    assert tc.geocode_filt_coherence_file.as_posix()
+
+    # TODO: geocoded binary file globs/patterns
