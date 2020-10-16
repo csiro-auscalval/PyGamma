@@ -443,7 +443,7 @@ def pg_unw_mock():
     return pgm
 
 
-def test_calc_unw(monkeypatch, pg_unw_mock, pc_mock, ic_mock):
+def test_calc_unw(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
     # NB: (m)looks will always be 2 for Sentinel-1 ARD product generation
     monkeypatch.setattr(process_ifg, "pg", pg_unw_mock)
 
@@ -458,22 +458,24 @@ def test_calc_unw(monkeypatch, pg_unw_mock, pc_mock, ic_mock):
     assert m_thin.called is False
     assert pg_unw_mock.mask_data.called is False
 
-    process_ifg.calc_unw(pc_mock, ic_mock, fake_ifg_width, clean_up=False)
+    process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, fake_ifg_width, clean_up=False)
 
     assert pg_unw_mock.rascc_mask.called
-    assert m_thin.called
+    assert m_thin.call_count == 1
     assert pg_unw_mock.mask_data.called is False
 
 
-def test_calc_unw_no_ifg_filt(monkeypatch, pg_unw_mock, pc_mock, ic_mock):
+def test_calc_unw_no_ifg_filt(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
     monkeypatch.setattr(process_ifg, "pg", pg_unw_mock)
     ic_mock.ifg_filt.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
-        process_ifg.calc_unw(pc_mock, ic_mock, ifg_width=101, clean_up=False)
+        process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, ifg_width=101, clean_up=False)
 
 
-def test_calc_unw_with_mask(monkeypatch, pg_unw_mock, pc_mock, ic_mock, remove_mock):
+def test_calc_unw_with_mask(
+    monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock, remove_mock
+):
     monkeypatch.setattr(process_ifg, "pg", pg_unw_mock)
     monkeypatch.setattr(process_ifg, "remove_files", remove_mock)
     pc_mock.ifg_unw_mask = "yes"
@@ -481,23 +483,23 @@ def test_calc_unw_with_mask(monkeypatch, pg_unw_mock, pc_mock, ic_mock, remove_m
     assert pg_unw_mock.mask_data.called is False
     assert remove_mock.called is False
 
-    process_ifg.calc_unw(pc_mock, ic_mock, ifg_width=202, clean_up=False)
+    process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, ifg_width=202, clean_up=False)
 
     assert pg_unw_mock.mask_data.called is True
     assert remove_mock.called is True
 
 
 def test_calc_unw_mlooks_over_threshold_not_implemented(
-    monkeypatch, pg_unw_mock, pc_mock, ic_mock
+    monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_unw_mock)
     pc_mock.multi_look = 5
 
     with pytest.raises(NotImplementedError):
-        process_ifg.calc_unw(pc_mock, ic_mock, ifg_width=15, clean_up=False)
+        process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, ifg_width=15, clean_up=False)
 
 
-def test_calc_unw_thinning(monkeypatch, pg_unw_mock, pc_mock, ic_mock):
+def test_calc_unw_thinning(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
     monkeypatch.setattr(process_ifg, "pg", pg_unw_mock)
 
     assert pg_unw_mock.rascc_mask_thinning.called is False
@@ -505,7 +507,7 @@ def test_calc_unw_thinning(monkeypatch, pg_unw_mock, pc_mock, ic_mock):
     assert pg_unw_mock.interp_ad.called is False
     assert pg_unw_mock.unw_model.called is False
 
-    process_ifg.calc_unw_thinning(pc_mock, ic_mock, ifg_width=17, clean_up=False)
+    process_ifg.calc_unw_thinning(pc_mock, ic_mock, tc_mock, ifg_width=17, clean_up=False)
 
     assert pg_unw_mock.rascc_mask_thinning.called
     assert pg_unw_mock.mcf.called

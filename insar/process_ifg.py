@@ -35,6 +35,7 @@ class TempFileConfig:
         "ifg_flat10_unw",
         "ifg_flat1_unw",
         "ifg_flat_diff_int_unw",
+        "unwrapped_filtered_ifg",
         "geocode_unwrapped_ifg",
         "geocode_flat_ifg",
         "geocode_filt_ifg",
@@ -47,6 +48,9 @@ class TempFileConfig:
         self.ifg_flat10_unw = ic.ifg_flat10.with_suffix(".int.unw")
         self.ifg_flat1_unw = ic.ifg_flat1.with_suffix(".int.unw")
         self.ifg_flat_diff_int_unw = ic.ifg_flat.with_suffix(".int1.unw")
+
+        # unw thinning step
+        self.unwrapped_filtered_ifg = pathlib.Path("unwrapped_filtered_ifg.tmp")
 
         # temp files from geocoding step
         self.geocode_unwrapped_ifg = pathlib.Path("geocode_unw_ifg.tmp")
@@ -111,8 +115,7 @@ def run_workflow(
     generate_init_flattened_ifg(pc, ic, dc, clean_up)
     generate_final_flattened_ifg(pc, ic, dc, tc, ifg_width, clean_up)
     calc_filt(pc, ic, ifg_width)
-    calc_unw(pc, ic, ifg_width, clean_up)
-    calc_unw_thinning(pc, ic, ifg_width, clean_up=clean_up)
+    calc_unw(pc, ic, tc, ifg_width, clean_up)  # this calls unw thinning
     do_geocode(pc, ic, dc, tc, ifg_width)
 
 
@@ -416,9 +419,6 @@ def generate_final_flattened_ifg(
     )
 
     # Add full-res unwrapped phase to simulated phase
-    # FIXME: create temp file names container to avoid path manipulation in processing code
-    ifg_flat_int1 = ic.ifg_flat.with_suffix(".int1.unw")
-
     pg.sub_phase(
         tc.ifg_flat1_unw,
         ic.ifg_sim_unw1,
@@ -627,11 +627,12 @@ def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
 
 
 # TODO unw == unwrapped?
-def calc_unw(pc: ProcConfig, ic: IfgFileNames, ifg_width, clean_up):
+def calc_unw(pc: ProcConfig, ic: IfgFileNames, tc: TempFileConfig, ifg_width, clean_up):
     """
     TODO: docs
-    :param pc:
-    :param ic:
+    :param pc: ProcConfig obj
+    :param ic: IfgFileNames obj
+    :param tc: TempFileConfig obj
     :param ifg_width:
     :param clean_up: bool, True to clean up temporary files during run
     :return:
@@ -668,7 +669,7 @@ def calc_unw(pc: ProcConfig, ic: IfgFileNames, ifg_width, clean_up):
         <= pc.multi_look
         <= const.RASCC_THINNING_THRESHOLD
     ):
-        unwrapped_tmp = calc_unw_thinning(pc, ic, ifg_width, clean_up=clean_up)
+        unwrapped_tmp = calc_unw_thinning(pc, ic, tc, ifg_width, clean_up=clean_up)
     else:
         msg = (
             "Processing for unwrapping the full interferogram without masking not implemented. "
@@ -693,25 +694,26 @@ def calc_unw(pc: ProcConfig, ic: IfgFileNames, ifg_width, clean_up):
 def calc_unw_thinning(
     pc: ProcConfig,
     ic: IfgFileNames,
+    tc: TempFileConfig,
     ifg_width,
     num_sampling_reduction_runs=3,
     clean_up=False,
 ):
     """
     TODO docs
-    :param pc:
-    :param ic:
+    :param pc: ProcConfig obj
+    :param ic: IfgFileNames obj
+    :param tc: TempFileConfig obj
     :param ifg_width:
     :param num_sampling_reduction_runs:
     :param clean_up:
-    :return: dest TODO unwrapped ifg
+    :return: Path of unwrapped ifg (tmp file)
     """
     # Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser
     # network which can be interpolated and used as a model for unwrapping the full interferogram
     thresh_1st = pc.ifg_coherence_threshold + const.RASCC_THRESHOLD_INCREMENT
     thresh_max = thresh_1st + const.RASCC_THRESHOLD_INCREMENT
 
-    # TODO: can the output file ic.ifg_mask_thin exist?
     pg.rascc_mask_thinning(
         ic.ifg_mask,  # validity mask
         ic.ifg_filt_cc,  # file for adaptive sampling reduction, e.g. coherence (float)
@@ -756,14 +758,10 @@ def calc_unw_thinning(
     )
 
     # Use model to unwrap filtered interferogram
-    dest = pathlib.Path(
-        "temp-unwapped-filtered-ifg"
-    )  # TODO: handle paths in temp file struct or use tempfile module?
-
     pg.unw_model(
         ic.ifg_filt,  # complex interferogram
         ic.ifg_unw_model,  # approximate unwrapped phase model (float)
-        dest,  # output file
+        tc.unwrapped_filtered_ifg,  # output file
         ifg_width,
         pc.ifg_ref_point_range,  # xinit
         pc.ifg_ref_point_azimuth,  # # yinit
@@ -773,7 +771,7 @@ def calc_unw_thinning(
     if clean_up:
         remove_files(ic.ifg_unw_thin, ic.ifg_unw_model)
 
-    return dest
+    return tc.unwrapped_filtered_ifg
 
 
 def do_geocode(
