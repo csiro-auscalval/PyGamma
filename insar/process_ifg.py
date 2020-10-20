@@ -217,10 +217,10 @@ def generate_init_flattened_ifg(
 ):
     """
     TODO: docs
-    :param pc:
-    :param ic:
-    :param dc:
-    :param clean_up:
+    :param pc: ProcConfig obj
+    :param ic: IfgFileNames obj
+    :param dc: DEMFileNames obj
+    :param clean_up: bool
     """
 
     # calculate initial baseline of interferogram (i.e. the spatial distance between the two
@@ -337,9 +337,9 @@ def generate_final_flattened_ifg(
 ):
     """
     Perform refinement of baseline model using ground control points
-    :param pc:
-    :param ic:
-    :param dc:
+    :param pc: ProcConfig obj
+    :param ic: IfgFileNames obj
+    :param dc: DEMFileNames obj
     :param tc: TempFileConfig obj
     :param ifg_width:
     :param clean_up:
@@ -598,8 +598,8 @@ def get_width10(ifg_off10_path):
 def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
     """
     TODO docs
-    :param pc:
-    :param ic:
+    :param pc: ProcConfig obj
+    :param ic: IfgFileNames obj
     :param ifg_width:
     :return:
     """
@@ -626,10 +626,9 @@ def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
     )
 
 
-# TODO unw == unwrapped?
 def calc_unw(pc: ProcConfig, ic: IfgFileNames, tc: TempFileConfig, ifg_width, clean_up):
     """
-    TODO: docs
+    TODO: docs, does unw == unwrapped/unwrapping?
     :param pc: ProcConfig obj
     :param ic: IfgFileNames obj
     :param tc: TempFileConfig obj
@@ -846,7 +845,8 @@ def do_geocode(
 
     # TF: also remove all binaries and .ras files to save disc space
     #     keep flat.int since this is currently used as input for stamps processing
-    # TODO: move paths to dedicated mgmt class
+    # FIXME: move paths to dedicated mgmt class
+    #        needs to be split into geocode cleanup AND final workflow cleanup
     current = pathlib.Path(".")
     all_paths = [tuple(current.glob(pattern)) for pattern in const.TEMP_FILE_GLOBS]
 
@@ -892,9 +892,9 @@ def geocode_unwrapped_ifg(
     ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in, width_out
 ):
     """
-    TODO
-    :param ic:
-    :param dc:
+    TODO docs
+    :param ic: IfgFileNames obj
+    :param dc: DEMFileNames obj
     :param tc: TempFileConfig obj
     :param width_in:
     :param width_out:
@@ -916,9 +916,9 @@ def geocode_flattened_ifg(
     ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in, width_out,
 ):
     """
-    TODO
-    :param ic:
-    :param dc:
+    TODO docs
+    :param ic: IfgFileNames obj
+    :param dc: DEMFileNames obj
     :param tc: TempFileConfig obj
     :param width_in:
     :param width_out:
@@ -946,9 +946,9 @@ def geocode_filtered_ifg(
     ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in, width_out
 ):
     """
-    TODO:
-    :param ic:
-    :param dc:
+    TODO docs
+    :param ic: IfgFileNames obj
+    :param dc: DEMFileNames obj
     :param tc: TempFileConfig obj
     :param width_in:
     :param width_out:
@@ -975,9 +975,9 @@ def geocode_flat_coherence_file(
     ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in, width_out,
 ):
     """
-    TODO
-    :param ic:
-    :param dc:
+    TODO docs
+    :param ic: IfgFileNames obj
+    :param dc: DEMFileNames obj
     :param tc: TempFileConfig obj
     :param width_in:
     :param width_out:
@@ -1002,9 +1002,9 @@ def geocode_filtered_coherence_file(
     ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in, width_out,
 ):
     """
-    TODO:
-    :param ic:
-    :param dc:
+    TODO: docs
+    :param ic: IfgFileNames obj
+    :param dc: DEMFileNames obj
     :param tc: TempFileConfig obj
     :param width_in:
     :param width_out:
