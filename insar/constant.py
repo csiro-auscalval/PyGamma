@@ -18,7 +18,14 @@ COREG_JOB_ERROR_FILE_FMT = "{master}_{slave}.error"
 COUT = "cout"
 CERR = "cerr"
 
+# Sensor settings
+SENSOR_CSK = "CSK"
+SENSOR_MODE_SP = "SP"
+
 # constants for process_ifg
+YES = "yes"
+NO = "no"
+
 OFFSET_ESTIMATION_INTENSITY_CROSS_CORRELATION = 1
 OFFSET_ESTIMATION_FRINGE_VISIBILITY = 2
 
@@ -266,6 +273,7 @@ class FolderNames(Enum):
     PREVIEW = "preview"
 
 
+# TODO: review why this is an enum vs raw constants
 class MatchStrings(Enum):
     """
     Defines the string (or characters) which are used in finding
@@ -287,6 +295,15 @@ class MatchStrings(Enum):
     DEM_SCENE_TITLE = "scene title:"
     DEM_WARNING = "WARNING:"
     DEM_ISP = "Using ISP SLC/MLI"
+
+
+# Other match strings
+
+# DEM diff file
+RANGE_SAMPLE_1 = "range_samp_1:"
+
+# DEM EQA param file
+DEM_EQA_WIDTH = "width:"
 
 
 class ErrorMessages(Enum):

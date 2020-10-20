@@ -171,7 +171,7 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
         )
 
         # 2-pass differential interferometry without phase unwrapping (CSK spotlight)
-        if pc.sensor == "CSK" and pc.sensor_mode == "SP":
+        if pc.sensor == const.SENSOR_CSK and pc.sensor_mode == const.SENSOR_MODE_SP:
             raise NotImplementedError("Not required for Sentinel 1 processing")
         else:
             pg.offset_pwr(
@@ -677,7 +677,7 @@ def calc_unw(pc: ProcConfig, ic: IfgFileNames, tc: TempFileConfig, ifg_width, cl
         )
         raise NotImplementedError(msg)
 
-    if pc.ifg_unw_mask.lower() == "yes":
+    if pc.ifg_unw_mask.lower() == const.YES:
         # Mask unwrapped interferogram for low coherence areas below threshold
         pg.mask_data(
             unwrapped_tmp,  # input file
@@ -807,7 +807,7 @@ def do_geocode(
     geocode_filtered_coherence_file(ic, dc, tc, width_in, width_out)
 
     # Geotiff geocoded outputs
-    if pc.ifg_geotiff.lower() == "yes":
+    if pc.ifg_geotiff.lower() == const.YES:
         # unw
         pg.data2geotiff(
             dc.eqa_dem_par,
@@ -865,11 +865,11 @@ def get_width_in(dem_diff):
     :return: width as integer
     """
     for line in dem_diff.readlines():
-        if "range_samp_1:" in line:
+        if const.RANGE_SAMPLE_1 in line:
             _, value = line.split()
             return int(value)
 
-    msg = 'Cannot locate "range_samp_1" value in DEM diff file'
+    msg = 'Cannot locate "{}" value in DEM diff file'.format(const.RANGE_SAMPLE_1)
     raise ProcessIfgException(msg)
 
 
@@ -880,11 +880,11 @@ def get_width_out(dem_eqa_par):
     :return: width as integer
     """
     for line in dem_eqa_par.readlines():
-        if "width:" in line:
+        if const.DEM_EQA_WIDTH in line:
             _, value = line.split()
             return int(value)
 
-    msg = 'Cannot locate "width" value in DEM eqa param file'
+    msg = 'Cannot locate "{}" value in DEM eqa param file'.format(const.DEM_EQA_WIDTH)
     raise ProcessIfgException(msg)
 
 
