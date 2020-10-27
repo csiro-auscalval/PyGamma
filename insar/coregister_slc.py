@@ -1289,7 +1289,7 @@ class CoregisterSlc:
                 cout = []
                 cerr = []
                 dem_par_pathname = str(self.eqa_dem_par)
-                data_pathname = str(slave_gamma0_eqa)
+                data_pathname = str(slave_sigma0_eqa)
                 dtype = 2  # float
                 geotiff_pathname = str(slave_sigma0_eqa.with_suffix(".sigma0.tif"))
                 nodata = 0.0
