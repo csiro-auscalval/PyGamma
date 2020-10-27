@@ -187,22 +187,16 @@ def test_get_ifg_width_not_found():
 def test_calc_int(monkeypatch, pg_int_mock, pc_mock, ic_mock):
     """Verify default path through the INT processing step without cleanup."""
 
-    # craftily substitute the 'pg' py_gamma obj for a mock: avoids a missing import when testing
-    # locally, or calling the real thing on Gadi...
+    # craftily substitute the 'pg' py_gamma obj for a mock:
+    # 1) avoids missing import errors when testing locally
+    # 2) prevents calling the real thing on Gadi and all the errors with that
     monkeypatch.setattr(process_ifg, "pg", pg_int_mock)
-
     ic_mock.ifg_off = mock.Mock(spec=pathlib.Path)
     ic_mock.ifg_off.exists.return_value = False  # offset not yet processed
 
     process_ifg.calc_int(pc_mock, ic_mock, clean_up=False)
 
     assert pg_int_mock.create_offset.called
-
-    # ensure CSK sensor block / SP mode section is skipped
-    assert pg_int_mock.init_offset_orbit.called is False
-    assert pg_int_mock.init_offset.called is False
-
-    # check the core processing was called
     assert pg_int_mock.offset_pwr.called
     assert pg_int_mock.offset_fit.called
     assert pg_int_mock.create_diff_par.called

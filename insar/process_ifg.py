@@ -170,34 +170,30 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
             const.NON_INTERACTIVE,
         )
 
-        # 2-pass differential interferometry without phase unwrapping (CSK spotlight)
-        if pc.sensor == const.SENSOR_CSK and pc.sensor_mode == const.SENSOR_MODE_SP:
-            raise NotImplementedError("Not required for Sentinel 1 processing")
-        else:
-            pg.offset_pwr(
-                ic.r_master_slc,  # single-look complex image 1 (reference)
-                ic.r_slave_slc,  # single-look complex image 2
-                ic.r_master_slc_par,  # SLC-1 ISP image parameter file
-                ic.r_slave_slc_par,  # SLC-2 ISP image parameter file
-                ic.ifg_off,  # ISP offset/interferogram parameter file
-                ic.ifg_offs,  # (output) offset estimates in range and azimuth (fcomplex)
-                ic.ifg_ccp,  # (output) cross-correlation of each patch (0.0->1.0) (float)
-                const.RANGE_PATCH_SIZE,
-                const.AZIMUTH_PATCH_SIZE,
-                const.NOT_PROVIDED,  # (output) range and azimuth offsets and cross-correlation data
-                const.NOT_PROVIDED,
-                const.NUM_OFFSET_ESTIMATES_RANGE,
-                const.NUM_OFFSET_ESTIMATES_AZIMUTH,
-                const.CROSS_CORRELATION_THRESHOLD,
-            )
+        pg.offset_pwr(
+            ic.r_master_slc,  # single-look complex image 1 (reference)
+            ic.r_slave_slc,  # single-look complex image 2
+            ic.r_master_slc_par,  # SLC-1 ISP image parameter file
+            ic.r_slave_slc_par,  # SLC-2 ISP image parameter file
+            ic.ifg_off,  # ISP offset/interferogram parameter file
+            ic.ifg_offs,  # (output) offset estimates in range and azimuth (fcomplex)
+            ic.ifg_ccp,  # (output) cross-correlation of each patch (0.0->1.0) (float)
+            const.RANGE_PATCH_SIZE,
+            const.AZIMUTH_PATCH_SIZE,
+            const.NOT_PROVIDED,  # (output) range and azimuth offsets and cross-correlation data
+            const.NOT_PROVIDED,
+            const.NUM_OFFSET_ESTIMATES_RANGE,
+            const.NUM_OFFSET_ESTIMATES_AZIMUTH,
+            const.CROSS_CORRELATION_THRESHOLD,
+        )
 
-            pg.offset_fit(
-                ic.ifg_offs,
-                ic.ifg_ccp,
-                ic.ifg_off,  # TODO: should ifg_off be renamed ifg_off_par in settings?
-                ic.ifg_coffs,
-                ic.ifg_coffsets,
-            )
+        pg.offset_fit(
+            ic.ifg_offs,
+            ic.ifg_ccp,
+            ic.ifg_off,  # TODO: should ifg_off be renamed ifg_off_par in settings?
+            ic.ifg_coffs,
+            ic.ifg_coffsets,
+        )
 
     if clean_up:
         remove_files(ic.ifg_offs, ic.ifg_ccp, ic.ifg_coffs, ic.ifg_coffsets)

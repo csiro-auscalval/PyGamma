@@ -18,10 +18,6 @@ COREG_JOB_ERROR_FILE_FMT = "{master}_{slave}.error"
 COUT = "cout"
 CERR = "cerr"
 
-# Sensor settings
-SENSOR_CSK = "CSK"
-SENSOR_MODE_SP = "SP"
-
 # constants for process_ifg
 YES = "yes"
 NO = "no"
