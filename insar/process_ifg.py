@@ -25,7 +25,7 @@ _LOG = structlog.get_logger("insar")
 
 
 # customise the py_gamma calling interface to automate repetitive tasks
-def decorator(func):
+def auto_logging_decorator(func):
     """
     Decorate & expand 'func' with default logging & error handling for Ifg processing.
 
@@ -57,7 +57,7 @@ def decorator(func):
 
 
 # Customise Gamma shim to automatically handle basic error checking and logging
-pg = GammaInterface(subprocess_func=decorator(subprocess_wrapper))
+pg = GammaInterface(subprocess_func=auto_logging_decorator(subprocess_wrapper))
 
 
 # FIXME: set working dir (do outside workflow to reduce buried I/O)

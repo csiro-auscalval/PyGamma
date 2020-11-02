@@ -218,7 +218,7 @@ def test_error_handling_decorator(monkeypatch, subprocess_mock):
     pgi = py_gamma_ga.GammaInterface(
         install_dir="./fake-install",
         gamma_exes={"create_offset": "fake-EXE-name"},
-        subprocess_func=process_ifg.decorator(subprocess_mock),
+        subprocess_func=process_ifg.auto_logging_decorator(subprocess_mock),
     )
 
     # ensure mock logger has all core error(), msg() etc logging functions
