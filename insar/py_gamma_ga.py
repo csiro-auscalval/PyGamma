@@ -139,7 +139,8 @@ def subprocess_wrapper(cmd, *args, **kwargs):
         kwargs[COUT].extend(p.stdout.split("\n"))
 
     if CERR in kwargs:
-        kwargs[CERR].extend(p.stderr.split("\n"))
+        if p.stderr is not None:
+            kwargs[CERR].extend(p.stderr.split("\n"))
 
     return p.returncode
 
