@@ -1,4 +1,3 @@
-import socket
 import pathlib
 import subprocess
 
@@ -6,22 +5,17 @@ import structlog
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 import insar.constant as const
 
-from insar.py_gamma_ga import GammaInterface, subprocess_wrapper
-
-try:
-    import py_gamma
-except ImportError as iex:
-    hostname = socket.gethostname()
-
-    if hostname.startswith("gadi"):
-        # something odd here if can't find py_gamma path on NCI
-        raise iex
+from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 
 
 _LOG = structlog.get_logger("insar")
 
 
 # TODO: add type hinting
+
+
+class ProcessIfgException(Exception):
+    pass
 
 
 class TempFileConfig:
@@ -60,40 +54,10 @@ class TempFileConfig:
         self.geocode_filt_coherence_file = pathlib.Path("geocode_filt_coherence_file.tmp")
 
 
-# customise the py_gamma calling interface to automate repetitive tasks
-def decorator(func):
-    """
-    Decorate & expand 'func' with default logging & error handling for Ifg processing.
-
-    The automatic adding of logging & error handling simplifies Gamma calls considerably, in addition
-    to reducing a large amount of code duplication.
-
-    :param func: function to decorate (e.g. py_gamma_ga.subprocess_wrapper)
-    :return: a decorated function
-    """
-
-    def error_handler(cmd, *args, **kwargs):
-        if const.COUT not in kwargs:
-            kwargs[const.COUT] = []
-        if const.CERR not in kwargs:
-            kwargs[const.CERR] = []
-
-        stat = func(cmd, *args, **kwargs)
-        cout = str(kwargs[const.COUT])
-        cerr = str(kwargs[const.CERR])
-
-        if stat:
-            msg = "failed to execute pg.{}".format(cmd)
-            _LOG.error(msg, args=args, **kwargs)  # NB: cout/cerr already in kwargs
-            raise ProcessIfgException(msg)
-
-        return stat, cout, cerr
-
-    return error_handler
-
-
 # Customise Gamma shim to automatically handle basic error checking and logging
-pg = GammaInterface(subprocess_func=decorator(subprocess_wrapper))
+pg = GammaInterface(
+    subprocess_func=auto_logging_decorator(subprocess_wrapper, ProcessIfgException, _LOG)
+)
 
 
 # FIXME: set working dir (do outside workflow to reduce buried I/O)
@@ -1190,7 +1154,3 @@ def remove_files(*args):
             _LOG.error("Could not delete {}".format(path))
 
         # TODO: add more exception handlers?
-
-
-class ProcessIfgException(Exception):
-    pass

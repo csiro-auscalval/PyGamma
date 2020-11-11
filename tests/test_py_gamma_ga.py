@@ -132,7 +132,7 @@ def test_function_call_args_only(pg, monkeypatch):
 
 def test_function_call_args_kwargs(pg, monkeypatch):
     for p in (fake_subprocess_run, fake_subprocess_run2):
-        monkeypatch.setattr(py_gamma_ga.subprocess, "run", fake_subprocess_run)
+        monkeypatch.setattr(py_gamma_ga.subprocess, "run", p)
 
         cout = []
         cerr = []

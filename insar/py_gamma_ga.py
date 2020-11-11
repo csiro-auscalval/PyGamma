@@ -7,14 +7,29 @@ with a serial interface to avoid race conditions & ensure the data is returned.
 """
 
 import os
+import socket
 import functools
 import subprocess
 import warnings
 
 import structlog
+import insar.constant as const
 
-# TODO: this needs a guard block to distinguish between platforms with(out) Gamma
-import py_gamma as py_gamma_broken
+# use guard block to distinguish between platforms with(out) Gamma
+try:
+    import py_gamma as py_gamma_broken
+except ImportError as iex:
+    hostname = socket.gethostname()
+
+    if hostname.startswith("gadi"):
+        # something odd here if can't find py_gamma path on NCI
+        raise iex
+
+    # ugly hack
+    class DummyPyGamma:
+        ParFile = None
+
+    py_gamma_broken = DummyPyGamma()
 
 
 _LOG = structlog.get_logger("insar")
@@ -24,6 +39,40 @@ class GammaInterfaceException(Exception):
     """Generic exception class for the alternate Gamma interface."""
 
     pass
+
+
+# customise the py_gamma calling interface to automate repetitive tasks
+def auto_logging_decorator(func, exception_type, logger):
+    """
+    Decorate & expand 'func' with default logging & error handling for Ifg processing.
+
+    The automatic adding of logging & error handling simplifies Gamma calls considerably, in addition
+    to reducing a large amount of code duplication.
+
+    :param func: function to decorate (e.g. py_gamma_ga.subprocess_wrapper)
+    :param exception_type: type of exception to throw e.g. IOError
+    :param logger: object to call logging methods on (error(), info() etc)
+    :return: a decorated function
+    """
+
+    def error_handler(cmd, *args, **kwargs):
+        if const.COUT not in kwargs:
+            kwargs[const.COUT] = []
+        if const.CERR not in kwargs:
+            kwargs[const.CERR] = []
+
+        stat = func(cmd, *args, **kwargs)
+        cout = str(kwargs[const.COUT])
+        cerr = str(kwargs[const.CERR])
+
+        if stat:
+            msg = "failed to execute pg.{}".format(cmd)
+            logger.error(msg, args=args, **kwargs)  # NB: cout/cerr already in kwargs
+            raise exception_type(msg)
+
+        return stat, cout, cerr
+
+    return error_handler
 
 
 # potentially installed gamma packages
@@ -90,7 +139,8 @@ def subprocess_wrapper(cmd, *args, **kwargs):
         kwargs[COUT].extend(p.stdout.split("\n"))
 
     if CERR in kwargs:
-        kwargs[CERR].extend(p.stderr.split("\n"))
+        if p.stderr is not None:
+            kwargs[CERR].extend(p.stderr.split("\n"))
 
     return p.returncode
 

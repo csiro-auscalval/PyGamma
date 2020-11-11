@@ -227,26 +227,27 @@ def test_calc_int_with_cleanup(monkeypatch, pg_int_mock, pc_mock, ic_mock):
 
 
 def test_error_handling_decorator(monkeypatch):
-    # force all fake subprocess calls to fail
     m_subprocess_wrapper = mock.Mock()
-    m_subprocess_wrapper.return_value = PG_RETURN_VALUE_FAIL
+
+    # ensure mock logger has all core error(), msg() etc logging functions
+    log_mock = mock.NonCallableMock(spec=structlog.stdlib.BoundLogger)
+    assert log_mock.error.called is False
 
     pgi = py_gamma_ga.GammaInterface(
         install_dir="./fake-install",
         gamma_exes={"create_offset": "fake-EXE-name"},
-        subprocess_func=process_ifg.decorator(m_subprocess_wrapper),
+        subprocess_func=process_ifg.auto_logging_decorator(
+            m_subprocess_wrapper, ProcessIfgException, log_mock
+        ),
     )
-
-    # ensure mock logger has all core error(), msg() etc logging functions
-    log_mock = mock.Mock(spec=structlog.stdlib.BoundLogger)
-    assert log_mock.error.called is False
-    monkeypatch.setattr(process_ifg, "_LOG", log_mock)
 
     with pytest.raises(ProcessIfgException):
         pgi.create_offset(1, 2, 3, key="value")
 
+    assert m_subprocess_wrapper.called
     assert log_mock.error.called
-    has_cout = has_cerr = False
+    has_cout = False
+    has_cerr = False
 
     for c in log_mock.error.call_args:
         if const.COUT in c:
