@@ -1,5 +1,7 @@
+import io
 import pathlib
 import subprocess
+from typing import Union
 
 import structlog
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
@@ -9,9 +11,6 @@ from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess
 
 
 _LOG = structlog.get_logger("insar")
-
-
-# TODO: add type hinting
 
 
 class ProcessIfgException(Exception):
@@ -71,7 +70,6 @@ def run_workflow(
     ifg_width: int,
     clean_up: bool,  # TODO: should clean_up apply to everything, or just specific steps?
 ):
-
     _validate_input_files(ic)
 
     # future version might want to allow selection of steps (skipped for simplicity Oct 2020)
@@ -99,7 +97,7 @@ def _validate_input_files(ic: IfgFileNames):
         raise ProcessIfgException(msg.format("slave MLI"))
 
 
-def get_ifg_width(r_master_mli_par):
+def get_ifg_width(r_master_mli_par: io.IOBase):
     """
     Return range/sample width from dem diff file.
     :param r_master_mli_par: open file-like obj
@@ -114,12 +112,12 @@ def get_ifg_width(r_master_mli_par):
     raise ProcessIfgException(msg.format(const.MatchStrings.SLC_RANGE_SAMPLES.value))
 
 
-def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
+def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up: bool):
     """
     Perform InSAR INT processing step.
     :param pc: ProcConfig settings obj
     :param ic: IfgFileNames settings obj
-    :param clean_up: bool, True to delete working files after processing
+    :param clean_up: True to delete working files after processing
     """
 
     # Calculate and refine offset between interferometric SLC pair
@@ -173,14 +171,14 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up):
 
 
 def generate_init_flattened_ifg(
-    pc: ProcConfig, ic: IfgFileNames, dc: DEMFileNames, clean_up
+    pc: ProcConfig, ic: IfgFileNames, dc: DEMFileNames, clean_up: bool
 ):
     """
     TODO: docs
     :param pc: ProcConfig obj
     :param ic: IfgFileNames obj
     :param dc: DEMFileNames obj
-    :param clean_up: bool
+    :param clean_up: True to delete working files after processing
     """
 
     # calculate initial baseline of interferogram (i.e. the spatial distance between the two
@@ -292,8 +290,8 @@ def generate_final_flattened_ifg(
     ic: IfgFileNames,
     dc: DEMFileNames,
     tc: TempFileConfig,
-    ifg_width,
-    clean_up,
+    ifg_width: int,
+    clean_up: bool,
 ):
     """
     Perform refinement of baseline model using ground control points
@@ -539,7 +537,7 @@ def generate_final_flattened_ifg(
     )
 
 
-def get_width10(ifg_off10_path):
+def get_width10(ifg_off10_path: pathlib.Path):
     """
     Return range/sample width from ifg_off10
     :param ifg_off10_path: Path type obj
@@ -586,15 +584,16 @@ def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
     )
 
 
-def calc_unw(pc: ProcConfig, ic: IfgFileNames, tc: TempFileConfig, ifg_width, clean_up):
+def calc_unw(
+    pc: ProcConfig, ic: IfgFileNames, tc: TempFileConfig, ifg_width: int, clean_up: bool
+):
     """
     TODO: docs, does unw == unwrapped/unwrapping?
     :param pc: ProcConfig obj
     :param ic: IfgFileNames obj
     :param tc: TempFileConfig obj
     :param ifg_width:
-    :param clean_up: bool, True to clean up temporary files during run
-    :return:
+    :param clean_up: True to clean up temporary files during run
     """
 
     if not ic.ifg_filt.exists():
@@ -654,8 +653,8 @@ def calc_unw_thinning(
     pc: ProcConfig,
     ic: IfgFileNames,
     tc: TempFileConfig,
-    ifg_width,
-    num_sampling_reduction_runs=3,
+    ifg_width: int,
+    num_sampling_reduction_runs: int = 3,
     clean_up=False,
 ):
     """
@@ -739,7 +738,7 @@ def do_geocode(
     dc: DEMFileNames,
     tc: TempFileConfig,
     ifg_width: int,
-    dtype_out=const.DTYPE_GEOTIFF_FLOAT,
+    dtype_out: int = const.DTYPE_GEOTIFF_FLOAT,
 ):
     """
     TODO
@@ -814,7 +813,7 @@ def do_geocode(
         remove_files(*path)
 
 
-def get_width_in(dem_diff):
+def get_width_in(dem_diff: io.IOBase):
     """
     Return range/sample width from dem diff file.
 
@@ -833,7 +832,7 @@ def get_width_in(dem_diff):
     raise ProcessIfgException(msg)
 
 
-def get_width_out(dem_eqa_par):
+def get_width_out(dem_eqa_par: io.IOBase):
     """
     Return range field from eqa_dem_par file
     :param dem_eqa_par: open file like obj
@@ -849,7 +848,7 @@ def get_width_out(dem_eqa_par):
 
 
 def geocode_unwrapped_ifg(
-    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in, width_out
+    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in: int, width_out: int
 ):
     """
     TODO docs
@@ -873,7 +872,7 @@ def geocode_unwrapped_ifg(
 
 
 def geocode_flattened_ifg(
-    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in, width_out,
+    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in: int, width_out: int,
 ):
     """
     TODO docs
@@ -903,7 +902,7 @@ def geocode_flattened_ifg(
 
 
 def geocode_filtered_ifg(
-    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in, width_out
+    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in: int, width_out: int
 ):
     """
     TODO docs
@@ -932,7 +931,7 @@ def geocode_filtered_ifg(
 
 
 def geocode_flat_coherence_file(
-    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in, width_out,
+    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in: int, width_out: int,
 ):
     """
     TODO docs
@@ -959,7 +958,7 @@ def geocode_flat_coherence_file(
 
 
 def geocode_filtered_coherence_file(
-    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in, width_out,
+    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in: int, width_out: int,
 ):
     """
     TODO: docs
@@ -986,9 +985,9 @@ def geocode_filtered_coherence_file(
 
 
 def rasrmg_wrapper(
-    input_file,
-    width_out,
-    output_file,
+    input_file: Union[pathlib.Path, str],
+    width_out: int,
+    output_file: Union[pathlib.Path, str],
     pwr=const.NOT_PROVIDED,
     start_pwr=const.DEFAULT_STARTING_LINE,
     start_unw=const.DEFAULT_STARTING_LINE,
@@ -1045,9 +1044,9 @@ def rasrmg_wrapper(
 
 
 def rascc_wrapper(
-    input_file,
-    width_out,
-    output_file,
+    input_file: Union[pathlib.Path, str],
+    width_out: int,
+    output_file: Union[pathlib.Path, str],
     pwr=const.NOT_PROVIDED,
     start_cc=const.DEFAULT_STARTING_LINE,
     start_pwr=const.DEFAULT_STARTING_LINE,
@@ -1101,7 +1100,7 @@ def rascc_wrapper(
     )
 
 
-def convert(input_file):
+def convert(input_file: Union[pathlib.Path, str]):
     """
     Run an ImageMagick command to convert a BMP to PNG.
     :param input_file: BMP
@@ -1127,7 +1126,9 @@ def convert(input_file):
         raise cpe
 
 
-def kml_map(input_file, dem_par, output_file=None):
+def kml_map(
+    input_file: pathlib.Path, dem_par: Union[pathlib.Path, str], output_file=None
+):
     """
     Generates KML format XML with link to an image using geometry from a dem_par.
     :param input_file:
