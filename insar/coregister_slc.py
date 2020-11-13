@@ -14,11 +14,21 @@ import re
 import shutil
 import structlog
 
-from insar.py_gamma_ga import pg
-
+from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory, run_command
 
 _LOG = structlog.get_logger("insar")
+
+
+class CoregisterSlcException(Exception):
+    pass
+
+
+pg = GammaInterface(
+    subprocess_func=auto_logging_decorator(
+        subprocess_wrapper, CoregisterSlcException, _LOG
+    )
+)
 
 
 class SlcParFileParser:
@@ -35,7 +45,7 @@ class SlcParFileParser:
     @property
     def slc_par_params(self):
         """
-        Convenient SLC parameter acess method needed for SLC-SLC co-registration.
+        Convenient SLC parameter access method needed for SLC-SLC co-registration.
         """
         par_params = namedtuple("slc_par_params", ["range_samples", "azimuth_lines"])
         return par_params(
@@ -58,7 +68,7 @@ class DemParFileParser:
     @property
     def dem_par_params(self):
         """
-        Convenient DEM parameter acess method needed for SLC-SLC co-registration.
+        Convenient DEM parameter access method needed for SLC-SLC co-registration.
         """
         par_params = namedtuple("dem_par_params", ["post_lon", "width"])
         return par_params(
@@ -176,12 +186,14 @@ class CoregisterSlc:
             A prefix of full SLC name.
 
         :returns:
-            A namedtuples containing the names of slc, par and tops_par.
+            A namedtuple containing the names of slc, par and tops_par.
         """
 
         swath_par = f"{prefix}_iw{swath}.slc.par"
         swath_tops_par = f"{prefix}_iw{swath}.slc.TOPS_par"
         swath_slc = f"{prefix}_iw{swath}.slc"
+
+        # TODO: refactor to define in module scope
         swath_tab = namedtuple("swath_tab", ["slc", "par", "tops_par"])
         return swath_tab(swath_slc, swath_par, swath_tops_par)
 
@@ -219,38 +231,14 @@ class CoregisterSlc:
         if outfile is None:
             self.slave_lt = self.out_dir.joinpath(f"{self.master_slave_prefix}.lt")
 
-        # py_gamma parameters
-        cout = []
-        cerr = []
         mli1_par_pathname = str(self.r_dem_master_mli_par)
         dem_rdc_pathname = str(self.rdc_dem)
         mli2_par_pathname = str(self.slave_mli_par)
         lookup_table_pathname = str(self.slave_lt)
 
-        stat = pg.rdc_trans(
-            mli1_par_pathname,
-            dem_rdc_pathname,
-            mli2_par_pathname,
-            lookup_table_pathname,
-            cout=cout,
-            cerr=cerr,
-            stdout_flag=False,
-            stderr_flag=False,
+        pg.rdc_trans(
+            mli1_par_pathname, dem_rdc_pathname, mli2_par_pathname, lookup_table_pathname,
         )
-
-        if stat != 0:
-            msg = "failed to execute pg.rdc_trans"
-            _LOG.error(
-                msg,
-                mli1_par_pathname=mli1_par_pathname,
-                dem_rdc_pathname=dem_rdc_pathname,
-                mli2_par_pathname=mli2_par_pathname,
-                lookup_table_pathname=lookup_table_pathname,
-                stat=stat,
-                gamma_stdout=cout,
-                gamma_stderr=cerr,
-            )
-            raise Exception(msg)
 
     def master_sample_size(self):
         """Returns the start and end rows and cols."""
@@ -320,7 +308,7 @@ class CoregisterSlc:
 
         :param std_output:
             A list containing the std output collected by py_gamma.
-        :param mathch_start_string:
+        :param match_start_string:
             A case sensitive string to be scanned in stdout.
 
         :returns:
@@ -377,9 +365,6 @@ class CoregisterSlc:
         if self.slave_off is None:
             self.slave_off = self.out_dir.joinpath(f"{self.master_slave_prefix}.off")
 
-        # py_gamma parameters
-        cout = []
-        cerr = []
         slc1_par_pathname = str(self.r_dem_master_slc_par)
         slc2_par_pathname = str(self.slc_slave_par)
         off_par_pathname = str(self.slave_off)
@@ -388,7 +373,7 @@ class CoregisterSlc:
         azlks = self.alks
         iflg = 0  # non-interactive mode
 
-        stat = pg.create_offset(
+        pg.create_offset(
             slc1_par_pathname,
             slc2_par_pathname,
             off_par_pathname,
@@ -396,29 +381,9 @@ class CoregisterSlc:
             rlks,
             azlks,
             iflg,
-            cout=cout,
-            cerr=cerr,
-            stdout_flag=False,
-            stderr_flag=False,
         )
 
-        if stat != 0:
-            msg = "failed to execute pg.create_offset"
-            _LOG.error(
-                msg,
-                slc1_par_pathname=slc1_par_pathname,
-                slc2_par_pathname=slc2_par_pathname,
-                off_par_pathname=off_par_pathname,
-                algorithm=algorithm,
-                rlks=rlks,
-                azlks=azlks,
-                iflg=iflg,
-                stat=stat,
-                gamma_stdout=cout,
-                gamma_stderr=cerr,
-            )
-            raise Exception(msg)
-
+        # TODO: cleanup to constants.py?
         d_azimuth = 1.0
         iteration = 0
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -435,10 +400,6 @@ class CoregisterSlc:
 
                 # re-sample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials for refinement
                 with working_directory(temp_dir):
-
-                    # py_gamma parameters
-                    cout = []
-                    cerr = []
                     slc2_tab_pathname = str(self.slave_slc_tab)
                     slc2_par_pathname = str(self.slc_slave_par)
                     slc1_tab_pathname = str(self.master_slc_tab)
@@ -451,7 +412,7 @@ class CoregisterSlc:
                     slc_2r_pathname = str(self.r_slave_slc)
                     slc2r_par_pathname = str(self.r_slave_slc_par)
 
-                    stat = pg.SLC_interp_lt_ScanSAR(
+                    pg.SLC_interp_lt_ScanSAR(
                         slc2_tab_pathname,
                         slc2_par_pathname,
                         slc1_tab_pathname,
@@ -463,40 +424,12 @@ class CoregisterSlc:
                         slc2r_tab_pathname,
                         slc_2r_pathname,
                         slc2r_par_pathname,
-                        cout=cout,
-                        cerr=cerr,
-                        stdout_flag=False,
-                        stderr_flag=False,
                     )
-
-                    if stat != 0:
-                        msg = "failed to execute pg.SLC_interp_lt_ScanSAR"
-                        _LOG.error(
-                            msg,
-                            slc2_tab_pathname=slc2_tab_pathname,
-                            slc2_par_pathname=slc2_par_pathname,
-                            slc1_tab_pathname=slc1_tab_pathname,
-                            slc1_par_pathname=slc1_par_pathname,
-                            lookup_table_pathname=lookup_table_pathname,
-                            mli1_par_pathname=mli1_par_pathname,
-                            mli2_par_pathname=mli2_par_pathname,
-                            off_par_pathname=off_par_pathname,
-                            slc2r_tab_pathname=slc2r_tab_pathname,
-                            slc_2r_pathname=slc_2r_pathname,
-                            slc2r_par_pathname=slc2r_par_pathname,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        raise Exception(msg)
 
                     if slave_doff.exists():
                         os.remove(slave_doff)
 
                     # create and update ISP offset parameter file
-                    # py_gamma parameters
-                    cout = []
-                    cerr = []
                     slc1_par_pathname = str(self.r_dem_master_slc_par)
                     slc2_par_pathname = str(self.slc_slave_par)
                     off_par_pathname = str(slave_doff)
@@ -505,7 +438,7 @@ class CoregisterSlc:
                     azlks = self.alks
                     iflg = 0  # non-interactive mode
 
-                    stat = pg.create_offset(
+                    pg.create_offset(
                         slc1_par_pathname,
                         slc2_par_pathname,
                         off_par_pathname,
@@ -513,33 +446,9 @@ class CoregisterSlc:
                         rlks,
                         azlks,
                         iflg,
-                        cout=cout,
-                        cerr=cerr,
-                        stdout_flag=False,
-                        stderr_flag=False,
                     )
 
-                    if stat != 0:
-                        msg = "failed to execute pg.create_offset"
-                        _LOG.error(
-                            msg,
-                            slc1_par_pathname=slc1_par_pathname,
-                            slc2_par_pathname=slc2_par_pathname,
-                            off_par_pathname=off_par_pathname,
-                            algorithm=algorithm,
-                            rlks=rlks,
-                            azlks=azlks,
-                            iflg=iflg,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        raise Exception(msg)
-
                     # offset tracking between SLC images using intensity cross-correlation
-                    # py_gamma parameters
-                    cout = []
-                    cerr = []
                     slc1_pathname = str(self.slc_master)
                     slc2_pathname = str(self.r_slave_slc)
                     slc1_par_pathname = str(self.r_dem_master_slc_par)
@@ -559,7 +468,7 @@ class CoregisterSlc:
                     azstart = self.master_sample.slc_lines_start
                     azstop = self.master_sample.slc_lines_end
 
-                    stat = pg.offset_pwr_tracking(
+                    pg.offset_pwr_tracking(
                         slc1_pathname,
                         slc2_pathname,
                         slc1_par_pathname,
@@ -578,44 +487,9 @@ class CoregisterSlc:
                         rstop,
                         azstart,
                         azstop,
-                        cout=cout,
-                        cerr=cerr,
-                        stdout_flag=False,
-                        stderr_flag=False,
                     )
 
-                    if stat != 0:
-                        msg = "failed to execute pg.offset_pwr_tracking"
-                        _LOG.error(
-                            msg,
-                            slc1_pathname=slc1_pathname,
-                            slc2_pathname=slc2_pathname,
-                            slc1_par_pathname=slc1_par_pathname,
-                            slc2_par_pathname=slc2_par_pathname,
-                            off_par_pathname=off_par_pathname,
-                            offs_pathname=offs_pathname,
-                            ccp_pathname=ccp_pathname,
-                            rwin=rwin,
-                            azwin=azwin,
-                            offsets=offsets,
-                            n_ovr=n_ovr,
-                            thres=thres,
-                            rstep=rstep,
-                            azstep=azstep,
-                            rstart=rstart,
-                            rstop=rstop,
-                            azstart=azstart,
-                            azstop=azstop,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        raise Exception(msg)
-
                     # range and azimuth offset polynomial estimation
-                    # py_gamma parameters
-                    cout = []
-                    cerr = []
                     offs_pathname = str(slave_offs)
                     ccp_pathname = str(slave_snr)
                     off_par = str(slave_doff)
@@ -625,7 +499,7 @@ class CoregisterSlc:
                     npoly = 1
                     interact_mode = 0  # off
 
-                    stat = pg.offset_fit(
+                    _, cout, _ = pg.offset_fit(
                         offs_pathname,
                         ccp_pathname,
                         off_par,
@@ -634,29 +508,7 @@ class CoregisterSlc:
                         thres,
                         npoly,
                         interact_mode,
-                        cout=cout,
-                        cerr=cerr,
-                        stdout_flag=False,
-                        stderr_flag=False,
                     )
-
-                    if stat != 0:
-                        msg = "failed to execute pg.offset_fit"
-                        _LOG.error(
-                            msg,
-                            offs_pathname=offs_pathname,
-                            ccp_pathname=ccp_pathname,
-                            off_par=off_par,
-                            coffs=coffs,
-                            coffsets=coffsets,
-                            thres=thres,
-                            npoly=npoly,
-                            interact_mode=interact_mode,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        raise Exception(msg)
 
                     range_stdev, azimuth_stdev = re.findall(
                         "[-+]?[0-9]*\.?[0-9]+",
@@ -700,150 +552,51 @@ class CoregisterSlc:
                         os.remove(slave_diff_par)
 
                     # create template diff parameter file for geocoding
-                    # py_gamma parameters
-                    cout = []
-                    cerr = []
                     par1_pathname = str(self.r_dem_master_mli_par)
                     par2_pathname = str(self.r_dem_master_mli_par)
                     diff_par_pathname = str(slave_diff_par)
                     par_type = 1  # SLC/MLI_par ISP SLC/MLI parameters
                     iflg = 0  # non-interactive mode
 
-                    stat = pg.create_diff_par(
-                        par1_pathname,
-                        par2_pathname,
-                        diff_par_pathname,
-                        par_type,
-                        iflg,
-                        cout=cout,
-                        cerr=cerr,
-                        stdout_flag=False,
-                        stderr_flag=False,
+                    pg.create_diff_par(
+                        par1_pathname, par2_pathname, diff_par_pathname, par_type, iflg,
                     )
 
-                    if stat != 0:
-                        msg = "failed to execute pg.create_diff_par"
-                        _LOG.error(
-                            msg,
-                            par1_pathname=par1_pathname,
-                            par2_pathname=par2_pathname,
-                            diff_par_pathname=diff_par_pathname,
-                            par_type=par_type,
-                            iflg=iflg,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        raise Exception(msg)
-
                     # update range_offset_polynomial in diff param file
-                    # py_gamma parameters
-                    cout = []
-                    cerr = []
                     par_in_pathname = str(slave_diff_par)
                     par_out_pathname = str(slave_diff_par)
                     search_keyword = "range_offset_polynomial"
                     new_value = f"{d_range_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
 
-                    stat = pg.set_value(
-                        par_in_pathname,
-                        par_out_pathname,
-                        search_keyword,
-                        new_value,
-                        cout=cout,
-                        cerr=cerr,
-                        stdout_flag=False,
-                        stderr_flag=False,
+                    pg.set_value(
+                        par_in_pathname, par_out_pathname, search_keyword, new_value,
                     )
 
-                    if stat != 0:
-                        msg = "failed to execute pg.set_value"
-                        _LOG.error(
-                            msg,
-                            par_in_pathname=par_in_pathname,
-                            par_out_pathname=par_out_pathname,
-                            search_keyword=search_keyword,
-                            new_value=new_value,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        raise Exception
-
                     # update azimuth_offset_polynomial in diff param file
-                    # py_gamma parameters
-                    cout = []
-                    cerr = []
                     par_in_pathname = str(slave_diff_par)
                     par_out_pathname = str(slave_diff_par)
                     search_keyword = "azimuth_offset_polynomial"
                     new_value = f"{d_azimuth_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
 
-                    stat = pg.set_value(
-                        par_in_pathname,
-                        par_out_pathname,
-                        search_keyword,
-                        new_value,
-                        cout=cout,
-                        cerr=cerr,
-                        stdout_flag=False,
-                        stderr_flag=False,
+                    pg.set_value(
+                        par_in_pathname, par_out_pathname, search_keyword, new_value,
                     )
-
-                    if stat != 0:
-                        msg = "failed to execute pg.set_value"
-                        _LOG.error(
-                            msg,
-                            par_in_pathname=par_in_pathname,
-                            par_out_pathname=par_out_pathname,
-                            search_keyword=search_keyword,
-                            new_value=new_value,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        raise Exception
 
                     # update look-up table
                     _slave_lt = temp_dir.joinpath(f"{self.slave_lt.name}.{iteration}")
                     shutil.copy(self.slave_lt, _slave_lt)
 
                     # geocoding look-up table refinement using diff par offset polynomial
-                    # py_gamma parameters
-                    cout = []
-                    cerr = []
                     gc_in = str(_slave_lt)
                     width = self.master_sample.mli_width_end
                     diff_par = str(slave_diff_par)
                     gc_out = str(self.slave_lt)
                     ref_flg = 1
 
-                    stat = pg.gc_map_fine(
-                        gc_in,
-                        width,
-                        diff_par,
-                        gc_out,
-                        ref_flg,
-                        cout=cout,
-                        cerr=cerr,
-                        stdout_flag=False,
-                        stderr_flag=False,
+                    pg.gc_map_fine(
+                        gc_in, width, diff_par, gc_out, ref_flg,
                     )
-                    if stat != 0:
-                        msg = "failed to execute pg.gc_map_fine"
-                        _LOG.error(
-                            msg,
-                            gc_in=gc_in,
-                            width=width,
-                            diff_par=diff_par,
-                            gc_out=gc_out,
-                            ref_flg=ref_flg,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        # TODO; do we raise and kill the program or iterate?
-                        # raise Exception(msg)
+                    # TODO: do we raise and kill the program or iterate here on exception?
 
                     iteration += 1
 
@@ -854,9 +607,6 @@ class CoregisterSlc:
         """Resample full data set"""
 
         # re-sample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials
-        # py_gamma parameters
-        cout = []
-        cerr = []
         slc2_tab = str(self.slave_slc_tab)
         slc2_par = str(self.slc_slave_par)
         slc1_tab = str(self.master_slc_tab)
@@ -869,7 +619,7 @@ class CoregisterSlc:
         slc_2r = str(self.r_slave_slc)
         slc2r_par = str(self.r_slave_slc_par)
 
-        stat = pg.SLC_interp_lt_ScanSAR(
+        pg.SLC_interp_lt_ScanSAR(
             slc2_tab,
             slc2_par,
             slc1_tab,
@@ -881,41 +631,13 @@ class CoregisterSlc:
             slc2r_tab,
             slc_2r,
             slc2r_par,
-            cout=cout,
-            cerr=cerr,
-            stdout_flag=False,
-            stderr_flag=False,
         )
-
-        if stat != 0:
-            msg = "failed to execute pg.SLC_interp_lt_ScanSAR"
-            _LOG.info(
-                msg,
-                slc2_tab=slc2_tab,
-                slc2_par=slc2_par,
-                slc1_tab=slc1_tab,
-                slc1_par=slc1_par,
-                lookup_table_pathname=lookup_table_pathname,
-                mli1_par=mli1_par,
-                mli2_par=mli2_par,
-                off_par=off_par,
-                slc2r_tab=slc2r_tab,
-                slc_2r=slc_2r,
-                slc2r_par=slc2r_par,
-                stat=stat,
-                gamma_stdout=cout,
-                gamma_stderr=cerr,
-            )
-            raise Exception(msg)
 
     def multi_look(self):
         """Multi-look co-registered slaves."""
         self.r_slave_mli = self.out_dir.joinpath(f"r{self.slave_mli.name}")
         self.r_slave_mli_par = self.r_slave_mli.with_suffix(".mli.par")
 
-        # py_gamma parameters
-        cout = []
-        cerr = []
         slc_pathname = str(self.r_slave_slc)
         slc_par_pathname = str(self.r_slave_slc_par)
         mli_pathname = str(self.r_slave_mli)
@@ -923,39 +645,13 @@ class CoregisterSlc:
         rlks = self.rlks
         alks = self.alks
 
-        stat = pg.multi_look(
-            slc_pathname,
-            slc_par_pathname,
-            mli_pathname,
-            mli_par_pathname,
-            rlks,
-            alks,
-            cout=cout,
-            cerr=cerr,
-            stdout_flag=False,
-            stderr_flag=False,
+        pg.multi_look(
+            slc_pathname, slc_par_pathname, mli_pathname, mli_par_pathname, rlks, alks,
         )
-
-        if stat != 0:
-            msg = "failed to execute pg.multi_look"
-            _LOG.error(
-                msg,
-                slc_pathname=slc_pathname,
-                slc_par_pathname=slc_par_pathname,
-                mli_pathname=mli_pathname,
-                mli_par_pathname=mli_par_pathname,
-                rlks=rlks,
-                alks=alks,
-                stat=stat,
-                gamma_stdout=cout,
-                gamma_stderr=cerr,
-            )
-            raise Exception(msg)
 
     def generate_normalised_backscatter(self):
         """
         Normalised radar backscatter.
-
 
         Generate Gamma0 backscatter image for slave scene according to equation in
         Section 10.6 of Gamma Geocoding and Image Registration Users Guide.
@@ -967,85 +663,30 @@ class CoregisterSlc:
             temp_dir = Path(temp_dir)
             temp_output = temp_dir.joinpath("temp_output")
             with working_directory(temp_dir):
-                # py_gamma parameters
-                cout = []
-                cerr = []
                 d1_pathname = str(self.r_slave_mli)
                 d2_pathname = str(self.ellip_pix_sigma0)
                 d_out_pathname = str(temp_output)
                 width = self.master_sample.mli_width_end
                 mode = 2  # multiplication
 
-                stat = pg.float_math(
-                    d1_pathname,
-                    d2_pathname,
-                    d_out_pathname,
-                    width,
-                    mode,
-                    cout=cout,
-                    cerr=cerr,
-                    stdout_flag=False,
-                    stderr_flag=False,
+                pg.float_math(
+                    d1_pathname, d2_pathname, d_out_pathname, width, mode,
                 )
 
-                if stat != 0:
-                    msg = "failed to execute pg.float_math"
-                    _LOG.error(
-                        msg,
-                        d1_pathname=d1_pathname,
-                        d2_pathname=d2_pathname,
-                        d_out_pathname=d_out_pathname,
-                        width=width,
-                        mode=mode,
-                        stat=stat,
-                        gamma_stdout=cout,
-                        gamma_stderr=cerr,
-                    )
-                    raise Exception(msg)
-
-            # py_gamma parameters
-            cout = []
-            cerr = []
             d1_pathname = str(temp_output)
             d2_pathname = str(self.dem_pix_gamma0)
             d_out_pathname = str(slave_gamma0)
             width = self.master_sample.mli_width_end
             mode = 3  # division
 
-            stat = pg.float_math(
-                d1_pathname,
-                d2_pathname,
-                d_out_pathname,
-                width,
-                mode,
-                cout=cout,
-                cerr=cerr,
-                stdout_flag=False,
-                stderr_flag=False,
+            pg.float_math(
+                d1_pathname, d2_pathname, d_out_pathname, width, mode,
             )
-
-            if stat != 0:
-                msg = "failed to execute pg.float_math"
-                _LOG.error(
-                    msg,
-                    d1_pathname=d1_pathname,
-                    d2_pathname=d2_pathname,
-                    d_out_pathname=d_out_pathname,
-                    width=width,
-                    mode=mode,
-                    stat=stat,
-                    gamma_stdout=cout,
-                    gamma_stderr=cerr,
-                )
-                raise Exception(msg)
 
             # back geocode gamma0 backscatter product to map geometry using B-spline interpolation on sqrt data
             eqa_dem_par_vals = DemParFileParser(self.eqa_dem_par)
             dem_width = eqa_dem_par_vals.dem_par_params.width
 
-            # py_gamma parameters
-            cout = []
-            cerr = []
             data_in_pathname = str(slave_gamma0)
             width_in = self.master_sample.mli_width_end
             lookup_table_pathname = str(self.dem_lt_fine)
@@ -1058,7 +699,7 @@ class CoregisterSlc:
             lr_out = "-"
             order = 5  # B-spline degree
 
-            stat = pg.geocode_back(
+            pg.geocode_back(
                 data_in_pathname,
                 width_in,
                 lookup_table_pathname,
@@ -1070,40 +711,13 @@ class CoregisterSlc:
                 lr_in,
                 lr_out,
                 order,
-                cout=cout,
-                cerr=cerr,
-                stdout_flag=False,
-                stderr_flag=False,
             )
-
-            if stat != 0:
-                msg = "failed to execute pg.geocode_back"
-                _LOG.error(
-                    msg,
-                    data_in_pathname=data_in_pathname,
-                    width_in=width_in,
-                    lookup_table_pathname=lookup_table_pathname,
-                    data_out_pathname=data_out_pathname,
-                    width_out=width_out,
-                    interp_mode=interp_mode,
-                    dtype=dtype,
-                    lr_in=lr_in,
-                    lr_out=lr_out,
-                    order=order,
-                    stat=stat,
-                    gamma_stdout=cout,
-                    gamma_stderr=cerr,
-                )
-                raise Exception(msg)
 
             # make quick-look png image
             temp_bmp = temp_dir.joinpath(f"{slave_gamma0_eqa.name}.bmp")
             slave_png = self.out_dir.joinpath(temp_bmp.with_suffix(".png").name)
 
             with working_directory(temp_dir):
-                # py_gamma parameters
-                cout = []
-                cerr = []
                 pwr_pathname = str(slave_gamma0_eqa)
                 width = dem_width
                 start = 1
@@ -1115,7 +729,7 @@ class CoregisterSlc:
                 lr = "-"
                 rasf_pathname = str(temp_bmp)
 
-                stat = pg.raspwr(
+                pg.raspwr(
                     pwr_pathname,
                     width,
                     start,
@@ -1126,31 +740,7 @@ class CoregisterSlc:
                     exp,
                     lr,
                     rasf_pathname,
-                    cout=cout,
-                    cerr=cerr,
-                    stdout_flag=False,
-                    stderr_flag=False,
                 )
-
-                if stat != 0:
-                    msg = "failed to execute pg.raspwr"
-                    _LOG.error(
-                        msg,
-                        pwr_pathname=pwr_pathname,
-                        width=width,
-                        start=start,
-                        nlines=nlines,
-                        pixavr=pixavr,
-                        pixavaz=pixavaz,
-                        scale=scale,
-                        exp=exp,
-                        lr=lr,
-                        rasf_pathname=rasf_pathname,
-                        stat=stat,
-                        gamma_stdout=cout,
-                        gamma_stderr=cerr,
-                    )
-                    raise Exception(msg)
 
                 # image magick conversion routine
                 command = [
@@ -1163,79 +753,28 @@ class CoregisterSlc:
                 run_command(command, os.getcwd())
 
                 # convert gamma0 Gamma file to GeoTIFF
-                # py_gamma parameters
-                cout = []
-                cerr = []
                 dem_par_pathname = str(self.eqa_dem_par)
                 data_pathname = str(slave_gamma0_eqa)
                 dtype = 2  # float
                 geotiff_pathname = str(slave_gamma0_eqa.with_suffix(".gamma0.tif"))
                 nodata = 0.0
 
-                stat = pg.data2geotiff(
-                    dem_par_pathname,
-                    data_pathname,
-                    dtype,
-                    geotiff_pathname,
-                    nodata,
-                    cout=cout,
-                    cerr=cerr,
-                    stdout_flag=False,
-                    stderr_flag=False,
+                pg.data2geotiff(
+                    dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
                 )
 
-                if stat != 0:
-                    msg = "failed to execute pg.data2geotiff"
-                    _LOG.error(
-                        msg,
-                        dem_par_pathname=dem_par_pathname,
-                        data_pathname=data_pathname,
-                        dtype=dtype,
-                        geotiff_pathname=geotiff_pathname,
-                        nodata=nodata,
-                        stat=stat,
-                        gamma_stdout=cout,
-                        gamma_stderr=cerr,
-                    )
-                    raise Exception(msg)
-
                 # create KML map of PNG file
-                # py_gamma parameters
-                cout = []
-                cerr = []
                 image_pathname = str(slave_png)
                 dem_par_pathname = str(self.eqa_dem_par)
                 kml_pathname = str(slave_png.with_suffix(".kml"))
 
-                stat = pg.kml_map(
-                    image_pathname,
-                    dem_par_pathname,
-                    kml_pathname,
-                    cout=cout,
-                    cerr=cerr,
-                    stdout_flag=False,
-                    stderr_flag=False,
+                pg.kml_map(
+                    image_pathname, dem_par_pathname, kml_pathname,
                 )
-
-                if stat != 0:
-                    msg = "failed to execute pg.kml_map"
-                    _LOG.error(
-                        msg,
-                        image_pathname=image_pathname,
-                        dem_par_pathname=dem_par_pathname,
-                        kml_pathname=kml_pathname,
-                        stat=stat,
-                        gamma_stdout=cout,
-                        gamma_stderr=cerr,
-                    )
-                    raise Exception(msg)
 
                 # geocode sigma0 mli
                 slave_sigma0_eqa = slave_gamma0_eqa.with_suffix(".sigma0")
 
-                # py_gamma parameters
-                cout = []
-                cerr = []
                 data_in_pathname = str(self.r_slave_mli)
                 width_in = self.master_sample.mli_width_end
                 lookup_table_pathname = str(self.dem_lt_fine)
@@ -1247,7 +786,7 @@ class CoregisterSlc:
                 lr_in = "-"
                 lr_out = "-"
 
-                stat = pg.geocode_back(
+                pg.geocode_back(
                     data_in_pathname,
                     width_in,
                     lookup_table_pathname,
@@ -1258,68 +797,18 @@ class CoregisterSlc:
                     dtype,
                     lr_in,
                     lr_out,
-                    cout=cout,
-                    cerr=cerr,
-                    stdout_flag=False,
-                    stderr_flag=False,
                 )
 
-                if stat != 0:
-                    msg = "failed to execute pg.geocode_back"
-                    _LOG.error(
-                        msg,
-                        data_in_pathname=data_in_pathname,
-                        width_in=width_in,
-                        lookup_table_pathname=lookup_table_pathname,
-                        data_out_pathname=data_out_pathname,
-                        width_out=width_out,
-                        nlines_out=nlines_out,
-                        interp_mode=interp_mode,
-                        dtype=dtype,
-                        lr_in=lr_in,
-                        lr_out=lr_out,
-                        stat=stat,
-                        gamma_stdout=cout,
-                        gamma_stderr=cerr,
-                    )
-                    raise Exception(msg)
-
                 # convert sigma0 Gamma file to GeoTIFF
-                # py_gamma parameters
-                cout = []
-                cerr = []
                 dem_par_pathname = str(self.eqa_dem_par)
                 data_pathname = str(slave_sigma0_eqa)
                 dtype = 2  # float
                 geotiff_pathname = str(slave_sigma0_eqa.with_suffix(".sigma0.tif"))
                 nodata = 0.0
 
-                stat = pg.data2geotiff(
-                    dem_par_pathname,
-                    data_pathname,
-                    dtype,
-                    geotiff_pathname,
-                    nodata,
-                    cout=cout,
-                    cerr=cerr,
-                    stdout_flag=False,
-                    stderr_flag=False,
+                pg.data2geotiff(
+                    dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
                 )
-
-                if stat != 0:
-                    msg = "failed to execute pg.data2geotiff"
-                    _LOG.error(
-                        msg,
-                        dem_par_pathname=dem_par_pathname,
-                        data_pathname=data_pathname,
-                        dtype=dtype,
-                        geotiff_pathname=geotiff_pathname,
-                        nodata=nodata,
-                        stat=stat,
-                        gamma_stdout=cout,
-                        gamma_stderr=cerr,
-                    )
-                    raise Exception(msg)
 
     def main(self):
         """Main method to execute methods sequence of methods need for master-slave coregistration."""
