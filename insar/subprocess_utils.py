@@ -7,7 +7,6 @@ import signal
 import subprocess
 import contextlib
 
-from luigi import six
 import structlog
 
 from insar.logs import get_wrapped_logger
@@ -17,6 +16,7 @@ _LOG = structlog.get_logger("insar")
 os.environ["CPL_ZIP_ENCODING"] = "UTF-8"
 
 
+# TODO: currently this is unused code as no references to it (as of 16/11/2020)
 class WithConfig(object):
     """
     Decorator to override config settings for the length of a function.
@@ -50,6 +50,7 @@ class WithConfig(object):
     ):
         @functools.wraps(fun)
         def wrapper(*args, **kwargs):
+            # TODO: should this import be moved to the top block?
             import luigi.configuration
 
             orig_conf = luigi.configuration.LuigiConfigParser.instance()
@@ -57,9 +58,10 @@ class WithConfig(object):
             luigi.configuration.LuigiConfigParser._instance = new_conf
             orig_dict = {k: dict(orig_conf.items(k)) for k in orig_conf.sections()}
             new_dict = self._make_dict(orig_dict)
-            for (section, settings) in six.iteritems(new_dict):
+
+            for (section, settings) in new_dict.items():
                 new_conf.add_section(section)
-                for (name, value) in six.iteritems(settings):
+                for (name, value) in settings.items():
                     new_conf.set(section, name, value)
             try:
                 return fun(*args, **kwargs)
