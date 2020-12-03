@@ -11,12 +11,22 @@ import datetime
 import pandas as pd
 import structlog
 
-from insar.py_gamma_ga import pg
 from insar.constant import SlcFilenames
 from insar.subprocess_utils import working_directory, run_command
-from insar.logs import get_wrapped_logger
+from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 
 _LOG = structlog.get_logger("insar")
+
+
+class ProcessSlcException(Exception):
+    pass
+
+
+# Customise Gamma shim to automatically handle basic error checking and logging
+pg = GammaInterface(
+    subprocess_func=auto_logging_decorator(subprocess_wrapper, ProcessSlcException, _LOG)
+)
+
 
 class SlcProcess:
     def __init__(
@@ -154,9 +164,6 @@ class SlcProcess:
                 _concat_tabs[_id][swath]["par"] = tab_names.par
                 _concat_tabs[_id][swath]["tops_par"] = tab_names.tops_par
 
-                # py_gamma parameters
-                cout = []
-                cerr = []
                 geotiff_pathname = raw_files[0]
                 annotation_xml_pathname = raw_files[1]
                 calibration_xml_pathname = raw_files[2]
@@ -172,7 +179,7 @@ class SlcProcess:
                 # 1. slc_par_pathname (*.slc.par)
                 # 2. slc_pathname (*.slc), and;
                 # 3. tops_par_pathname (*slc.TOPS_par).
-                stat = pg.par_S1_SLC(
+                pg.par_S1_SLC(
                     geotiff_pathname,
                     annotation_xml_pathname,
                     calibration_xml_pathname,
@@ -183,31 +190,7 @@ class SlcProcess:
                     dtype,
                     sc_db,
                     noise_pwr,
-                    cout=cout,
-                    cerr=cerr,
-                    stdout_flag=False,
-                    stderr_flag=False,
                 )
-
-                if stat != 0:
-                    msg = "failed to execute pg.par_S1_SLC"
-                    _LOG.error(
-                        msg,
-                        geotiff_pathname=geotiff_pathname,
-                        annotation_xml_pathname=annotation_xml_pathname,
-                        calibration_xml_pathname=calibration_xml_pathname,
-                        noise_xml_pathname=noise_xml_pathname,
-                        slc_par_pathname=slc_par_pathname,
-                        slc_pathname=slc_pathname,
-                        tops_par_pathname=tops_par_pathname,
-                        dtype=dtype,
-                        sc_db=sc_db,
-                        noise_pwr=noise_pwr,
-                        stat=stat,
-                        gamma_stdout=cout,
-                        gamma_stderr=cerr,
-                    )
-                    raise Exception(msg)
 
                 # assign orbit file name
                 self.orbit_file = raw_files[4]
@@ -412,9 +395,6 @@ class SlcProcess:
                     )
 
                     # concat sequential ScanSAR burst SLC images
-                    # py_gamma parameters
-                    cout = []
-                    cerr = []
                     tab_input1_path = str(slc_tab_ifile1)
                     tab_input2_path = str(slc_tab_ifile2)
                     tab_output_path = str(slc_merge_tab_ofile)
@@ -427,32 +407,9 @@ class SlcProcess:
                     #
                     # At the end of the first iteration,
                     #   tab_input1_path = tab_output_path
-                    stat = pg.SLC_cat_ScanSAR(
-                        tab_input1_path,
-                        tab_input2_path,
-                        tab_output_path,
-                        cout=cout,
-                        cerr=cerr,
-                        stdout_flag=False,
-                        stderr_flag=False,
+                    pg.SLC_cat_ScanSAR(
+                        tab_input1_path, tab_input2_path, tab_output_path,
                     )
-
-                    if stat != 0:
-                        msg = "failed to execute pg.SLC_cat_ScanSAR"
-                        _LOG.error(
-                            msg,
-                            slc_tab1=tab_input1_path,
-                            slc_tab2=tab_input2_path,
-                            slc_tab3=tab_output_path,
-                            slc_tab1_files=files_in_slc_tab1[idx],
-                            slc_tab2_files=files_in_slc_tab2[idx],
-                            slc_tab3_files=files_in_slc_tab3[idx],
-                            iteration=idx,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        raise Exception(msg)
 
                     # assign slc_merge_tab_ofile to slc_tab_ifile1
                     # to perform series of concatenation
@@ -463,7 +420,7 @@ class SlcProcess:
                     # keep concatenated files from the last iteration.
                     if idx > 0:
                         # get temp. files of previus iterations
-                        for _swath_mfile_list in files_in_slc_tab3[idx-1]:
+                        for _swath_mfile_list in files_in_slc_tab3[idx - 1]:
                             for _mfile in _swath_mfile_list:
                                 os.remove(_mfile)
 
@@ -502,41 +459,19 @@ class SlcProcess:
                 tab_names = self.swath_tab_names(swath, self.slc_prefix)
 
                 with working_directory(tmpdir):
-                    # py_gamma parameters
-                    cout = []
-                    cerr = []
                     slc_1_pathname = str(slc_dir.joinpath(tab_names.slc))
                     slc_1_par_pathname = str(slc_dir.joinpath(tab_names.par))
                     slc_2_pathname = tab_names.slc
                     slc_2_par_pathname = tab_names.par
                     ph_shift = -1.25  # phase shift to add to SLC phase (radians)
 
-                    stat = pg.SLC_phase_shift(
+                    pg.SLC_phase_shift(
                         slc_1_pathname,
                         slc_1_par_pathname,
                         slc_2_pathname,
                         slc_2_par_pathname,
                         ph_shift,
-                        cout=cout,
-                        cerr=cerr,
-                        stdout_flag=False,
-                        stderr_flag=False,
                     )
-
-                    if stat != 0:
-                        msg = "failed to execute pg.SLC_phase_shift"
-                        _LOG.error(
-                            msg,
-                            slc_1_pathname=slc_1_pathname,
-                            slc_1_par_pathname=slc_1_par_pathname,
-                            slc_2_pathname=slc_2_pathname,
-                            slc_2_par_pathname=slc_2_par_pathname,
-                            ph_shift=ph_shift,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        raise Exception(msg)
 
                     # replace iw1 slc with phase corrected files
                     shutil.move(
@@ -558,72 +493,26 @@ class SlcProcess:
 
         slc_tab = self.slc_tab_names(self.slc_prefix)
 
-        # py_gamma parameters
-        cout = []
-        cerr = []
         slc_tab_pathname = str(self.slc_tab)
         slc_pathname = slc_tab.slc
         slc_par_pathname = slc_tab.par
         azlks = alks
 
-        stat = pg.SLC_mosaic_S1_TOPS(
-            slc_tab_pathname,
-            slc_pathname,
-            slc_par_pathname,
-            rlks,
-            azlks,
-            cout=cout,
-            cerr=cerr,
-            stdout_flag=False,
-            stderr_flag=False,
+        pg.SLC_mosaic_S1_TOPS(
+            slc_tab_pathname, slc_pathname, slc_par_pathname, rlks, azlks,
         )
-
-        if stat != 0:
-            msg = "failed to execute pg.SLC_mosaic_S1_TOPS"
-            _LOG.error(
-                msg,
-                slc_tab_pathname=slc_tab_pathname,
-                slc_pathname=slc_pathname,
-                slc_par_pathname=slc_par_pathname,
-                rlks=rlks,
-                azlks=azlks,
-                stat=stat,
-                gamma_stdout=cout,
-                gamma_stderr=cerr,
-            )
-            raise Exception(msg)
 
     def orbits(self):
         """Extract Sentinel-1 OPOD state vectors and copy into the ISP image parameter file"""
 
         slc_tab = self.slc_tab_names(self.slc_prefix)
 
-        # py_gamma parameters
-        cout = []
-        cerr = []
         slc_par_pathname = slc_tab.par
         opod_pathname = self.orbit_file
 
-        stat = pg.S1_OPOD_vec(
-            slc_par_pathname,
-            opod_pathname,
-            cout=cout,
-            cerr=cerr,
-            stdout_flag=False,
-            stderr_flag=False,
+        pg.S1_OPOD_vec(
+            slc_par_pathname, opod_pathname,
         )
-
-        if stat != 0:
-            msg = "failed to execute pg.S1_OPOD_vec"
-            _LOG.error(
-                msg,
-                slc_par_pathname=slc_par_pathname,
-                opod_pathname=opod_pathname,
-                stat=stat,
-                gamma_stdout=cout,
-                gamma_stderr=cerr,
-            )
-            raise Exception(msg)
 
     def frame_subset(self):
         """Subset frames to form full SLC frame of a vector file.
@@ -692,38 +581,14 @@ class SlcProcess:
             )
 
             # run the subset
-            # py_gamma parameters
-            cout = []
-            cerr = []
             slc1_tab_pathname = str(sub_slc_in)
             slc2_tab_pathname = str(sub_slc_out)
             burst_tab_pathname = str(burst_tab)
             dtype = 0  # output datatype; FCOMPLEX
 
-            stat = pg.SLC_copy_ScanSAR(
-                slc1_tab_pathname,
-                slc2_tab_pathname,
-                burst_tab_pathname,
-                dtype,
-                cout=cout,
-                cerr=cerr,
-                stdout_flag=False,
-                stderr_flag=False,
+            pg.SLC_copy_ScanSAR(
+                slc1_tab_pathname, slc2_tab_pathname, burst_tab_pathname, dtype,
             )
-
-            if stat != 0:
-                msg = "failed to execute pg.SLC_copy_ScanSAR"
-                _LOG.error(
-                    msg,
-                    slc1_tab_pathname=slc1_tab_pathname,
-                    slc2_tab_pathname=slc2_tab_pathname,
-                    burst_tab_pathname=burst_tab_pathname,
-                    dtype=dtype,
-                    stat=stat,
-                    gamma_stdout=cout,
-                    gamma_stderr=cerr,
-                )
-                raise Exception(msg)
 
             # replace concatenate slc with burst-subset of concatenated slc
             for swath in [1, 2, 3]:
@@ -757,35 +622,13 @@ class SlcProcess:
             tmpdir = Path(tmpdir)
             burst_tab = tmpdir.joinpath("burst_tab").as_posix()
 
-            # py_gamma parameters
-            cout = []
-            cerr = []
             slc1_tab_pathname = str(ref_slc_tab)
             slc2_tab_pathname = str(full_slc_tab)
             burst_tab_pathname = burst_tab
 
-            stat = pg.S1_BURST_tab(
-                slc1_tab_pathname,
-                slc2_tab_pathname,
-                burst_tab_pathname,
-                cout=cout,
-                cerr=cerr,
-                stdout_flag=False,
-                stderr_flag=False,
+            pg.S1_BURST_tab(
+                slc1_tab_pathname, slc2_tab_pathname, burst_tab_pathname,
             )
-
-            if stat != 0:
-                msg = "failed to execute pg.S1_BURST_tab"
-                _LOG.error(
-                    msg,
-                    slc1_tab_pathname=slc1_tab_pathname,
-                    slc2_tab_pathname=slc2_tab_pathname,
-                    burst_tab_pathname=burst_tab_pathname,
-                    stat=stat,
-                    gamma_stdout=cout,
-                    gamma_stderr=cerr,
-                )
-                raise Exception(msg)
 
             # write output in a temp directory
             resize_slc_tab = tmpdir.joinpath("sub_slc_output_tab")
@@ -793,38 +636,14 @@ class SlcProcess:
                 resize_slc_tab, _id=self.slc_prefix, slc_data_dir=tmpdir
             )
 
-            # py_gamma parameters
-            cout = []
-            cerr = []
             slc1_tab_pathname = str(full_slc_tab)
             slc2_tab_pathname = str(resize_slc_tab)
             burst_tab_pathname = str(burst_tab_pathname)
             dtype = "-"  # output datatype; default (same as input)
 
-            stat = pg.SLC_copy_ScanSAR(
-                slc1_tab_pathname,
-                slc2_tab_pathname,
-                burst_tab_pathname,
-                dtype,
-                cout=cout,
-                cerr=cerr,
-                stdout_flag=False,
-                stderr_flag=False,
+            pg.SLC_copy_ScanSAR(
+                slc1_tab_pathname, slc2_tab_pathname, burst_tab_pathname, dtype,
             )
-
-            if stat != 0:
-                msg = "failed to execute pg.SLC_copy_ScanSAR"
-                _LOG.error(
-                    msg,
-                    slc1_tab_pathname=slc1_tab_pathname,
-                    slc2_tab_pathname=slc2_tab_pathname,
-                    burst_tab_pathname=burst_tab_pathname,
-                    dtype=dtype,
-                    stat=stat,
-                    gamma_stdout=cout,
-                    gamma_stderr=cerr,
-                )
-                raise Exception(msg)
 
             # replace full slc with re-sized slc
             for swath in [1, 2, 3]:
@@ -848,9 +667,6 @@ class SlcProcess:
                     .as_posix()
                 )
 
-                # py_gamma parameters
-                cout = []
-                cerr = []
                 slc_pathname = tab_names.slc
                 width = range_samples
                 start = 1
@@ -864,7 +680,7 @@ class SlcProcess:
                 hdrsz = 0  # line header size in bytes
                 rasf_pathname = bmp_file
 
-                stat = pg.rasSLC(
+                pg.rasSLC(
                     slc_pathname,
                     width,
                     start,
@@ -877,33 +693,7 @@ class SlcProcess:
                     data_type,
                     hdrsz,
                     rasf_pathname,
-                    cout=cout,
-                    cerr=cerr,
-                    stdout_flag=False,
-                    stderr_flag=False,
                 )
-
-            if stat != 0:
-                msg = "failed to execute pg.rasSLC"
-                _LOG.error(
-                    msg,
-                    slc_pathname=slc_pathname,
-                    width=width,
-                    start=start,
-                    nlines=nlines,
-                    pixavr=pixavr,
-                    pixavaz=pixavaz,
-                    scale=scale,
-                    exp=exp,
-                    lr=lr,
-                    data_type=data_type,
-                    hdrsz=hdrsz,
-                    rasf_pathname=rasf_pathname,
-                    stat=stat,
-                    gamma_stdout=cout,
-                    gamma_stderr=cerr,
-                )
-                raise Exception(msg)
 
                 # convert bmp file to png quick look iamge file
                 command = [
