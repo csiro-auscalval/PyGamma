@@ -54,9 +54,9 @@ class SlcProcess:
         :param polarization:
             A polarization of an SLC file to be used [choice: 'VV' or 'VH']
         :param scene_date:
-            A date ('YYYYMMDD') formated string of SLC acquisiton date.
+            A date ('YYYYMMDD') formatted string of SLC acquisition date.
         :param burst_data:
-            A full path to a csv file containing burst informations needed
+            A full path to a csv file containing burst information needed
             to subset to form full SLC.
         param ref_master_tab:
             An Optional full path to a reference master slc tab file.
@@ -67,6 +67,7 @@ class SlcProcess:
         self.polarization = polarization
         self.scene_date = scene_date
         self.burst_data = burst_data
+
         if ref_master_tab is not None:
             self.ref_master_tab = Path(ref_master_tab)
 
@@ -77,7 +78,7 @@ class SlcProcess:
             "noise": "*annotation/calibration/noise-s1*-iw{swath}-slc-{polarization}*.xml",
             "orbit_file": "*.EOF",
         }
-        self.phase_shift_date = datetime.date(2015, 3, 15)
+        self.phase_shift_date = datetime.date(2015, 3, 15)  # TODO: why the fixed date?
         # slc_tabs_params will be a dict, created
         # in read_raw_data() and used in
         # concatenate()
@@ -89,7 +90,7 @@ class SlcProcess:
         self.temp_slc = []
 
     def swath_tab_names(self, swath: int, pre_fix: str,) -> namedtuple:
-        """Formats slc swath tab filenames using swath and pre_fix."""
+        """Formats slc swath tab file names using swath and pre_fix."""
 
         swath_tab = namedtuple("swath_tab", ["slc", "par", "tops_par"])
         return swath_tab(
@@ -105,7 +106,7 @@ class SlcProcess:
         )
 
     def slc_tab_names(self, pre_fix: str,) -> namedtuple:
-        """Formats slc tab filenames using prefix."""
+        """Formats slc tab file names using prefix."""
 
         slc_tab = namedtuple("slc_tab", ["slc", "par", "tops_par"])
         return slc_tab(
@@ -129,7 +130,7 @@ class SlcProcess:
         return safe_files
 
     def read_raw_data(self):
-        """Reads Sentinel-1 SLC data and generate SLC paramter file."""
+        """Reads Sentinel-1 SLC data and generate SLC parameter file."""
 
         _concat_tabs = dict()
         for save_file in self.slc_safe_files():
@@ -193,7 +194,7 @@ class SlcProcess:
                 # assign orbit file name
                 self.orbit_file = raw_files[4]
 
-                # store the filenames of *slc, *.slc.par and
+                # store the file names of *slc, *.slc.par and
                 # *.slc.TOPS_par so that they can to be removed later
                 for item in [tab_names.slc, tab_names.par, tab_names.tops_par]:
                     self.temp_slc.append(item)
@@ -217,7 +218,7 @@ class SlcProcess:
         :param _id:
             An Optional parameter to form SLC tab names if tab_params is None.
         :param slc_data_dir:
-            An Optional parameter to prepend (slc, par, tops_par) filenames to
+            An Optional parameter to prepend (slc, par, tops_par) file names to
             form full path.
         """
         if slc_tab_file.exists():
@@ -232,7 +233,7 @@ class SlcProcess:
         with open(slc_tab_file, "w") as fid:
             for swath in [1, 2, 3]:
                 if tab_params is None:
-                    # using swath_tab_names, create filenames for:
+                    # using swath_tab_names, create file names for:
                     # *_iw{swath}.slc
                     # *_iw{swath}.slc.par
                     # *_iw{swath}.slc.TOPS_par
@@ -269,7 +270,7 @@ class SlcProcess:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
 
-            # slc_tabs_params is a multilayered dict()
+            # slc_tabs_params is a multi-layered dict()
             # slc_tabs_params[SAFE_basename][dt]
             # slc_tabs_params[SAFE_basename][swath1][slc]
             # slc_tabs_params[SAFE_basename][swath1][par]
