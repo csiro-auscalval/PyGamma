@@ -164,13 +164,17 @@ CPX_TO_REAL_OUTPUT_TYPE_PHASE = 4
 
 RAS2RAS_GREY_COLOUR_MAP = "gray.cm"
 
-# Data types
+# Data types NOTE: these are NOT consistent between pygamma programs!
 DTYPE_FLOAT = 0  # (default)
 DTYPE_FCOMPLEX = 1
 #    2: SUN raster/BMP/TIFF format
 DTYPE_UNSIGNED_CHAR = 3
 DTYPE_SHORT = 4
 DTYPE_DOUBLE = 5
+
+SLC_DTYPE_FCOMPLEX = 0
+SLC_DTYPE_SCOMPLEX = 1
+
 
 # GEOCODE constants
 DEFAULT_STARTING_LINE = 1

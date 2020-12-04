@@ -11,6 +11,7 @@ import datetime
 import pandas as pd
 import structlog
 
+from insar import constant as const
 from insar.constant import SlcFilenames
 from insar.subprocess_utils import working_directory, run_command
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
@@ -171,9 +172,6 @@ class SlcProcess:
                 slc_par_pathname = tab_names.par
                 slc_pathname = tab_names.slc
                 tops_par_pathname = tab_names.tops_par
-                dtype = 0  # complex
-                sc_db = "-"  # scale factor for FCOMPLEX -> SCOMPLEX
-                noise_pwr = "-"  # noise intensity for each SLC sample in slant range
 
                 # par_S1_SLC creates the following three output files:
                 # 1. slc_par_pathname (*.slc.par)
@@ -187,9 +185,9 @@ class SlcProcess:
                     slc_par_pathname,
                     slc_pathname,
                     tops_par_pathname,
-                    dtype,
-                    sc_db,
-                    noise_pwr,
+                    const.SLC_DTYPE_FCOMPLEX,
+                    const.NOT_PROVIDED,  # sc_db, scale factor for FCOMPLEX -> SCOMPLEX
+                    const.NOT_PROVIDED,  # noise_pwr, noise intensity for each SLC sample in slant range
                 )
 
                 # assign orbit file name
@@ -199,6 +197,7 @@ class SlcProcess:
                 # *.slc.TOPS_par so that they can to be removed later
                 for item in [tab_names.slc, tab_names.par, tab_names.tops_par]:
                     self.temp_slc.append(item)
+
         self.slc_tabs_params = _concat_tabs
 
     def _write_tabs(
@@ -227,7 +226,9 @@ class SlcProcess:
                 pathname=slc_tab_file,
             )
             return
+
         files_in_slc_tabs = []
+
         with open(slc_tab_file, "w") as fid:
             for swath in [1, 2, 3]:
                 if tab_params is None:
@@ -258,7 +259,7 @@ class SlcProcess:
                 files_in_slc_tabs.append([_slc, _par, _tops_par])
                 fid.write(_slc + " " + _par + " " + _tops_par + "\n")
 
-        # useful to have easy access to the filenames
+        # useful to have easy access to the file names
         # that are listed in these slc_tabs.
         return files_in_slc_tabs
 
@@ -315,6 +316,7 @@ class SlcProcess:
                 files_in_slc_tab1 = []
                 files_in_slc_tab2 = []
                 files_in_slc_tab3 = []
+
                 for idx, safe_tuple in enumerate(remaining_tabs):
                     # safe_tuple = (
                     #     safe_basename,
@@ -463,14 +465,13 @@ class SlcProcess:
                     slc_1_par_pathname = str(slc_dir.joinpath(tab_names.par))
                     slc_2_pathname = tab_names.slc
                     slc_2_par_pathname = tab_names.par
-                    ph_shift = -1.25  # phase shift to add to SLC phase (radians)
 
                     pg.SLC_phase_shift(
                         slc_1_pathname,
                         slc_1_par_pathname,
                         slc_2_pathname,
                         slc_2_par_pathname,
-                        ph_shift,
+                        -1.25,  # ph_shift: phase shift to add to SLC phase (radians)
                     )
 
                     # replace iw1 slc with phase corrected files
@@ -534,6 +535,7 @@ class SlcProcess:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             burst_tab = tmpdir.joinpath("burst_tab")
+
             with open(burst_tab, "w") as fid:
                 for swath in [1, 2, 3]:
                     tmp_dict = dict()
@@ -584,10 +586,12 @@ class SlcProcess:
             slc1_tab_pathname = str(sub_slc_in)
             slc2_tab_pathname = str(sub_slc_out)
             burst_tab_pathname = str(burst_tab)
-            dtype = 0  # output datatype; FCOMPLEX
 
             pg.SLC_copy_ScanSAR(
-                slc1_tab_pathname, slc2_tab_pathname, burst_tab_pathname, dtype,
+                slc1_tab_pathname,
+                slc2_tab_pathname,
+                burst_tab_pathname,
+                const.SLC_DTYPE_FCOMPLEX,
             )
 
             # replace concatenate slc with burst-subset of concatenated slc
@@ -639,10 +643,12 @@ class SlcProcess:
             slc1_tab_pathname = str(full_slc_tab)
             slc2_tab_pathname = str(resize_slc_tab)
             burst_tab_pathname = str(burst_tab_pathname)
-            dtype = "-"  # output datatype; default (same as input)
 
             pg.SLC_copy_ScanSAR(
-                slc1_tab_pathname, slc2_tab_pathname, burst_tab_pathname, dtype,
+                slc1_tab_pathname,
+                slc2_tab_pathname,
+                burst_tab_pathname,
+                const.NOT_PROVIDED,  # output data type; default (same as input)
             )
 
             # replace full slc with re-sized slc
@@ -668,34 +674,24 @@ class SlcProcess:
                 )
 
                 slc_pathname = tab_names.slc
-                width = range_samples
-                start = 1
-                nlines = azimuth_lines
-                pixavr = 50
-                pixavaz = 20
-                scale = "-"
-                exp = "-"
-                lr = 1  # left/right mirror image flag
-                data_type = 0  # FCOMPLEX
-                hdrsz = 0  # line header size in bytes
                 rasf_pathname = bmp_file
 
                 pg.rasSLC(
                     slc_pathname,
-                    width,
-                    start,
-                    nlines,
-                    pixavr,
-                    pixavaz,
-                    scale,
-                    exp,
-                    lr,
-                    data_type,
-                    hdrsz,
+                    range_samples,  # width
+                    const.DEFAULT_STARTING_LINE,
+                    azimuth_lines,  # nlines
+                    50,  # pixavr
+                    const.N_PIXELS_DEFAULT_AZIMUTH_AVERAGE,
+                    const.NOT_PROVIDED,  # scale
+                    const.NOT_PROVIDED,  # exp
+                    const.LEFT_RIGHT_FLIPPING_NORMAL,
+                    const.SLC_DTYPE_FCOMPLEX,  # dtype
+                    0,  # hdrsz/line header size in bytes, 0 = default
                     rasf_pathname,
                 )
 
-                # convert bmp file to png quick look iamge file
+                # convert bmp file to png quick look image file
                 command = [
                     "convert",
                     bmp_file,
@@ -724,5 +720,6 @@ class SlcProcess:
             self.orbits()
             self.frame_subset()
             self.mosiac_slc()
+
             if write_png:
                 self.burst_images()
