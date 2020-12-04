@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import sys  # RG add
 import simplekml
 import os
 import re
@@ -25,11 +24,20 @@ from typing import Dict, List, Optional, Type, Union
 from shapely.ops import cascaded_union  # required for select_bursts_in_vector()
 from shapely.geometry import MultiPolygon, Polygon, box
 from spatialist import Vector, sqlite3, sqlite_setup
-from insar.py_gamma_ga import pg
+
 from insar.xml_util import getNamespaces
-from insar.logs import get_wrapped_logger
+from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 
 _LOG = structlog.get_logger("insar")
+
+
+class SlcException(Exception):
+    pass
+
+
+pg = GammaInterface(
+    subprocess_func=auto_logging_decorator(subprocess_wrapper, SlcException, _LOG)
+)
 
 
 class SlcMetadata:
@@ -390,57 +398,27 @@ class SlcMetadata:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 self.extract_archive_tofile(target_file=xml_path, outdir=tmp_dir, retry=3)
 
-                # py_gamma parameters
-                cout = []
-                cerr = []
-
-                stat = pg.S1_burstloc(
-                    os.path.join(tmp_dir, os.path.basename(xml_path)),
-                    cout=cout,
-                    cerr=cerr,
-                    stdout_flag=False,
-                    stderr_flag=False,
-                )
-                if stat == 0:
-                    if len(cout) == 0:
-                        # no lines returned due to py_gamma race condition
-                        # don't throw exception, let metadata retries feature work
-                        msg = "no bursts returned from pg.S1_burstloc"
-                        _LOG.error(
-                            msg,
-                            xml_file=xml_path,
-                            stat=stat,
-                            gamma_stdout=cout,
-                            gamma_stderr=cerr,
-                        )
-                        return {}  # _parse_S1_burstloc returns {} if cout empty
-
-                    return _parse_s1_burstloc(cout)
-                else:
-                    msg = "failed to execute pg.S1_burstloc"
-                    _LOG.error(
-                        msg,
-                        xml_file=xml_path,
-                        stat=stat,
-                        gamma_stdout=cout,
-                        gamma_stderr=cerr,
-                    )
-                    raise Exception(msg)
+                tmp_path = os.path.join(tmp_dir, os.path.basename(xml_path))
+                _, cout, _ = pg.S1_burstloc(tmp_path)
+                return _parse_s1_burstloc(cout)
 
         with swath_obj as obj:
             ann_tree = etree.fromstring(obj.read())
             swath_meta["samples"] = int(
                 ann_tree.find(".//imageAnnotation/imageInformation/numberOfSamples").text
             )
+
             swath_meta["lines"] = int(
                 ann_tree.find(".//imageAnnotation/imageInformation/numberOfLines").text
             )
+
             swath_meta["spacing"] = list(
                 [
                     float(ann_tree.find(".//{}PixelSpacing".format(dim)).text)
                     for dim in ["range", "azimuth"]
                 ]
             )
+
             heading = float(ann_tree.find(".//platformHeading").text)
             swath_meta["heading"] = heading if heading > 0 else heading + 360
             swath_meta["incidence"] = float(

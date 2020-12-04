@@ -4,13 +4,22 @@ import math
 from typing import List, Tuple, Optional, Union
 from pathlib import Path
 import structlog
-from insar.py_gamma_ga import pg
 
 from insar.constant import MliFilenames
 from insar.subprocess_utils import working_directory
-from insar.logs import get_wrapped_logger
+
+from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 
 _LOG = structlog.get_logger("insar")
+
+
+class MultilookException(Exception):
+    pass
+
+
+pg = GammaInterface(
+    subprocess_func=auto_logging_decorator(subprocess_wrapper, MultilookException, _LOG)
+)
 
 
 def calculate_slc_look_values(slc_par_file: Union[Path, str],) -> Tuple:
@@ -104,9 +113,11 @@ def multilook(
     mli = MliFilenames.MLI_FILENAME.value.format(
         scene_date=scene_date, pol=pol, rlks=str(rlks)
     )
+
     mli_par = MliFilenames.MLI_PAR_FILENAME.value.format(
         scene_date=scene_date, pol=pol, rlks=str(rlks)
     )
+
     work_dir = slc.parent
 
     if outdir is not None:
@@ -115,9 +126,6 @@ def multilook(
         work_dir = outdir
 
     with working_directory(work_dir.as_posix()):
-        # py_gamma parameters
-        cout = []
-        cerr = []
         slc_pathname = str(slc)
         slc_par_pathname = str(slc_par)
         mli_pathname = mli
@@ -133,25 +141,4 @@ def multilook(
             rlks,
             azlks,
             loff,
-            cout=cout,
-            cerr=cerr,
-            stdout_flag=False,
-            stderr_flag=False,
         )
-
-        if stat != 0:
-            msg = "failed to execute pg.multi_look"
-            _LOG.error(
-                msg,
-                slc_pathname=slc_pathname,
-                slc_par_pathname=slc_par_pathname,
-                mli_pathname=mli_pathname,
-                mli_par_pathname=mli_par_pathname,
-                rlks=rlks,
-                azlks=azlks,
-                loff=loff,
-                stat=stat,
-                gamma_stdout=cout,
-                gamma_stderr=cerr,
-            )
-            raise Exception(msg)

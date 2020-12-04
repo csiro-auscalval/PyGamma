@@ -22,17 +22,25 @@ import yaml
 from shapely.geometry import Polygon, box
 from shapely.ops import cascaded_union
 from spatialist import Vector, sqlite3, sqlite_setup
-from insar.py_gamma_ga import pg
 
 from insar.xml_util import getNamespaces
-from insar.logs import get_wrapped_logger
+from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 
 _LOG = structlog.get_logger("insar")
 
 
+class SlcMetadataException(Exception):
+    pass
+
+
+pg = GammaInterface(
+    subprocess_func=auto_logging_decorator(subprocess_wrapper, SlcMetadataException, _LOG)
+)
+
+
 class SlcMetadata:
     """
-    Metadata extraction class to scrap slc metadata from a sentinel-1 slc scene.
+    Metadata extraction class to scrape SLC metadata from a sentinel-1 SLC scene.
     """
 
     def __init__(
@@ -209,10 +217,10 @@ class SlcMetadata:
         self, xml_file,
     ):
         """ Extracts swath and bursts metadata from a xml file for a swath in slc scene. """
-
         swath_meta = dict()
         swath_obj = self.extract_archive_member(xml_file, obj=True)
 
+        # TODO: refactor to remove untestable nested functions
         def __metadata_burst(xml_path):
             def __parse_s1_burstloc(gamma_output_list):
                 burst_info = dict()
@@ -239,32 +247,12 @@ class SlcMetadata:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 self.extract_archive_member(xml_file, outdir=tmp_dir)
 
-                # py_gamma parameters
-                cout = []
-                cerr = []
                 annotation_xml_pathname = os.path.join(
                     tmp_dir, os.path.basename(xml_path)
                 )
 
-                stat = pg.S1_burstloc(
-                    annotation_xml_pathname,
-                    cout=cout,
-                    cerr=cerr,
-                    stdout_flag=False,
-                    stderr_flag=False,
-                )
-                if stat == 0:
-                    return __parse_s1_burstloc(cout)
-                else:
-                    msg = "failed to execute pg.S1_burstloc"
-                    _LOG.error(
-                        msg,
-                        annotation_xml_pathname=annotation_xml_pathname,
-                        stat=stat,
-                        gamma_stdout=cout,
-                        gamma_stderr=cerr,
-                    )
-                    raise Exception(msg)
+                _, cout, _ = pg.S1_burstloc(annotation_xml_pathname)
+                return __parse_s1_burstloc(cout)
 
         with swath_obj as obj:
             ann_tree = etree.fromstring(obj.read())
