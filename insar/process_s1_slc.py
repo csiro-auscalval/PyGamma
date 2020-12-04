@@ -79,9 +79,8 @@ class SlcProcess:
             "orbit_file": "*.EOF",
         }
         self.phase_shift_date = datetime.date(2015, 3, 15)  # TODO: why the fixed date?
-        # slc_tabs_params will be a dict, created
-        # in read_raw_data() and used in
-        # concatenate()
+
+        # slc_tabs_params will be a dict, created in read_raw_data() and used in concatenate()
         self.slc_tabs_params = None  # dict
         self.slc_prefix = None  # str
         self.acquisition_date = None
