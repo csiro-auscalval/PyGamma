@@ -516,6 +516,8 @@ class SlcProcess:
             slc_par_pathname, opod_pathname,
         )
 
+    # TODO; check keys for spelling
+    # TODO: add to constants
     def frame_subset(self):
         """Subset frames to form full SLC frame of a vector file.
 
@@ -523,9 +525,12 @@ class SlcProcess:
         the self.burst_data needed to form a full frame.
         """
 
+        # TODO: fix key spelling here AND in generate_slc_inputs.py
+        acq_datetime_key = "acquistion_datetime"
+
         df = pd.read_csv(self.burst_data)
-        df["acquistion_datetime"] = pd.to_datetime(df["acquistion_datetime"])
-        df["date"] = df["acquistion_datetime"].apply(lambda x: pd.Timestamp(x).date())
+        df[acq_datetime_key] = pd.to_datetime(df[acq_datetime_key])
+        df["date"] = df[acq_datetime_key].apply(lambda x: pd.Timestamp(x).date())
         df_subset = df[
             (df["date"] == self.acquisition_date)
             & (df["polarization"] == self.polarization)
@@ -541,9 +546,7 @@ class SlcProcess:
                 for swath in [1, 2, 3]:
                     tmp_dict = dict()
                     swath_df = df_subset[df_subset.swath == "IW{}".format(swath)]
-                    swath_df = swath_df.sort_values(
-                        by="acquistion_datetime", ascending=True
-                    )
+                    swath_df = swath_df.sort_values(by=acq_datetime_key, ascending=True)
 
                     # write the burst numbers to subset from the concatenated swaths
                     start_burst = None
