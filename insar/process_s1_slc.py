@@ -482,13 +482,15 @@ class SlcProcess:
                         tmpdir.joinpath(tab_names.par), slc_dir.joinpath(tab_names.par)
                     )
 
-    def mosiac_slc(self, rlks: Optional[int] = 12, alks: Optional[int] = 2,) -> None:
+    def mosaic_slc(
+        self, range_looks: Optional[int] = 12, azimuth_looks: Optional[int] = 2,
+    ) -> None:
         """
         Calculate SLC mosaic of Sentinel-1 TOPS burst SLC data.
 
-        :param rlks:
+        :param range_looks:
             An Optional range look value. Otherwise default rlks is used.
-        :param alks:
+        :param azimuth_looks:
             An Optional azimuth look value. Otherwise default alks is used.
         """
 
@@ -497,10 +499,9 @@ class SlcProcess:
         slc_tab_pathname = str(self.slc_tab)
         slc_pathname = slc_tab.slc
         slc_par_pathname = slc_tab.par
-        azlks = alks
 
         pg.SLC_mosaic_S1_TOPS(
-            slc_tab_pathname, slc_pathname, slc_par_pathname, rlks, azlks,
+            slc_tab_pathname, slc_pathname, slc_par_pathname, range_looks, azimuth_looks,
         )
 
     def orbits(self):
@@ -716,10 +717,10 @@ class SlcProcess:
             self.read_raw_data()
             self.concatenate()
             self.phase_shift()
-            self.mosiac_slc()
+            self.mosaic_slc()
             self.orbits()
             self.frame_subset()
-            self.mosiac_slc()
+            self.mosaic_slc()
 
             if write_png:
                 self.burst_images()
