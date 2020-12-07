@@ -7,6 +7,8 @@ from typing import Optional, Tuple, Union, Dict
 import shutil
 from pathlib import Path
 import structlog
+from PIL import Image
+import numpy as np
 
 #from insar.py_gamma_ga import pg
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
@@ -565,6 +567,7 @@ class CoregisterDem:
                 fid.write("{} {}\n".format(*self.dem_window))
                 fid.write("{}".format(self.dem_snr))
 
+            # FIXME: non-interactive would be better...
             command = [
                 "create_diff_par",
                 self.r_dem_master_mli_par.as_posix(),
@@ -959,14 +962,7 @@ class CoregisterDem:
                 rasf_pathname,
             )
 
-            command = [
-                "convert",
-                rdc_dem_bmp.as_posix(),
-                self.dem_outdir.joinpath(self.rdc_dem.stem)
-                .with_suffix(".png")
-                .as_posix(),
-            ]
-            run_command(command, os.getcwd())
+            Image.open(rdc_dem_bmp).save(self.dem_outdir.joinpath(self.rdc_dem.stem).with_suffix(".png"))
 
         # Geocode simulated SAR intensity image to radar geometry
         lookup_table_pathname = str(self.dem_lt_fine)
@@ -1114,14 +1110,11 @@ class CoregisterDem:
             rasf_pathname,
         )
 
-        command = [
-            "convert",
-            self.dem_master_gamma0_eqa_bmp.as_posix(),
-            "-transparent",
-            "black",
-            self.dem_master_gamma0_eqa_bmp.with_suffix(".png").as_posix(),
-        ]
-        run_command(command, os.getcwd())
+        # Convert the bitmap to a PNG w/ black pixels made transparent
+        img = Image.open(self.dem_master_gamma0_eqa_bmp.as_posix())
+        img = np.array(img.convert('RGBA'))
+        img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
+        Image.fromarray(img).save(self.dem_master_gamma0_eqa_bmp.with_suffix(".png").as_posix())
 
         # geotiff gamma0 file
         dem_par_pathname = str(self.eqa_dem_par)

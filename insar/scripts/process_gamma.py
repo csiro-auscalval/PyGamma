@@ -21,6 +21,7 @@ from insar.coregister_dem import CoregisterDem
 from insar.coregister_slc import CoregisterSlc
 from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
+from insar.project import ProcConfig
 
 # from insar.s1_slc_metadata import S1DataDownload  ## s1_slc_metadata is a duplicate of metadata.s1_slc
 from insar.meta_data.s1_slc import S1DataDownload
@@ -704,6 +705,7 @@ class CoregisterSlave(luigi.Task):
     Runs the master-slave co-registration task
     """
 
+    proc_file = luigi.Parameter()
     slc_master = luigi.Parameter()
     slc_slave = luigi.Parameter()
     slave_mli = luigi.Parameter()
@@ -725,8 +727,12 @@ class CoregisterSlave(luigi.Task):
         )
 
     def run(self):
+        # Load the gamma proc config file
+        with open(str(self.proc_file), 'r') as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         coreg_slave = CoregisterSlc(
+            proc=proc_config,
             slc_master=Path(str(self.slc_master)),
             slc_slave=Path(str(self.slc_slave)),
             slave_mli=Path(str(self.slave_mli)),
