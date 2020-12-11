@@ -1,0 +1,35 @@
+Gamma Interferometric SAR Processor (ISP)
+Interferogram and Image Offset Parameter File
+title:     Interferogram and Image Offset Parameters
+initial_range_offset:                    0
+initial_azimuth_offset:                  0
+slc1_starting_range_pixel:               0
+number_of_slc_range_pixels:          69047
+offset_estimation_starting_range:        0
+offset_estimation_ending_range:          0
+offset_estimation_range_samples:        32
+offset_estimation_range_spacing:         0
+offset_estimation_starting_azimuth:      0
+offset_estimation_ending_azimuth:        0
+offset_estimation_azimuth_samples:      64
+offset_estimation_azimuth_spacing:       0
+offset_estimation_window_width:         64
+offset_estimation_window_height:        64
+offset_estimation_threshold:          0.10
+range_offset_polynomial:         0.00000   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00
+azimuth_offset_polynomial:    0.036160
+slc1_starting_azimuth_line:               0
+interferogram_azimuth_lines:           7900
+interferogram_width:                   8630
+first_nonzero_range_pixel:                0
+number_of_nonzero_range_pixels:        8630
+interferogram_range_looks:                8
+interferogram_azimuth_looks:              2
+interferogram_range_pixel_spacing:      18.636496   m
+interferogram_azimuth_pixel_spacing:    28.139680   m
+resampled_range_pixel_spacing:           0.000000   m
+resampled_azimuth_pixel_spacing:         0.000000   m
+resampled_starting_ground_range:         0.00000   m
+resampled_pixels_per_line:               0
+resampled_number_of_lines:               0
+

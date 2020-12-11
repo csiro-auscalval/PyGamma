@@ -323,7 +323,7 @@ class CoregisterDem:
             win2 = round(self.dem_window[1] * self.rlks) * 2
             _LOG.info(
                 "increasing DEM window2 size",
-                old_window=self.dem_window[2],
+                old_window=self.dem_window[1],
                 new_window=win2,
             )
             self.dem_window[1] = win2

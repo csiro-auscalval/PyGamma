@@ -81,6 +81,15 @@ class DemParFileParser:
         )
 
 
+# TBD: In the future we might want this to go into some sort of common utils module if we need it elsewhere too
+def _unlink(path):
+    '''A hacky unlink/delete file function for Python <3.8 which lacks a missing_ok parameter in Path.unlink'''
+    path = Path(path)
+
+    if path.exists():
+        path.unlink()
+
+
 class CoregisterSlc:
     def __init__(
         self,
@@ -181,7 +190,12 @@ class CoregisterSlc:
         self.r_slave_slc_par = None
         self.r_slave_mli = None
         self.r_slave_mli_par = None
-        self.master_slave_prefix = f"{self.slc_master.stem}-{self.slc_slave.stem}"
+
+        self.slave_date, self.slave_polar = self.slc_slave.stem.split('_')
+        self.master_date, self.master_polar = self.slc_slave.stem.split('_')
+
+        master_slave_prefix = f"{self.master_date}-{self.slave_date}"
+        self.r_master_slave_name = f"{master_slave_prefix}_{self.slave_polar}_{self.rlks}rlks"
 
     @staticmethod
     def swath_tab_names(swath: int, prefix: str,) -> namedtuple:
@@ -237,7 +251,7 @@ class CoregisterSlc:
 
         self.slave_lt = outfile
         if outfile is None:
-            self.slave_lt = self.out_dir.joinpath(f"{self.master_slave_prefix}.lt")
+            self.slave_lt = self.out_dir.joinpath(f"{self.r_master_slave_name}.lt")
 
         mli1_par_pathname = str(self.r_dem_master_mli_par)
         dem_rdc_pathname = str(self.rdc_dem)
@@ -323,7 +337,6 @@ class CoregisterSlc:
             A full string line of the matched string.
         """
         for line in std_output:
-            print(line)
             if line.startswith(match_start_string):
                 return line
 
@@ -371,7 +384,7 @@ class CoregisterSlc:
         _LOG.info("Iterative improvement of refinement offset using matching")
         # create slave offset
         if self.slave_off is None:
-            self.slave_off = self.out_dir.joinpath(f"{self.master_slave_prefix}.off")
+            self.slave_off = self.out_dir.joinpath(f"{self.r_master_slave_name}.off")
 
         pg.create_offset(
             str(self.r_dem_master_slc_par),
@@ -389,10 +402,10 @@ class CoregisterSlc:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir)
 
-            slave_doff = temp_dir.joinpath(f"{self.master_slave_prefix}.doff")
-            slave_offs = temp_dir.joinpath(f"{self.master_slave_prefix}.offs")
-            slave_snr = temp_dir.joinpath(f"{self.master_slave_prefix}.snr")
-            slave_diff_par = temp_dir.joinpath(f"{self.master_slave_prefix}.diff_par")
+            slave_doff = temp_dir.joinpath(f"{self.r_master_slave_name}.doff")
+            slave_offs = temp_dir.joinpath(f"{self.r_master_slave_name}.offs")
+            slave_snr = temp_dir.joinpath(f"{self.r_master_slave_name}.snr")
+            slave_diff_par = temp_dir.joinpath(f"{self.r_master_slave_name}.diff_par")
 
             while abs(d_azimuth) > max_azimuth_threshold and iteration < max_iteration:
                 slave_off_start = temp_dir.joinpath(f"{self.slave_off.name}.start")
@@ -463,7 +476,7 @@ class CoregisterSlc:
                     )
 
                     range_stdev, azimuth_stdev = re.findall(
-                        "[-+]?[0-9]*\.?[0-9]+",
+                        r"[-+]?[0-9]*\.?[0-9]+",
                         self._grep_stdout(
                             cout.splitlines(), "final model fit std. dev. (samples) range:"
                         ),
@@ -631,7 +644,7 @@ class CoregisterSlc:
 
         _LOG.info("Iterative improvement of refinement offset azimuth overlap regions:")
 
-        with tempfile.TemporaryDirectory() as temp_dir, open(Path(temp_dir) / f"{self.master_slave_prefix}.ovr_results", 'w') as slave_ovr_res:
+        with tempfile.TemporaryDirectory() as temp_dir, open(Path(temp_dir) / f"{self.r_master_slave_name}.ovr_results", 'w') as slave_ovr_res:
             temp_dir = Path(temp_dir)
 
             # initialize the output text file
@@ -703,14 +716,14 @@ class CoregisterSlc:
                 # S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $self.proc.coreg_s1_cc_thresh $self.proc.coreg_s1_frac_thresh $self.proc.coreg_s1_stdev_thresh $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
                 azpol = self.S1_COREG_OVERLAP(
                     slave_ovr_res,
-                    self.proc.master_slave_name,
+                    str(self.out_dir / self.r_master_slave_name),
                     str(self.master_slc_tab),
                     str(self.r_slave_slc_tab),
                     str(slave_off_start),
                     str(self.slave_off),
-                    self.proc.coreg_s1_cc_thresh,
-                    self.proc.coreg_s1_frac_thresh,
-                    self.proc.coreg_s1_stdev_thresh,
+                    float(self.proc.coreg_s1_cc_thresh),
+                    float(self.proc.coreg_s1_frac_thresh),
+                    float(self.proc.coreg_s1_stdev_thresh),
                     r_coreg_slave_tab,
                 )  # TODO: cout -> $slave_off.az_ovr.$it.out
 
@@ -802,6 +815,10 @@ class CoregisterSlc:
         ###################
         # determine phase offsets for sub-swath overlap regions
         def calc_phase_offsets(subswath_id):
+            nonlocal sum_all
+            nonlocal samples_all
+            nonlocal sum_weight_all
+
             # Get subswath file paths & load par files
             IWid = f"IW{subswath_id}"
 
@@ -892,8 +909,8 @@ class CoregisterSlc:
                 # using the earlier burst --> *.int1, using the later burst --> *.int2
                 off1 = Path(f"{r_master_slave_name}.{IWid}.{i}.off1")
                 int1 = Path(f"{r_master_slave_name}.{IWid}.{i}.int1")
-                off1.unlink(missing_ok=True)
-                int1.unlink(missing_ok=True)
+                _unlink(off1)
+                _unlink(int1)
                 
                 # create_offset $mas_IWi_par.{i}.1 $mas_IWi_par.{i}.1 $off1 1 1 1 0
                 pg.create_offset(
@@ -924,8 +941,8 @@ class CoregisterSlc:
 
                 off2 = Path(f"{r_master_slave_name}.{IWid}.{i}.off2")
                 int2 = Path(f"{r_master_slave_name}.{IWid}.{i}.int2")
-                off2.unlink(missing_ok=True)
-                int2.unlink(missing_ok=True)
+                _unlink(off2)
+                _unlink(int2)
 
                 # create_offset $mas_IWi_par.{i}.2 $mas_IWi_par.{i}.2 $off2 1 1 1 0
                 pg.create_offset(
@@ -958,7 +975,7 @@ class CoregisterSlc:
                 # insar phase of earlier burst is subtracted from interferogram of later burst
                 diff_par1 = Path(f"{r_master_slave_name}.{IWid}.{i}.diff_par")
                 diff1 = Path(f"{r_master_slave_name}.{IWid}.{i}.diff")
-                diff_par1.unlink(missing_ok=True)
+                _unlink(diff_par1)
 
                 # create_diff_par $off1 $off2 $diff_par1 0 0
                 pg.create_diff_par(
@@ -1063,7 +1080,7 @@ class CoregisterSlc:
                     2
                 )
 
-                diff20adfcc.unlink(missing_ok=True)
+                _unlink(diff20adfcc)
 
                 # unwrapping of filtered phase considering coherence and mask determined from unfiltered double differential interferogram
                 diff20cc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc")
@@ -1112,9 +1129,9 @@ class CoregisterSlc:
                     )
                     
                     diff20ccstat = self._grep_offset_parameter(diff20ccstat)
-                    cc_mean = diff20ccstat["mean"]
-                    cc_stdev = diff20ccstat["stdev"]
-                    cc_fraction = diff20ccstat["fraction_valid"]
+                    cc_mean = float(diff20ccstat["mean"][0])
+                    cc_stdev = float(diff20ccstat["stdev"][0])
+                    cc_fraction = float(diff20ccstat["fraction_valid"][0])
                 
                 # Check size of diff20phase file if it exists (I assume there's been issues with partial failures in the past?)
                 diff20phase_size = diff20phase.stat().st_size if diff20phase.exists() else 0
@@ -1134,9 +1151,9 @@ class CoregisterSlc:
                     )
 
                     diff20phasestat = self._grep_offset_parameter(diff20phasestat)
-                    mean = diff20phasestat["mean"]
-                    stdev = diff20phasestat["stdev"]
-                    fraction = diff20phasestat["fraction_valid"]
+                    mean = float(diff20phasestat["mean"][0])
+                    stdev = float(diff20phasestat["stdev"][0])
+                    fraction = float(diff20phasestat["fraction_valid"][0])
 
                 _LOG.info(f"cc_fraction1000: {cc_fraction * 1000.0}")
 
@@ -1194,7 +1211,7 @@ class CoregisterSlc:
         azpol = [float(x) for x in azpol]
 
         azpol[0] = azpol[0] + azimuth_pixel_offset
-        _LOG.info(f"azpol_1_out {' '.join(azpol)}")
+        _LOG.info(f"azpol_1_out {' '.join([str(i) for i in azpol])}")
 
         # set_value $slave_off_start $slave_off azimuth_offset_polynomial $azpol_1_out $azpol_2 $azpol_3 $azpol_4 $azpol_5 $azpol_6 0
         pg.set_value(
