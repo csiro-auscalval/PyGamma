@@ -24,7 +24,6 @@ from insar.meta_data import (
     s1_slc,
 )  ## this script uses Archive, SlcMetadata and S1DataDownload
 
-# from insar.s1_slc_metadata import S1DataDownload  ## s1_slc_metadata is a duplicate of meta_data.s1_slc
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess

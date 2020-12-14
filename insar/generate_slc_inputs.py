@@ -11,7 +11,6 @@ import shapely.wkt
 from spatialist import Vector
 import structlog
 
-# from insar.s1_slc_metadata import Archive  ## s1_slc_metadata is a duplicate of meta_data.s1_slc
 from insar.meta_data.s1_slc import Archive
 from insar.logs import get_wrapped_logger
 

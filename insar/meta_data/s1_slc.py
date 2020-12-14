@@ -554,10 +554,6 @@ class SlcMetadata:
         def _copy_target_contents(
             o_file, archive_contents,
         ):
-            # this function was adapated from
-            # def _archive_download(name_outfile):
-            # in /insar/s1_slc_metadata.py
-            #
             # o_file: str
             # archive_contents: bytes
             with open(o_file, "wb") as out_fid:
@@ -648,7 +644,6 @@ class SlcMetadata:
 class S1DataDownload(SlcMetadata):
     """
     A class to download an slc data from a sentinel-1 archive.
-    This was copied from /insar/s1_slc_metadata.py
     """
 
     def __init__(
