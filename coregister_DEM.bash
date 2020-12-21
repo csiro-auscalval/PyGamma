@@ -69,41 +69,42 @@ dem_file_names
 
 cd $dem_dir
 
-# modify the following parameters for multi-look values greater than 1
-if [ $looks -gt 1 ]; then
-    dem_win1=`echo $dem_win1a $looks | awk '{printf "%i\n", $1/$2}'`
-    if [ $dem_win1 -lt 8 ]; then
-	echo "increase dem_win value to increase window size (needs to be dem_win/looks >=8)"
-    else
-	if [ $((dem_win1%2)) -eq 0 ]; then # dem_win1 must be an even number for 'offset_pwrm' to work
-	    :
-	else
-	    dem_win1=`echo "$dem_win1 +1" | bc`
-	fi
-    fi
-    dem_win2=`echo $dem_win2a $looks | awk '{printf "%i\n", $1/$2}'`
-    if [ $dem_win2 -lt 8 ]; then
-	echo "increase dem_win value to increase window size (needs to be dem_win/looks >=8)"
-    else
-	if [ $((dem_win2%2)) -eq 0 ]; then # dem_win1 must be an even number for 'offset_pwrm' to work
-	    :
-	else
-	    dem_win2=`echo "$dem_win2 + 1" | bc`
-	fi
-    fi
-    dem_patch_win=`echo $dem_patch_win1a $looks | awk '{printf "%i\n", $1/$2}'`
+# modify the following parameters based on multi-look values
 
-    if [ $dem_patch_win -lt 128 ]; then
-        dem_patch_win=128 # minimum size for init_offsetm
+dem_win1=`echo $dem_win1a $looks | awk '{printf "%i\n", $1/$2}'`
+if [ $dem_win1 -lt 8 ]; then
+    echo "increase dem_win value to increase window size (needs to be dem_win/looks >=8)"
+else
+    if [ $((dem_win1%2)) -eq 0 ]; then # dem_win1 must be an even number for 'offset_pwrm' to work
+	:
+    else
+	dem_win1=`echo "$dem_win1 +1" | bc`
     fi
-    dem_noff1=`echo $dem_noff1 $looks | awk '{printf "%i\n", $1/$2}'`
-    dem_noff2=`echo $dem_noff2 $looks | awk '{printf "%i\n", $1/$2}'`
-    if [ $dem_rpos != "-" ]; then
-        dem_rpos=`echo $dem_rpos $looks | awk '{printf "%i\n", $1/$2}'`
+fi
+
+dem_win2=`echo $dem_win2a $looks | awk '{printf "%i\n", $1/$2}'`
+if [ $dem_win2 -lt 8 ]; then
+    echo "increase dem_win value to increase window size (needs to be dem_win/looks >=8)"
+else
+    if [ $((dem_win2%2)) -eq 0 ]; then # dem_win1 must be an even number for 'offset_pwrm' to work
+	:
+    else
+	dem_win2=`echo "$dem_win2 + 1" | bc`
     fi
-    if [ $dem_azpos != "-" ]; then
-        dem_azpos=`echo $dem_azpos $looks | awk '{printf "%i\n", $1/$2}'`
-    fi
+fi
+dem_patch_win=`echo $dem_patch_win1a $looks | awk '{printf "%i\n", $1/$2}'`
+
+if [ $dem_patch_win -lt 128 ]; then
+    dem_patch_win=128 # minimum size for init_offsetm
+fi
+
+dem_noff1=`echo $dem_noff1 $looks | awk '{printf "%i\n", $1/$2}'`
+dem_noff2=`echo $dem_noff2 $looks | awk '{printf "%i\n", $1/$2}'`
+if [ $dem_rpos != "-" ]; then
+    dem_rpos=`echo $dem_rpos $looks | awk '{printf "%i\n", $1/$2}'`
+fi
+if [ $dem_azpos != "-" ]; then
+    dem_azpos=`echo $dem_azpos $looks | awk '{printf "%i\n", $1/$2}'`
 fi
 
 
