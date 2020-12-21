@@ -13,9 +13,13 @@ from pathlib import Path
 import re
 import shutil
 import structlog
+from PIL import Image
+import numpy as np
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory, run_command
+from insar.project import ProcConfig
+import insar.constant as const
 
 _LOG = structlog.get_logger("insar")
 
@@ -77,9 +81,19 @@ class DemParFileParser:
         )
 
 
+# TBD: In the future we might want this to go into some sort of common utils module if we need it elsewhere too
+def _unlink(path):
+    '''A hacky unlink/delete file function for Python <3.8 which lacks a missing_ok parameter in Path.unlink'''
+    path = Path(path)
+
+    if path.exists():
+        path.unlink()
+
+
 class CoregisterSlc:
     def __init__(
         self,
+        proc: ProcConfig,
         slc_master: Union[str, Path],
         slc_slave: Union[str, Path],
         slave_mli: Union[str, Path],
@@ -96,6 +110,8 @@ class CoregisterSlc:
         """
         Co-registers Sentinel-1 IW SLC to a chosen master SLC geometry.
 
+        :param proc:
+            The gamma proc configuration file for the coregistration processing.
         :param slc_master:
             A full path to a master (reference) SLC image file.
         :param slc_slave:
@@ -121,6 +137,7 @@ class CoregisterSlc:
         :param outdir:
             A full path to a output directory.
         """
+        self.proc = proc
         self.slc_master = slc_master
         self.slc_slave = slc_slave
         self.rdc_dem = rdc_dem
@@ -173,7 +190,12 @@ class CoregisterSlc:
         self.r_slave_slc_par = None
         self.r_slave_mli = None
         self.r_slave_mli_par = None
-        self.master_slave_prefix = f"{self.slc_master.stem}-{self.slc_slave.stem}"
+
+        self.slave_date, self.slave_polar = self.slc_slave.stem.split('_')
+        self.master_date, self.master_polar = self.slc_slave.stem.split('_')
+
+        master_slave_prefix = f"{self.master_date}-{self.slave_date}"
+        self.r_master_slave_name = f"{master_slave_prefix}_{self.slave_polar}_{self.rlks}rlks"
 
     @staticmethod
     def swath_tab_names(swath: int, prefix: str,) -> namedtuple:
@@ -229,7 +251,7 @@ class CoregisterSlc:
 
         self.slave_lt = outfile
         if outfile is None:
-            self.slave_lt = self.out_dir.joinpath(f"{self.master_slave_prefix}.lt")
+            self.slave_lt = self.out_dir.joinpath(f"{self.r_master_slave_name}.lt")
 
         mli1_par_pathname = str(self.r_dem_master_mli_par)
         dem_rdc_pathname = str(self.rdc_dem)
@@ -315,7 +337,6 @@ class CoregisterSlc:
             A full string line of the matched string.
         """
         for line in std_output:
-            print(line)
             if line.startswith(match_start_string):
                 return line
 
@@ -363,24 +384,16 @@ class CoregisterSlc:
         _LOG.info("Iterative improvement of refinement offset using matching")
         # create slave offset
         if self.slave_off is None:
-            self.slave_off = self.out_dir.joinpath(f"{self.master_slave_prefix}.off")
-
-        slc1_par_pathname = str(self.r_dem_master_slc_par)
-        slc2_par_pathname = str(self.slc_slave_par)
-        off_par_pathname = str(self.slave_off)
-        algorithm = 1  # intensity cross-correlation
-        rlks = self.rlks
-        azlks = self.alks
-        iflg = 0  # non-interactive mode
+            self.slave_off = self.out_dir.joinpath(f"{self.r_master_slave_name}.off")
 
         pg.create_offset(
-            slc1_par_pathname,
-            slc2_par_pathname,
-            off_par_pathname,
-            algorithm,
-            rlks,
-            azlks,
-            iflg,
+            str(self.r_dem_master_slc_par),
+            str(self.slc_slave_par),
+            str(self.slave_off),
+            1,          # intensity cross-correlation
+            self.rlks,
+            self.alks,
+            0,          # non-interactive mode
         )
 
         # TODO: cleanup to constants.py?
@@ -389,10 +402,10 @@ class CoregisterSlc:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir)
 
-            slave_doff = temp_dir.joinpath(f"{self.master_slave_prefix}.doff")
-            slave_offs = temp_dir.joinpath(f"{self.master_slave_prefix}.offs")
-            slave_snr = temp_dir.joinpath(f"{self.master_slave_prefix}.snr")
-            slave_diff_par = temp_dir.joinpath(f"{self.master_slave_prefix}.diff_par")
+            slave_doff = temp_dir.joinpath(f"{self.r_master_slave_name}.doff")
+            slave_offs = temp_dir.joinpath(f"{self.r_master_slave_name}.offs")
+            slave_snr = temp_dir.joinpath(f"{self.r_master_slave_name}.snr")
+            slave_diff_par = temp_dir.joinpath(f"{self.r_master_slave_name}.diff_par")
 
             while abs(d_azimuth) > max_azimuth_threshold and iteration < max_iteration:
                 slave_off_start = temp_dir.joinpath(f"{self.slave_off.name}.start")
@@ -400,120 +413,72 @@ class CoregisterSlc:
 
                 # re-sample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials for refinement
                 with working_directory(temp_dir):
-                    slc2_tab_pathname = str(self.slave_slc_tab)
-                    slc2_par_pathname = str(self.slc_slave_par)
-                    slc1_tab_pathname = str(self.master_slc_tab)
-                    slc1_par_pathname = str(self.r_dem_master_slc_par)
-                    lookup_table_pathname = str(self.slave_lt)
-                    mli1_par_pathname = str(self.r_dem_master_mli_par)
-                    mli2_par_pathname = str(self.slave_mli_par)
-                    off_par_pathname = str(slave_off_start)
-                    slc2r_tab_pathname = str(self.r_slave_slc_tab)
-                    slc_2r_pathname = str(self.r_slave_slc)
-                    slc2r_par_pathname = str(self.r_slave_slc_par)
-
                     pg.SLC_interp_lt_ScanSAR(
-                        slc2_tab_pathname,
-                        slc2_par_pathname,
-                        slc1_tab_pathname,
-                        slc1_par_pathname,
-                        lookup_table_pathname,
-                        mli1_par_pathname,
-                        mli2_par_pathname,
-                        off_par_pathname,
-                        slc2r_tab_pathname,
-                        slc_2r_pathname,
-                        slc2r_par_pathname,
+                        str(self.slave_slc_tab),
+                        str(self.slc_slave_par),
+                        str(self.master_slc_tab),
+                        str(self.r_dem_master_slc_par),
+                        str(self.slave_lt),
+                        str(self.r_dem_master_mli_par),
+                        str(self.slave_mli_par),
+                        str(slave_off_start),
+                        str(self.r_slave_slc_tab),
+                        str(self.r_slave_slc),
+                        str(self.r_slave_slc_par),
                     )
 
                     if slave_doff.exists():
                         os.remove(slave_doff)
 
                     # create and update ISP offset parameter file
-                    slc1_par_pathname = str(self.r_dem_master_slc_par)
-                    slc2_par_pathname = str(self.slc_slave_par)
-                    off_par_pathname = str(slave_doff)
-                    algorithm = 1  # intensity cross-correlation
-                    rlks = self.rlks
-                    azlks = self.alks
-                    iflg = 0  # non-interactive mode
-
                     pg.create_offset(
-                        slc1_par_pathname,
-                        slc2_par_pathname,
-                        off_par_pathname,
-                        algorithm,
-                        rlks,
-                        azlks,
-                        iflg,
+                        str(self.r_dem_master_slc_par),
+                        str(self.slc_slave_par),
+                        str(slave_doff),
+                        1,          # intensity cross-correlation
+                        self.rlks,
+                        self.alks,
+                        0,          # non-interactive mode
                     )
 
                     # offset tracking between SLC images using intensity cross-correlation
-                    slc1_pathname = str(self.slc_master)
-                    slc2_pathname = str(self.r_slave_slc)
-                    slc1_par_pathname = str(self.r_dem_master_slc_par)
-                    slc2_par_pathname = str(self.r_slave_slc_par)
-                    off_par_pathname = str(slave_doff)
-                    offs_pathname = str(slave_offs)
-                    ccp_pathname = str(slave_snr)
-                    rwin = 128
-                    azwin = 64
-                    offsets = "-"
-                    n_ovr = 1
-                    thres = 0.2
-                    rstep = self.range_step
-                    azstep = self.azimuth_step
-                    rstart = self.master_sample.slc_width_start
-                    rstop = self.master_sample.slc_width_end
-                    azstart = self.master_sample.slc_lines_start
-                    azstop = self.master_sample.slc_lines_end
-
                     pg.offset_pwr_tracking(
-                        slc1_pathname,
-                        slc2_pathname,
-                        slc1_par_pathname,
-                        slc2_par_pathname,
-                        off_par_pathname,
-                        offs_pathname,
-                        ccp_pathname,
-                        rwin,
-                        azwin,
-                        offsets,
-                        n_ovr,
-                        thres,
-                        rstep,
-                        azstep,
-                        rstart,
-                        rstop,
-                        azstart,
-                        azstop,
+                        str(self.slc_master),
+                        str(self.r_slave_slc),
+                        str(self.r_dem_master_slc_par),
+                        str(self.r_slave_slc_par),
+                        str(slave_doff),
+                        str(slave_offs),
+                        str(slave_snr),
+                        128,                 # rwin
+                        64,                  # azwin
+                        const.NOT_PROVIDED,  # offsets
+                        1,                   # n_ovr
+                        0.2,                 # thres
+                        self.range_step,
+                        self.azimuth_step,
+                        self.master_sample.slc_width_start,
+                        self.master_sample.slc_width_end,
+                        self.master_sample.slc_lines_start,
+                        self.master_sample.slc_lines_end,
                     )
 
                     # range and azimuth offset polynomial estimation
-                    offs_pathname = str(slave_offs)
-                    ccp_pathname = str(slave_snr)
-                    off_par = str(slave_doff)
-                    coffs = "-"
-                    coffsets = "-"
-                    thres = 0.2
-                    npoly = 1
-                    interact_mode = 0  # off
-
                     _, cout, _ = pg.offset_fit(
-                        offs_pathname,
-                        ccp_pathname,
-                        off_par,
-                        coffs,
-                        coffsets,
-                        thres,
-                        npoly,
-                        interact_mode,
+                        str(slave_offs),
+                        str(slave_snr),
+                        str(slave_doff),
+                        const.NOT_PROVIDED,  # coffs
+                        const.NOT_PROVIDED,  # coffsets
+                        0.2,                 # thresh
+                        1,                   # npolynomial
+                        0,                   # non-interactive
                     )
 
                     range_stdev, azimuth_stdev = re.findall(
-                        "[-+]?[0-9]*\.?[0-9]+",
+                        r"[-+]?[0-9]*\.?[0-9]+",
                         self._grep_stdout(
-                            cout, "final model fit std. dev. (samples) range:"
+                            cout.splitlines(), "final model fit std. dev. (samples) range:"
                         ),
                     )
 
@@ -587,14 +552,12 @@ class CoregisterSlc:
                     shutil.copy(self.slave_lt, _slave_lt)
 
                     # geocoding look-up table refinement using diff par offset polynomial
-                    gc_in = str(_slave_lt)
-                    width = self.master_sample.mli_width_end
-                    diff_par = str(slave_diff_par)
-                    gc_out = str(self.slave_lt)
-                    ref_flg = 1
-
                     pg.gc_map_fine(
-                        gc_in, width, diff_par, gc_out, ref_flg,
+                        str(_slave_lt),
+                        self.master_sample.mli_width_end,
+                        str(slave_diff_par),
+                        str(self.slave_lt),
+                        1,  # ref_flg
                     )
                     # TODO: do we raise and kill the program or iterate here on exception?
 
@@ -602,6 +565,664 @@ class CoregisterSlc:
 
             # TODO this needs to be removed once fine co-registration step is implemented
             shutil.copy(slave_doff, self.slave_off)
+
+    def _read_line(
+        self,
+        filepath: Union[str, Path],
+        line: int
+    ):
+        """Reads a specific line from a text file"""
+        with open(filepath, 'r') as file:
+            return file.read().splitlines()[line]
+
+    def _get_matching_lineno(
+        self,
+        filepath: Union[str, Path],
+        value: str
+    ):
+        """Get the (first) line number of a matching string in a file"""
+
+        with open(filepath, 'r') as file:
+            for lineno, line in enumerate(file.read().splitlines()):
+                if line == value:
+                    return lineno
+
+        return -1
+
+    def READ_TAB(
+        self,
+        tab_file: Union[str, Path]
+    ):
+        """
+        Read a tab file, returning the (slc, par, TOPS_par) for each
+        available sub-swath in the tab file.
+        """
+
+        tab_record = namedtuple("tab_record", ["slc", "par", "TOPS_par"])
+
+        with open(tab_file, 'r') as file:
+            lines = file.read().splitlines()
+
+            # Remove empty lines
+            lines = [line for line in lines if len(line.strip()) > 0]
+
+            # determine number of rows and columns of tab file
+            nrows = len(lines)
+            ncols = len(lines[0].split())
+
+            _LOG.info(f'{tab_file} nrows: {nrows} ncols: {ncols}')
+
+            with open(tab_file, 'r') as file:
+                tab_lines = file.read().splitlines()
+
+            # first line
+            IW1_result = tab_record(*tab_lines[0].split())
+
+            # second line
+            IW2_result = None
+            if nrows > 1:
+                IW2_result = tab_record(*tab_lines[1].split())
+
+            # third line
+            IW3_result = None
+            if nrows > 2:
+                IW3_result = tab_record(*tab_lines[2].split())
+
+            return (IW1_result, IW2_result, IW3_result)
+
+    def fine_registration(
+        self,
+        slave: Union[str, int],
+        list_idx: Union[str, int],
+        max_iteration: Optional[int] = 5,
+        max_azimuth_threshold: Optional[float] = 0.01,
+        azimuth_px_offset_target: Optional[float] = 0.0001,
+    ):
+        """Performs a fine co-registration"""
+
+        self.coarse_registration(max_iteration, max_azimuth_threshold)
+
+        _LOG.info("Iterative improvement of refinement offset azimuth overlap regions:")
+
+        with tempfile.TemporaryDirectory() as temp_dir, open(Path(temp_dir) / f"{self.r_master_slave_name}.ovr_results", 'w') as slave_ovr_res:
+            temp_dir = Path(temp_dir)
+
+            # initialize the output text file
+            slave_ovr_res.writelines([
+                "    Burst Overlap Results",
+                f"        thresholds applied: cc_thresh: {self.proc.coreg_s1_cc_thresh},  ph_fraction_thresh: {self.proc.coreg_s1_frac_thresh}, ph_stdev_thresh (rad): {self.proc.coreg_s1_stdev_thresh}",
+                "",
+                "        IW  overlap  ph_mean ph_stdev ph_fraction   (cc_mean cc_stdev cc_fraction)    weight",
+                "",
+            ])
+
+            for iteration in range(max_iteration):
+                # cp -rf $slave_off $slave_off_start
+                slave_off_start = temp_dir.joinpath(f"{self.slave_off.name}.start")
+                shutil.copy(self.slave_off, slave_off_start)
+
+                # GM SLC_interp_lt_S1_TOPS $slave_slc_tab $slave_slc_par $master_slc_tab $r_dem_master_slc_par $slave_lt $r_dem_master_mli_par $slave_mli_par $slave_off_start $r_slave_slc_tab $r_slave_slc $r_slave_slc_par
+                pg.SLC_interp_lt_ScanSAR(
+                    str(self.slave_slc_tab),
+                    str(self.slc_slave_par),
+                    str(self.master_slc_tab),
+                    str(self.r_dem_master_slc_par),
+                    str(self.slave_lt),
+                    str(self.r_dem_master_mli_par),
+                    str(self.slave_mli_par),
+                    str(slave_off_start),
+                    str(self.r_slave_slc_tab),
+                    str(self.r_slave_slc),
+                    str(self.r_slave_slc_par),
+                )
+
+                # coregister to nearest slave if list_idx is given
+                if list_idx == const.NOT_PROVIDED:  # coregister to master
+                    r_coreg_slave_tab = None
+
+                elif list_idx == "0":  # coregister to adjacent slave
+                    # get slave position in slaves.list
+                    # slave_pos=`grep -n $slave $slave_list | cut -f1 -d:`
+                    slave_pos = self._get_matching_lineno(self.proc.slave_list, slave)
+
+                    if int(slave) < int(self.proc.ref_master_scene):
+                        coreg_pos = slave_pos + 1
+
+                    elif int(slave) > int(self.proc.ref_master_scene):
+                        coreg_pos = slave_pos - 1
+
+                    # coreg_slave=`head -n $coreg_pos $slave_list | tail -1`
+                    coreg_slave = self._read_line(self.proc.slave_list, coreg_pos)
+                    r_coreg_slave_tab = f'{self.proc.slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
+
+                elif int(list_idx) < 20140000:  # coregister to particular slave
+                    coreg_slave = list_idx
+                    r_coreg_slave_tab = f'{self.proc.slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
+
+                else:  # coregister to slave image with short temporal baseline
+                    # take the first/last slave of the previous list for coregistration
+                    prev_list_idx = int(list_idx) - 1
+
+                    if int(slave) < int(self.proc.ref_master_scene):
+                        # coreg_slave=`head $list_dir/slaves$prev_list_idx.list -n1`
+                        coreg_slave = self._read_line(Path(self.proc.list_dir) / f'slaves{prev_list_idx}.list', 0)
+
+                    elif int(slave) > int(self.proc.ref_master_scene):
+                        # coreg_slave=`tail $list_dir/slaves$prev_list_idx.list -n1`
+                        coreg_slave = self._read_line(Path(self.proc.list_dir) / f'slaves{prev_list_idx}.list', -1)
+
+                    r_coreg_slave_tab = f'{self.proc.slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
+
+                # S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $self.proc.coreg_s1_cc_thresh $self.proc.coreg_s1_frac_thresh $self.proc.coreg_s1_stdev_thresh $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
+                azpol = self.S1_COREG_OVERLAP(
+                    slave_ovr_res,
+                    str(self.out_dir / self.r_master_slave_name),
+                    str(self.master_slc_tab),
+                    str(self.r_slave_slc_tab),
+                    str(slave_off_start),
+                    str(self.slave_off),
+                    float(self.proc.coreg_s1_cc_thresh),
+                    float(self.proc.coreg_s1_frac_thresh),
+                    float(self.proc.coreg_s1_stdev_thresh),
+                    r_coreg_slave_tab,
+                )  # TODO: cout -> $slave_off.az_ovr.$it.out
+
+                # daz=`awk '$1 == "azimuth_pixel_offset" {print $2}' $slave_off.az_ovr.$it.out`
+                daz = azpol[0]  # we return this directly from S1_COREG_OVERLAP (no need to keep reading the file over and over like bash does)
+
+                # cp -rf $slave_off $slave_off.az_ovr.$it
+                shutil.copy(self.slave_off, f"{self.slave_off}.az_ovr.{iteration}")
+
+                _LOG.info(f'    az_ovr_iteration_{iteration}: {daz} (daz in SLC pixel)')
+
+                # Break out of the loop if we reach our target accuracy
+                if abs(daz) < azimuth_px_offset_target:
+                    break
+
+    def S1_COREG_OVERLAP(
+        self,
+        slave_ovr_res,
+        r_master_slave_name,
+        master_slc_tab,
+        r_slave_slc_tab,
+        slave_off_start,
+        slave_off,
+        slave_s1_cct,
+        slave_s1_frac,
+        slave_s1_stdev,
+        r_slave2_slc_tab: Optional[Union[str, Path]]
+    ):
+        """S1_COREG_OVERLAP"""
+        samples_all = 0
+        sum_all = 0.0
+        sum_weight_all = 0.0
+
+        # determine number of rows and columns of tab file and read burst SLC filenames from tab files
+        master_IWs = self.READ_TAB(master_slc_tab)
+        r_slave_IWs = self.READ_TAB(r_slave_slc_tab)
+
+        # option to coregister to another slave
+        if r_slave2_slc_tab is not None:
+            r_slave2_IWs = self.READ_TAB(r_slave2_slc_tab)
+
+        def calc_line_offset(IW):
+            IW_par = pg.ParFile(IW.par)
+            IW_TOPS = pg.ParFile(IW.TOPS_par)
+            azimuth_line_time = IW_par.get_value("azimuth_line_time", dtype=float, index=0)
+            burst_start_time_1 = IW_TOPS.get_value("burst_start_time_1", dtype=float, index=0)
+            burst_start_time_2 = IW_TOPS.get_value("burst_start_time_2", dtype=float, index=0)
+            lines_offset_float = (burst_start_time_2 - burst_start_time_1) / azimuth_line_time
+            return 0.5 + lines_offset_float
+
+        # determine lines offset between start of burst1 and start of burst2
+        lines_offset_IWi = [None, None, None]
+
+        # lines offset between start of burst1 and start of burst2
+        lines_offset_IWi[0] = calc_line_offset(master_IWs[0])
+        _LOG.info(f"lines_offset_IW1: {lines_offset_IWi[0]}")
+
+        if master_IWs[1] is not None:
+            lines_offset_IWi[1] = calc_line_offset(master_IWs[1])
+            _LOG.info(f"lines_offset_IW2: {lines_offset_IWi[1]}")
+
+        if master_IWs[2] is not None:
+            lines_offset_IWi[2] = calc_line_offset(master_IWs[2])
+            _LOG.info(f"lines_offset_IW3: {lines_offset_IWi[2]}")
+
+        # calculate lines_offset for the second scene (for comparsion)
+        _LOG.info(f"lines_offset_IW1: {calc_line_offset(r_slave_IWs[0])}")
+
+        if r_slave_IWs[1] is not None:
+            _LOG.info(f"lines_offset_IW2: {calc_line_offset(r_slave_IWs[1])}")
+
+        if r_slave_IWs[2] is not None:
+            _LOG.info(f"lines_offset_IW3: {calc_line_offset(r_slave_IWs[2])}")
+
+        # set some parameters used
+        master_IW1_par = pg.ParFile(master_IWs[0].par)
+
+        # FIXME: Magic constants...
+        azimuth_line_time = master_IW1_par.get_value("azimuth_line_time", dtype=float, index=0)
+        dDC = 1739.43 * azimuth_line_time * lines_offset_IWi[0]
+        dt = 0.159154 / dDC
+        dpix_factor = dt / azimuth_line_time
+
+        _LOG.info(f"dDC {dDC} Hz")
+        _LOG.info(f"dt {dt} s")
+        _LOG.info(f"dpix_factor {dpix_factor} azimuth pixel")
+        _LOG.info(f"azimuth pixel offset = {dpix_factor} * average_phase_offset")
+
+        ###################
+        # determine phase offsets for sub-swath overlap regions
+        def calc_phase_offsets(subswath_id):
+            nonlocal sum_all
+            nonlocal samples_all
+            nonlocal sum_weight_all
+
+            # Get subswath file paths & load par files
+            IWid = f"IW{subswath_id}"
+
+            master_IWi = master_IWs[subswath_id-1]
+            r_slave_IWi = r_slave_IWs[subswath_id-1]
+            r_slave2_IWi = r_slave2_IWs[subswath_id-1] if r_slave2_slc_tab is not None else None
+
+            master_IWi_par = pg.ParFile(master_IWi.par)
+            master_IWi_TOPS = pg.ParFile(master_IWi.TOPS_par)
+
+            number_of_bursts_IWi = master_IWi_TOPS.get_value("number_of_bursts", dtype=int, index=0)
+            lines_per_burst = master_IWi_TOPS.get_value("lines_per_burst", dtype=int, index=0)
+            lines_offset = lines_offset_IWi[subswath_id-1]
+            lines_overlap = lines_per_burst - lines_offset
+            range_samples = master_IWi_par.get_value("range_samples", dtype=int, index=0)
+            samples = 0
+            sum = 0.0
+            sum_weight = 0.0
+
+            for i in range(1, number_of_bursts_IWi+1):
+                starting_line1 = lines_offset + (i - 1)*lines_per_burst
+                starting_line2 = i*lines_per_burst
+                _LOG.info(f"{i} {starting_line1} {starting_line2}")
+
+                # custom file names to enable parallel processing of slave coregistration
+                mas_IWi_slc = r_master_slave_name + f"_{IWid}_slc"
+                mas_IWi_par = r_master_slave_name + f"_{IWid}_par"
+
+                # SLC_copy master_IWi.slc master_IWi.par mas_IWi_slc.{i}.1 mas_IWi_par.{i}.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+                # w/ option to coregister to another slave via r_slave2_slc_tab
+                pg.SLC_copy(
+                    master_IWi.slc if r_slave2_slc_tab is None else r_slave2_IWi.slc,
+                    master_IWi.par,
+                    f"{mas_IWi_slc}.{i}.1",
+                    f"{mas_IWi_par}.{i}.1",
+                    const.NOT_PROVIDED,
+                    1.0,
+                    0,
+                    range_samples,
+                    starting_line1,
+                    lines_overlap
+                )
+
+                # SLC_copy master_IWi.slc master_IWi.par mas_IWi_slc.{i}.2 mas_IWi_par.{i}.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
+                # w/ option to coregister to another slave via r_slave2_slc_tab
+                pg.SLC_copy(
+                    master_IWi.slc if r_slave2_slc_tab is None else r_slave2_IWi.slc,
+                    master_IWi.par,
+                    f"{mas_IWi_slc}.{i}.2",
+                    f"{mas_IWi_par}.{i}.2",
+                    const.NOT_PROVIDED,
+                    1.0,
+                    0,
+                    range_samples,
+                    starting_line2,
+                    lines_overlap
+                )
+
+                # SLC_copy $r_slave_IWi.slc $master_IWi.par $r_slave_IWi.slc.{i}.1 $r_slave_IWi.par.{i}.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+                pg.SLC_copy(
+                    r_slave_IWi.slc,
+                    master_IWi.par,
+                    f"{r_slave_IWi.slc}.{i}.1",
+                    f"{r_slave_IWi.par}.{i}.1",
+                    const.NOT_PROVIDED,
+                    1.0,
+                    0,
+                    range_samples,
+                    starting_line1,
+                    lines_overlap
+                )
+
+                # SLC_copy $r_slave_IWi.slc $master_IWi.par $r_slave_IWi.slc.{i}.2 $r_slave_IWi.par.{i}.2 - 1. 0 $range_samples $starting_line2 $lines_overlap
+                pg.SLC_copy(
+                    r_slave_IWi.slc,
+                    master_IWi.par,
+                    f"{r_slave_IWi.slc}.{i}.2",
+                    f"{r_slave_IWi.par}.{i}.2",
+                    const.NOT_PROVIDED,
+                    1.0,
+                    0,
+                    range_samples,
+                    starting_line2,
+                    lines_overlap
+                )
+
+                # calculate the 2 single look interferograms for the burst overlap region i
+                # using the earlier burst --> *.int1, using the later burst --> *.int2
+                off1 = Path(f"{r_master_slave_name}.{IWid}.{i}.off1")
+                int1 = Path(f"{r_master_slave_name}.{IWid}.{i}.int1")
+                _unlink(off1)
+                _unlink(int1)
+                
+                # create_offset $mas_IWi_par.{i}.1 $mas_IWi_par.{i}.1 $off1 1 1 1 0
+                pg.create_offset(
+                    f"{mas_IWi_par}.{i}.1",
+                    f"{mas_IWi_par}.{i}.1",
+                    str(off1),
+                    1,  # intensity cross-correlation
+                    1,
+                    1,
+                    0,  # non-interactive mode
+                )
+
+                # SLC_intf $mas_IWi_slc.{i}.1 $r_slave_IWi.slc.{i}.1 $mas_IWi_par.{i}.1 $mas_IWi_par.{i}.1 $off1 $int1 1 1 0 - 0 0
+                pg.SLC_intf(
+                    f"{mas_IWi_slc}.{i}.1",
+                    f"{r_slave_IWi.slc}.{i}.1",
+                    f"{mas_IWi_par}.{i}.1",
+                    f"{mas_IWi_par}.{i}.1",
+                    str(off1),
+                    str(int1),
+                    1,
+                    1,
+                    0,
+                    const.NOT_PROVIDED,
+                    0,
+                    0
+                )
+
+                off2 = Path(f"{r_master_slave_name}.{IWid}.{i}.off2")
+                int2 = Path(f"{r_master_slave_name}.{IWid}.{i}.int2")
+                _unlink(off2)
+                _unlink(int2)
+
+                # create_offset $mas_IWi_par.{i}.2 $mas_IWi_par.{i}.2 $off2 1 1 1 0
+                pg.create_offset(
+                    f"{mas_IWi_par}.{i}.2",
+                    f"{mas_IWi_par}.{i}.2",
+                    str(off2),
+                    1,  # intensity cross-correlation
+                    1,
+                    1,
+                    0   # non-interactive mode
+                )
+
+                # SLC_intf $mas_IWi_slc.{i}.2 $r_slave_IWi_slc.{i}.2 $mas_IWi_par.{i}.2 $mas_IWi_par.{i}.2 $off2 $int2 1 1 0 - 0 0
+                pg.SLC_intf(
+                    f"{mas_IWi_slc}.{i}.2",
+                    f"{r_slave_IWi.slc}.{i}.2",
+                    f"{mas_IWi_par}.{i}.2",
+                    f"{mas_IWi_par}.{i}.2",
+                    str(off2),
+                    str(int2),
+                    1,
+                    1,
+                    0,
+                    const.NOT_PROVIDED,
+                    0,
+                    0
+                )
+
+                # calculate the single look double difference interferogram for the burst overlap region i
+                # insar phase of earlier burst is subtracted from interferogram of later burst
+                diff_par1 = Path(f"{r_master_slave_name}.{IWid}.{i}.diff_par")
+                diff1 = Path(f"{r_master_slave_name}.{IWid}.{i}.diff")
+                _unlink(diff_par1)
+
+                # create_diff_par $off1 $off2 $diff_par1 0 0
+                pg.create_diff_par(
+                    str(off1),
+                    str(off2),
+                    str(diff_par1),
+                    0,
+                    0
+                )
+
+                # cpx_to_real $int1 tmp $range_samples 4
+                pg.cpx_to_real(
+                    str(int1),
+                    "tmp",
+                    range_samples,
+                    4
+                )
+
+                # sub_phase $int2 tmp $diff_par1 $diff1 1 0
+                pg.sub_phase(
+                    str(int2),
+                    "tmp",
+                    str(diff_par1),
+                    str(diff1),
+                    1,
+                    0
+                )
+
+                # multi-look the double difference interferogram (200 range x 4 azimuth looks)
+                diff20 = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20")
+                off20 = Path(f"{r_master_slave_name}.{IWid}.{i}.off20")
+
+                # multi_cpx $diff1 $off1 $diff20 $off20 200 4
+                pg.multi_cpx(
+                    str(diff1),
+                    str(off1),
+                    str(diff20),
+                    str(off20),
+                    200,
+                    4
+                )
+
+                off20_par = pg.ParFile(off20)
+                range_samples20 = off20_par.get_value("interferogram_width", dtype=int, index=0)
+                azimuth_lines20 = off20_par.get_value("interferogram_azimuth_lines", dtype=int, index=0)
+
+                # TBD: awk does /2, and everything in awk is a float... but was this actually intended? (odd / 2 would result in a fraction)
+                range_samples20_half = range_samples20 / 2
+                azimuth_lines20_half = azimuth_lines20 / 2
+                _LOG.info(f"range_samples20_half: {range_samples20_half}")
+                _LOG.info(f"azimuth_samples20_half: {azimuth_lines20_half}")
+
+                # determine coherence and coherence mask based on unfiltered double differential interferogram
+                diff20cc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc")
+                diff20cc_ras = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.ras")
+
+                # cc_wave $diff20  - - $diff20cc $range_samples20 5 5 0
+                pg.cc_wave(
+                    str(diff20),
+                    const.NOT_PROVIDED,
+                    const.NOT_PROVIDED,
+                    str(diff20cc),
+                    range_samples20,
+                    5,
+                    5,
+                    0
+                )
+
+                # rascc_mask $diff20cc - $range_samples20 1 1 0 1 1 $slave_s1_cct - 0.0 1.0 1. .35 1 $diff20cc_ras
+                pg.rascc_mask(
+                    str(diff20cc),
+                    const.NOT_PROVIDED,
+                    range_samples20,
+                    1,
+                    1,
+                    0,
+                    1,
+                    1,
+                    slave_s1_cct,
+                    const.NOT_PROVIDED,
+                    0.0,
+                    1.0,
+                    1.0,
+                    0.35,
+                    1,
+                    diff20cc_ras
+                )
+
+                # adf filtering of double differential interferogram
+                diff20adf = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.adf")
+                diff20adfcc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.adf.cc")
+
+                # adf $diff20 $diff20adf $diff20adfcc $range_samples20 0.4 16 7 2
+                pg.adf(
+                    str(diff20),
+                    str(diff20adf),
+                    str(diff20adfcc),
+                    range_samples20,
+                    0.4,
+                    16,
+                    7,
+                    2
+                )
+
+                _unlink(diff20adfcc)
+
+                # unwrapping of filtered phase considering coherence and mask determined from unfiltered double differential interferogram
+                diff20cc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc")
+                diff20cc_ras = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.ras")
+                diff20phase = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.phase")
+
+                # mcf $diff20adf $diff20cc $diff20cc_ras $diff20phase $range_samples20 1 0 0 - - 1 1 512 $range_samples20_half $azimuth_lines20_half
+                pg.mcf(
+                    str(diff20adf),
+                    str(diff20cc),
+                    str(diff20cc_ras),
+                    str(diff20phase),
+                    range_samples20,
+                    1,
+                    0,
+                    0,
+                    const.NOT_PROVIDED,
+                    const.NOT_PROVIDED,
+                    1,
+                    1,
+                    512,
+                    range_samples20_half,
+                    azimuth_lines20_half
+                )
+
+                # determine overlap phase average (in radian), standard deviation (in radian), and valid data fraction
+                cc_mean = 0
+                cc_stdev = 0
+                cc_fraction = 0
+                mean = 0
+                stdev = 0
+                fraction = 0
+
+                if diff20cc.exists():
+                    diff20ccstat = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.stat")
+                    
+                    # image_stat $diff20cc $range_samples20 - - - - $diff20ccstat
+                    pg.image_stat(
+                        str(diff20cc),
+                        range_samples20,
+                        const.NOT_PROVIDED,
+                        const.NOT_PROVIDED,
+                        const.NOT_PROVIDED,
+                        const.NOT_PROVIDED,
+                        str(diff20ccstat)
+                    )
+                    
+                    diff20ccstat = self._grep_offset_parameter(diff20ccstat)
+                    cc_mean = float(diff20ccstat["mean"][0])
+                    cc_stdev = float(diff20ccstat["stdev"][0])
+                    cc_fraction = float(diff20ccstat["fraction_valid"][0])
+                
+                # Check size of diff20phase file if it exists (I assume there's been issues with partial failures in the past?)
+                diff20phase_size = diff20phase.stat().st_size if diff20phase.exists() else 0
+
+                if diff20phase_size > 0:
+                    diff20phasestat = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.phase.stat")
+
+                    # image_stat $diff20phase $range_samples20 - - - - $diff20phasestat
+                    pg.image_stat(
+                        str(diff20phase),
+                        range_samples20,
+                        const.NOT_PROVIDED,
+                        const.NOT_PROVIDED,
+                        const.NOT_PROVIDED,
+                        const.NOT_PROVIDED,
+                        str(diff20phasestat)
+                    )
+
+                    diff20phasestat = self._grep_offset_parameter(diff20phasestat)
+                    mean = float(diff20phasestat["mean"][0])
+                    stdev = float(diff20phasestat["stdev"][0])
+                    fraction = float(diff20phasestat["fraction_valid"][0])
+
+                _LOG.info(f"cc_fraction1000: {cc_fraction * 1000.0}")
+
+                # only for overlap regions with a significant area with high coherence and phase standard deviation < slave_s1_stdev
+                weight = 0.0
+
+                if fraction > slave_s1_frac and stdev < slave_s1_stdev:
+                    weight = fraction / (stdev + 0.1) / (stdev + 0.1)  # +0.1 to limit maximum weights for very low stdev
+
+                    sum += mean * fraction
+                    samples += 1
+                    sum_weight += fraction
+
+                    sum_all += mean * fraction
+                    samples_all += 1
+                    sum_weight_all = fraction
+
+                # calculate average over the first sub-swath and print it out to output text file
+                if fraction > 0:
+                    _LOG.info(f"{IWid} {i} {mean} {stdev} {fraction} ({cc_mean} {cc_stdev} {cc_fraction}) {weight}")
+                    slave_ovr_res.write(f"{IWid} {i} {mean} {stdev} {fraction} ({cc_mean} {cc_stdev} {cc_fraction}) {weight}\n")
+
+                else:
+                    _LOG.info(f"{IWid} {i} 0.00000 0.00000 0.00000 ({cc_mean} {cc_stdev} {cc_fraction}) {weight}")
+                    slave_ovr_res.write(f"{IWid} {i} 0.00000 0.00000 0.00000 ({cc_mean} {cc_stdev} {cc_fraction}) {weight}\n")
+
+
+            # Compute average
+            average = sum / sum_weight if samples > 0 else 0.0
+            _LOG.info(f"{IWid} average: {average}")
+            slave_ovr_res.write(f"{IWid} average: {average}\n")
+
+        calc_phase_offsets(1)  # IW1
+        calc_phase_offsets(2)  # IW2
+        calc_phase_offsets(3)  # IW3
+
+        ###################################################################################################################
+
+        # calculate global average
+        if samples_all > 0:
+            average_all = sum_all / sum_weight_all
+        else:
+            average_all = 0.0
+
+        _LOG.info(f"all {average_all}")
+        slave_ovr_res.write(f"all {average_all}")
+
+        # conversion of phase offset (in radian) to azimuth offset (in SLC pixel)
+        azimuth_pixel_offset = -dpix_factor * average_all
+        _LOG.info(f"azimuth_pixel_offset {azimuth_pixel_offset} [azimuth SLC pixel]")
+        slave_ovr_res.write(f"azimuth_pixel_offset {azimuth_pixel_offset} [azimuth SLC pixel]")
+
+        # correct offset file for determined additional azimuth offset
+        azpol = self._grep_offset_parameter(slave_off_start, "azimuth_offset_polynomial")
+        azpol = [float(x) for x in azpol]
+
+        azpol[0] = azpol[0] + azimuth_pixel_offset
+        _LOG.info(f"azpol_1_out {' '.join([str(i) for i in azpol])}")
+
+        # set_value $slave_off_start $slave_off azimuth_offset_polynomial $azpol_1_out $azpol_2 $azpol_3 $azpol_4 $azpol_5 $azpol_6 0
+        pg.set_value(
+            str(slave_off_start),
+            str(slave_off),
+            "azimuth_offset_polynomial",
+            *azpol,
+            0
+        )
+
+        return azpol
 
     def resample_full(self):
         """Resample full data set"""
@@ -692,11 +1313,11 @@ class CoregisterSlc:
             lookup_table_pathname = str(self.dem_lt_fine)
             data_out_pathname = str(slave_gamma0_eqa)
             width_out = dem_width
-            nlines_out = "-"
+            nlines_out = const.NOT_PROVIDED
             interp_mode = 5  # B-spline interpolation
             dtype = 0  # float
-            lr_in = "-"
-            lr_out = "-"
+            lr_in = const.NOT_PROVIDED
+            lr_out = const.NOT_PROVIDED
             order = 5  # B-spline degree
 
             pg.geocode_back(
@@ -724,9 +1345,9 @@ class CoregisterSlc:
                 nlines = 0
                 pixavr = 20
                 pixavaz = 20
-                scale = "-"
-                exp = "-"
-                lr = "-"
+                scale = const.NOT_PROVIDED
+                exp = const.NOT_PROVIDED
+                lr = const.NOT_PROVIDED
                 rasf_pathname = str(temp_bmp)
 
                 pg.raspwr(
@@ -742,15 +1363,11 @@ class CoregisterSlc:
                     rasf_pathname,
                 )
 
-                # image magick conversion routine
-                command = [
-                    "convert",
-                    temp_bmp.as_posix(),
-                    "-transparent",
-                    "black",
-                    slave_png.as_posix(),
-                ]
-                run_command(command, os.getcwd())
+                # Convert the bitmap to a PNG w/ black pixels made transparent
+                img = Image.open(temp_bmp.as_posix())
+                img = np.array(img.convert('RGBA'))
+                img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
+                Image.fromarray(img).save(slave_png.as_posix())
 
                 # convert gamma0 Gamma file to GeoTIFF
                 dem_par_pathname = str(self.eqa_dem_par)
@@ -780,11 +1397,11 @@ class CoregisterSlc:
                 lookup_table_pathname = str(self.dem_lt_fine)
                 data_out_pathname = str(slave_sigma0_eqa)
                 width_out = dem_width
-                nlines_out = "-"
+                nlines_out = const.NOT_PROVIDED
                 interp_mode = 0  # nearest-neighbor
                 dtype = 0  # float
-                lr_in = "-"
-                lr_out = "-"
+                lr_in = const.NOT_PROVIDED
+                lr_out = const.NOT_PROVIDED
 
                 pg.geocode_back(
                     data_in_pathname,
@@ -816,7 +1433,7 @@ class CoregisterSlc:
             self.set_tab_files()
             self.get_lookup()
             self.reduce_offset()
-            self.coarse_registration()
+            self.fine_registration('-', '-')
             self.resample_full()
             self.multi_look()
             self.generate_normalised_backscatter()
