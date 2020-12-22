@@ -78,7 +78,12 @@ class SlcProcess:
             "noise": "*annotation/calibration/noise-s1*-iw{swath}-slc-{polarization}*.xml",
             "orbit_file": "*.EOF",
         }
-        self.phase_shift_date = datetime.date(2015, 3, 15)  # TODO: why the fixed date?
+
+        # GA's InSAR team found S1 data before Nov 2015 is of poorer quality for SAR interferometry & more
+        # likely to create interferogram discontinuities. GAMMA's SLC_phase_shift uses March 2015 though.
+        # The InSAR team has decided not to use interferometric products before this. See:
+        # https://github.com/GeoscienceAustralia/gamma_insar/pull/157
+        self.phase_shift_date = datetime.date(2015, 3, 10)
 
         # slc_tabs_params will be a dict, created in read_raw_data() and used in concatenate()
         self.slc_tabs_params = None  # dict
