@@ -691,7 +691,7 @@ class SlcProcess:
                     const.DEFAULT_STARTING_LINE,
                     azimuth_lines,  # nlines
                     50,  # pixavr
-                    const.N_PIXELS_DEFAULT_AZIMUTH_AVERAGE,
+                    const.RAS_PIXEL_AVERAGE_AZIMUTH,
                     const.NOT_PROVIDED,  # scale
                     const.NOT_PROVIDED,  # exp
                     const.LEFT_RIGHT_FLIPPING_NORMAL,
