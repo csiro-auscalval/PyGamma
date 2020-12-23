@@ -334,8 +334,10 @@ class CoregisterDem:
             self.dem_window[1] += 1
 
         # adjust patch size
+        self.dem_patch_window = int(self.dem_patch_window / self.multi_look)
         min_patch_size = min(const.INIT_OFFSETM_CORRELATION_PATCH_SIZES)
-        if self.dem_patch_window / self.multi_look < min_patch_size:
+
+        if self.dem_patch_window < min_patch_size:
             self.dem_patch_window = min_patch_size
 
             _LOG.info(

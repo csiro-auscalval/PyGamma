@@ -385,12 +385,11 @@ def test_small_settings_get_fixed_up(monkeypatch):
         assert (
             coreg.dem_window[1] == 34
         ), "Failed to adjust dem_window with setting {}".format(dw)
+
         assert coreg.dem_patch_window == const.INIT_OFFSETM_CORRELATION_PATCH_SIZES[0]
 
 
 def test_adjust_dem_parameter(monkeypatch):
-    # TODO: test using the new multi_look thingy from Thomas
-
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
     monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
@@ -405,6 +404,7 @@ def test_adjust_dem_parameter(monkeypatch):
         # DEM windows should be halved
         assert coreg.dem_window[0] == 8
         assert coreg.dem_window[1] == 16
+        assert coreg.dem_patch_window == 512
 
 
 def test_failure_on_invalid_dem_window_setting(monkeypatch):
