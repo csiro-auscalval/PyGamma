@@ -197,6 +197,10 @@ TEMP_FILE_GLOBS = [
 ]
 
 
+INIT_OFFSETM_CORRELATION_PATCH_SIZES = (128, 256, 512, 1024)
+MIN_DEM_WIN_AXIS = 8
+
+
 class SlcFilenames(Enum):
     """SLC filenames """
 
