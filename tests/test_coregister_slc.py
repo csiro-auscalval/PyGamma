@@ -24,7 +24,7 @@ def get_test_context():
         result = pgp.offset_fit(*args, **kwargs)
         OFF_par = args[2]
         shutil.copyfile(data_dir / 'offset_fit.start', OFF_par)
-        return result[0], 'final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943', ''
+        return result[0], ['final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943'], []
 
     # raspwr needs to create a dummy bmp
     def raspwr_se(*args, **kwargs):
@@ -62,19 +62,19 @@ def get_test_context():
         return result
 
     pgmock.raspwr.side_effect = raspwr_se
-    pgmock.raspwr.return_value = 0, '', ''
+    pgmock.raspwr.return_value = 0, [], []
 
     pgmock.offset_fit.side_effect = offset_fit_se
-    pgmock.offset_fit.return_value = (0, 'final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943', '')
+    pgmock.offset_fit.return_value = (0, ['final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943'], [])
 
     pgmock.mcf.side_effect = mcf_se
-    pgmock.mcf.return_value = 0, '', ''
+    pgmock.mcf.return_value = 0, [], []
 
     pgmock.image_stat.side_effect = image_stat_se
-    pgmock.image_stat.return_value = 0, '', ''
+    pgmock.image_stat.return_value = 0, [], []
 
     pgmock.SLC_copy.side_effect = SLC_copy_se
-    pgmock.SLC_copy.return_value = 0, '', ''
+    pgmock.SLC_copy.return_value = 0, [], []
 
     # Copy test data
     shutil.copytree(Path(__file__).parent.absolute() / 'data' / '20151127', data_dir)
@@ -87,6 +87,7 @@ def get_test_context():
     # input data (input data is outside the control of our code / not something we can test).
     data = {
         'proc': proc_config,
+        'list_idx': '-',
         'slc_master': data_dir / '20151127_VV.slc',
         'slc_slave': data_dir / '20151127_VV.slc',  # if slave/master are the same... everything should still run i assume? just useless outputs?
         'slave_mli': data_dir / '20151127_VV_8rlks.mli',

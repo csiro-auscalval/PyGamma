@@ -111,6 +111,133 @@ def get_scenes(burst_data_csv):
     return frames_data
 
 
+def find_scenes_in_range(master_dt, date_list, thres_days: int, include_closest: bool = True):
+    """
+    Creates a list of frame dates that within range of a master date.
+
+    :param master_dt:
+        The master date in which we are searching for scenes relative to.
+    :param date_list:
+        The list which we're searching for dates in.
+    :param thres_days:
+        The number of days threshold in which scenes must be within relative to
+        the master date.
+    :param include_closest:
+        When true - if there exist slc frames on either side of the master date, which are NOT
+        within the threshold window then the closest date from each side will be
+        used instead of no scene at all.
+    """
+
+    # We do everything with datetime.date's (can't mix and match date vs. datetime)
+    if isinstance(master_dt, datetime.datetime):
+        master_dt = master_dt.date()
+    elif not isinstance(master_dt, datetime.date):
+        master_dt = datetime.date(master_dt)
+
+    thresh_dt = datetime.timedelta(days=thres_days)
+    tree_lhs = []  # This was the 'lower' side in the bash...
+    tree_rhs = []  # This was the 'upper' side in the bash...
+    closest_lhs = None
+    closest_rhs = None
+    closest_lhs_diff = None
+    closest_rhs_diff = None
+
+    for dt in date_list:
+        if isinstance(dt, datetime.datetime):
+            dt = dt.date()
+        elif not isinstance(master_dt, datetime.date):
+            dt = datetime.date(dt)
+
+        dt_diff = dt - master_dt
+
+        # Skip scenes that match the master date
+        if dt_diff.days == 0:
+            continue
+
+        # Record closest scene
+        if dt_diff < datetime.timedelta(0):
+            is_closer = closest_lhs is None or dt_diff > closest_lhs_diff
+            closest_lhs = dt if is_closer else closest_lhs
+            closest_lhs_diff = dt_diff
+        else:
+            is_closer = closest_rhs is None or dt_diff < closest_rhs_diff
+            closest_rhs = dt if is_closer else closest_rhs
+            closest_rhs_diff = dt_diff
+
+        # Skip scenes outside threshold window
+        if abs(dt_diff) > thresh_dt:
+            continue
+
+        if dt_diff < datetime.timedelta(0):
+            tree_lhs.append(dt)
+        else:
+            tree_rhs.append(dt)
+
+    # Use closest scene if none are in threshold window
+    if include_closest:
+        if len(tree_lhs) == 0 and closest_lhs is not None:
+            _LOG.info(f"Date difference to closest slave greater than {thres_days} days, using closest slave only: {closest_lhs}")
+            tree_lhs = [closest_lhs]
+
+        if len(tree_rhs) == 0 and closest_rhs is not None:
+            _LOG.info(f"Date difference to closest slave greater than {thres_days} days, using closest slave only: {closest_rhs}")
+            tree_rhs = [closest_rhs]
+
+    return tree_lhs, tree_rhs
+
+
+def create_slave_coreg_tree(master_dt, date_list, thres_days=63):
+    """
+    Creates a set of co-registration lists containing subsets of the prior set, to create a tree-like co-registration structure.
+
+    Notes from the bash on :thres_days: parameter:
+        #thres_days=93 # three months, S1A/B repeats 84, 90, 96, ... (90 still ok, 96 too long)
+        # -> some slaves with zero averages for azimuth offset refinement
+        thres_days=63 # three months, S1A/B repeats 54, 60, 66, ... (60 still ok, 66 too long)
+         -> 63 days seems to be a good compromise between runtime and coregistration success
+        #thres_days=51 # maximum 7 weeks, S1A/B repeats 42, 48, 54, ... (48 still ok, 54 too long)
+        # -> longer runtime compared to 63, similar number of badly coregistered scenes
+        # do slaves with time difference less than thres_days
+    """
+
+    # We do everything with datetime.date's (can't mix and match date vs. datetime)
+    if isinstance(master_dt, datetime.datetime):
+        master_dt = master_dt.date()
+    elif not isinstance(master_dt, datetime.date):
+        master_dt = datetime.date(master_dt)
+
+    lists = []
+
+    # Note: when compositing the lists, rhs comes first because the bash puts the rhs as
+    # the "lower" part of the tree, which seems to appear first in the list file...
+    #
+    # I've opted for rhs vs. lhs because it's more obvious, newer scenes are to the right
+    # in sequence as they're greater than, older scenes are to the left / less than.
+
+    # Initial Master<->Slave coreg list
+    lhs, rhs = find_scenes_in_range(master_dt, date_list, thres_days)
+    last_list = lhs + rhs
+
+    while len(last_list) > 0:
+        lists.append(last_list)
+
+        if last_list[0] < master_dt:
+            lhs, rhs = find_scenes_in_range(last_list[0], date_list, thres_days)
+            sub_list1 = lhs
+        else:
+            sub_list1 = []
+
+        if last_list[-1] > master_dt:
+            lhs, rhs = find_scenes_in_range(last_list[-1], date_list, thres_days)
+            sub_list2 = rhs
+        else:
+            sub_list2 = []
+
+        last_list = sub_list1 + sub_list2
+
+    return lists
+
+
 def calculate_master(scenes_list) -> datetime:
 
     slc_dates = [
@@ -705,6 +832,7 @@ class CoregisterSlave(luigi.Task):
     """
 
     proc_file = luigi.Parameter()
+    list_idx = luigi.Parameter()
     slc_master = luigi.Parameter()
     slc_slave = luigi.Parameter()
     slave_mli = luigi.Parameter()
@@ -732,6 +860,7 @@ class CoregisterSlave(luigi.Task):
 
         coreg_slave = CoregisterSlc(
             proc=proc_config,
+            list_idx=str(self.list_idx),
             slc_master=Path(str(self.slc_master)),
             slc_slave=Path(str(self.slc_slave)),
             slave_mli=Path(str(self.slave_mli)),
@@ -754,9 +883,13 @@ class CoregisterSlave(luigi.Task):
 @requires(CoregisterDemMaster)
 class CreateCoregisterSlaves(luigi.Task):
     """
-    Runs the master-slaves co-registration tasks
+    Runs the co-registration tasks.
+
+    The first batch of tasks produced is the master-slave coregistration, followed
+    up by each sub-tree of slave-slave coregistrations in the coregistration network.
     """
 
+    proc_file = luigi.Parameter()
     master_scene_polarization = luigi.Parameter(default="VV")
     master_scene = luigi.Parameter(default=None)
     cleanup = luigi.Parameter()
@@ -772,6 +905,10 @@ class CreateCoregisterSlaves(luigi.Task):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("co-register master-slaves task")
 
+        # Load the gamma proc config file
+        with open(str(self.proc_file), 'r') as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj)
+
         slc_frames = get_scenes(self.burst_data_csv)
 
         master_scene = self.master_scene
@@ -779,6 +916,8 @@ class CreateCoregisterSlaves(luigi.Task):
             master_scene = calculate_master(
                 [dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames]
             )
+
+        coreg_tree = create_slave_coreg_tree(master_scene, [dt for dt, _, _ in slc_frames])
 
         master_polarizations = [
             pols for dt, _, pols in slc_frames if dt.date() == master_scene
@@ -821,6 +960,8 @@ class CreateCoregisterSlaves(luigi.Task):
             outdir=slc_master_dir,
         )
         kwargs = {
+            "proc_file": self.proc_file,
+            "list_idx": "-",
             "slc_master": slc_master_dir.joinpath(f"{master_slc_prefix}.slc"),
             "range_looks": rlks,
             "azimuth_looks": alks,
@@ -848,20 +989,39 @@ class CreateCoregisterSlaves(luigi.Task):
             )
             slave_coreg_jobs.append(CoregisterSlave(**kwargs))
 
-        for _dt, _, _pols in slc_frames:
-            slc_scene = _dt.strftime(__DATE_FMT__)
-            if slc_scene == master_scene:
-                continue
-            slave_dir = Path(self.outdir).joinpath(__SLC__).joinpath(slc_scene)
-            for _pol in _pols:
-                if _pol not in self.polarization:
+        for list_index, list_dates in enumerate(coreg_tree):
+            list_index += 1  # list index is 1-based
+            list_frames = [i for i in slc_frames if i[0].date() in list_dates]
+
+            # Write list file
+            list_file_path = Path(proc_config.list_dir) / f'slaves{list_index}.list'
+            if not list_file_path.parent.exists():
+                list_file_path.parent.mkdir(parents=True)
+
+            with open(list_file_path, 'w') as listfile:
+                list_date_strings = [dt.strftime(__DATE_FMT__) for dt, _, _ in list_frames]
+                listfile.write('\n'.join(list_date_strings))
+
+            # Bash passes '-' for slaves1.list, and list_index there after.
+            if list_index > 1:
+                kwargs["list_idx"] = list_index
+
+            for _dt, _, _pols in list_frames:
+                slc_scene = _dt.strftime(__DATE_FMT__)
+                if slc_scene == master_scene:
                     continue
-                slave_slc_prefix = f"{slc_scene}_{_pol.upper()}"
-                kwargs["slc_slave"] = slave_dir.joinpath(f"{slave_slc_prefix}.slc")
-                kwargs["slave_mli"] = slave_dir.joinpath(
-                    f"{slave_slc_prefix}_{rlks}rlks.mli"
-                )
-                slave_coreg_jobs.append(CoregisterSlave(**kwargs))
+
+                slave_dir = Path(self.outdir).joinpath(__SLC__).joinpath(slc_scene)
+                for _pol in _pols:
+                    if _pol not in self.polarization:
+                        continue
+
+                    slave_slc_prefix = f"{slc_scene}_{_pol.upper()}"
+                    kwargs["slc_slave"] = slave_dir.joinpath(f"{slave_slc_prefix}.slc")
+                    kwargs["slave_mli"] = slave_dir.joinpath(
+                        f"{slave_slc_prefix}_{rlks}rlks.mli"
+                    )
+                    slave_coreg_jobs.append(CoregisterSlave(**kwargs))
 
         yield slave_coreg_jobs
 
@@ -909,6 +1069,7 @@ class ARD(luigi.WrapperTask):
     ------------------------------------------------------------------------------
     usage:{
         luigi --module process_gamma ARD
+        --proc-file <path to the .proc config file>
         --vector-file <path to a vector file (.shp)>
         --start-date <start date of SLC acquisition>
         --end-date <end date of SLC acquisition>
@@ -919,11 +1080,12 @@ class ARD(luigi.WrapperTask):
     }
     """
 
+    proc_file = luigi.Parameter()
     vector_file_list = luigi.Parameter(significant=False)
     start_date = luigi.DateParameter(significant=False)
     end_date = luigi.DateParameter(significant=False)
     polarization = luigi.ListParameter(default=["VV", "VH"], significant=False)
-    cleanup = luigi.Parameter(default=True, significant=False)
+    cleanup = luigi.BoolParameter(default=False, significant=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING)
     outdir = luigi.Parameter(significant=False)
     workdir = luigi.Parameter(significant=False)
     database_name = luigi.Parameter()
@@ -955,6 +1117,7 @@ class ARD(luigi.WrapperTask):
                 os.makedirs(workdir, exist_ok=True)
 
                 kwargs = {
+                    "proc_file": self.proc_file,
                     "vector_file": vector_file,
                     "start_date": self.start_date,
                     "end_date": self.end_date,

@@ -94,6 +94,7 @@ class CoregisterSlc:
     def __init__(
         self,
         proc: ProcConfig,
+        list_idx: Union[str, int],
         slc_master: Union[str, Path],
         slc_slave: Union[str, Path],
         slave_mli: Union[str, Path],
@@ -112,6 +113,9 @@ class CoregisterSlc:
 
         :param proc:
             The gamma proc configuration file for the coregistration processing.
+        :param list_idx:
+            The list file index the slave originated from (eg: 1 for slaves1.list),
+            or '-' if not applicable (eg: master coregistration).
         :param slc_master:
             A full path to a master (reference) SLC image file.
         :param slc_slave:
@@ -138,6 +142,7 @@ class CoregisterSlc:
             A full path to a output directory.
         """
         self.proc = proc
+        self.list_idx = list_idx
         self.slc_master = slc_master
         self.slc_slave = slc_slave
         self.rdc_dem = rdc_dem
@@ -192,7 +197,7 @@ class CoregisterSlc:
         self.r_slave_mli_par = None
 
         self.slave_date, self.slave_polar = self.slc_slave.stem.split('_')
-        self.master_date, self.master_polar = self.slc_slave.stem.split('_')
+        self.master_date, self.master_polar = self.slc_master.stem.split('_')
 
         master_slave_prefix = f"{self.master_date}-{self.slave_date}"
         self.r_master_slave_name = f"{master_slave_prefix}_{self.slave_polar}_{self.rlks}rlks"
@@ -478,7 +483,7 @@ class CoregisterSlc:
                     range_stdev, azimuth_stdev = re.findall(
                         r"[-+]?[0-9]*\.?[0-9]+",
                         self._grep_stdout(
-                            cout.splitlines(), "final model fit std. dev. (samples) range:"
+                            cout, "final model fit std. dev. (samples) range:"
                         ),
                     )
 
@@ -630,7 +635,7 @@ class CoregisterSlc:
 
             return (IW1_result, IW2_result, IW3_result)
 
-    def fine_registration(
+    def fine_coregistration(
         self,
         slave: Union[str, int],
         list_idx: Union[str, int],
@@ -656,7 +661,7 @@ class CoregisterSlc:
                 "",
             ])
 
-            for iteration in range(max_iteration):
+            for iteration in range(1, max_iteration+1):
                 # cp -rf $slave_off $slave_off_start
                 slave_off_start = temp_dir.joinpath(f"{self.slave_off.name}.start")
                 shutil.copy(self.slave_off, slave_off_start)
@@ -695,7 +700,7 @@ class CoregisterSlc:
                     coreg_slave = self._read_line(self.proc.slave_list, coreg_pos)
                     r_coreg_slave_tab = f'{self.proc.slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
 
-                elif int(list_idx) < 20140000:  # coregister to particular slave
+                elif int(list_idx) > 20140000:  # coregister to particular slave
                     coreg_slave = list_idx
                     r_coreg_slave_tab = f'{self.proc.slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
 
@@ -772,7 +777,7 @@ class CoregisterSlc:
             burst_start_time_1 = IW_TOPS.get_value("burst_start_time_1", dtype=float, index=0)
             burst_start_time_2 = IW_TOPS.get_value("burst_start_time_2", dtype=float, index=0)
             lines_offset_float = (burst_start_time_2 - burst_start_time_1) / azimuth_line_time
-            return 0.5 + lines_offset_float
+            return int(0.5 + lines_offset_float)
 
         # determine lines offset between start of burst1 and start of burst2
         lines_offset_IWi = [None, None, None]
@@ -838,7 +843,7 @@ class CoregisterSlc:
             sum = 0.0
             sum_weight = 0.0
 
-            for i in range(1, number_of_bursts_IWi+1):
+            for i in range(1, number_of_bursts_IWi):
                 starting_line1 = lines_offset + (i - 1)*lines_per_burst
                 starting_line2 = i*lines_per_burst
                 _LOG.info(f"{i} {starting_line1} {starting_line2}")
@@ -1018,7 +1023,7 @@ class CoregisterSlc:
                     4
                 )
 
-                off20_par = pg.ParFile(off20)
+                off20_par = pg.ParFile(off20.as_posix())
                 range_samples20 = off20_par.get_value("interferogram_width", dtype=int, index=0)
                 azimuth_lines20 = off20_par.get_value("interferogram_azimuth_lines", dtype=int, index=0)
 
@@ -1433,7 +1438,7 @@ class CoregisterSlc:
             self.set_tab_files()
             self.get_lookup()
             self.reduce_offset()
-            self.fine_registration('-', '-')
+            self.fine_coregistration(self.slave_date, self.list_idx)
             self.resample_full()
             self.multi_look()
             self.generate_normalised_backscatter()

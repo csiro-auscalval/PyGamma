@@ -62,8 +62,8 @@ def auto_logging_decorator(func, exception_type, logger):
             kwargs[const.CERR] = []
 
         stat = func(cmd, *args, **kwargs)
-        cout = str(kwargs[const.COUT])
-        cerr = str(kwargs[const.CERR])
+        cout = kwargs[const.COUT]
+        cerr = kwargs[const.CERR]
 
         if stat:
             msg = "failed to execute pg.{}".format(cmd)
@@ -80,7 +80,7 @@ _GAMMA_PACKAGES = ("DISP", "DIFF", "IPTA", "ISP", "LAT", "MSP", "GEO")
 
 GAMMA_INSTALL_DIR = None
 GAMMA_INSTALLED_PACKAGES = None
-GAMMA_INSTALLED_EXES = None
+GAMMA_INSTALLED_EXES = {}
 
 COUT = "cout"
 CERR = "cerr"
@@ -166,8 +166,8 @@ class GammaInterface:
                                 see subprocess_wrapper() in this module for an example.
         """
         # k=program, v=exe path relative to install dir
-        self._gamma_exes = gamma_exes if gamma_exes else {}
-        self.install_dir = install_dir
+        self._gamma_exes = gamma_exes if gamma_exes else GAMMA_INSTALLED_EXES
+        self.install_dir = install_dir if install_dir else GAMMA_INSTALL_DIR
         self.subprocess_func = (
             subprocess_wrapper if subprocess_func is None else subprocess_func
         )

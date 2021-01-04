@@ -24,7 +24,7 @@ def get_test_context():
         result = pgp.offset_fit(*args, **kwargs)
         OFF_par = args[2]
         shutil.copyfile(data_dir / 'offset_fit.start', OFF_par)
-        return result[0], 'final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943', ''
+        return result[0], ['final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943'], []
 
     # raspwr needs to create a dummy bmp
     def raspwr_se(*args, **kwargs):
@@ -60,22 +60,22 @@ def get_test_context():
         return pgp.rashgt(*args, **kwargs)
 
     pgmock.raspwr.side_effect = raspwr_se
-    pgmock.raspwr.return_value = 0, '', ''
+    pgmock.raspwr.return_value = 0, [], []
 
     pgmock.offset_fit.side_effect = offset_fit_se
-    pgmock.offset_fit.return_value = 0, 'final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943', ''
+    pgmock.offset_fit.return_value = 0, ['final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943'], []
 
     pgmock.SLC_copy.side_effect = SLC_copy_se
-    pgmock.SLC_copy.return_value = 0, '', ''
+    pgmock.SLC_copy.return_value = 0, [], []
 
     pgmock.multi_look.side_effect = multi_look_se
-    pgmock.multi_look.return_value = 0, '', ''
+    pgmock.multi_look.return_value = 0, [], []
 
     pgmock.gc_map1.side_effect = gc_map1_se
-    pgmock.gc_map1.return_value = 0, '', ''
+    pgmock.gc_map1.return_value = 0, [], []
 
     pgmock.rashgt.side_effect = rashgt_se
-    pgmock.rashgt.return_value = 0, '', ''
+    pgmock.rashgt.return_value = 0, [], []
 
     # Copy test data
     shutil.copytree(Path(__file__).parent.absolute() / 'data' / '20151127', data_dir)

@@ -34,6 +34,7 @@ source {env}
 export OMP_NUM_THREADS={num_threads}
 export TMPDIR={workdir}
 gamma_insar ARD \
+    --proc-file {proc_file} \
     --vector-file-list {vector_file_list} \
     --start-date {start_date} \
     --end-date {end_date} \
@@ -41,7 +42,8 @@ gamma_insar ARD \
     --outdir {outdir} \
     --polarization '{json_polar}' \
     --workers {worker} \
-    --local-scheduler
+    --local-scheduler \
+    --cleanup {cleanup}
 """
 
 PBS_PACKAGE_TEMPLATE = r"""{pbs_resources}
@@ -74,6 +76,7 @@ def scatter(iterable, n):
 
 
 def _gen_pbs(
+    proc_file,
     scattered_tasklist,
     env,
     workdir,
@@ -85,6 +88,7 @@ def _gen_pbs(
     cpu_count,
     num_workers,
     num_threads,
+    cleanup
 ):
     """
     Generates a pbs scripts
@@ -105,6 +109,7 @@ def _gen_pbs(
         pbs = PBS_TEMPLATE.format(
             pbs_resources=pbs_resource,
             env=env,
+            proc_file=proc_file,
             vector_file_list=basename(out_fname),
             start_date=start_date,
             end_date=end_date,
@@ -113,6 +118,7 @@ def _gen_pbs(
             json_polar=json_polar,
             worker=num_workers,
             num_threads=num_threads,
+            cleanup="true" if cleanup else "false"
         )
 
         out_fname = pjoin(job_dir, FMT1.format(jobid=jobid))
@@ -142,6 +148,11 @@ def _submit_pbs(pbs_scripts, test):
 @click.command(
     "ard-insar",
     help="Equally partition a jobs into batches and submit each batch into the PBS queue.",
+)
+@click.option(
+    "--proc-file",
+    type=click.Path(exists=True, readable=True),
+    help="The file containing gamma process config variables",
 )
 @click.option(
     "--taskfile",
@@ -225,7 +236,15 @@ def _submit_pbs(pbs_scripts, test):
     help="mock the job submission to PBS queue",
     default=False,
 )
+@click.option(
+    "--cleanup",
+    type=click.BOOL,
+    is_flag=False,
+    help="If the job should cleanup the DEM/SLC directories after completion or not.",
+    default=False
+)
 def ard_insar(
+    proc_file: click.Path,
     taskfile: click.Path,
     start_date: click.DateTime,
     end_date: click.DateTime,
@@ -244,6 +263,7 @@ def ard_insar(
     project: click.STRING,
     env: click.Path,
     test: click.BOOL,
+    cleanup: click.BOOL
 ):
     """
     consolidates batch processing job script creation and submission of pbs jobs
@@ -305,6 +325,7 @@ def ard_insar(
         num_workers = workers
 
     pbs_scripts = _gen_pbs(
+        proc_file,
         scattered_tasklist,
         env,
         workdir,
@@ -316,6 +337,7 @@ def ard_insar(
         ncpus,
         num_workers,
         num_threads,
+        cleanup
     )
     _submit_pbs(pbs_scripts, test)
 
