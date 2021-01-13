@@ -407,6 +407,20 @@ def test_adjust_dem_parameter(monkeypatch):
         assert coreg.dem_patch_window == 512
 
 
+def test_failure_on_invalid_multilook(monkeypatch):
+    pgp, pgmock, data, temp_dir = get_test_context()
+    monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
+    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+
+    with temp_dir as temp_path:
+        outdir = Path(temp_path) / "20151127"
+        outdir.mkdir(parents=True, exist_ok=True)
+        data["multi_look"] = None
+
+        with pytest.raises(ValueError):
+            CoregisterDem(**data)
+
+
 def test_failure_on_invalid_dem_window_setting(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)

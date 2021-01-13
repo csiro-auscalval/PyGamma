@@ -74,6 +74,8 @@ class DemParFileParser:
 
 
 class CoregisterDem:
+    """TODO: DEM Coregistration docs"""
+
     def __init__(
         self,
         rlks: int,
@@ -161,6 +163,11 @@ class CoregisterDem:
         self.dem_snr = dem_snr
         self.dem_rad_max = dem_rad_max
         self.dem_ovr = dem_ovr
+
+        if multi_look is None:
+            msg = "multi_look parameter needs to be >= 1"
+            _LOG.error(msg)
+            raise ValueError(msg)
 
         self.multi_look = multi_look
         self.adjust_dem_parameters()
