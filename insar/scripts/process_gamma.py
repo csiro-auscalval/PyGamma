@@ -683,6 +683,11 @@ class CoregisterDemMaster(luigi.Task):
         )
         dem_par = dem.with_suffix(dem.suffix + ".par")
 
+        # Load the gamma proc config file
+        # TODO: pass in multi_looks as a param from Luigi if possible?
+        with open(str(self.proc_file), "r") as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj)
+
         coreg = CoregisterDem(
             rlks=rlks,
             alks=alks,
@@ -691,6 +696,7 @@ class CoregisterDemMaster(luigi.Task):
             dem_par=dem_par,
             slc_par=master_slc_par,
             dem_outdir=Path(self.outdir).joinpath(__DEM__),
+            multi_look=proc_config.multi_look,
         )
 
         coreg.main()
@@ -727,7 +733,7 @@ class CoregisterSlave(luigi.Task):
 
     def run(self):
         # Load the gamma proc config file
-        with open(str(self.proc_file), 'r') as proc_fileobj:
+        with open(str(self.proc_file), "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
         coreg_slave = CoregisterSlc(
