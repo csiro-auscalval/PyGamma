@@ -316,8 +316,11 @@ class CoregisterDem:
 
     def adjust_dem_parameters(self) -> None:
         """
-        TODO: expand comment to be less vague, i.e. why is it being adjusted? Fix settings that are too small?
-        Function to adjust the DEM parameters.
+        Adjusts DEM parameters to valid, usable values.
+
+        Ensures DEM window meets minimum size limits. Updates patch size for DEM co-registration to
+        handle resolution changes based on multi-look values, and to confirm valid patch window size
+        for offset estimation.
         """
         self.dem_window[0] = int(self.dem_window[0] / self.multi_look)
 
