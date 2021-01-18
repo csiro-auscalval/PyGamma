@@ -10,10 +10,10 @@ import structlog
 from PIL import Image
 import numpy as np
 
-#from insar.py_gamma_ga import pg
+
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
-from insar.subprocess_utils import working_directory, run_command, environ
-from insar.logs import get_wrapped_logger
+from insar.subprocess_utils import working_directory, run_command
+from insar import constant as const
 
 _LOG = structlog.get_logger("insar")
 
@@ -27,6 +27,7 @@ pg = GammaInterface(
         subprocess_wrapper, CoregisterDemException, _LOG
     )
 )
+
 
 class SlcParFileParser:
     def __init__(self, par_file: Union[Path, str],) -> None:
@@ -73,6 +74,8 @@ class DemParFileParser:
 
 
 class CoregisterDem:
+    """TODO: DEM Coregistration docs"""
+
     def __init__(
         self,
         rlks: int,
@@ -90,6 +93,7 @@ class CoregisterDem:
         dem_snr: Optional[float] = 0.15,
         dem_rad_max: Optional[int] = 4,
         dem_ovr: int = 1,
+        multi_look: int = None,
         dem_outdir: Optional[Union[Path, str]] = None,
         slc_outdir: Optional[Union[Path, str]] = None,
         ext_image_flt: Optional[Union[Path, str]] = None,
@@ -110,13 +114,13 @@ class CoregisterDem:
             A full path to a SLC parameter file.
         :param dem_patch_window:
             An Optional DEM patch window size.
-        :param r_pos:
+        :param dem_rpos:
             An Optional range 'rpos' value.
-        :param azpos:
+        :param dem_azpos:
             An Optional azimuth 'azpos' value.
         :param dem_offset:
             An Optional dem offset value.
-        :param dem offset measure:
+        :param dem_offset_measure:
             An Optional dem offset measure value.
         :param dem_window:
             An Optional dem window value.
@@ -126,6 +130,8 @@ class CoregisterDem:
             An Optional dem rad max value.
         :param dem_ovr:
             DEM oversampling factor. Default is 1.
+        :param multi_look:
+            TODO: docs
         :param dem_outdir:
             An Optional full path to store dem files.
         :param slc_outdir:
@@ -133,7 +139,7 @@ class CoregisterDem:
         :param ext_image_flt:
             An Optional full path to an external image filter to be used in co-registration.
         """
-
+        # TODO: refactor all the paths/use ProcConfig, DemConfig ??
         self.alks = alks
         self.rlks = rlks
         self.dem = dem
@@ -142,6 +148,7 @@ class CoregisterDem:
         self.slc_par = Path(slc_par)
         self.dem_outdir = dem_outdir
         self.slc_outdir = slc_outdir
+
         if self.dem_outdir is None:
             self.dem_outdir = Path(os.getcwd())
         if self.slc_outdir is None:
@@ -157,9 +164,13 @@ class CoregisterDem:
         self.dem_rad_max = dem_rad_max
         self.dem_ovr = dem_ovr
 
-        # adjust dem parameters for range looks greater than 1
-        if self.rlks > 1:
-            self.adjust_dem_parameter()
+        if multi_look is None:
+            msg = "multi_look parameter needs to be >= 1"
+            _LOG.error(msg)
+            raise ValueError(msg)
+
+        self.multi_look = multi_look
+        self.adjust_dem_parameters()
 
         self.dem_master_slc = self.slc
         self.dem_master_slc_par = self.slc_par
@@ -303,46 +314,57 @@ class CoregisterDem:
             eqa_dem_params = DemParFileParser(self.eqa_dem_par)
             self.dem_width = eqa_dem_params.dem_par_params.width
 
-    def adjust_dem_parameter(self) -> None:
+    def adjust_dem_parameters(self) -> None:
         """
-        Function to adjust the DEM parameters.
+        Adjusts DEM parameters to valid, usable values.
+
+        Ensures DEM window meets minimum size limits. Updates patch size for DEM co-registration to
+        handle resolution changes based on multi-look values, and to confirm valid patch window size
+        for offset estimation.
         """
+        self.dem_window[0] = int(self.dem_window[0] / self.multi_look)
 
-        self.dem_window[0] = int(self.dem_window[0] / self.rlks)
-        if self.dem_window[0] < 8:
-            win1 = round(self.dem_window[0] * self.rlks) * 2
-            _LOG.info(
-                "increasing DEM window1 size",
-                old_window=self.dem_window[0],
-                new_window=win1,
-            )
-            self.dem_window[0] = win1
+        msg = "increase DEM_WIN to fix window size (needs to be DEM_WIN/multi_look >=8)"
+        if self.dem_window[0] < const.MIN_DEM_WIN_AXIS:
+            _LOG.info(msg, old_dem_window0=self.dem_window[0])
+            raise ValueError(msg)  # fail fast to force bad settings to be fixed
 
-        self.dem_window[1] = int(self.dem_window[1] / self.rlks)
-        if self.dem_window[1] < 8:
-            win2 = round(self.dem_window[1] * self.rlks) * 2
-            _LOG.info(
-                "increasing DEM window2 size",
-                old_window=self.dem_window[1],
-                new_window=win2,
-            )
-            self.dem_window[1] = win2
+        if self.dem_window[0] % 2:
+            # must be an even number for Gamma's 'offset_pwrm' to work
+            self.dem_window[0] += 1
 
-        if self.dem_patch_window / self.rlks < 128.0:
+        self.dem_window[1] = int(self.dem_window[1] / self.multi_look)
+
+        if self.dem_window[1] < const.MIN_DEM_WIN_AXIS:
+            _LOG.info(msg, old_dem_window1=self.dem_window[1])
+            raise ValueError(msg)  # fail fast to force bad settings to be fixed
+
+        if self.dem_window[1] % 2:
+            # must be an even number for Gamma's 'offset_pwrm' to work
+            self.dem_window[1] += 1
+
+        # adjust patch size
+        self.dem_patch_window = int(self.dem_patch_window / self.multi_look)
+        min_patch_size = min(const.INIT_OFFSETM_CORRELATION_PATCH_SIZES)
+
+        if self.dem_patch_window < min_patch_size:
+            self.dem_patch_window = min_patch_size
+
             _LOG.info(
                 "increasing DEM patch window",
                 old_patch_window=self.dem_patch_window,
-                new_patch_window=128,
+                new_patch_window=min_patch_size,
             )
-            self.dem_patch_window = 128
 
-        self.dem_offset[0] = int(self.dem_offset[0] / self.rlks)
-        self.dem_offset[1] = int(self.dem_offset[1] / self.rlks)
+        # adjust offsets
+        self.dem_offset[0] = int(self.dem_offset[0] / self.multi_look)
+        self.dem_offset[1] = int(self.dem_offset[1] / self.multi_look)
 
         if self.dem_rpos is not None:
-            self.dem_rpos = int(self.dem_rpos / self.rlks)
+            self.dem_rpos = int(self.dem_rpos / self.multi_look)
+
         if self.dem_azpos is not None:
-            self.dem_azpos = int(self.dem_azpos / self.rlks)
+            self.dem_azpos = int(self.dem_azpos / self.multi_look)
 
     def copy_slc(self, raster_out: Optional[bool] = True,) -> None:
         """
@@ -419,7 +441,7 @@ class CoregisterDem:
                 lr,
                 rasf_pathname,
             )
-            
+
     def gen_dem_rdc(self, use_external_image: Optional[bool] = False,) -> None:
         """
         Generate DEM coregistered to slc in rdc geometry.
@@ -685,13 +707,13 @@ class CoregisterDem:
         gc_out_pathname = str(self.dem_lt_fine)
 
         pg.gc_map_fine(
-            gc_in_pathname,
+            gc_in_pathname,  # geocoding lookup table
             width,
             diff_par_pathname,
             gc_out_pathname,
             ref_flg,
         )
-        
+
         # generate refined gamma0 pixel normalization area image in radar geometry
         with tempfile.TemporaryDirectory() as temp_dir:
             pix = Path(temp_dir).joinpath("pix")
@@ -779,11 +801,7 @@ class CoregisterDem:
             mode = 2  # multiplication
 
             pg.float_math(
-                d1_pathname,
-                d2_pathname,
-                d_out_pathname,
-                width,
-                mode,
+                d1_pathname, d2_pathname, d_out_pathname, width, mode,
             )
 
             d1_pathname = str(temp1)
@@ -793,11 +811,7 @@ class CoregisterDem:
             mode = 3  # division
 
             pg.float_math(
-                d1_pathname,
-                d2_pathname,
-                d_out_pathname,
-                width,
-                mode,
+                d1_pathname, d2_pathname, d_out_pathname, width, mode,
             )
 
             # create raster for comparison with master mli raster
@@ -962,7 +976,9 @@ class CoregisterDem:
                 rasf_pathname,
             )
 
-            Image.open(rdc_dem_bmp).save(self.dem_outdir.joinpath(self.rdc_dem.stem).with_suffix(".png"))
+            Image.open(rdc_dem_bmp).save(
+                self.dem_outdir.joinpath(self.rdc_dem.stem).with_suffix(".png")
+            )
 
         # Geocode simulated SAR intensity image to radar geometry
         lookup_table_pathname = str(self.dem_lt_fine)
@@ -994,7 +1010,7 @@ class CoregisterDem:
             rad_max,
             nintr,
         )
-        
+
         # Geocode local incidence angle image to radar geometry
         lookup_table_pathname = str(self.dem_lt_fine)
         data_in_pathname = str(self.dem_loc_inc)
@@ -1112,9 +1128,11 @@ class CoregisterDem:
 
         # Convert the bitmap to a PNG w/ black pixels made transparent
         img = Image.open(self.dem_master_gamma0_eqa_bmp.as_posix())
-        img = np.array(img.convert('RGBA'))
+        img = np.array(img.convert("RGBA"))
         img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
-        Image.fromarray(img).save(self.dem_master_gamma0_eqa_bmp.with_suffix(".png").as_posix())
+        Image.fromarray(img).save(
+            self.dem_master_gamma0_eqa_bmp.with_suffix(".png").as_posix()
+        )
 
         # geotiff gamma0 file
         dem_par_pathname = str(self.eqa_dem_par)
@@ -1124,11 +1142,7 @@ class CoregisterDem:
         nodata = 0.0
 
         pg.data2geotiff(
-            dem_par_pathname,
-            data_pathname,
-            dtype,
-            geotiff_pathname,
-            nodata,
+            dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
         )
 
         # geocode and geotif sigma0 mli
@@ -1165,11 +1179,7 @@ class CoregisterDem:
         nodata = 0.0
 
         pg.data2geotiff(
-            dem_par_pathname,
-            data_pathname,
-            dtype,
-            geotiff_pathname,
-            nodata,
+            dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
         )
 
         # geotiff DEM
@@ -1180,11 +1190,7 @@ class CoregisterDem:
         nodata = 0.0
 
         pg.data2geotiff(
-            dem_par_pathname,
-            data_pathname,
-            dtype,
-            geotiff_pathname,
-            nodata,
+            dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
         )
 
         # create kml
@@ -1193,9 +1199,7 @@ class CoregisterDem:
         kml_pathname = str(self.dem_master_gamma0_eqa_bmp.with_suffix(".kml"))
 
         pg.kml_map(
-            image_pathname,
-            dem_par_pathname,
-            kml_pathname,
+            image_pathname, dem_par_pathname, kml_pathname,
         )
 
         # clean up now intermittent redundant files.
@@ -1240,13 +1244,9 @@ class CoregisterDem:
         nodata = 0.0
 
         pg.data2geotiff(
-            dem_par_pathname,
-            data_pathname,
-            dtype,
-            geotiff_pathname,
-            nodata,
+            dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
         )
-        
+
         dem_par_pathname = str(self.eqa_dem_par)
         data_pathname = str(self.dem_lv_phi)
         dtype = 2  # FLOAT
@@ -1254,11 +1254,7 @@ class CoregisterDem:
         nodata = 0.0
 
         pg.data2geotiff(
-            dem_par_pathname,
-            data_pathname,
-            dtype,
-            geotiff_pathname,
-            nodata,
+            dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
         )
 
     def main(self):

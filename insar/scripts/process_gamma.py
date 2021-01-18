@@ -111,7 +111,9 @@ def get_scenes(burst_data_csv):
     return frames_data
 
 
-def find_scenes_in_range(master_dt, date_list, thres_days: int, include_closest: bool = True):
+def find_scenes_in_range(
+    master_dt, date_list, thres_days: int, include_closest: bool = True
+):
     """
     Creates a list of frame dates that within range of a master date.
 
@@ -176,11 +178,15 @@ def find_scenes_in_range(master_dt, date_list, thres_days: int, include_closest:
     # Use closest scene if none are in threshold window
     if include_closest:
         if len(tree_lhs) == 0 and closest_lhs is not None:
-            _LOG.info(f"Date difference to closest slave greater than {thres_days} days, using closest slave only: {closest_lhs}")
+            _LOG.info(
+                f"Date difference to closest slave greater than {thres_days} days, using closest slave only: {closest_lhs}"
+            )
             tree_lhs = [closest_lhs]
 
         if len(tree_rhs) == 0 and closest_rhs is not None:
-            _LOG.info(f"Date difference to closest slave greater than {thres_days} days, using closest slave only: {closest_rhs}")
+            _LOG.info(
+                f"Date difference to closest slave greater than {thres_days} days, using closest slave only: {closest_rhs}"
+            )
             tree_rhs = [closest_rhs]
 
     return tree_lhs, tree_rhs
@@ -810,6 +816,11 @@ class CoregisterDemMaster(luigi.Task):
         )
         dem_par = dem.with_suffix(dem.suffix + ".par")
 
+        # Load the gamma proc config file
+        # TODO: pass in multi_looks as a param from Luigi if possible?
+        with open(str(self.proc_file), "r") as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj)
+
         coreg = CoregisterDem(
             rlks=rlks,
             alks=alks,
@@ -818,6 +829,7 @@ class CoregisterDemMaster(luigi.Task):
             dem_par=dem_par,
             slc_par=master_slc_par,
             dem_outdir=Path(self.outdir).joinpath(__DEM__),
+            multi_look=proc_config.multi_look,
         )
 
         coreg.main()
@@ -855,7 +867,7 @@ class CoregisterSlave(luigi.Task):
 
     def run(self):
         # Load the gamma proc config file
-        with open(str(self.proc_file), 'r') as proc_fileobj:
+        with open(str(self.proc_file), "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
         coreg_slave = CoregisterSlc(
@@ -906,7 +918,7 @@ class CreateCoregisterSlaves(luigi.Task):
         log.info("co-register master-slaves task")
 
         # Load the gamma proc config file
-        with open(str(self.proc_file), 'r') as proc_fileobj:
+        with open(str(self.proc_file), "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
         slc_frames = get_scenes(self.burst_data_csv)
@@ -917,7 +929,9 @@ class CreateCoregisterSlaves(luigi.Task):
                 [dt.strftime(__DATE_FMT__) for dt, *_ in slc_frames]
             )
 
-        coreg_tree = create_slave_coreg_tree(master_scene, [dt for dt, _, _ in slc_frames])
+        coreg_tree = create_slave_coreg_tree(
+            master_scene, [dt for dt, _, _ in slc_frames]
+        )
 
         master_polarizations = [
             pols for dt, _, pols in slc_frames if dt.date() == master_scene
@@ -994,13 +1008,15 @@ class CreateCoregisterSlaves(luigi.Task):
             list_frames = [i for i in slc_frames if i[0].date() in list_dates]
 
             # Write list file
-            list_file_path = Path(proc_config.list_dir) / f'slaves{list_index}.list'
+            list_file_path = Path(proc_config.list_dir) / f"slaves{list_index}.list"
             if not list_file_path.parent.exists():
                 list_file_path.parent.mkdir(parents=True)
 
-            with open(list_file_path, 'w') as listfile:
-                list_date_strings = [dt.strftime(__DATE_FMT__) for dt, _, _ in list_frames]
-                listfile.write('\n'.join(list_date_strings))
+            with open(list_file_path, "w") as listfile:
+                list_date_strings = [
+                    dt.strftime(__DATE_FMT__) for dt, _, _ in list_frames
+                ]
+                listfile.write("\n".join(list_date_strings))
 
             # Bash passes '-' for slaves1.list, and list_index there after.
             if list_index > 1:
@@ -1085,7 +1101,9 @@ class ARD(luigi.WrapperTask):
     start_date = luigi.DateParameter(significant=False)
     end_date = luigi.DateParameter(significant=False)
     polarization = luigi.ListParameter(default=["VV", "VH"], significant=False)
-    cleanup = luigi.BoolParameter(default=False, significant=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING)
+    cleanup = luigi.BoolParameter(
+        default=False, significant=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
+    )
     outdir = luigi.Parameter(significant=False)
     workdir = luigi.Parameter(significant=False)
     database_name = luigi.Parameter()
