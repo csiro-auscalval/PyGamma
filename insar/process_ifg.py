@@ -2,13 +2,15 @@ import io
 import pathlib
 import subprocess
 from typing import Union
+from PIL import Image
+import numpy as np
 
 import structlog
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 import insar.constant as const
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
-
+from insar.subprocess_utils import working_directory
 
 _LOG = structlog.get_logger("insar")
 
@@ -49,8 +51,8 @@ class TempFileConfig:
         self.geocode_unwrapped_ifg = pathlib.Path("geocode_unw_ifg.tmp")
         self.geocode_flat_ifg = pathlib.Path("geocode_flat_ifg.tmp")
         self.geocode_filt_ifg = pathlib.Path("geocode_filt_ifg.tmp")
-        self.geocode_flat_coherence_file = pathlib.Path("geocode_flat_coherence_file.tmp")
-        self.geocode_filt_coherence_file = pathlib.Path("geocode_filt_coherence_file.tmp")
+        self.geocode_flat_coherence_file = pathlib.Path("geocode_flat_coherence_file.tmp.bmp")
+        self.geocode_filt_coherence_file = pathlib.Path("geocode_filt_coherence_file.tmp.bmp")
 
 
 # Customise Gamma shim to automatically handle basic error checking and logging
@@ -59,9 +61,6 @@ pg = GammaInterface(
 )
 
 
-# FIXME: set working dir (do outside workflow to reduce buried I/O)
-# mkdir -p $ifg_dir
-# cd $ifg_dir
 def run_workflow(
     pc: ProcConfig,
     ic: IfgFileNames,
@@ -70,15 +69,19 @@ def run_workflow(
     ifg_width: int,
     clean_up: bool,  # TODO: should clean_up apply to everything, or just specific steps?
 ):
-    _validate_input_files(ic)
+    if not ic.ifg_dir.exists():
+        ic.ifg_dir.mkdir(parents=True)
 
-    # future version might want to allow selection of steps (skipped for simplicity Oct 2020)
-    calc_int(pc, ic, clean_up)
-    generate_init_flattened_ifg(pc, ic, dc, clean_up)
-    generate_final_flattened_ifg(pc, ic, dc, tc, ifg_width, clean_up)
-    calc_filt(pc, ic, ifg_width)
-    calc_unw(pc, ic, tc, ifg_width, clean_up)  # this calls unw thinning
-    do_geocode(pc, ic, dc, tc, ifg_width)
+    with working_directory(ic.ifg_dir):
+        _validate_input_files(ic)
+
+        # future version might want to allow selection of steps (skipped for simplicity Oct 2020)
+        calc_int(pc, ic, clean_up)
+        generate_init_flattened_ifg(pc, ic, dc, clean_up)
+        generate_final_flattened_ifg(pc, ic, dc, tc, ifg_width, clean_up)
+        calc_filt(pc, ic, ifg_width)
+        calc_unw(pc, ic, tc, ifg_width, clean_up)  # this calls unw thinning
+        do_geocode(pc, ic, dc, tc, ifg_width)
 
 
 def _validate_input_files(ic: IfgFileNames):
@@ -275,10 +278,10 @@ def generate_init_flattened_ifg(
 
     if clean_up:
         remove_files(
-            ic.ifg_base_temp,
+            #ic.ifg_base_temp, - TBD: These aren't used?
             ic.ifg_base_res,
             ic.ifg_base_init,
-            ic.ifg_flat_temp,
+            #ic.ifg_flat_temp,
             ic.ifg_sim_unw0,
             ic.ifg_flat0,
         )
@@ -624,7 +627,7 @@ def calc_unw(
 
     if (
         const.RASCC_MIN_THINNING_THRESHOLD
-        <= pc.multi_look
+        <= int(pc.multi_look)
         <= const.RASCC_THINNING_THRESHOLD
     ):
         unwrapped_tmp = calc_unw_thinning(pc, ic, tc, ifg_width, clean_up=clean_up)
@@ -669,7 +672,7 @@ def calc_unw_thinning(
     """
     # Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser
     # network which can be interpolated and used as a model for unwrapping the full interferogram
-    thresh_1st = pc.ifg_coherence_threshold + const.RASCC_THRESHOLD_INCREMENT
+    thresh_1st = float(pc.ifg_coherence_threshold) + const.RASCC_THRESHOLD_INCREMENT
     thresh_max = thresh_1st + const.RASCC_THRESHOLD_INCREMENT
 
     pg.rascc_mask_thinning(
@@ -1102,28 +1105,15 @@ def rascc_wrapper(
 
 def convert(input_file: Union[pathlib.Path, str]):
     """
-    Run an ImageMagick command to convert a BMP to PNG.
-    :param input_file: BMP
+    Converts a BMP image to PNG.
+    :param input_file: The path to the bmp image to convert
     """
-    args = [
-        input_file,  # a BMP
-        "-transparent black",
-        input_file.with_suffix(".png"),
-    ]
 
-    try:
-        subprocess.run(
-            args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-            check=True,
-        )
-        _LOG.info("Calling ImageMagick's convert", args=args)
-    except subprocess.CalledProcessError as cpe:
-        msg = "failed to execute ImageMagick's convert"
-        _LOG.error(msg, stat=cpe.returncode, stdout=cpe.stdout, stderr=cpe.stderr)
-        raise cpe
+    # Convert the bitmap to a PNG w/ black pixels made transparent
+    img = Image.open(input_file)
+    img = np.array(img.convert('RGBA'))
+    img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
+    Image.fromarray(img).save(input_file.with_suffix(".png"))
 
 
 def kml_map(

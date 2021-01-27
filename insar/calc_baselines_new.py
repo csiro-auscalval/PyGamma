@@ -298,7 +298,10 @@ class BaselineProcess:
         )
 
         if outfile is None:
-            outfile = Path(self.outdir).joinpath("ifg_list")
+            outfile = Path(self.outdir) / "lists" / "ifgs.list"
+
+            if not outfile.parent.exists():
+                outfile.parent.mkdir(parents=True)
 
         with open(outfile.as_posix(), "w") as fid:
             for ep1, ep2 in zip(epoch1, epoch2):

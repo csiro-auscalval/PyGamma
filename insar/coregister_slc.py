@@ -167,6 +167,7 @@ class CoregisterSlc:
             )
 
         self.r_dem_master_slc_par = self.slc_master.with_suffix(".slc.par")
+        self.r_dem_master_slc_par = self.r_dem_master_slc_par.parent / ("r" + self.r_dem_master_slc_par.name)
         if not self.r_dem_master_slc_par.exists():
             _LOG.error(
                 "DEM Master SLC par file not found",
@@ -216,9 +217,9 @@ class CoregisterSlc:
             A namedtuple containing the names of slc, par and tops_par.
         """
 
-        swath_par = f"{prefix}_iw{swath}.slc.par"
-        swath_tops_par = f"{prefix}_iw{swath}.slc.TOPS_par"
-        swath_slc = f"{prefix}_iw{swath}.slc"
+        swath_par = f"{prefix}_IW{swath}.slc.par"
+        swath_tops_par = f"{prefix}_IW{swath}.slc.TOPS_par"
+        swath_slc = f"{prefix}_IW{swath}.slc"
 
         # TODO: refactor to define in module scope
         swath_tab = namedtuple("swath_tab", ["slc", "par", "tops_par"])
@@ -568,7 +569,6 @@ class CoregisterSlc:
 
                     iteration += 1
 
-            # TODO this needs to be removed once fine co-registration step is implemented
             shutil.copy(slave_doff, self.slave_off)
 
     def _read_line(
@@ -719,7 +719,8 @@ class CoregisterSlc:
                     r_coreg_slave_tab = f'{self.proc.slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
 
                 # S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $self.proc.coreg_s1_cc_thresh $self.proc.coreg_s1_frac_thresh $self.proc.coreg_s1_stdev_thresh $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
-                azpol = self.S1_COREG_OVERLAP(
+                daz, azpol = self.S1_COREG_OVERLAP(
+                    iteration,
                     slave_ovr_res,
                     str(self.out_dir / self.r_master_slave_name),
                     str(self.master_slc_tab),
@@ -733,7 +734,7 @@ class CoregisterSlc:
                 )  # TODO: cout -> $slave_off.az_ovr.$it.out
 
                 # daz=`awk '$1 == "azimuth_pixel_offset" {print $2}' $slave_off.az_ovr.$it.out`
-                daz = azpol[0]  # we return this directly from S1_COREG_OVERLAP (no need to keep reading the file over and over like bash does)
+                # ^--> we return this directly from S1_COREG_OVERLAP (no need to keep reading the file over and over like bash does)
 
                 # cp -rf $slave_off $slave_off.az_ovr.$it
                 shutil.copy(self.slave_off, f"{self.slave_off}.az_ovr.{iteration}")
@@ -746,6 +747,7 @@ class CoregisterSlc:
 
     def S1_COREG_OVERLAP(
         self,
+        iteration,
         slave_ovr_res,
         r_master_slave_name,
         master_slc_tab,
@@ -761,6 +763,9 @@ class CoregisterSlc:
         samples_all = 0
         sum_all = 0.0
         sum_weight_all = 0.0
+
+        def log_info(msg):
+            _LOG.info(msg, az_ovr_iter=iteration)
 
         # determine number of rows and columns of tab file and read burst SLC filenames from tab files
         master_IWs = self.READ_TAB(master_slc_tab)
@@ -784,24 +789,24 @@ class CoregisterSlc:
 
         # lines offset between start of burst1 and start of burst2
         lines_offset_IWi[0] = calc_line_offset(master_IWs[0])
-        _LOG.info(f"lines_offset_IW1: {lines_offset_IWi[0]}")
+        log_info(f"lines_offset_IW1: {lines_offset_IWi[0]}")
 
         if master_IWs[1] is not None:
             lines_offset_IWi[1] = calc_line_offset(master_IWs[1])
-            _LOG.info(f"lines_offset_IW2: {lines_offset_IWi[1]}")
+            log_info(f"lines_offset_IW2: {lines_offset_IWi[1]}")
 
         if master_IWs[2] is not None:
             lines_offset_IWi[2] = calc_line_offset(master_IWs[2])
-            _LOG.info(f"lines_offset_IW3: {lines_offset_IWi[2]}")
+            log_info(f"lines_offset_IW3: {lines_offset_IWi[2]}")
 
         # calculate lines_offset for the second scene (for comparsion)
-        _LOG.info(f"lines_offset_IW1: {calc_line_offset(r_slave_IWs[0])}")
+        log_info(f"lines_offset_IW1: {calc_line_offset(r_slave_IWs[0])}")
 
         if r_slave_IWs[1] is not None:
-            _LOG.info(f"lines_offset_IW2: {calc_line_offset(r_slave_IWs[1])}")
+            log_info(f"lines_offset_IW2: {calc_line_offset(r_slave_IWs[1])}")
 
         if r_slave_IWs[2] is not None:
-            _LOG.info(f"lines_offset_IW3: {calc_line_offset(r_slave_IWs[2])}")
+            log_info(f"lines_offset_IW3: {calc_line_offset(r_slave_IWs[2])}")
 
         # set some parameters used
         master_IW1_par = pg.ParFile(master_IWs[0].par)
@@ -812,10 +817,10 @@ class CoregisterSlc:
         dt = 0.159154 / dDC
         dpix_factor = dt / azimuth_line_time
 
-        _LOG.info(f"dDC {dDC} Hz")
-        _LOG.info(f"dt {dt} s")
-        _LOG.info(f"dpix_factor {dpix_factor} azimuth pixel")
-        _LOG.info(f"azimuth pixel offset = {dpix_factor} * average_phase_offset")
+        log_info(f"dDC {dDC} Hz")
+        log_info(f"dt {dt} s")
+        log_info(f"dpix_factor {dpix_factor} azimuth pixel")
+        log_info(f"azimuth pixel offset = {dpix_factor} * average_phase_offset")
 
         ###################
         # determine phase offsets for sub-swath overlap regions
@@ -846,7 +851,7 @@ class CoregisterSlc:
             for i in range(1, number_of_bursts_IWi):
                 starting_line1 = lines_offset + (i - 1)*lines_per_burst
                 starting_line2 = i*lines_per_burst
-                _LOG.info(f"{i} {starting_line1} {starting_line2}")
+                log_info(f"{i} {starting_line1} {starting_line2}")
 
                 # custom file names to enable parallel processing of slave coregistration
                 mas_IWi_slc = r_master_slave_name + f"_{IWid}_slc"
@@ -916,7 +921,7 @@ class CoregisterSlc:
                 int1 = Path(f"{r_master_slave_name}.{IWid}.{i}.int1")
                 _unlink(off1)
                 _unlink(int1)
-                
+
                 # create_offset $mas_IWi_par.{i}.1 $mas_IWi_par.{i}.1 $off1 1 1 1 0
                 pg.create_offset(
                     f"{mas_IWi_par}.{i}.1",
@@ -1030,8 +1035,8 @@ class CoregisterSlc:
                 # TBD: awk does /2, and everything in awk is a float... but was this actually intended? (odd / 2 would result in a fraction)
                 range_samples20_half = range_samples20 / 2
                 azimuth_lines20_half = azimuth_lines20 / 2
-                _LOG.info(f"range_samples20_half: {range_samples20_half}")
-                _LOG.info(f"azimuth_samples20_half: {azimuth_lines20_half}")
+                log_info(f"range_samples20_half: {range_samples20_half}")
+                log_info(f"azimuth_lines20_half: {azimuth_lines20_half}")
 
                 # determine coherence and coherence mask based on unfiltered double differential interferogram
                 diff20cc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc")
@@ -1121,7 +1126,7 @@ class CoregisterSlc:
 
                 if diff20cc.exists():
                     diff20ccstat = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.stat")
-                    
+
                     # image_stat $diff20cc $range_samples20 - - - - $diff20ccstat
                     pg.image_stat(
                         str(diff20cc),
@@ -1132,12 +1137,12 @@ class CoregisterSlc:
                         const.NOT_PROVIDED,
                         str(diff20ccstat)
                     )
-                    
+
                     diff20ccstat = self._grep_offset_parameter(diff20ccstat)
                     cc_mean = float(diff20ccstat["mean"][0])
                     cc_stdev = float(diff20ccstat["stdev"][0])
                     cc_fraction = float(diff20ccstat["fraction_valid"][0])
-                
+
                 # Check size of diff20phase file if it exists (I assume there's been issues with partial failures in the past?)
                 diff20phase_size = diff20phase.stat().st_size if diff20phase.exists() else 0
 
@@ -1160,7 +1165,7 @@ class CoregisterSlc:
                     stdev = float(diff20phasestat["stdev"][0])
                     fraction = float(diff20phasestat["fraction_valid"][0])
 
-                _LOG.info(f"cc_fraction1000: {cc_fraction * 1000.0}")
+                log_info(f"cc_fraction1000: {cc_fraction * 1000.0}")
 
                 # only for overlap regions with a significant area with high coherence and phase standard deviation < slave_s1_stdev
                 weight = 0.0
@@ -1174,21 +1179,21 @@ class CoregisterSlc:
 
                     sum_all += mean * fraction
                     samples_all += 1
-                    sum_weight_all = fraction
+                    sum_weight_all += fraction
 
                 # calculate average over the first sub-swath and print it out to output text file
                 if fraction > 0:
-                    _LOG.info(f"{IWid} {i} {mean} {stdev} {fraction} ({cc_mean} {cc_stdev} {cc_fraction}) {weight}")
+                    log_info(f"{IWid} {i} {mean} {stdev} {fraction} ({cc_mean} {cc_stdev} {cc_fraction}) {weight}")
                     slave_ovr_res.write(f"{IWid} {i} {mean} {stdev} {fraction} ({cc_mean} {cc_stdev} {cc_fraction}) {weight}\n")
 
                 else:
-                    _LOG.info(f"{IWid} {i} 0.00000 0.00000 0.00000 ({cc_mean} {cc_stdev} {cc_fraction}) {weight}")
+                    log_info(f"{IWid} {i} 0.00000 0.00000 0.00000 ({cc_mean} {cc_stdev} {cc_fraction}) {weight}")
                     slave_ovr_res.write(f"{IWid} {i} 0.00000 0.00000 0.00000 ({cc_mean} {cc_stdev} {cc_fraction}) {weight}\n")
 
 
             # Compute average
             average = sum / sum_weight if samples > 0 else 0.0
-            _LOG.info(f"{IWid} average: {average}")
+            log_info(f"{IWid} average: {average}")
             slave_ovr_res.write(f"{IWid} average: {average}\n")
 
         calc_phase_offsets(1)  # IW1
@@ -1203,12 +1208,12 @@ class CoregisterSlc:
         else:
             average_all = 0.0
 
-        _LOG.info(f"all {average_all}")
+        log_info(f"all {average_all}")
         slave_ovr_res.write(f"all {average_all}")
 
         # conversion of phase offset (in radian) to azimuth offset (in SLC pixel)
         azimuth_pixel_offset = -dpix_factor * average_all
-        _LOG.info(f"azimuth_pixel_offset {azimuth_pixel_offset} [azimuth SLC pixel]")
+        log_info(f"azimuth_pixel_offset {azimuth_pixel_offset} [azimuth SLC pixel]")
         slave_ovr_res.write(f"azimuth_pixel_offset {azimuth_pixel_offset} [azimuth SLC pixel]")
 
         # correct offset file for determined additional azimuth offset
@@ -1216,7 +1221,7 @@ class CoregisterSlc:
         azpol = [float(x) for x in azpol]
 
         azpol[0] = azpol[0] + azimuth_pixel_offset
-        _LOG.info(f"azpol_1_out {' '.join([str(i) for i in azpol])}")
+        log_info(f"azpol_1_out {' '.join([str(i) for i in azpol])}")
 
         # set_value $slave_off_start $slave_off azimuth_offset_polynomial $azpol_1_out $azpol_2 $azpol_3 $azpol_4 $azpol_5 $azpol_6 0
         pg.set_value(
@@ -1227,7 +1232,7 @@ class CoregisterSlc:
             0
         )
 
-        return azpol
+        return azimuth_pixel_offset, azpol
 
     def resample_full(self):
         """Resample full data set"""

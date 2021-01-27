@@ -133,6 +133,29 @@ class SlcProcess:
         ]
         return safe_files
 
+    def read_scene_date(self):
+        """Reads Sentinel-1 SLC data to determine the acquisition date of the scene"""
+
+        _dt = None
+
+        # Read raw data, and take the earliest start date
+        for save_file in self.slc_safe_files():
+            _id = save_file.stem
+            # _id = basename of .SAFE folder, e.g.
+            # S1A_IW_SLC__1SDV_20180103T191741_20180103T191808_019994_0220EE_1A2D
+
+            # add start time to dict
+            dt_start = re.findall("[0-9]{8}T[0-9]{6}", _id)[0]
+            start_datetime = datetime.datetime.strptime(dt_start, "%Y%m%dT%H%M%S")
+
+            # Note: Repeating this assignment here as the second pass doesn't read_raw_data, it uses this function.
+            self.acquisition_date = start_datetime.date()
+
+            if _dt is None or start_datetime < _dt:
+                _dt = start_datetime
+
+        return _dt
+
     def read_raw_data(self):
         """Reads Sentinel-1 SLC data and generate SLC parameter file."""
 
@@ -716,7 +739,8 @@ class SlcProcess:
             _make_png(tab)
 
     def main(
-        self, write_png=True,
+        self,
+        write_png: bool = True,
     ):
         """Main method to execute SLC processing sequence need to produce SLC."""
         work_dir = self.output_dir.joinpath(self.scene_date)
@@ -725,10 +749,32 @@ class SlcProcess:
             self.read_raw_data()
             self.concatenate()
             self.phase_shift()
-            self.mosaic_slc()
+            # Note: This is hard-coded to 8, 2 now to match Bash until a final solution
+            # is devised...
+            self.mosaic_slc(8, 2)
             self.orbits()
             self.frame_subset()
-            self.mosaic_slc()
+
+    def main_subset(
+        self,
+        rlks: int,
+        alks: int,
+        write_png: bool = True,
+    ):
+        """Main method to execute SLC processing sequence needed to produce SLC frame subset mosaic."""
+        work_dir = self.output_dir.joinpath(self.scene_date)
+        work_dir.mkdir(exist_ok=True)
+
+        with working_directory(work_dir):
+            # Get slc_prefix/tab based on acquisition date
+            _dt = self.read_scene_date()
+            self.slc_prefix = "{0:04}{1:02}{2:02}".format(_dt.year, _dt.month, _dt.day)
+            self.slc_tab = work_dir / "{}_{}_tab".format(self.slc_prefix, self.polarization)
+
+            # Run remainder of S1 SLC processing (second mosaic on subsetted data)
+            # self.frame_subset() - Note: I've kept frame_subset in the first pass, it doesn't need rlks/alks and I
+            # can't figure out why it doesn't work running in the second pass...
+            self.mosaic_slc(rlks, alks)
 
             if write_png:
                 self.burst_images()

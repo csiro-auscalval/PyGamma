@@ -209,9 +209,9 @@ class SlcFilenames(Enum):
     SLC_TOPS_PAR_FILENAME = "{}_{}.slc.TOPS_par"
     SLC_TAB_FILENAME = "{}_{}_tab"
 
-    SLC_IW_FILENAME = "{}_{}_iw{}.slc"
-    SLC_IW_PAR_FILENAME = "{}_{}_iw{}.slc.par"
-    SLC_IW_TOPS_PAR_FILENAME = "{}_{}_iw{}.slc.TOPS_par"
+    SLC_IW_FILENAME = "{}_{}_IW{}.slc"
+    SLC_IW_PAR_FILENAME = "{}_{}_IW{}.slc.par"
+    SLC_IW_TOPS_PAR_FILENAME = "{}_{}_IW{}.slc.TOPS_par"
 
 
 class MliFilenames(Enum):

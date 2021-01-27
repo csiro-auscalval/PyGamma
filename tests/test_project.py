@@ -34,8 +34,6 @@ def test_read_proc_file():
         pv.nci_path, pv.project, pv.sensor
     )
     assert pv.raw_data_track_dir.as_posix() == "{}/{}".format(pv.raw_data_dir, pv.track)
-    assert pv.gamma_dem_dir.as_posix() == "{}/gamma_dem".format(pv.proj_dir)
-    assert pv.results_dir.as_posix() == "{}/{}/results".format(pv.proj_dir, pv.track)
     assert pv.dem_noff1 == "0"
     assert pv.dem_noff2 == "0"
     assert pv.ifg_rpos == pv.dem_rpos
@@ -70,6 +68,7 @@ def mproc():
     mock_proc = Mock()
     mock_proc.batch_job_dir = BATCH_BASE
     mock_proc.manual_job_dir = MANUAL_BASE
+    mock_proc.proj_dir = pathlib.Path("tmp/")
     mock_proc.slc_dir = "slc-dir"
     mock_proc.ref_master_scene = "ref-master-scene"
     mock_proc.polarisation = "polarisation"
@@ -122,7 +121,7 @@ def test_sentinel1_pbs_job_dirs_none_setting(mproc):
 
 
 def test_default_dem_master_paths(mproc):
-    slc_dir = "slc-dir"
+    slc_dir = f"tmp/{mproc.track}/slc-dir"
     ref_master_scene = "ref-master-scene"
     polarisation = "polarisation"
     range_looks = "range-looks"
@@ -187,47 +186,63 @@ def test_default_dem_master_paths_none_setting(mproc):
 def test_default_dem_file_names(mproc):
     cfg = project.DEMFileNames(mproc)
 
-    assert cfg.dem == "{}/{}.dem".format(mproc.gamma_dem_dir, mproc.dem_name)
-    assert cfg.dem_par == "{}.par".format(cfg.dem)
-    assert cfg.dem_master_name == "{}/{}_{}_{}rlks".format(
-        mproc.dem_dir, mproc.ref_master_scene, mproc.polarisation, mproc.range_looks
+    outdir = pathlib.Path("tmp/") / mproc.track
+
+    assert cfg.dem.as_posix() == "tmp/{}/{}/{}.dem".format(
+        mproc.track, mproc.gamma_dem_dir, mproc.dem_name
+    )
+    assert cfg.dem_par.as_posix() == "{}.par".format(cfg.dem)
+    assert cfg.dem_master_name.as_posix() == "tmp/{}/{}/{}_{}_{}rlks".format(
+        mproc.track,
+        mproc.dem_dir,
+        mproc.ref_master_scene,
+        mproc.polarisation,
+        mproc.range_looks,
     )
 
-    assert cfg.dem_diff == "{}/diff_{}_{}_{}rlks.par".format(
-        mproc.dem_dir, mproc.ref_master_scene, mproc.polarisation, mproc.range_looks
+    assert cfg.dem_diff.as_posix() == "tmp/{}/{}/diff_{}_{}_{}rlks.par".format(
+        mproc.track,
+        mproc.dem_dir,
+        mproc.ref_master_scene,
+        mproc.polarisation,
+        mproc.range_looks,
     )
 
-    assert cfg.rdc_dem == cfg.dem_master_name + "_rdc.dem"
+    dem_master_name = cfg.dem_master_name
+
+    def tail(path, suffix):
+        return path.parent / (path.name + suffix)
+
+    assert cfg.rdc_dem == tail(dem_master_name, "_rdc.dem")
 
     # NB: rest of these are only string concatenation, so probably not worth testing!
-    dem_master_name = cfg.dem_master_name
-    assert cfg.eqa_dem == dem_master_name + "_eqa.dem"
+    assert cfg.eqa_dem == tail(dem_master_name, "_eqa.dem")
     # assert cfg.eqa_dem_par == eqa_dem.par
-    assert cfg.seamask == dem_master_name + "_eqa_seamask.tif"
-    assert cfg.dem_lt_rough == dem_master_name + "_rough_eqa_to_rdc.lt"
-    assert cfg.dem_lt_fine == dem_master_name + "_eqa_to_rdc.lt"
-    assert cfg.dem_eqa_sim_sar == dem_master_name + "_eqa.sim"
-    assert cfg.dem_rdc_sim_sar == dem_master_name + "_rdc.sim"
-    assert cfg.dem_loc_inc == dem_master_name + "_eqa.linc"
-    assert cfg.dem_rdc_inc == dem_master_name + "_rdc.linc"
-    assert cfg.dem_lsmap == dem_master_name + "_eqa.lsmap"
-    assert cfg.ellip_pix_sigma0 == dem_master_name + "_ellip_pix_sigma0"
-    assert cfg.dem_pix_gam == dem_master_name + "_rdc_pix_gamma0"
+    assert cfg.seamask == tail(dem_master_name, "_eqa_seamask.tif")
+    assert cfg.dem_lt_rough == tail(dem_master_name, "_rough_eqa_to_rdc.lt")
+    assert cfg.dem_lt_fine == tail(dem_master_name, "_eqa_to_rdc.lt")
+    assert cfg.dem_eqa_sim_sar == tail(dem_master_name, "_eqa.sim")
+    assert cfg.dem_rdc_sim_sar == tail(dem_master_name, "_rdc.sim")
+    assert cfg.dem_loc_inc == tail(dem_master_name, "_eqa.linc")
+    assert cfg.dem_rdc_inc == tail(dem_master_name, "_rdc.linc")
+    assert cfg.dem_lsmap == tail(dem_master_name, "_eqa.lsmap")
+    assert cfg.ellip_pix_sigma0 == tail(dem_master_name, "_ellip_pix_sigma0")
+    assert cfg.dem_pix_gam == tail(dem_master_name, "_rdc_pix_gamma0")
     # assert cfg.dem_pix_gam_bmp == dem_pix_gam".bmp"
-    assert cfg.dem_off == dem_master_name + ".off"
-    assert cfg.dem_offs == dem_master_name + ".offs"
-    assert cfg.dem_ccp == dem_master_name + ".ccp"
-    assert cfg.dem_offsets == dem_master_name + ".offsets"
-    assert cfg.dem_coffs == dem_master_name + ".coffs"
-    assert cfg.dem_coffsets == dem_master_name + ".coffsets"
-    assert cfg.dem_lv_theta == dem_master_name + "_eqa.lv_theta"
-    assert cfg.dem_lv_phi == dem_master_name + "_eqa.lv_phi"
-    assert cfg.ext_image_flt == dem_master_name + "_ext_img_sar.flt"
-    assert cfg.ext_image_init_sar == dem_master_name + "_ext_img_init.sar"
-    assert cfg.ext_image_sar == dem_master_name + "_ext_img.sar"
+    assert cfg.dem_off == tail(dem_master_name, ".off")
+    assert cfg.dem_offs == tail(dem_master_name, ".offs")
+    assert cfg.dem_ccp == tail(dem_master_name, ".ccp")
+    assert cfg.dem_offsets == tail(dem_master_name, ".offsets")
+    assert cfg.dem_coffs == tail(dem_master_name, ".coffs")
+    assert cfg.dem_coffsets == tail(dem_master_name, ".coffsets")
+    assert cfg.dem_lv_theta == tail(dem_master_name, "_eqa.lv_theta")
+    assert cfg.dem_lv_phi == tail(dem_master_name, "_eqa.lv_phi")
+    assert cfg.ext_image_flt == tail(dem_master_name, "_ext_img_sar.flt")
+    assert cfg.ext_image_init_sar == tail(dem_master_name, "_ext_img_init.sar")
+    assert cfg.ext_image_sar == tail(dem_master_name, "_ext_img.sar")
 
-    assert cfg.dem_check_file == "results-dir/track_DEM_coreg_results"
-    assert cfg.lat_lon_pix == "dem-dir/track_range-looksrlks_sar_latlon.txt"
+    assert cfg.dem_check_file == outdir / "results-dir/track_DEM_coreg_results"
+    assert cfg.lat_lon_pix == outdir / "dem-dir/track_range-looksrlks_sar_latlon.txt"
 
 
 def test_default_ifg_file_names(mproc):
@@ -235,40 +250,45 @@ def test_default_ifg_file_names(mproc):
     master = pathlib.Path("master")
     slave = pathlib.Path("slave")
     cfg = project.IfgFileNames(mproc, master, slave)
+    outdir = f"tmp/{mproc.track}"
+    intdir = f"{outdir}/INT"
+    slcdir = f"{outdir}/slc-dir"
 
-    assert cfg.ifg_dir.as_posix() == "INT/master-slave"
-    assert cfg.master_dir.as_posix() == "slc-dir/master"
-    assert cfg.slave_dir.as_posix() == "slc-dir/slave"
-    assert cfg.r_master_slc_name.as_posix() == "slc-dir/master/rmaster_polarisation"
-    assert cfg.r_master_slc.as_posix() == "slc-dir/master/rmaster_polarisation.slc"
-    assert cfg.r_master_slc_par.as_posix() == "slc-dir/master/rmaster_polarisation.par"
+    assert cfg.ifg_dir.as_posix() == f"{intdir}/master-slave"
+    assert cfg.master_dir.as_posix() == f"{slcdir}/master"
+    assert cfg.slave_dir.as_posix() == f"{slcdir}/slave"
+    assert cfg.r_master_slc_name.as_posix() == f"{slcdir}/master/rmaster_polarisation"
+    assert cfg.r_master_slc.as_posix() == f"{slcdir}/master/rmaster_polarisation.slc"
+    assert (
+        cfg.r_master_slc_par.as_posix() == f"{slcdir}/master/rmaster_polarisation.slc.par"
+    )
 
     assert (
         cfg.r_master_mli_name.as_posix()
-        == "slc-dir/master/rmaster_polarisation_range-looksrlks"
+        == f"{slcdir}/master/rmaster_polarisation_range-looksrlks"
     )
     assert (
         cfg.r_master_mli.as_posix()
-        == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli"
+        == f"{slcdir}/master/rmaster_polarisation_range-looksrlks.mli"
     )
     assert (
         cfg.r_master_mli_par.as_posix()
-        == "slc-dir/master/rmaster_polarisation_range-looksrlks.mli.par"
+        == f"{slcdir}/master/rmaster_polarisation_range-looksrlks.mli.par"
     )
 
-    assert cfg.r_slave_slc_name.as_posix() == "slc-dir/slave/rslave_polarisation"
-    assert cfg.r_slave_slc.as_posix() == "slc-dir/slave/rslave_polarisation.slc"
-    assert cfg.r_slave_slc_par.as_posix() == "slc-dir/slave/rslave_polarisation.slc.par"
+    assert cfg.r_slave_slc_name.as_posix() == f"{slcdir}/slave/rslave_polarisation"
+    assert cfg.r_slave_slc.as_posix() == f"{slcdir}/slave/rslave_polarisation.slc"
+    assert cfg.r_slave_slc_par.as_posix() == f"{slcdir}/slave/rslave_polarisation.slc.par"
 
     assert (
         cfg.r_slave_mli_name.as_posix()
-        == "slc-dir/slave/rslave_polarisation_range-looksrlks"
+        == f"{slcdir}/slave/rslave_polarisation_range-looksrlks"
     )
 
     # ignore vars after this as it's just testing string concatenation
     assert (
         cfg.master_slave_name.as_posix()
-        == "INT/master-slave/master-slave_polarisation_range-looksrlks"
+        == f"{intdir}/master-slave/master-slave_polarisation_range-looksrlks"
     )
 
     # tests for the GEOCODE() output filenames

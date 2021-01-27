@@ -3,6 +3,9 @@ import pathlib
 import functools
 import subprocess
 from unittest import mock
+from tempfile import TemporaryDirectory
+from PIL import Image
+import numpy as np
 
 import insar.constant as const
 from insar import process_ifg, py_gamma_ga
@@ -19,6 +22,8 @@ import pytest
 PG_RETURN_VALUE = (0, ["default-cout"], ["default-cerr"])
 PG_RETURN_VALUE_FAIL = (-1, ["cout-with-error"], ["cerr-with-error"])
 
+test_dir = TemporaryDirectory('test_process_ifg')
+
 
 @pytest.fixture
 def pg_int_mock():
@@ -28,15 +33,24 @@ def pg_int_mock():
     pg_mock.offset_pwr.return_value = PG_RETURN_VALUE
     pg_mock.offset_fit.return_value = PG_RETURN_VALUE
     pg_mock.create_diff_par.return_value = PG_RETURN_VALUE
+
     return pg_mock
 
 
 @pytest.fixture
 def pc_mock():
     """Returns basic mock to simulate a ProcConfig object."""
-    pc = mock.NonCallableMock(spec=ProcConfig)
+    with open(pathlib.Path(__file__).parent.absolute() / 'data' / '20151127' / 'gamma.proc', 'r') as fileobj:
+        proc_config = ProcConfig.from_file(fileobj)
+
+    pc = mock.NonCallableMock(spec=ProcConfig, wraps=proc_config)
     pc.multi_look = 2  # always 2 for Sentinel 1
     pc.ifg_coherence_threshold = 2.5  # fake value
+
+    mock_path = functools.partial(mock.MagicMock, spec=pathlib.Path)
+    pc.proj_dir = mock_path()
+    pc.raw_data_track_dir = mock_path()
+
     return pc
 
 
@@ -46,6 +60,12 @@ def ic_mock():
     ic = mock.NonCallableMock(spec=IfgFileNames)
 
     mock_path = functools.partial(mock.MagicMock, spec=pathlib.Path)
+    ic.ifg_dir = pathlib.Path(test_dir.name)
+    ic.master_dir = ic.ifg_dir / '20151103'
+    ic.slave_dir = ic.ifg_dir / '20151127'
+    ic.ifg_unw_geocode_bmp = ic.ifg_dir / 'ifg_unw_geocode.bmp'
+    ic.ifg_flat_geocode_bmp = ic.ifg_dir / 'ifg_flat_geocode.bmp'
+
     ic.ifg_bperp = mock_path()
     ic.r_master_slc = mock_path()
     ic.r_master_mli = mock_path()
@@ -71,20 +91,8 @@ def remove_mock():
     return rm
 
 
-@pytest.fixture
-def subprocess_mock():
-    """
-    Subprocess module replacement.
-
-    Can be too broad as it prevents access to subprocess exceptions.
-    """
-    m_subprocess = mock.NonCallableMock(spec=subprocess)
-    m_subprocess.PIPE = "Fake pipe"
-    return m_subprocess
-
-
 def test_run_workflow_full(
-    monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, remove_mock, subprocess_mock
+    monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, remove_mock
 ):
     """Test workflow runs from end to end"""
 
@@ -96,7 +104,6 @@ def test_run_workflow_full(
     m_pygamma = mock.NonCallableMock()
     m_pygamma.base_perp.return_value = PG_RETURN_VALUE
     monkeypatch.setattr(process_ifg, "pg", m_pygamma)
-    monkeypatch.setattr(process_ifg, "subprocess", subprocess_mock)
 
     # mock out smaller helper functions (prevent I/O etc)
     monkeypatch.setattr(process_ifg, "remove_files", remove_mock)
@@ -107,6 +114,7 @@ def test_run_workflow_full(
     monkeypatch.setattr(process_ifg, "get_width10", lambda _: fake_width10)
     monkeypatch.setattr(process_ifg, "get_width_in", lambda _: fake_width_in)
     monkeypatch.setattr(process_ifg, "get_width_out", lambda _: fake_width_out)
+    monkeypatch.setattr(process_ifg, "convert", mock.Mock())
 
     # mock required individual values
     pc_mock.ifg_geotiff.lower.return_value = "yes"
@@ -126,7 +134,6 @@ def test_run_workflow_full(
     assert m_pygamma.interp_ad.called
     assert m_pygamma.data2geotiff.called
     assert remove_mock.call_count > 10
-    assert subprocess_mock.run.called
 
 
 def test_run_workflow_missing_r_master_slc(ic_mock, tc_mock):
@@ -528,13 +535,12 @@ def pg_geocode_mock():
 
 # TODO: can fixtures call other fixtures to get their setup? (e.g. mock pg inside another fixture?)
 def test_geocode_unwrapped_ifg(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock, subprocess_mock
+    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
-    # patch at the subprocess level for testing this part of convert() in geocode step
-    subprocess_mock.run.return_value = 0
-    monkeypatch.setattr(process_ifg, "subprocess", subprocess_mock)
+    m_convert = mock.Mock()
+    monkeypatch.setattr(process_ifg, "convert", m_convert)
 
     monkeypatch.setattr(process_ifg, "remove_files", remove_mock)
 
@@ -543,7 +549,7 @@ def test_geocode_unwrapped_ifg(
     assert pg_geocode_mock.rasrmg.called is False
     assert pg_geocode_mock.kml_map.called is False
 
-    assert subprocess_mock.run.called is False
+    assert m_convert.called is False
     assert remove_mock.called is False
 
     width_in, width_out = 5, 7  # fake values
@@ -554,7 +560,7 @@ def test_geocode_unwrapped_ifg(
     assert pg_geocode_mock.rasrmg.called
     assert pg_geocode_mock.kml_map.called
 
-    assert subprocess_mock.run.called
+    assert m_convert.called
     assert remove_mock.called
 
 
@@ -698,6 +704,7 @@ def test_do_geocode(
     m_geocode_filtered_ifg = mock.Mock()
     m_geocode_flat_coherence_file = mock.Mock()
     m_geocode_filtered_coherence_file = mock.Mock()
+    m_rasrmg_wrapper = mock.Mock()
 
     monkeypatch.setattr(process_ifg, "geocode_unwrapped_ifg", m_geocode_unwrapped_ifg)
     monkeypatch.setattr(process_ifg, "geocode_flattened_ifg", m_geocode_flattened_ifg)
@@ -709,6 +716,7 @@ def test_do_geocode(
         process_ifg, "geocode_filtered_coherence_file", m_geocode_filtered_coherence_file
     )
     monkeypatch.setattr(process_ifg, "remove_files", remove_mock)
+    monkeypatch.setattr(process_ifg, "rasrmg_wrapper", m_rasrmg_wrapper)
 
     process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width)
 
@@ -740,6 +748,7 @@ def test_do_geocode_no_geotiff(
     monkeypatch.setattr(process_ifg, "geocode_filtered_ifg", mock.Mock())
     monkeypatch.setattr(process_ifg, "geocode_flat_coherence_file", mock.Mock())
     monkeypatch.setattr(process_ifg, "geocode_filtered_coherence_file", mock.Mock())
+    monkeypatch.setattr(process_ifg, "rasrmg_wrapper", mock.Mock())
 
     process_ifg.do_geocode(pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width)
 
@@ -786,24 +795,13 @@ def test_get_width_out_not_found():
 
 def test_convert(monkeypatch):
     m_file = mock.NonCallableMock()
-    m_run = mock.Mock(return_value=0)
-    monkeypatch.setattr(process_ifg.subprocess, "run", m_run)
+    m_convert = mock.Mock()
+    monkeypatch.setattr(process_ifg, "convert", m_convert)
 
-    assert m_run.called is False
+    assert m_convert.called is False
     process_ifg.convert(m_file)
-    assert m_run.called is True
+    assert m_convert.called is True
     assert m_file.called is False
-
-
-def test_convert_subprocess_exception(monkeypatch):
-    m_file = mock.NonCallableMock()
-    m_run = mock.Mock(
-        side_effect=subprocess.CalledProcessError(returncode=-1, cmd="Fake_cmd")
-    )
-    monkeypatch.setattr(process_ifg.subprocess, "run", m_run)
-
-    with pytest.raises(subprocess.CalledProcessError):
-        process_ifg.convert(m_file)
 
 
 def test_remove_files_empty_path():
