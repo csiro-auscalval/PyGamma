@@ -51,7 +51,7 @@ setup(
     },
     install_requires=[
         "attrs>=17.4.0",
-        "Click>=7.0",
+        "Click==7.0",
         "GDAL>=2.4",
         "geopandas>=0.4.1",
         "luigi>=2.8.3",

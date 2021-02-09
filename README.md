@@ -15,16 +15,22 @@ fj7: Sentinel Data
 Then, once logged into NCI, clone this repository into a dir/workspace in your NCI home dir:
 
 ```BASH
+# this step only needs to be done once, or if starting from scratch
 cd ~/<your project dir>
 git clone git@github.com:GeoscienceAustralia/gamma_insar.git
 cd gamma_insar
-git checkout -b pygamma_workflow
+git checkout pygamma_workflow
 
 # set up a local Python 3.6 runtime environment
 source configs/insar.env  # should be error/warning free
 export CUSTOM_PY_INSTALL=~/.digitalearthau/dea-env/20191127/local
 mkdir -p $CUSTOM_PY_INSTALL/lib/python3.6/site-packages/
-python setup.py install --prefix=$CUSTOM_PY_INSTALL
+python setup.py install --prefix=$CUSTOM_PY_INSTALL || echo "ERROR: setup.py install failed!"
+
+# optional: use your local git repo for the gamma_insar
+rm -r ~/.digitalearthau/dea-env/20191127/local/lib/python3.6/site-packages/gamma_insar-0*  # remove installed dependency
+export PYTHONPATH=`pwd`:$PYTHONPATH  # add project root for accessing insar repo
+pytest --disable-warnings -q  # should be error free
 ```
 
 If the `source configs/insar.env` command does not complete cleanly (e.g. cannot find a dir of modules), check your group memberships.
