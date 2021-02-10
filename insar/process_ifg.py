@@ -19,6 +19,13 @@ class ProcessIfgException(Exception):
     pass
 
 
+def append_suffix(path, suffix):
+    """
+    A simple filename append function that doesn't assume `.` based file extensions,
+    to replace pathlib.Path.with_suffix in cases we use `_` based file suffixes
+    """
+    return path.parent / (path.name + suffix)
+
 class TempFileConfig:
     """
     Defines temp file names for process ifg.
@@ -40,9 +47,9 @@ class TempFileConfig:
 
     def __init__(self, ic: IfgFileNames):
         # set temp file paths for flattening step
-        self.ifg_flat10_unw = ic.ifg_flat10.with_suffix(".int.unw")
-        self.ifg_flat1_unw = ic.ifg_flat1.with_suffix(".int.unw")
-        self.ifg_flat_diff_int_unw = ic.ifg_flat.with_suffix(".int1.unw")
+        self.ifg_flat10_unw = append_suffix(ic.ifg_flat10, "_int_unw")
+        self.ifg_flat1_unw = append_suffix(ic.ifg_flat1, "_int_unw")
+        self.ifg_flat_diff_int_unw = append_suffix(ic.ifg_flat, "_int1_unw")
 
         # unw thinning step
         self.unwrapped_filtered_ifg = pathlib.Path("unwrapped_filtered_ifg.tmp")
@@ -69,6 +76,8 @@ def run_workflow(
     ifg_width: int,
     clean_up: bool,  # TODO: should clean_up apply to everything, or just specific steps?
 ):
+    _LOG.info("Running IFG workflow", ifg_width=int(ifg_width), clean_up=bool(clean_up))
+
     if not ic.ifg_dir.exists():
         ic.ifg_dir.mkdir(parents=True)
 
@@ -146,7 +155,7 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up: bool):
             const.RANGE_PATCH_SIZE,
             const.AZIMUTH_PATCH_SIZE,
             const.NOT_PROVIDED,  # (output) range and azimuth offsets and cross-correlation data
-            const.NOT_PROVIDED,
+            const.OFFSET_PWR_OVERSAMPLING_FACTOR, # n_ovr (SLC oversampling factor)
             const.NUM_OFFSET_ESTIMATES_RANGE,
             const.NUM_OFFSET_ESTIMATES_AZIMUTH,
             const.CROSS_CORRELATION_THRESHOLD,
@@ -324,7 +333,7 @@ def generate_final_flattened_ifg(
         ic.ifg_flat10,
         const.NOT_PROVIDED,
         const.NOT_PROVIDED,
-        ic.ifg_flat_cc10,
+        ic.ifg_flat_coh10,
         width10,
         const.BX,
         const.BY,
@@ -333,7 +342,7 @@ def generate_final_flattened_ifg(
 
     # Generate validity mask with high coherence threshold for unwrapping
     pg.rascc_mask(
-        ic.ifg_flat_cc10,
+        ic.ifg_flat_coh10,
         const.NOT_PROVIDED,
         width10,
         const.NOT_PROVIDED,  # start_cc
@@ -348,14 +357,14 @@ def generate_final_flattened_ifg(
         const.NOT_PROVIDED,  # scale
         const.NOT_PROVIDED,  # exp
         const.NOT_PROVIDED,  # left_right_flipping
-        ic.ifg_flat_cc10_mask,
+        ic.ifg_flat_coh10_mask,
     )
 
     # Perform unwrapping
     pg.mcf(
         ic.ifg_flat10,
-        ic.ifg_flat_cc10,
-        ic.ifg_flat_cc10_mask,
+        ic.ifg_flat_coh10,
+        ic.ifg_flat_coh10_mask,
         tc.ifg_flat10_unw,
         width10,
         const.TRIANGULATION_MODE_DELAUNAY,
@@ -396,7 +405,7 @@ def generate_final_flattened_ifg(
         ic.ifg_flat1,
         const.NOT_PROVIDED,
         const.NOT_PROVIDED,
-        ic.ifg_flat_cc0,
+        ic.ifg_flat_coh0,
         ifg_width,
         pc.ifg_coherence_window,
         pc.ifg_coherence_window,
@@ -405,7 +414,7 @@ def generate_final_flattened_ifg(
 
     # generate validity mask for GCP selection
     pg.rascc_mask(
-        ic.ifg_flat_cc0,
+        ic.ifg_flat_coh0,
         const.NOT_PROVIDED,
         ifg_width,
         const.NOT_PROVIDED,  # start_cc
@@ -420,7 +429,7 @@ def generate_final_flattened_ifg(
         const.NOT_PROVIDED,  # scale
         const.NOT_PROVIDED,  # exp
         const.NOT_PROVIDED,  # left_right_flipping flag
-        ic.ifg_flat_cc0_mask,
+        ic.ifg_flat_coh0_mask,
     )
 
     # select GCPs from high coherence areas
@@ -430,7 +439,7 @@ def generate_final_flattened_ifg(
         ic.ifg_gcp,
         const.NUM_GCP_POINTS_RANGE,
         const.NUM_GCP_POINTS_AZIMUTH,
-        ic.ifg_flat_cc0_mask,
+        ic.ifg_flat_coh0_mask,
     )
 
     # extract phase at GCPs
@@ -452,7 +461,7 @@ def generate_final_flattened_ifg(
         const.NOT_PROVIDED,  # bc_flag
         const.NOT_PROVIDED,  # bn_flag
         const.NOT_PROVIDED,  # bcdot_flag
-        const.NOT_PROVIDED,  # bndot_flag
+        const.BASE_LS_ESTIMATE_FROM_DATA,  # bndot_flag
         const.NOT_PROVIDED,  # bperp_min
     )
 
@@ -484,13 +493,13 @@ def generate_final_flattened_ifg(
             tc.ifg_flat_diff_int_unw,
             ic.ifg_sim_unw1,
             tc.ifg_flat1_unw,
-            ic.ifg_flat_cc0,
-            ic.ifg_flat_cc0_mask,
+            ic.ifg_flat_coh0,
+            ic.ifg_flat_coh0_mask,
             tc.ifg_flat10_unw,
             ic.ifg_off10,
             ic.ifg_flat10,
-            ic.ifg_flat_cc10,
-            ic.ifg_flat_cc10_mask,
+            ic.ifg_flat_coh10,
+            ic.ifg_flat_coh10_mask,
             ic.ifg_gcp,
             ic.ifg_gcp_ph,
         )
@@ -532,7 +541,7 @@ def generate_final_flattened_ifg(
         ic.ifg_flat,  # normalised complex interferogram
         ic.r_master_mli,  # multi-look intensity image of the first scene (float)
         ic.r_slave_mli,  # multi-look intensity image of the second scene (float)
-        ic.ifg_flat_cc,  # interferometric correlation coefficient (float)
+        ic.ifg_flat_coh,  # interferometric correlation coefficient (float)
         ifg_width,  # number of samples/line
         pc.ifg_coherence_window,  # estimation window size in columns
         pc.ifg_coherence_window,  # estimation window size in lines
@@ -575,7 +584,7 @@ def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
     pg.adf(
         ic.ifg_flat,
         ic.ifg_filt,
-        ic.ifg_filt_cc,
+        ic.ifg_filt_coh,
         ifg_width,
         pc.ifg_exponent,
         pc.ifg_filtering_window,
@@ -607,7 +616,7 @@ def calc_unw(
         raise ProcessIfgException(msg)
 
     pg.rascc_mask(
-        ic.ifg_filt_cc,  # <cc> coherence image (float)
+        ic.ifg_filt_coh,  # <cc> coherence image (float)
         const.NOT_PROVIDED,  # <pwr> intensity image (float)
         ifg_width,  # number of samples/row
         const.RASCC_MASK_DEFAULT_COHERENCE_STARTING_LINE,
@@ -677,7 +686,7 @@ def calc_unw_thinning(
 
     pg.rascc_mask_thinning(
         ic.ifg_mask,  # validity mask
-        ic.ifg_filt_cc,  # file for adaptive sampling reduction, e.g. coherence (float)
+        ic.ifg_filt_coh,  # file for adaptive sampling reduction, e.g. coherence (float)
         ifg_width,
         ic.ifg_mask_thin,  # (output) validity mask with reduced sampling
         num_sampling_reduction_runs,
@@ -689,9 +698,9 @@ def calc_unw_thinning(
     # Unwrapping with validity mask (Phase unwrapping using Minimum Cost Flow (MCF) triangulation)
     pg.mcf(
         ic.ifg_filt,  # interferogram
-        ic.ifg_filt_cc,  # weight factors file (float)
+        ic.ifg_filt_coh,  # weight factors file (float)
         ic.ifg_mask_thin,  # validity mask file
-        ic.ifg_unw_thin,  # (output) unwrapped phase image (*.unw) (float)
+        ic.ifg_unw_thin,  # (output) unwrapped phase image (*_unw) (float)
         ifg_width,  # number of samples per row
         const.TRIANGULATION_MODE_DELAUNAY,
         const.NOT_PROVIDED,  # r offset
@@ -793,16 +802,16 @@ def do_geocode(
         # flat cc
         pg.data2geotiff(
             dc.eqa_dem_par,
-            ic.ifg_flat_cc_geocode_out,
+            ic.ifg_flat_coh_geocode_out,
             dtype_out,
-            ic.ifg_flat_cc_geocode_out_tiff,
+            ic.ifg_flat_coh_geocode_out_tiff,
         )
         # filt cc
         pg.data2geotiff(
             dc.eqa_dem_par,
-            ic.ifg_filt_cc_geocode_out,
+            ic.ifg_filt_coh_geocode_out,
             dtype_out,
-            ic.ifg_filt_cc_geocode_out_tiff,
+            ic.ifg_filt_coh_geocode_out_tiff,
         )
 
     # TF: also remove all binaries and .ras files to save disc space
@@ -868,7 +877,7 @@ def geocode_unwrapped_ifg(
     pg.mask_data(tc.geocode_unwrapped_ifg, width_out, ic.ifg_unw_geocode_out, dc.seamask)
 
     # make quick-look png image
-    rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_bmp)
+    rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_bmp, pixavr=5, pixavaz=5)
     convert(ic.ifg_unw_geocode_bmp)
     kml_map(ic.ifg_unw_geocode_png, dc.eqa_dem_par)
     remove_files(ic.ifg_unw_geocode_bmp, tc.geocode_unwrapped_ifg)
@@ -898,7 +907,7 @@ def geocode_flattened_ifg(
     pg.mask_data(tc.geocode_flat_ifg, width_out, ic.ifg_flat_geocode_out, dc.seamask)
 
     # make quick-look png image
-    rasrmg_wrapper(ic.ifg_flat_geocode_out, width_out, ic.ifg_flat_geocode_bmp)
+    rasrmg_wrapper(ic.ifg_flat_geocode_out, width_out, ic.ifg_flat_geocode_bmp, pixavr=5, pixavaz=5)
     convert(ic.ifg_flat_geocode_bmp)
     kml_map(ic.ifg_flat_geocode_png, dc.eqa_dem_par)
     remove_files(ic.ifg_flat_geocode_bmp, tc.geocode_flat_ifg, ic.ifg_flat_float)
@@ -945,19 +954,19 @@ def geocode_flat_coherence_file(
     :param width_out:
     """
     pg.geocode_back(
-        ic.ifg_flat_cc, width_in, dc.dem_lt_fine, ic.ifg_flat_cc_geocode_out, width_out
+        ic.ifg_flat_coh, width_in, dc.dem_lt_fine, ic.ifg_flat_coh_geocode_out, width_out
     )
 
     # make quick-look png image
-    rascc_wrapper(ic.ifg_flat_cc_geocode_out, width_out, tc.geocode_flat_coherence_file)
+    rascc_wrapper(ic.ifg_flat_coh_geocode_out, width_out, tc.geocode_flat_coherence_file, pixavr=5, pixavaz=5)
     pg.ras2ras(
         tc.geocode_flat_coherence_file,
-        ic.ifg_flat_cc_geocode_bmp,
+        ic.ifg_flat_coh_geocode_bmp,
         const.RAS2RAS_GREY_COLOUR_MAP,
     )
-    convert(ic.ifg_flat_cc_geocode_bmp)
-    kml_map(ic.ifg_flat_cc_geocode_png, dc.eqa_dem_par)
-    remove_files(ic.ifg_flat_cc_geocode_bmp, tc.geocode_flat_coherence_file)
+    convert(ic.ifg_flat_coh_geocode_bmp)
+    kml_map(ic.ifg_flat_coh_geocode_png, dc.eqa_dem_par)
+    remove_files(ic.ifg_flat_coh_geocode_bmp, tc.geocode_flat_coherence_file)
 
 
 def geocode_filtered_coherence_file(
@@ -972,19 +981,19 @@ def geocode_filtered_coherence_file(
     :param width_out:
     """
     pg.geocode_back(
-        ic.ifg_filt_cc, width_in, dc.dem_lt_fine, ic.ifg_filt_cc_geocode_out, width_out
+        ic.ifg_filt_coh, width_in, dc.dem_lt_fine, ic.ifg_filt_coh_geocode_out, width_out
     )
 
     # make quick-look png image
-    rascc_wrapper(ic.ifg_filt_cc_geocode_out, width_out, tc.geocode_filt_coherence_file)
+    rascc_wrapper(ic.ifg_filt_coh_geocode_out, width_out, tc.geocode_filt_coherence_file)
     pg.ras2ras(
         tc.geocode_filt_coherence_file,
-        ic.ifg_filt_cc_geocode_bmp,
+        ic.ifg_filt_coh_geocode_bmp,
         const.RAS2RAS_GREY_COLOUR_MAP,
     )
-    convert(ic.ifg_filt_cc_geocode_bmp)
-    kml_map(ic.ifg_filt_cc_geocode_png, dc.eqa_dem_par)
-    remove_files(ic.ifg_filt_cc_geocode_bmp, tc.geocode_filt_coherence_file)
+    convert(ic.ifg_filt_coh_geocode_bmp)
+    kml_map(ic.ifg_filt_coh_geocode_png, dc.eqa_dem_par)
+    remove_files(ic.ifg_filt_coh_geocode_bmp, tc.geocode_filt_coherence_file)
 
 
 def rasrmg_wrapper(
@@ -1113,7 +1122,7 @@ def convert(input_file: Union[pathlib.Path, str]):
     img = Image.open(input_file)
     img = np.array(img.convert('RGBA'))
     img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
-    Image.fromarray(img).save(input_file.with_suffix(".png"))
+    Image.fromarray(img).save(append_suffix(input_file, ".png"))
 
 
 def kml_map(
@@ -1127,7 +1136,7 @@ def kml_map(
     :return:
     """
     if output_file is None:
-        output_file = input_file.with_suffix(".kml")
+        output_file = append_suffix(input_file, ".kml")
 
     pg.kml_map(input_file, dem_par, output_file)
 

@@ -60,11 +60,18 @@ def ic_mock():
     ic = mock.NonCallableMock(spec=IfgFileNames)
 
     mock_path = functools.partial(mock.MagicMock, spec=pathlib.Path)
+
+    # Explicitly set a bunch of path objecst (as the mocked Path objects don't implement / or + correctly)
     ic.ifg_dir = pathlib.Path(test_dir.name)
     ic.master_dir = ic.ifg_dir / '20151103'
     ic.slave_dir = ic.ifg_dir / '20151127'
     ic.ifg_unw_geocode_bmp = ic.ifg_dir / 'ifg_unw_geocode.bmp'
     ic.ifg_flat_geocode_bmp = ic.ifg_dir / 'ifg_flat_geocode.bmp'
+    ic.ifg_unw_geocode_png = ic.ifg_dir / "test_eqa_unw.png"
+    ic.ifg_filt_coh_geocode_png = ic.ifg_dir / "test_filt_coh.png"
+    ic.ifg_filt_geocode_png = ic.ifg_dir / "test_filt_eqa_int.png"
+    ic.ifg_flat_coh_geocode_png = ic.ifg_dir / "test_flat_filt_coh.png"
+    ic.ifg_flat_geocode_png = ic.ifg_dir / "test_flat_eqa_int.png"
 
     ic.ifg_bperp = mock_path()
     ic.r_master_slc = mock_path()
@@ -72,6 +79,7 @@ def ic_mock():
     ic.r_slave_slc = mock_path()
     ic.r_slave_mli = mock_path()
 
+    ic.ifg_flat = mock_path()
     ic.ifg_flat1 = mock_path()
     ic.ifg_flat10 = mock_path()
     return ic

@@ -243,6 +243,7 @@ def _submit_pbs(pbs_scripts, test):
     help="If the job should cleanup the DEM/SLC directories after completion or not.",
     default=False
 )
+@click.option("--num-threads", type=click.INT, help="The number of threads to use for each Luigi worker.", default=2)
 def ard_insar(
     proc_file: click.Path,
     taskfile: click.Path,
@@ -263,7 +264,8 @@ def ard_insar(
     project: click.STRING,
     env: click.Path,
     test: click.BOOL,
-    cleanup: click.BOOL
+    cleanup: click.BOOL,
+    num_threads: click.INT,
 ):
     """
     consolidates batch processing job script creation and submission of pbs jobs
@@ -297,7 +299,12 @@ def ard_insar(
     start_date = start_date.date()
     end_date = end_date.date()
 
-    num_threads = 2
+    # Sanity check number of threads
+    num_threads = int(num_threads)
+    if num_threads <= 0:
+        print("Number of threads must be greater than 0!")
+        exit(1)
+
     with open(taskfile, "r") as src:
         tasklist = src.readlines()
 
@@ -470,7 +477,7 @@ def ard_package(
     pbs_scripts = []
     for shp_task in tasklist:
         # new code -> frame = FXX, e.g. F04
-        track, frame = shp_task.stem.split("_")
+        track, frame, sensor = shp_task.stem.split("_")
 
         jobid = uuid.uuid4().hex[0:6]
         in_dir = Path(workdir).joinpath(f"{track}_{frame}")

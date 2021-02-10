@@ -19,6 +19,11 @@ def get_test_context():
     pgp = PyGammaTestProxy(exception_type=CoregisterSlcException)
     pgmock = mock.Mock(spec=PyGammaTestProxy, wraps=pgp)
 
+    def create_offset_se(*args, **kwargs):
+        OFF_par = args[2]
+        shutil.copyfile(data_dir / 'offset_fit.start', OFF_par)
+        return pgp.create_offset(*args, **kwargs)
+
     # Make offset_fit return parseable stdout as required for coregister_slc to function
     def offset_fit_se(*args, **kwargs):
         result = pgp.offset_fit(*args, **kwargs)
@@ -39,7 +44,7 @@ def get_test_context():
         unw.touch()
         with unw.open('w') as file:
             file.write("TEST CONTENT\n")
-        
+
         result = pgp.mcf(*args, **kwargs)
         return result
 
@@ -63,6 +68,9 @@ def get_test_context():
 
     pgmock.raspwr.side_effect = raspwr_se
     pgmock.raspwr.return_value = 0, [], []
+
+    pgmock.create_offset.side_effect = create_offset_se
+    pgmock.create_offset.return_value = 0, [], []
 
     pgmock.offset_fit.side_effect = offset_fit_se
     pgmock.offset_fit.return_value = (0, ['final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943'], [])
@@ -229,7 +237,7 @@ def test_multi_look(monkeypatch):
         coreg.reduce_offset()
         coreg.coarse_registration()
         coreg.resample_full()
-        
+
         coreg.multi_look()
 
         assert(Path(coreg.r_slave_mli).exists())
@@ -253,7 +261,7 @@ def test_generate_normalised_backscatter(monkeypatch):
         coreg.coarse_registration()
         coreg.resample_full()
         coreg.multi_look()
-        
+
         coreg.generate_normalised_backscatter()
 
         slave_gamma0 = coreg.out_dir / f"{coreg.slave_mli.stem}.gamma0"

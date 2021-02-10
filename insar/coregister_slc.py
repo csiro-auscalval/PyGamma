@@ -238,7 +238,7 @@ class CoregisterSlc:
         self._write_tabs(self.slave_slc_tab, self.slc_slave.stem, self.slc_slave.parent)
 
         # write a re-sampled slave slc tab file
-        self.r_slave_slc_tab = out_dir.joinpath(f"r_{self.slc_slave.stem}_tab")
+        self.r_slave_slc_tab = out_dir.joinpath(f"r{self.slc_slave.stem}_tab")
         self._write_tabs(
             self.r_slave_slc_tab, f"r{self.slc_slave.stem}", self.slc_slave.parent
         )
@@ -502,6 +502,7 @@ class CoregisterSlc:
 
                     _LOG.info(
                         "matching iteration",
+                        slave_offs=slave_offs,
                         iteration=iteration + 1,
                         daz=d_azimuth,
                         dr=d_range,
@@ -512,6 +513,7 @@ class CoregisterSlc:
                     )
                     _LOG.info(
                         "matching iteration and standard deviation",
+                        slave_offs=slave_offs,
                         iteration=iteration + 1,
                         azimuth_stdev=azimuth_stdev,
                         range_stdev=range_stdev,
@@ -568,8 +570,6 @@ class CoregisterSlc:
                     # TODO: do we raise and kill the program or iterate here on exception?
 
                     iteration += 1
-
-            shutil.copy(slave_doff, self.slave_off)
 
     def _read_line(
         self,
@@ -653,13 +653,13 @@ class CoregisterSlc:
             temp_dir = Path(temp_dir)
 
             # initialize the output text file
-            slave_ovr_res.writelines([
+            slave_ovr_res.writelines('\n'.join([
                 "    Burst Overlap Results",
                 f"        thresholds applied: cc_thresh: {self.proc.coreg_s1_cc_thresh},  ph_fraction_thresh: {self.proc.coreg_s1_frac_thresh}, ph_stdev_thresh (rad): {self.proc.coreg_s1_stdev_thresh}",
                 "",
                 "        IW  overlap  ph_mean ph_stdev ph_fraction   (cc_mean cc_stdev cc_fraction)    weight",
                 "",
-            ])
+            ]))
 
             for iteration in range(1, max_iteration+1):
                 # cp -rf $slave_off $slave_off_start
@@ -765,7 +765,7 @@ class CoregisterSlc:
         sum_weight_all = 0.0
 
         def log_info(msg):
-            _LOG.info(msg, az_ovr_iter=iteration)
+            _LOG.info(msg, az_ovr_iter=iteration, master_slc_tab=master_slc_tab, r_slave_slc_tab=r_slave_slc_tab)
 
         # determine number of rows and columns of tab file and read burst SLC filenames from tab files
         master_IWs = self.READ_TAB(master_slc_tab)
@@ -812,10 +812,19 @@ class CoregisterSlc:
         master_IW1_par = pg.ParFile(master_IWs[0].par)
 
         # FIXME: Magic constants...
-        azimuth_line_time = master_IW1_par.get_value("azimuth_line_time", dtype=float, index=0)
-        dDC = 1739.43 * azimuth_line_time * lines_offset_IWi[0]
-        dt = 0.159154 / dDC
-        dpix_factor = dt / azimuth_line_time
+        round_to_6_digits = True
+
+        # This code path is to match Bash... which seems to round to 6 digits when doing math in awk
+        if round_to_6_digits:
+            azimuth_line_time = round(master_IW1_par.get_value("azimuth_line_time", dtype=float, index=0), 6)
+            dDC = round(1739.43 * azimuth_line_time * lines_offset_IWi[0], 6)
+            dt = round(0.159154 / dDC, 6)
+            dpix_factor = round(dt / azimuth_line_time, 6)
+        else:
+            azimuth_line_time = master_IW1_par.get_value("azimuth_line_time", dtype=float, index=0)
+            dDC = 1739.43 * azimuth_line_time * lines_offset_IWi[0]
+            dt = 0.159154 / dDC
+            dpix_factor = dt / azimuth_line_time
 
         log_info(f"dDC {dDC} Hz")
         log_info(f"dt {dt} s")
@@ -1039,7 +1048,7 @@ class CoregisterSlc:
                 log_info(f"azimuth_lines20_half: {azimuth_lines20_half}")
 
                 # determine coherence and coherence mask based on unfiltered double differential interferogram
-                diff20cc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc")
+                diff20cc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.coh")
                 diff20cc_ras = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.ras")
 
                 # cc_wave $diff20  - - $diff20cc $range_samples20 5 5 0
@@ -1076,7 +1085,7 @@ class CoregisterSlc:
 
                 # adf filtering of double differential interferogram
                 diff20adf = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.adf")
-                diff20adfcc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.adf.cc")
+                diff20adfcc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.adf.coh")
 
                 # adf $diff20 $diff20adf $diff20adfcc $range_samples20 0.4 16 7 2
                 pg.adf(
@@ -1093,7 +1102,7 @@ class CoregisterSlc:
                 _unlink(diff20adfcc)
 
                 # unwrapping of filtered phase considering coherence and mask determined from unfiltered double differential interferogram
-                diff20cc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc")
+                diff20cc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.coh")
                 diff20cc_ras = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.ras")
                 diff20phase = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.phase")
 
@@ -1213,6 +1222,9 @@ class CoregisterSlc:
 
         # conversion of phase offset (in radian) to azimuth offset (in SLC pixel)
         azimuth_pixel_offset = -dpix_factor * average_all
+        if round_to_6_digits:
+            azimuth_pixel_offset = round(azimuth_pixel_offset, 6)
+
         log_info(f"azimuth_pixel_offset {azimuth_pixel_offset} [azimuth SLC pixel]")
         slave_ovr_res.write(f"azimuth_pixel_offset {azimuth_pixel_offset} [azimuth SLC pixel]")
 
