@@ -46,36 +46,38 @@ pytest --disable-warnings -q  # should be error free
 If the tests pass without errors, the runtime environment is configured and ready for use. This environment can be retained until the dependency versions change.
 
 
-## Testing GAMMA-INSAR
+## GAMMA-INSAR Unit Testing
 
-Testing `gamma_insar` is handled in several parts due to complexities with the code and external dependencies. The parts are:
+Running unit tests for `gamma_insar` is handled in several ways due to complexities surrounding the platforms, code and external dependencies. `gadi` hosts the proprietary `GAMMA` software, although this is assumed to be unavailable on local machines where `gamma_insar` development occurs. The test suite was written with the assumption *GAMMA is unavailable*, but Python dependencies are.
 
-* Local unit tests
-* Unit tests on `gadi`
-* Integration tests on `gadi`
+NB: `pytest` is used as the test runner. Code coverage is checked with pytest-cov. Note that running `coverage.py` alone with this repo **does not accurately record coverage results!** The `pytest-cov` tool is required to measure coverage correctly.
 
-The `Gamma` software dependency only exists on a few hosts, so local unit testing is designed around the assumption `Gamma` is not accessible. The Gamma InSAR code can only be run on NCI's `gadi` system at present.
+Options for testing `gamma_insar` are summarised below:
 
-Gamma-InSAR uses pytest to execute the unittests. Code test coverage is checked with pytest-cov. Note that running `coverage.py` alone with this repo **does not accurately record coverage results!** The `pytest-cov` tool is required to measure coverage correctly.
+* Running unit tests on `gadi`
+* Running unit tests locally with:
+  * Docker
+  * Build your own environment
 
-### Running unit tests on `Gadi`
 
-To run unit tests on `gadi`, login and use these commands:
+### Running unit tests on `gadi`
+
+To run unit tests on `gadi` (from a new terminal), login and run these commands:
 
 ```BASH
 module use /g/data/v10/public/modules/modulefiles
-module load dea
+module load dea-env/20191127
 
 cd <your gamma-insar project dir>
-export PYTHONPATH=`pwd`  # note the backticks
+export PYTHONPATH=`pwd`:$PYTHONPATH  # note backticks for adding project dir to PYTHONPATH
 
 # assuming the correct git branch is checked out
 pytest --disable-warnings -q  # should be error free
 ```
 
-NB: `gadi` or the environment can be slow. The unittests may take up to 30 seconds to complete, although the tests only take a few seconds.
+NB: `gadi` and/or loading the environment can be slow. The unittests may take up to 30-60 seconds to complete, although the tests should only take a few seconds.
 
-To check code test coverage:
+To measure code test coverage:
 
 ```BASH
 # run tests & display coverage report at the terminal
@@ -86,6 +88,7 @@ pytest -q --disable-warnings --cov-report=html --cov=insar tests
 ```
 
 The report is saved to `coverage_html_report` in the project dir.
+
 
 ### Testing Locally
 
@@ -160,7 +163,9 @@ pytest -q --disable-warnings --cov-report=html --cov=insar tests
 	$module load <module name>
 
 ### The InSAR Workflow
-Several preliminary steps are required to generate backscatter and interferometry products.
+
+The GAMMA InSAR code can only be run on NCI's `gadi` system at present. Several preliminary steps are required to generate backscatter and interferometry products.
+
 1) Extract SLC metadata from the Sentinel-1 zip files and store
    that information into yaml files. This needs to be done once
    for a given time frame of the user's choosing
