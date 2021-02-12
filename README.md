@@ -1,10 +1,10 @@
 ## GAMMA-INSAR
 
-A tool to process Sentinel-1 SLC to Analysis Ready Data (ARD) using GAMMA SOFTWARE.
+A tool to process Sentinel-1 SLC to Analysis Ready Data (ARD) to interferograms using GAMMA SOFTWARE.
 
 ## Installation
 
-As of April 2020, `gamma_insar` is coupled with the NCI HPC systems and has to be installed there. Using `gamma_insar` requires membership of several NCI groups. Use [Mancini](https://my.nci.org.au/) to request membership access to the following groups:
+As of February 2021, `gamma_insar` is coupled with `GAMMA` & NCI's HPC systems. It has to be installed, tested and run there until a standalone variant is created. Using `gamma_insar` requires a GitHub account (& GA access permissions), an NCI user account & membership of several NCI groups. Use [Mancini](https://my.nci.org.au/) to request membership access to the following groups:
 
 ```
 dg9: InSAR research
@@ -12,28 +12,39 @@ u46: DEA Development and Science (GA internal)
 fj7: Sentinel Data
 ```
 
-Then, once logged into NCI, clone this repository into a dir/workspace in your NCI home dir:
+A local environment needs to be built on NCI's `gadi` compute system for running tests and executing steps in the workflow.
+
+Once logged into `gadi`, use the following instructions:
 
 ```BASH
-# this step only needs to be done once, or if starting from scratch
+# this step only needs to be done once, or if rebuilding from scratch
+# if rebuilding, ensure removal of the build dirs beforehand
 cd ~/<your project dir>
 git clone git@github.com:GeoscienceAustralia/gamma_insar.git
 cd gamma_insar
 git checkout pygamma_workflow
 
-# set up a local Python 3.6 runtime environment
+# set up a local Python 3.6 based runtime environment
 source configs/insar.env  # should be error/warning free
 export CUSTOM_PY_INSTALL=~/.digitalearthau/dea-env/20191127/local
 mkdir -p $CUSTOM_PY_INSTALL/lib/python3.6/site-packages/
 python setup.py install --prefix=$CUSTOM_PY_INSTALL || echo "ERROR: setup.py install failed!"
+```
 
-# optional: use your local git repo for the gamma_insar
-rm -r ~/.digitalearthau/dea-env/20191127/local/lib/python3.6/site-packages/gamma_insar-0*  # remove installed dependency
-export PYTHONPATH=`pwd`:$PYTHONPATH  # add project root for accessing insar repo
+The install step can take some time to download and copy all the dependencies. If the `source configs/insar.env` command does not complete cleanly (e.g. cannot find a dir of modules), check your group memberships.
+
+`setup.py` installs several dependencies into your HOME directory, **including** a copy of the `gamma_insar` code from your local git repo. Any changes to files in your git repo do not automatically appear in the runtime environment, which is not ideal for development, regularly running tests etc.
+
+Instead of rebuilding environments between code changes, it is simpler to use your local git repo as the `gamma_insar` package, using these commands:
+
+```BASH
+rm -r ~/.digitalearthau/dea-env/20191127/local/lib/python3.6/site-packages/gamma_insar-0*  # remove installed dependency for cleanliness
+export PYTHONPATH=`pwd`:$PYTHONPATH  # add project root for accessing insar pkg
 pytest --disable-warnings -q  # should be error free
 ```
 
-If the `source configs/insar.env` command does not complete cleanly (e.g. cannot find a dir of modules), check your group memberships.
+If the tests pass without errors, the runtime environment is configured and ready for use. This environment can be retained until the dependency versions change.
+
 
 ## Testing GAMMA-INSAR
 
