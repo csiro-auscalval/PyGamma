@@ -90,51 +90,28 @@ pytest -q --disable-warnings --cov-report=html --cov=insar tests
 The report is saved to `coverage_html_report` in the project dir.
 
 
-### Testing Locally
+### Running Unittests Locally
 
-#### Runtime Environment Setup
+#### Docker Unittest Environment
 
- Only unit tests can be run with local `gamma_insar` repositories. First, setup a local Python virtual environment (only needs to be done once):
+Using the supplied `Dockerfile` is a simple way to run the unittests with dependency management handled automatically. This requires installation of `Docker` on your system, or even within a Virtual Machine (VM). Setup of Docker is not covered in this README.
 
-```BASH
-# check out the gamma_insar project locally
-cd <your gamma-insar project dir>
-python3 -m venv .gamma  # creates virtual environment in ".gamma" dir
-source .gamma/bin/activate  # prompt should change slightly
-pip install --upgrade pip
-pip install -r requirements_unittest.txt
-```
+See the top lines of `gamma_insar/Dockerfile` for the commands to buld and run that environment.
 
-#### Running unit tests & code coverage locally
+NB: the docker environment has not been set up to measure code coverage.
 
-If the virtual environment has not been activated, use the following:
 
-```BASH
-cd <gamma-insar project dir>
-source .gamma/bin/activate  # prompt should change slightly
-```
+#### Build Your Own Environment
 
-To run the tests from the project dir:
+This can be tricky and is more for advanced users due to the potential complexities with dependencies. It is not recommended on MacOS X due to technicalities with building GDAL and installing dependencies. On a Linux system, you might want to try `virtualenv/venv` and follow steps like the `Dockerfile`.
 
-```BASH
-export PYTHONPATH=`pwd`  # or set this in your profile
-pytest -q  # should complete with 0 errors and some warnings
-```
+Please contact the developers if you wish to share a standalone runtime environment configuration.
 
-To check code test coverage locally:
-
-```BASH
-# run tests, collect coverage & report results at the terminal
-pytest -q --disable-warnings --cov=insar
-
-# run tests & generate an interactive HTML report
-pytest -q --disable-warnings --cov-report=html --cov=insar tests
-```
 
 ## Operating System tested
 
 * Linux
-* OS X 10.13 (unit tests only)
+* Ubuntu Mini 18.04 (unit tests only)
 
 ## Supported Satellites and Sensors
 * Sentinel-1A/B
