@@ -1,5 +1,6 @@
 # Build: docker build -t pygamma_workflow .
 # Usage: docker run -v $(pwd):/usr/src/gamma_insar:ro -t -i pygamma_workflow
+#        docker run -v $(pwd):/usr/src/gamma_insar -t -i pygamma_workflow pytest --cov-report=html --cov=insar tests
 
 FROM osgeo/gdal:ubuntu-small-latest
 

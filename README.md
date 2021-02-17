@@ -1,6 +1,6 @@
 ## GAMMA-INSAR
 
-A tool to process Sentinel-1 SLC to Analysis Ready Data (ARD) to interferograms using GAMMA SOFTWARE.
+A tool to process Sentinel-1 SLC to Analysis Ready Data (ARD) using GAMMA SOFTWARE. The ARD products are georeferenced backscatter and interferograms.
 
 ## Installation
 
@@ -12,7 +12,7 @@ u46: DEA Development and Science (GA internal)
 fj7: Sentinel Data
 ```
 
-A local environment needs to be built on NCI's `gadi` compute system for running tests and executing steps in the workflow.
+A local environment needs to be built on NCI's `gadi` compute system for executing the InSAR workflow. The local environment also allows unit tests to be run, e.g. if you do not have admin access on your laptop and/or cannot install python packages for some reason.
 
 Once logged into `gadi`, use the following instructions:
 
@@ -90,15 +90,13 @@ pytest -q --disable-warnings --cov-report=html --cov=insar tests
 The report is saved to `coverage_html_report` in the project dir.
 
 
-### Running Unittests Locally
+### Running Unit Tests Locally
 
-#### Docker Unittest Environment
+#### Docker Unit Testing Environment
 
-Using the supplied `Dockerfile` is a simple way to run the unittests with dependency management handled automatically. This requires installation of `Docker` on your system, or even within a Virtual Machine (VM). Setup of Docker is not covered in this README.
+Using the supplied `Dockerfile` is a simple way to run the unit tests with dependency management handled automatically. This requires installation of `Docker` on your system, or even within a Virtual Machine (VM). Setup of Docker is not covered in this README.
 
-See the top lines of `gamma_insar/Dockerfile` for the commands to buld and run that environment.
-
-NB: the docker environment has not been set up to measure code coverage.
+See the top lines of `gamma_insar/Dockerfile` for the commands to build and run that environment (including running code coverage checks).
 
 
 #### Build Your Own Environment
@@ -115,23 +113,6 @@ Please contact the developers if you wish to share a standalone runtime environm
 
 ## Supported Satellites and Sensors
 * Sentinel-1A/B
-
-## Requirements
-* [attrs>=17.4.0]
-* [Click>=7.0]
-* [GDAL>=2.4]
-* [geopandas>=0.4.1]
-* [luigi>=2.8.3]
-* [matplotlib>=3.0.3]
-* [numpy>=1.8]
-* [pandas>-0.24.2]
-* [pyyaml>=3.11]
-* [rasterio>=1,!=1.0.3.post1,!=1.0.3]
-* [structlog>=16.1.0]
-* [shapely>=1.5.13]
-* [spatialist==0.4]
-* [eodatasets3]
-* [GAMMA-SOFTWARE >= June 2019 release]
 
 
 ## NCI Module
