@@ -108,6 +108,13 @@ def _usage2decl(module, program, file):
                 is_infile = desc.startswith("(input)") or is_inoutfile
                 is_outfile = desc.startswith("(output)") or is_inoutfile
 
+                # Special case for certain "(input)"'s that aren't actually files...
+                # eg: coord_to_sarpix has (input) args that are numbers in meters "(m)" or degrees "(deg.)"
+                if " (m)" in desc or " (deg" in desc:
+                    is_inoutfile = False
+                    is_infile = False
+                    is_outfile = False
+
             else:  # continue parsing existing arg
                 desc = line.lstrip()
 

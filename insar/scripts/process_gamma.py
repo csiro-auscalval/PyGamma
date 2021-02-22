@@ -980,6 +980,7 @@ class CoregisterDemMaster(luigi.Task):
         coreg = CoregisterDem(
             rlks=rlks,
             alks=alks,
+            shapefile=str(self.vector_file),
             dem=dem,
             slc=Path(master_slc),
             dem_par=dem_par,

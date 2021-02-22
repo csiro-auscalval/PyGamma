@@ -9,7 +9,7 @@ from pathlib import Path
 import structlog
 from PIL import Image
 import numpy as np
-
+import geopandas
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory, run_command
@@ -80,6 +80,7 @@ class CoregisterDem:
         self,
         rlks: int,
         alks: int,
+        shapefile: Union[Path, str],
         dem: Union[Path, str],
         slc: Union[Path, str],
         dem_par: Union[Path, str],
@@ -104,6 +105,9 @@ class CoregisterDem:
             A range look value.
         :param alks:
             An azimuth look value.
+        :param shapefile:
+            A full path to the shape file that includes the DEM being processed.
+            This file is used for determining the scene center for initial offset.
         :param dem:
             A full path to a DEM image file.
         :param slc:
@@ -142,6 +146,7 @@ class CoregisterDem:
         # TODO: refactor all the paths/use ProcConfig, DemConfig ??
         self.alks = alks
         self.rlks = rlks
+        self.shapefile = shapefile
         self.dem = dem
         self.slc = slc
         self.dem_par = Path(dem_par)
@@ -622,16 +627,63 @@ class CoregisterDem:
         ):
             self._set_attrs()
 
+        # Load the land center from shape file
+        dbf = geopandas.GeoDataFrame.from_file(Path(self.shapefile).with_suffix(".dbf"))
+
+        north_lat, east_lon = None, None
+
+        if hasattr(dbf, "land_cen_l") and hasattr(dbf, "land_cen_1"):
+            # Note: land center is duplicated for every burst,
+            # we just take the first value since they're all the same
+            north_lat = dbf.land_cen_l[0]
+            east_lon = dbf.land_cen_1[0]
+
+            # "0" values are interpreted as "no value" / None
+            north_lat = None if north_lat == "0" else north_lat
+            east_lon = None if east_lon == "0" else east_lon
+
+        if north_lat is not None and east_lon is not None:
+            _, cout, _ = pg.coord_to_sarpix(
+                self.r_dem_master_mli_par,  # SLC_par
+                const.NOT_PROVIDED,  # OFF_par
+                const.NOT_PROVIDED,  # DEM_par
+                north_lat,
+                east_lon,
+                const.NOT_PROVIDED,  # hgt
+            )
+
+            # Extract pixel coordinates from stdout
+            # Example: SLC/MLI range, azimuth pixel (int):         7340        17060
+            matched = [i for i in cout if i.startswith("SLC/MLI range, azimuth pixel (int):")]
+            if len(matched) != 1:
+                error_msg = "Failed to convert scene land center from lat/lon into pixel coordinates!"
+                _LOG.error(error_msg)
+                raise Exception(error_msg)
+
+            rpos, azpos = matched[0].split()[-2:]
+
+            _LOG.info(
+                "Scene center for DEM coregistration determined from shape file",
+                r_dem_master_mli=self.r_dem_master_mli,
+                north_lat=north_lat,
+                east_lon=east_lon,
+                rpos=rpos,
+                azpos=azpos
+            )
+
+        else:
+            rpos, azpos = None, None
+
         # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than simulated SAR image in offset calculation
         mli_1_pathname = str(self.dem_pix_gam)
         mli_2_pathname = str(self.r_dem_master_mli)
         diff_par_pathname = str(self.dem_diff)
         rlks = 1
         azlks = 1
-        rpos = self.dem_rpos
-        azpos = self.dem_azpos
-        offr = "-"  # initial range offset
-        offaz = "-"  # initial azimuth offset
+        rpos = self.dem_rpos or rpos
+        azpos = self.dem_azpos or azpos
+        offr = const.NOT_PROVIDED
+        offaz = const.NOT_PROVIDED
         thres = self.dem_snr
         patch = self.dem_patch_window
         cflag = 1  # copy constant range and azimuth offsets

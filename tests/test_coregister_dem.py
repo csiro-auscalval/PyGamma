@@ -64,6 +64,15 @@ def get_test_context():
         Image.new("RGB", size=(50, 50), color=(155, 0, 0)).save(rasf)
         return pgp.rashgt(*args, **kwargs)
 
+    coord_to_sarpix_cout = "SLC/MLI range, azimuth pixel (int):         7340        17060"
+    def coord_to_sarpix_se(*args, **kwargs):
+        result = pgp.coord_to_sarpix(*args, **kwargs)
+        return (
+            result[0],
+            [coord_to_sarpix_cout],
+            [],
+        )
+
     pgmock.raspwr.side_effect = raspwr_se
     pgmock.raspwr.return_value = 0, [], []
 
@@ -86,8 +95,12 @@ def get_test_context():
     pgmock.rashgt.side_effect = rashgt_se
     pgmock.rashgt.return_value = 0, [], []
 
+    pgmock.coord_to_sarpix.side_effect = coord_to_sarpix_se
+    pgmock.coord_to_sarpix.return_value = 0, [coord_to_sarpix_cout], []
+
     # Copy test data
-    shutil.copytree(Path(__file__).parent.absolute() / "data" / "20151127", data_dir)
+    test_data_dir = Path(__file__).parent.absolute() / "data"
+    shutil.copytree(test_data_dir / "20151127", data_dir)
 
     # Note: The filenames below aren't necessarily representative of a valid scene at the moment...
     # this isn't inherently a problem, as the unit tests don't test for file naming conventions of
@@ -95,6 +108,7 @@ def get_test_context():
     data = {
         "rlks": 8,
         "alks": 8,
+        "shapefile": test_data_dir / "T147D_F28S_S1A.shp",
         "dem": data_dir / "20180127_VV_blah.dem",
         "slc": data_dir / "20151127_VV.slc",
         "dem_par": data_dir / "20180127_VV_8rlks_eqa.dem.par",
