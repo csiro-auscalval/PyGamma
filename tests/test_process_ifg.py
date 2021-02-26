@@ -41,7 +41,7 @@ def pg_int_mock():
 def pc_mock():
     """Returns basic mock to simulate a ProcConfig object."""
     with open(pathlib.Path(__file__).parent.absolute() / 'data' / '20151127' / 'gamma.proc', 'r') as fileobj:
-        proc_config = ProcConfig.from_file(fileobj)
+        proc_config = ProcConfig.from_file(fileobj, '/fake/outdir')
 
     pc = mock.NonCallableMock(spec=ProcConfig, wraps=proc_config)
     pc.multi_look = 2  # always 2 for Sentinel 1
@@ -67,11 +67,11 @@ def ic_mock():
     ic.slave_dir = ic.ifg_dir / '20151127'
     ic.ifg_unw_geocode_bmp = ic.ifg_dir / 'ifg_unw_geocode.bmp'
     ic.ifg_flat_geocode_bmp = ic.ifg_dir / 'ifg_flat_geocode.bmp'
-    ic.ifg_unw_geocode_png = ic.ifg_dir / "test_eqa_unw.png"
+    ic.ifg_unw_geocode_png = ic.ifg_dir / "test_geo_unw.png"
     ic.ifg_filt_coh_geocode_png = ic.ifg_dir / "test_filt_coh.png"
-    ic.ifg_filt_geocode_png = ic.ifg_dir / "test_filt_eqa_int.png"
+    ic.ifg_filt_geocode_png = ic.ifg_dir / "test_filt_geo_int.png"
     ic.ifg_flat_coh_geocode_png = ic.ifg_dir / "test_flat_filt_coh.png"
-    ic.ifg_flat_geocode_png = ic.ifg_dir / "test_flat_eqa_int.png"
+    ic.ifg_flat_geocode_png = ic.ifg_dir / "test_flat_geo_int.png"
 
     ic.ifg_bperp = mock_path()
     ic.r_master_slc = mock_path()
@@ -130,7 +130,7 @@ def test_run_workflow_full(
 
     # finally run the workflow :-)
     process_ifg.run_workflow(
-        pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=fake_width_in, clean_up=True
+        pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=fake_width_in
     )
 
     # check some of the funcs in each step are called
@@ -149,7 +149,7 @@ def test_run_workflow_missing_r_master_slc(ic_mock, tc_mock):
 
     with pytest.raises(ProcessIfgException):
         process_ifg.run_workflow(
-            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=10, clean_up=True
+            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=10
         )
 
 
@@ -159,7 +159,7 @@ def test_run_workflow_missing_r_master_mli(ic_mock, tc_mock):
 
     with pytest.raises(ProcessIfgException):
         process_ifg.run_workflow(
-            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=11, clean_up=True
+            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=11
         )
 
 
@@ -170,7 +170,7 @@ def test_run_workflow_missing_r_slave_slc(ic_mock, tc_mock):
 
     with pytest.raises(ProcessIfgException):
         process_ifg.run_workflow(
-            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=12, clean_up=True
+            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=12
         )
 
 
@@ -182,7 +182,7 @@ def test_run_workflow_missing_r_slave_mli(ic_mock, tc_mock):
 
     with pytest.raises(ProcessIfgException):
         process_ifg.run_workflow(
-            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=13, clean_up=True
+            pc_mock, ic_mock, dc_mock, tc_mock, ifg_width=13
         )
 
 
@@ -200,7 +200,7 @@ def test_get_ifg_width_not_found():
 
 
 def test_calc_int(monkeypatch, pg_int_mock, pc_mock, ic_mock):
-    """Verify default path through the INT processing step without cleanup."""
+    """Verify default path through the INT processing step."""
 
     # craftily substitute the 'pg' py_gamma obj for a mock:
     # 1) avoids missing import errors when testing locally
@@ -209,36 +209,12 @@ def test_calc_int(monkeypatch, pg_int_mock, pc_mock, ic_mock):
     ic_mock.ifg_off = mock.Mock(spec=pathlib.Path)
     ic_mock.ifg_off.exists.return_value = False  # offset not yet processed
 
-    process_ifg.calc_int(pc_mock, ic_mock, clean_up=False)
+    process_ifg.calc_int(pc_mock, ic_mock)
 
     assert pg_int_mock.create_offset.called
     assert pg_int_mock.offset_pwr.called
     assert pg_int_mock.offset_fit.called
     assert pg_int_mock.create_diff_par.called
-
-
-def test_calc_int_with_cleanup(monkeypatch, pg_int_mock, pc_mock, ic_mock):
-    monkeypatch.setattr(process_ifg, "pg", pg_int_mock)
-
-    ic_mock.ifg_off = mock.Mock(spec=pathlib.Path)
-    ic_mock.ifg_off.exists.return_value = True  # simulate offset already processed
-
-    ic_mock.ifg_offs = mock.Mock(spec=pathlib.Path)
-    ic_mock.ifg_ccp = mock.Mock(spec=pathlib.Path)
-    ic_mock.ifg_coffs = mock.Mock(spec=pathlib.Path)
-    ic_mock.ifg_coffsets = mock.Mock(spec=pathlib.Path)
-
-    assert ic_mock.ifg_offs.unlink.called is False
-    assert ic_mock.ifg_ccp.unlink.called is False
-    assert ic_mock.ifg_coffs.unlink.called is False
-    assert ic_mock.ifg_coffsets.unlink.called is False
-
-    process_ifg.calc_int(pc_mock, ic_mock, clean_up=True)
-
-    assert ic_mock.ifg_offs.unlink.called
-    assert ic_mock.ifg_ccp.unlink.called
-    assert ic_mock.ifg_coffs.unlink.called
-    assert ic_mock.ifg_coffsets.unlink.called
 
 
 def test_error_handling_decorator(monkeypatch):
@@ -318,7 +294,7 @@ def test_generate_init_flattened_ifg(
     assert pg_flat_mock.base_add.called is False
     assert pg_flat_mock.phase_sim.called is False
 
-    process_ifg.generate_init_flattened_ifg(pc_mock, ic_mock, dc_mock, clean_up=False)
+    process_ifg.generate_init_flattened_ifg(pc_mock, ic_mock, dc_mock)
 
     assert pg_flat_mock.base_orbit.called
     assert pg_flat_mock.phase_sim_orb.called
@@ -353,7 +329,7 @@ def test_generate_final_flattened_ifg(
 
     fake_ifg_width = 99
     process_ifg.generate_final_flattened_ifg(
-        pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width, clean_up=False
+        pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width
     )
 
     assert pg_flat_mock.multi_cpx.called
@@ -380,7 +356,7 @@ def test_generate_final_flattened_ifg_bperp_write_fail(
     with pytest.raises(IOError):
         fake_ifg_width = 99
         process_ifg.generate_final_flattened_ifg(
-            pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width, clean_up=False
+            pc_mock, ic_mock, dc_mock, tc_mock, fake_ifg_width
         )
 
 
@@ -468,7 +444,7 @@ def test_calc_unw(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
     assert m_thin.called is False
     assert pg_unw_mock.mask_data.called is False
 
-    process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, fake_ifg_width, clean_up=False)
+    process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, fake_ifg_width)
 
     assert pg_unw_mock.rascc_mask.called
     assert m_thin.call_count == 1
@@ -480,7 +456,7 @@ def test_calc_unw_no_ifg_filt(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_moc
     ic_mock.ifg_filt.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
-        process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, ifg_width=101, clean_up=False)
+        process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, ifg_width=101)
 
 
 def test_calc_unw_with_mask(
@@ -493,7 +469,7 @@ def test_calc_unw_with_mask(
     assert pg_unw_mock.mask_data.called is False
     assert remove_mock.called is False
 
-    process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, ifg_width=202, clean_up=False)
+    process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, ifg_width=202)
 
     assert pg_unw_mock.mask_data.called is True
     assert remove_mock.called is True
@@ -506,7 +482,7 @@ def test_calc_unw_mlooks_over_threshold_not_implemented(
     pc_mock.multi_look = 5
 
     with pytest.raises(NotImplementedError):
-        process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, ifg_width=15, clean_up=False)
+        process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, ifg_width=15)
 
 
 def test_calc_unw_thinning(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
@@ -517,7 +493,7 @@ def test_calc_unw_thinning(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
     assert pg_unw_mock.interp_ad.called is False
     assert pg_unw_mock.unw_model.called is False
 
-    process_ifg.calc_unw_thinning(pc_mock, ic_mock, tc_mock, ifg_width=17, clean_up=False)
+    process_ifg.calc_unw_thinning(pc_mock, ic_mock, tc_mock, ifg_width=17)
 
     assert pg_unw_mock.rascc_mask_thinning.called
     assert pg_unw_mock.mcf.called

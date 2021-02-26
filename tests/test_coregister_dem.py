@@ -34,8 +34,8 @@ def get_test_context():
     # raspwr needs to create a dummy bmp
     def raspwr_se(*args, **kwargs):
         rasf = args[9]
-        slave_gamma0_eqa = data_dir / rasf
-        Image.new("RGB", size=(50, 50), color=(155, 0, 0)).save(slave_gamma0_eqa)
+        slave_gamma0_geo = data_dir / rasf
+        Image.new("RGB", size=(50, 50), color=(155, 0, 0)).save(slave_gamma0_geo)
         return pgp.raspwr(*args, **kwargs)
 
     def SLC_copy_se(*args, **kwargs):
@@ -111,7 +111,7 @@ def get_test_context():
         "shapefile": test_data_dir / "T147D_F28S_S1A.shp",
         "dem": data_dir / "20180127_VV_blah.dem",
         "slc": data_dir / "20151127_VV.slc",
-        "dem_par": data_dir / "20180127_VV_8rlks_eqa.dem.par",
+        "dem_par": data_dir / "20180127_VV_8rlks_geo.dem.par",
         "slc_par": data_dir / "20151127_VV.slc.par",
         "dem_patch_window": 1024,
         "dem_rpos": None,
@@ -338,14 +338,14 @@ def test_geocode(monkeypatch):
         assert Path((coreg.dem_outdir / coreg.rdc_dem).with_suffix(".png")).exists()
         assert Path(coreg.dem_rdc_sim_sar).exists()
         assert Path(coreg.dem_rdc_inc).exists()
-        assert Path(coreg.dem_master_gamma0_eqa).exists()
-        assert Path(coreg.dem_master_gamma0_eqa_bmp).exists()
-        assert Path(coreg.dem_master_gamma0_eqa_bmp.with_suffix(".png")).exists()
-        assert Path(coreg.dem_master_gamma0_eqa_geo).exists()
-        assert Path(coreg.dem_master_sigma0_eqa).exists()
-        assert Path(coreg.dem_master_sigma0_eqa_geo).exists()
+        assert Path(coreg.dem_master_gamma0_geo).exists()
+        assert Path(coreg.dem_master_gamma0_geo_bmp).exists()
+        assert Path(coreg.dem_master_gamma0_geo_bmp.with_suffix(".png")).exists()
+        assert Path(coreg.dem_master_gamma0_geo_geo).exists()
+        assert Path(coreg.dem_master_sigma0_geo).exists()
+        assert Path(coreg.dem_master_sigma0_geo_geo).exists()
 
-        assert Path(coreg.dem_master_gamma0_eqa_bmp.with_suffix(".kml")).exists()
+        assert Path(coreg.dem_master_gamma0_geo_bmp.with_suffix(".kml")).exists()
 
         # And with external image
         Path(coreg.ext_image_flt).touch()
@@ -368,7 +368,7 @@ def test_look_vector(monkeypatch):
         coreg = CoregisterDem(*data.values(), outdir, outdir)
 
         # Create dummy inputs that would have been created in normal workflow before this test call
-        coreg.eqa_dem.touch()
+        coreg.geo_dem.touch()
 
         coreg.look_vector()
 

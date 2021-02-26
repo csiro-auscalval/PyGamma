@@ -19,7 +19,10 @@ class ProcessIfgException(Exception):
     pass
 
 
-def append_suffix(path, suffix):
+def append_suffix(
+    path: Union[pathlib.Path, str],
+    suffix: str,
+) -> pathlib.Path:
     """
     A simple filename append function that doesn't assume `.` based file extensions,
     to replace pathlib.Path.with_suffix in cases we use `_` based file suffixes
@@ -73,10 +76,9 @@ def run_workflow(
     ic: IfgFileNames,
     dc: DEMFileNames,
     tc: TempFileConfig,
-    ifg_width: int,
-    clean_up: bool,  # TODO: should clean_up apply to everything, or just specific steps?
+    ifg_width: int
 ):
-    _LOG.info("Running IFG workflow", ifg_width=int(ifg_width), clean_up=bool(clean_up))
+    _LOG.info("Running IFG workflow", ifg_width=int(ifg_width))
 
     if not ic.ifg_dir.exists():
         ic.ifg_dir.mkdir(parents=True)
@@ -85,11 +87,11 @@ def run_workflow(
         _validate_input_files(ic)
 
         # future version might want to allow selection of steps (skipped for simplicity Oct 2020)
-        calc_int(pc, ic, clean_up)
-        generate_init_flattened_ifg(pc, ic, dc, clean_up)
-        generate_final_flattened_ifg(pc, ic, dc, tc, ifg_width, clean_up)
+        calc_int(pc, ic)
+        generate_init_flattened_ifg(pc, ic, dc)
+        generate_final_flattened_ifg(pc, ic, dc, tc, ifg_width)
         calc_filt(pc, ic, ifg_width)
-        calc_unw(pc, ic, tc, ifg_width, clean_up)  # this calls unw thinning
+        calc_unw(pc, ic, tc, ifg_width)  # this calls unw thinning
         do_geocode(pc, ic, dc, tc, ifg_width)
 
 
@@ -124,12 +126,11 @@ def get_ifg_width(r_master_mli_par: io.IOBase):
     raise ProcessIfgException(msg.format(const.MatchStrings.SLC_RANGE_SAMPLES.value))
 
 
-def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up: bool):
+def calc_int(pc: ProcConfig, ic: IfgFileNames):
     """
     Perform InSAR INT processing step.
     :param pc: ProcConfig settings obj
     :param ic: IfgFileNames settings obj
-    :param clean_up: True to delete working files after processing
     """
 
     # Calculate and refine offset between interferometric SLC pair
@@ -169,9 +170,6 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up: bool):
             ic.ifg_coffsets,
         )
 
-    if clean_up:
-        remove_files(ic.ifg_offs, ic.ifg_ccp, ic.ifg_coffs, ic.ifg_coffsets)
-
     # Create differential interferogram parameter file
     pg.create_diff_par(
         ic.ifg_off,
@@ -183,14 +181,13 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames, clean_up: bool):
 
 
 def generate_init_flattened_ifg(
-    pc: ProcConfig, ic: IfgFileNames, dc: DEMFileNames, clean_up: bool
+    pc: ProcConfig, ic: IfgFileNames, dc: DEMFileNames
 ):
     """
     TODO: docs
     :param pc: ProcConfig obj
     :param ic: IfgFileNames obj
     :param dc: DEMFileNames obj
-    :param clean_up: True to delete working files after processing
     """
 
     # calculate initial baseline of interferogram (i.e. the spatial distance between the two
@@ -285,16 +282,6 @@ def generate_init_flattened_ifg(
         const.SLC_2_RANGE_PHASE_MODE_REF_FUNCTION_CENTRE,
     )
 
-    if clean_up:
-        remove_files(
-            #ic.ifg_base_temp, - TBD: These aren't used?
-            ic.ifg_base_res,
-            ic.ifg_base_init,
-            #ic.ifg_flat_temp,
-            ic.ifg_sim_unw0,
-            ic.ifg_flat0,
-        )
-
 
 # NB: this function is a bit long and ugly due to the volume of chained calls for the workflow
 def generate_final_flattened_ifg(
@@ -303,7 +290,6 @@ def generate_final_flattened_ifg(
     dc: DEMFileNames,
     tc: TempFileConfig,
     ifg_width: int,
-    clean_up: bool,
 ):
     """
     Perform refinement of baseline model using ground control points
@@ -312,7 +298,6 @@ def generate_final_flattened_ifg(
     :param dc: DEMFileNames obj
     :param tc: TempFileConfig obj
     :param ifg_width:
-    :param clean_up:
     """
     # multi-look the flattened interferogram 10 times
     pg.multi_cpx(
@@ -487,23 +472,6 @@ def generate_final_flattened_ifg(
         const.SUB_PHASE_SUBTRACT_MODE,
     )
 
-    if clean_up:
-        remove_files(
-            ic.ifg_flat1,
-            tc.ifg_flat_diff_int_unw,
-            ic.ifg_sim_unw1,
-            tc.ifg_flat1_unw,
-            ic.ifg_flat_coh0,
-            ic.ifg_flat_coh0_mask,
-            tc.ifg_flat10_unw,
-            ic.ifg_off10,
-            ic.ifg_flat10,
-            ic.ifg_flat_coh10,
-            ic.ifg_flat_coh10_mask,
-            ic.ifg_gcp,
-            ic.ifg_gcp_ph,
-        )
-
     # Calculate final flattened interferogram with common band filtering (diff ifg generation from
     # co-registered SLCs and a simulated interferogram)
     pg.SLC_diff_intf(
@@ -597,7 +565,7 @@ def calc_filt(pc: ProcConfig, ic: IfgFileNames, ifg_width: int):
 
 
 def calc_unw(
-    pc: ProcConfig, ic: IfgFileNames, tc: TempFileConfig, ifg_width: int, clean_up: bool
+    pc: ProcConfig, ic: IfgFileNames, tc: TempFileConfig, ifg_width: int
 ):
     """
     TODO: docs, does unw == unwrapped/unwrapping?
@@ -605,7 +573,6 @@ def calc_unw(
     :param ic: IfgFileNames obj
     :param tc: TempFileConfig obj
     :param ifg_width:
-    :param clean_up: True to clean up temporary files during run
     """
 
     if not ic.ifg_filt.exists():
@@ -639,7 +606,7 @@ def calc_unw(
         <= int(pc.multi_look)
         <= const.RASCC_THINNING_THRESHOLD
     ):
-        unwrapped_tmp = calc_unw_thinning(pc, ic, tc, ifg_width, clean_up=clean_up)
+        unwrapped_tmp = calc_unw_thinning(pc, ic, tc, ifg_width)
     else:
         msg = (
             "Processing for unwrapping the full interferogram without masking not implemented. "
@@ -667,7 +634,6 @@ def calc_unw_thinning(
     tc: TempFileConfig,
     ifg_width: int,
     num_sampling_reduction_runs: int = 3,
-    clean_up=False,
 ):
     """
     TODO docs
@@ -676,7 +642,6 @@ def calc_unw_thinning(
     :param tc: TempFileConfig obj
     :param ifg_width:
     :param num_sampling_reduction_runs:
-    :param clean_up:
     :return: Path of unwrapped ifg (tmp file)
     """
     # Use rascc_mask_thinning to weed the validity mask for large scenes. this can unwrap a sparser
@@ -738,9 +703,6 @@ def calc_unw_thinning(
         const.REF_POINT_PHASE,  # reference point phase (radians)
     )
 
-    if clean_up:
-        remove_files(ic.ifg_unw_thin, ic.ifg_unw_model)
-
     return tc.unwrapped_filtered_ifg
 
 
@@ -768,7 +730,7 @@ def do_geocode(
     if width_in != ifg_width:
         raise ProcessIfgException("width_in != ifg_width. Check for a processing error")
 
-    width_out = get_width_out(dc.eqa_dem_par.open())
+    width_out = get_width_out(dc.geo_dem_par.open())
 
     geocode_unwrapped_ifg(ic, dc, tc, width_in, width_out)
     geocode_flattened_ifg(ic, dc, tc, width_in, width_out)
@@ -780,35 +742,35 @@ def do_geocode(
     if pc.ifg_geotiff.lower() == const.YES:
         # unw
         pg.data2geotiff(
-            dc.eqa_dem_par,
+            dc.geo_dem_par,
             ic.ifg_unw_geocode_out,
             dtype_out,
             ic.ifg_unw_geocode_out_tiff,
         )
         # flat ifg
         pg.data2geotiff(
-            dc.eqa_dem_par,
+            dc.geo_dem_par,
             ic.ifg_flat_geocode_out,
             dtype_out,
             ic.ifg_flat_geocode_out_tiff,
         )
         # filt ifg
         pg.data2geotiff(
-            dc.eqa_dem_par,
+            dc.geo_dem_par,
             ic.ifg_filt_geocode_out,
             dtype_out,
             ic.ifg_filt_geocode_out_tiff,
         )
         # flat cc
         pg.data2geotiff(
-            dc.eqa_dem_par,
+            dc.geo_dem_par,
             ic.ifg_flat_coh_geocode_out,
             dtype_out,
             ic.ifg_flat_coh_geocode_out_tiff,
         )
         # filt cc
         pg.data2geotiff(
-            dc.eqa_dem_par,
+            dc.geo_dem_par,
             ic.ifg_filt_coh_geocode_out,
             dtype_out,
             ic.ifg_filt_coh_geocode_out_tiff,
@@ -817,7 +779,6 @@ def do_geocode(
     # TF: also remove all binaries and .ras files to save disc space
     #     keep flat.int since this is currently used as input for stamps processing
     # FIXME: move paths to dedicated mgmt class
-    #        needs to be split into geocode cleanup AND final workflow cleanup
     current = pathlib.Path(".")
     all_paths = [tuple(current.glob(pattern)) for pattern in const.TEMP_FILE_GLOBS]
 
@@ -844,18 +805,18 @@ def get_width_in(dem_diff: io.IOBase):
     raise ProcessIfgException(msg)
 
 
-def get_width_out(dem_eqa_par: io.IOBase):
+def get_width_out(dem_geo_par: io.IOBase):
     """
-    Return range field from eqa_dem_par file
-    :param dem_eqa_par: open file like obj
+    Return range field from geo_dem_par file
+    :param dem_geo_par: open file like obj
     :return: width as integer
     """
-    for line in dem_eqa_par.readlines():
-        if const.DEM_EQA_WIDTH in line:
+    for line in dem_geo_par.readlines():
+        if const.DEM_GEO_WIDTH in line:
             _, value = line.split()
             return int(value)
 
-    msg = 'Cannot locate "{}" value in DEM eqa param file'.format(const.DEM_EQA_WIDTH)
+    msg = 'Cannot locate "{}" value in DEM geo param file'.format(const.DEM_GEO_WIDTH)
     raise ProcessIfgException(msg)
 
 
@@ -879,7 +840,7 @@ def geocode_unwrapped_ifg(
     # make quick-look png image
     rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_bmp, pixavr=5, pixavaz=5)
     convert(ic.ifg_unw_geocode_bmp)
-    kml_map(ic.ifg_unw_geocode_png, dc.eqa_dem_par)
+    kml_map(ic.ifg_unw_geocode_png, dc.geo_dem_par)
     remove_files(ic.ifg_unw_geocode_bmp, tc.geocode_unwrapped_ifg)
 
 
@@ -909,7 +870,7 @@ def geocode_flattened_ifg(
     # make quick-look png image
     rasrmg_wrapper(ic.ifg_flat_geocode_out, width_out, ic.ifg_flat_geocode_bmp, pixavr=5, pixavaz=5)
     convert(ic.ifg_flat_geocode_bmp)
-    kml_map(ic.ifg_flat_geocode_png, dc.eqa_dem_par)
+    kml_map(ic.ifg_flat_geocode_png, dc.geo_dem_par)
     remove_files(ic.ifg_flat_geocode_bmp, tc.geocode_flat_ifg, ic.ifg_flat_float)
 
 
@@ -938,7 +899,7 @@ def geocode_filtered_ifg(
     # make quick-look png image
     rasrmg_wrapper(ic.ifg_filt_geocode_out, width_out, ic.ifg_filt_geocode_bmp)
     convert(ic.ifg_filt_geocode_bmp)
-    kml_map(ic.ifg_filt_geocode_png, dc.eqa_dem_par)
+    kml_map(ic.ifg_filt_geocode_png, dc.geo_dem_par)
     remove_files(ic.ifg_filt_geocode_bmp, tc.geocode_filt_ifg, ic.ifg_filt_float)
 
 
@@ -965,7 +926,7 @@ def geocode_flat_coherence_file(
         const.RAS2RAS_GREY_COLOUR_MAP,
     )
     convert(ic.ifg_flat_coh_geocode_bmp)
-    kml_map(ic.ifg_flat_coh_geocode_png, dc.eqa_dem_par)
+    kml_map(ic.ifg_flat_coh_geocode_png, dc.geo_dem_par)
     remove_files(ic.ifg_flat_coh_geocode_bmp, tc.geocode_flat_coherence_file)
 
 
@@ -992,7 +953,7 @@ def geocode_filtered_coherence_file(
         const.RAS2RAS_GREY_COLOUR_MAP,
     )
     convert(ic.ifg_filt_coh_geocode_bmp)
-    kml_map(ic.ifg_filt_coh_geocode_png, dc.eqa_dem_par)
+    kml_map(ic.ifg_filt_coh_geocode_png, dc.geo_dem_par)
     remove_files(ic.ifg_filt_coh_geocode_bmp, tc.geocode_filt_coherence_file)
 
 
@@ -1122,7 +1083,7 @@ def convert(input_file: Union[pathlib.Path, str]):
     img = Image.open(input_file)
     img = np.array(img.convert('RGBA'))
     img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
-    Image.fromarray(img).save(append_suffix(input_file, ".png"))
+    Image.fromarray(img).save(append_suffix(pathlib.Path(input_file.stem), ".png"))
 
 
 def kml_map(

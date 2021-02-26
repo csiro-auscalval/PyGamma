@@ -34,8 +34,8 @@ def get_test_context():
     # raspwr needs to create a dummy bmp
     def raspwr_se(*args, **kwargs):
         rasf = args[9]
-        slave_gamma0_eqa = data_dir / rasf
-        Image.new('RGB', size=(50, 50), color=(155, 0, 0)).save(slave_gamma0_eqa)
+        slave_gamma0_geo = data_dir / rasf
+        Image.new('RGB', size=(50, 50), color=(155, 0, 0)).save(slave_gamma0_geo)
         return pgp.raspwr(*args, **kwargs)
 
     def mcf_se(*args, **kwargs):
@@ -88,7 +88,7 @@ def get_test_context():
     shutil.copytree(Path(__file__).parent.absolute() / 'data' / '20151127', data_dir)
 
     with open(Path(__file__).parent.absolute() / 'data' / '20151127' / 'gamma.proc', 'r') as fileobj:
-        proc_config = ProcConfig.from_file(fileobj)
+        proc_config = ProcConfig.from_file(fileobj, '/some/fake/outdir')
 
     # Note: The filenames below aren't necessarily representative of a valid scene at the moment...
     # this isn't inherently a problem, as the unit tests don't test for file naming conventions of
@@ -105,8 +105,8 @@ def get_test_context():
         'dem_pix_gamma0': data_dir / '20151127_VV_8rlks_rdc_pix.gamma0',
         'r_dem_master_mli': data_dir / 'r20151127_VV_8rlks.mli',
         'rdc_dem': data_dir / '20151127_VV_8rlks_rdc.dem',
-        'eqa_dem_par': data_dir / '20180127_VV_8rlks_eqa.dem.par',
-        'dem_lt_fine': data_dir / '20151127_VV_8rlks_eqa_to_rdc.lt',
+        'geo_dem_par': data_dir / '20180127_VV_8rlks_geo.dem.par',
+        'dem_lt_fine': data_dir / '20151127_VV_8rlks_geo_to_rdc.lt',
     }
 
     # Create dummy data inputs (config/par/etc files don't need to be touched, as we provide real test files for those)
@@ -144,12 +144,12 @@ def test_valid_data(monkeypatch):
         assert(coreg.r_slave_slc.exists())
 
         slave_gamma0 = coreg.out_dir / f"{coreg.slave_mli.stem}.gamma0"
-        slave_gamma0_eqa = coreg.out_dir / f"{coreg.slave_mli.stem}_eqa.gamma0"
+        slave_gamma0_geo = coreg.out_dir / f"{coreg.slave_mli.stem}_geo.gamma0"
         assert(slave_gamma0.exists())
-        assert(slave_gamma0_eqa.exists())
+        assert(slave_gamma0_geo.exists())
 
         # Assert quick-look images exist
-        slave_png = coreg.out_dir / f"{slave_gamma0_eqa.name}.png"
+        slave_png = coreg.out_dir / f"{slave_gamma0_geo.name}.png"
         assert(slave_png.exists())
 
 
@@ -265,17 +265,17 @@ def test_generate_normalised_backscatter(monkeypatch):
         coreg.generate_normalised_backscatter()
 
         slave_gamma0 = coreg.out_dir / f"{coreg.slave_mli.stem}.gamma0"
-        slave_gamma0_eqa = coreg.out_dir / f"{coreg.slave_mli.stem}_eqa.gamma0"
-        slave_png = coreg.out_dir / f"{slave_gamma0_eqa.name}.png"
+        slave_gamma0_geo = coreg.out_dir / f"{coreg.slave_mli.stem}_geo.gamma0"
+        slave_png = coreg.out_dir / f"{slave_gamma0_geo.name}.png"
 
         assert(slave_gamma0.exists())
-        assert(slave_gamma0_eqa.exists())
+        assert(slave_gamma0_geo.exists())
         assert(slave_png.exists())
 
-        assert(slave_gamma0_eqa.with_suffix(".gamma0.tif").exists())
+        assert(slave_gamma0_geo.with_suffix(".gamma0.tif").exists())
 
-        assert(slave_gamma0_eqa.with_suffix(".sigma0").exists())
-        assert(slave_gamma0_eqa.with_suffix(".sigma0.tif").exists())
+        assert(slave_gamma0_geo.with_suffix(".sigma0").exists())
+        assert(slave_gamma0_geo.with_suffix(".sigma0.tif").exists())
 
 
 # TODO: Test more specific corner cases (what are they?)

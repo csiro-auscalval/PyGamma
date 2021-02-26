@@ -104,7 +104,7 @@ class CoregisterSlc:
         dem_pix_gamma0: Union[str, Path],
         r_dem_master_mli: Union[str, Path],
         rdc_dem: Union[str, Path],
-        eqa_dem_par: Union[str, Path],
+        geo_dem_par: Union[str, Path],
         dem_lt_fine: Union[str, Path],
         outdir: Optional[Union[str, Path]] = None,
     ) -> None:
@@ -134,10 +134,10 @@ class CoregisterSlc:
             A full path to a reference multi-looked image parameter file.
         :param rdc_dem:
             A full path to a dem (height map) in RDC of master SLC.
-        :param eqa_dem_par:
-            A full path to a eqa dem par generated during master-dem co-registration.
+        :param geo_dem_par:
+            A full path to a geo dem par generated during master-dem co-registration.
         :param dem_lt_fine:
-            A full path to a eqa_to_rdc look-up table generated during master-dem co-registration.
+            A full path to a geo_to_rdc look-up table generated during master-dem co-registration.
         :param outdir:
             A full path to a output directory.
         """
@@ -152,7 +152,7 @@ class CoregisterSlc:
         self.r_dem_master_mli = r_dem_master_mli
         self.ellip_pix_sigma0 = ellip_pix_sigma0
         self.dem_pix_gamma0 = dem_pix_gamma0
-        self.eqa_dem_par = eqa_dem_par
+        self.geo_dem_par = geo_dem_par
         self.dem_lt_fine = dem_lt_fine
         self.out_dir = outdir
         if self.out_dir is None:
@@ -722,7 +722,7 @@ class CoregisterSlc:
                 daz, azpol = self.S1_COREG_OVERLAP(
                     iteration,
                     slave_ovr_res,
-                    str(self.out_dir / self.r_master_slave_name),
+                    str(self.r_master_slave_name),
                     str(self.master_slc_tab),
                     str(self.r_slave_slc_tab),
                     str(slave_off_start),
@@ -833,7 +833,7 @@ class CoregisterSlc:
 
         ###################
         # determine phase offsets for sub-swath overlap regions
-        def calc_phase_offsets(subswath_id):
+        def calc_phase_offsets(subswath_id, temp_dir):
             nonlocal sum_all
             nonlocal samples_all
             nonlocal sum_weight_all
@@ -871,8 +871,8 @@ class CoregisterSlc:
                 pg.SLC_copy(
                     master_IWi.slc if r_slave2_slc_tab is None else r_slave2_IWi.slc,
                     master_IWi.par,
-                    f"{mas_IWi_slc}.{i}.1",
-                    f"{mas_IWi_par}.{i}.1",
+                    temp_dir / f"{mas_IWi_slc}.{i}.1",
+                    temp_dir / f"{mas_IWi_par}.{i}.1",
                     const.NOT_PROVIDED,
                     1.0,
                     0,
@@ -886,8 +886,8 @@ class CoregisterSlc:
                 pg.SLC_copy(
                     master_IWi.slc if r_slave2_slc_tab is None else r_slave2_IWi.slc,
                     master_IWi.par,
-                    f"{mas_IWi_slc}.{i}.2",
-                    f"{mas_IWi_par}.{i}.2",
+                    temp_dir / f"{mas_IWi_slc}.{i}.2",
+                    temp_dir / f"{mas_IWi_par}.{i}.2",
                     const.NOT_PROVIDED,
                     1.0,
                     0,
@@ -900,8 +900,8 @@ class CoregisterSlc:
                 pg.SLC_copy(
                     r_slave_IWi.slc,
                     master_IWi.par,
-                    f"{r_slave_IWi.slc}.{i}.1",
-                    f"{r_slave_IWi.par}.{i}.1",
+                    temp_dir / f"{r_slave_IWi.slc}.{i}.1",
+                    temp_dir / f"{r_slave_IWi.par}.{i}.1",
                     const.NOT_PROVIDED,
                     1.0,
                     0,
@@ -914,8 +914,8 @@ class CoregisterSlc:
                 pg.SLC_copy(
                     r_slave_IWi.slc,
                     master_IWi.par,
-                    f"{r_slave_IWi.slc}.{i}.2",
-                    f"{r_slave_IWi.par}.{i}.2",
+                    temp_dir / f"{r_slave_IWi.slc}.{i}.2",
+                    temp_dir / f"{r_slave_IWi.par}.{i}.2",
                     const.NOT_PROVIDED,
                     1.0,
                     0,
@@ -926,15 +926,15 @@ class CoregisterSlc:
 
                 # calculate the 2 single look interferograms for the burst overlap region i
                 # using the earlier burst --> *.int1, using the later burst --> *.int2
-                off1 = Path(f"{r_master_slave_name}.{IWid}.{i}.off1")
-                int1 = Path(f"{r_master_slave_name}.{IWid}.{i}.int1")
+                off1 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.off1")
+                int1 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.int1")
                 _unlink(off1)
                 _unlink(int1)
 
                 # create_offset $mas_IWi_par.{i}.1 $mas_IWi_par.{i}.1 $off1 1 1 1 0
                 pg.create_offset(
-                    f"{mas_IWi_par}.{i}.1",
-                    f"{mas_IWi_par}.{i}.1",
+                    temp_dir / f"{mas_IWi_par}.{i}.1",
+                    temp_dir / f"{mas_IWi_par}.{i}.1",
                     str(off1),
                     1,  # intensity cross-correlation
                     1,
@@ -944,10 +944,10 @@ class CoregisterSlc:
 
                 # SLC_intf $mas_IWi_slc.{i}.1 $r_slave_IWi.slc.{i}.1 $mas_IWi_par.{i}.1 $mas_IWi_par.{i}.1 $off1 $int1 1 1 0 - 0 0
                 pg.SLC_intf(
-                    f"{mas_IWi_slc}.{i}.1",
-                    f"{r_slave_IWi.slc}.{i}.1",
-                    f"{mas_IWi_par}.{i}.1",
-                    f"{mas_IWi_par}.{i}.1",
+                    temp_dir / f"{mas_IWi_slc}.{i}.1",
+                    temp_dir / f"{r_slave_IWi.slc}.{i}.1",
+                    temp_dir / f"{mas_IWi_par}.{i}.1",
+                    temp_dir / f"{mas_IWi_par}.{i}.1",
                     str(off1),
                     str(int1),
                     1,
@@ -958,15 +958,15 @@ class CoregisterSlc:
                     0
                 )
 
-                off2 = Path(f"{r_master_slave_name}.{IWid}.{i}.off2")
-                int2 = Path(f"{r_master_slave_name}.{IWid}.{i}.int2")
+                off2 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.off2")
+                int2 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.int2")
                 _unlink(off2)
                 _unlink(int2)
 
                 # create_offset $mas_IWi_par.{i}.2 $mas_IWi_par.{i}.2 $off2 1 1 1 0
                 pg.create_offset(
-                    f"{mas_IWi_par}.{i}.2",
-                    f"{mas_IWi_par}.{i}.2",
+                    temp_dir / f"{mas_IWi_par}.{i}.2",
+                    temp_dir / f"{mas_IWi_par}.{i}.2",
                     str(off2),
                     1,  # intensity cross-correlation
                     1,
@@ -976,10 +976,10 @@ class CoregisterSlc:
 
                 # SLC_intf $mas_IWi_slc.{i}.2 $r_slave_IWi_slc.{i}.2 $mas_IWi_par.{i}.2 $mas_IWi_par.{i}.2 $off2 $int2 1 1 0 - 0 0
                 pg.SLC_intf(
-                    f"{mas_IWi_slc}.{i}.2",
-                    f"{r_slave_IWi.slc}.{i}.2",
-                    f"{mas_IWi_par}.{i}.2",
-                    f"{mas_IWi_par}.{i}.2",
+                    temp_dir / f"{mas_IWi_slc}.{i}.2",
+                    temp_dir / f"{r_slave_IWi.slc}.{i}.2",
+                    temp_dir / f"{mas_IWi_par}.{i}.2",
+                    temp_dir / f"{mas_IWi_par}.{i}.2",
                     str(off2),
                     str(int2),
                     1,
@@ -992,8 +992,8 @@ class CoregisterSlc:
 
                 # calculate the single look double difference interferogram for the burst overlap region i
                 # insar phase of earlier burst is subtracted from interferogram of later burst
-                diff_par1 = Path(f"{r_master_slave_name}.{IWid}.{i}.diff_par")
-                diff1 = Path(f"{r_master_slave_name}.{IWid}.{i}.diff")
+                diff_par1 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff_par")
+                diff1 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff")
                 _unlink(diff_par1)
 
                 # create_diff_par $off1 $off2 $diff_par1 0 0
@@ -1008,7 +1008,7 @@ class CoregisterSlc:
                 # cpx_to_real $int1 tmp $range_samples 4
                 pg.cpx_to_real(
                     str(int1),
-                    "tmp",
+                    temp_dir / "tmp",
                     range_samples,
                     4
                 )
@@ -1016,7 +1016,7 @@ class CoregisterSlc:
                 # sub_phase $int2 tmp $diff_par1 $diff1 1 0
                 pg.sub_phase(
                     str(int2),
-                    "tmp",
+                    temp_dir / "tmp",
                     str(diff_par1),
                     str(diff1),
                     1,
@@ -1024,8 +1024,8 @@ class CoregisterSlc:
                 )
 
                 # multi-look the double difference interferogram (200 range x 4 azimuth looks)
-                diff20 = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20")
-                off20 = Path(f"{r_master_slave_name}.{IWid}.{i}.off20")
+                diff20 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20")
+                off20 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.off20")
 
                 # multi_cpx $diff1 $off1 $diff20 $off20 200 4
                 pg.multi_cpx(
@@ -1048,8 +1048,8 @@ class CoregisterSlc:
                 log_info(f"azimuth_lines20_half: {azimuth_lines20_half}")
 
                 # determine coherence and coherence mask based on unfiltered double differential interferogram
-                diff20cc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.coh")
-                diff20cc_ras = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.ras")
+                diff20cc = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.coh")
+                diff20cc_ras = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.ras")
 
                 # cc_wave $diff20  - - $diff20cc $range_samples20 5 5 0
                 pg.cc_wave(
@@ -1084,8 +1084,8 @@ class CoregisterSlc:
                 )
 
                 # adf filtering of double differential interferogram
-                diff20adf = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.adf")
-                diff20adfcc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.adf.coh")
+                diff20adf = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.adf")
+                diff20adfcc = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.adf.coh")
 
                 # adf $diff20 $diff20adf $diff20adfcc $range_samples20 0.4 16 7 2
                 pg.adf(
@@ -1102,9 +1102,9 @@ class CoregisterSlc:
                 _unlink(diff20adfcc)
 
                 # unwrapping of filtered phase considering coherence and mask determined from unfiltered double differential interferogram
-                diff20cc = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.coh")
-                diff20cc_ras = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.ras")
-                diff20phase = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.phase")
+                diff20cc = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.coh")
+                diff20cc_ras = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.ras")
+                diff20phase = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.phase")
 
                 # mcf $diff20adf $diff20cc $diff20cc_ras $diff20phase $range_samples20 1 0 0 - - 1 1 512 $range_samples20_half $azimuth_lines20_half
                 pg.mcf(
@@ -1134,7 +1134,7 @@ class CoregisterSlc:
                 fraction = 0
 
                 if diff20cc.exists():
-                    diff20ccstat = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.stat")
+                    diff20ccstat = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.cc.stat")
 
                     # image_stat $diff20cc $range_samples20 - - - - $diff20ccstat
                     pg.image_stat(
@@ -1156,7 +1156,7 @@ class CoregisterSlc:
                 diff20phase_size = diff20phase.stat().st_size if diff20phase.exists() else 0
 
                 if diff20phase_size > 0:
-                    diff20phasestat = Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.phase.stat")
+                    diff20phasestat = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.phase.stat")
 
                     # image_stat $diff20phase $range_samples20 - - - - $diff20phasestat
                     pg.image_stat(
@@ -1205,9 +1205,12 @@ class CoregisterSlc:
             log_info(f"{IWid} average: {average}")
             slave_ovr_res.write(f"{IWid} average: {average}\n")
 
-        calc_phase_offsets(1)  # IW1
-        calc_phase_offsets(2)  # IW2
-        calc_phase_offsets(3)  # IW3
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            calc_phase_offsets(1, temp_path)  # IW1
+            calc_phase_offsets(2, temp_path)  # IW2
+            calc_phase_offsets(3, temp_path)  # IW3
 
         ###################################################################################################################
 
@@ -1300,7 +1303,7 @@ class CoregisterSlc:
         Section 10.6 of Gamma Geocoding and Image Registration Users Guide.
         """
         slave_gamma0 = self.out_dir.joinpath(f"{self.slave_mli.stem}.gamma0")
-        slave_gamma0_eqa = self.out_dir.joinpath(f"{self.slave_mli.stem}_eqa.gamma0")
+        slave_gamma0_geo = self.out_dir.joinpath(f"{self.slave_mli.stem}_geo.gamma0")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir)
@@ -1327,13 +1330,13 @@ class CoregisterSlc:
             )
 
             # back geocode gamma0 backscatter product to map geometry using B-spline interpolation on sqrt data
-            eqa_dem_par_vals = DemParFileParser(self.eqa_dem_par)
-            dem_width = eqa_dem_par_vals.dem_par_params.width
+            geo_dem_par_vals = DemParFileParser(self.geo_dem_par)
+            dem_width = geo_dem_par_vals.dem_par_params.width
 
             data_in_pathname = str(slave_gamma0)
             width_in = self.master_sample.mli_width_end
             lookup_table_pathname = str(self.dem_lt_fine)
-            data_out_pathname = str(slave_gamma0_eqa)
+            data_out_pathname = str(slave_gamma0_geo)
             width_out = dem_width
             nlines_out = const.NOT_PROVIDED
             interp_mode = 5  # B-spline interpolation
@@ -1357,11 +1360,11 @@ class CoregisterSlc:
             )
 
             # make quick-look png image
-            temp_bmp = temp_dir.joinpath(f"{slave_gamma0_eqa.name}.bmp")
+            temp_bmp = temp_dir.joinpath(f"{slave_gamma0_geo.name}.bmp")
             slave_png = self.out_dir.joinpath(temp_bmp.with_suffix(".png").name)
 
             with working_directory(temp_dir):
-                pwr_pathname = str(slave_gamma0_eqa)
+                pwr_pathname = str(slave_gamma0_geo)
                 width = dem_width
                 start = 1
                 nlines = 0
@@ -1392,10 +1395,10 @@ class CoregisterSlc:
                 Image.fromarray(img).save(slave_png.as_posix())
 
                 # convert gamma0 Gamma file to GeoTIFF
-                dem_par_pathname = str(self.eqa_dem_par)
-                data_pathname = str(slave_gamma0_eqa)
+                dem_par_pathname = str(self.geo_dem_par)
+                data_pathname = str(slave_gamma0_geo)
                 dtype = 2  # float
-                geotiff_pathname = str(slave_gamma0_eqa.with_suffix(".gamma0.tif"))
+                geotiff_pathname = str(slave_gamma0_geo.with_suffix(".gamma0.tif"))
                 nodata = 0.0
 
                 pg.data2geotiff(
@@ -1404,7 +1407,7 @@ class CoregisterSlc:
 
                 # create KML map of PNG file
                 image_pathname = str(slave_png)
-                dem_par_pathname = str(self.eqa_dem_par)
+                dem_par_pathname = str(self.geo_dem_par)
                 kml_pathname = str(slave_png.with_suffix(".kml"))
 
                 pg.kml_map(
@@ -1412,12 +1415,12 @@ class CoregisterSlc:
                 )
 
                 # geocode sigma0 mli
-                slave_sigma0_eqa = slave_gamma0_eqa.with_suffix(".sigma0")
+                slave_sigma0_geo = slave_gamma0_geo.with_suffix(".sigma0")
 
                 data_in_pathname = str(self.r_slave_mli)
                 width_in = self.master_sample.mli_width_end
                 lookup_table_pathname = str(self.dem_lt_fine)
-                data_out_pathname = str(slave_sigma0_eqa)
+                data_out_pathname = str(slave_sigma0_geo)
                 width_out = dem_width
                 nlines_out = const.NOT_PROVIDED
                 interp_mode = 0  # nearest-neighbor
@@ -1439,10 +1442,10 @@ class CoregisterSlc:
                 )
 
                 # convert sigma0 Gamma file to GeoTIFF
-                dem_par_pathname = str(self.eqa_dem_par)
-                data_pathname = str(slave_sigma0_eqa)
+                dem_par_pathname = str(self.geo_dem_par)
+                data_pathname = str(slave_sigma0_geo)
                 dtype = 2  # float
-                geotiff_pathname = str(slave_sigma0_eqa.with_suffix(".sigma0.tif"))
+                geotiff_pathname = str(slave_sigma0_geo.with_suffix(".sigma0.tif"))
                 nodata = 0.0
 
                 pg.data2geotiff(

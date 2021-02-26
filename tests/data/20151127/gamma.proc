@@ -15,7 +15,7 @@ S1_ORBITS=/g/data/fj7/Copernicus/Sentinel-1
 S1_PATH=/g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC
 MASTER_DEM_IMAGE=/g/data/dg9/MASTER_DEM
 
-# NOTE: 
+# NOTE:
 # - the total path to the gamma processing directory will be made up of variables from this file.
 # - so, NCI_PATH/PROJECT/SENSOR/GAMMA/TRACK
 # - the path needs to exist.
@@ -109,7 +109,7 @@ AZIMUTH_LOOKS=auto
     # Options: chain (use daisy-chain), sbas (use reference master) or single (use single master)
 PROCESS_METHOD=single
     # Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated
-REF_MASTER_SCENE=auto
+REF_MASTER_SCENE=20151127
     # thresholds for minimum and maximum number of SBAS connections
 MIN_CONNECT=4
     # default is 7 for S1, 10 for other sensors (e.g. RSAT2)

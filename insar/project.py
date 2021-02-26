@@ -173,7 +173,7 @@ class ProcConfig:
         "ifg_azpos",
     ]
 
-    def __init__(self, **kwargs):
+    def __init__(self, outdir, **kwargs):
         """
         Create a ProcConfig instance.
         :param kwargs: mapping of keywords and values from a proc config settings file.
@@ -197,8 +197,16 @@ class ProcConfig:
         self.ifg_rpos = self.dem_rpos
         self.ifg_azpos = self.dem_azpos
 
+        # Handle "auto" reference scene
+        if self.ref_master_scene.lower() == "auto":
+            # Read computed master scene and use it
+            with open(pathlib.Path(outdir) / self.list_dir / 'primary_ref_scene', 'r') as ref_scene_file:
+                auto_master_scene = ref_scene_file.readline().strip()
+
+            self.ref_master_scene = auto_master_scene
+
     @classmethod
-    def from_file(cls, file_obj):
+    def from_file(cls, file_obj, outdir):
         """
         Returns a ProcConfig instantiated from the given file like obj.
 
@@ -215,7 +223,7 @@ class ProcConfig:
             pair[0] = pair[0].replace("-", "_")
 
         cfg = {e[0].strip().lower(): e[1].strip() for e in kv_pairs}
-        return ProcConfig(**cfg)
+        return ProcConfig(outdir, **cfg)
 
 
 def is_valid_config_line(line):
@@ -309,9 +317,9 @@ class DEMMasterNames:
         "dem_master_mli_par",
         "dem_master_gamma0",
         "dem_master_gamma0_bmp",
-        "dem_master_gamma0_eqa",
-        "dem_master_gamma0_eqa_bmp",
-        "dem_master_gamma0_eqa_geo",
+        "dem_master_gamma0_geo",
+        "dem_master_gamma0_geo_bmp",
+        "dem_master_gamma0_geo_geo",
         "r_dem_master_slc_name",
         "r_dem_master_slc",
         "r_dem_master_slc_par",
@@ -361,14 +369,14 @@ class DEMMasterNames:
                 suffix_lks + ".gamma0.bmp"
             )
 
-            self.dem_master_gamma0_eqa = self.dem_master_dir / (
-                suffix_lks + "_eqa.gamma0"
+            self.dem_master_gamma0_geo = self.dem_master_dir / (
+                suffix_lks + "_geo.gamma0"
             )
-            self.dem_master_gamma0_eqa_bmp = self.dem_master_dir / (
-                suffix_lks + "_eqa.gamma0.bmp"
+            self.dem_master_gamma0_geo_bmp = self.dem_master_dir / (
+                suffix_lks + "_geo.gamma0.bmp"
             )
-            self.dem_master_gamma0_eqa_geo = self.dem_master_dir / (
-                suffix_lks + "_eqa.gamma0.tif"
+            self.dem_master_gamma0_geo_geo = self.dem_master_dir / (
+                suffix_lks + "_geo.gamma0.tif"
             )
 
             suffix_slc = "r{}_{}".format(proc.ref_master_scene, proc.polarisation)
@@ -404,12 +412,12 @@ class DEMFileNames:
         "dem_master_name",
         "dem_diff",
         "rdc_dem",
-        "eqa_dem",
-        "eqa_dem_par",
+        "geo_dem",
+        "geo_dem_par",
         "seamask",
         "dem_lt_rough",
         "dem_lt_fine",
-        "dem_eqa_sim_sar",
+        "dem_geo_sim_sar",
         "dem_rdc_sim_sar",
         "dem_loc_inc",
         "dem_rdc_inc",
@@ -449,16 +457,16 @@ class DEMFileNames:
         self.dem_diff = dmn.parent / ("diff_" + dmn.name + ".par")
 
         self.rdc_dem = dmn.parent / (dmn.name + "_rdc.dem")
-        self.eqa_dem = dmn.parent / (dmn.name + "_eqa.dem")
-        self.eqa_dem_par = self.eqa_dem.with_suffix(".dem.par")
-        self.seamask = dmn.parent / (dmn.name + "_eqa_seamask.tif")
-        self.dem_lt_rough = dmn.parent / (dmn.name + "_rough_eqa_to_rdc.lt")
-        self.dem_lt_fine = dmn.parent / (dmn.name + "_eqa_to_rdc.lt")
-        self.dem_eqa_sim_sar = dmn.parent / (dmn.name + "_eqa.sim")
+        self.geo_dem = dmn.parent / (dmn.name + "_geo.dem")
+        self.geo_dem_par = self.geo_dem.with_suffix(".dem.par")
+        self.seamask = dmn.parent / (dmn.name + "_geo_seamask.tif")
+        self.dem_lt_rough = dmn.parent / (dmn.name + "_rough_geo_to_rdc.lt")
+        self.dem_lt_fine = dmn.parent / (dmn.name + "_geo_to_rdc.lt")
+        self.dem_geo_sim_sar = dmn.parent / (dmn.name + "_geo.sim")
         self.dem_rdc_sim_sar = dmn.parent / (dmn.name + "_rdc.sim")
-        self.dem_loc_inc = dmn.parent / (dmn.name + "_eqa.linc")
+        self.dem_loc_inc = dmn.parent / (dmn.name + "_geo.linc")
         self.dem_rdc_inc = dmn.parent / (dmn.name + "_rdc.linc")
-        self.dem_lsmap = dmn.parent / (dmn.name + "_eqa.lsmap")
+        self.dem_lsmap = dmn.parent / (dmn.name + "_geo.lsmap")
         self.ellip_pix_sigma0 = dmn.parent / (dmn.name + "_ellip_pix_sigma0")
         self.dem_pix_gam = dmn.parent / (dmn.name + "_rdc_pix_gamma0")
         self.dem_pix_gam_bmp = self.dem_pix_gam.with_suffix(".bmp")
@@ -468,8 +476,8 @@ class DEMFileNames:
         self.dem_offsets = dmn.with_suffix(".offsets")
         self.dem_coffs = dmn.with_suffix(".coffs")
         self.dem_coffsets = dmn.with_suffix(".coffsets")
-        self.dem_lv_theta = dmn.parent / (dmn.name + "_eqa.lv_theta")
-        self.dem_lv_phi = dmn.parent / (dmn.name + "_eqa.lv_phi")
+        self.dem_lv_theta = dmn.parent / (dmn.name + "_geo.lv_theta")
+        self.dem_lv_phi = dmn.parent / (dmn.name + "_geo.lv_phi")
         self.ext_image_flt = dmn.parent / (dmn.name + "_ext_img_sar.flt")
         self.ext_image_init_sar = dmn.parent / (dmn.name + "_ext_img_init.sar")
         self.ext_image_sar = dmn.parent / (dmn.name + "_ext_img.sar")
@@ -617,35 +625,35 @@ class IfgFileNames:
 
         self.ifg_filt = pathlib.Path(_master_slave_name + "_filt_int")
         self.ifg_filt_float = pathlib.Path(_master_slave_name + "_filt_int_flt")
-        self.ifg_filt_geocode_bmp = pathlib.Path(_master_slave_name + "_filt_eqa_int.bmp")
-        self.ifg_filt_geocode_out = pathlib.Path(_master_slave_name + "_filt_eqa_int")
-        self.ifg_filt_geocode_png = pathlib.Path(_master_slave_name + "_filt_eqa_int.png")
+        self.ifg_filt_geocode_bmp = pathlib.Path(_master_slave_name + "_filt_geo_int.bmp")
+        self.ifg_filt_geocode_out = pathlib.Path(_master_slave_name + "_filt_geo_int")
+        self.ifg_filt_geocode_png = pathlib.Path(_master_slave_name + "_filt_geo_int.png")
         self.ifg_filt_mask = pathlib.Path(_master_slave_name + "_filt_mask_int")
         self.ifg_filt_coh = pathlib.Path(_master_slave_name + "_filt_coh")
         self.ifg_filt_coh_geocode_bmp = pathlib.Path(
-            _master_slave_name + "_filt_eqa_coh.bmp"
+            _master_slave_name + "_filt_geo_coh.bmp"
         )
-        self.ifg_filt_coh_geocode_out = pathlib.Path(_master_slave_name + "_filt_eqa_coh")
+        self.ifg_filt_coh_geocode_out = pathlib.Path(_master_slave_name + "_filt_geo_coh")
         self.ifg_filt_coh_geocode_png = pathlib.Path(
-            _master_slave_name + "_filt_eqa_coh.png"
+            _master_slave_name + "_filt_geo_coh.png"
         )
 
         self.ifg_flat = pathlib.Path(_master_slave_name + "_flat_int")
         self.ifg_flat_float = pathlib.Path(_master_slave_name + "_flat_int_flt")
-        self.ifg_flat_geocode_bmp = pathlib.Path(_master_slave_name + "_flat_eqa_int.bmp")
-        self.ifg_flat_geocode_out = pathlib.Path(_master_slave_name + "_flat_eqa_int")
-        self.ifg_flat_geocode_png = pathlib.Path(_master_slave_name + "_flat_eqa_int.png")
+        self.ifg_flat_geocode_bmp = pathlib.Path(_master_slave_name + "_flat_geo_int.bmp")
+        self.ifg_flat_geocode_out = pathlib.Path(_master_slave_name + "_flat_geo_int")
+        self.ifg_flat_geocode_png = pathlib.Path(_master_slave_name + "_flat_geo_int.png")
         self.ifg_flat_temp = pathlib.Path(_master_slave_name + "_flat_temp_int")
         self.ifg_flat0 = pathlib.Path(_master_slave_name + "_flat0_int")
         self.ifg_flat1 = pathlib.Path(_master_slave_name + "_flat1_int")
         self.ifg_flat10 = pathlib.Path(_master_slave_name + "_flat10_int")
         self.ifg_flat_coh = pathlib.Path(_master_slave_name + "_flat_coh")
         self.ifg_flat_coh_geocode_bmp = pathlib.Path(
-            _master_slave_name + "_flat_eqa_coh.bmp"
+            _master_slave_name + "_flat_geo_coh.bmp"
         )
-        self.ifg_flat_coh_geocode_out = pathlib.Path(_master_slave_name + "_flat_eqa_coh")
+        self.ifg_flat_coh_geocode_out = pathlib.Path(_master_slave_name + "_flat_geo_coh")
         self.ifg_flat_coh_geocode_png = pathlib.Path(
-            _master_slave_name + "_flat_eqa_coh.png"
+            _master_slave_name + "_flat_geo_coh.png"
         )
         self.ifg_flat_coh0 = pathlib.Path(_master_slave_name + "_flat0_coh")
         self.ifg_flat_coh0_mask = pathlib.Path(_master_slave_name + "_flat0_coh_mask.ras")
@@ -666,25 +674,25 @@ class IfgFileNames:
         self.ifg_sim_unw1 = pathlib.Path(_master_slave_name + "_sim1_unw")
         self.ifg_sim_unw_ph = pathlib.Path(_master_slave_name + "_sim_ph_unw")
         self.ifg_unw = pathlib.Path(_master_slave_name + "_unw")
-        self.ifg_unw_geocode_bmp = pathlib.Path(_master_slave_name + "_eqa_unw.bmp")
-        self.ifg_unw_geocode_out = pathlib.Path(_master_slave_name + "_eqa_unw")
-        self.ifg_unw_geocode_png = pathlib.Path(_master_slave_name + "_eqa_unw.png")
+        self.ifg_unw_geocode_bmp = pathlib.Path(_master_slave_name + "_geo_unw.bmp")
+        self.ifg_unw_geocode_out = pathlib.Path(_master_slave_name + "_geo_unw")
+        self.ifg_unw_geocode_png = pathlib.Path(_master_slave_name + "_geo_unw.png")
         self.ifg_unw_mask = pathlib.Path(_master_slave_name + "_mask_unw")
         self.ifg_unw_model = pathlib.Path(_master_slave_name + "_model_unw")
         self.ifg_unw_thin = pathlib.Path(_master_slave_name + "_thin_unw")
 
-        self.ifg_unw_geocode_out_tiff = pathlib.Path(_master_slave_name + "_eqa_unw.tif")
+        self.ifg_unw_geocode_out_tiff = pathlib.Path(_master_slave_name + "_geo_unw.tif")
         self.ifg_flat_geocode_out_tiff = pathlib.Path(
-            _master_slave_name + "_flat_eqa_int.tif"
+            _master_slave_name + "_flat_geo_int.tif"
         )
         self.ifg_filt_geocode_out_tiff = pathlib.Path(
-            _master_slave_name + "_filt_eqa_int.tif"
+            _master_slave_name + "_filt_geo_int.tif"
         )
         self.ifg_flat_coh_geocode_out_tiff = pathlib.Path(
-            _master_slave_name + "_flat_eqa_coh.tif"
+            _master_slave_name + "_flat_geo_coh.tif"
         )
         self.ifg_filt_coh_geocode_out_tiff = pathlib.Path(
-            _master_slave_name + "_filt_eqa_coh.tif"
+            _master_slave_name + "_filt_geo_coh.tif"
         )
 
 

@@ -221,20 +221,20 @@ class CoregisterDem:
             attrs["dem_master_mli"].suffix + ".par"
         )
         attrs["dem_master_sigma0"] = outdir.joinpath(f"{slc_prefix}.sigma0")
-        attrs["dem_master_sigma0_eqa"] = outdir.joinpath(f"{slc_prefix}_eqa.sigma0")
-        attrs["dem_master_sigma0_eqa_geo"] = attrs["dem_master_sigma0_eqa"].with_suffix(
-            attrs["dem_master_sigma0_eqa"].suffix + ".tif"
+        attrs["dem_master_sigma0_geo"] = outdir.joinpath(f"{slc_prefix}_geo.sigma0")
+        attrs["dem_master_sigma0_geo_geo"] = attrs["dem_master_sigma0_geo"].with_suffix(
+            attrs["dem_master_sigma0_geo"].suffix + ".tif"
         )
         attrs["dem_master_gamma0"] = outdir.joinpath(f"{slc_prefix}.gamma0")
         attrs["dem_master_gamma0_bmp"] = attrs["dem_master_gamma0"].with_suffix(
             attrs["dem_master_gamma0"].suffix + ".bmp"
         )
-        attrs["dem_master_gamma0_eqa"] = outdir.joinpath(f"{slc_prefix}_eqa.gamma0")
-        attrs["dem_master_gamma0_eqa_bmp"] = attrs["dem_master_gamma0_eqa"].with_suffix(
-            attrs["dem_master_gamma0_eqa"].suffix + ".bmp"
+        attrs["dem_master_gamma0_geo"] = outdir.joinpath(f"{slc_prefix}_geo.gamma0")
+        attrs["dem_master_gamma0_geo_bmp"] = attrs["dem_master_gamma0_geo"].with_suffix(
+            attrs["dem_master_gamma0_geo"].suffix + ".bmp"
         )
-        attrs["dem_master_gamma0_eqa_geo"] = attrs["dem_master_gamma0_eqa"].with_suffix(
-            attrs["dem_master_gamma0_eqa"].suffix + ".tif"
+        attrs["dem_master_gamma0_geo_geo"] = attrs["dem_master_gamma0_geo"].with_suffix(
+            attrs["dem_master_gamma0_geo"].suffix + ".tif"
         )
 
         attrs["r_dem_master_slc"] = outdir.joinpath(f"{r_slc_prefix}.slc")
@@ -263,20 +263,20 @@ class CoregisterDem:
         attrs = dict()
         attrs["dem_diff"] = outdir.joinpath(f"diff_{dem_prefix}.par")
         attrs["rdc_dem"] = outdir.joinpath(f"{dem_prefix}_rdc.dem")
-        attrs["eqa_dem"] = outdir.joinpath(f"{dem_prefix}_eqa.dem")
-        attrs["eqa_dem_par"] = attrs["eqa_dem"].with_suffix(
-            attrs["eqa_dem"].suffix + ".par"
+        attrs["geo_dem"] = outdir.joinpath(f"{dem_prefix}_geo.dem")
+        attrs["geo_dem_par"] = attrs["geo_dem"].with_suffix(
+            attrs["geo_dem"].suffix + ".par"
         )
-        attrs["eqa_dem_geo"] = attrs["eqa_dem"].with_suffix(
-            attrs["eqa_dem"].suffix + ".tif"
+        attrs["geo_dem_geo"] = attrs["geo_dem"].with_suffix(
+            attrs["geo_dem"].suffix + ".tif"
         )
-        attrs["dem_lt_rough"] = outdir.joinpath(f"{dem_prefix}_rough_eqa_to_rdc.lt")
-        attrs["dem_eqa_sim_sar"] = outdir.joinpath(f"{dem_prefix}_eqa.sim")
-        attrs["dem_loc_inc"] = outdir.joinpath(f"{dem_prefix}_eqa.linc")
-        attrs["dem_lsmap"] = outdir.joinpath(f"{dem_prefix}_eqa.lsmap")
-        attrs["seamask"] = outdir.joinpath(f"{dem_prefix}_eqa_seamask.tif")
-        attrs["dem_lt_fine"] = outdir.joinpath(f"{dem_prefix}_eqa_to_rdc.lt")
-        attrs["dem_eqa_sim_sar"] = outdir.joinpath(f"{dem_prefix}_eqa.sim")
+        attrs["dem_lt_rough"] = outdir.joinpath(f"{dem_prefix}_rough_geo_to_rdc.lt")
+        attrs["dem_geo_sim_sar"] = outdir.joinpath(f"{dem_prefix}_geo.sim")
+        attrs["dem_loc_inc"] = outdir.joinpath(f"{dem_prefix}_geo.linc")
+        attrs["dem_lsmap"] = outdir.joinpath(f"{dem_prefix}_geo.lsmap")
+        attrs["seamask"] = outdir.joinpath(f"{dem_prefix}_geo_seamask.tif")
+        attrs["dem_lt_fine"] = outdir.joinpath(f"{dem_prefix}_geo_to_rdc.lt")
+        attrs["dem_geo_sim_sar"] = outdir.joinpath(f"{dem_prefix}_geo.sim")
         attrs["dem_rdc_sim_sar"] = outdir.joinpath(f"{dem_prefix}_rdc.sim")
         attrs["dem_rdc_inc"] = outdir.joinpath(f"{dem_prefix}_rdc.linc")
         attrs["ellip_pix_sigma0"] = outdir.joinpath(f"{dem_prefix}_ellip_pix_sigma0")
@@ -288,8 +288,8 @@ class CoregisterDem:
         attrs["dem_offsets"] = outdir.joinpath(f"{dem_prefix}.offsets")
         attrs["dem_coffs"] = outdir.joinpath(f"{dem_prefix}.coffs")
         attrs["dem_coffsets"] = outdir.joinpath(f"{dem_prefix}.coffsets")
-        attrs["dem_lv_theta"] = outdir.joinpath(f"{dem_prefix}_eqa.lv_theta")
-        attrs["dem_lv_phi"] = outdir.joinpath(f"{dem_prefix}_eqa.lv_phi")
+        attrs["dem_lv_theta"] = outdir.joinpath(f"{dem_prefix}_geo.lv_theta")
+        attrs["dem_lv_phi"] = outdir.joinpath(f"{dem_prefix}_geo.lv_phi")
         attrs["dem_lv_theta_geo"] = attrs["dem_lv_theta"].with_suffix(
             attrs["dem_lv_theta"].suffix + ".tif"
         )
@@ -316,8 +316,8 @@ class CoregisterDem:
             self.r_dem_master_mli_length = mli_par.slc_par_params.azimuth_lines
 
         if self.dem_width is None:
-            eqa_dem_params = DemParFileParser(self.eqa_dem_par)
-            self.dem_width = eqa_dem_params.dem_par_params.width
+            geo_dem_params = DemParFileParser(self.geo_dem_par)
+            self.dem_width = geo_dem_params.dem_par_params.width
 
     def adjust_dem_parameters(self) -> None:
         """
@@ -460,12 +460,12 @@ class CoregisterDem:
         off_par_pathname = "-"
         dem_par_pathname = str(self.dem_par)
         dem_pathname = str(self.dem)
-        dem_seg_par_pathname = str(self.eqa_dem_par)
-        dem_seg_pathname = str(self.eqa_dem)
+        dem_seg_par_pathname = str(self.geo_dem_par)
+        dem_seg_pathname = str(self.geo_dem)
         lookup_table_pathname = str(self.dem_lt_rough)
         lat_ovr = self.dem_ovr
         lon_ovr = self.dem_ovr
-        sim_sar_pathname = str(self.dem_eqa_sim_sar)
+        sim_sar_pathname = str(self.dem_geo_sim_sar)
         u_zenith_angle = "-"
         v_orientation_angle = "-"
         inc_angle_pathname = str(self.dem_loc_inc)
@@ -498,8 +498,8 @@ class CoregisterDem:
 
         # generate initial gamma0 pixel normalisation area image in radar geometry
         mli_par_pathname = str(self.r_dem_master_mli_par)
-        dem_par_pathname = str(self.eqa_dem_par)
-        dem_pathname = str(self.eqa_dem)
+        dem_par_pathname = str(self.geo_dem_par)
+        dem_pathname = str(self.geo_dem)
         lookup_table_pathname = str(self.dem_lt_rough)
         ls_map_pathname = str(self.dem_lsmap)
         inc_map_pathname = str(self.dem_loc_inc)
@@ -532,7 +532,7 @@ class CoregisterDem:
             # transform simulated SAR intensity image to radar geometry
             dem1_par_pathname = str(self.dem_par)
             data1_pathname = str(self.ext_image)
-            dem2_par_pathname = str(self.eqa_dem_par)
+            dem2_par_pathname = str(self.geo_dem_par)
             data2_pathname = str(self.ext_image_flt)
             lat_ovr = 1
             lon_ovr = 1
@@ -771,8 +771,8 @@ class CoregisterDem:
             pix = Path(temp_dir).joinpath("pix")
 
             mli_par_pathname = str(self.r_dem_master_mli_par)
-            dem_par_pathname = str(self.eqa_dem_par)
-            dem_pathname = str(self.eqa_dem)
+            dem_par_pathname = str(self.geo_dem_par)
+            dem_pathname = str(self.geo_dem)
             lookup_table_pathname = str(self.dem_lt_fine)
             ls_map_pathname = str(self.dem_lsmap)
             inc_map_pathname = str(self.dem_loc_inc)
@@ -894,7 +894,7 @@ class CoregisterDem:
             # make sea-mask based on DEM zero values
             temp = Path(temp_dir).joinpath("temp")
 
-            f_in_pathname = str(self.eqa_dem)
+            f_in_pathname = str(self.geo_dem)
             value = 0.0001
             new_value = 0
             f_out_pathname = str(temp)
@@ -966,7 +966,7 @@ class CoregisterDem:
 
         # geocode map geometry DEM to radar geometry
         lookup_table_pathname = str(self.dem_lt_fine)
-        data_in_pathname = str(self.eqa_dem)
+        data_in_pathname = str(self.geo_dem)
         width_in = self.dem_width
         data_out_pathname = str(self.rdc_dem)
         width_out = self.r_dem_master_mli_width
@@ -1034,7 +1034,7 @@ class CoregisterDem:
 
         # Geocode simulated SAR intensity image to radar geometry
         lookup_table_pathname = str(self.dem_lt_fine)
-        data_in_pathname = str(self.dem_eqa_sim_sar)
+        data_in_pathname = str(self.dem_geo_sim_sar)
         width_in = self.dem_width
         data_out_pathname = str(self.dem_rdc_sim_sar)
         width_out = self.r_dem_master_mli_width
@@ -1130,7 +1130,7 @@ class CoregisterDem:
         data_in_pathname = str(self.dem_master_gamma0)
         width_in = self.r_dem_master_mli_width
         lookup_table_pathname = str(self.dem_lt_fine)
-        data_out_pathname = str(self.dem_master_gamma0_eqa)
+        data_out_pathname = str(self.dem_master_gamma0_geo)
         width_out = self.dem_width
         nlines_out = "-"
         interp_mode = 5  # B-spline interpolation sqrt(x)
@@ -1154,7 +1154,7 @@ class CoregisterDem:
         )
 
         # make quick-look png image
-        pwr_pathname = str(self.dem_master_gamma0_eqa)
+        pwr_pathname = str(self.dem_master_gamma0_geo)
         width = self.dem_width
         start = 1
         nlines = 0  # to end of file
@@ -1163,7 +1163,7 @@ class CoregisterDem:
         scale = "-"
         exp = "-"
         lr = "-"
-        rasf_pathname = str(self.dem_master_gamma0_eqa_bmp)
+        rasf_pathname = str(self.dem_master_gamma0_geo_bmp)
 
         pg.raspwr(
             pwr_pathname,
@@ -1179,18 +1179,18 @@ class CoregisterDem:
         )
 
         # Convert the bitmap to a PNG w/ black pixels made transparent
-        img = Image.open(self.dem_master_gamma0_eqa_bmp.as_posix())
+        img = Image.open(self.dem_master_gamma0_geo_bmp.as_posix())
         img = np.array(img.convert("RGBA"))
         img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
         Image.fromarray(img).save(
-            self.dem_master_gamma0_eqa_bmp.with_suffix(".png").as_posix()
+            self.dem_master_gamma0_geo_bmp.with_suffix(".png").as_posix()
         )
 
         # geotiff gamma0 file
-        dem_par_pathname = str(self.eqa_dem_par)
-        data_pathname = str(self.dem_master_gamma0_eqa)
+        dem_par_pathname = str(self.geo_dem_par)
+        data_pathname = str(self.dem_master_gamma0_geo)
         dtype = 2  # FLOAT
-        geotiff_pathname = self.dem_master_gamma0_eqa_geo
+        geotiff_pathname = self.dem_master_gamma0_geo_geo
         nodata = 0.0
 
         pg.data2geotiff(
@@ -1203,7 +1203,7 @@ class CoregisterDem:
         data_in_pathname = str(self.dem_master_sigma0)
         width_in = self.r_dem_master_mli_width
         lookup_table_pathname = str(self.dem_lt_fine)
-        data_out_pathname = str(self.dem_master_sigma0_eqa)
+        data_out_pathname = str(self.dem_master_sigma0_geo)
         width_out = self.dem_width
         nlines_out = "-"
         interp_mode = 0
@@ -1224,10 +1224,10 @@ class CoregisterDem:
             lr_out,
         )
 
-        dem_par_pathname = str(self.eqa_dem_par)
-        data_pathname = str(self.dem_master_sigma0_eqa)
+        dem_par_pathname = str(self.geo_dem_par)
+        data_pathname = str(self.dem_master_sigma0_geo)
         dtype = 2  # FLOAT
-        geotiff_pathname = str(self.dem_master_sigma0_eqa_geo)
+        geotiff_pathname = str(self.dem_master_sigma0_geo_geo)
         nodata = 0.0
 
         pg.data2geotiff(
@@ -1235,10 +1235,10 @@ class CoregisterDem:
         )
 
         # geotiff DEM
-        dem_par_pathname = str(self.eqa_dem_par)
-        data_pathname = str(self.eqa_dem)
+        dem_par_pathname = str(self.geo_dem_par)
+        data_pathname = str(self.geo_dem)
         dtype = 2  # FLOAT
-        geotiff_pathname = str(self.eqa_dem_geo)
+        geotiff_pathname = str(self.geo_dem_geo)
         nodata = 0.0
 
         pg.data2geotiff(
@@ -1246,9 +1246,9 @@ class CoregisterDem:
         )
 
         # create kml
-        image_pathname = str(self.dem_master_gamma0_eqa_bmp.with_suffix(".png"))
-        dem_par_pathname = str(self.eqa_dem_par)
-        kml_pathname = str(self.dem_master_gamma0_eqa_bmp.with_suffix(".kml"))
+        image_pathname = str(self.dem_master_gamma0_geo_bmp.with_suffix(".png"))
+        dem_par_pathname = str(self.geo_dem_par)
+        kml_pathname = str(self.dem_master_gamma0_geo_bmp.with_suffix(".kml"))
 
         pg.kml_map(
             image_pathname, dem_par_pathname, kml_pathname,
@@ -1261,7 +1261,7 @@ class CoregisterDem:
             self.dem_coffs,
             self.dem_coffsets,
             self.dem_lt_rough,
-            self.dem_master_gamma0_eqa_bmp,
+            self.dem_master_gamma0_geo_bmp,
         ]:
             # TODO uncomment remove comment in production phase.
             if item.exists():
@@ -1274,8 +1274,8 @@ class CoregisterDem:
         # create angles look vector image
         slc_par_pathname = str(self.r_dem_master_slc_par)
         off_par_pathname = "-"
-        dem_par_pathname = str(self.eqa_dem_par)
-        dem_pathname = str(self.eqa_dem)
+        dem_par_pathname = str(self.geo_dem_par)
+        dem_pathname = str(self.geo_dem)
         lv_theta_pathname = str(self.dem_lv_theta)
         lv_phi_pathname = str(self.dem_lv_phi)
 
@@ -1289,7 +1289,7 @@ class CoregisterDem:
         )
 
         # convert look vector files to geotiff file
-        dem_par_pathname = str(self.eqa_dem_par)
+        dem_par_pathname = str(self.geo_dem_par)
         data_pathname = str(self.dem_lv_theta)
         dtype = 2  # FLOAT
         geotiff_pathname = str(self.dem_lv_theta_geo)
@@ -1299,7 +1299,7 @@ class CoregisterDem:
             dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
         )
 
-        dem_par_pathname = str(self.eqa_dem_par)
+        dem_par_pathname = str(self.geo_dem_par)
         data_pathname = str(self.dem_lv_phi)
         dtype = 2  # FLOAT
         geotiff_pathname = str(self.dem_lv_phi_geo)

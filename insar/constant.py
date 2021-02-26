@@ -245,7 +245,7 @@ class Wildcards(Enum):
     MODEL_UNW_TYPE = "*_model.unw"
     SIM_UNW_TYPE = "*_sim.unw"
     THIN_UNW_TYPE = "*_thin.unw"
-    EQA_UNW_TYPE = "*eqa.unw"
+    GEO_UNW_TYPE = "*geo.unw"
     INT_FLAT_TYPE = "*_flat.int"
     OFF_PAR_TYPE = "*off.par"
 
@@ -308,8 +308,8 @@ class MatchStrings(Enum):
 # DEM diff file
 RANGE_SAMPLE_1 = "range_samp_1:"
 
-# DEM EQA param file
-DEM_EQA_WIDTH = "width:"
+# DEM GEO param file
+DEM_GEO_WIDTH = "width:"
 
 
 class ErrorMessages(Enum):
