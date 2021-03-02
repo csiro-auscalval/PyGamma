@@ -1024,31 +1024,41 @@ class CoregisterSlave(luigi.Task):
         )
 
     def run(self):
+        log = STATUS_LOGGER.bind(outdir=self.outdir, slc_master=self.slc_master, slc_slave=self.slc_slave)
+        log.info("Beginning SLC coregistration")
+
         # Load the gamma proc config file
         with open(str(self.proc_file), "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj, self.outdir)
 
-        coreg_slave = CoregisterSlc(
-            proc=proc_config,
-            list_idx=str(self.list_idx),
-            slc_master=Path(str(self.slc_master)),
-            slc_slave=Path(str(self.slc_slave)),
-            slave_mli=Path(str(self.slave_mli)),
-            range_looks=int(str(self.range_looks)),
-            azimuth_looks=int(str(self.azimuth_looks)),
-            ellip_pix_sigma0=Path(str(self.ellip_pix_sigma0)),
-            dem_pix_gamma0=Path(str(self.dem_pix_gamma0)),
-            r_dem_master_mli=Path(str(self.r_dem_master_mli)),
-            rdc_dem=Path(str(self.rdc_dem)),
-            geo_dem_par=Path(str(self.geo_dem_par)),
-            dem_lt_fine=Path(str(self.dem_lt_fine)),
-        )
+        # Run SLC coreg in an exception handler that doesn't propagate exception into Luigi
+        # This is to allow processing to fail without stopping the Luigi pipeline, and thus
+        # allows as many scenes as possible to fully process even if some scenes fail.
+        try:
+            coreg_slave = CoregisterSlc(
+                proc=proc_config,
+                list_idx=str(self.list_idx),
+                slc_master=Path(str(self.slc_master)),
+                slc_slave=Path(str(self.slc_slave)),
+                slave_mli=Path(str(self.slave_mli)),
+                range_looks=int(str(self.range_looks)),
+                azimuth_looks=int(str(self.azimuth_looks)),
+                ellip_pix_sigma0=Path(str(self.ellip_pix_sigma0)),
+                dem_pix_gamma0=Path(str(self.dem_pix_gamma0)),
+                r_dem_master_mli=Path(str(self.r_dem_master_mli)),
+                rdc_dem=Path(str(self.rdc_dem)),
+                geo_dem_par=Path(str(self.geo_dem_par)),
+                dem_lt_fine=Path(str(self.dem_lt_fine)),
+            )
 
-        coreg_slave.main()
-
-        with self.output().open("w") as f:
-            f.write("")
-
+            coreg_slave.main()
+            log.info("SLC coregistration complete")
+        except Exception as e:
+            log.error("SLC coregistration failed with exception", exc_info=True)
+        finally:
+            # We flag a task as complete no matter if the scene failed or not!
+            with self.output().open("w") as f:
+                f.write("")
 
 @requires(CoregisterDemMaster)
 class CreateCoregisterSlaves(luigi.Task):
@@ -1225,27 +1235,40 @@ class ProcessIFG(luigi.Task):
         )
 
     def run(self):
+        log = STATUS_LOGGER.bind(outdir=self.outdir, master_date=self.master_date, slave_date=self.slave_date)
+        log.info("Beginning interferogram processing")
+
         # Load the gamma proc config file
         with open(str(self.proc_file), 'r') as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj, self.outdir)
 
-        ic = IfgFileNames(proc_config, self.master_date, self.slave_date, self.outdir)
-        dc = DEMFileNames(proc_config, self.outdir)
-        tc = TempFileConfig(ic)
+        # Run IFG processing in an exception handler that doesn't propagate exception into Luigi
+        # This is to allow processing to fail without stopping the Luigi pipeline, and thus
+        # allows as many scenes as possible to fully process even if some scenes fail.
+        try:
+            ic = IfgFileNames(proc_config, self.master_date, self.slave_date, self.outdir)
+            dc = DEMFileNames(proc_config, self.outdir)
+            tc = TempFileConfig(ic)
 
-        # Run interferogram processing workflow w/ ifg width specified in r_master_mli par file
-        with open(Path(self.outdir) / ic.r_master_mli_par, 'r') as fileobj:
-            ifg_width = get_ifg_width(fileobj)
+            # Run interferogram processing workflow w/ ifg width specified in r_master_mli par file
+            with open(Path(self.outdir) / ic.r_master_mli_par, 'r') as fileobj:
+                ifg_width = get_ifg_width(fileobj)
 
-        run_workflow(
-            proc_config,
-            ic,
-            dc,
-            tc,
-            ifg_width)
+            run_workflow(
+                proc_config,
+                ic,
+                dc,
+                tc,
+                ifg_width,
+                self.cleanup)
 
-        with self.output().open("w") as f:
-            f.write("")
+            log.info("Interferogram complete")
+        except Exception as e:
+            log.error("Interferogram failed with exception", exc_info=True)
+        finally:
+            # We flag a task as complete no matter if the scene failed or not!
+            with self.output().open("w") as f:
+                f.write("")
 
 
 @requires(CreateCoregisterSlaves)
@@ -1443,9 +1466,7 @@ class ARD(luigi.WrapperTask):
                     "burst_data_csv": pjoin(outdir, f"{track}_{frame}_burst_data.csv"),
                     "cleanup": self.cleanup,
                 }
-                ard_tasks.append(CreateCoregisterSlaves(**kwargs))
 
-                # IFG processing
                 ard_tasks.append(CreateProcessIFGs(**kwargs))
 
         yield ard_tasks

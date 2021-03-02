@@ -649,6 +649,11 @@ class CoregisterSlc:
 
         _LOG.info("Iterative improvement of refinement offset azimuth overlap regions:")
 
+        # slc_slave is something like:
+        # /g/data/dz56/insar_initial_processing/T147D_F28S_S1A/SLC/20180220/20180220_VV.slc.par
+        list_dir = Path(self.slc_slave).parent.parent.parent / self.proc.list_dir
+        slc_dir = Path(self.slc_slave).parent.parent.parent / self.proc.slc_dir
+
         with tempfile.TemporaryDirectory() as temp_dir, open(Path(temp_dir) / f"{self.r_master_slave_name}.ovr_results", 'w') as slave_ovr_res:
             temp_dir = Path(temp_dir)
 
@@ -698,11 +703,11 @@ class CoregisterSlc:
 
                     # coreg_slave=`head -n $coreg_pos $slave_list | tail -1`
                     coreg_slave = self._read_line(self.proc.slave_list, coreg_pos)
-                    r_coreg_slave_tab = f'{self.proc.slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
+                    r_coreg_slave_tab = f'{slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
 
                 elif int(list_idx) > 20140000:  # coregister to particular slave
                     coreg_slave = list_idx
-                    r_coreg_slave_tab = f'{self.proc.slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
+                    r_coreg_slave_tab = f'{slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
 
                 else:  # coregister to slave image with short temporal baseline
                     # take the first/last slave of the previous list for coregistration
@@ -710,13 +715,13 @@ class CoregisterSlc:
 
                     if int(slave) < int(self.proc.ref_master_scene):
                         # coreg_slave=`head $list_dir/slaves$prev_list_idx.list -n1`
-                        coreg_slave = self._read_line(Path(self.proc.list_dir) / f'slaves{prev_list_idx}.list', 0)
+                        coreg_slave = self._read_line(list_dir / f'slaves{prev_list_idx}.list', 0)
 
                     elif int(slave) > int(self.proc.ref_master_scene):
                         # coreg_slave=`tail $list_dir/slaves$prev_list_idx.list -n1`
-                        coreg_slave = self._read_line(Path(self.proc.list_dir) / f'slaves{prev_list_idx}.list', -1)
+                        coreg_slave = self._read_line(list_dir / f'slaves{prev_list_idx}.list', -1)
 
-                    r_coreg_slave_tab = f'{self.proc.slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
+                    r_coreg_slave_tab = f'{slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
 
                 # S1_COREG_OVERLAP $master_slc_tab $r_slave_slc_tab $slave_off_start $slave_off $self.proc.coreg_s1_cc_thresh $self.proc.coreg_s1_frac_thresh $self.proc.coreg_s1_stdev_thresh $r_coreg_slave_tab > $slave_off.az_ovr.$it.out
                 daz, azpol = self.S1_COREG_OVERLAP(
