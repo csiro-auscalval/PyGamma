@@ -43,8 +43,7 @@ gamma_insar ARD \
     --polarization '{json_polar}' \
     --workers {worker} \
     --local-scheduler \
-    --cleanup {cleanup}
-"""
+    --cleanup {cleanup}"""
 
 PBS_PACKAGE_TEMPLATE = r"""{pbs_resources}
 
@@ -88,6 +87,7 @@ def _gen_pbs(
     cpu_count,
     num_workers,
     num_threads,
+    sensor,
     cleanup
 ):
     """
@@ -121,9 +121,13 @@ def _gen_pbs(
             cleanup="true" if cleanup else "false"
         )
 
+        if sensor is not None and len(sensor) > 0:
+            pbs += " \\\n    --sensor " + sensor
+
         out_fname = pjoin(job_dir, FMT1.format(jobid=jobid))
         with open(out_fname, "w") as src:
             src.writelines(pbs)
+            src.write("\n")
 
         pbs_scripts.append(out_fname)
 
@@ -244,6 +248,12 @@ def _submit_pbs(pbs_scripts, test):
     default=False
 )
 @click.option("--num-threads", type=click.INT, help="The number of threads to use for each Luigi worker.", default=2)
+@click.option(
+    "--sensor",
+    type=click.STRING,
+    help="The sensor to use for processing (or 'MAJORITY' to use the sensor w/ the most data for the date range)",
+    required=False
+)
 def ard_insar(
     proc_file: click.Path,
     taskfile: click.Path,
@@ -266,6 +276,7 @@ def ard_insar(
     test: click.BOOL,
     cleanup: click.BOOL,
     num_threads: click.INT,
+    sensor: click.STRING,
 ):
     """
     consolidates batch processing job script creation and submission of pbs jobs
@@ -344,6 +355,7 @@ def ard_insar(
         ncpus,
         num_workers,
         num_threads,
+        sensor,
         cleanup
     )
     _submit_pbs(pbs_scripts, test)

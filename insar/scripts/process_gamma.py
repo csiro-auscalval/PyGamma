@@ -38,7 +38,7 @@ __DEM_GAMMA__ = "GAMMA_DEM"
 __DEM__ = "DEM"
 __IFG__ = "IFG"
 __DATE_FMT__ = "%Y%m%d"
-__TRACK_FRAME__ = r"^T[0-9]{3}[A|D]_F[0-9]{2}"
+__TRACK_FRAME__ = r"^T[0-9]{2}[0-9]?[A|D]_F[0-9]{2}"
 
 SLC_PATTERN = (
     r"^(?P<sensor>S1[AB])_"
@@ -318,6 +318,7 @@ class InitialSetup(luigi.Task):
     vector_file = luigi.Parameter()
     database_name = luigi.Parameter()
     orbit = luigi.Parameter()
+    sensor = luigi.Parameter()
     polarization = luigi.ListParameter(default=["VV"])
     track = luigi.Parameter()
     frame = luigi.Parameter()
@@ -338,6 +339,8 @@ class InitialSetup(luigi.Task):
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("initial setup task")
+        if self.sensor:
+            log.info("sensor: " + self.sensor)
 
         # get the relative orbit number, which is int value of the numeric part of the track name
         rel_orbit = int(re.findall(r"\d+", str(self.track))[0])
@@ -351,6 +354,7 @@ class InitialSetup(luigi.Task):
             str(self.orbit),
             rel_orbit,
             list(self.polarization),
+            self.sensor
         )
 
         if slc_query_results is None:
@@ -1319,6 +1323,7 @@ class ARD(luigi.WrapperTask):
     vector_file_list = luigi.Parameter(significant=False)
     start_date = luigi.DateParameter(significant=False)
     end_date = luigi.DateParameter(significant=False)
+    sensor = luigi.Parameter(significant=False, default=None)
     polarization = luigi.ListParameter(default=["VV", "VH"], significant=False)
     cleanup = luigi.BoolParameter(
         default=False, significant=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
@@ -1343,15 +1348,24 @@ class ARD(luigi.WrapperTask):
             vector_files = fid.readlines()
             for vector_file in vector_files:
                 vector_file = vector_file.rstrip()
+
+                # Match <track>_<frame> prefix syntax
+                # Note: this doesn't match _<sensor> suffix which is unstructured
                 if not re.match(__TRACK_FRAME__, Path(vector_file).stem):
-                    log.info(
-                        f"{Path(vector_file).stem} should be of {__TRACK_FRAME__} format"
-                    )
-                    continue
+                    msg = f"{Path(vector_file).stem} should be of {__TRACK_FRAME__} format"
+                    log.error(msg)
+                    raise ValueError(msg)
+
+                # Extract info from shapefile
+                vec_file_parts = Path(vector_file).stem.split("_")
+                if len(vec_file_parts) != 3:
+                    msg = f"File '{vector_file}' does not match <track>_<frame>_<sensor>"
+                    log.error(msg)
+                    raise ValueError(msg)
 
                 # Extract <track>_<frame>_<sensor> from shapefile (eg: T118D_F32S_S1A.shp)
-                track, frame, shapefile_sensor = Path(vector_file).stem.split("_")
-                # TODO: We should validate this against the actual metadata in the file
+                track, frame, shapefile_sensor = vec_file_parts
+                # Issue #180: We should validate this against the actual metadata in the file
 
                 # Query SLC inputs for this location (extent specified by vector/shape file)
                 rel_orbit = int(re.findall(r"\d+", str(track))[0])
@@ -1414,6 +1428,7 @@ class ARD(luigi.WrapperTask):
                     "vector_file": vector_file,
                     "start_date": self.start_date,
                     "end_date": self.end_date,
+                    "sensor": self.sensor,
                     "database_name": self.database_name,
                     "polarization": self.polarization,
                     "track": track,

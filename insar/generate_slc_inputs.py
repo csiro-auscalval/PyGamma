@@ -158,6 +158,7 @@ def query_slc_inputs(
     orbit: str,
     track: int,
     polarization: List[str],
+    filter_by_sensor: str = None
 ) -> Dict:
     """A method to query sqlite database and generate slc input dict.
 
@@ -176,6 +177,11 @@ def query_slc_inputs(
         Sentinel-1 relative orbit number (track).
     :param polarization:
         List of polarization to query SLC data for.
+    :param filter_by_sensor:
+        The name of the sensor whose results should be filtered by (eg: only return results from this sensor)
+
+        Alternativelt this may be set to "MAJORITY" which will filter by the sensor which has the most data,
+        eg: if a query has 8x S1A .slc files and 6x S1B .slc files, only the 8x S1A .slc files will be returned.
 
     :return:
         Returns slc input field values for all unique date queried
@@ -224,8 +230,35 @@ def query_slc_inputs(
             min_date_arg=min_date_arg,
             max_date_arg=max_date_arg,
         )
+
         if slc_df is None:
             return
+
+        _LOG.info(
+            f"Querying {dbfile} with {shapefile} from {start_date} to {end_date} found {len(slc_df)} files."
+        )
+
+        if filter_by_sensor:
+            # Get the value counts of slc by sensor
+            sensor_counts = slc_df.sensor.value_counts()
+            sensors = sensor_counts.index.to_list()
+
+            src_scene_count = len(slc_df)
+
+            if filter_by_sensor == "MAJORITY":
+                slc_df = slc_df[slc_df.sensor == sensor_counts.index[0]]
+            else:
+                slc_df = slc_df[slc_df.sensor == filter_by_sensor]
+
+            dst_scene_count = len(slc_df)
+
+            _LOG.info(
+                f"Filtering by sensor '{filter_by_sensor}' reduced to {dst_scene_count} files.",
+                src_sensors=sensors,
+                src_scene_count=src_scene_count,
+                dst_sensor=filter_by_sensor,
+                dst_scene_count=dst_scene_count
+            )
 
         try:
             slc_df["acquisition_start_time"] = pd.to_datetime(
