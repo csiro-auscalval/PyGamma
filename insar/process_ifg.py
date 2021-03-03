@@ -838,10 +838,12 @@ def geocode_unwrapped_ifg(
     pg.mask_data(tc.geocode_unwrapped_ifg, width_out, ic.ifg_unw_geocode_out, dc.seamask)
 
     # make quick-look png image
-    rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_bmp, pixavr=5, pixavaz=5)
-    convert(ic.ifg_unw_geocode_bmp)
-    kml_map(ic.ifg_unw_geocode_png, dc.geo_dem_par)
-    remove_files(ic.ifg_unw_geocode_bmp, tc.geocode_unwrapped_ifg)
+    rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_2pi_bmp, pixavr=5, pixavaz=5, ph_scale=1.0)
+    rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_6pi_bmp, pixavr=5, pixavaz=5, ph_scale=0.33333)
+    convert(ic.ifg_unw_geocode_2pi_bmp)
+    convert(ic.ifg_unw_geocode_6pi_bmp)
+    kml_map(ic.ifg_unw_geocode_2pi_png, dc.geo_dem_par)
+    remove_files(ic.ifg_unw_geocode_2pi_bmp, ic.ifg_unw_geocode_6pi_bmp, tc.geocode_unwrapped_ifg)
 
 
 def geocode_flattened_ifg(

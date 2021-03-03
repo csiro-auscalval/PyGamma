@@ -1259,8 +1259,7 @@ class ProcessIFG(luigi.Task):
                 ic,
                 dc,
                 tc,
-                ifg_width,
-                self.cleanup)
+                ifg_width)
 
             log.info("Interferogram complete")
         except Exception as e:
@@ -1491,11 +1490,12 @@ class ARD(luigi.WrapperTask):
             "INT/**/*_filt_geo_int.tif",
             "INT/**/*_base.par",
             "INT/**/*_bperp.par",
-            "INT/**/*_geo_unw.png",
+            "INT/**/*_geo_unw*.png",
             "INT/**/*_flat_geo_int.png",
             "INT/**/*_flat_int",
 
             # SLC files
+            "SLC/**/r*rlks.mli",
             "SLC/**/r*rlks.mli.par",
             "SLC/**/r*.slc.par",
             "SLC/**/*sigma0.tif",
@@ -1506,6 +1506,7 @@ class ARD(luigi.WrapperTask):
             "DEM/**/*rlks_geo_to_rdc.lt",
             "DEM/**/*_geo.dem",
             "DEM/**/*_geo.dem.par",
+            "DEM/**/diff_*rlks.par",
             "DEM/**/*_geo.lv_phi",
             "DEM/**/*_geo.lv_theta",
             "DEM/**/*_rdc.dem",

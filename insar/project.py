@@ -559,9 +559,11 @@ class IfgFileNames:
         "ifg_sim_unw1",
         "ifg_sim_unw_ph",
         "ifg_unw",
-        "ifg_unw_geocode_bmp",
+        "ifg_unw_geocode_2pi_bmp",
+        "ifg_unw_geocode_6pi_bmp",
         "ifg_unw_geocode_out",
-        "ifg_unw_geocode_png",
+        "ifg_unw_geocode_2pi_png",
+        "ifg_unw_geocode_6pi_png",
         "ifg_unw_mask",
         "ifg_unw_model",
         "ifg_unw_thin",
@@ -674,9 +676,11 @@ class IfgFileNames:
         self.ifg_sim_unw1 = pathlib.Path(_master_slave_name + "_sim1_unw")
         self.ifg_sim_unw_ph = pathlib.Path(_master_slave_name + "_sim_ph_unw")
         self.ifg_unw = pathlib.Path(_master_slave_name + "_unw")
-        self.ifg_unw_geocode_bmp = pathlib.Path(_master_slave_name + "_geo_unw.bmp")
+        self.ifg_unw_geocode_2pi_bmp = pathlib.Path(_master_slave_name + "_geo_unw_2pi.bmp")
+        self.ifg_unw_geocode_6pi_bmp = pathlib.Path(_master_slave_name + "_geo_unw_6pi.bmp")
         self.ifg_unw_geocode_out = pathlib.Path(_master_slave_name + "_geo_unw")
-        self.ifg_unw_geocode_png = pathlib.Path(_master_slave_name + "_geo_unw.png")
+        self.ifg_unw_geocode_2pi_png = pathlib.Path(_master_slave_name + "_geo_unw_2pi.png")
+        self.ifg_unw_geocode_6pi_png = pathlib.Path(_master_slave_name + "_geo_unw_6pi.png")
         self.ifg_unw_mask = pathlib.Path(_master_slave_name + "_mask_unw")
         self.ifg_unw_model = pathlib.Path(_master_slave_name + "_model_unw")
         self.ifg_unw_thin = pathlib.Path(_master_slave_name + "_thin_unw")

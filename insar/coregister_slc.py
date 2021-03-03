@@ -15,6 +15,7 @@ import shutil
 import structlog
 from PIL import Image
 import numpy as np
+import math
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory, run_command
@@ -160,7 +161,17 @@ class CoregisterSlc:
         self.slave_lt = None
         self.accuracy_warning = self.out_dir / "ACCURACY_WARNING"
 
-        self.log = _LOG.bind(task="SLC coregistration", slc_slave=self.slc_slave, slc_master=self.slc_master, list_idx=self.list_idx)
+        self.slave_date, self.slave_polar = self.slc_slave.stem.split('_')
+        self.master_date, self.master_polar = self.slc_master.stem.split('_')
+
+        self.log = _LOG.bind(
+            task="SLC coregistration",
+            slave_date=self.slave_date,
+            slc_slave=self.slc_slave,
+            master_date=self.master_date,
+            slc_master=self.slc_master,
+            list_idx=self.list_idx
+        )
 
         self.r_dem_master_mli_par = self.r_dem_master_mli.with_suffix(".mli.par")
         if not self.r_dem_master_mli_par.exists():
@@ -199,9 +210,6 @@ class CoregisterSlc:
         self.r_slave_slc_par = None
         self.r_slave_mli = None
         self.r_slave_mli_par = None
-
-        self.slave_date, self.slave_polar = self.slc_slave.stem.split('_')
-        self.master_date, self.master_polar = self.slc_master.stem.split('_')
 
         master_slave_prefix = f"{self.master_date}-{self.slave_date}"
         self.r_master_slave_name = f"{master_slave_prefix}_{self.slave_polar}_{self.rlks}rlks"
@@ -1265,15 +1273,17 @@ class CoregisterSlc:
 
             # Compute average
             average = sum / sum_weight if samples > 0 else 0.0
-            log.info(f"{IWid} average: {average}")
+            log.info(f"{IWid} average", average=average)
             slave_ovr_res.write(f"{IWid} average: {average}\n")
+
+            return average
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            calc_phase_offsets(1, temp_path)  # IW1
-            calc_phase_offsets(2, temp_path)  # IW2
-            calc_phase_offsets(3, temp_path)  # IW3
+            iw1_mean = calc_phase_offsets(1, temp_path)  # IW1
+            iw2_mean = calc_phase_offsets(2, temp_path)  # IW2
+            iw3_mean = calc_phase_offsets(3, temp_path)  # IW3
 
         ###################################################################################################################
 
@@ -1288,8 +1298,14 @@ class CoregisterSlc:
 
             raise CoregisterSlcException(msg)
 
-        log.info(f"all {average_all}")
-        slave_ovr_res.write(f"all {average_all}")
+        # Calculate subswath stats
+        subswath_mean = (iw1_mean + iw2_mean + iw3_mean) / 3
+        subswath_stddev = (iw1_mean - subswath_mean)**2 + (iw2_mean - subswath_mean)**2 + (iw3_mean - subswath_mean)**2
+        subswath_stddev = math.sqrt(subswath_stddev)
+
+        log.info(f"subswath stats", mean=subswath_mean, stddev=subswath_stddev)
+        log.info(f"scene stats", mean=average_all)
+        slave_ovr_res.write(f"scene mean: {average_all}, subswath mean: {subswath_mean}, subswath stddev: {subswath_stddev}\n")
 
         # conversion of phase offset (in radian) to azimuth offset (in SLC pixel)
         azimuth_pixel_offset = -dpix_factor * average_all
@@ -1297,7 +1313,7 @@ class CoregisterSlc:
             azimuth_pixel_offset = round(azimuth_pixel_offset, 6)
 
         log.info(f"azimuth_pixel_offset {azimuth_pixel_offset} [azimuth SLC pixel]")
-        slave_ovr_res.write(f"azimuth_pixel_offset {azimuth_pixel_offset} [azimuth SLC pixel]")
+        slave_ovr_res.write(f"azimuth_pixel_offset {azimuth_pixel_offset} [azimuth SLC pixel]\n")
 
         # correct offset file for determined additional azimuth offset
         azpol = self._grep_offset_parameter(slave_off_start, "azimuth_offset_polynomial")

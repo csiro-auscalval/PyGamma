@@ -65,9 +65,11 @@ def ic_mock():
     ic.ifg_dir = pathlib.Path(test_dir.name)
     ic.master_dir = ic.ifg_dir / '20151103'
     ic.slave_dir = ic.ifg_dir / '20151127'
-    ic.ifg_unw_geocode_bmp = ic.ifg_dir / 'ifg_unw_geocode.bmp'
+    ic.ifg_unw_geocode_2pi_bmp = ic.ifg_dir / 'geo_unw_2pi.bmp'
+    ic.ifg_unw_geocode_6pi_bmp = ic.ifg_dir / 'geo_unw_6pi.bmp'
     ic.ifg_flat_geocode_bmp = ic.ifg_dir / 'ifg_flat_geocode.bmp'
-    ic.ifg_unw_geocode_png = ic.ifg_dir / "test_geo_unw.png"
+    ic.ifg_unw_geocode_2pi_png = ic.ifg_dir / "geo_unw_2pi.png"
+    ic.ifg_unw_geocode_6pi_png = ic.ifg_dir / "geo_unw_6pi.png"
     ic.ifg_filt_coh_geocode_png = ic.ifg_dir / "test_filt_coh.png"
     ic.ifg_filt_geocode_png = ic.ifg_dir / "test_filt_geo_int.png"
     ic.ifg_flat_coh_geocode_png = ic.ifg_dir / "test_flat_filt_coh.png"
