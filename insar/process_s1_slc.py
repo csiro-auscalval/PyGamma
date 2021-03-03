@@ -93,6 +93,8 @@ class SlcProcess:
         self.orbit_file = None
         self.temp_slc = []
 
+        self.log = _LOG.bind(task="S1 SLC processing", scene_date=scene_date, ref_master_tab=ref_master_tab)
+
     def swath_tab_names(self, swath: int, pre_fix: str,) -> namedtuple:
         """Formats slc swath tab file names using swath and pre_fix."""
 
@@ -249,7 +251,7 @@ class SlcProcess:
             form full path.
         """
         if slc_tab_file.exists():
-            _LOG.info(
+            self.log.info(
                 "SLC tab file exists; skipping writing of SLC tab parameters",
                 pathname=slc_tab_file,
             )
@@ -633,6 +635,8 @@ class SlcProcess:
                     shutil.move(tmpdir.joinpath(item), item)
 
             if not complete_frame:
+                self.log.info("Frame incomplete, resizing", slc_tab=self.slc_tab, ref_master_tab=self.ref_master_tab)
+
                 if self.ref_master_tab is None:
                     err = (
                         f" ref_master_tab is None, needs ref_master_tab "
@@ -640,6 +644,9 @@ class SlcProcess:
                     )
                     raise ValueError(err)
                 self.frame_resize(self.ref_master_tab, sub_slc_in)
+
+            else:
+                self.log.info("Frame complete, no need to resize", slc_tab=self.slc_tab)
 
     def frame_resize(self, ref_slc_tab: Path, full_slc_tab: Path,) -> None:
         """

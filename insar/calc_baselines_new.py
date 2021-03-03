@@ -614,14 +614,14 @@ class BaselineProcess:
                         # get index of scene with maximum correlation
                         rho_max_ix = np.argmax(rho[i, temp_ix])
                         # check if value is not subject to total decorrelation
+                        j = temp_ix[rho_max_ix]
                         if rho[i, rho_max_ix] > 0:
-                            j = temp_ix[rho_max_ix]
                             # set value in ix2 to True for this scene
                             ix2[i, j] = True
                             ix2[j, i] = True
                         else:
                             _LOG.info(
-                                "connection between scenes possible (total decorrelation)",
+                                "connection between scenes not possible (total decorrelation)",
                                 scene_i=i,
                                 scene_j=j,
                             )

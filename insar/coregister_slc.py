@@ -160,9 +160,11 @@ class CoregisterSlc:
         self.slave_lt = None
         self.accuracy_warning = self.out_dir / "ACCURACY_WARNING"
 
+        self.log = _LOG.bind(task="SLC coregistration", slc_slave=self.slc_slave, slc_master=self.slc_master, list_idx=self.list_idx)
+
         self.r_dem_master_mli_par = self.r_dem_master_mli.with_suffix(".mli.par")
         if not self.r_dem_master_mli_par.exists():
-            _LOG.error(
+            self.log.error(
                 "DEM Master MLI par file not found",
                 pathname=str(self.r_dem_master_mli_par),
             )
@@ -170,18 +172,18 @@ class CoregisterSlc:
         self.r_dem_master_slc_par = self.slc_master.with_suffix(".slc.par")
         self.r_dem_master_slc_par = self.r_dem_master_slc_par.parent / ("r" + self.r_dem_master_slc_par.name)
         if not self.r_dem_master_slc_par.exists():
-            _LOG.error(
+            self.log.error(
                 "DEM Master SLC par file not found",
                 pathname=str(self.r_dem_master_slc_par),
             )
 
         self.slc_slave_par = self.slc_slave.with_suffix(".slc.par")
         if not self.slc_slave_par.exists():
-            _LOG.error("SLC Slave par file not found", pathname=str(self.slc_slave_par))
+            self.log.error("SLC Slave par file not found", pathname=str(self.slc_slave_par))
 
         self.slave_mli_par = self.slave_mli.with_suffix(".mli.par")
         if not self.slave_mli_par.exists():
-            _LOG.error("Slave MLI par file not found", pathname=str(self.slave_mli_par))
+            self.log.error("Slave MLI par file not found", pathname=str(self.slave_mli_par))
 
         self.master_sample = self.master_sample_size()
 
@@ -388,7 +390,8 @@ class CoregisterSlc:
         using intensity matching (offset_pwr_tracking).
         """
 
-        _LOG.info("Iterative improvement of refinement offset using matching")
+        self.log.info("Beginning coarse coregistration")
+
         # create slave offset
         if self.slave_off is None:
             self.slave_off = self.out_dir.joinpath(f"{self.r_master_slave_name}.off")
@@ -501,23 +504,16 @@ class CoregisterSlc:
                     d_azimuth_mli = d_azimuth / self.alks
                     d_range_mli = d_range / self.rlks
 
-                    _LOG.info(
+                    self.log.info(
                         "matching iteration",
                         slave_offs=slave_offs,
                         iteration=iteration + 1,
                         daz=d_azimuth,
                         dr=d_range,
-                        daz_mli=d_azimuth_mli,
-                        dr_mli=d_range_mli,
-                        max_azimuth_threshold=max_azimuth_threshold,
-                        max_iterations=max_iteration,
-                    )
-                    _LOG.info(
-                        "matching iteration and standard deviation",
-                        slave_offs=slave_offs,
-                        iteration=iteration + 1,
                         azimuth_stdev=azimuth_stdev,
                         range_stdev=range_stdev,
+                        daz_mli=d_azimuth_mli,
+                        dr_mli=d_range_mli,
                         max_azimuth_threshold=max_azimuth_threshold,
                         max_iterations=max_iteration,
                     )
@@ -615,23 +611,18 @@ class CoregisterSlc:
             nrows = len(lines)
             ncols = len(lines[0].split())
 
-            _LOG.info(f'{tab_file} nrows: {nrows} ncols: {ncols}')
-
-            with open(tab_file, 'r') as file:
-                tab_lines = file.read().splitlines()
-
             # first line
-            IW1_result = tab_record(*tab_lines[0].split())
+            IW1_result = tab_record(*lines[0].split())
 
             # second line
             IW2_result = None
             if nrows > 1:
-                IW2_result = tab_record(*tab_lines[1].split())
+                IW2_result = tab_record(*lines[1].split())
 
             # third line
             IW3_result = None
             if nrows > 2:
-                IW3_result = tab_record(*tab_lines[2].split())
+                IW3_result = tab_record(*lines[2].split())
 
             return (IW1_result, IW2_result, IW3_result)
 
@@ -648,7 +639,7 @@ class CoregisterSlc:
         self.coarse_registration(max_iteration, max_azimuth_threshold)
         daz = None
 
-        _LOG.info("Iterative improvement of refinement offset azimuth overlap regions:")
+        self.log.info("Beginning fine coregistration")
 
         # slc_slave is something like:
         # /g/data/dz56/insar_initial_processing/T147D_F28S_S1A/SLC/20180220/20180220_VV.slc.par
@@ -724,7 +715,7 @@ class CoregisterSlc:
 
                     r_coreg_slave_tab = f'{slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
 
-                iter_log = _LOG.bind(
+                iter_log = self.log.bind(
                     iteration=iteration,
                     max_iteration=max_iteration,
                     master_slc_tab=self.master_slc_tab,
@@ -754,11 +745,7 @@ class CoregisterSlc:
                     # cp -rf $slave_off $slave_off.az_ovr.$it
                     shutil.copy(self.slave_off, f"{self.slave_off}.az_ovr.{iteration}")
 
-                    iter_log.info(
-                        f'az_ovr_iteration_{iteration}: {daz} (daz in SLC pixel)',
-                        daz=daz,
-                        azimuth_px_offset_target=azimuth_px_offset_target
-                    )
+                    iter_log.info(f'fine iteration update', daz=daz, azpol=azpol)
 
                     # Break out of the loop if we reach our target accuracy
                     if abs(daz) <= azimuth_px_offset_target:
@@ -812,7 +799,7 @@ class CoregisterSlc:
         sum_all = 0.0
         sum_weight_all = 0.0
 
-        log = _LOG.bind(az_ovr_iter=iteration, master_slc_tab=master_slc_tab, r_slave_slc_tab=r_slave_slc_tab, r_slave2_slc_tab=r_slave2_slc_tab)
+        log = self.log.bind(az_ovr_iter=iteration, master_slc_tab=master_slc_tab, r_slave_slc_tab=r_slave_slc_tab, r_slave2_slc_tab=r_slave2_slc_tab)
 
         # determine number of rows and columns of tab file and read burst SLC filenames from tab files
         master_IWs = self.READ_TAB(master_slc_tab)
