@@ -62,6 +62,7 @@ def _check_slc_input_data(
     master_df: gpd.GeoDataFrame,
     rel_orbit: int,
     polarization: str,
+    exclude_incomplete: bool
 ) -> Dict:
     """
     Checks if input (results_df) has required data to form a full SLC.
@@ -120,6 +121,7 @@ def _check_slc_input_data(
                 slc_dict = dict()
                 for _id in slc_ids:
                     slc_df = swath_df[swath_df.id == _id]
+
                     slc_gpd = gpd.GeoDataFrame(
                         slc_df,
                         crs={"init": "epsg:4326"},
@@ -127,6 +129,7 @@ def _check_slc_input_data(
                             shapely.wkt.loads
                         ),
                     )
+
                     slc_dict[_id] = {
                         "burst_number": list(slc_gpd.burst_number.values),
                         "burst_extent": list(slc_gpd.geometry.values),
@@ -147,7 +150,26 @@ def _check_slc_input_data(
                 err=err,
             )
 
-    return _check_frame_bursts(master_df, data_dict)
+    checked_data = _check_frame_bursts(master_df, data_dict)
+
+    # Filter checked data (removing any incomplete scenes)
+    if exclude_incomplete:
+        excluded_dates = []
+
+        # Check for any swathes missing bursts...
+        for dt, swath_dict in checked_data.items():
+            for swath, slc_dict in swath_dict.items():
+                is_missing_bursts = len(slc_dict["missing_master_bursts"]) > 0
+
+                if is_missing_bursts:
+                    excluded_dates.append(dt)
+                    break
+
+        # ... and remove them from the resulting dict
+        for dt in excluded_dates:
+            del checked_data[dt]
+
+    return checked_data
 
 
 def query_slc_inputs(
@@ -158,7 +180,8 @@ def query_slc_inputs(
     orbit: str,
     track: int,
     polarization: List[str],
-    filter_by_sensor: str = None
+    filter_by_sensor: str = None,
+    exclude_incomplete: bool = True
 ) -> Dict:
     """A method to query sqlite database and generate slc input dict.
 
@@ -267,7 +290,7 @@ def query_slc_inputs(
 
             #  check queried results against master dataframe to form slc inputs
             return {
-                pol: _check_slc_input_data(slc_df, gpd.read_file(shapefile), track, pol)
+                pol: _check_slc_input_data(slc_df, gpd.read_file(shapefile), track, pol, exclude_incomplete)
                 for pol in polarization
             }
 

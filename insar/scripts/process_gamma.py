@@ -102,6 +102,12 @@ def get_scenes(burst_data_csv):
                 missing_bursts = row.missing_master_bursts.strip("][")
                 if missing_bursts:
                     complete_frame = False
+
+        # HACK: Until we implement https://github.com/GeoscienceAustralia/gamma_insar/issues/200
+        # - this assert son't even fail as long as the #200 hack is in place
+        # - (and once it's removed, this should assert - basically a reminder for the issue)
+        assert(complete_frame)
+
         dt = datetime.datetime.strptime(_date, "%Y-%m-%d")
         frames_data.append((dt, complete_frame, polarizations))
 
@@ -286,6 +292,8 @@ class SlcDataDownload(luigi.Task):
         )
 
     def run(self):
+        log = STATUS_LOGGER.bind(slc_scene=self.slc_scene)
+
         download_obj = S1DataDownload(
             Path(str(self.slc_scene)),
             list(self.polarization),
@@ -296,7 +304,8 @@ class SlcDataDownload(luigi.Task):
         os.makedirs(str(self.output_dir), exist_ok=True)
         try:
             download_obj.slc_download(Path(str(self.output_dir)))
-        except (zipfile.BadZipFile, zlib.error):
+        except:
+            log.error("SLC download failed with exception", exc_info=True)
             failed = True
         finally:
             with self.output().open("w") as f:

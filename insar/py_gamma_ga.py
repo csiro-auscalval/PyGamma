@@ -106,7 +106,12 @@ def find_gamma_installed_exes(install_dir, packages):
     :returns: mapping {k=exe_name: v=exe_relative_path}.
     """
     ignored_exes = ["ASAR_XCA"]  # duplicate program, for unrelated Envisat data
+
+    # bin directory is the main directory of executables.
     dirs = [os.path.join(install_dir, p, "bin") for p in packages]
+    # but scripts directory also has scripts that are run as if they're
+    # gamma commands as well, thus we also need to search this dir.
+    dirs += [os.path.join(install_dir, p, "scripts") for p in packages]
 
     exes = {}
     for d in dirs:

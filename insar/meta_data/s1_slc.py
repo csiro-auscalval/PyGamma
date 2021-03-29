@@ -657,6 +657,7 @@ class S1DataDownload(SlcMetadata):
 
         if not acq_orbit_file:
             return
+
         if len(acq_orbit_file) > 1:
             acq_orbit_file = sorted(
                 acq_orbit_file,
@@ -750,12 +751,28 @@ class S1DataDownload(SlcMetadata):
 
         # download orbit files with precise orbit as first choice
         orbit_source_file = self.get_poeorb_orbit_file()
-        orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
 
-        if not orbit_source_file:
+        start_datetime = datetime.datetime.strptime(self.acquisition_start_time, self.dt_fmt_1)
+
+        if orbit_source_file is not None:
+            orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
+
+        else:
+            start_date = (start_datetime - datetime.timedelta(days=1)).strftime(self.date_fmt)
+            end_date = (start_datetime + datetime.timedelta(days=1)).strftime(self.date_fmt)
+
+            msg = f"Missing precise orbit file for {self.raw_data_path}\n"
+            msg += f"Searched directory: {self.s1_orbits_poeorb_path}/{self.sensor}\n"
+            msg += f"with pattern: *V{start_date}*_{end_date}*.EOF"
+            _LOG.warning(msg)
+
             orbit_source_file = self.get_resorb_orbit_file()
+
             if not orbit_source_file:
-                _LOG.error("no orbit files found", slc_scene=self.scene)
+                msg = f"No orbit files found for {start_datetime}"
+                _LOG.error(msg, slc_scene=self.scene)
+                raise SlcException(msg)
+
             orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
 
         if not os.path.exists(orbit_destination_file):
