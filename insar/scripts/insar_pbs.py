@@ -178,7 +178,14 @@ def _submit_pbs(pbs_scripts, test):
         else:
             time.sleep(1)
             os.chdir(dirname(scripts))
-            subprocess.call(["qsub", basename(scripts)])
+
+            for retry in range(11):
+                ret = subprocess.call(["qsub", basename(scripts)])
+                if ret == 0:
+                    break
+
+                print(f"qsub failed, retrying ({retry+1}/10) in 10 seconds...")
+                time.sleep(10)
 
 
 @click.command(
