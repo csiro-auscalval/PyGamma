@@ -180,6 +180,7 @@ class CoregisterSlc:
                 pathname=str(self.r_dem_master_mli_par),
             )
 
+        # Note: the slc_master dir is the correct directory / this matches the bash
         self.r_dem_master_slc_par = self.slc_master.with_suffix(".slc.par")
         self.r_dem_master_slc_par = self.r_dem_master_slc_par.parent / ("r" + self.r_dem_master_slc_par.name)
         if not self.r_dem_master_slc_par.exists():
@@ -634,6 +635,60 @@ class CoregisterSlc:
 
             return (IW1_result, IW2_result, IW3_result)
 
+
+    def get_tertiary_coreg_scene(
+        self,
+        slave = None,
+        list_idx = None
+    ):
+        if slave is None:
+            slave = self.slave_date
+
+        if list_idx is None:
+            list_idx = self.list_idx
+
+        # slc_slave is something like:
+        # /g/data/dz56/insar_initial_processing/T147D_F28S_S1A/SLC/20180220/20180220_VV.slc.par
+        list_dir = Path(self.slc_slave).parent.parent.parent / self.proc.list_dir
+
+        coreg_slave = None
+
+        # coregister to nearest slave if list_idx is given
+        if list_idx == const.NOT_PROVIDED:  # coregister to master
+            coreg_slave = None
+
+        elif list_idx == "0":  # coregister to adjacent slave
+            # get slave position in slaves.list
+            # slave_pos=`grep -n $slave $slave_list | cut -f1 -d:`
+            slave_pos = self._get_matching_lineno(self.proc.slave_list, slave)
+
+            if int(slave) < int(self.proc.ref_master_scene):
+                coreg_pos = slave_pos + 1
+
+            elif int(slave) > int(self.proc.ref_master_scene):
+                coreg_pos = slave_pos - 1
+
+            # coreg_slave=`head -n $coreg_pos $slave_list | tail -1`
+            coreg_slave = self._read_line(self.proc.slave_list, coreg_pos)
+
+        elif int(list_idx) > 20140000:  # coregister to particular slave
+            coreg_slave = list_idx
+
+        else:  # coregister to slave image with short temporal baseline
+            # take the first/last slave of the previous list for coregistration
+            prev_list_idx = int(list_idx) - 1
+
+            if int(slave) < int(self.proc.ref_master_scene):
+                # coreg_slave=`head $list_dir/slaves$prev_list_idx.list -n1`
+                coreg_slave = self._read_line(list_dir / f'slaves{prev_list_idx}.list', 0)
+
+            elif int(slave) > int(self.proc.ref_master_scene):
+                # coreg_slave=`tail $list_dir/slaves$prev_list_idx.list -n1`
+                coreg_slave = self._read_line(list_dir / f'slaves{prev_list_idx}.list', -1)
+
+        return coreg_slave
+
+
     def fine_coregistration(
         self,
         slave: Union[str, int],
@@ -651,7 +706,6 @@ class CoregisterSlc:
 
         # slc_slave is something like:
         # /g/data/dz56/insar_initial_processing/T147D_F28S_S1A/SLC/20180220/20180220_VV.slc.par
-        list_dir = Path(self.slc_slave).parent.parent.parent / self.proc.list_dir
         slc_dir = Path(self.slc_slave).parent.parent.parent / self.proc.slc_dir
 
         with tempfile.TemporaryDirectory() as temp_dir, open(Path(temp_dir) / f"{self.r_master_slave_name}.ovr_results", 'w') as slave_ovr_res:
@@ -686,41 +740,11 @@ class CoregisterSlc:
                     str(self.r_slave_slc_par),
                 )
 
-                # coregister to nearest slave if list_idx is given
-                if list_idx == const.NOT_PROVIDED:  # coregister to master
-                    r_coreg_slave_tab = None
+                # Query tertiary coreg scene (based on list_idx)
+                coreg_slave = self.get_tertiary_coreg_scene()
+                r_coreg_slave_tab = None
 
-                elif list_idx == "0":  # coregister to adjacent slave
-                    # get slave position in slaves.list
-                    # slave_pos=`grep -n $slave $slave_list | cut -f1 -d:`
-                    slave_pos = self._get_matching_lineno(self.proc.slave_list, slave)
-
-                    if int(slave) < int(self.proc.ref_master_scene):
-                        coreg_pos = slave_pos + 1
-
-                    elif int(slave) > int(self.proc.ref_master_scene):
-                        coreg_pos = slave_pos - 1
-
-                    # coreg_slave=`head -n $coreg_pos $slave_list | tail -1`
-                    coreg_slave = self._read_line(self.proc.slave_list, coreg_pos)
-                    r_coreg_slave_tab = f'{slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
-
-                elif int(list_idx) > 20140000:  # coregister to particular slave
-                    coreg_slave = list_idx
-                    r_coreg_slave_tab = f'{slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
-
-                else:  # coregister to slave image with short temporal baseline
-                    # take the first/last slave of the previous list for coregistration
-                    prev_list_idx = int(list_idx) - 1
-
-                    if int(slave) < int(self.proc.ref_master_scene):
-                        # coreg_slave=`head $list_dir/slaves$prev_list_idx.list -n1`
-                        coreg_slave = self._read_line(list_dir / f'slaves{prev_list_idx}.list', 0)
-
-                    elif int(slave) > int(self.proc.ref_master_scene):
-                        # coreg_slave=`tail $list_dir/slaves$prev_list_idx.list -n1`
-                        coreg_slave = self._read_line(list_dir / f'slaves{prev_list_idx}.list', -1)
-
+                if coreg_slave:
                     r_coreg_slave_tab = f'{slc_dir}/{coreg_slave}/r{coreg_slave}_{self.proc.polarisation}_tab'
 
                 iter_log = self.log.bind(

@@ -58,8 +58,6 @@ package \
     {pol_arg}
 """
 
-FMT1 = "job{jobid}.bash"
-FMT2 = "input-{jobid}.txt"
 STORAGE = "+gdata/{proj}"
 
 
@@ -76,7 +74,7 @@ def scatter(iterable, n):
 
 def _gen_pbs(
     proc_file,
-    scattered_tasklist,
+    scattered_jobs,
     env,
     workdir,
     outdir,
@@ -88,24 +86,25 @@ def _gen_pbs(
     num_workers,
     num_threads,
     sensor,
-    cleanup
+    cleanup,
+    resume,
+    reprocess_failed
 ):
     """
     Generates a pbs scripts
     """
     pbs_scripts = []
 
-    for block in scattered_tasklist:
-
-        jobid = uuid.uuid4().hex[0:6]
-        job_dir = pjoin(workdir, "jobid-{}".format(jobid))
+    for (jobid, block) in scattered_jobs:
+        job_dir = pjoin(workdir, f"jobid-{jobid}")
         if not exists(job_dir):
             os.makedirs(job_dir)
 
-        out_fname = pjoin(job_dir, FMT2.format(jobid=jobid))
+        out_fname = pjoin(job_dir, f"input-{jobid}.txt")
         with open(out_fname, "w") as src:
             src.writelines(block)
 
+        # Create PBS script from a template w/ all required params
         pbs = PBS_TEMPLATE.format(
             pbs_resources=pbs_resource,
             env=env,
@@ -121,15 +120,48 @@ def _gen_pbs(
             cleanup="true" if cleanup else "false"
         )
 
+        # Append onto the end of this script any optional params
         if sensor is not None and len(sensor) > 0:
             pbs += " \\\n    --sensor " + sensor
 
-        out_fname = pjoin(job_dir, FMT1.format(jobid=jobid))
-        with open(out_fname, "w") as src:
-            src.writelines(pbs)
-            src.write("\n")
+        if resume:
+            pbs += " \\\n    --resume"
 
-        pbs_scripts.append(out_fname)
+        if reprocess_failed:
+            pbs += " \\\n    --reprocess_failed"
+
+        # If we're resuming a job, generate the resume script
+        out_fname = Path(job_dir) / f"job{jobid}.bash"
+
+        if resume or reprocess_failed:
+            # Drop everything after the -<node> suffix in job ID, which is what older job names were
+            old_fname = out_fname.parent / (out_fname.name[:out_fname.name.rfind("-")] + ".bash")
+
+            # Detect and use old name jobs if it exists (eg: from initial processing datasets)
+            if not out_fname.exists() and old_fname.exists():
+                out_fname = old_fname
+
+            if not out_fname.exists():
+                print(f"Failed to resume, job script does not exist: {out_fname}")
+                exit(1)
+
+            # Create resumption job
+            resume_fname = out_fname.parent / (out_fname.stem + "_resume.bash")
+
+            with resume_fname.open("w") as src:
+                src.writelines(pbs)
+                src.write("\n")
+
+            print('Resuming existing job:', out_fname.parent)
+            pbs_scripts.append(resume_fname)
+
+        # Otherwise, create the new fresh job script
+        else:
+            with out_fname.open("w") as src:
+                src.writelines(pbs)
+                src.write("\n")
+
+            pbs_scripts.append(out_fname)
 
     return pbs_scripts
 
@@ -254,6 +286,26 @@ def _submit_pbs(pbs_scripts, test):
     help="The sensor to use for processing (or 'MAJORITY' to use the sensor w/ the most data for the date range)",
     required=False
 )
+@click.option(
+    "--resume",
+    type=click.BOOL,
+    is_flag=True,
+    help="If we are resuming an existing job, or if this is a brand new job otherwise.",
+    default=False
+)
+@click.option(
+    "--reprocess-failed",
+    type=click.BOOL,
+    is_flag=True,
+    help="If enabled, failed scenes will be reprocessed when resuming a job.",
+    default=False
+)
+@click.option(
+    "--job-name",
+    type=click.STRING,
+    help="An optional name to assign to the job (instead of a random name by default)",
+    required=False
+)
 def ard_insar(
     proc_file: click.Path,
     taskfile: click.Path,
@@ -277,6 +329,9 @@ def ard_insar(
     cleanup: click.BOOL,
     num_threads: click.INT,
     sensor: click.STRING,
+    resume: click.BOOL,
+    reprocess_failed: click.BOOL,
+    job_name: click.STRING
 ):
     """
     consolidates batch processing job script creation and submission of pbs jobs
@@ -342,9 +397,15 @@ def ard_insar(
     else:
         num_workers = workers
 
+    # Assign job names to each node's job
+    if job_name:
+        scattered_jobs = [(f"{job_name}-{idx+1}", i) for idx, i in enumerate(scattered_tasklist)]
+    else:
+        scattered_jobs = [(f"{uuid.uuid4().hex[0:6]}-{idx+1}", i) for idx, i in enumerate(scattered_tasklist)]
+
     pbs_scripts = _gen_pbs(
         proc_file,
-        scattered_tasklist,
+        scattered_jobs,
         env,
         workdir,
         outdir,
@@ -356,8 +417,11 @@ def ard_insar(
         num_workers,
         num_threads,
         sensor,
-        cleanup
+        cleanup,
+        resume,
+        reprocess_failed
     )
+
     _submit_pbs(pbs_scripts, test)
 
 

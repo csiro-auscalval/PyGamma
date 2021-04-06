@@ -762,13 +762,13 @@ class SlcProcess:
             self.orbits()
             self.frame_subset()
 
-    def main_subset(
+    def main_mosaic(
         self,
         rlks: int,
         alks: int,
         write_png: bool = True,
     ):
-        """Main method to execute SLC processing sequence needed to produce SLC frame subset mosaic."""
+        """Main method to execute SLC processing sequence needed to produce SLC mosaic w/ the final rlks/alks."""
         work_dir = self.output_dir.joinpath(self.scene_date)
         work_dir.mkdir(exist_ok=True)
 
@@ -778,9 +778,7 @@ class SlcProcess:
             self.slc_prefix = "{0:04}{1:02}{2:02}".format(_dt.year, _dt.month, _dt.day)
             self.slc_tab = work_dir / "{}_{}_tab".format(self.slc_prefix, self.polarization)
 
-            # Run remainder of S1 SLC processing (second mosaic on subsetted data)
-            # self.frame_subset() - Note: I've kept frame_subset in the first pass, it doesn't need rlks/alks and I
-            # can't figure out why it doesn't work running in the second pass...
+            # Run the final S1 SLC mosaic (second mosaic on subsetted data w/ final resolution parameters)
             self.mosaic_slc(rlks, alks)
 
             if write_png:
