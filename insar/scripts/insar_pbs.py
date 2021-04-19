@@ -15,6 +15,7 @@ import warnings
 import subprocess
 from pathlib import Path
 from os.path import join as pjoin, dirname, exists, basename
+from insar.scripts.process_gamma import ARDWorkflow
 
 # Note that {email} is absent from PBS_RESOURCES
 PBS_RESOURCES = """#!/bin/bash
@@ -43,7 +44,8 @@ gamma_insar ARD \
     --polarization '{json_polar}' \
     --workers {worker} \
     --local-scheduler \
-    --cleanup {cleanup}"""
+    --cleanup {cleanup} \
+    --workflow {workflow}"""
 
 PBS_PACKAGE_TEMPLATE = r"""{pbs_resources}
 
@@ -88,7 +90,8 @@ def _gen_pbs(
     sensor,
     cleanup,
     resume,
-    reprocess_failed
+    reprocess_failed,
+    workflow
 ):
     """
     Generates a pbs scripts
@@ -104,6 +107,10 @@ def _gen_pbs(
         with open(out_fname, "w") as src:
             src.writelines(block)
 
+        # Convert workflow from whatever human formatting was used
+        # into Capitalised formatting to match enum
+        workflow = workflow.capitalize()
+
         # Create PBS script from a template w/ all required params
         pbs = PBS_TEMPLATE.format(
             pbs_resources=pbs_resource,
@@ -117,7 +124,8 @@ def _gen_pbs(
             json_polar=json_polar,
             worker=num_workers,
             num_threads=num_threads,
-            cleanup="true" if cleanup else "false"
+            cleanup="true" if cleanup else "false",
+            workflow=workflow
         )
 
         # Append onto the end of this script any optional params
@@ -313,6 +321,13 @@ def _submit_pbs(pbs_scripts, test):
     help="An optional name to assign to the job (instead of a random name by default)",
     required=False
 )
+@click.option(
+    "--workflow",
+    type=click.Choice([o.name for o in ARDWorkflow], case_sensitive=False),
+    help="The workflow to run",
+    required=False,
+    default="interferogram"
+)
 def ard_insar(
     proc_file: click.Path,
     taskfile: click.Path,
@@ -338,7 +353,8 @@ def ard_insar(
     sensor: click.STRING,
     resume: click.BOOL,
     reprocess_failed: click.BOOL,
-    job_name: click.STRING
+    job_name: click.STRING,
+    workflow: click.STRING
 ):
     """
     consolidates batch processing job script creation and submission of pbs jobs
@@ -426,7 +442,8 @@ def ard_insar(
         sensor,
         cleanup,
         resume,
-        reprocess_failed
+        reprocess_failed,
+        workflow
     )
 
     _submit_pbs(pbs_scripts, test)

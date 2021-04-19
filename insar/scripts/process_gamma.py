@@ -14,6 +14,7 @@ from luigi.util import requires
 import zlib
 import structlog
 import shutil
+import enum
 
 from insar.constant import SCENE_DATE_FMT, SlcFilenames, MliFilenames
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
@@ -305,7 +306,7 @@ def read_rlks_alks(ml_file: Path):
 
 class SlcDataDownload(luigi.Task):
     """
-    Runs single slc scene extraction task
+    Downloads/copies the raw data for an SLC scene, for all requested polarisations.
     """
 
     slc_scene = luigi.Parameter()
@@ -523,7 +524,7 @@ class CreateGammaDem(luigi.Task):
 
 class ProcessSlc(luigi.Task):
     """
-    Runs single slc processing task
+    Runs single slc processing task for a single polarisation.
     """
 
     scene_date = luigi.Parameter()
@@ -671,7 +672,8 @@ class CreateFullSlc(luigi.Task):
 
 class ProcessSlcMosaic(luigi.Task):
     """
-    This task runs the final SLC mosaic step using the mean rlks/alks values
+    This task runs the final SLC mosaic step using the mean rlks/alks values for
+    a single polarisation.
     """
 
     scene_date = luigi.Parameter()
@@ -711,7 +713,7 @@ class ProcessSlcMosaic(luigi.Task):
 @requires(CreateFullSlc)
 class CreateSlcMosaic(luigi.Task):
     """
-    Runs the slc subsetting tasks
+    Runs the final mosaics for all scenes, for all polarisations.
     """
 
     proc_file = luigi.Parameter()
@@ -1040,7 +1042,7 @@ class Multilook(luigi.Task):
 @requires(CreateSlcMosaic)
 class CreateMultilook(luigi.Task):
     """
-    Runs creation of multi-look image task
+    Runs creation of multi-look image task for all scenes, for all polariastions.
     """
 
     proc_file = luigi.Parameter()
@@ -1697,6 +1699,11 @@ class CreateProcessIFGs(luigi.Task):
             f.write("")
 
 
+class ARDWorkflow(enum.Enum):
+    Backscatter = 1, 'Produce all products up to (and including) SLC backscatter'
+    Interferogram = 2, 'Product all products up to (and including) interferograms'
+
+
 class TriggerResume(luigi.Task):
     """
     This job triggers resumption of processing for a specific track/frame/sensor/polarisation over a date range
@@ -1729,6 +1736,10 @@ class TriggerResume(luigi.Task):
     resume = luigi.BoolParameter()
     reprocess_failed = luigi.BoolParameter()
     resume_token = luigi.Parameter()
+
+    workflow = luigi.EnumParameter(
+        enum=ARDWorkflow, default=ARDWorkflow.Interferogram, significant=False
+    )
 
     def output_path(self):
         return Path(f"{self.track}_{self.frame}_resume_pipeline_{self.resume_token}_status.out")
@@ -1780,6 +1791,13 @@ class TriggerResume(luigi.Task):
         slc_coreg_task = CreateCoregisterSlaves(**kwargs)
         ifgs_task = CreateProcessIFGs(**kwargs)
 
+        if self.workflow == ARDWorkflow.Interferogram:
+            workflow_task = ifgs_task
+        elif self.workflow == ARDWorkflow.Backscatter:
+            workflow_task = slc_coreg_task
+        else:
+            raise Exception(f"Unsupported ARD workflow: {self.workflow}")
+
         # Note: the following logic does NOT detect/resume bad SLCs or DEM, it only handles
         # reprocessing of bad/missing coregs and IFGs currently.
 
@@ -1788,7 +1806,7 @@ class TriggerResume(luigi.Task):
         num_completed_ifgs = len(list(Path(self.workdir).glob("*_ifg_*_status_logs.out")))
 
         log.info(
-            f"TriggerResume from {num_completed_coregs}x coreg and {num_completed_ifgs}x IFGs",
+            f"TriggerResume of workflow {self.workflow} from {num_completed_coregs}x coreg and {num_completed_ifgs}x IFGs",
             num_completed_coregs=num_completed_coregs,
             num_completed_ifgs=num_completed_ifgs
         )
@@ -1833,62 +1851,63 @@ class TriggerResume(luigi.Task):
             reprocessed_slc_coregs = []
             reprocessed_single_slcs = []
 
-            for master_date, slave_date in reprocessed_ifgs:
-                ic = IfgFileNames(proc_config, Path(self.vector_file), master_date, slave_date, outdir)
+            if self.workflow == ARDWorkflow.Interferogram:
+                for master_date, slave_date in reprocessed_ifgs:
+                    ic = IfgFileNames(proc_config, Path(self.vector_file), master_date, slave_date, outdir)
 
-                # We re-use ifg's own input handling to detect this
-                try:
-                    validate_ifg_input_files(ic)
-                except ProcessIfgException as e:
-                    pol = proc_config.polarisation
-                    status_out = f"{master_date}_{pol}_{slave_date}_{pol}_coreg_logs.out"
-                    status_out = Path(self.workdir) / status_out
+                    # We re-use ifg's own input handling to detect this
+                    try:
+                        validate_ifg_input_files(ic)
+                    except ProcessIfgException as e:
+                        pol = proc_config.polarisation
+                        status_out = f"{master_date}_{pol}_{slave_date}_{pol}_coreg_logs.out"
+                        status_out = Path(self.workdir) / status_out
 
-                    log.info("Triggering SLC reprocessing as coregistrations missing", missing=e.missing_files)
+                        log.info("Triggering SLC reprocessing as coregistrations missing", missing=e.missing_files)
 
-                    if status_out.exists():
-                        status_out.unlink()
+                        if status_out.exists():
+                            status_out.unlink()
 
-                    # Note: We intentionally don't clean master/slave SLC dirs as they
-                    # contain files besides coreg we don't want to remove. SLC coreg
-                    # can be safely re-run over it's existing files deterministically.
+                        # Note: We intentionally don't clean master/slave SLC dirs as they
+                        # contain files besides coreg we don't want to remove. SLC coreg
+                        # can be safely re-run over it's existing files deterministically.
 
-                    reprocessed_slc_coregs.append(master_date)
-                    reprocessed_slc_coregs.append(slave_date)
+                        reprocessed_slc_coregs.append(master_date)
+                        reprocessed_slc_coregs.append(slave_date)
 
-                    # Add tertiary scene (if any)
-                    for slc_scene in [master_date, slave_date]:
-                        # Re-use slc coreg task for parameter acquisition
-                        coreg_kwargs = slc_coreg_task.get_base_kwargs()
-                        del coreg_kwargs["proc_file"]
-                        del coreg_kwargs["outdir"]
-                        del coreg_kwargs["workdir"]
-                        list_idx = "-"
+                        # Add tertiary scene (if any)
+                        for slc_scene in [master_date, slave_date]:
+                            # Re-use slc coreg task for parameter acquisition
+                            coreg_kwargs = slc_coreg_task.get_base_kwargs()
+                            del coreg_kwargs["proc_file"]
+                            del coreg_kwargs["outdir"]
+                            del coreg_kwargs["workdir"]
+                            list_idx = "-"
 
-                        for list_file_path in (outdir / proc_config.list_dir).glob("slaves*.list"):
-                            list_file_idx = int(list_file_path.stem[6:])
+                            for list_file_path in (outdir / proc_config.list_dir).glob("slaves*.list"):
+                                list_file_idx = int(list_file_path.stem[6:])
 
-                            with list_file_path.open('r') as file:
-                               list_dates = file.read().splitlines()
+                                with list_file_path.open('r') as file:
+                                    list_dates = file.read().splitlines()
 
-                            if slc_scene in list_dates:
-                                if list_file_idx > 1:
-                                    list_idx = list_file_idx
+                                if slc_scene in list_dates:
+                                    if list_file_idx > 1:
+                                        list_idx = list_file_idx
 
-                                break
+                                    break
 
-                        coreg_kwargs["list_idx"] = list_idx
+                            coreg_kwargs["list_idx"] = list_idx
 
-                        slave_dir = outdir / __SLC__ / slc_scene
-                        slave_slc_prefix = f"{slc_scene}_{pol}"
-                        coreg_kwargs["slc_slave"] = slave_dir / f"{slave_slc_prefix}.slc"
-                        coreg_kwargs["slave_mli"] = slave_dir / f"{slave_slc_prefix}_{rlks}rlks.mli"
-                        coreg_task = CoregisterSlc(proc=proc_config, **coreg_kwargs)
+                            slave_dir = outdir / __SLC__ / slc_scene
+                            slave_slc_prefix = f"{slc_scene}_{pol}"
+                            coreg_kwargs["slc_slave"] = slave_dir / f"{slave_slc_prefix}.slc"
+                            coreg_kwargs["slave_mli"] = slave_dir / f"{slave_slc_prefix}_{rlks}rlks.mli"
+                            coreg_task = CoregisterSlc(proc=proc_config, **coreg_kwargs)
 
-                        tertiary_date = coreg_task.get_tertiary_coreg_scene()
+                            tertiary_date = coreg_task.get_tertiary_coreg_scene()
 
-                        if tertiary_date:
-                            reprocessed_single_slcs.append(tertiary_date)
+                            if tertiary_date:
+                                reprocessed_single_slcs.append(tertiary_date)
 
             # Finally trigger SLC coreg resumption (which will process related to above)
             triggered_slc_coregs = slc_coreg_task.trigger_resume(reprocessed_slc_coregs, self.reprocess_failed)
@@ -1974,10 +1993,10 @@ class TriggerResume(luigi.Task):
                 log.info("Issuing pre-requisite reprocessing tasks")
                 yield prerequisite_tasks
 
-        if not ifgs_task.output().exists():
+        if not workflow_task.output().exists():
             # and then finally resume the normal processing pipeline
             log.info("Issuing resumption of standard pipeline tasks")
-            yield ifgs_task
+            yield workflow_task
 
         with self.output().open("w") as f:
             f.write("")
@@ -2025,6 +2044,10 @@ class ARD(luigi.WrapperTask):
     )
     reprocess_failed = luigi.BoolParameter(
         default=False, significant=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
+    )
+
+    workflow = luigi.EnumParameter(
+        enum=ARDWorkflow, default=ARDWorkflow.Interferogram, significant=False
     )
 
     def requires(self):
@@ -2125,10 +2148,15 @@ class ARD(luigi.WrapperTask):
                     "cleanup": self.cleanup,
                 }
 
+                # Yield appropriate workflow
                 if self.resume:
-                    ard_tasks.append(TriggerResume(resume_token=self.resume_token, **kwargs))
-                else:
+                    ard_tasks.append(TriggerResume(resume_token=self.resume_token, workflow=self.workflow, **kwargs))
+                elif self.workflow == ARDWorkflow.Backscatter:
+                    ard_tasks.append(CreateCoregisterSlaves(**kwargs))
+                elif self.workflow == ARDWorkflow.Interferogram:
                     ard_tasks.append(CreateProcessIFGs(**kwargs))
+                else:
+                    raise Exception(f'Unsupported workflow provided: {self.workflow}')
 
         yield ard_tasks
 
