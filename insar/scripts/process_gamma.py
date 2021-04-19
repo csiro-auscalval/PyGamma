@@ -496,7 +496,6 @@ class CreateGammaDem(luigi.Task):
     dem_img = luigi.Parameter()
 
     def output(self):
-
         return luigi.LocalTarget(
             Path(self.workdir).joinpath(
                 f"{self.track}_{self.frame}_creategammadem_status_logs.out"
@@ -1528,6 +1527,7 @@ class ProcessIFG(luigi.Task):
     """
 
     proc_file = luigi.Parameter()
+    vector_file = luigi.Parameter()
     track = luigi.Parameter()
     frame = luigi.Parameter()
     outdir = luigi.Parameter()
@@ -1556,7 +1556,7 @@ class ProcessIFG(luigi.Task):
         # allows as many scenes as possible to fully process even if some scenes fail.
         failed = False
         try:
-            ic = IfgFileNames(proc_config, self.master_date, self.slave_date, self.outdir)
+            ic = IfgFileNames(proc_config, Path(self.vector_file), self.master_date, self.slave_date, self.outdir)
             dc = DEMFileNames(proc_config, self.outdir)
             tc = TempFileConfig(ic)
 
@@ -1592,6 +1592,7 @@ class CreateProcessIFGs(luigi.Task):
     """
 
     proc_file = luigi.Parameter()
+    vector_file = luigi.Parameter()
     track = luigi.Parameter()
     frame = luigi.Parameter()
     outdir = luigi.Parameter()
@@ -1684,6 +1685,7 @@ class CreateProcessIFGs(luigi.Task):
             jobs.append(
                 ProcessIFG(
                     proc_file=self.proc_file,
+                    vector_file=self.vector_file,
                     track=self.track,
                     frame=self.frame,
                     outdir=self.outdir,

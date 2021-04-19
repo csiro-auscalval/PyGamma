@@ -247,9 +247,10 @@ def test_default_dem_file_names(mproc):
 
 def test_default_ifg_file_names(mproc):
     mproc.int_dir = pathlib.Path("INT")
+    shapefile = pathlib.Path("shapefile.shp")
     master = pathlib.Path("master")
     slave = pathlib.Path("slave")
-    cfg = project.IfgFileNames(mproc, master, slave)
+    cfg = project.IfgFileNames(mproc, shapefile, master, slave)
     outdir = f"tmp/{mproc.track}"
     intdir = f"{outdir}/INT"
     slcdir = f"{outdir}/slc-dir"

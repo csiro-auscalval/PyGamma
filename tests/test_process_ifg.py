@@ -21,6 +21,7 @@ import pytest
 
 PG_RETURN_VALUE = (0, ["default-cout"], ["default-cerr"])
 PG_RETURN_VALUE_FAIL = (-1, ["cout-with-error"], ["cerr-with-error"])
+PG_RETURN_SARPIX_VALUE = (0, ["SLC/MLI range, azimuth pixel (int):         7340        17060"], [])
 
 test_dir = TemporaryDirectory('test_process_ifg')
 
@@ -84,6 +85,9 @@ def ic_mock():
     ic.ifg_flat = mock_path()
     ic.ifg_flat1 = mock_path()
     ic.ifg_flat10 = mock_path()
+
+    ic.shapefile = pathlib.Path(__file__).parent.absolute() / 'data' / 'T147D_F28S_S1A.shp'
+
     return ic
 
 
@@ -113,6 +117,7 @@ def test_run_workflow_full(
 
     m_pygamma = mock.NonCallableMock()
     m_pygamma.base_perp.return_value = PG_RETURN_VALUE
+    m_pygamma.coord_to_sarpix.return_value = PG_RETURN_SARPIX_VALUE
     monkeypatch.setattr(process_ifg, "pg", m_pygamma)
 
     # mock out smaller helper functions (prevent I/O etc)
@@ -495,7 +500,7 @@ def test_calc_unw_thinning(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
     assert pg_unw_mock.interp_ad.called is False
     assert pg_unw_mock.unw_model.called is False
 
-    process_ifg.calc_unw_thinning(pc_mock, ic_mock, tc_mock, ifg_width=17)
+    process_ifg.calc_unw_thinning(pc_mock, ic_mock, tc_mock, 17)
 
     assert pg_unw_mock.rascc_mask_thinning.called
     assert pg_unw_mock.mcf.called

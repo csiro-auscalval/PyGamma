@@ -9,10 +9,10 @@ from pathlib import Path
 import structlog
 from PIL import Image
 import numpy as np
-import geopandas
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory, run_command
+from insar.coreg_utils import read_land_center_coords
 from insar import constant as const
 
 _LOG = structlog.get_logger("insar")
@@ -627,49 +627,18 @@ class CoregisterDem:
         ):
             self._set_attrs()
 
-        # Load the land center from shape file
-        dbf = geopandas.GeoDataFrame.from_file(Path(self.shapefile).with_suffix(".dbf"))
+        # Read land center coordinates from shape file
+        land_center = read_land_center_coords(pg, self.r_dem_master_mli_par, Path(self.shapefile))
 
-        north_lat, east_lon = None, None
-
-        if hasattr(dbf, "land_cen_l") and hasattr(dbf, "land_cen_1"):
-            # Note: land center is duplicated for every burst,
-            # we just take the first value since they're all the same
-            north_lat = dbf.land_cen_l[0]
-            east_lon = dbf.land_cen_1[0]
-
-            # "0" values are interpreted as "no value" / None
-            north_lat = None if north_lat == "0" else north_lat
-            east_lon = None if east_lon == "0" else east_lon
-
-        if north_lat is not None and east_lon is not None:
-            _, cout, _ = pg.coord_to_sarpix(
-                self.r_dem_master_mli_par,  # SLC_par
-                const.NOT_PROVIDED,  # OFF_par
-                const.NOT_PROVIDED,  # DEM_par
-                north_lat,
-                east_lon,
-                const.NOT_PROVIDED,  # hgt
-            )
-
-            # Extract pixel coordinates from stdout
-            # Example: SLC/MLI range, azimuth pixel (int):         7340        17060
-            matched = [i for i in cout if i.startswith("SLC/MLI range, azimuth pixel (int):")]
-            if len(matched) != 1:
-                error_msg = "Failed to convert scene land center from lat/lon into pixel coordinates!"
-                _LOG.error(error_msg)
-                raise Exception(error_msg)
-
-            rpos, azpos = matched[0].split()[-2:]
-
+        if land_center is not None:
             _LOG.info(
-                "Scene center for DEM coregistration determined from shape file",
-                r_dem_master_mli=self.r_dem_master_mli,
-                north_lat=north_lat,
-                east_lon=east_lon,
-                rpos=rpos,
-                azpos=azpos
+                "Land center for DEM coregistration determined from shape file",
+                mli=self.r_dem_master_mli,
+                shapefile=self.shapefile,
+                land_center=land_center
             )
+
+            rpos, azpos = land_center
 
         else:
             rpos, azpos = None, None

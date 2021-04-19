@@ -573,9 +573,12 @@ class IfgFileNames:
         "ifg_filt_geocode_out_tiff",
         "ifg_flat_coh_geocode_out_tiff",
         "ifg_filt_coh_geocode_out_tiff",
+        "shapefile",
     ]
 
-    def __init__(self, proc, master, slave, out_dir = None):
+    def __init__(self, proc, shapefile, master, slave, out_dir = None):
+        self.shapefile = shapefile
+
         if not out_dir:
             out_dir = proc.proj_dir / proc.track
 
@@ -606,7 +609,7 @@ class IfgFileNames:
             slave, proc.polarisation, proc.range_looks
         )
         self.r_slave_mli = self.r_slave_mli_name.with_suffix(".mli")
-        self.r_slave_mli_par = self.r_slave_mli.with_suffix(".par")
+        self.r_slave_mli_par = self.r_slave_mli.with_suffix(".mli.par")
 
         # use intermed str as pathlib.Path doesn't handle filename concatenation
         _master_slave_name = "{}-{}_{}_{}rlks".format(
