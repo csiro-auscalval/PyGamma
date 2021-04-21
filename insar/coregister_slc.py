@@ -1562,6 +1562,16 @@ class CoregisterSlc:
 
     def main(self):
         """Main method to execute methods sequence of methods need for master-slave coregistration."""
+
+        # Re-bind thread local context to IFG processing state
+        structlog.threadlocal.clear_threadlocal()
+        structlog.threadlocal.bind_threadlocal(
+            task="SLC coregistration",
+            slc_dir=self.out_dir,
+            master_date=self.master_date,
+            slave_date=self.slave_date
+        )
+
         with working_directory(self.out_dir):
             self.set_tab_files()
             self.get_lookup()

@@ -14,6 +14,7 @@ from structlog.processors import JSONRenderer
 
 
 COMMON_PROCESSORS = [
+    structlog.threadlocal.merge_threadlocal,
     structlog.stdlib.add_log_level,
     structlog.processors.TimeStamper(fmt="ISO"),
     structlog.processors.StackInfoRenderer(),

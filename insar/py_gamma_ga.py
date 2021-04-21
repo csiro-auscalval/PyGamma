@@ -66,9 +66,12 @@ def auto_logging_decorator(func, exception_type, logger):
         cerr = kwargs[const.CERR]
 
         if stat:
-            msg = "failed to execute pg.{}".format(cmd)
+            msg = f"Failed to execute gamma command: {cmd}"
             logger.error(msg, args=args, **kwargs)  # NB: cout/cerr already in kwargs
             raise exception_type(msg)
+        else:
+            msg = f"Successfully execute gamma command: {cmd}"
+            logger.info(msg, args=args, **kwargs)
 
         return stat, cout, cerr
 

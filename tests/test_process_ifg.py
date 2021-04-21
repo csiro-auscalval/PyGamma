@@ -62,10 +62,17 @@ def ic_mock():
 
     mock_path = functools.partial(mock.MagicMock, spec=pathlib.Path)
 
-    # Explicitly set a bunch of path objecst (as the mocked Path objects don't implement / or + correctly)
-    ic.ifg_dir = pathlib.Path(test_dir.name)
-    ic.master_dir = ic.ifg_dir / '20151103'
-    ic.slave_dir = ic.ifg_dir / '20151127'
+    # Explicitly set a bunch of path objecst (as the mocked Path objects don't
+    # implement / or + correctly).   Note: the unit tests are all mocked, the
+    # directories don't have to have valid files or in some cases even exist...
+    #
+    # Despite being dummy data, we use semi-realistic paths to keep test errors
+    # easier to understand.
+    base_path = pathlib.Path(test_dir.name)
+
+    ic.ifg_dir = base_path / "INT" / '20151103-20151127'
+    ic.master_dir = base_path / "SLC" / '20151103'
+    ic.slave_dir = base_path / "SLC" / '20151127'
     ic.ifg_unw_geocode_2pi_bmp = ic.ifg_dir / 'geo_unw_2pi.bmp'
     ic.ifg_unw_geocode_6pi_bmp = ic.ifg_dir / 'geo_unw_6pi.bmp'
     ic.ifg_flat_geocode_bmp = ic.ifg_dir / 'ifg_flat_geocode.bmp'
@@ -148,7 +155,7 @@ def test_run_workflow_full(
     assert m_pygamma.rascc_mask.called
     assert m_pygamma.interp_ad.called
     assert m_pygamma.data2geotiff.called
-    assert remove_mock.call_count > 10
+    assert remove_mock.called
 
 
 def test_run_workflow_missing_r_master_slc(ic_mock, tc_mock):

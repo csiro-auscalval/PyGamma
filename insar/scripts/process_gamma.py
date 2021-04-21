@@ -61,6 +61,7 @@ SLC_PATTERN = (
 def on_failure(task, exception):
     """Capture any Task Failure here."""
     TASK_LOGGER.exception(
+        "Task failed",
         task=task.get_task_family(),
         params=task.to_str_params(),
         track=getattr(task, "track", ""),
@@ -76,6 +77,7 @@ def on_failure(task, exception):
 def on_success(task):
     """Capture any Task Succes here."""
     TASK_LOGGER.info(
+        "Task succeeded",
         task=task.get_task_family(),
         params=task.to_str_params(),
         track=getattr(task, "track", ""),

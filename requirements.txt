@@ -17,4 +17,4 @@ Pillow>=8.0.1
 PyYAML>=5.3
 six>=1.13.0
 spatialist>=0.4
-structlog>=20.1.0
+structlog~=21.1.0

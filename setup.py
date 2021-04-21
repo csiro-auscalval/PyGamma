@@ -60,7 +60,7 @@ setup(
         "pandas>=0.24.2",
         "pyyaml>=3.11",
         "rasterio>1,!=1.0.3.post1,!=1.0.3",  # issue with /vsizip/ reader
-        "structlog>=16.1.0",
+        "structlog~=21.1.0",
         "shapely>=1.5.13",
         "spatialist==0.4",
         "eodatasets3",
