@@ -29,50 +29,6 @@ pg = GammaInterface(
 )
 
 
-class SlcParFileParser:
-    def __init__(self, par_file: Union[Path, str],) -> None:
-        """
-        Convenient access fields for SLC image parameter properties.
-        :param par_file:
-            A full path to a SLC parameter file.
-        """
-        self.par_file = Path(par_file).as_posix()
-        self.par_vals = pg.ParFile(self.par_file)
-
-    @property
-    def slc_par_params(self):
-        """
-        Convenient SLC parameter access method needed for SLC-DEM co-registration.
-        """
-        par_params = namedtuple("slc_par_params", ["range_samples", "azimuth_lines"])
-        return par_params(
-            self.par_vals.get_value("range_samples", dtype=int, index=0),
-            self.par_vals.get_value("azimuth_lines", dtype=int, index=0),
-        )
-
-
-class DemParFileParser:
-    def __init__(self, par_file: Union[Path, str],) -> None:
-        """
-        Convenient access fileds for DEM image parameter properties.
-        :param par_file:
-            A full path to a DEM parameter file.
-        """
-        self.par_file = Path(par_file).as_posix()
-        self.dem_par_vals = pg.ParFile(self.par_file)
-
-    @property
-    def dem_par_params(self):
-        """
-        Convenient DEM parameter access method need for SLC-DEM co-registration.
-        """
-        par_params = namedtuple("dem_par_params", ["post_lon", "width"])
-        return par_params(
-            self.dem_par_vals.get_value("post_lon", dtype=float, index=0),
-            self.dem_par_vals.get_value("width", dtype=int, index=0),
-        )
-
-
 class CoregisterDem:
     """TODO: DEM Coregistration docs"""
 
@@ -311,13 +267,13 @@ class CoregisterDem:
         """
 
         if self.r_dem_master_mli_width is None:
-            mli_par = SlcParFileParser(self.r_dem_master_mli_par)
-            self.r_dem_master_mli_width = mli_par.slc_par_params.range_samples
-            self.r_dem_master_mli_length = mli_par.slc_par_params.azimuth_lines
+            mli_par = pg.ParFile(self.r_dem_master_mli_par)
+            self.r_dem_master_mli_width = mli_par.get_value("range_samples", dtype=int, index=0)
+            self.r_dem_master_mli_length = mli_par.get_value("azimuth_lines", dtype=int, index=0)
 
         if self.dem_width is None:
-            geo_dem_params = DemParFileParser(self.geo_dem_par)
-            self.dem_width = geo_dem_params.dem_par_params.width
+            geo_dem_par = pg.ParFile(self.geo_dem_par)
+            self.dem_width = geo_dem_par.get_value("width", dtype=int, index=0)
 
     def adjust_dem_parameters(self) -> None:
         """
@@ -421,10 +377,9 @@ class CoregisterDem:
         # TODO only useful for visual debugging phase.
         # This is redundant in production phase (Consult InSAR team and remove)
         if raster_out:
-            params = SlcParFileParser(self.r_dem_master_mli_par)
-
             pwr_pathname = str(self.r_dem_master_mli)
-            width = params.slc_par_params.range_samples
+            mli_par = pg.ParFile(self.r_dem_master_mli_par)
+            width = mli_par.get_value("range_samples", dtype=int, index=0)
             start = 1
             nlines = 0  # default (to end of file)
             pixavr = 20

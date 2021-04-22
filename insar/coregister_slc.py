@@ -20,6 +20,7 @@ import math
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory, run_command
 from insar.project import ProcConfig
+from insar.coreg_utils import rm_file
 import insar.constant as const
 
 _LOG = structlog.get_logger("insar")
@@ -34,62 +35,6 @@ pg = GammaInterface(
         subprocess_wrapper, CoregisterSlcException, _LOG
     )
 )
-
-
-class SlcParFileParser:
-    def __init__(self, par_file: Union[Path, str],) -> None:
-        """
-        Convenient access fields for SLC image parameter properties
-
-        :param par_file:
-            A full path to a SLC image parameter file
-        """
-        self.par_file = Path(par_file).as_posix()
-        self.par_vals = pg.ParFile(self.par_file)
-
-    @property
-    def slc_par_params(self):
-        """
-        Convenient SLC parameter access method needed for SLC-SLC co-registration.
-        """
-        par_params = namedtuple("slc_par_params", ["range_samples", "azimuth_lines"])
-        return par_params(
-            self.par_vals.get_value("range_samples", dtype=int, index=0),
-            self.par_vals.get_value("azimuth_lines", dtype=int, index=0),
-        )
-
-
-class DemParFileParser:
-    def __init__(self, par_file: Union[Path, str],) -> None:
-        """
-        Convenient access fields for DEM image parameter properties.
-
-        :param par_file:
-            A full path to a DEM parameter file.
-        """
-        self.par_file = Path(par_file).as_posix()
-        self.dem_par_vals = pg.ParFile(self.par_file)
-
-    @property
-    def dem_par_params(self):
-        """
-        Convenient DEM parameter access method needed for SLC-SLC co-registration.
-        """
-        par_params = namedtuple("dem_par_params", ["post_lon", "width"])
-        return par_params(
-            self.dem_par_vals.get_value("post_lon", dtype=float, index=0),
-            self.dem_par_vals.get_value("width", dtype=int, index=0),
-        )
-
-
-# TBD: In the future we might want this to go into some sort of common utils module if we need it elsewhere too
-def _unlink(path):
-    '''A hacky unlink/delete file function for Python <3.8 which lacks a missing_ok parameter in Path.unlink'''
-    path = Path(path)
-
-    if path.exists():
-        path.unlink()
-
 
 class CoregisterSlc:
     def __init__(
@@ -282,8 +227,8 @@ class CoregisterSlc:
 
     def master_sample_size(self):
         """Returns the start and end rows and cols."""
-        _par_slc = SlcParFileParser(self.r_dem_master_slc_par)
-        _par_mli = SlcParFileParser(self.r_dem_master_mli_par)
+        par_slc = pg.ParFile(self.r_dem_master_slc_par)
+        par_mli = pg.ParFile(self.r_dem_master_mli_par)
         sample_size = namedtuple(
             "master",
             [
@@ -297,11 +242,11 @@ class CoregisterSlc:
         )
         return sample_size(
             0,
-            _par_slc.slc_par_params.range_samples,
+            par_slc.get_value("range_samples", dtype=int, index=0),
             0,
-            _par_slc.slc_par_params.azimuth_lines,
+            par_slc.get_value("azimuth_lines", dtype=int, index=0),
             0,
-            _par_mli.slc_par_params.range_samples,
+            par_mli.get_value("range_samples", dtype=int, index=0),
         )
 
     def reduce_offset(
@@ -994,8 +939,8 @@ class CoregisterSlc:
                 # using the earlier burst --> *.int1, using the later burst --> *.int2
                 off1 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.off1")
                 int1 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.int1")
-                _unlink(off1)
-                _unlink(int1)
+                rm_file(off1)
+                rm_file(int1)
 
                 # create_offset $mas_IWi_par.{i}.1 $mas_IWi_par.{i}.1 $off1 1 1 1 0
                 pg.create_offset(
@@ -1026,8 +971,8 @@ class CoregisterSlc:
 
                 off2 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.off2")
                 int2 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.int2")
-                _unlink(off2)
-                _unlink(int2)
+                rm_file(off2)
+                rm_file(int2)
 
                 # create_offset $mas_IWi_par.{i}.2 $mas_IWi_par.{i}.2 $off2 1 1 1 0
                 pg.create_offset(
@@ -1060,7 +1005,7 @@ class CoregisterSlc:
                 # insar phase of earlier burst is subtracted from interferogram of later burst
                 diff_par1 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff_par")
                 diff1 = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff")
-                _unlink(diff_par1)
+                rm_file(diff_par1)
 
                 # create_diff_par $off1 $off2 $diff_par1 0 0
                 pg.create_diff_par(
@@ -1165,7 +1110,7 @@ class CoregisterSlc:
                     2
                 )
 
-                _unlink(diff20adfcc)
+                rm_file(diff20adfcc)
 
                 # unwrapping of filtered phase considering coherence and mask determined from unfiltered double differential interferogram
                 diff20cc = temp_dir / Path(f"{r_master_slave_name}.{IWid}.{i}.diff20.coh")
@@ -1438,8 +1383,8 @@ class CoregisterSlc:
             )
 
             # back geocode gamma0 backscatter product to map geometry using B-spline interpolation on sqrt data
-            geo_dem_par_vals = DemParFileParser(self.geo_dem_par)
-            dem_width = geo_dem_par_vals.dem_par_params.width
+            geo_dem_par_vals = pg.ParFile(self.geo_dem_par)
+            dem_width = geo_dem_par_vals.get_value("width", dtype=int, index=0)
 
             data_in_pathname = str(slave_gamma0)
             width_in = self.master_sample.mli_width_end

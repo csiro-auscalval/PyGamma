@@ -8,6 +8,14 @@ import geopandas
 import insar.constant as const
 
 
+def rm_file(path):
+    '''A hacky unlink/delete file function for Python <3.8 which lacks a missing_ok parameter in Path.unlink'''
+    path = Path(path)
+
+    if path.exists():
+        path.unlink()
+
+
 def parse_date(scene_name):
     """ Parse str scene_name into datetime object. """
     return datetime.datetime.strptime(scene_name, SCENE_DATE_FMT)
