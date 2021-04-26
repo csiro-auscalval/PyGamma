@@ -86,6 +86,7 @@ def on_success(task):
     )
 
 
+# TODO: This should take a master polarisation to filter on
 def get_scenes(burst_data_csv):
     df = pd.read_csv(burst_data_csv)
     scene_dates = [_dt for _dt in sorted(df.date.unique())]
@@ -95,6 +96,8 @@ def get_scenes(burst_data_csv):
     for _date in scene_dates:
         df_subset = df[df["date"] == _date]
         polarizations = df_subset.polarization.unique()
+        # TODO: This filter should be to master polarisation
+        # (which is not necessarily polarizations[0])
         df_subset_new = df_subset[df_subset["polarization"] == polarizations[0]]
 
         complete_frame = True
@@ -1132,6 +1135,10 @@ class CalcInitialBaseline(luigi.Task):
         slc_frames = get_scenes(self.burst_data_csv)
         slc_par_files = []
         polarizations = [self.master_scene_polarization]
+
+        # Explicitly NOT supporting cross-polarisation IFGs, for now
+        enable_cross_pol_ifgs = False
+
         for _dt, _, _pols in slc_frames:
             slc_scene = _dt.strftime(__DATE_FMT__)
 
@@ -1142,6 +1149,8 @@ class CalcInitialBaseline(luigi.Task):
                     slc_scene,
                     "{}_{}.slc.par".format(slc_scene, self.master_scene_polarization),
                 )
+            elif not enable_cross_pol_ifgs:
+                continue
             else:
                 slc_par = pjoin(
                     self.outdir,
@@ -1239,8 +1248,14 @@ class CoregisterDemMaster(luigi.Task):
 
 class CoregisterSlave(luigi.Task):
     """
-    Runs the master-slave co-registration task
+    Runs the master-slave co-registration task, followed by backscatter.
+
+    Optionally, just runs backscattter if provided with a coreg_offset and
+    coreg_lut parameter to use.
     """
+
+    # TODO: A longer term task exists to separate coregistration and backscatter
+    # GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/211
 
     proc_file = luigi.Parameter()
     list_idx = luigi.Parameter()
@@ -1258,12 +1273,42 @@ class CoregisterSlave(luigi.Task):
     outdir = luigi.Parameter()
     workdir = luigi.Parameter()
 
+    # External coregistration data to re-use instead of
+    # computing our own (for non-master polarisations)
+    #
+    # This is a hack until we properly separate backscatter
+    # from coregistration.
+    coreg_offset = luigi.OptionalParameter(default=None)
+    coreg_lut = luigi.OptionalParameter(default=None)
+
     def output(self):
         return luigi.LocalTarget(
             Path(self.workdir).joinpath(
                 f"{Path(str(self.slc_master)).stem}_{Path(str(self.slc_slave)).stem}_coreg_logs.out"
             )
         )
+
+    def get_coreg_info(self):
+        with open(str(self.proc_file), "r") as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj, self.outdir)
+
+        coreg = CoregisterSlc(
+            proc=proc_config,
+            list_idx=str(self.list_idx),
+            slc_master=Path(str(self.slc_master)),
+            slc_slave=Path(str(self.slc_slave)),
+            slave_mli=Path(str(self.slave_mli)),
+            range_looks=int(str(self.range_looks)),
+            azimuth_looks=int(str(self.azimuth_looks)),
+            ellip_pix_sigma0=Path(str(self.ellip_pix_sigma0)),
+            dem_pix_gamma0=Path(str(self.dem_pix_gamma0)),
+            r_dem_master_mli=Path(str(self.r_dem_master_mli)),
+            rdc_dem=Path(str(self.rdc_dem)),
+            geo_dem_par=Path(str(self.geo_dem_par)),
+            dem_lt_fine=Path(str(self.dem_lt_fine)),
+        )
+
+        return (coreg.slave_lt, coreg.slave_off)
 
     def run(self):
         log = STATUS_LOGGER.bind(outdir=self.outdir, slc_master=self.slc_master, slc_slave=self.slc_slave)
@@ -1295,7 +1340,14 @@ class CoregisterSlave(luigi.Task):
                 dem_lt_fine=Path(str(self.dem_lt_fine)),
             )
 
-            coreg_slave.main()
+            if self.coreg_offset or self.coreg_lut:
+                coreg_slave.main_backscatter(
+                    Path(self.coreg_offset),
+                    Path(self.coreg_lut)
+                )
+            else:
+                coreg_slave.main()
+
             log.info("SLC coregistration complete")
         except Exception as e:
             log.error("SLC coregistration failed with exception", exc_info=True)
@@ -1451,6 +1503,8 @@ class CreateCoregisterSlaves(luigi.Task):
                 f"{self.master_scene_polarization}  not available in SLC data for {master_scene}"
             )
 
+        master_pol = str(self.master_scene_polarization).upper()
+
         # get range and azimuth looked values
         ml_file = Path(self.workdir).joinpath(
             f"{self.track}_{self.frame}_createmultilook_status_logs.out"
@@ -1459,20 +1513,20 @@ class CreateCoregisterSlaves(luigi.Task):
 
         master_scene = master_scene.strftime(__DATE_FMT__)
         master_slc_prefix = (
-            f"{master_scene}_{str(self.master_scene_polarization).upper()}"
+            f"{master_scene}_{master_pol}"
         )
 
         slc_master_dir = outdir / __SLC__ / master_scene
 
         kwargs = self.get_base_kwargs()
+        kwargs["coreg_offset"] = None
+        kwargs["coreg_lut"] = None
 
         slave_coreg_jobs = []
 
         # need to account for master scene with polarization different than
         # the one used in coregistration of dem and master scene
-        master_pol_coreg = set(list(master_polarizations[0])) - {
-            str(self.master_scene_polarization).upper()
-        }
+        master_pol_coreg = set(list(master_polarizations[0])) - {master_pol}
         for pol in master_pol_coreg:
             master_slc_prefix = f"{master_scene}_{pol.upper()}"
             kwargs["slc_slave"] = slc_master_dir.joinpath(f"{master_slc_prefix}.slc")
@@ -1505,17 +1559,193 @@ class CreateCoregisterSlaves(luigi.Task):
                 if slc_scene == master_scene:
                     continue
 
+                if master_pol not in _pols:
+                    log.warning(f"Skipping {_pol} coreg/backscatter for {slc_scene} due to missing master polarisation data for that date")
+                    continue
+
                 slave_dir = outdir / __SLC__ / slc_scene
+
+                # Schedule master polarisation first (as other polarisations depend on it's coreg)
+                # Note: eventually coreg and backscatter code will be separated, and this would
+                # be where we do coreg for master pol, and we'd do backscatter in it's own task.
+                # GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/211
+                slave_slc_prefix = f"{slc_scene}_{master_pol}"
+                kwargs["slc_slave"] = slave_dir / f"{slave_slc_prefix}.slc"
+                kwargs["slave_mli"] = slave_dir / f"{slave_slc_prefix}_{rlks}rlks.mli"
+                slave_coreg_jobs.append(CoregisterSlave(**kwargs))
+
+
+        yield slave_coreg_jobs
+
+        with self.output().open("w") as f:
+            f.write("")
+
+
+@requires(CreateCoregisterSlaves)
+class CreateBackscatter(luigi.Task):
+    """
+    Runs the backscatter tasks.
+    """
+
+    proc_file = luigi.Parameter()
+    master_scene_polarization = luigi.Parameter(default="VV")
+    master_scene = luigi.OptionalParameter(default=None)
+
+    def output(self):
+        return luigi.LocalTarget(
+            Path(self.workdir).joinpath(
+                f"{self.track}_{self.frame}_backscatter_status_logs.out"
+            )
+        )
+
+    def get_create_coreg_task(self):
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+
+        # Note: We share identical parameters, so we just forward them a copy
+        kwargs = {k:getattr(self,k) for k,_ in self.get_params()}
+
+        return CreateCoregisterSlaves(**kwargs)
+
+    def trigger_resume(self, reprocess_dates, reprocess_failed_scenes):
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+
+        create_coregs_task = self.get_create_coreg_task()
+
+        # FIXME: We need to separate backscatter from coreg
+        return create_coregs_task.trigger_resume(reprocess_dates, reprocess_failed_scenes)
+
+    def get_base_kwargs(self):
+        return self.get_create_coreg_task().get_base_kwargs()
+
+    def run(self):
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+        log.info("backscatter task")
+
+        outdir = Path(self.outdir)
+
+        # Load the gamma proc config file
+        with open(str(self.proc_file), "r") as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj, outdir)
+
+        slc_frames = get_scenes(self.burst_data_csv)
+
+        master_scene = read_primary_date(outdir)
+
+        coreg_tree = create_slave_coreg_tree(
+            master_scene, [dt for dt, _, _ in slc_frames]
+        )
+
+        master_polarizations = [
+            pols for dt, _, pols in slc_frames if dt.date() == master_scene
+        ]
+        assert len(master_polarizations) == 1
+
+        # TODO if master polarization data does not exist in SLC archive then
+        # TODO choose other polarization or raise Error.
+        if self.master_scene_polarization not in master_polarizations[0]:
+            raise ValueError(
+                f"{self.master_scene_polarization}  not available in SLC data for {master_scene}"
+            )
+
+        master_pol = str(self.master_scene_polarization).upper()
+
+        # get range and azimuth looked values
+        ml_file = Path(self.workdir).joinpath(
+            f"{self.track}_{self.frame}_createmultilook_status_logs.out"
+        )
+        rlks, alks = read_rlks_alks(ml_file)
+
+        master_scene = master_scene.strftime(__DATE_FMT__)
+        master_slc_prefix = (
+            f"{master_scene}_{master_pol}"
+        )
+
+        slc_master_dir = outdir / __SLC__ / master_scene
+
+        kwargs = self.get_base_kwargs()
+        kwargs["coreg_offset"] = None
+        kwargs["coreg_lut"] = None
+
+        slave_coreg_jobs = []
+
+        # need to account for master scene with polarization different than
+        # the one used in coregistration of dem and master scene
+
+        # DISABLED: Until we separate backscatter from coreg (currently coreg does this)
+        # https://github.com/GeoscienceAustralia/gamma_insar/issues/211
+
+        #master_pol_coreg = set(list(master_polarizations[0])) - {master_pol}
+        #for pol in master_pol_coreg:
+        #    master_slc_prefix = f"{master_scene}_{pol.upper()}"
+        #    kwargs["slc_slave"] = slc_master_dir.joinpath(f"{master_slc_prefix}.slc")
+        #    kwargs["slave_mli"] = slc_master_dir.joinpath(
+        #        f"{master_slc_prefix}_{rlks}rlks.mli"
+        #    )
+        #    slave_coreg_jobs.append(CoregisterSlave(**kwargs))
+
+        for list_index, list_dates in enumerate(coreg_tree):
+            list_index += 1  # list index is 1-based
+            list_frames = [i for i in slc_frames if i[0].date() in list_dates]
+
+            # Write list file
+            list_file_path = outdir / proc_config.list_dir / f"slaves{list_index}.list"
+            if not list_file_path.parent.exists():
+                list_file_path.parent.mkdir(parents=True)
+
+            with open(list_file_path, "w") as listfile:
+                list_date_strings = [
+                    dt.strftime(__DATE_FMT__) for dt, _, _ in list_frames
+                ]
+                listfile.write("\n".join(list_date_strings))
+
+            # Bash passes '-' for slaves1.list, and list_index there after.
+            if list_index > 1:
+                kwargs["list_idx"] = list_index
+
+            for _dt, _, _pols in list_frames:
+                slc_scene = _dt.strftime(__DATE_FMT__)
+                if slc_scene == master_scene:
+                    continue
+
+                if master_pol not in _pols:
+                    continue
+
+                slave_dir = outdir / __SLC__ / slc_scene
+
+                # Schedule master polarisation first (as other polarisations depend on it's coreg)
+                # Note: eventually coreg and backscatter code will be separated, and this would
+                # be where we do coreg for master pol, and we'd do backscatter for all pols in the loop
+                # below.  GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/211
+                slave_slc_prefix = f"{slc_scene}_{master_pol}"
+                kwargs["slc_slave"] = slave_dir / f"{slave_slc_prefix}.slc"
+                kwargs["slave_mli"] = slave_dir / f"{slave_slc_prefix}_{rlks}rlks.mli"
+                kwargs["coreg_offset"] = None
+                kwargs["coreg_lut"] = None
+                master_pol_task = CoregisterSlave(**kwargs)
+                # Note: we are NOT scheduling this (until backscatter is separated from coreg)
+                # - coreg task currently schedules master pol tasks, and we schedule others here
+
+                master_pol_lt, master_pol_off = master_pol_task.get_coreg_info()
+
+                # Then schedule other polarisations w/ dependency on master pol
                 for _pol in _pols:
+                    # Skip products that aren't of the polarisation we're processing
                     if _pol not in self.polarization:
                         continue
 
+                    # Skip master polarisation (processed explicitly above)
+                    if _pol == master_pol:
+                        continue
+
                     slave_slc_prefix = f"{slc_scene}_{_pol.upper()}"
-                    kwargs["slc_slave"] = slave_dir.joinpath(f"{slave_slc_prefix}.slc")
-                    kwargs["slave_mli"] = slave_dir.joinpath(
-                        f"{slave_slc_prefix}_{rlks}rlks.mli"
-                    )
-                    slave_coreg_jobs.append(CoregisterSlave(**kwargs))
+                    kwargs["slc_slave"] = slave_dir / f"{slave_slc_prefix}.slc"
+                    kwargs["slave_mli"] = slave_dir / f"{slave_slc_prefix}_{rlks}rlks.mli"
+                    kwargs["coreg_offset"] = master_pol_off
+                    kwargs["coreg_lut"] = master_pol_lt
+
+                    task = CoregisterSlave(**kwargs)
+                    slave_coreg_jobs.append(task)
+
 
         yield slave_coreg_jobs
 
@@ -1525,7 +1755,7 @@ class CreateCoregisterSlaves(luigi.Task):
 
 class ProcessIFG(luigi.Task):
     """
-    Runs the interferogram processing tasks.
+    Runs the interferogram processing tasks for master polarisation.
     """
 
     proc_file = luigi.Parameter()
@@ -1587,7 +1817,7 @@ class ProcessIFG(luigi.Task):
                 f.write("FAILED" if failed else "")
 
 
-@requires(CreateCoregisterSlaves)
+@requires(CreateBackscatter)
 class CreateProcessIFGs(luigi.Task):
     """
     Runs the interferogram processing tasks.
@@ -1792,7 +2022,7 @@ class TriggerResume(luigi.Task):
         with open(str(self.proc_file), 'r') as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj, outdir)
 
-        slc_coreg_task = CreateCoregisterSlaves(**kwargs)
+        backscatter_task = CreateBackscatter(**kwargs)
         ifgs_task = CreateProcessIFGs(**kwargs)
 
         if self.workflow == ARDWorkflow.Interferogram:
@@ -1819,8 +2049,11 @@ class TriggerResume(luigi.Task):
         if num_completed_coregs == 0 and num_completed_ifgs == 0:
             log.info("No products need resuming, continuing w/ normal pipeline...")
 
-            if slc_coreg_task.output().exists():
-                slc_coreg_task.output().remove()
+            if backscatter_task.get_coregs_task().output().exists():
+                backscatter_task.get_coregs_task().output().remove()
+
+            if backscatter_task.output().exists():
+                backscatter_task.output().remove()
 
             if ifgs_task.output().exists():
                 ifgs_task.output().remove()
@@ -1914,7 +2147,7 @@ class TriggerResume(luigi.Task):
                                 reprocessed_single_slcs.append(tertiary_date)
 
             # Finally trigger SLC coreg resumption (which will process related to above)
-            triggered_slc_coregs = slc_coreg_task.trigger_resume(reprocessed_slc_coregs, self.reprocess_failed)
+            triggered_slc_coregs = backscatter_task.trigger_resume(reprocessed_slc_coregs, self.reprocess_failed)
             for master_date, slave_date in triggered_slc_coregs:
                 reprocessed_slc_coregs.append(slave_date)
 

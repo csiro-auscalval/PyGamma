@@ -103,7 +103,6 @@ class CoregisterSlc:
         self.out_dir = outdir
         if self.out_dir is None:
             self.out_dir = Path(self.slc_slave).parent
-        self.slave_lt = None
         self.accuracy_warning = self.out_dir / "ACCURACY_WARNING"
 
         self.slave_date, self.slave_polar = self.slc_slave.stem.split('_')
@@ -146,7 +145,6 @@ class CoregisterSlc:
 
         self.range_step = None
         self.azimuth_step = None
-        self.slave_off = None
         self.r_slave_slc = None
         self.r_slave_slc_par = None
         self.r_slave_slc_tab = None
@@ -159,6 +157,9 @@ class CoregisterSlc:
 
         master_slave_prefix = f"{self.master_date}-{self.slave_date}"
         self.r_master_slave_name = f"{master_slave_prefix}_{self.slave_polar}_{self.rlks}rlks"
+
+        self.slave_lt = self.out_dir / f"{self.r_master_slave_name}.lt"
+        self.slave_off = self.out_dir / f"{self.r_master_slave_name}.off"
 
     @staticmethod
     def swath_tab_names(swath: int, prefix: str,) -> namedtuple:
@@ -209,12 +210,8 @@ class CoregisterSlc:
         self.r_slave_slc = out_dir.joinpath(f"r{self.slc_slave.name}")
         self.r_slave_slc_par = out_dir.joinpath(f"r{self.slc_slave.name}.par")
 
-    def get_lookup(self, outfile: Optional[Path] = None,) -> None:
+    def get_lookup(self) -> None:
         """Determine lookup table based on orbit data and DEM."""
-
-        self.slave_lt = outfile
-        if outfile is None:
-            self.slave_lt = self.out_dir.joinpath(f"{self.r_master_slave_name}.lt")
 
         mli1_par_pathname = str(self.r_dem_master_mli_par)
         dem_rdc_pathname = str(self.rdc_dem)
@@ -347,9 +344,6 @@ class CoregisterSlc:
         self.log.info("Beginning coarse coregistration")
 
         # create slave offset
-        if self.slave_off is None:
-            self.slave_off = self.out_dir.joinpath(f"{self.r_master_slave_name}.off")
-
         pg.create_offset(
             str(self.r_dem_master_slc_par),
             str(self.slc_slave_par),
@@ -1505,8 +1499,8 @@ class CoregisterSlc:
                     dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
                 )
 
-    def main(self):
-        """Main method to execute methods sequence of methods need for master-slave coregistration."""
+    def main(self, inc_backscatter=True):
+        """Main method to process SLC coregistration products."""
 
         # Re-bind thread local context to IFG processing state
         structlog.threadlocal.clear_threadlocal()
@@ -1522,6 +1516,36 @@ class CoregisterSlc:
             self.get_lookup()
             self.reduce_offset()
             self.fine_coregistration(self.slave_date, self.list_idx)
+
+            if inc_backscatter:
+                self.resample_full()
+                self.multi_look()
+                self.generate_normalised_backscatter()
+
+    def main_backscatter(
+        self,
+        slave_off: Path,
+        lookup_table: Path
+    ):
+        """Main method to process SLC backscatter products."""
+
+        self.slave_lt = lookup_table
+        self.slave_off = slave_off
+
+        # Re-bind thread local context to IFG processing state
+        structlog.threadlocal.clear_threadlocal()
+        structlog.threadlocal.bind_threadlocal(
+            task="SLC backscatter",
+            slc_dir=self.out_dir,
+            master_date=self.master_date,
+            slave_date=self.slave_date,
+            slave_lt=self.slave_lt,
+            slave_off=self.slave_off
+        )
+
+        with working_directory(self.out_dir):
+            self.set_tab_files()
             self.resample_full()
             self.multi_look()
             self.generate_normalised_backscatter()
+
