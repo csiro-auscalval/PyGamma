@@ -13,8 +13,8 @@ HERE = Path(__file__).parent
 
 README = (HERE / "README.md").read_text()
 
-# with open('requirements.txt') as requirement_file:
-#     requirements = [r.strip() for r in requirement_file.readlines()]
+with (HERE / 'requirements.txt').open() as requirement_file:
+    requirements = [r.strip() for r in requirement_file.readlines()]
 
 setup_requirements = ["pytest-runner"]
 
@@ -49,23 +49,7 @@ setup(
             "create-task-files=insar.scripts.grid_processing:create_task_files_cli",
         ],
     },
-    install_requires=[
-        "attrs>=17.4.0",
-        "Click~=7.0",
-        "GDAL>=2.4",
-        "geopandas>=0.4.1",
-        "luigi>=2.8.3",
-        "matplotlib>=3.0.3",
-        "numpy>=1.8",
-        "pandas>=0.24.2",
-        "pyyaml>=3.11",
-        "rasterio>1,!=1.0.3.post1,!=1.0.3",  # issue with /vsizip/ reader
-        "structlog~=21.1.0",
-        "shapely>=1.5.13",
-        "spatialist==0.4",
-        "eodatasets3",
-        "simplekml>=1.3.3" "",
-    ],
+    install_requires=requirements,
     license="Apache Software License 2.0",
     long_description=README,
     long_description_content_type="text/markdown",

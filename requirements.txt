@@ -1,3 +1,14 @@
+# Hack for setup.py's broken dependency resolution
+# - two indirect dependencies have a dependency on dill
+# - one has a newer version requirement than the other
+# - but is detected 'after' the indirect dependency which
+# - installs an older version, which setup.py then refuses
+# - to upgrade... so we explicitly install a new enough
+# - version up-front to avoid setup.py/PEP's poor dependency
+# - resolution issues (Note: PIP does things right and does
+# - not need this hack... it's just for setup.py / PEP)
+dill>=0.3.3
+
 # Unversioned
 pytest
 pytest-cov
@@ -5,16 +16,17 @@ simplekml
 rasterio
 
 # Versioned
-Click>=7.0
-click-plugins>=1.1.1
-GDAL>=3.0.2
-geopandas>=0.6.1
-luigi>=2.8.10
-matplotlib>=3.1.1
-numpy>=1.17.4
-pandas>=0.25.3
-Pillow>=8.0.1
-PyYAML>=5.3
-six>=1.13.0
-spatialist>=0.4
+Click~=7.0
+click-plugins~=1.1.1
+GDAL~=2.4.0
+geopandas~=0.6.1
+luigi~=2.8.10
+matplotlib~=3.1.1
+numpy~=1.17.0
+pandas~=0.25.3
+Pillow~=8.0.1
+PyYAML~=5.3
+six~=1.13.0
+spatialist~=0.4
 structlog~=21.1.0
+eodatasets3~=0.18
