@@ -94,6 +94,7 @@ class ProcConfig:
         "ifg_unw_mask",
         "ifg_patches_range",
         "ifg_patches_azimuth",
+        "ifg_patches_overlap_px",
         "ifg_ref_point_range",
         "ifg_ref_point_azimuth",
         "ifg_exponent",

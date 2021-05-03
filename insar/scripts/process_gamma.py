@@ -2049,8 +2049,8 @@ class TriggerResume(luigi.Task):
         if num_completed_coregs == 0 and num_completed_ifgs == 0:
             log.info("No products need resuming, continuing w/ normal pipeline...")
 
-            if backscatter_task.get_coregs_task().output().exists():
-                backscatter_task.get_coregs_task().output().remove()
+            if backscatter_task.get_create_coreg_task().output().exists():
+                backscatter_task.get_create_coreg_task().output().remove()
 
             if backscatter_task.output().exists():
                 backscatter_task.output().remove()

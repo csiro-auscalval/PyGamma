@@ -267,12 +267,12 @@ class CoregisterDem:
         """
 
         if self.r_dem_master_mli_width is None:
-            mli_par = pg.ParFile(self.r_dem_master_mli_par)
+            mli_par = pg.ParFile(str(self.r_dem_master_mli_par))
             self.r_dem_master_mli_width = mli_par.get_value("range_samples", dtype=int, index=0)
             self.r_dem_master_mli_length = mli_par.get_value("azimuth_lines", dtype=int, index=0)
 
         if self.dem_width is None:
-            geo_dem_par = pg.ParFile(self.geo_dem_par)
+            geo_dem_par = pg.ParFile(str(self.geo_dem_par))
             self.dem_width = geo_dem_par.get_value("width", dtype=int, index=0)
 
     def adjust_dem_parameters(self) -> None:
@@ -378,7 +378,7 @@ class CoregisterDem:
         # This is redundant in production phase (Consult InSAR team and remove)
         if raster_out:
             pwr_pathname = str(self.r_dem_master_mli)
-            mli_par = pg.ParFile(self.r_dem_master_mli_par)
+            mli_par = pg.ParFile(str(self.r_dem_master_mli_par))
             width = mli_par.get_value("range_samples", dtype=int, index=0)
             start = 1
             nlines = 0  # default (to end of file)

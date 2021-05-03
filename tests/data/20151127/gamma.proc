@@ -219,8 +219,9 @@ IFG_COHERENCE_THRESHOLD=0.3
     # Mask unwrapped pixels below coherence threshold
 IFG_UNW_MASK=no
     # Number of unwrapping patches (default: 1, for high res data may need to be 2 or more)
-IFG_PATCHES_RANGE=3
-IFG_PATCHES_AZIMUTH=3
+IFG_PATCHES_RANGE=2
+IFG_PATCHES_AZIMUTH=2
+IFG_PATCHES_OVERLAP_PX=1024
     # Location of reference pixel
 IFG_REF_POINT_RANGE=-
 IFG_REF_POINT_AZIMUTH=-

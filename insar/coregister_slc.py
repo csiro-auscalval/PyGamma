@@ -224,8 +224,8 @@ class CoregisterSlc:
 
     def master_sample_size(self):
         """Returns the start and end rows and cols."""
-        par_slc = pg.ParFile(self.r_dem_master_slc_par)
-        par_mli = pg.ParFile(self.r_dem_master_mli_par)
+        par_slc = pg.ParFile(str(self.r_dem_master_slc_par))
+        par_mli = pg.ParFile(str(self.r_dem_master_mli_par))
         sample_size = namedtuple(
             "master",
             [
@@ -1377,7 +1377,7 @@ class CoregisterSlc:
             )
 
             # back geocode gamma0 backscatter product to map geometry using B-spline interpolation on sqrt data
-            geo_dem_par_vals = pg.ParFile(self.geo_dem_par)
+            geo_dem_par_vals = pg.ParFile(str(self.geo_dem_par))
             dem_width = geo_dem_par_vals.get_value("width", dtype=int, index=0)
 
             data_in_pathname = str(slave_gamma0)

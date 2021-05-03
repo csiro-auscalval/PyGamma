@@ -720,7 +720,7 @@ def calc_unw_thinning(
         const.NOT_PROVIDED,  # nlines
         pc.ifg_patches_range,  # number of patches (tiles?) in range
         pc.ifg_patches_azimuth,  # num of lines of section to unwrap
-        const.NOT_PROVIDED,  # overlap between patches in pixels
+        pc.ifg_patches_overlap_px,  # overlap between patches in pixels
         land_center[0] if land_center else pc.ifg_ref_point_range,  # phase reference range offset
         land_center[1] if land_center else pc.ifg_ref_point_azimuth,  # phase reference azimuth offset
         const.INIT_FLAG_SET_PHASE_0_AT_INITIAL,
