@@ -1121,7 +1121,7 @@ class CoregisterDem:
             dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
         )
 
-        # geocode and geotif sigma0 mli
+        # geocode sigma0 mli
         shutil.copyfile(self.r_dem_master_mli, self.dem_master_sigma0)
 
         data_in_pathname = str(self.dem_master_sigma0)
@@ -1148,6 +1148,7 @@ class CoregisterDem:
             lr_out,
         )
 
+        # geotiff sigma0 file
         dem_par_pathname = str(self.geo_dem_par)
         data_pathname = str(self.dem_master_sigma0_geo)
         dtype = 2  # FLOAT
