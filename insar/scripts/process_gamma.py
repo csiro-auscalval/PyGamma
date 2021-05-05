@@ -1609,6 +1609,9 @@ class CreateBackscatter(luigi.Task):
     def trigger_resume(self, reprocess_dates, reprocess_failed_scenes):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
 
+        if self.output().exists():
+            self.output().remove()
+
         create_coregs_task = self.get_create_coreg_task()
 
         # FIXME: We need to separate backscatter from coreg
@@ -2028,7 +2031,7 @@ class TriggerResume(luigi.Task):
         if self.workflow == ARDWorkflow.Interferogram:
             workflow_task = ifgs_task
         elif self.workflow == ARDWorkflow.Backscatter:
-            workflow_task = slc_coreg_task
+            workflow_task = backscatter_task
         else:
             raise Exception(f"Unsupported ARD workflow: {self.workflow}")
 
@@ -2115,7 +2118,7 @@ class TriggerResume(luigi.Task):
                         # Add tertiary scene (if any)
                         for slc_scene in [master_date, slave_date]:
                             # Re-use slc coreg task for parameter acquisition
-                            coreg_kwargs = slc_coreg_task.get_base_kwargs()
+                            coreg_kwargs = backscatter_task.get_base_kwargs()
                             del coreg_kwargs["proc_file"]
                             del coreg_kwargs["outdir"]
                             del coreg_kwargs["workdir"]
@@ -2389,7 +2392,7 @@ class ARD(luigi.WrapperTask):
                 if self.resume:
                     ard_tasks.append(TriggerResume(resume_token=self.resume_token, workflow=self.workflow, **kwargs))
                 elif self.workflow == ARDWorkflow.Backscatter:
-                    ard_tasks.append(CreateCoregisterSlaves(**kwargs))
+                    ard_tasks.append(CreateBackscatter(**kwargs))
                 elif self.workflow == ARDWorkflow.Interferogram:
                     ard_tasks.append(CreateProcessIFGs(**kwargs))
                 else:
