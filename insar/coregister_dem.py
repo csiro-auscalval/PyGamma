@@ -430,6 +430,8 @@ class CoregisterDem:
         frame = 8
         ls_mode = 2
 
+# TODO: Consider replacing gc_map1 with gc_map2. The former was deprecated by GAMMA.
+# See https://github.com/GeoscienceAustralia/gamma_insar/issues/232
         pg.gc_map1(
             mli_par_pathname,
             off_par_pathname,
