@@ -9,6 +9,7 @@ from pathlib import Path
 import structlog
 from PIL import Image
 import numpy as np
+import gdal
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory, run_command
@@ -137,6 +138,7 @@ class CoregisterDem:
         self.dem_master_slc_par = self.slc_par
 
         self.dem_width = None
+        self.dem_height = None
         self.r_dem_master_mli_width = None
         self.r_dem_master_mli_length = None
         self.dem_files = self.dem_filenames(
@@ -274,6 +276,7 @@ class CoregisterDem:
         if self.dem_width is None:
             geo_dem_par = pg.ParFile(str(self.geo_dem_par))
             self.dem_width = geo_dem_par.get_value("width", dtype=int, index=0)
+            self.dem_height = geo_dem_par.get_value("nlines", dtype=int, index=0)
 
     def adjust_dem_parameters(self) -> None:
         """
@@ -430,28 +433,61 @@ class CoregisterDem:
         frame = 8
         ls_mode = 2
 
-# TODO: Consider replacing gc_map1 with gc_map2. The former was deprecated by GAMMA.
-# See https://github.com/GeoscienceAustralia/gamma_insar/issues/232
-        pg.gc_map1(
-            mli_par_pathname,
-            off_par_pathname,
-            dem_par_pathname,
-            dem_pathname,
-            dem_seg_par_pathname,
-            dem_seg_pathname,
-            lookup_table_pathname,
-            lat_ovr,
-            lon_ovr,
-            sim_sar_pathname,
-            u_zenith_angle,
-            v_orientation_angle,
-            inc_angle_pathname,
-            psi_projection_angle,
-            pix,
-            ls_map_pathname,
-            frame,
-            ls_mode,
-        )
+        # Simple trigger for us to move over to gc_map2 when
+        # InSAR team confirm they're ready for the switch.
+        use_gc_map2 = False
+
+        if not use_gc_map2:
+            pg.gc_map1(
+                mli_par_pathname,
+                off_par_pathname,
+                dem_par_pathname,
+                dem_pathname,
+                dem_seg_par_pathname,
+                dem_seg_pathname,
+                lookup_table_pathname,
+                lat_ovr,
+                lon_ovr,
+                sim_sar_pathname,
+                u_zenith_angle,
+                v_orientation_angle,
+                inc_angle_pathname,
+                psi_projection_angle,
+                pix,
+                ls_map_pathname,
+                frame,
+                ls_mode,
+            )
+        else:
+            # TODO: Consider replacing gc_map1 with gc_map2. The former was deprecated by GAMMA.
+            # See https://github.com/GeoscienceAustralia/gamma_insar/issues/232
+            pg.gc_map2(
+                mli_par_pathname,
+                dem_par_pathname,
+                dem_pathname,
+                dem_seg_par_pathname,
+                dem_seg_pathname,
+                lookup_table_pathname,
+                lat_ovr,
+                lon_ovr,
+                ls_map_pathname,
+                const.NOT_PROVIDED,
+                inc_angle_pathname,
+                const.NOT_PROVIDED,  # local resolution map
+                const.NOT_PROVIDED,  # local offnadir (or look) angle map
+                sim_sar_pathname,
+                u_zenith_angle,
+                v_orientation_angle,
+                psi_projection_angle,
+                pix,
+                const.NOT_PROVIDED,
+                const.NOT_PROVIDED,
+                const.NOT_PROVIDED,
+                frame,
+                const.NOT_PROVIDED,
+                str(self.dem_diff),
+                const.NOT_PROVIDED  # reference image flag (simulated SAR is the default)
+            )
 
         # generate initial gamma0 pixel normalisation area image in radar geometry
         mli_par_pathname = str(self.r_dem_master_mli_par)
@@ -1052,6 +1088,43 @@ class CoregisterDem:
                 nintr,
             )
 
+        # Convert lsmap to geotiff
+        ls_map_tif = str(self.dem_lsmap.with_suffix(".lsmap.tif"))
+        pg.data2geotiff(
+            str(self.geo_dem_par),
+            str(self.dem_lsmap),
+            5,  # data type (BYTE)
+            ls_map_tif,  # output oath
+            0.0,  # No data
+        )
+
+        # Create CARD4L mask (1 = good pixel, 0 = bad)
+        ls_map_file = gdal.Open(ls_map_tif)
+        ls_map_img = ls_map_file.ReadAsArray()
+
+        # Sanity check
+        assert(ls_map_img.shape[0] == self.dem_height)
+        assert(ls_map_img.shape[1] == self.dem_width)
+
+        # Simply turn non-good pixels to 0 (all that remains then is the good pixels which are already 1)
+        ls_map_img[ls_map_img != 1] = 0
+
+        # Save this back out as a geotiff w/ identical projection as the lsmap
+        ls_map_mask_tif = self.dem_lsmap.with_suffix(".lsmap.mask.tif")
+        ls_mask_file = gdal.GetDriverByName("GTiff").Create(
+            ls_map_mask_tif.as_posix(),
+            ls_map_img.shape[1], ls_map_img.shape[0], 1,
+            gdal.GDT_Byte,
+            options = ["COMPRESS=PACKBITS"]
+        )
+
+        ls_mask_file.SetGeoTransform(ls_map_file.GetGeoTransform())
+        ls_mask_file.SetProjection(ls_map_file.GetProjection())
+        ls_mask_file.GetRasterBand(1).WriteArray(ls_map_img)
+        ls_mask_file.GetRasterBand(1).SetNoDataValue(0)
+        ls_mask_file.FlushCache()
+        ls_mask_file = None
+
         # Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
         data_in_pathname = str(self.dem_master_gamma0)
         width_in = self.r_dem_master_mli_width
@@ -1242,8 +1315,8 @@ class CoregisterDem:
         self.dem_outdir.mkdir(exist_ok=True)
         with working_directory(self.dem_outdir):
             self.copy_slc()
-            self.gen_dem_rdc()
             self.create_diff_par()
+            self.gen_dem_rdc()
             self.offset_calc()
             self.geocode()
             self.look_vector()

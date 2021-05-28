@@ -33,7 +33,10 @@ PBS_TEMPLATE = r"""{pbs_resources}
 
 source {env}
 export OMP_NUM_THREADS={num_threads}
-export TMPDIR={workdir}
+export TMPDIR=$PBS_JOBFS
+export TEMP=$TMPDIR
+export TMP=$TMPDIR
+
 gamma_insar ARD \
     --proc-file {proc_file} \
     --vector-file-list {vector_file_list} \
