@@ -82,48 +82,53 @@ def run_workflow(
     enable_refinement: bool = False
 ):
     # Re-bind thread local context to IFG processing state
-    structlog.threadlocal.clear_threadlocal()
-    master_date, slave_date = ic.ifg_dir.name.split('-')
-    structlog.threadlocal.bind_threadlocal(
-        task="IFG processing",
-        ifg_dir=ic.ifg_dir,
-        master_date=master_date,
-        slave_date=slave_date
-    )
+    try:
+        structlog.threadlocal.clear_threadlocal()
+        master_date, slave_date = ic.ifg_dir.name.split('-')
+        structlog.threadlocal.bind_threadlocal(
+            task="IFG processing",
+            ifg_dir=ic.ifg_dir,
+            master_date=master_date,
+            slave_date=slave_date
+        )
 
-    _LOG.info("Running IFG workflow", ifg_width=int(ifg_width))
+        _LOG.info("Running IFG workflow", ifg_width=int(ifg_width))
 
-    if not ic.ifg_dir.exists():
-        ic.ifg_dir.mkdir(parents=True)
+        if not ic.ifg_dir.exists():
+            ic.ifg_dir.mkdir(parents=True)
 
-    with working_directory(ic.ifg_dir):
-        validate_ifg_input_files(ic)
+        with working_directory(ic.ifg_dir):
+            validate_ifg_input_files(ic)
 
-        # Extract land center coordinates
-        land_center = read_land_center_coords(pg, ic.r_slave_mli_par, ic.shapefile)
+            # Extract land center coordinates
+            land_center = read_land_center_coords(pg, ic.r_slave_mli_par, ic.shapefile)
 
-        if land_center is not None:
-            _LOG.info(
-                "Land center for IFG slave",
-                mli=ic.r_slave_mli,
-                shapefile=ic.shapefile,
-                land_center=land_center
-            )
+            if land_center is not None:
+                _LOG.info(
+                    "Land center for IFG slave",
+                    mli=ic.r_slave_mli,
+                    shapefile=ic.shapefile,
+                    land_center=land_center
+                )
 
-        # future version might want to allow selection of steps (skipped for simplicity Oct 2020)
-        calc_int(pc, ic)
-        ifg_file = initial_flattened_ifg(pc, ic, dc)
+            # future version might want to allow selection of steps (skipped for simplicity Oct 2020)
+            calc_int(pc, ic)
+            ifg_file = initial_flattened_ifg(pc, ic, dc)
 
-        # Note: These are not needed for Sentinel-1 processing
-        if enable_refinement:
-            ifg_file = refined_flattened_ifg(pc, ic, dc, ifg_file)
-            ifg_file = precise_flattened_ifg(pc, ic, dc, tc, ifg_file, ifg_width, land_center)
-        else:
-            shutil.copy(ic.ifg_base_init, ic.ifg_base)
+            # Note: These are not needed for Sentinel-1 processing
+            if enable_refinement:
+                ifg_file = refined_flattened_ifg(pc, ic, dc, ifg_file)
+                ifg_file = precise_flattened_ifg(pc, ic, dc, tc, ifg_file, ifg_width, land_center)
+            else:
+                shutil.copy(ic.ifg_base_init, ic.ifg_base)
+                shutil.copy(ifg_file, ic.ifg_flat)
 
-        calc_bperp_coh_filt(pc, ic, ifg_file, ic.ifg_base, ifg_width)
-        calc_unw(pc, ic, tc, ifg_width, land_center)  # this calls unw thinning
-        do_geocode(pc, ic, dc, tc, ifg_width)
+            calc_bperp_coh_filt(pc, ic, ifg_file, ic.ifg_base, ifg_width)
+            calc_unw(pc, ic, tc, ifg_width, land_center)  # this calls unw thinning
+            do_geocode(pc, ic, dc, tc, ifg_width)
+
+    finally:
+        structlog.threadlocal.clear_threadlocal()
 
 
 def validate_ifg_input_files(ic: IfgFileNames):

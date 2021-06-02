@@ -9,6 +9,7 @@ import structlog
 import pandas as pd
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
+import json
 
 from insar.py_gamma_ga import pg
 from eodatasets3 import DatasetAssembler
@@ -31,14 +32,18 @@ def map_product(product: str) -> Dict:
             "angles": ("lv_phi.tif", "lv_theta.tif"),
             "product_base": "SLC",
             "dem_base": "DEM",
-            "product_family": "bck",
+            "product_family": "nbr",
+            "thumbnail_bands": ["gamma0_vv"]
         },
         "insar": {
-            "suffixs": ("unw.tif", "int.tif", "cc.tif"),
+            # Note: Suffixes here are wrong / need revising
+            "suffixs": ("unw.tif", "int.tif", "coh.tif"),
             "angles": ("lv_phi.tif", "lv_theta.tif"),
             "product_base": "INT",
             "dem_base": "DEM",
             "product_family": "insar",
+            # Note: These are wrong / placeholders
+            "thumbnail_bands": ["2pi", "2pi", "2pi"]
         },
     }
 
@@ -85,13 +90,15 @@ def get_image_metadata_dict(par_file: Union[Path, str]) -> Dict:
     _metadata["incidence_angle"] = params.get_value(
         "incidence_angle", dtype=float, index=0
     )
-    _metadata["azimuth_angle"] = params.get_value("azimuth_angle", dtype=float, index=0)
-    _metadata["range_looks"] = params.get_value("range_looks", dtype=int, index=0)
-    _metadata["azimuth_looks"] = params.get_value("azimuth_looks", dtype=int, index=0)
-    _metadata["range_pixel_spacing"] = params.get_value(
+
+    azimuth_angle = params.get_value("azimuth_angle", dtype=float, index=0)
+    _metadata["azimuth_angle"] = azimuth_angle
+    _metadata["looks_range"] = params.get_value("range_looks", dtype=int, index=0)
+    _metadata["looks_azimuth"] = params.get_value("azimuth_looks", dtype=int, index=0)
+    _metadata["pixel_spacing_range"] = params.get_value(
         "range_pixel_spacing", dtype=float, index=0
     )
-    _metadata["azimuth_pixel_spacing"] = params.get_value(
+    _metadata["pixel_spacing_azimuth"] = params.get_value(
         "azimuth_pixel_spacing", dtype=float, index=0
     )
     _metadata["radar_frequency"] = params.get_value(
@@ -135,6 +142,15 @@ def get_image_metadata_dict(par_file: Union[Path, str]) -> Dict:
     _metadata["center_longitude"] = params.get_value(
         "center_longitude", dtype=float, index=0
     )
+
+    if float(azimuth_angle) > 0:
+        p.properties["observation_direction"] = "right"
+    else:
+        p.properties["observation_direction"] = "left"
+
+    # Hard-coded assumptions based on our processing pipeline / data we use
+    p.properties["frequency_band"] = "C"
+    p.properties["instrument_mode"] = "IW"
 
     return _metadata
 
@@ -287,7 +303,8 @@ class SLC:
     par_file: Path
     slc_path: Path
     dem_path: Path
-    slc_metadata: Dict
+    esa_slc_metadata: Dict
+    our_slc_metadata: Dict
     status: bool
 
     @classmethod
@@ -321,34 +338,20 @@ class SLC:
                     _LOG.info("burst does not exist", burst_data=burst_data)
 
                 # try to find any slc parameter for any polarizations to extract the metadata
-                par_files = None
-                for _pol in _pols:
-                    par_files = [
-                        item
-                        for item in slc_scene_path.glob(
-                            f"r{slc_scene_path.name}_{_pol}_*rlks.mli.par"
-                        )
-                    ]
-                    if par_files:
-                        break
+                par_files = [
+                    item
+                    for _pol in _pols
+                    for item in slc_scene_path.glob(
+                        f"r{slc_scene_path.name}_{_pol}_*rlks.mli.par"
+                    )
+                ]
 
-                # at this point par_files could be: None, [], or [some_file]
-                # log error if None or []
-                if not par_files:
+                # Ensure we have data for all polarisations requested to be packaged
+                if len(par_files) != len(_pols):
                     package_status = False
-                    _LOG.info(
-                        f"missing required parameter needed for packaging "
-                        f"for {slc_scene_path}"
-                    )
-                    _LOG.info(
-                        "missing parameter required for packaging",
-                        slc_path=str(slc_scene_path),
-                    )
-                    # raise exception and exit here
-                    raise Exception(
-                        f"missing required parameter needed "
-                        f"for packaging for {slc_scene_path}"
-                    )
+                    msg = f"{slc_scene_path} missing one or more polarised products, expected {_pols}"
+                    _LOG.info(msg, scene=slc_scene_path)
+                    raise Exception(msg)
 
                 scene_date = datetime.datetime.strptime(
                     slc_scene_path.name, "%Y%m%d"
@@ -361,8 +364,14 @@ class SLC:
                 # extract metadata (this requires pygamma)
                 s1_zip_list = get_s1_files(burst_data, scene_date)
 
-                # get multi-layered slc metadata dict
+                # get multi-layered slc ESA metadata dict
                 slc_metadata_dict = get_slc_metadata_dict(s1_zip_list, yaml_base_dir)
+
+                # get our workflow processing metadata dict
+                # Note: we take this from the first polarisation's metadata, they should
+                # share common values for all the properties we care about for packaging.
+                with (slc_scene_path / f"metadata_{_pols[0]}.json").open("r") as file:
+                    our_metadata_dict = json.load(file)
 
                 yield cls(
                     track=_track,
@@ -370,7 +379,8 @@ class SLC:
                     par_file=par_files[0],
                     slc_path=slc_scene_path,
                     dem_path=dem_path,
-                    slc_metadata=slc_metadata_dict,
+                    esa_slc_metadata=slc_metadata_dict,
+                    our_slc_metadata=our_metadata_dict,
                     status=package_status,
                 )
         else:
@@ -409,46 +419,100 @@ def package(
     common_attrs: Optional[Dict] = None,
 ) -> None:
 
-    # pg.__file__ doesn't work with the shim. The following error is generated
-    # AttributeError: Unrecognised Gamma program '__file__', check calling
-    # function
-    # software_name, version = Path(pg.__file__).parent.name.split("-")
+    if not isinstance(track_frame_base, Path):
+        track_frame_base = Path(track_frame_base)
 
-    # use the environmental variable to get software name & version
-    software_name,version = os.path.split(os.environ["GAMMA_INSTALL_DIR"])[-1].split("-")
-    url = "http://www/gamma-rs.ch"
+    if not isinstance(out_directory, Path):
+        out_directory = Path(out_directory)
+
+    if yaml_base_dir and not isinstance(yaml_base_dir, Path):
+        yaml_base_dir = Path(yaml_base_dir)
+
+    # Load high level workflow metadata
+    with (track_frame_base / "metadata.json").open("r") as file:
+        workflow_metadata = json.load(file)
 
     # Both the VV and VH polarizations has have identical SLC and burst informations.
     # Only properties from one polarization is gathered for packaging.
     for slc in SLC.for_path(
         track, frame, polarizations, track_frame_base, product, yaml_base_dir
     ):
-        _LOG.info("processing slc scene", slc_scene=str(slc.slc_path))
-
         # skip packaging for missing parameters files needed to extract metadata
         if not slc.status:
+            _LOG.info("skipping slc scene", slc_scene=str(slc.slc_path))
             continue
 
+        _LOG.info("processing slc scene", slc_scene=str(slc.slc_path))
+
         with DatasetAssembler(Path(out_directory), naming_conventions="dea") as p:
-            esa_metadata_slc = slc.slc_metadata
+            # Metadata extracted verbatim from ESA's acquisition xml files
+            esa_slc_metadata = slc.esa_slc_metadata
+            esa_s1_raw_data_ids = esa_slc_metadata.keys()
+            # Metadata extracted/generated by gamma
             ard_slc_metadata = get_image_metadata_dict(slc.par_file)
+            # Extra metadata generated by our own processing workflow
+            our_slc_metadata = slc.our_slc_metadata
 
             # extract the common slc attributes from ESA SLC files
             # subsequent slc all have the same common SLC attributes
             if common_attrs is None:
-                for _, _meta in esa_metadata_slc.items():
+                for _, _meta in esa_slc_metadata.items():
                     common_attrs = get_slc_attrs(_meta["properties"])
                     break
+
+            # Query our SLCs for orbit file used
+            orbit_file = Path(our_slc_metadata["slc"]["orbit_url"]).name
+
+            if "RESORB" in orbit_file:
+                orbit_source = "RESORB"
+                is_orbit_precise = False
+            elif "POEORB" in orbit_file:
+                orbit_source = "POEORB"
+                is_orbit_precise = True
+            else:
+                raise Exception(f"Unsupported orbit file: {orbit_file}")
 
             product_attrs = map_product(product)
             p.instrument = common_attrs["instrument"]
             p.platform = common_attrs["platform"]
             p.product_family = product_attrs["product_family"]
-            p.maturity = "interim"
+
+            # TBD: When we support NRT backscatter, we need to differentiate
+            # between non-coregistered backscatter (not necessarily interim) &
+            # coregistered backscatter (which would be final).
+            #
+            # currently we only produce coregistered data (and SLC.for_path
+            # only looks for coregistered data), so this is fine for now...
+            if is_orbit_precise:
+                p.maturity = "interim"
+            else:
+                p.maturity = "final"
+
             p.region_code = f"{int(common_attrs['relative_orbit']):03}{frame}"
             p.producer = "ga.gov.au"
             p.properties["eo:orbit"] = common_attrs["orbit"]
             p.properties["eo:relative_orbit"] = common_attrs["relative_orbit"]
+
+            p.properties["constellation"] = "sentinel-1"
+            p.properties["instruments"] = ["c-sar"]
+
+            # NEEDS REVISION
+            # TBD: what should this prefix be called?
+            # or do we just throw them into the user metadata instead?
+            prefix = "tbd"
+
+            p.properties[f"card4l:orbit_data_source"] = orbit_source
+            p.properties[f"{prefix}:orbit_data_file"] = orbit_file  # TBD: Apparently this should be a "link"
+
+            p.properties["sar:polarizations"] = polarizations
+
+            p.properties[f"{prefix}:platform_heading"] = ard_slc_metadata["heading"]
+
+            # These are hard-coded assuptions, based on either our satellite/s (S1) or the data from it we support.
+            p.properties["card4l:beam_id"] = "TOPS"
+            p.properties["card4l:orbit_mean_altitude"] = 693
+            p.properties[f"{prefix}:dem"] = workflow_metadata["dem_path"]
+            # END NEEDS REVISION
 
             # processed time is determined from the maketime of slc.par_file
             # TODO better mechanism to infer the processed time of files
@@ -458,14 +522,16 @@ def package(
             # TODO need better logical mechanism to determine dataset_version
             p.dataset_version = "1.0.0"
 
-            # note the software version
-            p.note_software_version(software_name, url, version)
+            # note the software versions used
+            p.note_software_version("gamma", "http://www/gamma-rs.ch", workflow_metadata["gamma_version"])
+            p.note_software_version("GDAL", "https://gdal.org/", workflow_metadata["gdal_version"])
+            p.note_software_version("gamma_insar", "https://github.com/GeoscienceAustralia/gamma_insar", workflow_metadata["gamma_insar_version"])
 
             for _key, _val in ard_slc_metadata.items():
                 p.properties[f"{product}:{_key}"] = _val
 
             # store level-1 SLC metadata as extended user metadata
-            for key, val in esa_metadata_slc.items():
+            for key, val in esa_slc_metadata.items():
                 p.extend_user_metadata(key, val)
 
             # find backscatter files and write
@@ -475,6 +541,18 @@ def package(
             _write_angles_measurements(
                 p, find_products(slc.dem_path, product_attrs["angles"])
             )
+
+            # Note lineage
+            # TODO: we currently don't index the source data, thus can't implement this yet
+            # - they'll be uuid v5's for each acquisition's ESA assigned ID
+
+            # Write thumbnail
+            thumbnail_bands = product_attrs["thumbnail_bands"]
+            if len(thumbnail_bands) == 1:
+                p.write_thumbnail(thumbnail_bands[0], thumbnail_bands[0], thumbnail_bands[0])
+            else:
+                p.write_thumbnail(**thumbnail_bands)
+
             p.done()
 
 

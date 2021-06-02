@@ -10,6 +10,8 @@ import shutil
 import datetime
 import pandas as pd
 import structlog
+import json
+import osgeo.gdal
 
 from insar import constant as const
 from insar.constant import SlcFilenames
@@ -63,6 +65,9 @@ class SlcProcess:
         """
 
         self.raw_data_dir = Path(raw_data_dir)
+        # FIXME: when we come back to clean this up, output_dir should be the 'actual' output dir,
+        # not the top level SLC dir - we don't care about the SLC dir, we always append self.scene_date to it...
+        # because that's where we "actually" output data ...
         self.output_dir = Path(slc_output_dir)
         self.polarization = polarization
         self.scene_date = scene_date
@@ -162,6 +167,9 @@ class SlcProcess:
         """Reads Sentinel-1 SLC data and generate SLC parameter file."""
 
         self.acquisition_bursts = {}
+        self.metadata = {
+            "slc": {}
+        }
 
         _concat_tabs = dict()
         for save_file in self.slc_safe_files():
@@ -171,6 +179,9 @@ class SlcProcess:
             # S1A_IW_SLC__1SDV_20180103T191741_20180103T191808_019994_0220EE_1A2D
 
             self.acquisition_bursts[_id] = {}
+            self.metadata[_id] = {
+                "src_url": save_file.as_posix()
+            }
 
             # add start time to dict
             dt_start = re.findall("[0-9]{8}T[0-9]{6}", _id)[0]
@@ -232,37 +243,26 @@ class SlcProcess:
                 for item in [tab_names.slc, tab_names.par, tab_names.tops_par]:
                     self.temp_slc.append(item)
 
-                # Extract acquisition metadata for this swath
+                # Use acquisition metadata for this swath to count how many bursts it contains
                 num_subswath_burst = 0
 
                 xml_pattern = self.raw_files_patterns["annotation"]
                 xml_pattern = xml_pattern.format(swath=swath, polarization=self.polarization.lower())
                 for xml_file in save_file.glob(xml_pattern):
                     _, cout, _ = pg.S1_burstloc(xml_file)
-
-                    num_bursts = 0
-
-                    for line in cout:
-                        if line.startswith("Burst"):
-                            num_bursts += 1
-
-                            split_line = line.split()
-                            temp_dict = dict()
-                            temp_dict["burst_num"] = int(split_line[2])
-                            temp_dict["rel_orbit"] = int(split_line[3])
-                            temp_dict["swath"] = split_line[4]
-                            temp_dict["polarization"] = split_line[5]
-                            temp_dict["azimuth_time"] = float(split_line[6])
-                            temp_dict["angle"] = float(split_line[7])
-                            temp_dict["delta_angle"] = float(split_line[8])
-
-                            # TODO: Record metadata for use by packaging
-
+                    num_bursts = sum([line.startswith("Burst") for line in cout])
                     num_subswath_burst += num_bursts
 
                 self.acquisition_bursts[_id][swath] = num_subswath_burst
+                self.metadata[_id][f"IW{swath}_bursts"] = num_subswath_burst
 
         self.slc_tabs_params = _concat_tabs
+        self.metadata["slc"]["orbit_url"] = self.orbit_file
+
+        # Write metadata used to produce this SLC
+        metadata_path = self.output_dir / self.scene_date / f"metadata_{self.polarization}.json"
+        with metadata_path.open("w") as file:
+            json.dump(self.metadata, file, indent=2)
 
     def _write_tabs(
         self,

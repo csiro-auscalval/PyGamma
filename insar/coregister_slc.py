@@ -105,11 +105,12 @@ class CoregisterSlc:
             self.out_dir = Path(self.slc_slave).parent
         self.accuracy_warning = self.out_dir / "ACCURACY_WARNING"
 
-        self.slave_date, self.slave_polar = self.slc_slave.stem.split('_')
-        self.master_date, self.master_polar = self.slc_master.stem.split('_')
+        self.slave_date, self.slave_pol = self.slc_slave.stem.split('_')
+        self.master_date, self.master_pol = self.slc_master.stem.split('_')
 
         self.log = _LOG.bind(
             task="SLC coregistration",
+            polarization=self.slave_pol,
             slave_date=self.slave_date,
             slc_slave=self.slc_slave,
             master_date=self.master_date,
@@ -156,7 +157,7 @@ class CoregisterSlc:
         self.r_slave_mli_par = None
 
         master_slave_prefix = f"{self.master_date}-{self.slave_date}"
-        self.r_master_slave_name = f"{master_slave_prefix}_{self.slave_polar}_{self.rlks}rlks"
+        self.r_master_slave_name = f"{master_slave_prefix}_{self.slave_pol}_{self.rlks}rlks"
 
         self.slave_lt = self.out_dir / f"{self.r_master_slave_name}.lt"
         self.slave_off = self.out_dir / f"{self.r_master_slave_name}.off"
@@ -342,6 +343,9 @@ class CoregisterSlc:
         """
 
         self.log.info("Beginning coarse coregistration")
+
+        # coreg between differently polarised data makes no sense
+        assert(self.slave_pol == self.master_pol)
 
         # create slave offset
         pg.create_offset(
@@ -902,11 +906,14 @@ class CoregisterSlc:
                 )
 
                 # SLC_copy $r_slave_IWi.slc $master_IWi.par $r_slave_IWi.slc.{i}.1 $r_slave_IWi.par.{i}.1 - 1. 0 $range_samples $starting_line1 $lines_overlap
+                r_slave_IWi_slc_name = Path(r_slave_IWi.slc).name
+                r_slave_IWi_par_name = Path(r_slave_IWi.par).name
+
                 pg.SLC_copy(
                     r_slave_IWi.slc,
                     master_IWi.par,
-                    temp_dir / f"{r_slave_IWi.slc}.{i}.1",
-                    temp_dir / f"{r_slave_IWi.par}.{i}.1",
+                    temp_dir / f"{r_slave_IWi_slc_name}.{i}.1",
+                    temp_dir / f"{r_slave_IWi_par_name}.{i}.1",
                     const.NOT_PROVIDED,
                     1.0,
                     0,
@@ -919,8 +926,8 @@ class CoregisterSlc:
                 pg.SLC_copy(
                     r_slave_IWi.slc,
                     master_IWi.par,
-                    temp_dir / f"{r_slave_IWi.slc}.{i}.2",
-                    temp_dir / f"{r_slave_IWi.par}.{i}.2",
+                    temp_dir / f"{r_slave_IWi_slc_name}.{i}.2",
+                    temp_dir / f"{r_slave_IWi_par_name}.{i}.2",
                     const.NOT_PROVIDED,
                     1.0,
                     0,
@@ -950,7 +957,7 @@ class CoregisterSlc:
                 # SLC_intf $mas_IWi_slc.{i}.1 $r_slave_IWi.slc.{i}.1 $mas_IWi_par.{i}.1 $mas_IWi_par.{i}.1 $off1 $int1 1 1 0 - 0 0
                 pg.SLC_intf(
                     temp_dir / f"{mas_IWi_slc}.{i}.1",
-                    temp_dir / f"{r_slave_IWi.slc}.{i}.1",
+                    temp_dir / f"{r_slave_IWi_slc_name}.{i}.1",
                     temp_dir / f"{mas_IWi_par}.{i}.1",
                     temp_dir / f"{mas_IWi_par}.{i}.1",
                     str(off1),
@@ -982,7 +989,7 @@ class CoregisterSlc:
                 # SLC_intf $mas_IWi_slc.{i}.2 $r_slave_IWi_slc.{i}.2 $mas_IWi_par.{i}.2 $mas_IWi_par.{i}.2 $off2 $int2 1 1 0 - 0 0
                 pg.SLC_intf(
                     temp_dir / f"{mas_IWi_slc}.{i}.2",
-                    temp_dir / f"{r_slave_IWi.slc}.{i}.2",
+                    temp_dir / f"{r_slave_IWi_slc_name}.{i}.2",
                     temp_dir / f"{mas_IWi_par}.{i}.2",
                     temp_dir / f"{mas_IWi_par}.{i}.2",
                     str(off2),
@@ -1352,11 +1359,19 @@ class CoregisterSlc:
         slave_gamma0 = self.out_dir.joinpath(f"{self.slave_mli.stem}.gamma0")
         slave_gamma0_geo = self.out_dir.joinpath(f"{self.slave_mli.stem}_geo.gamma0")
 
+        # If a resampled MLI exists, this is coregistered (eg: most dates)
+        if self.r_slave_mli and self.r_slave_mli.exists():
+            src_mli = self.r_slave_mli
+        # Otherwise, this is the reference date which has no resampling
+        # (as the reference date "is" what other dates are resampling to)
+        else:
+            src_mli = self.slave_mli
+
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir)
             temp_output = temp_dir.joinpath("temp_output")
             with working_directory(temp_dir):
-                d1_pathname = str(self.r_slave_mli)
+                d1_pathname = str(src_mli)
                 d2_pathname = str(self.ellip_pix_sigma0)
                 d_out_pathname = str(temp_output)
                 width = self.master_sample.mli_width_end
@@ -1464,7 +1479,7 @@ class CoregisterSlc:
                 # geocode sigma0 mli
                 slave_sigma0_geo = slave_gamma0_geo.with_suffix(".sigma0")
 
-                data_in_pathname = str(self.r_slave_mli)
+                data_in_pathname = str(src_mli)
                 width_in = self.master_sample.mli_width_end
                 lookup_table_pathname = str(self.dem_lt_fine)
                 data_out_pathname = str(slave_sigma0_geo)
@@ -1503,49 +1518,62 @@ class CoregisterSlc:
         """Main method to process SLC coregistration products."""
 
         # Re-bind thread local context to IFG processing state
-        structlog.threadlocal.clear_threadlocal()
-        structlog.threadlocal.bind_threadlocal(
-            task="SLC coregistration",
-            slc_dir=self.out_dir,
-            master_date=self.master_date,
-            slave_date=self.slave_date
-        )
+        try:
+            structlog.threadlocal.clear_threadlocal()
+            structlog.threadlocal.bind_threadlocal(
+                task="SLC coregistration",
+                slc_dir=self.out_dir,
+                master_date=self.master_date,
+                slave_date=self.slave_date
+            )
 
-        with working_directory(self.out_dir):
-            self.set_tab_files()
-            self.get_lookup()
-            self.reduce_offset()
-            self.fine_coregistration(self.slave_date, self.list_idx)
+            with working_directory(self.out_dir):
+                self.set_tab_files()
+                self.get_lookup()
+                self.reduce_offset()
+                self.fine_coregistration(self.slave_date, self.list_idx)
 
-            if inc_backscatter:
-                self.resample_full()
-                self.multi_look()
-                self.generate_normalised_backscatter()
+                if inc_backscatter:
+                    self.resample_full()
+                    self.multi_look()
+                    self.generate_normalised_backscatter()
+
+        finally:
+            structlog.threadlocal.clear_threadlocal()
 
     def main_backscatter(
         self,
-        slave_off: Path,
-        lookup_table: Path
+        slave_off: Optional[Path],
+        lookup_table: Optional[Path]
     ):
         """Main method to process SLC backscatter products."""
 
-        self.slave_lt = lookup_table
-        self.slave_off = slave_off
+        enable_resampling = slave_off and lookup_table
+        if enable_resampling:
+            self.slave_lt = lookup_table
+            self.slave_off = slave_off
 
         # Re-bind thread local context to IFG processing state
-        structlog.threadlocal.clear_threadlocal()
-        structlog.threadlocal.bind_threadlocal(
-            task="SLC backscatter",
-            slc_dir=self.out_dir,
-            master_date=self.master_date,
-            slave_date=self.slave_date,
-            slave_lt=self.slave_lt,
-            slave_off=self.slave_off
-        )
+        try:
+            structlog.threadlocal.clear_threadlocal()
+            structlog.threadlocal.bind_threadlocal(
+                task="SLC backscatter",
+                slc_dir=self.out_dir,
+                master_date=self.master_date,
+                slave_date=self.slave_date,
+                slave_lt=self.slave_lt,
+                slave_off=self.slave_off
+            )
 
-        with working_directory(self.out_dir):
-            self.set_tab_files()
-            self.resample_full()
-            self.multi_look()
-            self.generate_normalised_backscatter()
+            with working_directory(self.out_dir):
+                self.set_tab_files()
+
+                if enable_resampling:
+                    self.resample_full()
+                    self.multi_look()
+
+                self.generate_normalised_backscatter()
+
+        finally:
+            structlog.threadlocal.clear_threadlocal()
 
