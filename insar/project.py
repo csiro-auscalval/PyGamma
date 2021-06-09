@@ -2,34 +2,46 @@
 Utilities for managing Gamma settings for the InSAR ARD workflow.
 """
 
-import os
+import string
 import pathlib
+import itertools
+import enum
 from collections import namedtuple
+
+
+class ARDWorkflow(enum.Enum):
+    """Defines all the supported workflows of the processing script"""
+
+    Backscatter = 1, 'Produce all products up to (and including) SLC backscatter'
+    Interferogram = 2, 'Product all products up to (and including) interferograms'
 
 
 class ProcConfig:
     """Container for Gamma proc files (collection of runtime settings)."""
 
-    # NB: use slots to prevent accidental addition of variables from typos
-    __slots__ = [
+    __path_attribs__ = [
         "gamma_config",
         "nci_path",
+        "output_path",
+        "job_path",
         "envisat_orbits",
         "ers_orbits",
         "s1_orbits",
         "s1_path",
         "master_dem_image",
+    ]
+
+    __subdir_attribs__ = [
         "slc_dir",
         "dem_dir",
         "int_dir",
         "base_dir",
         "list_dir",
         "error_dir",
-        "pdf_dir",
         "raw_data_dir",
-        "batch_job_dir",
-        "manual_job_dir",
-        "pre_proc_dir",
+    ]
+
+    __filename_attribs__ = [
         "scene_list",
         "slave_list",
         "ifg_list",
@@ -37,6 +49,13 @@ class ProcConfig:
         "s1_burst_list",
         "s1_download_list",
         "remove_scene_list",
+    ]
+
+    # NB: use slots to prevent accidental addition of variables from typos
+    __slots__ = [
+        *__path_attribs__,
+        *__subdir_attribs__,
+        *__filename_attribs__,
         "project",
         "track",
         "dem_area",
@@ -56,18 +75,9 @@ class ProcConfig:
         "ref_master_scene",
         "min_connect",
         "max_connect",
-        "post_process_method",
-        "extract_raw_data",
-        "do_slc",
-        "do_s1_resize",
+        "workflow",
+        "cleanup",
         "s1_resize_ref_slc",
-        "do_s1_burst_subset",
-        "coregister_dem",
-        "use_ext_image",
-        "coregister_slaves",
-        "process_ifgs",
-        "ifg_geotiff",
-        "clean_up",
         "dem_patch_window",
         "dem_rpos",
         "dem_azpos",
@@ -88,8 +98,7 @@ class ProcConfig:
         "coreg_s1_cc_thresh",
         "coreg_s1_frac_thresh",
         "coreg_s1_stdev_thresh",
-        "ifg_begin",
-        "ifg_end",
+        "ifg_geotiff",
         "ifg_coherence_threshold",
         "ifg_unw_mask",
         "ifg_patches_range",
@@ -104,64 +113,6 @@ class ProcConfig:
         "ifg_thres",
         "ifg_init_win",
         "ifg_offset_win",
-        "post_ifg_da_threshold",
-        "post_ifg_area_range",
-        "post_ifg_area_azimuth",
-        # 'post_ifg_area_range',
-        # 'post_ifg_area_azimuth',
-        "post_ifg_patches_range",
-        "post_ifg_patches_azimuth",
-        "post_ifg_overlap_range",
-        "post_ifg_overlap_azimuth",
-        "nci_project",
-        "min_jobs",
-        "max_jobs",
-        "pbs_run_loc",
-        "queue",
-        "exp_queue",
-        "mdss_queue",
-        "raw_walltime",
-        "raw_mem",
-        "raw_ncpus",
-        "create_dem_walltime",
-        "create_dem_mem",
-        "create_dem_ncpus",
-        "slc_walltime",
-        "slc_mem",
-        "slc_ncpus",
-        "calc_walltime",
-        "calc_mem",
-        "calc_ncpus",
-        "base_walltime",
-        "base_mem",
-        "base_ncpus",
-        "ml_walltime",
-        "ml_mem",
-        "ml_ncpus",
-        "resize_walltime",
-        "resize_mem",
-        "resize_ncpus",
-        "dem_walltime",
-        "dem_mem",
-        "dem_ncpus",
-        "pix_walltime",
-        "pix_mem",
-        "pix_ncpus",
-        "coreg_walltime",
-        "coreg_mem",
-        "coreg_ncpus",
-        "ifg_walltime",
-        "ifg_mem",
-        "ifg_ncpus",
-        "post_walltime",
-        "post_mem",
-        "post_ncpus",
-        "error_walltime",
-        "error_mem",
-        "error_ncpus",
-        "image_walltime",
-        "image_mem",
-        "image_ncpus",
         # derived member vars
         "dem_img",
         "proj_dir",
@@ -199,7 +150,7 @@ class ProcConfig:
         self.ifg_azpos = self.dem_azpos
 
         # Handle "auto" reference scene
-        if self.ref_master_scene.lower() == "auto":
+        if self.ref_master_scene.lower() == "auto" and outdir:
             # Read computed master scene and use it
             with open(pathlib.Path(outdir) / self.list_dir / 'primary_ref_scene', 'r') as ref_scene_file:
                 auto_master_scene = ref_scene_file.readline().strip()
@@ -226,6 +177,84 @@ class ProcConfig:
         cfg = {e[0].strip().lower(): e[1].strip() for e in kv_pairs}
         return ProcConfig(outdir, **cfg)
 
+    def validate(self) -> str:
+        """
+        Validates the .proc configuration file values provided.
+
+        :return: A string describing what errors make the config invalid, will be falsy if valid.
+        """
+        msg = ""
+
+        # Validate all attributes exist!
+        for name in self.__slots__:
+            if not hasattr(self, name) or getattr(self, name) is None:
+                msg += f"Missing attribute: {name}\n"
+
+        # Validate paths/subdirs/filenames confirm to allowed characters
+        valid_path_chars = f"-_./ {string.ascii_letters}{string.digits}"
+        for name in itertools.chain(self.__path_attribs__, self.__subdir_attribs__, self.__filename_attribs__):
+            if not hasattr(self, name):
+                continue
+
+            pathname = str(getattr(self, name))
+            validity_mask = [c in valid_path_chars for c in pathname]
+            valid = all(validity_mask)
+
+            if not valid:
+                invalid_chars = [c for i,c in enumerate(pathname) if not validity_mask[i]]
+                msg += f"Attribute {name} is not a valid path name: {pathname} (must not contain {invalid_chars})\n"
+
+        # Validate sensor
+        # TODO: When we add multiple sensor support (eg: radarsat 2) we will want to generalise this into a kind of
+        # "capability" table somewhere that's re-used by the codebase.
+        if hasattr(self, "sensor"):
+            allowed_sensors = ["S1"]  # TODO: Add "RSAT2" when we support radarsat 2
+            if self.sensor not in allowed_sensors:
+                msg += f"Unsupported sensor: {self.sensor}\n"
+
+            # Validate polarisations
+            # Note: currently this is just the 'master' polarisation (used for IFGs)
+            if hasattr(self, "polarisation"):
+                if self.sensor == "S1":
+                    allowed_s1_pols = ["VV", "VH"]
+
+                    if self.polarisation not in allowed_s1_pols:
+                        msg += f"Invalid polarisation for S1: {self.polarisation} (expected one of: {', '.join(allowed_s1_pols)})"
+
+        if hasattr(self, "process_method"):
+            if self.process_method != "sbas":
+                msg += f"Attribute process_method must be sbas, not: {self.process_method} (currently only sbas is supported)"
+
+        if hasattr(self, "workflow"):
+            workflow_values = [o.name.lower() for o in ARDWorkflow]
+            if self.workflow and self.workflow.lower() not in workflow_values:
+                msg += f"Attribute workflow must be one of {'/'.join(workflow_values)}, not {self.workflow}"
+
+        # Validate flag properties
+        flag_values = ["yes", "no", "enable", "disable", "true", "false"]
+        flag_properties = ["cleanup", "ifg_unw_mask", "ifg_iterative", "ifg_geotiff"]
+        for name in flag_properties:
+            if hasattr(self, name):
+                value = getattr(self, name)
+
+                if value and value.lower() not in flag_values:
+                    msg += f"Attribute {name} must be one of {'/'.join(flag_values)}, not {value}"
+
+        # Validate date proeprties
+        date_properties = ["ref_master_scene", "s1_resize_ref_slc"]
+        for name in date_properties:
+            if hasattr(self, name):
+                value = getattr(self, name)
+
+                if value and value.lower() != "auto" and (value.isdigit() and len(value) == 8):
+                    msg += f"Attribute {name} must be a YYYYMMDD date or 'auto', not {value}"
+
+        # Note: In the future we may want to limit some of the numeric values, but for now we
+        # simply let them remain as-is.
+        #
+        # At that stage we probably want a thirdparty data model validation solution, eg: marshmallow
+
+        return msg
 
 def is_valid_config_line(line):
     """
@@ -236,75 +265,6 @@ def is_valid_config_line(line):
     if not line.startswith("#"):
         return "=" in line
     return False
-
-
-PBS_job_dirs = namedtuple(
-    "PBS_job_dirs",
-    [
-        "extract_raw_batch_dir",
-        "slc_batch_dir",
-        "ml_batch_dir",
-        "base_batch_dir",
-        "dem_batch_dir",
-        "co_slc_batch_dir",
-        "ifg_batch_dir",
-        "extract_raw_manual_dir",
-        "slc_manual_dir",
-        "ml_manual_dir",
-        "base_manual_dir",
-        "dem_manual_dir",
-        "co_slc_manual_dir",
-        "ifg_manual_dir",
-    ],
-)
-
-
-def get_default_pbs_job_dirs(proc):
-    """
-    Return a PBS_job_dirs obj with the defaulted directory settings.
-
-    :param proc: ProcConfig obj
-    :return: default PBS_job_dirs obj
-    """
-
-    batch_dirs = [
-        "extract_raw_jobs",
-        "slc_jobs",
-        "ml_slc_jobs",
-        "baseline_jobs",
-        "dem_jobs",
-        "coreg_slc_jobs",
-        "ifg_jobs",
-    ]
-
-    manual_dirs = [
-        "extract_raw_jobs",
-        "slc_jobs",
-        "ml_slc_jobs",
-        "baseline_jobs",
-        "dem_jobs",
-        "coreg_slc_jobs",
-        "ifg_jobs",
-    ]
-
-    args = [pathlib.Path(proc.batch_job_dir) / d for d in batch_dirs]
-    args.extend([pathlib.Path(proc.manual_job_dir) / d for d in manual_dirs])
-    return PBS_job_dirs(*args)
-
-
-Sentinel1_PBS_job_dirs = namedtuple(
-    "Sentinel1_PBS_job_dirs",
-    ["resize_batch_dir", "subset_batch_dir", "resize_manual_dir", "subset_manual_dir"],
-)
-
-
-def get_default_sentinel1_pbs_job_dirs(proc):
-    batch_dirs = ["resize_S1_slc_jobs", "subset_S1_slc_jobs"]
-    manual_dirs = ["resize_S1_slc_jobs", "subset_S1_slc_jobs"]
-
-    args = [pathlib.Path(proc.batch_job_dir) / d for d in batch_dirs]
-    args.extend([pathlib.Path(proc.manual_job_dir) / d for d in manual_dirs])
-    return Sentinel1_PBS_job_dirs(*args)
 
 
 class DEMMasterNames:

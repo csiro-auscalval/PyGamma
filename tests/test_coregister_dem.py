@@ -98,6 +98,19 @@ def get_test_context():
     pgmock.coord_to_sarpix.side_effect = coord_to_sarpix_se
     pgmock.coord_to_sarpix.return_value = 0, [coord_to_sarpix_cout], []
 
+    def data2geotiff_se(*args, **kwargs):
+        dem_par = pgp.ParFile(str(args[0]))
+        width = dem_par.get_value("width", dtype=int, index=0)
+        height = dem_par.get_value("nlines", dtype=int, index=0)
+
+        out_file_path = str(args[3])
+        Image.new("L", (width, height)).save(out_file_path)
+        return pgp.data2geotiff(*args, **kwargs)
+
+
+    pgmock.data2geotiff.side_effect = data2geotiff_se
+    pgmock.data2geotiff.return_value = 0, [], []
+
     # Copy test data
     test_data_dir = Path(__file__).parent.absolute() / "data"
     shutil.copytree(test_data_dir / "20151127", data_dir)
@@ -341,9 +354,9 @@ def test_geocode(monkeypatch):
         assert Path(coreg.dem_master_gamma0_geo).exists()
         assert Path(coreg.dem_master_gamma0_geo_bmp).exists()
         assert Path(coreg.dem_master_gamma0_geo_bmp.with_suffix(".png")).exists()
-        assert Path(coreg.dem_master_gamma0_geo_geo).exists()
+        assert Path(coreg.dem_master_gamma0_geo_tif).exists()
         assert Path(coreg.dem_master_sigma0_geo).exists()
-        assert Path(coreg.dem_master_sigma0_geo_geo).exists()
+        assert Path(coreg.dem_master_sigma0_geo_tif).exists()
 
         assert Path(coreg.dem_master_gamma0_geo_bmp.with_suffix(".kml")).exists()
 

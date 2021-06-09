@@ -129,6 +129,10 @@ def test_run_workflow_full(
     m_pathlib.Path.return_value.glob.return_value = ["fake-path0", "fake-path1"]
     monkeypatch.setattr(process_ifg, "pathlib", m_pathlib)
 
+    m_shutil = mock.NonCallableMock()
+    m_shutil.copy.return_value = []
+    monkeypatch.setattr(process_ifg, "shutil", m_shutil)
+
     m_pygamma = mock.NonCallableMock()
     m_pygamma.base_perp.return_value = PG_RETURN_VALUE
     m_pygamma.coord_to_sarpix.return_value = PG_RETURN_SARPIX_VALUE

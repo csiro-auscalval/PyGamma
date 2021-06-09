@@ -15,6 +15,9 @@ S1_ORBITS=/g/data/fj7/Copernicus/Sentinel-1
 S1_PATH=/g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC
 MASTER_DEM_IMAGE=/g/data/dg9/MASTER_DEM
 
+JOB_PATH=batch_jobs
+OUTPUT_PATH=manual_jobs
+
 # NOTE:
 # - the total path to the gamma processing directory will be made up of variables from this file.
 # - so, NCI_PATH/PROJECT/SENSOR/GAMMA/TRACK
@@ -28,11 +31,7 @@ INT_DIR=INT
 BASE_DIR=baselines
 LIST_DIR=lists
 ERROR_DIR=error_results
-PDF_DIR=pdfs
 RAW_DATA_DIR=raw_data
-BATCH_JOB_DIR=batch_jobs
-MANUAL_JOB_DIR=manual_jobs
-PRE_PROC_DIR=pre_proc_files
 
 
 -----INPUT TEXT FILES-----------------------------------------------------------------------------------
@@ -116,39 +115,16 @@ MIN_CONNECT=4
 MAX_CONNECT=7
 
 
------POST PROCESSING PROCESSING METHOD------------------------------------------------------------------
-
-   # Options: pymode, pyrate or stamps
-POST_PROCESS_METHOD=pyrate
-
-
 -----PROCESSING STEPS-----------------------------------------------------------------------------------
 
-    # yes / no options
-EXTRACT_RAW_DATA=yes
-DO_SLC=yes
+WORKFLOW=INTERFEROGRAM
 
-    -----SENTINEL-1 SLC ONLY-----
-    # Resize all SLCs to same shape and size (uses S1_RESIZE_REF_SLC), default: yes (must be same shape/size for processing)
-DO_S1_RESIZE=yes
-    # Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated
-        # Scene can be different from the MASTER_SCENE used in Processing Method
+# Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated
+# Scene can be different from the MASTER_SCENE used in Processing Method
 S1_RESIZE_REF_SLC=auto
-    # Subset all SLCs by burst numbers
-DO_S1_BURST_SUBSET=yes
 
-COREGISTER_DEM=yes
-    # External image is required to assist in DEM coregistration?
-USE_EXT_IMAGE=no
-
-COREGISTER_SLAVES=yes
-PROCESS_IFGS=yes
-IFG_GEOTIFF=yes
-
------CLEAN UP-------------------------------------------------------------------------------------------
-
-    # Clean up intermediate processing files
-CLEAN_UP=yes
+# Clean up intermediate processing files
+CLEANUP=yes
 
 
 -----DEM COREGISTRATION PARAMETERS----------------------------------------------------------------------
@@ -209,10 +185,7 @@ COREG_S1_STDEV_THRESH=0.8
 
 -----INTERFEROGRAM PARAMETERS---------------------------------------------------------------------------
 
-    # Options: INT/FLAT/FILT/UNW/GEOCODE
-IFG_BEGIN=INT
-    # Options: FLAT/FILT/UNW/GEOCODE/DONE
-IFG_END=DONE
+IFG_GEOTIFF=yes
 
     # Coherence threshold for masking
 IFG_COHERENCE_THRESHOLD=0.3
@@ -243,107 +216,4 @@ IFG_THRES=0.15
 IFG_INIT_WIN=512 512
     # Offset window (recommended to use at least 64)
 IFG_OFFSET_WIN=128 128
-
-
------POST PROCESSING PARAMETERS-------------------------------------------------------------------------
-
-    # Amplitude Dispersion threshold for PS candidate selection (default: 0.6)
-POST_IFG_DA_THRESHOLD=0.6
-    # Area to crop the data to (min/max range, min/max aziumuth, full area is used by default:- -)
-POST_IFG_AREA_RANGE=- -
-POST_IFG_AREA_AZIMUTH=- -
-    # example with values
-#POST_IFG_AREA_RANGE=1234 3456
-#POST_IFG_AREA_AZIMUTH=2345 4567
-    # Number of patches for StaMPS processing (default: 2, for large areas more patches are recommended to save runtime)
-POST_IFG_PATCHES_RANGE=2
-POST_IFG_PATCHES_AZIMUTH=2
-    # Number of overlapping pixels in each patch for StaMPS processing (default: 50)
-POST_IFG_OVERLAP_RANGE=50
-POST_IFG_OVERLAP_AZIMUTH=50
-
-
------NCI PBS JOB PARAMETERS-----------------------------------------------------------------------------
-
-NCI_PROJECT=dg9
-
-    -----PBS JOB DEFAULTS FOR MULTI-JOBS-----
-    # for raw data download, resize and subset Sentinel-1 SLCs, multi-look SLCs
-MIN_JOBS=20
-    # for SLC creation, SLC coregistration, ifg creation
-MAX_JOBS=50
-PBS_RUN_LOC=gdata1
-QUEUE=normal
-EXP_QUEUE=express
-MDSS_QUEUE=copyq
-
-    -----RAW DATA EXTRACTION FROM ARCHIVE/MDSS-----  # parameters for one scene only
-RAW_WALLTIME=00:15:00
-RAW_MEM=500MB
-RAW_NCPUS=1
-
-   -----CREATE GAMMA DEM -----
-CREATE_DEM_WALLTIME=00:30:00
-CREATE_DEM_MEM=8GB
-CREATE_DEM_NCPUS=1
-
-   -----FULL SLC CREATION-----  # parameters for one SLC only
-SLC_WALLTIME=01:00:00
-SLC_MEM=8GB
-SLC_NCPUS=4
-
-   -----CALCULATE MULTI-LOOK VALUES, SENTINEL-1 REF RESIZING SCENE-----
-CALC_WALLTIME=00:05:00
-CALC_MEM=50MB
-CALC_NCPUS=1
-
-   -----CALCULATE BASELINES-----
-BASE_WALLTIME=00:15:00
-BASE_MEM=500MB
-BASE_NCPUS=1
-
-   -----MULTI-LOOK FULL SLCS-----  # parameters for one SLC only
-ML_WALLTIME=00:30:00
-ML_MEM=4GB
-ML_NCPUS=1
-
-   -----RESIZE AND/OR SUBSET SENTINEL-1 SLC ONLY-----  # parameters for one SLC only, includes multi-looking
-RESIZE_WALLTIME=01:00:00
-RESIZE_MEM=8GB
-RESIZE_NCPUS=1
-
-   -----DEM COREGISTRATION-----
-DEM_WALLTIME=02:00:00
-DEM_MEM=8GB
-DEM_NCPUS=4
-
-   -----CALCULATE LATITUDE-LONGITUDE FOR EACH PIXEL (STAMPS ONLY)-----
-PIX_WALLTIME=04:00:00
-PIX_MEM=100MB
-PIX_NCPUS=1
-
-   -----SLAVE COREGISTRATION-----  # parameters for one SLC only
-COREG_WALLTIME=01:00:00
-COREG_MEM=8GB
-COREG_NCPUS=4
-
-   -----INTERFEROGRAM GENERATION-----  # parameters for one ifg only
-IFG_WALLTIME=02:00:00
-IFG_MEM=16GB
-IFG_NCPUS=4
-
-   -----POST INTERFEROGRAM PROCESSING-----
-POST_WALLTIME=00:30:00
-POST_MEM=500MB
-POST_NCPUS=1
-
-    -----JOB ERROR COLLATION-----
-ERROR_WALLTIME=00:05:00
-ERROR_MEM=50MB
-ERROR_NCPUS=1
-
-   -----PLOT PREVIEW IMAGES AS PDF-----
-IMAGE_WALLTIME=0:30:00
-IMAGE_MEM=500MB
-IMAGE_NCPUS=1
 

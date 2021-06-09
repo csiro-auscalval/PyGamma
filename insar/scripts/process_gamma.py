@@ -29,7 +29,7 @@ from insar.coregister_slc import CoregisterSlc
 from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
 from insar.process_ifg import run_workflow, get_ifg_width, TempFileConfig, validate_ifg_input_files, ProcessIfgException
-from insar.project import ProcConfig, DEMFileNames, IfgFileNames
+from insar.project import ProcConfig, DEMFileNames, IfgFileNames, ARDWorkflow
 
 from insar.meta_data.s1_slc import S1DataDownload
 from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
@@ -368,7 +368,7 @@ class InitialSetup(luigi.Task):
     proc_file = luigi.Parameter()
     start_date = luigi.Parameter()
     end_date = luigi.Parameter()
-    vector_file = luigi.Parameter()
+    shape_file = luigi.Parameter()
     database_name = luigi.Parameter()
     orbit = luigi.Parameter()
     sensor = luigi.Parameter()
@@ -403,7 +403,7 @@ class InitialSetup(luigi.Task):
         # get slc input information
         slc_query_results = query_slc_inputs(
             str(self.database_name),
-            str(self.vector_file),
+            str(self.shape_file),
             self.start_date,
             self.end_date,
             str(self.orbit),
@@ -511,7 +511,7 @@ class InitialSetup(luigi.Task):
             "track_frame_sensor": workdir.name,
             "original_work_dir": Path(self.outdir).as_posix(),
             "original_job_dir": workdir.parent.as_posix(),
-            "shapefile": str(self.vector_file),
+            "shapefile": str(self.shape_file),
             "database": str(self.database_name),
             "poeorb_path": str(self.poeorb_path),
             "resorb_path": str(self.resorb_path),
@@ -566,7 +566,7 @@ class CreateGammaDem(luigi.Task):
             "gamma_dem_dir": gamma_dem_dir,
             "dem_img": self.dem_img,
             "track_frame": f"{self.track}_{self.frame}",
-            "shapefile": self.vector_file,
+            "shapefile": str(self.shape_file),
         }
 
         create_gamma_dem(**kwargs)
@@ -1289,7 +1289,7 @@ class CoregisterDemMaster(luigi.Task):
         coreg = CoregisterDem(
             rlks=rlks,
             alks=alks,
-            shapefile=str(self.vector_file),
+            shapefile=str(self.shape_file),
             dem=dem,
             slc=Path(master_slc),
             dem_par=dem_par,
@@ -1833,7 +1833,7 @@ class ProcessIFG(luigi.Task):
     """
 
     proc_file = luigi.Parameter()
-    vector_file = luigi.Parameter()
+    shape_file = luigi.Parameter()
     track = luigi.Parameter()
     frame = luigi.Parameter()
     outdir = luigi.Parameter()
@@ -1867,7 +1867,7 @@ class ProcessIFG(luigi.Task):
         # allows as many scenes as possible to fully process even if some scenes fail.
         failed = False
         try:
-            ic = IfgFileNames(proc_config, Path(self.vector_file), self.master_date, self.slave_date, self.outdir)
+            ic = IfgFileNames(proc_config, Path(self.shape_file), self.master_date, self.slave_date, self.outdir)
             dc = DEMFileNames(proc_config, self.outdir)
             tc = TempFileConfig(ic)
 
@@ -1903,7 +1903,7 @@ class CreateProcessIFGs(luigi.Task):
     """
 
     proc_file = luigi.Parameter()
-    vector_file = luigi.Parameter()
+    shape_file = luigi.Parameter()
     track = luigi.Parameter()
     frame = luigi.Parameter()
     outdir = luigi.Parameter()
@@ -1942,7 +1942,7 @@ class CreateProcessIFGs(luigi.Task):
                 ifgs_list = [dates.split(",") for dates in ifg_list_file.read().splitlines()]
 
             for master_date, slave_date in ifgs_list:
-                ic = IfgFileNames(proc_config, Path(self.vector_file), master_date, slave_date, self.outdir)
+                ic = IfgFileNames(proc_config, Path(self.shape_file), master_date, slave_date, self.outdir)
 
                 # Check for existence of filtered coh geocode files, if neither exist we need to re-run.
                 ifg_filt_coh_geo_out = ic.ifg_dir / ic.ifg_filt_coh_geocode_out
@@ -1996,7 +1996,7 @@ class CreateProcessIFGs(luigi.Task):
             jobs.append(
                 ProcessIFG(
                     proc_file=self.proc_file,
-                    vector_file=self.vector_file,
+                    shape_file=self.shape_file,
                     track=self.track,
                     frame=self.frame,
                     outdir=self.outdir,
@@ -2012,11 +2012,6 @@ class CreateProcessIFGs(luigi.Task):
             f.write("")
 
 
-class ARDWorkflow(enum.Enum):
-    Backscatter = 1, 'Produce all products up to (and including) SLC backscatter'
-    Interferogram = 2, 'Product all products up to (and including) interferograms'
-
-
 class TriggerResume(luigi.Task):
     """
     This job triggers resumption of processing for a specific track/frame/sensor/polarisation over a date range
@@ -2030,7 +2025,7 @@ class TriggerResume(luigi.Task):
     # Note: This task needs to take all the parameters the others do,
     # so we can re-create the other tasks for resuming
     proc_file = luigi.Parameter()
-    vector_file = luigi.Parameter()
+    shape_file = luigi.Parameter()
     burst_data_csv = luigi.Parameter()
     start_date = luigi.DateParameter()
     end_date = luigi.DateParameter()
@@ -2076,7 +2071,7 @@ class TriggerResume(luigi.Task):
         # manually re-creating kwargs just like the ARD task does...
         kwargs = {
             "proc_file": self.proc_file,
-            "vector_file": self.vector_file,
+            "shape_file": self.shape_file,
             "start_date": self.start_date,
             "end_date": self.end_date,
             "sensor": self.sensor,
@@ -2169,7 +2164,7 @@ class TriggerResume(luigi.Task):
 
             if self.workflow == ARDWorkflow.Interferogram:
                 for master_date, slave_date in reprocessed_ifgs:
-                    ic = IfgFileNames(proc_config, Path(self.vector_file), master_date, slave_date, outdir)
+                    ic = IfgFileNames(proc_config, Path(self.shape_file), master_date, slave_date, outdir)
 
                     # We re-use ifg's own input handling to detect this
                     try:
@@ -2328,7 +2323,7 @@ class ARD(luigi.WrapperTask):
     usage:{
         luigi --module process_gamma ARD
         --proc-file <path to the .proc config file>
-        --vector-file <path to a vector file (.shp)>
+        --shape-file <path to an ESRI shape file (.shp)>
         --start-date <start date of SLC acquisition>
         --end-date <end date of SLC acquisition>
         --workdir <base working directory where luigi logs will be stored>
@@ -2339,7 +2334,7 @@ class ARD(luigi.WrapperTask):
     """
 
     proc_file = luigi.Parameter()
-    vector_file_list = luigi.Parameter(significant=False)
+    shape_file = luigi.Parameter(significant=False)
     start_date = luigi.DateParameter(significant=False)
     end_date = luigi.DateParameter(significant=False)
     sensor = luigi.Parameter(significant=False, default=None)
@@ -2367,7 +2362,7 @@ class ARD(luigi.WrapperTask):
     )
 
     def requires(self):
-        log = STATUS_LOGGER.bind(vector_file_list=Path(self.vector_file_list).stem)
+        log = STATUS_LOGGER.bind(shape_file=self.shape_file)
 
         # generate (just once) a unique token for tasks that need to re-run
         if self.resume:
@@ -2378,101 +2373,100 @@ class ARD(luigi.WrapperTask):
         ard_tasks = []
         self.output_dirs = []
 
-        with open(self.vector_file_list, "r") as fid:
-            vector_files = fid.readlines()
-            for vector_file in vector_files:
-                vector_file = vector_file.rstrip()
+        shape_file = Path(self.shape_file)
 
-                # Match <track>_<frame> prefix syntax
-                # Note: this doesn't match _<sensor> suffix which is unstructured
-                if not re.match(__TRACK_FRAME__, Path(vector_file).stem):
-                    msg = f"{Path(vector_file).stem} should be of {__TRACK_FRAME__} format"
-                    log.error(msg)
-                    raise ValueError(msg)
+        # FIXME: assuming track/frame/sensor-filter info from shapefile path is... dodgy.
 
-                # Extract info from shapefile
-                vec_file_parts = Path(vector_file).stem.split("_")
-                if len(vec_file_parts) != 3:
-                    msg = f"File '{vector_file}' does not match <track>_<frame>_<sensor>"
-                    log.error(msg)
-                    raise ValueError(msg)
+        # Match <track>_<frame> prefix syntax
+        # Note: this doesn't match _<sensor> suffix which is unstructured
+        if not re.match(__TRACK_FRAME__, shape_file.stem):
+            msg = f"{shape_file.stem} should be of {__TRACK_FRAME__} format"
+            log.error(msg)
+            raise ValueError(msg)
 
-                # Extract <track>_<frame>_<sensor> from shapefile (eg: T118D_F32S_S1A.shp)
-                track, frame, shapefile_sensor = vec_file_parts
-                # Issue #180: We should validate this against the actual metadata in the file
+        # Extract info from shapefile
+        vec_file_parts = shape_file.stem.split("_")
+        if len(vec_file_parts) != 3:
+            msg = f"File '{shape_file}' does not match <track>_<frame>_<sensor>"
+            log.error(msg)
+            raise ValueError(msg)
 
-                # Query SLC inputs for this location (extent specified by vector/shape file)
-                rel_orbit = int(re.findall(r"\d+", str(track))[0])
-                slc_query_results = query_slc_inputs(
-                    str(self.database_name),
-                    str(vector_file),
-                    self.start_date,
-                    self.end_date,
-                    str(self.orbit),
-                    rel_orbit,
-                    list(self.polarization),
-                    self.sensor
-                )
+        # Extract <track>_<frame>_<sensor> from shapefile (eg: T118D_F32S_S1A.shp)
+        track, frame, shapefile_sensor = vec_file_parts
+        # Issue #180: We should validate this against the actual metadata in the file
 
-                if slc_query_results is None:
-                    raise ValueError(
-                        f"Nothing was returned for {track}_{frame} "
-                        f"start_date: {self.start_date} "
-                        f"end_date: {self.end_date} "
-                        f"orbit: {self.orbit}"
-                    )
+        # Query SLC inputs for this location (extent specified by \shape file)
+        rel_orbit = int(re.findall(r"\d+", str(track))[0])
+        slc_query_results = query_slc_inputs(
+            str(self.database_name),
+            str(shape_file),
+            self.start_date,
+            self.end_date,
+            str(self.orbit),
+            rel_orbit,
+            list(self.polarization),
+            self.sensor
+        )
 
-                # Determine the selected sensor(s) from the query, for directory naming
-                selected_sensors = set()
+        if slc_query_results is None:
+            raise ValueError(
+                f"Nothing was returned for {track}_{frame} "
+                f"start_date: {self.start_date} "
+                f"end_date: {self.end_date} "
+                f"orbit: {self.orbit}"
+            )
 
-                for pol, dated_scenes in slc_query_results.items():
-                    for date, swathes in dated_scenes.items():
-                        for swath, scenes in swathes.items():
-                            for slc_id, slc_metadata in scenes.items():
-                                if "sensor" in slc_metadata:
-                                    selected_sensors.add(slc_metadata["sensor"])
+        # Determine the selected sensor(s) from the query, for directory naming
+        selected_sensors = set()
 
-                selected_sensors = "_".join(sorted(selected_sensors))
+        for pol, dated_scenes in slc_query_results.items():
+            for date, swathes in dated_scenes.items():
+                for swath, scenes in swathes.items():
+                    for slc_id, slc_metadata in scenes.items():
+                        if "sensor" in slc_metadata:
+                            selected_sensors.add(slc_metadata["sensor"])
 
-                tfs = f"{track}_{frame}_{selected_sensors}"
-                outdir = Path(str(self.outdir)) / tfs
-                workdir = Path(str(self.workdir)) / tfs
+        selected_sensors = "_".join(sorted(selected_sensors))
 
-                self.output_dirs.append(outdir)
+        tfs = f"{track}_{frame}_{selected_sensors}"
+        outdir = Path(str(self.outdir)) / tfs
+        workdir = Path(str(self.workdir)) / tfs
 
-                os.makedirs(outdir / 'lists', exist_ok=True)
-                os.makedirs(workdir, exist_ok=True)
+        self.output_dirs.append(outdir)
 
-                kwargs = {
-                    "proc_file": self.proc_file,
-                    "vector_file": vector_file,
-                    "start_date": self.start_date,
-                    "end_date": self.end_date,
-                    "sensor": self.sensor,
-                    "database_name": self.database_name,
-                    "polarization": self.polarization,
-                    "track": track,
-                    "frame": frame,
-                    "outdir": outdir,
-                    "workdir": workdir,
-                    "orbit": self.orbit,
-                    "dem_img": self.dem_img,
-                    "poeorb_path": self.poeorb_path,
-                    "resorb_path": self.resorb_path,
-                    "multi_look": self.multi_look,
-                    "burst_data_csv": pjoin(outdir, f"{track}_{frame}_burst_data.csv"),
-                    "cleanup": self.cleanup,
-                }
+        os.makedirs(outdir / 'lists', exist_ok=True)
+        os.makedirs(workdir, exist_ok=True)
 
-                # Yield appropriate workflow
-                if self.resume:
-                    ard_tasks.append(TriggerResume(resume_token=self.resume_token, workflow=self.workflow, **kwargs))
-                elif self.workflow == ARDWorkflow.Backscatter:
-                    ard_tasks.append(CreateBackscatter(**kwargs))
-                elif self.workflow == ARDWorkflow.Interferogram:
-                    ard_tasks.append(CreateProcessIFGs(**kwargs))
-                else:
-                    raise Exception(f'Unsupported workflow provided: {self.workflow}')
+        kwargs = {
+            "proc_file": self.proc_file,
+            "shape_file": shape_file,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "sensor": self.sensor,
+            "database_name": self.database_name,
+            "polarization": self.polarization,
+            "track": track,
+            "frame": frame,
+            "outdir": outdir,
+            "workdir": workdir,
+            "orbit": self.orbit,
+            "dem_img": self.dem_img,
+            "poeorb_path": self.poeorb_path,
+            "resorb_path": self.resorb_path,
+            "multi_look": self.multi_look,
+            "burst_data_csv": pjoin(outdir, f"{track}_{frame}_burst_data.csv"),
+            "cleanup": self.cleanup,
+        }
+
+        # Yield appropriate workflow
+        if self.resume:
+            ard_tasks.append(TriggerResume(resume_token=self.resume_token, workflow=self.workflow, **kwargs))
+        elif self.workflow == ARDWorkflow.Backscatter:
+            ard_tasks.append(CreateBackscatter(**kwargs))
+        elif self.workflow == ARDWorkflow.Interferogram:
+            ard_tasks.append(CreateProcessIFGs(**kwargs))
+        else:
+            raise Exception(f'Unsupported workflow provided: {self.workflow}')
 
         yield ard_tasks
 
