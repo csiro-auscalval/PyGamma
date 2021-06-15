@@ -32,7 +32,7 @@ def map_product(product: str) -> Dict:
             "angles": ("lv_phi.tif", "lv_theta.tif"),
             "product_base": "SLC",
             "dem_base": "DEM",
-            "product_family": "nbr",
+            "product_family": "nrb",
             "thumbnail_bands": ["gamma0_vv"]
         },
         "insar": {
@@ -48,111 +48,6 @@ def map_product(product: str) -> Dict:
     }
 
     return _map_dict[product]
-
-
-def get_image_metadata_dict(par_file: Union[Path, str]) -> Dict:
-    """
-    Returns metadata used in backscatter product generation.
-
-    Parameters
-    ----------
-    par_file: Path or str
-        A full path to the image parameter file (*.mli.par)
-        used in generating the backscatter product.
-
-    Returns
-    -------
-        A dict with parameters used in generating a backscatter product.
-    """
-
-    par_file = Path(par_file)
-
-    if not par_file.exists():
-        _LOG.error("missing par file", par_file=str(par_file))
-        raise FileNotFoundError(f"{par_file} does not exists")
-
-    _metadata = dict()
-
-    params = pg.ParFile(par_file.as_posix())
-
-    year, month, day = params.get_value("date")
-    _metadata["date"] = datetime.date(int(year), int(month), int(day))
-    _dt = datetime.datetime(int(year), int(month), int(day))
-    _metadata["center_time"] = _dt + datetime.timedelta(
-        seconds=params.get_value("center_time", dtype=float, index=0)
-    )
-    _metadata["start_time"] = _dt + datetime.timedelta(
-        seconds=params.get_value("start_time", dtype=float, index=0)
-    )
-    _metadata["end_time"] = _dt + datetime.timedelta(
-        seconds=params.get_value("end_time", dtype=float, index=0)
-    )
-    _metadata["incidence_angle"] = params.get_value(
-        "incidence_angle", dtype=float, index=0
-    )
-
-    azimuth_angle = params.get_value("azimuth_angle", dtype=float, index=0)
-    _metadata["azimuth_angle"] = azimuth_angle
-    _metadata["looks_range"] = params.get_value("range_looks", dtype=int, index=0)
-    _metadata["looks_azimuth"] = params.get_value("azimuth_looks", dtype=int, index=0)
-    _metadata["pixel_spacing_range"] = params.get_value(
-        "range_pixel_spacing", dtype=float, index=0
-    )
-    _metadata["pixel_spacing_azimuth"] = params.get_value(
-        "azimuth_pixel_spacing", dtype=float, index=0
-    )
-    _metadata["radar_frequency"] = params.get_value(
-        "radar_frequency", dtype=float, index=0
-    )
-    _metadata["heading"] = params.get_value("heading", dtype=float, index=0)
-    _metadata["chirp_bandwidth"] = params.get_value(
-        "chirp_bandwidth", dtype=float, index=0
-    )
-    _metadata["doppler_polynomial"] = params.get_value("doppler_polynomial", dtype=float)[
-        0:4
-    ]
-    _metadata["prf"] = params.get_value("prf", dtype=float, index=0)
-    _metadata["azimuth_proc_bandwidth"] = params.get_value(
-        "azimuth_proc_bandwidth", dtype=float, index=0
-    )
-    _metadata["receiver_gain"] = params.get_value("receiver_gain", dtype=float, index=0)
-    _metadata["calibration_gain"] = params.get_value(
-        "calibration_gain", dtype=float, index=0
-    )
-    _metadata["sar_to_earth_center"] = params.get_value(
-        "sar_to_earth_center", dtype=float, index=0
-    )
-    _metadata["earth_radius_below_sensor"] = params.get_value(
-        "earth_radius_below_sensor", dtype=float, index=0
-    )
-    _metadata["earth_semi_major_axis"] = params.get_value(
-        "earth_semi_major_axis", dtype=float, index=0
-    )
-    _metadata["earth_semi_minor_axis"] = params.get_value(
-        "earth_semi_minor_axis", dtype=float, index=0
-    )
-    _metadata["near_range_slc"] = params.get_value("near_range_slc", dtype=float, index=0)
-    _metadata["center_range_slc"] = params.get_value(
-        "center_range_slc", dtype=float, index=0
-    )
-    _metadata["far_range_slc"] = params.get_value("far_range_slc", dtype=float, index=0)
-    _metadata["center_latitude"] = params.get_value(
-        "center_latitude", dtype=float, index=0
-    )
-    _metadata["center_longitude"] = params.get_value(
-        "center_longitude", dtype=float, index=0
-    )
-
-    if float(azimuth_angle) > 0:
-        p.properties["observation_direction"] = "right"
-    else:
-        p.properties["observation_direction"] = "left"
-
-    # Hard-coded assumptions based on our processing pipeline / data we use
-    p.properties["frequency_band"] = "C"
-    p.properties["instrument_mode"] = "IW"
-
-    return _metadata
 
 
 def get_s1_files(
@@ -346,12 +241,24 @@ class SLC:
                     )
                 ]
 
+                backscatter_files = [
+                    item
+                    for _pol in _pols
+                    for item in slc_scene_path.glob(
+                        f"{slc_scene_path.name}_{_pol}*_geo.gamma0.tif"
+                    )
+                ]
+
                 # Ensure we have data for all polarisations requested to be packaged
-                if len(par_files) != len(_pols):
-                    package_status = False
+                require_all_pols = False  # TBD: Not sure where we stand on this yet (maybe make it a flag)
+
+                if len(backscatter_files) != len(_pols):
                     msg = f"{slc_scene_path} missing one or more polarised products, expected {_pols}"
-                    _LOG.info(msg, scene=slc_scene_path)
-                    raise Exception(msg)
+                    _LOG.warning(msg, scene=slc_scene_path)
+
+                    if require_all_pols:
+                        package_status = False
+                        raise Exception(msg)
 
                 scene_date = datetime.datetime.strptime(
                     slc_scene_path.name, "%Y%m%d"
@@ -391,7 +298,11 @@ def get_slc_attrs(doc: Dict) -> Dict:
     """
     Returns a properties common to a esa s1_slc from a doc.
     """
-    sensor_attrs = {"orbit": doc["orbit"], "relative_orbit": doc["orbitNumber_rel"]}
+    sensor_attrs = {
+        "orbit": doc["orbit"],
+        "relative_orbit": doc["orbitNumber_rel"],
+        "absolute_orbit": doc["orbitNumber_abs"]
+    }
 
     sensor = doc["sensor"]
     if sensor == "S1A":
@@ -406,6 +317,202 @@ def get_slc_attrs(doc: Dict) -> Dict:
     sensor_attrs["instrument"] = "C-SAR"
 
     return sensor_attrs
+
+
+def get_src_metadata() -> Dict:
+    params = pg.ParFile("TODO")
+
+    # Note: this is just a stub, w/ some logic from the _prod_ version that incorrectly had src metadata
+    # moved into here (we will flesh this out fully once we actually index/link the source data)
+
+    azimuth_angle = 0 # TODO
+
+    usr = {}
+
+    usr["pixel_spacing_range"] = params.get_value(
+        "range_pixel_spacing", dtype=float, index=0
+    )
+    usr["pixel_spacing_azimuth"] = params.get_value(
+        "azimuth_pixel_spacing", dtype=float, index=0
+    )
+
+    # TODO: implement CARD4L src metadata here, probably need to dispatch this to sensor-specific impls.
+    usr["center_frequency"] = 5.405
+
+    # TBD: src only?
+    if float(azimuth_angle) > 0:
+        usr["observation_direction"] = "right"
+    else:
+        usr["observation_direction"] = "left"
+
+    card4l = {
+        "orbit_mean_altitude": 693,
+    }
+
+    return {
+        "card4l": card4l,
+        "user": usr,
+    }
+
+
+def get_prod_metadata(workflow_metadata: Dict, slc: SLC) -> Dict:
+    """
+    Returns metadata used in backscatter product generation.
+
+    Parameters
+    ----------
+    workflow_metadata: dict
+        A dictionary of high level workflow metadata that applies to all SLCs,
+        contains information about the product query and processing workfloy
+        settings.
+    slc: Path or str
+        The SLC object representing the product for which we want to extract
+        production metadata from.
+
+    Returns
+    -------
+        A dict of dicts with parameters used in generating a backscatter product.
+        { "STAC_extension_or_user": { "metadata_name": "metadata_value" } }
+    """
+
+    pols = workflow_metadata["polarizations"]
+
+    # Extract the first ES A"properties" metadata field (common across all SLCs)
+    for _, _meta in slc.esa_slc_metadata.items():
+        common_attrs = get_slc_attrs(_meta["properties"])
+        break
+
+    par_file = Path(slc.par_file)
+
+    if not par_file.exists():
+        raise FileNotFoundError(f"{par_file} does not exists")
+
+    params = pg.ParFile(par_file.as_posix())
+    year, month, day = params.get_value("date")
+
+    usr = {}
+    usr["date"] = datetime.date(int(year), int(month), int(day))
+    _dt = datetime.datetime(int(year), int(month), int(day))
+    usr["center_time"] = _dt + datetime.timedelta(
+        seconds=params.get_value("center_time", dtype=float, index=0)
+    )
+    usr["start_time"] = _dt + datetime.timedelta(
+        seconds=params.get_value("start_time", dtype=float, index=0)
+    )
+    usr["end_time"] = _dt + datetime.timedelta(
+        seconds=params.get_value("end_time", dtype=float, index=0)
+    )
+    usr["incidence_angle"] = params.get_value(
+        "incidence_angle", dtype=float, index=0
+    )
+
+    azimuth_angle = params.get_value("azimuth_angle", dtype=float, index=0)
+    usr["azimuth_angle"] = azimuth_angle
+
+    usr["looks_range"] = params.get_value("range_looks", dtype=int, index=0)
+    usr["looks_azimuth"] = params.get_value("azimuth_looks", dtype=int, index=0)
+
+    usr["radar_frequency"] = params.get_value(
+        "radar_frequency", dtype=float, index=0
+    )
+    usr["heading"] = params.get_value("heading", dtype=float, index=0)
+    usr["chirp_bandwidth"] = params.get_value(
+        "chirp_bandwidth", dtype=float, index=0
+    )
+    usr["doppler_polynomial"] = params.get_value("doppler_polynomial", dtype=float)[
+        0:4
+    ]
+    usr["prf"] = params.get_value("prf", dtype=float, index=0)
+    usr["azimuth_proc_bandwidth"] = params.get_value(
+        "azimuth_proc_bandwidth", dtype=float, index=0
+    )
+    usr["receiver_gain"] = params.get_value("receiver_gain", dtype=float, index=0)
+    usr["calibration_gain"] = params.get_value(
+        "calibration_gain", dtype=float, index=0
+    )
+    usr["sar_to_earth_center"] = params.get_value(
+        "sar_to_earth_center", dtype=float, index=0
+    )
+    usr["earth_radius_below_sensor"] = params.get_value(
+        "earth_radius_below_sensor", dtype=float, index=0
+    )
+    usr["earth_semi_major_axis"] = params.get_value(
+        "earth_semi_major_axis", dtype=float, index=0
+    )
+    usr["earth_semi_minor_axis"] = params.get_value(
+        "earth_semi_minor_axis", dtype=float, index=0
+    )
+    usr["near_range_slc"] = params.get_value("near_range_slc", dtype=float, index=0)
+    usr["center_range_slc"] = params.get_value(
+        "center_range_slc", dtype=float, index=0
+    )
+    usr["far_range_slc"] = params.get_value("far_range_slc", dtype=float, index=0)
+    usr["center_latitude"] = params.get_value(
+        "center_latitude", dtype=float, index=0
+    )
+    usr["center_longitude"] = params.get_value(
+        "center_longitude", dtype=float, index=0
+    )
+
+    # Query our SLCs for orbit file used
+    orbit_file = Path(slc.our_slc_metadata["slc"]["orbit_url"]).name
+
+    if "RESORB" in orbit_file:
+        orbit_source = "predicted"
+    elif "POEORB" in orbit_file:
+        orbit_source = "definitive"
+    else:
+        raise Exception(f"Unsupported orbit file: {orbit_file}")
+
+    # TBD: Apparently this should be a "link" - eod3 doesn't seem to have anything about links?
+    usr["orbit_data_file"] = orbit_file
+    usr["elevation_model"] = workflow_metadata["dem_path"]
+
+    card4l = {
+        "specification": "NRB",
+        "specification_version": "5.0",
+        "noise_removal_applied": False,
+        # ?? is this true for gamma? "pixel_coordinate_convention": "center",
+        "measurement_type": "gamma0",
+        "orbit_data_source": orbit_source,
+        # measurement related metadata fields disabled until we go for CARD4L compliance
+        #"measurement_convention": "",
+    }
+
+    sar = {
+        # Hard-coded assumptions based on our processing pipeline / data we use / S1A+S1B sensors
+        "instrument_mode": "IW",
+        "frequency_band": "C",
+        "product_type": "RTC",
+        "polarizations": pols,
+    }
+
+    sat = {
+        "orbit_state": "descending",  # Hard-coded for now (we don't support ascending)
+        "absolute_orbit": common_attrs["absolute_orbit"],
+        "relative_orbit": common_attrs["relative_orbit"],
+    }
+
+    eo = {
+        "bands": [
+            {
+                "name": "SAR",
+                "description": "SENTINEL-1 carries a single C-band synthetic aperture radar instrument operating at a centre frequency of 5.405 GHz.",
+                "center_wavelength": 55465.76,  # wavelength (um) of 5.405 Ghz / S1 C-band
+                # Note: I don't think we can do "full_width_half_max" - bandwidth is programmable, and I'm not sure if we have the metadata for it?
+                # Info here if anyone comes back to this:
+                # https://sentinels.copernicus.eu/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument
+            }
+        ]
+    }
+
+    return {
+        "card4l": card4l,
+        "sar": sar,
+        "sat": sat,
+        "eo": eo,
+        "user": usr
+    }
 
 
 def package(
@@ -445,115 +552,103 @@ def package(
         _LOG.info("processing slc scene", slc_scene=str(slc.slc_path))
 
         with DatasetAssembler(Path(out_directory), naming_conventions="dea") as p:
-            # Metadata extracted verbatim from ESA's acquisition xml files
-            esa_slc_metadata = slc.esa_slc_metadata
-            esa_s1_raw_data_ids = esa_slc_metadata.keys()
-            # Metadata extracted/generated by gamma
-            ard_slc_metadata = get_image_metadata_dict(slc.par_file)
-            # Extra metadata generated by our own processing workflow
-            our_slc_metadata = slc.our_slc_metadata
+            try:
+                # Metadata extracted verbatim from ESA's acquisition xml files
+                esa_slc_metadata = slc.esa_slc_metadata
+                # Metadata extracted/generated by gamma
+                ard_metadata = get_prod_metadata(workflow_metadata, slc)
 
-            # extract the common slc attributes from ESA SLC files
-            # subsequent slc all have the same common SLC attributes
-            if common_attrs is None:
-                for _, _meta in esa_slc_metadata.items():
-                    common_attrs = get_slc_attrs(_meta["properties"])
-                    break
+                # extract the common slc attributes from ESA SLC files
+                # subsequent slc all have the same common SLC attributes
+                if common_attrs is None:
+                    for _, _meta in esa_slc_metadata.items():
+                        common_attrs = get_slc_attrs(_meta["properties"])
+                        break
 
-            # Query our SLCs for orbit file used
-            orbit_file = Path(our_slc_metadata["slc"]["orbit_url"]).name
+                product_attrs = map_product(product)
+                p.instrument = common_attrs["instrument"]
+                p.platform = common_attrs["platform"]
+                p.product_family = product_attrs["product_family"]
 
-            if "RESORB" in orbit_file:
-                orbit_source = "RESORB"
+                # TBD: When we support NRT backscatter, we need to differentiate
+                # between non-coregistered backscatter (not necessarily interim) &
+                # coregistered backscatter (which would be final).
+                #
+                # currently we only produce coregistered data (and SLC.for_path
+                # only looks for coregistered data), so this is fine for now...
+                #is_orbit_precise = ard_metadata["card4l"]["orbit_data_source"] == "definitive"
+                # HACK: hard-coded to inprecise / interum maturity for now, pending InSAR go-ahead
                 is_orbit_precise = False
-            elif "POEORB" in orbit_file:
-                orbit_source = "POEORB"
-                is_orbit_precise = True
-            else:
-                raise Exception(f"Unsupported orbit file: {orbit_file}")
 
-            product_attrs = map_product(product)
-            p.instrument = common_attrs["instrument"]
-            p.platform = common_attrs["platform"]
-            p.product_family = product_attrs["product_family"]
+                if is_orbit_precise:
+                    p.maturity = "final"
+                else:
+                    p.maturity = "interim"
 
-            # TBD: When we support NRT backscatter, we need to differentiate
-            # between non-coregistered backscatter (not necessarily interim) &
-            # coregistered backscatter (which would be final).
-            #
-            # currently we only produce coregistered data (and SLC.for_path
-            # only looks for coregistered data), so this is fine for now...
-            if is_orbit_precise:
-                p.maturity = "interim"
-            else:
-                p.maturity = "final"
+                # orbit_data_source is ambiguous / no clear mapping, InSAR team advised to disable
+                del ard_metadata["card4l"]["orbit_data_source"]
 
-            p.region_code = f"{int(common_attrs['relative_orbit']):03}{frame}"
-            p.producer = "ga.gov.au"
-            p.properties["eo:orbit"] = common_attrs["orbit"]
-            p.properties["eo:relative_orbit"] = common_attrs["relative_orbit"]
+                assert(int(track[1:-1]) == int(common_attrs['relative_orbit']))
+                padded_track = f"{track[0]}{int(track[1:-1]):03}{track[-1]}"
+                padded_frame = f"{frame[0]}{int(frame[1:-1]):03}{frame[-1]}"
 
-            p.properties["constellation"] = "sentinel-1"
-            p.properties["instruments"] = ["c-sar"]
+                p.region_code = f"{padded_track}{padded_frame}"
+                p.producer = "ga.gov.au"
 
-            # NEEDS REVISION
-            # TBD: what should this prefix be called?
-            # or do we just throw them into the user metadata instead?
-            prefix = "tbd"
+                p.properties["constellation"] = "sentinel-1"
 
-            p.properties[f"card4l:orbit_data_source"] = orbit_source
-            p.properties[f"{prefix}:orbit_data_file"] = orbit_file  # TBD: Apparently this should be a "link"
+                # processed time is determined from the maketime of slc.par_file
+                # TODO better mechanism to infer the processed time of files
+                p.processed = datetime.datetime.fromtimestamp(slc.par_file.stat().st_mtime)
+                p.datetime = ard_metadata["user"]["center_time"]
 
-            p.properties["sar:polarizations"] = polarizations
+                # TODO need better logical mechanism to determine dataset_version
+                p.dataset_version = "0.0.1"
 
-            p.properties[f"{prefix}:platform_heading"] = ard_slc_metadata["heading"]
+                # note the software versions used
+                p.note_software_version("gamma", "http://www/gamma-rs.ch", workflow_metadata["gamma_version"])
+                p.note_software_version("GDAL", "https://gdal.org/", workflow_metadata["gdal_version"])
+                p.note_software_version("gamma_insar", "https://github.com/GeoscienceAustralia/gamma_insar", workflow_metadata["gamma_insar_version"])
 
-            # These are hard-coded assuptions, based on either our satellite/s (S1) or the data from it we support.
-            p.properties["card4l:beam_id"] = "TOPS"
-            p.properties["card4l:orbit_mean_altitude"] = 693
-            p.properties[f"{prefix}:dem"] = workflow_metadata["dem_path"]
-            # END NEEDS REVISION
+                # Write all metadata
+                for _ext, _meta in ard_metadata.items():
+                    if _ext == "user":
+                        for _key, _val in _meta.items():
+                            p.extend_user_metadata(_key, _val)
 
-            # processed time is determined from the maketime of slc.par_file
-            # TODO better mechanism to infer the processed time of files
-            p.processed = datetime.datetime.fromtimestamp(slc.par_file.stat().st_mtime)
-            p.datetime = ard_slc_metadata["center_time"]
+                    else:
+                        for _key, _val in _meta.items():
+                            p.properties[f"{_ext}:{_key}"] = _val
 
-            # TODO need better logical mechanism to determine dataset_version
-            p.dataset_version = "1.0.0"
+                # find backscatter files and write
+                _write_measurements(p, find_products(slc.slc_path, product_attrs["suffixs"]))
 
-            # note the software versions used
-            p.note_software_version("gamma", "http://www/gamma-rs.ch", workflow_metadata["gamma_version"])
-            p.note_software_version("GDAL", "https://gdal.org/", workflow_metadata["gdal_version"])
-            p.note_software_version("gamma_insar", "https://github.com/GeoscienceAustralia/gamma_insar", workflow_metadata["gamma_insar_version"])
+                # find angles files and write
+                _write_angles_measurements(
+                    p, find_products(slc.dem_path, product_attrs["angles"])
+                )
 
-            for _key, _val in ard_slc_metadata.items():
-                p.properties[f"{product}:{_key}"] = _val
+                # Write layover/shadow mask
+                for product_path in slc.dem_path.glob("*lsmap*.tif"):
+                    product_name = product_path.stem[product_path.stem.index("lsmap"):].replace(".", "_")
+                    p.write_measurement(product_name, product_path, overviews=None)
 
-            # store level-1 SLC metadata as extended user metadata
-            for key, val in esa_slc_metadata.items():
-                p.extend_user_metadata(key, val)
+                # Note lineage
+                # TODO: we currently don't index the source data, thus can't implement this yet
+                # - they'll be uuid v5's for each acquisition's ESA assigned ID
 
-            # find backscatter files and write
-            _write_measurements(p, find_products(slc.slc_path, product_attrs["suffixs"]))
+                # Write thumbnail
+                thumbnail_bands = product_attrs["thumbnail_bands"]
+                if len(thumbnail_bands) == 1:
+                    p.write_thumbnail(thumbnail_bands[0], thumbnail_bands[0], thumbnail_bands[0])
+                else:
+                    p.write_thumbnail(**thumbnail_bands)
 
-            # find angles files and write
-            _write_angles_measurements(
-                p, find_products(slc.dem_path, product_attrs["angles"])
-            )
+            except Exception as e:
+                _LOG.error("Packaging failed with exception", slc_scene=str(slc.slc_path), exc_info=True)
 
-            # Note lineage
-            # TODO: we currently don't index the source data, thus can't implement this yet
-            # - they'll be uuid v5's for each acquisition's ESA assigned ID
-
-            # Write thumbnail
-            thumbnail_bands = product_attrs["thumbnail_bands"]
-            if len(thumbnail_bands) == 1:
-                p.write_thumbnail(thumbnail_bands[0], thumbnail_bands[0], thumbnail_bands[0])
-            else:
-                p.write_thumbnail(**thumbnail_bands)
-
-            p.done()
+            finally:
+                p.done()
 
 
 @click.command()
@@ -614,12 +709,16 @@ def main(
             product=product,
             polarizations=polarization,
         )
-        package(
-            track=track,
-            frame=frame,
-            track_frame_base=input_dir,
-            out_directory=pkgdir,
-            yaml_base_dir=yaml_dir,
-            product=product,
-            polarizations=polarization,
-        )
+
+        try:
+            package(
+                track=track,
+                frame=frame,
+                track_frame_base=input_dir,
+                out_directory=pkgdir,
+                yaml_base_dir=yaml_dir,
+                product=product,
+                polarizations=polarization,
+            )
+        except:
+            _LOG.error("Unhandled exception while packaging", exc_info=True)
