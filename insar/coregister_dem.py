@@ -9,7 +9,7 @@ from pathlib import Path
 import structlog
 from PIL import Image
 import numpy as np
-import gdal
+from osgeo import gdal
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory, run_command
@@ -28,6 +28,19 @@ pg = GammaInterface(
         subprocess_wrapper, CoregisterDemException, _LOG
     )
 )
+
+
+def append_suffix(path: Path, suffix: str) -> Path:
+    """
+    A simple filename append function that that only allows for a single '.' extension,
+    by keeping any existing extension as a '_' suffix.
+
+    Example: Appending .zip to test.tif, would result in test_tif.zip, instead of test.tif.zip
+
+    >>> append_suffix(Path('/tmp/test.tif'), '.zip').as_posix()
+    '/tmp/test_tif.zip'
+    """
+    return path.parent / (path.name.replace(".", "_") + suffix)
 
 
 class CoregisterDem:
@@ -180,20 +193,12 @@ class CoregisterDem:
         )
         attrs["dem_master_sigma0"] = outdir.joinpath(f"{slc_prefix}.sigma0")
         attrs["dem_master_sigma0_geo"] = outdir.joinpath(f"{slc_prefix}_geo.sigma0")
-        attrs["dem_master_sigma0_geo_geo"] = attrs["dem_master_sigma0_geo"].with_suffix(
-            attrs["dem_master_sigma0_geo"].suffix + ".tif"
-        )
+        attrs["dem_master_sigma0_geo_tif"] = append_suffix(attrs["dem_master_sigma0_geo"], ".tif")
         attrs["dem_master_gamma0"] = outdir.joinpath(f"{slc_prefix}.gamma0")
-        attrs["dem_master_gamma0_bmp"] = attrs["dem_master_gamma0"].with_suffix(
-            attrs["dem_master_gamma0"].suffix + ".bmp"
-        )
+        attrs["dem_master_gamma0_bmp"] = append_suffix(attrs["dem_master_gamma0"], ".bmp")
         attrs["dem_master_gamma0_geo"] = outdir.joinpath(f"{slc_prefix}_geo.gamma0")
-        attrs["dem_master_gamma0_geo_bmp"] = attrs["dem_master_gamma0_geo"].with_suffix(
-            attrs["dem_master_gamma0_geo"].suffix + ".bmp"
-        )
-        attrs["dem_master_gamma0_geo_geo"] = attrs["dem_master_gamma0_geo"].with_suffix(
-            attrs["dem_master_gamma0_geo"].suffix + ".tif"
-        )
+        attrs["dem_master_gamma0_geo_bmp"] = append_suffix(attrs["dem_master_gamma0_geo"], ".bmp")
+        attrs["dem_master_gamma0_geo_tif"] = append_suffix(attrs["dem_master_gamma0_geo_bmp"], ".tif")
 
         attrs["r_dem_master_slc"] = outdir.joinpath(f"{r_slc_prefix}.slc")
         attrs["r_dem_master_slc_par"] = outdir.joinpath(f"{r_slc_prefix}.slc.par")
@@ -201,9 +206,7 @@ class CoregisterDem:
         attrs["r_dem_master_mli_par"] = attrs["r_dem_master_mli"].with_suffix(
             attrs["r_dem_master_mli"].suffix + ".par"
         )
-        attrs["r_dem_master_mli_bmp"] = attrs["r_dem_master_mli"].with_suffix(
-            attrs["r_dem_master_mli"].suffix + ".bmp"
-        )
+        attrs["r_dem_master_mli_bmp"] = append_suffix(attrs["r_dem_master_mli"], ".bmp")
         return attrs
 
     @staticmethod
@@ -225,9 +228,7 @@ class CoregisterDem:
         attrs["geo_dem_par"] = attrs["geo_dem"].with_suffix(
             attrs["geo_dem"].suffix + ".par"
         )
-        attrs["geo_dem_geo"] = attrs["geo_dem"].with_suffix(
-            attrs["geo_dem"].suffix + ".tif"
-        )
+        attrs["geo_dem_geo"] = append_suffix(attrs["geo_dem"], ".tif")
         attrs["dem_lt_rough"] = outdir.joinpath(f"{dem_prefix}_rough_geo_to_rdc.lt")
         attrs["dem_geo_sim_sar"] = outdir.joinpath(f"{dem_prefix}_geo.sim")
         attrs["dem_loc_inc"] = outdir.joinpath(f"{dem_prefix}_geo.linc")
@@ -248,12 +249,8 @@ class CoregisterDem:
         attrs["dem_coffsets"] = outdir.joinpath(f"{dem_prefix}.coffsets")
         attrs["dem_lv_theta"] = outdir.joinpath(f"{dem_prefix}_geo.lv_theta")
         attrs["dem_lv_phi"] = outdir.joinpath(f"{dem_prefix}_geo.lv_phi")
-        attrs["dem_lv_theta_geo"] = attrs["dem_lv_theta"].with_suffix(
-            attrs["dem_lv_theta"].suffix + ".tif"
-        )
-        attrs["dem_lv_phi_geo"] = attrs["dem_lv_phi"].with_suffix(
-            attrs["dem_lv_phi"].suffix + ".tif"
-        )
+        attrs["dem_lv_theta_geo"] = append_suffix(attrs["dem_lv_theta"], ".tif")
+        attrs["dem_lv_phi_geo"] = append_suffix(attrs["dem_lv_phi"],".tif")
 
         # external image parameters to be used in co-registration
         attrs["ext_image_flt"] = outdir.joinpath(f"{dem_prefix}_ext_img_sar.flt")
@@ -1089,7 +1086,7 @@ class CoregisterDem:
             )
 
         # Convert lsmap to geotiff
-        ls_map_tif = str(self.dem_lsmap.with_suffix(".lsmap.tif"))
+        ls_map_tif = str(append_suffix(self.dem_lsmap, ".tif"))
         pg.data2geotiff(
             str(self.geo_dem_par),
             str(self.dem_lsmap),
@@ -1110,7 +1107,7 @@ class CoregisterDem:
         ls_map_img[ls_map_img != 1] = 0
 
         # Save this back out as a geotiff w/ identical projection as the lsmap
-        ls_map_mask_tif = self.dem_lsmap.with_suffix(".lsmap.mask.tif")
+        ls_map_mask_tif = append_suffix(self.dem_lsmap, "_mask.tif")
         ls_mask_file = gdal.GetDriverByName("GTiff").Create(
             ls_map_mask_tif.as_posix(),
             ls_map_img.shape[1], ls_map_img.shape[0], 1,
@@ -1189,7 +1186,7 @@ class CoregisterDem:
         dem_par_pathname = str(self.geo_dem_par)
         data_pathname = str(self.dem_master_gamma0_geo)
         dtype = 2  # FLOAT
-        geotiff_pathname = self.dem_master_gamma0_geo_geo
+        geotiff_pathname = self.dem_master_gamma0_geo_tif
         nodata = 0.0
 
         pg.data2geotiff(
@@ -1227,7 +1224,7 @@ class CoregisterDem:
         dem_par_pathname = str(self.geo_dem_par)
         data_pathname = str(self.dem_master_sigma0_geo)
         dtype = 2  # FLOAT
-        geotiff_pathname = str(self.dem_master_sigma0_geo_geo)
+        geotiff_pathname = str(self.dem_master_sigma0_geo_tif)
         nodata = 0.0
 
         pg.data2geotiff(

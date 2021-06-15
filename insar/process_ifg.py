@@ -21,13 +21,13 @@ class ProcessIfgException(Exception):
     pass
 
 
-def append_suffix(
-    path: Union[pathlib.Path, str],
-    suffix: str,
-) -> pathlib.Path:
+def append_suffix(path: pathlib.Path, suffix: str) -> pathlib.Path:
     """
     A simple filename append function that doesn't assume `.` based file extensions,
     to replace pathlib.Path.with_suffix in cases we use `_` based file suffixes
+
+    >>> append_suffix(pathlib.Path('/tmp/test_geo'), '_int').as_posix()
+    '/tmp/test_geo_int'
     """
     return path.parent / (path.name + suffix)
 
