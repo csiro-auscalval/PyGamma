@@ -1,5 +1,7 @@
 ##### GAMMA CONFIGURATION FILE #####
 
+DATABASE_PATH = /g/data/u46/users/pd1813/INSAR/s1_slc_database.db
+ORBIT = Descending
 
 -----NCI SOFTWARE CONFIGURATION FILE--------------------------------------------------------------------
 
@@ -12,11 +14,13 @@ NCI_PATH=/some/test/data
 ENVISAT_ORBITS=/g/data/dg9/SAR_ORBITS/ENVISAT
 ERS_ORBITS=/g/data/dg9/SAR_ORBITS/ERS_ODR_UPDATED
 S1_ORBITS=/g/data/fj7/Copernicus/Sentinel-1
+POEORB_PATH=/g/data/fj7/Copernicus/Sentinel-1/POEORB
+RESORB_PATH=/g/data/fj7/Copernicus/Sentinel-1/RESORB
 S1_PATH=/g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC
-MASTER_DEM_IMAGE=/g/data/dg9/MASTER_DEM
+MASTER_DEM_IMAGE=/g/data/dg9/MASTER_DEM/GAMMA_DEM_SRTM_1as_mosaic.img
 
-JOB_PATH=batch_jobs
-OUTPUT_PATH=manual_jobs
+JOB_PATH=
+OUTPUT_PATH=
 
 # NOTE:
 # - the total path to the gamma processing directory will be made up of variables from this file.

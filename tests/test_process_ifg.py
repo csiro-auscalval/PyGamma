@@ -47,7 +47,7 @@ def pg_int_mock():
 def pc_mock():
     """Returns basic mock to simulate a ProcConfig object."""
     with open(pathlib.Path(__file__).parent.absolute() / 'data' / '20151127' / 'gamma.proc', 'r') as fileobj:
-        proc_config = ProcConfig.from_file(fileobj, '/fake/outdir')
+        proc_config = ProcConfig.from_file(fileobj)
 
     pc = mock.NonCallableMock(spec=ProcConfig, wraps=proc_config)
     pc.multi_look = 2  # always 2 for Sentinel 1

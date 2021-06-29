@@ -429,7 +429,7 @@ def ard_insar(
 
     # Validate .proc file
     with open(proc_file, "r") as proc_file_obj:
-        proc_config = ProcConfig.from_file(proc_file_obj, None)
+        proc_config = ProcConfig.from_file(proc_file_obj)
 
     proc_valid_error = proc_config.validate()
     if proc_valid_error:

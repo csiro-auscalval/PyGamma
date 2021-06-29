@@ -28,7 +28,8 @@ class ProcConfig:
         "ers_orbits",
         "s1_orbits",
         "s1_path",
-        "master_dem_image",
+        "poeorb_path",
+        "resorb_path"
     ]
 
     __subdir_attribs__ = [
@@ -42,6 +43,8 @@ class ProcConfig:
     ]
 
     __filename_attribs__ = [
+        "database_path",
+        "master_dem_image",
         "scene_list",
         "slave_list",
         "ifg_list",
@@ -58,6 +61,7 @@ class ProcConfig:
         *__filename_attribs__,
         "project",
         "track",
+        "orbit",
         "dem_area",
         "dem_name",
         "mdss_data_dir",
@@ -125,7 +129,7 @@ class ProcConfig:
         "ifg_azpos",
     ]
 
-    def __init__(self, outdir, **kwargs):
+    def __init__(self, **kwargs):
         """
         Create a ProcConfig instance.
         :param kwargs: mapping of keywords and values from a proc config settings file.
@@ -149,16 +153,8 @@ class ProcConfig:
         self.ifg_rpos = self.dem_rpos
         self.ifg_azpos = self.dem_azpos
 
-        # Handle "auto" reference scene
-        if self.ref_master_scene.lower() == "auto" and outdir:
-            # Read computed master scene and use it
-            with open(pathlib.Path(outdir) / self.list_dir / 'primary_ref_scene', 'r') as ref_scene_file:
-                auto_master_scene = ref_scene_file.readline().strip()
-
-            self.ref_master_scene = auto_master_scene
-
     @classmethod
-    def from_file(cls, file_obj, outdir):
+    def from_file(cls, file_obj):
         """
         Returns a ProcConfig instantiated from the given file like obj.
 
@@ -175,7 +171,7 @@ class ProcConfig:
             pair[0] = pair[0].replace("-", "_")
 
         cfg = {e[0].strip().lower(): e[1].strip() for e in kv_pairs}
-        return ProcConfig(outdir, **cfg)
+        return ProcConfig(**cfg)
 
     def validate(self) -> str:
         """
@@ -255,6 +251,16 @@ class ProcConfig:
         # At that stage we probably want a thirdparty data model validation solution, eg: marshmallow
 
         return msg
+
+    def save(self, file_obj):
+        for name in self.__slots__:
+            val_str = ""
+
+            if hasattr(self, name) and getattr(self, name):
+                val_str = str(getattr(self, name))
+
+            file_obj.write(f"{name.upper()}={val_str}\n")
+
 
 def is_valid_config_line(line):
     """

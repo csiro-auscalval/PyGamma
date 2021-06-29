@@ -88,7 +88,7 @@ def get_test_context():
     shutil.copytree(Path(__file__).parent.absolute() / 'data' / '20151127', data_dir)
 
     with open(Path(__file__).parent.absolute() / 'data' / '20151127' / 'gamma.proc', 'r') as fileobj:
-        proc_config = ProcConfig.from_file(fileobj, '/some/fake/outdir')
+        proc_config = ProcConfig.from_file(fileobj)
 
     # Note: The filenames below aren't necessarily representative of a valid scene at the moment...
     # this isn't inherently a problem, as the unit tests don't test for file naming conventions of

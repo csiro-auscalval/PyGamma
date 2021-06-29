@@ -20,7 +20,7 @@ def test_read_proc_file():
     file_obj = open(pathlib.Path(__file__).parent.absolute() / 'data' / '20151127' / 'gamma.proc', 'r')
     assert file_obj.closed is False
 
-    pv = project.ProcConfig.from_file(file_obj, '/fake/outdir')
+    pv = project.ProcConfig.from_file(file_obj)
     assert pv.nci_path.as_posix() == "/some/test/data"
     assert pv.slc_dir.as_posix() == "SLC"
     assert pv.ifg_list == "ifgs.list"
@@ -46,7 +46,7 @@ def test_read_incomplete_proc_file_fails():
     file_obj.seek(500)
 
     with pytest.raises(AttributeError):
-        project.ProcConfig.from_file(file_obj, '/fake/outdir')
+        project.ProcConfig.from_file(file_obj)
 
 
 def test_read_unknown_settings():
@@ -55,7 +55,7 @@ def test_read_unknown_settings():
     file_obj = io.StringIO(content)
 
     with pytest.raises(AttributeError):
-        project.ProcConfig.from_file(file_obj, '/fake/outdir')
+        project.ProcConfig.from_file(file_obj)
 
 
 # tests for the PBS job dirs section

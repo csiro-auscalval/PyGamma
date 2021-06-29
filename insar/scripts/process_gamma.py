@@ -7,17 +7,17 @@ import traceback
 import os.path
 from os.path import exists, join as pjoin
 from pathlib import Path
-import zipfile
 import luigi
 import luigi.configuration
+import logging
+import logging.config
 import pandas as pd
 from luigi.util import requires
-import zlib
 import structlog
 import shutil
-import enum
 import osgeo.gdal
 import json
+import pkg_resources
 import geopandas
 
 import insar
@@ -370,7 +370,6 @@ class InitialSetup(luigi.Task):
     start_date = luigi.Parameter()
     end_date = luigi.Parameter()
     shape_file = luigi.Parameter()
-    database_name = luigi.Parameter()
     orbit = luigi.Parameter()
     sensor = luigi.Parameter()
     polarization = luigi.ListParameter(default=["VV"])
@@ -395,7 +394,10 @@ class InitialSetup(luigi.Task):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("initial setup task", sensor=self.sensor)
 
-        outdir = Path(self.outdir)
+        with open(self.proc_file, "r") as proc_file_obj:
+            proc_config = ProcConfig.from_file(proc_file_obj)
+
+        outdir = Path(proc_config.output_path)
         pols = list(self.polarization)
 
         # get the relative orbit number, which is int value of the numeric part of the track name
@@ -403,7 +405,7 @@ class InitialSetup(luigi.Task):
 
         # get slc input information
         slc_query_results = query_slc_inputs(
-            str(self.database_name),
+            str(proc_config.database_path),
             str(self.shape_file),
             self.start_date,
             self.end_date,
@@ -498,6 +500,13 @@ class InitialSetup(luigi.Task):
         with self.output().open("w") as out_fid:
             out_fid.write("")
 
+        # Update .proc file "auto" reference scene
+        if proc_config.ref_master_scene.lower() == "auto":
+            proc_config.ref_master_scene = ref_scene_date.strftime(__DATE_FMT__)
+
+            with open(self.proc_file, "w") as proc_file_obj:
+                proc_config.save(proc_file_obj)
+
         # Write high level workflow metadata
         _, gamma_version = os.path.split(os.environ["GAMMA_INSTALL_DIR"])[-1].split("-")
         workdir = Path(self.workdir)
@@ -513,7 +522,7 @@ class InitialSetup(luigi.Task):
             "original_work_dir": Path(self.outdir).as_posix(),
             "original_job_dir": workdir.parent.as_posix(),
             "shapefile": str(self.shape_file),
-            "database": str(self.database_name),
+            "database": str(proc_config.database_path),
             "poeorb_path": str(self.poeorb_path),
             "resorb_path": str(self.resorb_path),
             "source_data_path": str(os.path.commonpath(list(download_list))),
@@ -1187,7 +1196,7 @@ class CalcInitialBaseline(luigi.Task):
 
         # Load the gamma proc config file
         with open(str(self.proc_file), "r") as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj, outdir)
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         slc_frames = get_scenes(self.burst_data_csv)
         slc_par_files = []
@@ -1352,7 +1361,7 @@ class CoregisterSlave(luigi.Task):
 
     def get_coreg_info(self):
         with open(str(self.proc_file), "r") as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj, self.outdir)
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         coreg = CoregisterSlc(
             proc=proc_config,
@@ -1394,7 +1403,7 @@ class CoregisterSlave(luigi.Task):
 
         # Load the gamma proc config file
         with open(str(self.proc_file), "r") as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj, self.outdir)
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         failed = False
 
@@ -1510,7 +1519,7 @@ class CreateCoregisterSlaves(luigi.Task):
 
         # Load the gamma proc config file
         with open(str(self.proc_file), "r") as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj, outdir)
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         slc_frames = get_scenes(self.burst_data_csv)
 
@@ -1565,7 +1574,7 @@ class CreateCoregisterSlaves(luigi.Task):
 
         # Load the gamma proc config file
         with open(str(self.proc_file), "r") as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj, outdir)
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         slc_frames = get_scenes(self.burst_data_csv)
 
@@ -1701,7 +1710,7 @@ class CreateBackscatter(luigi.Task):
 
         # Load the gamma proc config file
         with open(str(self.proc_file), "r") as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj, outdir)
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         slc_frames = get_scenes(self.burst_data_csv)
 
@@ -1853,7 +1862,7 @@ class ProcessIFG(luigi.Task):
     def run(self):
         # Load the gamma proc config file
         with open(str(self.proc_file), 'r') as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj, self.outdir)
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         log = STATUS_LOGGER.bind(
             outdir=self.outdir,
@@ -1922,7 +1931,7 @@ class CreateProcessIFGs(luigi.Task):
 
         # Load the gamma proc config file
         with open(str(self.proc_file), 'r') as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj, self.outdir)
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         # Remove our output to re-trigger this job, which will trigger ProcessIFGs
         # for all date pairs, however only those missing IFG outputs will run.
@@ -1986,7 +1995,7 @@ class CreateProcessIFGs(luigi.Task):
 
         # Load the gamma proc config file
         with open(str(self.proc_file), 'r') as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj, self.outdir)
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         # Parse ifg_list to schedule jobs for each interferogram
         with open(Path(self.outdir) / proc_config.list_dir / proc_config.ifg_list) as ifg_list_file:
@@ -2035,7 +2044,6 @@ class TriggerResume(luigi.Task):
     cleanup = luigi.BoolParameter()
     outdir = luigi.Parameter()
     workdir = luigi.Parameter()
-    database_name = luigi.Parameter()
     orbit = luigi.Parameter()
     dem_img = luigi.Parameter()
     multi_look = luigi.IntParameter()
@@ -2047,7 +2055,7 @@ class TriggerResume(luigi.Task):
     resume_token = luigi.Parameter()
 
     workflow = luigi.EnumParameter(
-        enum=ARDWorkflow, default=ARDWorkflow.Interferogram, significant=False
+        enum=ARDWorkflow, default=ARDWorkflow.Interferogram
     )
 
     def output_path(self):
@@ -2076,7 +2084,6 @@ class TriggerResume(luigi.Task):
             "start_date": self.start_date,
             "end_date": self.end_date,
             "sensor": self.sensor,
-            "database_name": self.database_name,
             "polarization": self.polarization,
             "track": self.track,
             "frame": self.frame,
@@ -2095,7 +2102,7 @@ class TriggerResume(luigi.Task):
 
         # Load the gamma proc config file
         with open(str(self.proc_file), 'r') as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj, outdir)
+            proc_config = ProcConfig.from_file(proc_fileobj)
 
         backscatter_task = CreateBackscatter(**kwargs)
         ifgs_task = CreateProcessIFGs(**kwargs)
@@ -2334,49 +2341,55 @@ class ARD(luigi.WrapperTask):
     }
     """
 
+    # .proc config path (holds all settings except query)
     proc_file = luigi.Parameter()
-    shape_file = luigi.Parameter(significant=False)
-    start_date = luigi.DateParameter(significant=False)
-    end_date = luigi.DateParameter(significant=False)
-    sensor = luigi.Parameter(significant=False, default=None)
-    polarization = luigi.ListParameter(default=["VV", "VH"], significant=False)
+
+    # Query params (must be provided to task)
+    shape_file = luigi.Parameter()
+    start_date = luigi.DateParameter()
+    end_date = luigi.DateParameter()
+
+    # Overridable query params (can come from .proc, or task)
+    sensor = luigi.Parameter(default=None)
+    polarization = luigi.ListParameter(default=None)
+    orbit = luigi.Parameter(default=None)
+
+    # .proc overrides
     cleanup = luigi.BoolParameter(
-        default=False, significant=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
+        default=None, significant=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
     )
-    outdir = luigi.Parameter(significant=False)
-    workdir = luigi.Parameter(significant=False)
-    database_name = luigi.Parameter()
-    orbit = luigi.Parameter()
-    dem_img = luigi.Parameter()
-    multi_look = luigi.IntParameter()
-    poeorb_path = luigi.Parameter()
-    resorb_path = luigi.Parameter()
-    resume = luigi.BoolParameter(
-        default=False, significant=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
-    )
-    reprocess_failed = luigi.BoolParameter(
-        default=False, significant=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
+    outdir = luigi.Parameter(default=None)
+    workdir = luigi.Parameter(default=None)
+    database_path = luigi.Parameter(default=None)
+    master_dem_image = luigi.Parameter(default=None)
+    multi_look = luigi.IntParameter(default=None)
+    poeorb_path = luigi.Parameter(default=None)
+    resorb_path = luigi.Parameter(default=None)
+    workflow = luigi.EnumParameter(
+        enum=ARDWorkflow, default=None
     )
 
-    workflow = luigi.EnumParameter(
-        enum=ARDWorkflow, default=ARDWorkflow.Interferogram, significant=False
+    # Job resume triggers
+    resume = luigi.BoolParameter(
+        default=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
+    )
+    reprocess_failed = luigi.BoolParameter(
+        default=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
     )
 
     def requires(self):
         log = STATUS_LOGGER.bind(shape_file=self.shape_file)
 
-        # generate (just once) a unique token for tasks that need to re-run
-        if self.resume:
-            if not hasattr(self, 'resume_token'):
-                self.resume_token = datetime.datetime.now().strftime("%Y%m%d-%H%M")
-
-        # Coregistration processing
-        ard_tasks = []
-        self.output_dirs = []
-
         shape_file = Path(self.shape_file)
+        pols = self.polarization
 
-        # FIXME: assuming track/frame/sensor-filter info from shapefile path is... dodgy.
+        with open(str(self.proc_file), "r") as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj)
+
+        orbit = str(self.orbit or proc_config.orbit)[:1].upper()
+
+        # We currently infer track/frame from the shapefile name... this is dodgy
+        pass
 
         # Match <track>_<frame> prefix syntax
         # Note: this doesn't match _<sensor> suffix which is unstructured
@@ -2418,16 +2431,16 @@ class ARD(luigi.WrapperTask):
             if dbf_tracks[0].strip() != track[1:-1]:  # dbf only has track number
                 raise Exception("Supplied shapefile track does not match job track")
 
-        # Query SLC inputs for this location (extent specified by \shape file)
+        # Query SLC inputs for this location (extent specified by shape file)
         rel_orbit = int(re.findall(r"\d+", str(track))[0])
         slc_query_results = query_slc_inputs(
-            str(self.database_name),
+            proc_config.database_path,
             str(shape_file),
             self.start_date,
             self.end_date,
-            str(self.orbit),
+            orbit,
             rel_orbit,
-            list(self.polarization),
+            pols,
             self.sensor
         )
 
@@ -2436,7 +2449,7 @@ class ARD(luigi.WrapperTask):
                 f"Nothing was returned for {track}_{frame} "
                 f"start_date: {self.start_date} "
                 f"end_date: {self.end_date} "
-                f"orbit: {self.orbit}"
+                f"orbit: {orbit}"
             )
 
         # Determine the selected sensor(s) from the query, for directory naming
@@ -2451,54 +2464,172 @@ class ARD(luigi.WrapperTask):
 
         selected_sensors = "_".join(sorted(selected_sensors))
 
+        # Kick off processing task in appropriate frame dirs
         tfs = f"{track}_{frame}_{selected_sensors}"
-        outdir = Path(str(self.outdir)) / tfs
-        workdir = Path(str(self.workdir)) / tfs
 
-        self.output_dirs.append(outdir)
+        # Override input proc settings as required...
+        # - map luigi params to compatible names
 
-        os.makedirs(outdir / 'lists', exist_ok=True)
-        os.makedirs(workdir, exist_ok=True)
+        # FIXME: We probably want to not do this (forcing tfs subdirs), this is opinionated
+        # and there's no clear reason for us to be opinionated here... the DB query to do
+        # so definitely complicates the code (40+ lines above), unnecessarily
+        #
+        # Also this causes a disconnect between --outdir (base dir to put tfs dir into)
+        # vs .proc OUTPUT_PATH which is the actual output path (not a base dir)
+        self.output_path = (Path(self.outdir) / tfs).as_posix() if self.outdir else None
+        self.job_path = (Path(self.workdir) / tfs).as_posix() if self.workdir else None
+
+        override_params = [
+            # Note: "sensor" is NOT over-written...
+            # ARD sensor parameter (satellite selector, eg: S1A vs. S1B) is not
+            # the same a .proc sensor (selects between constellations such as
+            # Sentinel-1 vs. RADARSAT)
+            # TODO: we probably want to rename these in the future... will need
+            # a review w/ InSAR team on their preferred terminology soon.
+
+            "multi_look",
+            "cleanup",
+            "output_path",
+            "job_path",
+            "database_path",
+            "master_dem_image",
+            "poeorb_path",
+            "resorb_path"
+        ]
+
+        for name in override_params:
+            if hasattr(self, name) and getattr(self, name):
+                override_value = getattr(self, name)
+                log.info("Overriding .proc setting",
+                    setting=name,
+                    old_value=getattr(proc_config, name),
+                    value=override_value
+                )
+                setattr(proc_config, name, override_value)
+
+        # Explicitly handle workflow enum
+        workflow = self.workflow
+        if workflow:
+            proc_config.workflow = str(workflow)
+
+        else:
+            matching_workflow = [name for name in ARDWorkflow if name.lower() == proc_config.workflow.lower()]
+            if not matching_workflow:
+                raise Exception(f"Failed to match .proc workflow {proc_config.workflow} to ARDWorkflow enum!")
+
+            workflow = matching_workflow[0]
+
+        if pols:
+            # Note: proc_config only takes the primary polarisation
+            # - this is the polarisation used for IFGs, not secondary.
+            #
+            # We assume first polarisation is the primary.
+            proc_config.polarisation = pols[0]
+        else:
+            pols = [proc_config.polarisation or "VV"]
+
+        # Infer key variables from it
+        self.output_path = Path(proc_config.output_path)
+        self.job_path = Path(proc_config.job_path)
+        orbit = proc_config.orbit[:1].upper()
+        proc_file = self.output_path / "config.proc"
+
+        # Create dirs
+        os.makedirs(self.output_path / proc_config.list_dir, exist_ok=True)
+        os.makedirs(self.job_path, exist_ok=True)
+
+        # If proc_file already exists (eg: because this is a resume), assert that
+        # this job has identical settings to the last one, so we don't produce
+        # inconsistent data.
+        #
+        # In this process we also re-inherit any auto/blank settings.
+        # Note: This is only required due to the less than ideal design we
+        # have where we have had to put a fair bit of logic into requires()
+        # which is in fact called multiple times (even after InitialSetup!)
+
+        if proc_file.exists():
+            with proc_file.open("r") as proc_fileobj:
+                existing_config = ProcConfig.from_file(proc_fileobj)
+
+            assert(existing_config.__slots__ == proc_config.__slots__)
+
+            conflicts = []
+            for name in proc_config.__slots__:
+                new_val = getattr(proc_config, name)
+                old_val = getattr(existing_config, name)
+
+                # If there's no such new value or it's "auto", inherit old.
+                no_new_val = new_val is None or not str(new_val)
+                if no_new_val or str(new_val) == "auto":
+                    setattr(proc_config, name, old_val)
+
+                # Otherwise, ensure values match / haven't changed.
+                elif str(new_val) != str(old_val):
+                    conflicts.append((name, new_val, old_val))
+
+            if conflicts:
+                msg = f"New .proc settings do not match existing {proc_file}"
+                error = Exception(msg)
+                error.state = { "conflicts": conflicts }
+                log.info(msg, **error.state)
+                raise error
+
+        # Finally save final config and
+        with open(proc_file, "w") as proc_fileobj:
+            proc_config.save(proc_fileobj)
+
+        # generate (just once) a unique token for tasks that need to re-run
+        if self.resume:
+            if not hasattr(self, 'resume_token'):
+                self.resume_token = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+
+        # Coregistration processing
+        ard_tasks = []
+        self.output_dirs = [self.output_path]
 
         kwargs = {
-            "proc_file": self.proc_file,
+            "proc_file": proc_file,
             "shape_file": shape_file,
             "start_date": self.start_date,
             "end_date": self.end_date,
             "sensor": self.sensor,
-            "database_name": self.database_name,
-            "polarization": self.polarization,
+            "polarization": pols,
             "track": track,
             "frame": frame,
-            "outdir": outdir,
-            "workdir": workdir,
-            "orbit": self.orbit,
-            "dem_img": self.dem_img,
-            "poeorb_path": self.poeorb_path,
-            "resorb_path": self.resorb_path,
-            "multi_look": self.multi_look,
-            "burst_data_csv": pjoin(outdir, f"{track}_{frame}_burst_data.csv"),
-            "cleanup": self.cleanup,
+            "outdir": self.output_path,
+            "workdir": self.job_path,
+            "orbit": orbit,
+            "dem_img": proc_config.master_dem_image,
+            "poeorb_path": proc_config.poeorb_path,
+            "resorb_path": proc_config.resorb_path,
+            "multi_look": int(proc_config.multi_look),
+            "burst_data_csv": self.output_path / f"{track}_{frame}_burst_data.csv",
+            "cleanup": proc_config.cleanup,
         }
 
         # Yield appropriate workflow
         if self.resume:
-            ard_tasks.append(TriggerResume(resume_token=self.resume_token, workflow=self.workflow, **kwargs))
-        elif self.workflow == ARDWorkflow.Backscatter:
+            ard_tasks.append(TriggerResume(resume_token=self.resume_token, workflow=workflow, **kwargs))
+        elif workflow == ARDWorkflow.Backscatter:
             ard_tasks.append(CreateBackscatter(**kwargs))
-        elif self.workflow == ARDWorkflow.Interferogram:
+        elif workflow == ARDWorkflow.Interferogram:
             ard_tasks.append(CreateProcessIFGs(**kwargs))
         else:
-            raise Exception(f'Unsupported workflow provided: {self.workflow}')
+            raise Exception(f'Unsupported workflow provided: {workflow}')
 
         yield ard_tasks
 
     def run(self):
         log = STATUS_LOGGER
 
+        # Load final .proc config
+        proc_file = self.output_path / "config.proc"
+        with open(proc_file, "r") as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj)
+
         # Finally once all ARD pipeline dependencies are complete (eg: data processing is complete)
         # - we cleanup files that are no longer required as outputs.
-        if not self.cleanup:
+        if not proc_config.cleanup:
             log.info("Cleanup of unused files skipped, all files being kept")
             return
 
@@ -2564,6 +2695,10 @@ class ARD(luigi.WrapperTask):
 
 
 def run():
+    # Configure logging from built-in script logging config file
+    logging_conf = pkg_resources.resource_filename("insar", "logging.cfg")
+    logging.config.fileConfig(logging_conf)
+
     with open("insar-log.jsonl", "a") as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
 
@@ -2571,6 +2706,12 @@ def run():
             luigi.run()
         except:
             STATUS_LOGGER.error("Unhandled exception running ARD workflow", exc_info=True)
+
+        try:
+            luigi.run()
+        except Exception as e:
+            state = e.state if hasattr(e, "state") else {}
+            STATUS_LOGGER.error("Unhandled exception running ARD workflow", exc_info=True, **state)
 
 
 if __name__ == "__name__":

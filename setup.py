@@ -13,7 +13,7 @@ HERE = Path(__file__).parent
 
 README = (HERE / "README.md").read_text()
 
-with (HERE / 'requirements.txt').open() as requirement_file:
+with (HERE / "requirements.txt").open() as requirement_file:
     requirements = [r.strip() for r in requirement_file.readlines()]
 
 setup_requirements = ["pytest-runner"]
@@ -57,7 +57,7 @@ setup(
     keywords="gamma insar",
     name="gamma_insar",
     packages=find_packages(exclude=("tests", "tests.*")),
-    package_data={"": ["*.json", "*.yaml"]},
+    package_data={"": ["*.json", "*.yaml", "logging.cfg"]},
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
