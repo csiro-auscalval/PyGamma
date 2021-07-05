@@ -17,24 +17,24 @@ from insar.logs import get_wrapped_logger
 _LOG = structlog.get_logger("insar")
 
 
-def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict:
-    """Check missing master SLC bursts.
+def _check_frame_bursts(primary_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict:
+    """Check missing primary SLC bursts.
 
-    Compares input data and master bursts to determine bursts overlaps
+    Compares input data and primary bursts to determine bursts overlaps
     and inserts a missing burst information into the input_data.
 
-    :param master_df:
-        A geopandas dataframe with master SLC informations.
+    :param primary_df:
+        A geopandas dataframe with primary SLC informations.
     :param input_data:
         An input slc data with burst informations needed to form a full frame.
 
     :returns:
-        Input data with addition of missing master bursts number.
+        Input data with addition of missing primary bursts number.
     """
 
     for dt_key, dt_val in input_data.items():
         for swath, swath_val in dt_val.items():
-            master_swath_subset = master_df[master_df.swath == swath]
+            primary_swath_subset = primary_df[primary_df.swath == swath]
 
             swath_centroids = [
                 geom.centroid
@@ -42,16 +42,16 @@ def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict:
                 for geom in swath_val[_id]["burst_extent"]
             ]
 
-            # check if master bursts contains the centroids to determine missing bursts
+            # check if primary bursts contains the centroids to determine missing bursts
             contained_bursts = []
-            for idx, row in master_swath_subset.iterrows():
+            for idx, row in primary_swath_subset.iterrows():
                 for centroid in swath_centroids:
                     if row.geometry.contains(centroid):
                         contained_bursts.append(row.burst_num)
 
             # insert the missing bursts information into input_data
-            input_data[dt_key][swath]["missing_master_bursts"] = set(
-                master_swath_subset.burst_num.values
+            input_data[dt_key][swath]["missing_primary_bursts"] = set(
+                primary_swath_subset.burst_num.values
             ) - set(contained_bursts)
 
     return input_data
@@ -59,7 +59,7 @@ def _check_frame_bursts(master_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict:
 
 def _check_slc_input_data(
     results_df: pd.DataFrame,
-    master_df: gpd.GeoDataFrame,
+    primary_df: gpd.GeoDataFrame,
     rel_orbit: int,
     polarization: str,
     exclude_incomplete: bool
@@ -75,7 +75,7 @@ def _check_slc_input_data(
 
     :param results_df:
         An input dataframe with queried attribute results from SLC input database.
-    :param master_df:
+    :param primary_df:
         Attributes of a vector file (frame) used in querying SLC database.
     :param rel_orbits:
         Sentinel-1 relative orbit used in vector file framing.
@@ -150,7 +150,7 @@ def _check_slc_input_data(
                 err=err,
             )
 
-    checked_data = _check_frame_bursts(master_df, data_dict)
+    checked_data = _check_frame_bursts(primary_df, data_dict)
 
     # Filter checked data (removing any incomplete scenes)
     if exclude_incomplete:
@@ -159,7 +159,7 @@ def _check_slc_input_data(
         # Check for any swathes missing bursts...
         for dt, swath_dict in checked_data.items():
             for swath, slc_dict in swath_dict.items():
-                is_missing_bursts = len(slc_dict["missing_master_bursts"]) > 0
+                is_missing_bursts = len(slc_dict["missing_primary_bursts"]) > 0
 
                 if is_missing_bursts:
                     excluded_dates.append(dt)
@@ -288,7 +288,7 @@ def query_slc_inputs(
                 slc_df["acquisition_start_time"]
             )
 
-            #  check queried results against master dataframe to form slc inputs
+            #  check queried results against primary dataframe to form slc inputs
             return {
                 pol: _check_slc_input_data(slc_df, gpd.read_file(shapefile), track, pol, exclude_incomplete)
                 for pol in polarization
@@ -321,7 +321,7 @@ def slc_inputs(slc_data_input: Dict) -> pd.DataFrame:
         r"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}"
     )
     _swath_keys = ["IW1", "IW2", "IW3"]
-    _missing_master_bursts_key = "missing_master_bursts"
+    _missing_primary_bursts_key = "missing_primary_bursts"
 
     def _get_scene_data(scene_dt):
         return slc_data_input[scene_dt]
@@ -339,8 +339,8 @@ def slc_inputs(slc_data_input: Dict) -> pd.DataFrame:
 
     for dt in scene_dates:
         for swath in _swath_keys:
-            missing_master_bursts = list(
-                _get_id_data(dt, swath, _missing_master_bursts_key)
+            missing_primary_bursts = list(
+                _get_id_data(dt, swath, _missing_primary_bursts_key)
             )
             for slc_id, slc_val in _get_swath_data(dt, swath).items():
                 if re.match(_regx_uuid, slc_id):
@@ -354,8 +354,8 @@ def slc_inputs(slc_data_input: Dict) -> pd.DataFrame:
                             "total_bursts": slc_val["total_bursts"],
                             "polarization": slc_val["polarization"],
                             "acquistion_datetime": slc_val["acquisition_datetime"],
-                            "missing_master_bursts": list(
-                                map(lambda x: int(x), missing_master_bursts)
+                            "missing_primary_bursts": list(
+                                map(lambda x: int(x), missing_primary_bursts)
                             ),
                         },
                         ignore_index=True,

@@ -44,9 +44,9 @@ class ProcConfig:
 
     __filename_attribs__ = [
         "database_path",
-        "master_dem_image",
+        "primary_dem_image",
         "scene_list",
-        "slave_list",
+        "secondary_list",
         "ifg_list",
         "frame_list",
         "s1_burst_list",
@@ -76,7 +76,7 @@ class ProcConfig:
         "range_looks",
         "azimuth_looks",
         "process_method",
-        "ref_master_scene",
+        "ref_primary_scene",
         "min_connect",
         "max_connect",
         "workflow",
@@ -96,9 +96,9 @@ class ProcConfig:
         "coreg_num_windows",
         "coreg_oversampling",
         "coreg_num_iterations",
-        "slave_offset_measure",
-        "slave_win",
-        "slave_cc_thresh",
+        "secondary_offset_measure",
+        "secondary_win",
+        "secondary_cc_thresh",
         "coreg_s1_cc_thresh",
         "coreg_s1_frac_thresh",
         "coreg_s1_stdev_thresh",
@@ -142,7 +142,7 @@ class ProcConfig:
 
         # prepare derived settings variables
         self.dem_img = (
-            pathlib.Path(self.master_dem_image) / "GAMMA_DEM_SRTM_1as_mosaic.img"
+            pathlib.Path(self.primary_dem_image) / "GAMMA_DEM_SRTM_1as_mosaic.img"
         )
         self.proj_dir = pathlib.Path(self.nci_path) / self.project / self.sensor / "GAMMA"
         self.raw_data_track_dir = pathlib.Path(self.raw_data_dir) / self.track
@@ -209,7 +209,7 @@ class ProcConfig:
                 msg += f"Unsupported sensor: {self.sensor}\n"
 
             # Validate polarisations
-            # Note: currently this is just the 'master' polarisation (used for IFGs)
+            # Note: currently this is just the 'primary' polarisation (used for IFGs)
             if hasattr(self, "polarisation"):
                 if self.sensor == "S1":
                     allowed_s1_pols = ["VV", "VH"]
@@ -237,7 +237,7 @@ class ProcConfig:
                     msg += f"Attribute {name} must be one of {'/'.join(flag_values)}, not {value}"
 
         # Validate date proeprties
-        date_properties = ["ref_master_scene", "s1_resize_ref_slc"]
+        date_properties = ["ref_primary_scene", "s1_resize_ref_slc"]
         for name in date_properties:
             if hasattr(self, name):
                 value = getattr(self, name)
@@ -273,27 +273,27 @@ def is_valid_config_line(line):
     return False
 
 
-class DEMMasterNames:
+class DEMPrimaryNames:
     __slots__ = [
-        "dem_master_dir",
-        "dem_master_slc_name",
-        "dem_master_slc",
-        "dem_master_slc_par",
-        "dem_master_mli_name",
-        "dem_master_mli",
-        "dem_master_mli_par",
-        "dem_master_gamma0",
-        "dem_master_gamma0_bmp",
-        "dem_master_gamma0_geo",
-        "dem_master_gamma0_geo_bmp",
-        "dem_master_gamma0_geo_geo",
-        "r_dem_master_slc_name",
-        "r_dem_master_slc",
-        "r_dem_master_slc_par",
-        "r_dem_master_mli_name",
-        "r_dem_master_mli",
-        "r_dem_master_mli_par",
-        "r_dem_master_mli_bmp",
+        "dem_primary_dir",
+        "dem_primary_slc_name",
+        "dem_primary_slc",
+        "dem_primary_slc_par",
+        "dem_primary_mli_name",
+        "dem_primary_mli",
+        "dem_primary_mli_par",
+        "dem_primary_gamma0",
+        "dem_primary_gamma0_bmp",
+        "dem_primary_gamma0_geo",
+        "dem_primary_gamma0_geo_bmp",
+        "dem_primary_gamma0_geo_geo",
+        "r_dem_primary_slc_name",
+        "r_dem_primary_slc",
+        "r_dem_primary_slc_par",
+        "r_dem_primary_mli_name",
+        "r_dem_primary_mli",
+        "r_dem_primary_mli_par",
+        "r_dem_primary_mli_bmp",
     ]
 
     def __init__(self, proc=None, out_dir = None):
@@ -303,71 +303,71 @@ class DEMMasterNames:
 
             out_dir = pathlib.Path(out_dir)
 
-            self.dem_master_dir = out_dir / proc.slc_dir / proc.ref_master_scene
+            self.dem_primary_dir = out_dir / proc.slc_dir / proc.ref_primary_scene
 
-            suffix = proc.ref_master_scene + "_" + proc.polarisation
-            self.dem_master_slc_name = self.dem_master_dir / suffix
+            suffix = proc.ref_primary_scene + "_" + proc.polarisation
+            self.dem_primary_slc_name = self.dem_primary_dir / suffix
 
-            self.dem_master_slc = self.dem_master_dir / (suffix + ".slc")
-            self.dem_master_slc_par = self.dem_master_dir / (
+            self.dem_primary_slc = self.dem_primary_dir / (suffix + ".slc")
+            self.dem_primary_slc_par = self.dem_primary_dir / (
                 suffix + ".slc.par"
             )
 
             suffix_lks = (
-                proc.ref_master_scene
+                proc.ref_primary_scene
                 + "_"
                 + proc.polarisation
                 + "_"
                 + proc.range_looks
                 + "rlks"
             )
-            self.dem_master_mli_name = self.dem_master_dir / suffix_lks
+            self.dem_primary_mli_name = self.dem_primary_dir / suffix_lks
 
-            self.dem_master_mli = self.dem_master_dir / (
+            self.dem_primary_mli = self.dem_primary_dir / (
                 suffix_lks + ".mli"
             )
-            self.dem_master_mli_par = self.dem_master_dir / (
+            self.dem_primary_mli_par = self.dem_primary_dir / (
                 suffix_lks + ".mli.par"
             )
-            self.dem_master_gamma0 = self.dem_master_dir / (
+            self.dem_primary_gamma0 = self.dem_primary_dir / (
                 suffix_lks + ".gamma0"
             )
-            self.dem_master_gamma0_bmp = self.dem_master_dir / (
+            self.dem_primary_gamma0_bmp = self.dem_primary_dir / (
                 suffix_lks + ".gamma0.bmp"
             )
 
-            self.dem_master_gamma0_geo = self.dem_master_dir / (
+            self.dem_primary_gamma0_geo = self.dem_primary_dir / (
                 suffix_lks + "_geo.gamma0"
             )
-            self.dem_master_gamma0_geo_bmp = self.dem_master_dir / (
+            self.dem_primary_gamma0_geo_bmp = self.dem_primary_dir / (
                 suffix_lks + "_geo.gamma0.bmp"
             )
-            self.dem_master_gamma0_geo_geo = self.dem_master_dir / (
+            self.dem_primary_gamma0_geo_geo = self.dem_primary_dir / (
                 suffix_lks + "_geo.gamma0.tif"
             )
 
-            suffix_slc = "r{}_{}".format(proc.ref_master_scene, proc.polarisation)
-            self.r_dem_master_slc_name = self.dem_master_dir / suffix_slc
+            suffix_slc = "r{}_{}".format(proc.ref_primary_scene, proc.polarisation)
+            self.r_dem_primary_slc_name = self.dem_primary_dir / suffix_slc
 
-            self.r_dem_master_slc = self.dem_master_dir / (
+            self.r_dem_primary_slc = self.dem_primary_dir / (
                 suffix_slc + ".slc"
             )
-            self.r_dem_master_slc_par = self.dem_master_dir / (
+            self.r_dem_primary_slc_par = self.dem_primary_dir / (
                 suffix_slc + ".slc.par"
             )
 
             suffix_mli = "r{}_{}_{}rlks".format(
-                proc.ref_master_scene, proc.polarisation, proc.range_looks
+                proc.ref_primary_scene, proc.polarisation, proc.range_looks
             )
-            self.r_dem_master_mli_name = self.dem_master_dir / suffix_mli
+            self.r_dem_primary_mli_name = self.dem_primary_dir / suffix_mli
 
-            self.r_dem_master_mli = self.dem_master_dir / (
+            self.r_dem_primary_mli = self.dem_primary_dir / (
                 suffix_mli + ".mli"
             )
-            self.r_dem_master_mli_par = self.dem_master_dir / (
+            self.r_dem_primary_mli_par = self.dem_primary_dir / (
                 suffix_mli + ".mli.par"
             )
-            self.r_dem_master_mli_bmp = self.dem_master_dir / (
+            self.r_dem_primary_mli_bmp = self.dem_primary_dir / (
                 suffix_mli + ".mli.bmp"
             )
 
@@ -376,7 +376,7 @@ class DEMFileNames:
     __slots__ = [
         "dem",
         "dem_par",
-        "dem_master_name",
+        "dem_primary_name",
         "dem_diff",
         "rdc_dem",
         "geo_dem",
@@ -415,11 +415,11 @@ class DEMFileNames:
 
         self.dem = (out_dir / proc.gamma_dem_dir / proc.dem_name).with_suffix(".dem")
         self.dem_par = self.dem.with_suffix(".dem.par")
-        self.dem_master_name = "{}_{}_{}rlks".format(
-            proc.ref_master_scene, proc.polarisation, proc.range_looks
+        self.dem_primary_name = "{}_{}_{}rlks".format(
+            proc.ref_primary_scene, proc.polarisation, proc.range_looks
         )
-        self.dem_master_name = out_dir / proc.dem_dir / self.dem_master_name
-        dmn = self.dem_master_name
+        self.dem_primary_name = out_dir / proc.dem_dir / self.dem_primary_name
+        dmn = self.dem_primary_name
 
         self.dem_diff = dmn.parent / ("diff_" + dmn.name + ".par")
 
@@ -462,21 +462,21 @@ class DEMFileNames:
 class IfgFileNames:
     __slots__ = [
         "ifg_dir",
-        "master_dir",
-        "slave_dir",
-        "r_master_slc_name",
-        "r_master_slc",
-        "r_master_slc_par",
-        "r_master_mli_name",
-        "r_master_mli",
-        "r_master_mli_par",
-        "r_slave_slc_name",
-        "r_slave_slc",
-        "r_slave_slc_par",
-        "r_slave_mli_name",
-        "r_slave_mli",
-        "r_slave_mli_par",
-        "master_slave_name",
+        "primary_dir",
+        "secondary_dir",
+        "r_primary_slc_name",
+        "r_primary_slc",
+        "r_primary_slc_par",
+        "r_primary_mli_name",
+        "r_primary_mli",
+        "r_primary_mli_par",
+        "r_secondary_slc_name",
+        "r_secondary_slc",
+        "r_secondary_slc_par",
+        "r_secondary_mli_name",
+        "r_secondary_mli",
+        "r_secondary_mli_par",
+        "primary_secondary_name",
         "ifg_base",
         "ifg_base_init",
         "ifg_base_res",
@@ -543,7 +543,7 @@ class IfgFileNames:
         "shapefile",
     ]
 
-    def __init__(self, proc, shapefile, master, slave, out_dir = None):
+    def __init__(self, proc, shapefile, primary, secondary, out_dir = None):
         self.shapefile = shapefile
 
         if not out_dir:
@@ -551,122 +551,122 @@ class IfgFileNames:
 
         out_dir = pathlib.Path(out_dir)
 
-        self.ifg_dir = out_dir / proc.int_dir / "{}-{}".format(master, slave)
-        self.master_dir = out_dir / proc.slc_dir / master
-        self.slave_dir = out_dir / proc.slc_dir / slave
+        self.ifg_dir = out_dir / proc.int_dir / "{}-{}".format(primary, secondary)
+        self.primary_dir = out_dir / proc.slc_dir / primary
+        self.secondary_dir = out_dir / proc.slc_dir / secondary
 
-        self.r_master_slc_name = self.master_dir / "r{}_{}".format(
-            master, proc.polarisation
+        self.r_primary_slc_name = self.primary_dir / "r{}_{}".format(
+            primary, proc.polarisation
         )
 
-        self.r_master_slc = self.r_master_slc_name.with_suffix(".slc")
-        self.r_master_slc_par = self.r_master_slc_name.with_suffix(".slc.par")
+        self.r_primary_slc = self.r_primary_slc_name.with_suffix(".slc")
+        self.r_primary_slc_par = self.r_primary_slc_name.with_suffix(".slc.par")
 
-        self.r_master_mli_name = self.master_dir / "r{}_{}_{}rlks".format(
-            master, proc.polarisation, proc.range_looks
+        self.r_primary_mli_name = self.primary_dir / "r{}_{}_{}rlks".format(
+            primary, proc.polarisation, proc.range_looks
         )
-        self.r_master_mli = self.r_master_mli_name.with_suffix(".mli")
-        self.r_master_mli_par = self.r_master_mli.with_suffix(".mli.par")
+        self.r_primary_mli = self.r_primary_mli_name.with_suffix(".mli")
+        self.r_primary_mli_par = self.r_primary_mli.with_suffix(".mli.par")
 
-        self.r_slave_slc_name = self.slave_dir / "r{}_{}".format(slave, proc.polarisation)
+        self.r_secondary_slc_name = self.secondary_dir / "r{}_{}".format(secondary, proc.polarisation)
 
-        self.r_slave_slc = self.r_slave_slc_name.with_suffix(".slc")
-        self.r_slave_slc_par = self.r_slave_slc.with_suffix(".slc.par")
-        self.r_slave_mli_name = self.slave_dir / "r{}_{}_{}rlks".format(
-            slave, proc.polarisation, proc.range_looks
+        self.r_secondary_slc = self.r_secondary_slc_name.with_suffix(".slc")
+        self.r_secondary_slc_par = self.r_secondary_slc.with_suffix(".slc.par")
+        self.r_secondary_mli_name = self.secondary_dir / "r{}_{}_{}rlks".format(
+            secondary, proc.polarisation, proc.range_looks
         )
-        self.r_slave_mli = self.r_slave_mli_name.with_suffix(".mli")
-        self.r_slave_mli_par = self.r_slave_mli.with_suffix(".mli.par")
+        self.r_secondary_mli = self.r_secondary_mli_name.with_suffix(".mli")
+        self.r_secondary_mli_par = self.r_secondary_mli.with_suffix(".mli.par")
 
         # use intermed str as pathlib.Path doesn't handle filename concatenation
-        _master_slave_name = "{}-{}_{}_{}rlks".format(
-            master, slave, proc.polarisation, proc.range_looks
+        _primary_secondary_name = "{}-{}_{}_{}rlks".format(
+            primary, secondary, proc.polarisation, proc.range_looks
         )
-        self.master_slave_name = self.ifg_dir / _master_slave_name
+        self.primary_secondary_name = self.ifg_dir / _primary_secondary_name
 
-        self.ifg_base = self.ifg_dir / (_master_slave_name + "_base.par")
-        self.ifg_base_init = pathlib.Path(_master_slave_name + "_base_init.par")
-        self.ifg_base_res = pathlib.Path(_master_slave_name + "_base_res.par")
-        self.ifg_base_temp = pathlib.Path(_master_slave_name + "_base_temp.par")
-        self.ifg_bperp = pathlib.Path(_master_slave_name + "_bperp.par")
+        self.ifg_base = self.ifg_dir / (_primary_secondary_name + "_base.par")
+        self.ifg_base_init = pathlib.Path(_primary_secondary_name + "_base_init.par")
+        self.ifg_base_res = pathlib.Path(_primary_secondary_name + "_base_res.par")
+        self.ifg_base_temp = pathlib.Path(_primary_secondary_name + "_base_temp.par")
+        self.ifg_bperp = pathlib.Path(_primary_secondary_name + "_bperp.par")
 
-        self.ifg_ccp = pathlib.Path(_master_slave_name + ".ccp")
-        self.ifg_coffs = pathlib.Path(_master_slave_name + ".coffs")
-        self.ifg_coffsets = pathlib.Path(_master_slave_name + ".coffsets")
-        self.ifg_diff_par = pathlib.Path(_master_slave_name + "_diff.par")
+        self.ifg_ccp = pathlib.Path(_primary_secondary_name + ".ccp")
+        self.ifg_coffs = pathlib.Path(_primary_secondary_name + ".coffs")
+        self.ifg_coffsets = pathlib.Path(_primary_secondary_name + ".coffsets")
+        self.ifg_diff_par = pathlib.Path(_primary_secondary_name + "_diff.par")
 
-        self.ifg_filt = pathlib.Path(_master_slave_name + "_filt_int")
-        self.ifg_filt_float = pathlib.Path(_master_slave_name + "_filt_int_flt")
-        self.ifg_filt_geocode_bmp = pathlib.Path(_master_slave_name + "_filt_geo_int.bmp")
-        self.ifg_filt_geocode_out = pathlib.Path(_master_slave_name + "_filt_geo_int")
-        self.ifg_filt_geocode_png = pathlib.Path(_master_slave_name + "_filt_geo_int.png")
-        self.ifg_filt_mask = pathlib.Path(_master_slave_name + "_filt_mask_int")
-        self.ifg_filt_coh = pathlib.Path(_master_slave_name + "_filt_coh")
+        self.ifg_filt = pathlib.Path(_primary_secondary_name + "_filt_int")
+        self.ifg_filt_float = pathlib.Path(_primary_secondary_name + "_filt_int_flt")
+        self.ifg_filt_geocode_bmp = pathlib.Path(_primary_secondary_name + "_filt_geo_int.bmp")
+        self.ifg_filt_geocode_out = pathlib.Path(_primary_secondary_name + "_filt_geo_int")
+        self.ifg_filt_geocode_png = pathlib.Path(_primary_secondary_name + "_filt_geo_int.png")
+        self.ifg_filt_mask = pathlib.Path(_primary_secondary_name + "_filt_mask_int")
+        self.ifg_filt_coh = pathlib.Path(_primary_secondary_name + "_filt_coh")
         self.ifg_filt_coh_geocode_bmp = pathlib.Path(
-            _master_slave_name + "_filt_geo_coh.bmp"
+            _primary_secondary_name + "_filt_geo_coh.bmp"
         )
-        self.ifg_filt_coh_geocode_out = pathlib.Path(_master_slave_name + "_filt_geo_coh")
+        self.ifg_filt_coh_geocode_out = pathlib.Path(_primary_secondary_name + "_filt_geo_coh")
         self.ifg_filt_coh_geocode_png = pathlib.Path(
-            _master_slave_name + "_filt_geo_coh.png"
+            _primary_secondary_name + "_filt_geo_coh.png"
         )
 
-        self.ifg_flat = pathlib.Path(_master_slave_name + "_flat_int")
-        self.ifg_flat_float = pathlib.Path(_master_slave_name + "_flat_int_flt")
-        self.ifg_flat_geocode_bmp = pathlib.Path(_master_slave_name + "_flat_geo_int.bmp")
-        self.ifg_flat_geocode_out = pathlib.Path(_master_slave_name + "_flat_geo_int")
-        self.ifg_flat_geocode_png = pathlib.Path(_master_slave_name + "_flat_geo_int.png")
-        self.ifg_flat_temp = pathlib.Path(_master_slave_name + "_flat_temp_int")
-        self.ifg_flat0 = pathlib.Path(_master_slave_name + "_flat0_int")
-        self.ifg_flat1 = pathlib.Path(_master_slave_name + "_flat1_int")
-        self.ifg_flat10 = pathlib.Path(_master_slave_name + "_flat10_int")
-        self.ifg_flat_coh = pathlib.Path(_master_slave_name + "_flat_coh")
+        self.ifg_flat = pathlib.Path(_primary_secondary_name + "_flat_int")
+        self.ifg_flat_float = pathlib.Path(_primary_secondary_name + "_flat_int_flt")
+        self.ifg_flat_geocode_bmp = pathlib.Path(_primary_secondary_name + "_flat_geo_int.bmp")
+        self.ifg_flat_geocode_out = pathlib.Path(_primary_secondary_name + "_flat_geo_int")
+        self.ifg_flat_geocode_png = pathlib.Path(_primary_secondary_name + "_flat_geo_int.png")
+        self.ifg_flat_temp = pathlib.Path(_primary_secondary_name + "_flat_temp_int")
+        self.ifg_flat0 = pathlib.Path(_primary_secondary_name + "_flat0_int")
+        self.ifg_flat1 = pathlib.Path(_primary_secondary_name + "_flat1_int")
+        self.ifg_flat10 = pathlib.Path(_primary_secondary_name + "_flat10_int")
+        self.ifg_flat_coh = pathlib.Path(_primary_secondary_name + "_flat_coh")
         self.ifg_flat_coh_geocode_bmp = pathlib.Path(
-            _master_slave_name + "_flat_geo_coh.bmp"
+            _primary_secondary_name + "_flat_geo_coh.bmp"
         )
-        self.ifg_flat_coh_geocode_out = pathlib.Path(_master_slave_name + "_flat_geo_coh")
+        self.ifg_flat_coh_geocode_out = pathlib.Path(_primary_secondary_name + "_flat_geo_coh")
         self.ifg_flat_coh_geocode_png = pathlib.Path(
-            _master_slave_name + "_flat_geo_coh.png"
+            _primary_secondary_name + "_flat_geo_coh.png"
         )
-        self.ifg_flat_coh0 = pathlib.Path(_master_slave_name + "_flat0_coh")
-        self.ifg_flat_coh0_mask = pathlib.Path(_master_slave_name + "_flat0_coh_mask.ras")
-        self.ifg_flat_coh10 = pathlib.Path(_master_slave_name + "_flat10_coh")
-        self.ifg_flat_coh10_mask = pathlib.Path(_master_slave_name + "_flat10_coh_mask.ras")
+        self.ifg_flat_coh0 = pathlib.Path(_primary_secondary_name + "_flat0_coh")
+        self.ifg_flat_coh0_mask = pathlib.Path(_primary_secondary_name + "_flat0_coh_mask.ras")
+        self.ifg_flat_coh10 = pathlib.Path(_primary_secondary_name + "_flat10_coh")
+        self.ifg_flat_coh10_mask = pathlib.Path(_primary_secondary_name + "_flat10_coh_mask.ras")
 
-        self.ifg_gcp = pathlib.Path(_master_slave_name + ".gcp")
-        self.ifg_gcp_ph = pathlib.Path(_master_slave_name + ".gcp_ph")
-        self.ifg_mask = pathlib.Path(_master_slave_name + "_mask.ras")
-        self.ifg_mask_thin = pathlib.Path(_master_slave_name + "_mask_thin.ras")
-        self.ifg_off = pathlib.Path(_master_slave_name + "_off.par")
-        self.ifg_off10 = pathlib.Path(_master_slave_name + "_off10.par")
-        self.ifg_offs = pathlib.Path(_master_slave_name + ".offs")
+        self.ifg_gcp = pathlib.Path(_primary_secondary_name + ".gcp")
+        self.ifg_gcp_ph = pathlib.Path(_primary_secondary_name + ".gcp_ph")
+        self.ifg_mask = pathlib.Path(_primary_secondary_name + "_mask.ras")
+        self.ifg_mask_thin = pathlib.Path(_primary_secondary_name + "_mask_thin.ras")
+        self.ifg_off = pathlib.Path(_primary_secondary_name + "_off.par")
+        self.ifg_off10 = pathlib.Path(_primary_secondary_name + "_off10.par")
+        self.ifg_offs = pathlib.Path(_primary_secondary_name + ".offs")
 
-        self.ifg_sim_diff = pathlib.Path(_master_slave_name + "_sim_diff_unw")
-        self.ifg_sim_unw = pathlib.Path(_master_slave_name + "_sim_unw")
-        self.ifg_sim_unw0 = pathlib.Path(_master_slave_name + "_sim0_unw")
-        self.ifg_sim_unw1 = pathlib.Path(_master_slave_name + "_sim1_unw")
-        self.ifg_sim_unw_ph = pathlib.Path(_master_slave_name + "_sim_ph_unw")
-        self.ifg_unw = pathlib.Path(_master_slave_name + "_unw")
-        self.ifg_unw_geocode_2pi_bmp = pathlib.Path(_master_slave_name + "_geo_unw_2pi.bmp")
-        self.ifg_unw_geocode_6pi_bmp = pathlib.Path(_master_slave_name + "_geo_unw_6pi.bmp")
-        self.ifg_unw_geocode_out = pathlib.Path(_master_slave_name + "_geo_unw")
-        self.ifg_unw_geocode_2pi_png = pathlib.Path(_master_slave_name + "_geo_unw_2pi.png")
-        self.ifg_unw_geocode_6pi_png = pathlib.Path(_master_slave_name + "_geo_unw_6pi.png")
-        self.ifg_unw_mask = pathlib.Path(_master_slave_name + "_mask_unw")
-        self.ifg_unw_model = pathlib.Path(_master_slave_name + "_model_unw")
-        self.ifg_unw_thin = pathlib.Path(_master_slave_name + "_thin_unw")
+        self.ifg_sim_diff = pathlib.Path(_primary_secondary_name + "_sim_diff_unw")
+        self.ifg_sim_unw = pathlib.Path(_primary_secondary_name + "_sim_unw")
+        self.ifg_sim_unw0 = pathlib.Path(_primary_secondary_name + "_sim0_unw")
+        self.ifg_sim_unw1 = pathlib.Path(_primary_secondary_name + "_sim1_unw")
+        self.ifg_sim_unw_ph = pathlib.Path(_primary_secondary_name + "_sim_ph_unw")
+        self.ifg_unw = pathlib.Path(_primary_secondary_name + "_unw")
+        self.ifg_unw_geocode_2pi_bmp = pathlib.Path(_primary_secondary_name + "_geo_unw_2pi.bmp")
+        self.ifg_unw_geocode_6pi_bmp = pathlib.Path(_primary_secondary_name + "_geo_unw_6pi.bmp")
+        self.ifg_unw_geocode_out = pathlib.Path(_primary_secondary_name + "_geo_unw")
+        self.ifg_unw_geocode_2pi_png = pathlib.Path(_primary_secondary_name + "_geo_unw_2pi.png")
+        self.ifg_unw_geocode_6pi_png = pathlib.Path(_primary_secondary_name + "_geo_unw_6pi.png")
+        self.ifg_unw_mask = pathlib.Path(_primary_secondary_name + "_mask_unw")
+        self.ifg_unw_model = pathlib.Path(_primary_secondary_name + "_model_unw")
+        self.ifg_unw_thin = pathlib.Path(_primary_secondary_name + "_thin_unw")
 
-        self.ifg_unw_geocode_out_tiff = pathlib.Path(_master_slave_name + "_geo_unw.tif")
+        self.ifg_unw_geocode_out_tiff = pathlib.Path(_primary_secondary_name + "_geo_unw.tif")
         self.ifg_flat_geocode_out_tiff = pathlib.Path(
-            _master_slave_name + "_flat_geo_int.tif"
+            _primary_secondary_name + "_flat_geo_int.tif"
         )
         self.ifg_filt_geocode_out_tiff = pathlib.Path(
-            _master_slave_name + "_filt_geo_int.tif"
+            _primary_secondary_name + "_filt_geo_int.tif"
         )
         self.ifg_flat_coh_geocode_out_tiff = pathlib.Path(
-            _master_slave_name + "_flat_geo_coh.tif"
+            _primary_secondary_name + "_flat_geo_coh.tif"
         )
         self.ifg_filt_coh_geocode_out_tiff = pathlib.Path(
-            _master_slave_name + "_filt_geo_coh.tif"
+            _primary_secondary_name + "_filt_geo_coh.tif"
         )
 
 
@@ -676,6 +676,6 @@ class Config:
     def __init__(self):
         self.proc_variables = None
         self.final_file_loc = None
-        self.dem_master_names = None
+        self.dem_primary_names = None
         self.dem_file_names = None
         self.ifg_file_names = None

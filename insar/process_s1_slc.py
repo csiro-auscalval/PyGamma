@@ -39,7 +39,7 @@ class SlcProcess:
         polarization: str,
         scene_date: str,
         burst_data: Union[Path, str],
-        ref_master_tab: Optional[Union[Path, str]] = None,
+        ref_primary_tab: Optional[Union[Path, str]] = None,
     ) -> None:
         """
         A full SLC creation for Sentinel-1 IW swath data.
@@ -60,8 +60,8 @@ class SlcProcess:
         :param burst_data:
             A full path to a csv file containing burst information needed
             to subset to form full SLC.
-        param ref_master_tab:
-            An Optional full path to a reference master slc tab file.
+        param ref_primary_tab:
+            An Optional full path to a reference primary slc tab file.
         """
 
         self.raw_data_dir = Path(raw_data_dir)
@@ -73,8 +73,8 @@ class SlcProcess:
         self.scene_date = scene_date
         self.burst_data = burst_data
 
-        if ref_master_tab is not None:
-            self.ref_master_tab = Path(ref_master_tab)
+        if ref_primary_tab is not None:
+            self.ref_primary_tab = Path(ref_primary_tab)
 
         self.raw_files_patterns = {
             "data": "*measurement/s1*-iw{swath}-slc-{polarization}*.tiff",
@@ -98,7 +98,7 @@ class SlcProcess:
         self.orbit_file = None
         self.temp_slc = []
 
-        self.log = _LOG.bind(task="S1 SLC processing", scene_date=scene_date, ref_master_tab=ref_master_tab)
+        self.log = _LOG.bind(task="S1 SLC processing", scene_date=scene_date, ref_primary_tab=ref_primary_tab)
 
     def swath_tab_names(self, swath: int, pre_fix: str,) -> namedtuple:
         """Formats slc swath tab file names using swath and pre_fix."""
@@ -638,7 +638,7 @@ class SlcProcess:
                     for row in swath_df.itertuples():
                         acq_id = Path(row.url).stem
 
-                        missing_bursts = row.missing_master_bursts.strip("][")
+                        missing_bursts = row.missing_primary_bursts.strip("][")
                         if missing_bursts:
                             complete_frame = False
 
@@ -690,15 +690,15 @@ class SlcProcess:
                     shutil.move(tmpdir.joinpath(item), item)
 
             if not complete_frame:
-                self.log.info("Frame incomplete, resizing", slc_tab=self.slc_tab, ref_master_tab=self.ref_master_tab)
+                self.log.info("Frame incomplete, resizing", slc_tab=self.slc_tab, ref_primary_tab=self.ref_primary_tab)
 
-                if self.ref_master_tab is None:
+                if self.ref_primary_tab is None:
                     err = (
-                        f" ref_master_tab is None, needs ref_master_tab "
+                        f" ref_primary_tab is None, needs ref_primary_tab "
                         f"to resize incomplete frame for scene {self.scene_date}"
                     )
                     raise ValueError(err)
-                self.frame_resize(self.ref_master_tab, sub_slc_in)
+                self.frame_resize(self.ref_primary_tab, sub_slc_in)
 
             else:
                 self.log.info("Frame complete, no need to resize", slc_tab=self.slc_tab)

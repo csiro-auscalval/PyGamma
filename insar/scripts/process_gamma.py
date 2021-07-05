@@ -91,7 +91,7 @@ def on_success(task):
     )
 
 
-# TODO: This should take a master polarisation to filter on
+# TODO: This should take a primary polarisation to filter on
 def get_scenes(burst_data_csv):
     df = pd.read_csv(burst_data_csv)
     scene_dates = [_dt for _dt in sorted(df.date.unique())]
@@ -101,7 +101,7 @@ def get_scenes(burst_data_csv):
     for _date in scene_dates:
         df_subset = df[df["date"] == _date]
         polarizations = df_subset.polarization.unique()
-        # TODO: This filter should be to master polarisation
+        # TODO: This filter should be to primary polarisation
         # (which is not necessarily polarizations[0])
         df_subset_new = df_subset[df_subset["polarization"] == polarizations[0]]
 
@@ -110,7 +110,7 @@ def get_scenes(burst_data_csv):
             swath_df = df_subset_new[df_subset_new.swath == "IW{}".format(swath)]
             swath_df = swath_df.sort_values(by="acquistion_datetime", ascending=True)
             for row in swath_df.itertuples():
-                missing_bursts = row.missing_master_bursts.strip("][")
+                missing_bursts = row.missing_primary_bursts.strip("][")
                 if missing_bursts:
                     complete_frame = False
 
@@ -126,29 +126,29 @@ def get_scenes(burst_data_csv):
 
 
 def find_scenes_in_range(
-    master_dt, date_list, thres_days: int, include_closest: bool = True
+    primary_dt, date_list, thres_days: int, include_closest: bool = True
 ):
     """
-    Creates a list of frame dates that within range of a master date.
+    Creates a list of frame dates that within range of a primary date.
 
-    :param master_dt:
-        The master date in which we are searching for scenes relative to.
+    :param primary_dt:
+        The primary date in which we are searching for scenes relative to.
     :param date_list:
         The list which we're searching for dates in.
     :param thres_days:
         The number of days threshold in which scenes must be within relative to
-        the master date.
+        the primary date.
     :param include_closest:
-        When true - if there exist slc frames on either side of the master date, which are NOT
+        When true - if there exist slc frames on either side of the primary date, which are NOT
         within the threshold window then the closest date from each side will be
         used instead of no scene at all.
     """
 
     # We do everything with datetime.date's (can't mix and match date vs. datetime)
-    if isinstance(master_dt, datetime.datetime):
-        master_dt = master_dt.date()
-    elif not isinstance(master_dt, datetime.date):
-        master_dt = datetime.date(master_dt)
+    if isinstance(primary_dt, datetime.datetime):
+        primary_dt = primary_dt.date()
+    elif not isinstance(primary_dt, datetime.date):
+        primary_dt = datetime.date(primary_dt)
 
     thresh_dt = datetime.timedelta(days=thres_days)
     tree_lhs = []  # This was the 'lower' side in the bash...
@@ -161,12 +161,12 @@ def find_scenes_in_range(
     for dt in date_list:
         if isinstance(dt, datetime.datetime):
             dt = dt.date()
-        elif not isinstance(master_dt, datetime.date):
+        elif not isinstance(primary_dt, datetime.date):
             dt = datetime.date(dt)
 
-        dt_diff = dt - master_dt
+        dt_diff = dt - primary_dt
 
-        # Skip scenes that match the master date
+        # Skip scenes that match the primary date
         if dt_diff.days == 0:
             continue
 
@@ -193,38 +193,38 @@ def find_scenes_in_range(
     if include_closest:
         if len(tree_lhs) == 0 and closest_lhs is not None:
             _LOG.info(
-                f"Date difference to closest slave greater than {thres_days} days, using closest slave only: {closest_lhs}"
+                f"Date difference to closest secondary greater than {thres_days} days, using closest secondary only: {closest_lhs}"
             )
             tree_lhs = [closest_lhs]
 
         if len(tree_rhs) == 0 and closest_rhs is not None:
             _LOG.info(
-                f"Date difference to closest slave greater than {thres_days} days, using closest slave only: {closest_rhs}"
+                f"Date difference to closest secondary greater than {thres_days} days, using closest secondary only: {closest_rhs}"
             )
             tree_rhs = [closest_rhs]
 
     return tree_lhs, tree_rhs
 
 
-def create_slave_coreg_tree(master_dt, date_list, thres_days=63):
+def create_secondary_coreg_tree(primary_dt, date_list, thres_days=63):
     """
     Creates a set of co-registration lists containing subsets of the prior set, to create a tree-like co-registration structure.
 
     Notes from the bash on :thres_days: parameter:
         #thres_days=93 # three months, S1A/B repeats 84, 90, 96, ... (90 still ok, 96 too long)
-        # -> some slaves with zero averages for azimuth offset refinement
+        # -> some secondaries with zero averages for azimuth offset refinement
         thres_days=63 # three months, S1A/B repeats 54, 60, 66, ... (60 still ok, 66 too long)
          -> 63 days seems to be a good compromise between runtime and coregistration success
         #thres_days=51 # maximum 7 weeks, S1A/B repeats 42, 48, 54, ... (48 still ok, 54 too long)
         # -> longer runtime compared to 63, similar number of badly coregistered scenes
-        # do slaves with time difference less than thres_days
+        # do secondaries with time difference less than thres_days
     """
 
     # We do everything with datetime.date's (can't mix and match date vs. datetime)
-    if isinstance(master_dt, datetime.datetime):
-        master_dt = master_dt.date()
-    elif not isinstance(master_dt, datetime.date):
-        master_dt = datetime.date(master_dt)
+    if isinstance(primary_dt, datetime.datetime):
+        primary_dt = primary_dt.date()
+    elif not isinstance(primary_dt, datetime.date):
+        primary_dt = datetime.date(primary_dt)
 
     lists = []
 
@@ -234,20 +234,20 @@ def create_slave_coreg_tree(master_dt, date_list, thres_days=63):
     # I've opted for rhs vs. lhs because it's more obvious, newer scenes are to the right
     # in sequence as they're greater than, older scenes are to the left / less than.
 
-    # Initial Master<->Slave coreg list
-    lhs, rhs = find_scenes_in_range(master_dt, date_list, thres_days)
+    # Initial Primary<->Secondary coreg list
+    lhs, rhs = find_scenes_in_range(primary_dt, date_list, thres_days)
     last_list = lhs + rhs
 
     while len(last_list) > 0:
         lists.append(last_list)
 
-        if last_list[0] < master_dt:
+        if last_list[0] < primary_dt:
             lhs, rhs = find_scenes_in_range(last_list[0], date_list, thres_days)
             sub_list1 = lhs
         else:
             sub_list1 = []
 
-        if last_list[-1] > master_dt:
+        if last_list[-1] > primary_dt:
             lhs, rhs = find_scenes_in_range(last_list[-1], date_list, thres_days)
             sub_list2 = rhs
         else:
@@ -258,7 +258,7 @@ def create_slave_coreg_tree(master_dt, date_list, thres_days=63):
     return lists
 
 
-def calculate_master(scenes_list) -> datetime:
+def calculate_primary(scenes_list) -> datetime:
     slc_dates = [
         datetime.datetime.strptime(scene.strip(), __DATE_FMT__).date()
         for scene in scenes_list
@@ -487,7 +487,7 @@ class InitialSetup(luigi.Task):
 
         # Write reference scene before we start processing
         formatted_scene_dates = set([str(dt).replace("-", "") for dt in slc_inputs_df["date"]])
-        ref_scene_date = calculate_master(formatted_scene_dates)
+        ref_scene_date = calculate_primary(formatted_scene_dates)
         log.info("Automatically computed primary reference scene date", ref_scene_date=ref_scene_date)
 
         with open(outdir / 'lists' / 'primary_ref_scene', 'w') as ref_scene_file:
@@ -501,8 +501,8 @@ class InitialSetup(luigi.Task):
             out_fid.write("")
 
         # Update .proc file "auto" reference scene
-        if proc_config.ref_master_scene.lower() == "auto":
-            proc_config.ref_master_scene = ref_scene_date.strftime(__DATE_FMT__)
+        if proc_config.ref_primary_scene.lower() == "auto":
+            proc_config.ref_primary_scene = ref_scene_date.strftime(__DATE_FMT__)
 
             with open(self.proc_file, "w") as proc_file_obj:
                 proc_config.save(proc_file_obj)
@@ -598,7 +598,7 @@ class ProcessSlc(luigi.Task):
     burst_data = luigi.Parameter()
     slc_dir = luigi.Parameter()
     workdir = luigi.Parameter()
-    ref_master_tab = luigi.Parameter(default=None)
+    ref_primary_tab = luigi.Parameter(default=None)
 
     def output(self):
         return luigi.LocalTarget(
@@ -619,7 +619,7 @@ class ProcessSlc(luigi.Task):
             str(self.polarization),
             str(self.scene_date),
             str(self.burst_data),
-            self.ref_master_tab,
+            self.ref_primary_tab,
         )
 
         slc_job.main()
@@ -656,9 +656,9 @@ class CreateFullSlc(luigi.Task):
 
         # first create slc for one complete frame which will be a reference frame
         # to resize the incomplete frames.
-        resize_master_tab = None
-        resize_master_scene = None
-        resize_master_pol = None
+        resize_primary_tab = None
+        resize_primary_scene = None
+        resize_primary_pol = None
         for _dt, status_frame, _pols in slc_frames:
             slc_scene = _dt.strftime(__DATE_FMT__)
             for _pol in _pols:
@@ -672,23 +672,23 @@ class CreateFullSlc(luigi.Task):
                         workdir=self.workdir,
                     )
                     yield resize_task
-                    resize_master_tab = Path(slc_dir).joinpath(
+                    resize_primary_tab = Path(slc_dir).joinpath(
                         slc_scene, f"{slc_scene}_{_pol.upper()}_tab"
                     )
                     break
-            if resize_master_tab is not None:
-                if resize_master_tab.exists():
-                    resize_master_scene = slc_scene
-                    resize_master_pol = _pol
+            if resize_primary_tab is not None:
+                if resize_primary_tab.exists():
+                    resize_primary_scene = slc_scene
+                    resize_primary_pol = _pol
                     break
 
         # need at least one complete frame to enable further processing of the stacks
         # The frame definition were generated using all sentinel-1 acquisition dataset, thus
         # only processing a temporal subset might encounter stacks with all scene's frame
-        # not forming a complete master frame.
+        # not forming a complete primary frame.
         # TODO: Generate a new reference frame using scene that has least number of bursts
         # (as we can't subset smaller scenes to larger)
-        if resize_master_tab is None:
+        if resize_primary_tab is None:
             raise ValueError(
                 f"Not a  single complete frames were available {self.track}_{self.frame}"
             )
@@ -699,7 +699,7 @@ class CreateFullSlc(luigi.Task):
             for _pol in _pols:
                 if _pol not in self.polarization:
                     continue
-                if slc_scene == resize_master_scene and _pol == resize_master_pol:
+                if slc_scene == resize_primary_scene and _pol == resize_primary_pol:
                     continue
                 slc_tasks.append(
                     ProcessSlc(
@@ -709,7 +709,7 @@ class CreateFullSlc(luigi.Task):
                         burst_data=self.burst_data_csv,
                         slc_dir=slc_dir,
                         workdir=self.workdir,
-                        ref_master_tab=resize_master_tab,
+                        ref_primary_tab=resize_primary_tab,
                     )
                 )
         yield slc_tasks
@@ -753,7 +753,7 @@ class ProcessSlcMosaic(luigi.Task):
     slc_dir = luigi.Parameter()
     outdir = luigi.Parameter()
     workdir = luigi.Parameter()
-    ref_master_tab = luigi.Parameter(default=None)
+    ref_primary_tab = luigi.Parameter(default=None)
     rlks = luigi.IntParameter()
     alks = luigi.IntParameter()
 
@@ -774,7 +774,7 @@ class ProcessSlcMosaic(luigi.Task):
             str(self.polarization),
             str(self.scene_date),
             str(self.burst_data),
-            self.ref_master_tab,
+            self.ref_primary_tab,
         )
 
         slc_job.main_mosaic(int(self.rlks), int(self.alks))
@@ -830,9 +830,9 @@ class CreateSlcMosaic(luigi.Task):
 
         # first create slc for one complete frame which will be a reference frame
         # to resize the incomplete frames.
-        resize_master_tab = None
-        resize_master_scene = None
-        resize_master_pol = None
+        resize_primary_tab = None
+        resize_primary_scene = None
+        resize_primary_pol = None
         for _dt, status_frame, _pols in slc_frames:
             slc_scene = _dt.strftime(__DATE_FMT__)
             for _pol in _pols:
@@ -849,23 +849,23 @@ class CreateSlcMosaic(luigi.Task):
                         alks=alks
                     )
                     yield resize_task
-                    resize_master_tab = Path(slc_dir).joinpath(
+                    resize_primary_tab = Path(slc_dir).joinpath(
                         slc_scene, f"{slc_scene}_{_pol.upper()}_tab"
                     )
                     break
-            if resize_master_tab is not None:
-                if resize_master_tab.exists():
-                    resize_master_scene = slc_scene
-                    resize_master_pol = _pol
+            if resize_primary_tab is not None:
+                if resize_primary_tab.exists():
+                    resize_primary_scene = slc_scene
+                    resize_primary_pol = _pol
                     break
 
         # need at least one complete frame to enable further processing of the stacks
         # The frame definition were generated using all sentinel-1 acquisition dataset, thus
         # only processing a temporal subset might encounter stacks with all scene's frame
-        # not forming a complete master frame.
+        # not forming a complete primary frame.
         # TODO implement a method to resize a stacks to new frames definition
         # TODO Generate a new reference frame using scene that has least number of missing burst
-        if resize_master_tab is None:
+        if resize_primary_tab is None:
             raise ValueError(
                 f"Not a  single complete frames were available {self.track}_{self.frame}"
             )
@@ -876,7 +876,7 @@ class CreateSlcMosaic(luigi.Task):
             for _pol in _pols:
                 if _pol not in self.polarization:
                     continue
-                if slc_scene == resize_master_scene and _pol == resize_master_pol:
+                if slc_scene == resize_primary_scene and _pol == resize_primary_pol:
                     continue
                 slc_tasks.append(
                     ProcessSlcMosaic(
@@ -887,7 +887,7 @@ class CreateSlcMosaic(luigi.Task):
                         slc_dir=slc_dir,
                         outdir=self.outdir,
                         workdir=self.workdir,
-                        ref_master_tab=resize_master_tab,
+                        ref_primary_tab=resize_primary_tab,
                         rlks=rlks,
                         alks=alks
                     )
@@ -925,7 +925,7 @@ class ReprocessSingleSLC(luigi.Task):
     resorb_path = luigi.Parameter()
 
     scene_date = luigi.Parameter()
-    ref_master_tab = luigi.Parameter()
+    ref_primary_tab = luigi.Parameter()
 
     outdir = luigi.Parameter()
     workdir = luigi.Parameter()
@@ -1029,7 +1029,7 @@ class ReprocessSingleSLC(luigi.Task):
                 burst_data=self.burst_data_csv,
                 slc_dir=slc_dir,
                 workdir=self.workdir,
-                ref_master_tab=self.ref_master_tab,
+                ref_primary_tab=self.ref_primary_tab,
             )
 
             if slc_task.output().exists():
@@ -1050,7 +1050,7 @@ class ReprocessSingleSLC(luigi.Task):
                 slc_dir=slc_dir,
                 outdir=self.outdir,
                 workdir=self.workdir,
-                ref_master_tab=self.ref_master_tab,
+                ref_primary_tab=self.ref_primary_tab,
                 rlks=rlks,
                 alks=alks,
             )
@@ -1179,7 +1179,7 @@ class CalcInitialBaseline(luigi.Task):
     """
 
     proc_file = luigi.Parameter()
-    master_scene_polarization = luigi.Parameter(default="VV")
+    primary_scene_polarization = luigi.Parameter(default="VV")
 
     def output(self):
         return luigi.LocalTarget(
@@ -1200,7 +1200,7 @@ class CalcInitialBaseline(luigi.Task):
 
         slc_frames = get_scenes(self.burst_data_csv)
         slc_par_files = []
-        polarizations = [self.master_scene_polarization]
+        polarizations = [self.primary_scene_polarization]
 
         # Explicitly NOT supporting cross-polarisation IFGs, for now
         enable_cross_pol_ifgs = False
@@ -1208,12 +1208,12 @@ class CalcInitialBaseline(luigi.Task):
         for _dt, _, _pols in slc_frames:
             slc_scene = _dt.strftime(__DATE_FMT__)
 
-            if self.master_scene_polarization in _pols:
+            if self.primary_scene_polarization in _pols:
                 slc_par = pjoin(
                     self.outdir,
                     __SLC__,
                     slc_scene,
-                    "{}_{}.slc.par".format(slc_scene, self.master_scene_polarization),
+                    "{}_{}.slc.par".format(slc_scene, self.primary_scene_polarization),
                 )
             elif not enable_cross_pol_ifgs:
                 continue
@@ -1234,7 +1234,7 @@ class CalcInitialBaseline(luigi.Task):
         baseline = BaselineProcess(
             slc_par_files,
             list(set(polarizations)),
-            master_scene=read_primary_date(outdir),
+            primary_scene=read_primary_date(outdir),
             outdir=outdir,
         )
 
@@ -1248,25 +1248,25 @@ class CalcInitialBaseline(luigi.Task):
 
 
 @requires(CreateGammaDem, CalcInitialBaseline)
-class CoregisterDemMaster(luigi.Task):
+class CoregisterDemPrimary(luigi.Task):
     """
-    Runs co-registration of DEM and master scene
+    Runs co-registration of DEM and primary scene
     """
 
     multi_look = luigi.IntParameter()
-    master_scene_polarization = luigi.Parameter(default="VV")
-    master_scene = luigi.OptionalParameter(default=None)
+    primary_scene_polarization = luigi.Parameter(default="VV")
+    primary_scene = luigi.OptionalParameter(default=None)
 
     def output(self):
         return luigi.LocalTarget(
             Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_coregisterdemmaster_status_logs.out"
+                f"{self.track}_{self.frame}_coregisterdemprimary_status_logs.out"
             )
         )
 
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
-        log.info("Beginning DEM master coregistration")
+        log.info("Beginning DEM primary coregistration")
 
         outdir = Path(self.outdir)
 
@@ -1274,18 +1274,18 @@ class CoregisterDemMaster(luigi.Task):
         ml_file = f"{self.track}_{self.frame}_createmultilook_status_logs.out"
         rlks, alks = read_rlks_alks(Path(self.workdir) / ml_file)
 
-        master_scene = read_primary_date(outdir)
+        primary_scene = read_primary_date(outdir)
 
-        master_slc = pjoin(
+        primary_slc = pjoin(
             outdir,
             __SLC__,
-            master_scene.strftime(__DATE_FMT__),
+            primary_scene.strftime(__DATE_FMT__),
             "{}_{}.slc".format(
-                master_scene.strftime(__DATE_FMT__), self.master_scene_polarization
+                primary_scene.strftime(__DATE_FMT__), self.primary_scene_polarization
             ),
         )
 
-        master_slc_par = Path(master_slc).with_suffix(".slc.par")
+        primary_slc_par = Path(primary_slc).with_suffix(".slc.par")
         dem = (
             outdir
             .joinpath(__DEM_GAMMA__)
@@ -1301,24 +1301,24 @@ class CoregisterDemMaster(luigi.Task):
             alks=alks,
             shapefile=str(self.shape_file),
             dem=dem,
-            slc=Path(master_slc),
+            slc=Path(primary_slc),
             dem_par=dem_par,
-            slc_par=master_slc_par,
+            slc_par=primary_slc_par,
             dem_outdir=dem_outdir,
             multi_look=self.multi_look,
         )
 
         coreg.main()
 
-        log.info("DEM master coregistration complete")
+        log.info("DEM primary coregistration complete")
 
         with self.output().open("w") as out_fid:
             out_fid.write("")
 
 
-class CoregisterSlave(luigi.Task):
+class CoregisterSecondary(luigi.Task):
     """
-    Runs the master-slave co-registration task, followed by backscatter.
+    Runs the primary-secondary co-registration task, followed by backscatter.
 
     Optionally, just runs backscattter if provided with a coreg_offset and
     coreg_lut parameter to use.
@@ -1329,14 +1329,14 @@ class CoregisterSlave(luigi.Task):
 
     proc_file = luigi.Parameter()
     list_idx = luigi.Parameter()
-    slc_master = luigi.Parameter()
-    slc_slave = luigi.Parameter()
-    slave_mli = luigi.Parameter()
+    slc_primary = luigi.Parameter()
+    slc_secondary = luigi.Parameter()
+    secondary_mli = luigi.Parameter()
     range_looks = luigi.IntParameter()
     azimuth_looks = luigi.IntParameter()
     ellip_pix_sigma0 = luigi.Parameter()
     dem_pix_gamma0 = luigi.Parameter()
-    r_dem_master_mli = luigi.Parameter()
+    r_dem_primary_mli = luigi.Parameter()
     rdc_dem = luigi.Parameter()
     geo_dem_par = luigi.Parameter()
     dem_lt_fine = luigi.Parameter()
@@ -1344,7 +1344,7 @@ class CoregisterSlave(luigi.Task):
     workdir = luigi.Parameter()
 
     # External coregistration data to re-use instead of
-    # computing our own (for non-master polarisations)
+    # computing our own (for non-primary polarisations)
     #
     # This is a hack until we properly separate backscatter
     # from coregistration.
@@ -1355,7 +1355,7 @@ class CoregisterSlave(luigi.Task):
     def output(self):
         return luigi.LocalTarget(
             Path(self.workdir).joinpath(
-                f"{Path(str(self.slc_master)).stem}_{Path(str(self.slc_slave)).stem}_coreg_logs.out"
+                f"{Path(str(self.slc_primary)).stem}_{Path(str(self.slc_secondary)).stem}_coreg_logs.out"
             )
         )
 
@@ -1366,38 +1366,38 @@ class CoregisterSlave(luigi.Task):
         coreg = CoregisterSlc(
             proc=proc_config,
             list_idx=str(self.list_idx),
-            slc_master=Path(str(self.slc_master)),
-            slc_slave=Path(str(self.slc_slave)),
-            slave_mli=Path(str(self.slave_mli)),
+            slc_primary=Path(str(self.slc_primary)),
+            slc_secondary=Path(str(self.slc_secondary)),
+            secondary_mli=Path(str(self.secondary_mli)),
             range_looks=int(str(self.range_looks)),
             azimuth_looks=int(str(self.azimuth_looks)),
             ellip_pix_sigma0=Path(str(self.ellip_pix_sigma0)),
             dem_pix_gamma0=Path(str(self.dem_pix_gamma0)),
-            r_dem_master_mli=Path(str(self.r_dem_master_mli)),
+            r_dem_primary_mli=Path(str(self.r_dem_primary_mli)),
             rdc_dem=Path(str(self.rdc_dem)),
             geo_dem_par=Path(str(self.geo_dem_par)),
             dem_lt_fine=Path(str(self.dem_lt_fine)),
         )
 
-        return (coreg.slave_lt, coreg.slave_off)
+        return (coreg.secondary_lt, coreg.secondary_off)
 
     def run(self):
-        slave_date, slave_pol = Path(self.slc_slave).stem.split('_')
-        master_date, master_pol = Path(self.slc_master).stem.split('_')
+        secondary_date, secondary_pol = Path(self.slc_secondary).stem.split('_')
+        primary_date, primary_pol = Path(self.slc_primary).stem.split('_')
 
         is_actually_backscatter = self.just_backscatter
 
         # coreg between differently polarised data makes no sense
         if not is_actually_backscatter:
-            assert(slave_pol == master_pol)
+            assert(secondary_pol == primary_pol)
 
         log = STATUS_LOGGER.bind(
             outdir=self.outdir,
-            polarization=slave_pol,
-            slave_date=slave_date,
-            slc_slave=self.slc_slave,
-            master_date=master_date,
-            slc_master=self.slc_master
+            polarization=secondary_pol,
+            secondary_date=secondary_date,
+            slc_secondary=self.slc_secondary,
+            primary_date=primary_date,
+            slc_primary=self.slc_primary
         )
         log.info("Beginning SLC coregistration")
 
@@ -1411,17 +1411,17 @@ class CoregisterSlave(luigi.Task):
         # This is to allow processing to fail without stopping the Luigi pipeline, and thus
         # allows as many scenes as possible to fully process even if some scenes fail.
         try:
-            coreg_slave = CoregisterSlc(
+            coreg_secondary = CoregisterSlc(
                 proc=proc_config,
                 list_idx=str(self.list_idx),
-                slc_master=Path(str(self.slc_master)),
-                slc_slave=Path(str(self.slc_slave)),
-                slave_mli=Path(str(self.slave_mli)),
+                slc_primary=Path(str(self.slc_primary)),
+                slc_secondary=Path(str(self.slc_secondary)),
+                secondary_mli=Path(str(self.secondary_mli)),
                 range_looks=int(str(self.range_looks)),
                 azimuth_looks=int(str(self.azimuth_looks)),
                 ellip_pix_sigma0=Path(str(self.ellip_pix_sigma0)),
                 dem_pix_gamma0=Path(str(self.dem_pix_gamma0)),
-                r_dem_master_mli=Path(str(self.r_dem_master_mli)),
+                r_dem_primary_mli=Path(str(self.r_dem_primary_mli)),
                 rdc_dem=Path(str(self.rdc_dem)),
                 geo_dem_par=Path(str(self.geo_dem_par)),
                 dem_lt_fine=Path(str(self.dem_lt_fine)),
@@ -1430,16 +1430,16 @@ class CoregisterSlave(luigi.Task):
             if is_actually_backscatter:
                 # Backscatter w/ LUT for resampling
                 if self.coreg_offset and self.coreg_lut:
-                    coreg_slave.main_backscatter(
+                    coreg_secondary.main_backscatter(
                         Path(self.coreg_offset),
                         Path(self.coreg_lut)
                     )
                 # Backscatter w/o resampling (eg: for other polarisations in the reference date)
                 else:
-                    coreg_slave.main_backscatter(None, None)
+                    coreg_secondary.main_backscatter(None, None)
             else:
                 # Full coregistration (currently also includes backscatter)
-                coreg_slave.main()
+                coreg_secondary.main()
 
             log.info("SLC coregistration complete")
         except Exception as e:
@@ -1453,30 +1453,30 @@ class CoregisterSlave(luigi.Task):
                 f.write("FAILED" if failed else "")
 
 
-@requires(CoregisterDemMaster)
-class CreateCoregisterSlaves(luigi.Task):
+@requires(CoregisterDemPrimary)
+class CreateCoregisterSecondaries(luigi.Task):
     """
     Runs the co-registration tasks.
 
-    The first batch of tasks produced is the master-slave coregistration, followed
-    up by each sub-tree of slave-slave coregistrations in the coregistration network.
+    The first batch of tasks produced is the primary-secondary coregistration, followed
+    up by each sub-tree of secondary-secondary coregistrations in the coregistration network.
     """
 
     proc_file = luigi.Parameter()
-    master_scene_polarization = luigi.Parameter(default="VV")
-    master_scene = luigi.OptionalParameter(default=None)
+    primary_scene_polarization = luigi.Parameter(default="VV")
+    primary_scene = luigi.OptionalParameter(default=None)
 
     def output(self):
         return luigi.LocalTarget(
             Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_coregister_slaves_status_logs.out"
+                f"{self.track}_{self.frame}_coregister_secondarys_status_logs.out"
             )
         )
 
     def trigger_resume(self, reprocess_dates, reprocess_failed_scenes):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
 
-        # Remove our output to re-trigger this job, which will trigger CoregisterSlave
+        # Remove our output to re-trigger this job, which will trigger CoregisterSecondary
         # for all dates, however only those missing outputs will run.
         output = self.output()
 
@@ -1493,22 +1493,22 @@ class CreateCoregisterSlaves(luigi.Task):
 
                 if len(contents) > 0 and "FAILED" in contents[0]:
                     parts = status_out.name.split("_")
-                    master_date, slave_date = parts[0], parts[2]
+                    primary_date, secondary_date = parts[0], parts[2]
 
-                    triggered_pairs.append((master_date, slave_date))
+                    triggered_pairs.append((primary_date, secondary_date))
 
-                    log.info(f"Resuming SLC coregistration ({master_date}, {slave_date}) because of FAILED processing")
+                    log.info(f"Resuming SLC coregistration ({primary_date}, {secondary_date}) because of FAILED processing")
                     status_out.unlink()
 
         # Remove completion status files for any we're asked to
         for date in reprocess_dates:
             for status_out in Path(self.workdir).glob(f"*_*_{date}_*_coreg_logs.out"):
                 parts = status_out.name.split("_")
-                master_date, slave_date = parts[0], parts[2]
+                primary_date, secondary_date = parts[0], parts[2]
 
-                triggered_pairs.append((master_date, slave_date))
+                triggered_pairs.append((primary_date, secondary_date))
 
-                log.info(f"Resuming SLC coregistration ({master_date}, {slave_date}) because of dependency")
+                log.info(f"Resuming SLC coregistration ({primary_date}, {secondary_date}) because of dependency")
                 status_out.unlink()
 
         return triggered_pairs
@@ -1523,7 +1523,7 @@ class CreateCoregisterSlaves(luigi.Task):
 
         slc_frames = get_scenes(self.burst_data_csv)
 
-        master_scene = read_primary_date(outdir)
+        primary_scene = read_primary_date(outdir)
 
         # get range and azimuth looked values
         ml_file = Path(self.workdir).joinpath(
@@ -1531,32 +1531,32 @@ class CreateCoregisterSlaves(luigi.Task):
         )
         rlks, alks = read_rlks_alks(ml_file)
 
-        master_scene = master_scene.strftime(__DATE_FMT__)
-        master_slc_prefix = (
-            f"{master_scene}_{str(self.master_scene_polarization).upper()}"
+        primary_scene = primary_scene.strftime(__DATE_FMT__)
+        primary_slc_prefix = (
+            f"{primary_scene}_{str(self.primary_scene_polarization).upper()}"
         )
-        master_slc_rlks_prefix = f"{master_slc_prefix}_{rlks}rlks"
-        r_dem_master_slc_prefix = f"r{master_slc_prefix}"
+        primary_slc_rlks_prefix = f"{primary_slc_prefix}_{rlks}rlks"
+        r_dem_primary_slc_prefix = f"r{primary_slc_prefix}"
 
         dem_dir = outdir / __DEM__
         dem_filenames = CoregisterDem.dem_filenames(
-            dem_prefix=master_slc_rlks_prefix, outdir=dem_dir
+            dem_prefix=primary_slc_rlks_prefix, outdir=dem_dir
         )
-        slc_master_dir = outdir / __SLC__ / master_scene
-        dem_master_names = CoregisterDem.dem_master_names(
-            slc_prefix=master_slc_rlks_prefix,
-            r_slc_prefix=r_dem_master_slc_prefix,
-            outdir=slc_master_dir,
+        slc_primary_dir = outdir / __SLC__ / primary_scene
+        dem_primary_names = CoregisterDem.dem_primary_names(
+            slc_prefix=primary_slc_rlks_prefix,
+            r_slc_prefix=r_dem_primary_slc_prefix,
+            outdir=slc_primary_dir,
         )
         kwargs = {
             "proc_file": self.proc_file,
             "list_idx": "-",
-            "slc_master": slc_master_dir.joinpath(f"{master_slc_prefix}.slc"),
+            "slc_primary": slc_primary_dir.joinpath(f"{primary_slc_prefix}.slc"),
             "range_looks": rlks,
             "azimuth_looks": alks,
             "ellip_pix_sigma0": dem_filenames["ellip_pix_sigma0"],
             "dem_pix_gamma0": dem_filenames["dem_pix_gam"],
-            "r_dem_master_mli": dem_master_names["r_dem_master_mli"],
+            "r_dem_primary_mli": dem_primary_names["r_dem_primary_mli"],
             "rdc_dem": dem_filenames["rdc_dem"],
             "geo_dem_par": dem_filenames["geo_dem_par"],
             "dem_lt_fine": dem_filenames["dem_lt_fine"],
@@ -1568,7 +1568,7 @@ class CreateCoregisterSlaves(luigi.Task):
 
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
-        log.info("co-register master-slaves task")
+        log.info("co-register primary-secondaries task")
 
         outdir = Path(self.outdir)
 
@@ -1578,25 +1578,25 @@ class CreateCoregisterSlaves(luigi.Task):
 
         slc_frames = get_scenes(self.burst_data_csv)
 
-        master_scene = read_primary_date(outdir)
+        primary_scene = read_primary_date(outdir)
 
-        coreg_tree = create_slave_coreg_tree(
-            master_scene, [dt for dt, _, _ in slc_frames]
+        coreg_tree = create_secondary_coreg_tree(
+            primary_scene, [dt for dt, _, _ in slc_frames]
         )
 
-        master_polarizations = [
-            pols for dt, _, pols in slc_frames if dt.date() == master_scene
+        primary_polarizations = [
+            pols for dt, _, pols in slc_frames if dt.date() == primary_scene
         ]
-        assert len(master_polarizations) == 1
+        assert len(primary_polarizations) == 1
 
-        # TODO if master polarization data does not exist in SLC archive then
+        # TODO if primary polarization data does not exist in SLC archive then
         # TODO choose other polarization or raise Error.
-        if self.master_scene_polarization not in master_polarizations[0]:
+        if self.primary_scene_polarization not in primary_polarizations[0]:
             raise ValueError(
-                f"{self.master_scene_polarization}  not available in SLC data for {master_scene}"
+                f"{self.primary_scene_polarization}  not available in SLC data for {primary_scene}"
             )
 
-        master_pol = str(self.master_scene_polarization).upper()
+        primary_pol = str(self.primary_scene_polarization).upper()
 
         # get range and azimuth looked values
         ml_file = Path(self.workdir).joinpath(
@@ -1604,25 +1604,25 @@ class CreateCoregisterSlaves(luigi.Task):
         )
         rlks, alks = read_rlks_alks(ml_file)
 
-        master_scene = master_scene.strftime(__DATE_FMT__)
-        master_slc_prefix = (
-            f"{master_scene}_{master_pol}"
+        primary_scene = primary_scene.strftime(__DATE_FMT__)
+        primary_slc_prefix = (
+            f"{primary_scene}_{primary_pol}"
         )
 
-        slc_master_dir = outdir / __SLC__ / master_scene
+        slc_primary_dir = outdir / __SLC__ / primary_scene
 
         kwargs = self.get_base_kwargs()
         kwargs["coreg_offset"] = None
         kwargs["coreg_lut"] = None
 
-        slave_coreg_jobs = []
+        secondary_coreg_jobs = []
 
         for list_index, list_dates in enumerate(coreg_tree):
             list_index += 1  # list index is 1-based
             list_frames = [i for i in slc_frames if i[0].date() in list_dates]
 
             # Write list file
-            list_file_path = outdir / proc_config.list_dir / f"slaves{list_index}.list"
+            list_file_path = outdir / proc_config.list_dir / f"secondaries{list_index}.list"
             if not list_file_path.parent.exists():
                 list_file_path.parent.mkdir(parents=True)
 
@@ -1632,46 +1632,46 @@ class CreateCoregisterSlaves(luigi.Task):
                 ]
                 listfile.write("\n".join(list_date_strings))
 
-            # Bash passes '-' for slaves1.list, and list_index there after.
+            # Bash passes '-' for secondaries1.list, and list_index there after.
             if list_index > 1:
                 kwargs["list_idx"] = list_index
 
             for _dt, _, _pols in list_frames:
                 slc_scene = _dt.strftime(__DATE_FMT__)
-                if slc_scene == master_scene:
+                if slc_scene == primary_scene:
                     continue
 
-                if master_pol not in _pols:
-                    log.warning(f"Skipping {_pol} coreg/backscatter for {slc_scene} due to missing master polarisation data for that date")
+                if primary_pol not in _pols:
+                    log.warning(f"Skipping {_pol} coreg/backscatter for {slc_scene} due to missing primary polarisation data for that date")
                     continue
 
-                slave_dir = outdir / __SLC__ / slc_scene
+                secondary_dir = outdir / __SLC__ / slc_scene
 
-                # Schedule master polarisation first (as other polarisations depend on it's coreg)
+                # Schedule primary polarisation first (as other polarisations depend on it's coreg)
                 # Note: eventually coreg and backscatter code will be separated, and this would
-                # be where we do coreg for master pol, and we'd do backscatter in it's own task.
+                # be where we do coreg for primary pol, and we'd do backscatter in it's own task.
                 # GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/211
-                slave_slc_prefix = f"{slc_scene}_{master_pol}"
-                kwargs["slc_slave"] = slave_dir / f"{slave_slc_prefix}.slc"
-                kwargs["slave_mli"] = slave_dir / f"{slave_slc_prefix}_{rlks}rlks.mli"
-                slave_coreg_jobs.append(CoregisterSlave(**kwargs))
+                secondary_slc_prefix = f"{slc_scene}_{primary_pol}"
+                kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
+                kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
+                secondary_coreg_jobs.append(CoregisterSecondary(**kwargs))
 
 
-        yield slave_coreg_jobs
+        yield secondary_coreg_jobs
 
         with self.output().open("w") as f:
             f.write("")
 
 
-@requires(CreateCoregisterSlaves)
+@requires(CreateCoregisterSecondaries)
 class CreateBackscatter(luigi.Task):
     """
     Runs the backscatter tasks.
     """
 
     proc_file = luigi.Parameter()
-    master_scene_polarization = luigi.Parameter(default="VV")
-    master_scene = luigi.OptionalParameter(default=None)
+    primary_scene_polarization = luigi.Parameter(default="VV")
+    primary_scene = luigi.OptionalParameter(default=None)
 
     def output(self):
         return luigi.LocalTarget(
@@ -1686,7 +1686,7 @@ class CreateBackscatter(luigi.Task):
         # Note: We share identical parameters, so we just forward them a copy
         kwargs = {k:getattr(self,k) for k,_ in self.get_params()}
 
-        return CreateCoregisterSlaves(**kwargs)
+        return CreateCoregisterSecondaries(**kwargs)
 
     def trigger_resume(self, reprocess_dates, reprocess_failed_scenes):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
@@ -1714,29 +1714,29 @@ class CreateBackscatter(luigi.Task):
 
         slc_frames = get_scenes(self.burst_data_csv)
 
-        master_scene = read_primary_date(outdir)
+        primary_scene = read_primary_date(outdir)
 
-        coreg_tree = create_slave_coreg_tree(
-            master_scene, [dt for dt, _, _ in slc_frames]
+        coreg_tree = create_secondary_coreg_tree(
+            primary_scene, [dt for dt, _, _ in slc_frames]
         )
 
-        master_polarizations = [
-            pols for dt, _, pols in slc_frames if dt.date() == master_scene
+        primary_polarizations = [
+            pols for dt, _, pols in slc_frames if dt.date() == primary_scene
         ]
 
-        # Sanity check there's only a single master scene entry
-        assert len(master_polarizations) == 1
+        # Sanity check there's only a single primary scene entry
+        assert len(primary_polarizations) == 1
 
-        master_polarizations = master_polarizations[0]
+        primary_polarizations = primary_polarizations[0]
 
-        # TODO if master polarization data does not exist in SLC archive then
+        # TODO if primary polarization data does not exist in SLC archive then
         # TODO choose other polarization or raise Error.
-        if self.master_scene_polarization not in master_polarizations:
+        if self.primary_scene_polarization not in primary_polarizations:
             raise ValueError(
-                f"{self.master_scene_polarization}  not available in SLC data for {master_scene}"
+                f"{self.primary_scene_polarization}  not available in SLC data for {primary_scene}"
             )
 
-        master_pol = str(self.master_scene_polarization).upper()
+        primary_pol = str(self.primary_scene_polarization).upper()
 
         # get range and azimuth looked values
         ml_file = Path(self.workdir).joinpath(
@@ -1744,35 +1744,35 @@ class CreateBackscatter(luigi.Task):
         )
         rlks, alks = read_rlks_alks(ml_file)
 
-        master_scene = master_scene.strftime(__DATE_FMT__)
-        master_slc_prefix = (
-            f"{master_scene}_{master_pol}"
+        primary_scene = primary_scene.strftime(__DATE_FMT__)
+        primary_slc_prefix = (
+            f"{primary_scene}_{primary_pol}"
         )
 
         kwargs = self.get_base_kwargs()
         kwargs["just_backscatter"] = True
 
-        slave_coreg_jobs = []
+        secondary_coreg_jobs = []
 
         # Produce backscatter for the reference date
-        slc_master_dir = outdir / __SLC__ / master_scene
+        slc_primary_dir = outdir / __SLC__ / primary_scene
         kwargs["coreg_offset"] = None
         kwargs["coreg_lut"] = None
 
-        for pol in master_polarizations:
-            slave_slc_prefix = f"{master_scene}_{pol.upper()}"
+        for pol in primary_polarizations:
+            secondary_slc_prefix = f"{primary_scene}_{pol.upper()}"
 
-            kwargs["slc_slave"] = slc_master_dir / f"{slave_slc_prefix}.slc"
-            kwargs["slave_mli"] = slc_master_dir / f"{slave_slc_prefix}_{rlks}rlks.mli"
+            kwargs["slc_secondary"] = slc_primary_dir / f"{secondary_slc_prefix}.slc"
+            kwargs["secondary_mli"] = slc_primary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
 
-            slave_coreg_jobs.append(CoregisterSlave(**kwargs))
+            secondary_coreg_jobs.append(CoregisterSecondary(**kwargs))
 
         for list_index, list_dates in enumerate(coreg_tree):
             list_index += 1  # list index is 1-based
             list_frames = [i for i in slc_frames if i[0].date() in list_dates]
 
             # Write list file
-            list_file_path = outdir / proc_config.list_dir / f"slaves{list_index}.list"
+            list_file_path = outdir / proc_config.list_dir / f"secondaries{list_index}.list"
             if not list_file_path.parent.exists():
                 list_file_path.parent.mkdir(parents=True)
 
@@ -1782,56 +1782,56 @@ class CreateBackscatter(luigi.Task):
                 ]
                 listfile.write("\n".join(list_date_strings))
 
-            # Bash passes '-' for slaves1.list, and list_index there after.
+            # Bash passes '-' for secondaries1.list, and list_index there after.
             if list_index > 1:
                 kwargs["list_idx"] = list_index
 
             for _dt, _, _pols in list_frames:
                 slc_scene = _dt.strftime(__DATE_FMT__)
-                if slc_scene == master_scene:
+                if slc_scene == primary_scene:
                     continue
 
-                if master_pol not in _pols:
+                if primary_pol not in _pols:
                     continue
 
-                slave_dir = outdir / __SLC__ / slc_scene
+                secondary_dir = outdir / __SLC__ / slc_scene
 
-                # Schedule master polarisation first (as other polarisations depend on it's coreg)
+                # Schedule primary polarisation first (as other polarisations depend on it's coreg)
                 # Note: eventually coreg and backscatter code will be separated, and this would
-                # be where we do coreg for master pol, and we'd do backscatter for all pols in the loop
+                # be where we do coreg for primary pol, and we'd do backscatter for all pols in the loop
                 # below.  GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/211
-                slave_slc_prefix = f"{slc_scene}_{master_pol}"
-                kwargs["slc_slave"] = slave_dir / f"{slave_slc_prefix}.slc"
-                kwargs["slave_mli"] = slave_dir / f"{slave_slc_prefix}_{rlks}rlks.mli"
+                secondary_slc_prefix = f"{slc_scene}_{primary_pol}"
+                kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
+                kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
                 kwargs["coreg_offset"] = None
                 kwargs["coreg_lut"] = None
-                master_pol_task = CoregisterSlave(**kwargs)
+                primary_pol_task = CoregisterSecondary(**kwargs)
                 # Note: we are NOT scheduling this (until backscatter is separated from coreg)
-                # - coreg task currently schedules master pol tasks, and we schedule others here
+                # - coreg task currently schedules primary pol tasks, and we schedule others here
 
-                master_pol_lt, master_pol_off = master_pol_task.get_coreg_info()
+                primary_pol_lt, primary_pol_off = primary_pol_task.get_coreg_info()
 
-                # Then schedule other polarisations w/ dependency on master pol
+                # Then schedule other polarisations w/ dependency on primary pol
                 for _pol in _pols:
                     # Skip products that aren't of the polarisation we're processing
                     if _pol not in self.polarization:
                         continue
 
-                    # Skip master polarisation (processed explicitly above)
-                    if _pol == master_pol:
+                    # Skip primary polarisation (processed explicitly above)
+                    if _pol == primary_pol:
                         continue
 
-                    slave_slc_prefix = f"{slc_scene}_{_pol.upper()}"
-                    kwargs["slc_slave"] = slave_dir / f"{slave_slc_prefix}.slc"
-                    kwargs["slave_mli"] = slave_dir / f"{slave_slc_prefix}_{rlks}rlks.mli"
-                    kwargs["coreg_offset"] = master_pol_off
-                    kwargs["coreg_lut"] = master_pol_lt
+                    secondary_slc_prefix = f"{slc_scene}_{_pol.upper()}"
+                    kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
+                    kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
+                    kwargs["coreg_offset"] = primary_pol_off
+                    kwargs["coreg_lut"] = primary_pol_lt
 
-                    task = CoregisterSlave(**kwargs)
-                    slave_coreg_jobs.append(task)
+                    task = CoregisterSecondary(**kwargs)
+                    secondary_coreg_jobs.append(task)
 
 
-        yield slave_coreg_jobs
+        yield secondary_coreg_jobs
 
         with self.output().open("w") as f:
             f.write("")
@@ -1839,7 +1839,7 @@ class CreateBackscatter(luigi.Task):
 
 class ProcessIFG(luigi.Task):
     """
-    Runs the interferogram processing tasks for master polarisation.
+    Runs the interferogram processing tasks for primary polarisation.
     """
 
     proc_file = luigi.Parameter()
@@ -1849,13 +1849,13 @@ class ProcessIFG(luigi.Task):
     outdir = luigi.Parameter()
     workdir = luigi.Parameter()
 
-    master_date = luigi.Parameter()
-    slave_date = luigi.Parameter()
+    primary_date = luigi.Parameter()
+    secondary_date = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget(
             Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_ifg_{self.master_date}-{self.slave_date}_status_logs.out"
+                f"{self.track}_{self.frame}_ifg_{self.primary_date}-{self.secondary_date}_status_logs.out"
             )
         )
 
@@ -1867,8 +1867,8 @@ class ProcessIFG(luigi.Task):
         log = STATUS_LOGGER.bind(
             outdir=self.outdir,
             polarization=proc_config.polarisation,
-            master_date=self.master_date,
-            slave_date=self.slave_date
+            primary_date=self.primary_date,
+            secondary_date=self.secondary_date
         )
         log.info("Beginning interferogram processing")
 
@@ -1877,12 +1877,12 @@ class ProcessIFG(luigi.Task):
         # allows as many scenes as possible to fully process even if some scenes fail.
         failed = False
         try:
-            ic = IfgFileNames(proc_config, Path(self.shape_file), self.master_date, self.slave_date, self.outdir)
+            ic = IfgFileNames(proc_config, Path(self.shape_file), self.primary_date, self.secondary_date, self.outdir)
             dc = DEMFileNames(proc_config, self.outdir)
             tc = TempFileConfig(ic)
 
-            # Run interferogram processing workflow w/ ifg width specified in r_master_mli par file
-            with open(Path(self.outdir) / ic.r_master_mli_par, 'r') as fileobj:
+            # Run interferogram processing workflow w/ ifg width specified in r_primary_mli par file
+            with open(Path(self.outdir) / ic.r_primary_mli_par, 'r') as fileobj:
                 ifg_width = get_ifg_width(fileobj)
 
             # Make sure output IFG dir is clean/empty, in case
@@ -1951,16 +1951,16 @@ class CreateProcessIFGs(luigi.Task):
             with open(ifgs_list) as ifg_list_file:
                 ifgs_list = [dates.split(",") for dates in ifg_list_file.read().splitlines()]
 
-            for master_date, slave_date in ifgs_list:
-                ic = IfgFileNames(proc_config, Path(self.shape_file), master_date, slave_date, self.outdir)
+            for primary_date, secondary_date in ifgs_list:
+                ic = IfgFileNames(proc_config, Path(self.shape_file), primary_date, secondary_date, self.outdir)
 
                 # Check for existence of filtered coh geocode files, if neither exist we need to re-run.
                 ifg_filt_coh_geo_out = ic.ifg_dir / ic.ifg_filt_coh_geocode_out
                 ifg_filt_coh_geo_out_tiff = ic.ifg_dir / ic.ifg_filt_coh_geocode_out_tiff
 
                 if not ic.ifg_filt_coh_geocode_out.exists() and not ifg_filt_coh_geo_out_tiff.exists():
-                    log.info(f"Resuming IFG ({master_date},{slave_date}) because of missing geocode outputs")
-                    reprocess_pairs.append((master_date, slave_date))
+                    log.info(f"Resuming IFG ({primary_date},{secondary_date}) because of missing geocode outputs")
+                    reprocess_pairs.append((primary_date, secondary_date))
 
         # Remove completion status files for any failed SLC coreg tasks.
         # This is probably slightly redundant, but we 'do' write FAILED to status outs
@@ -1972,16 +1972,16 @@ class CreateProcessIFGs(luigi.Task):
                     contents = file.read().splitlines()
 
                 if len(contents) > 0 and "FAILED" in contents[0]:
-                    master_date, slave_date = re.split("[-_]", status_out.stem)[2:3]
+                    primary_date, secondary_date = re.split("[-_]", status_out.stem)[2:3]
 
-                    log.info(f"Resuming IFG ({master_date},{slave_date}) because of FAILED processing")
-                    reprocess_pairs.append((master_date, slave_date))
+                    log.info(f"Resuming IFG ({primary_date},{secondary_date}) because of FAILED processing")
+                    reprocess_pairs.append((primary_date, secondary_date))
 
         reprocess_pairs = set(reprocess_pairs)
 
         # Any pairs that need reprocessing, we remove the status file of + clean the tree
-        for master_date, slave_date in reprocess_pairs:
-            status_file = self.workdir / f"{self.track}_{self.frame}_ifg_{master_date}-{slave_date}_status_logs.out"
+        for primary_date, secondary_date in reprocess_pairs:
+            status_file = self.workdir / f"{self.track}_{self.frame}_ifg_{primary_date}-{secondary_date}_status_logs.out"
 
             # Remove Luigi status file
             if status_file.exists():
@@ -2002,7 +2002,7 @@ class CreateProcessIFGs(luigi.Task):
             ifgs_list = [dates.split(",") for dates in ifg_list_file.read().splitlines()]
 
         jobs = []
-        for master_date, slave_date in ifgs_list:
+        for primary_date, secondary_date in ifgs_list:
             jobs.append(
                 ProcessIFG(
                     proc_file=self.proc_file,
@@ -2011,8 +2011,8 @@ class CreateProcessIFGs(luigi.Task):
                     frame=self.frame,
                     outdir=self.outdir,
                     workdir=self.workdir,
-                    master_date=master_date,
-                    slave_date=slave_date
+                    primary_date=primary_date,
+                    secondary_date=secondary_date
                 )
             )
 
@@ -2030,7 +2030,7 @@ class TriggerResume(luigi.Task):
     track = luigi.Parameter()
     frame = luigi.Parameter()
 
-    master_scene = luigi.OptionalParameter(default=None)
+    primary_scene = luigi.OptionalParameter(default=None)
 
     # Note: This task needs to take all the parameters the others do,
     # so we can re-create the other tasks for resuming
@@ -2171,15 +2171,15 @@ class TriggerResume(luigi.Task):
             reprocessed_single_slcs = []
 
             if self.workflow == ARDWorkflow.Interferogram:
-                for master_date, slave_date in reprocessed_ifgs:
-                    ic = IfgFileNames(proc_config, Path(self.shape_file), master_date, slave_date, outdir)
+                for primary_date, secondary_date in reprocessed_ifgs:
+                    ic = IfgFileNames(proc_config, Path(self.shape_file), primary_date, secondary_date, outdir)
 
                     # We re-use ifg's own input handling to detect this
                     try:
                         validate_ifg_input_files(ic)
                     except ProcessIfgException as e:
                         pol = proc_config.polarisation
-                        status_out = f"{master_date}_{pol}_{slave_date}_{pol}_coreg_logs.out"
+                        status_out = f"{primary_date}_{pol}_{secondary_date}_{pol}_coreg_logs.out"
                         status_out = Path(self.workdir) / status_out
 
                         log.info("Triggering SLC reprocessing as coregistrations missing", missing=e.missing_files)
@@ -2187,15 +2187,15 @@ class TriggerResume(luigi.Task):
                         if status_out.exists():
                             status_out.unlink()
 
-                        # Note: We intentionally don't clean master/slave SLC dirs as they
+                        # Note: We intentionally don't clean primary/secondary SLC dirs as they
                         # contain files besides coreg we don't want to remove. SLC coreg
                         # can be safely re-run over it's existing files deterministically.
 
-                        reprocessed_slc_coregs.append(master_date)
-                        reprocessed_slc_coregs.append(slave_date)
+                        reprocessed_slc_coregs.append(primary_date)
+                        reprocessed_slc_coregs.append(secondary_date)
 
                         # Add tertiary scene (if any)
-                        for slc_scene in [master_date, slave_date]:
+                        for slc_scene in [primary_date, secondary_date]:
                             # Re-use slc coreg task for parameter acquisition
                             coreg_kwargs = backscatter_task.get_base_kwargs()
                             del coreg_kwargs["proc_file"]
@@ -2203,7 +2203,7 @@ class TriggerResume(luigi.Task):
                             del coreg_kwargs["workdir"]
                             list_idx = "-"
 
-                            for list_file_path in (outdir / proc_config.list_dir).glob("slaves*.list"):
+                            for list_file_path in (outdir / proc_config.list_dir).glob("secondaries*.list"):
                                 list_file_idx = int(list_file_path.stem[6:])
 
                                 with list_file_path.open('r') as file:
@@ -2217,10 +2217,10 @@ class TriggerResume(luigi.Task):
 
                             coreg_kwargs["list_idx"] = list_idx
 
-                            slave_dir = outdir / __SLC__ / slc_scene
-                            slave_slc_prefix = f"{slc_scene}_{pol}"
-                            coreg_kwargs["slc_slave"] = slave_dir / f"{slave_slc_prefix}.slc"
-                            coreg_kwargs["slave_mli"] = slave_dir / f"{slave_slc_prefix}_{rlks}rlks.mli"
+                            secondary_dir = outdir / __SLC__ / slc_scene
+                            secondary_slc_prefix = f"{slc_scene}_{pol}"
+                            coreg_kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
+                            coreg_kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
                             coreg_task = CoregisterSlc(proc=proc_config, **coreg_kwargs)
 
                             tertiary_date = coreg_task.get_tertiary_coreg_scene()
@@ -2230,11 +2230,11 @@ class TriggerResume(luigi.Task):
 
             # Finally trigger SLC coreg resumption (which will process related to above)
             triggered_slc_coregs = backscatter_task.trigger_resume(reprocessed_slc_coregs, self.reprocess_failed)
-            for master_date, slave_date in triggered_slc_coregs:
-                reprocessed_slc_coregs.append(slave_date)
+            for primary_date, secondary_date in triggered_slc_coregs:
+                reprocessed_slc_coregs.append(secondary_date)
 
-                reprocessed_single_slcs.append(master_date)
-                reprocessed_single_slcs.append(slave_date)
+                reprocessed_single_slcs.append(primary_date)
+                reprocessed_single_slcs.append(secondary_date)
 
             reprocessed_slc_coregs = set(reprocessed_slc_coregs)
             reprocessed_single_slcs = set(reprocessed_single_slcs) | reprocessed_slc_coregs
@@ -2249,11 +2249,11 @@ class TriggerResume(luigi.Task):
                 #
                 # so we literally just need to reproduce the DEM+SLC files for coreg again.
 
-                # Compute master scene
-                master_scene = read_primary_date(outdir)
+                # Compute primary scene
+                primary_scene = read_primary_date(outdir)
 
-                # Trigger SLC processing for master scene (for master DEM coreg)
-                reprocessed_single_slcs.add(master_scene.strftime(__DATE_FMT__))
+                # Trigger SLC processing for primary scene (for primary DEM coreg)
+                reprocessed_single_slcs.add(primary_scene.strftime(__DATE_FMT__))
 
                 # Trigger SLC processing for other scenes (for SLC coreg)
                 existing_single_slcs = set()
@@ -2268,7 +2268,7 @@ class TriggerResume(luigi.Task):
                         poeorb_path = self.poeorb_path,
                         resorb_path = self.resorb_path,
                         scene_date = date,
-                        ref_master_tab = None,  # FIXME: GH issue #200
+                        ref_primary_tab = None,  # FIXME: GH issue #200
                         outdir = self.outdir,
                         workdir = self.workdir,
                         # This is to prevent tasks from prior resumes from clashing with
@@ -2295,9 +2295,9 @@ class TriggerResume(luigi.Task):
                 # Trigger DEM tasks if we're re-processing SLC coreg as well
                 #
                 # Note: We don't add this to pre-requisite tasks, it's implied by
-                # CreateCoregisterSlaves's @requires
+                # CreateCoregisterSecondaries's @requires
                 dem_task = CreateGammaDem(**_forward_kwargs(CreateGammaDem, kwargs))
-                coreg_dem_task = CoregisterDemMaster(**_forward_kwargs(CoregisterDemMaster, kwargs))
+                coreg_dem_task = CoregisterDemPrimary(**_forward_kwargs(CoregisterDemPrimary, kwargs))
 
                 if dem_task.output().exists():
                     dem_task.output().remove()
@@ -2361,7 +2361,7 @@ class ARD(luigi.WrapperTask):
     outdir = luigi.Parameter(default=None)
     workdir = luigi.Parameter(default=None)
     database_path = luigi.Parameter(default=None)
-    master_dem_image = luigi.Parameter(default=None)
+    primary_dem_image = luigi.Parameter(default=None)
     multi_look = luigi.IntParameter(default=None)
     poeorb_path = luigi.Parameter(default=None)
     resorb_path = luigi.Parameter(default=None)
@@ -2492,7 +2492,7 @@ class ARD(luigi.WrapperTask):
             "output_path",
             "job_path",
             "database_path",
-            "master_dem_image",
+            "primary_dem_image",
             "poeorb_path",
             "resorb_path"
         ]
@@ -2599,7 +2599,7 @@ class ARD(luigi.WrapperTask):
             "outdir": self.output_path,
             "workdir": self.job_path,
             "orbit": orbit,
-            "dem_img": proc_config.master_dem_image,
+            "dem_img": proc_config.primary_dem_image,
             "poeorb_path": proc_config.poeorb_path,
             "resorb_path": proc_config.resorb_path,
             "multi_look": int(proc_config.multi_look),

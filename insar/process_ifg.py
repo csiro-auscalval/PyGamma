@@ -84,12 +84,12 @@ def run_workflow(
     # Re-bind thread local context to IFG processing state
     try:
         structlog.threadlocal.clear_threadlocal()
-        master_date, slave_date = ic.ifg_dir.name.split('-')
+        primary_date, secondary_date = ic.ifg_dir.name.split('-')
         structlog.threadlocal.bind_threadlocal(
             task="IFG processing",
             ifg_dir=ic.ifg_dir,
-            master_date=master_date,
-            slave_date=slave_date
+            primary_date=primary_date,
+            secondary_date=secondary_date
         )
 
         _LOG.info("Running IFG workflow", ifg_width=int(ifg_width))
@@ -101,12 +101,12 @@ def run_workflow(
             validate_ifg_input_files(ic)
 
             # Extract land center coordinates
-            land_center = read_land_center_coords(pg, ic.r_slave_mli_par, ic.shapefile)
+            land_center = read_land_center_coords(pg, ic.r_secondary_mli_par, ic.shapefile)
 
             if land_center is not None:
                 _LOG.info(
-                    "Land center for IFG slave",
-                    mli=ic.r_slave_mli,
+                    "Land center for IFG secondary",
+                    mli=ic.r_secondary_mli,
                     shapefile=ic.shapefile,
                     land_center=land_center
                 )
@@ -135,17 +135,17 @@ def validate_ifg_input_files(ic: IfgFileNames):
     msg = "Cannot locate input files. Run SLC coregistration steps for each acquisition."
     missing_files = []
 
-    if not ic.r_master_slc.exists():
-        missing_files.append(ic.r_master_slc)
+    if not ic.r_primary_slc.exists():
+        missing_files.append(ic.r_primary_slc)
 
-    if not ic.r_master_mli.exists():
-        missing_files.append(ic.r_master_mli)
+    if not ic.r_primary_mli.exists():
+        missing_files.append(ic.r_primary_mli)
 
-    if not ic.r_slave_slc.exists():
-        missing_files.append(ic.r_slave_slc)
+    if not ic.r_secondary_slc.exists():
+        missing_files.append(ic.r_secondary_slc)
 
-    if not ic.r_slave_mli.exists():
-        missing_files.append(ic.r_slave_mli)
+    if not ic.r_secondary_mli.exists():
+        missing_files.append(ic.r_secondary_mli)
 
     # Raise exception with additional info on missing_files
     if missing_files:
@@ -154,18 +154,18 @@ def validate_ifg_input_files(ic: IfgFileNames):
         raise ex
 
 
-def get_ifg_width(r_master_mli_par: io.IOBase):
+def get_ifg_width(r_primary_mli_par: io.IOBase):
     """
     Return range/sample width from dem diff file.
-    :param r_master_mli_par: open file-like obj
+    :param r_primary_mli_par: open file-like obj
     :return: width as integer
     """
-    for line in r_master_mli_par.readlines():
+    for line in r_primary_mli_par.readlines():
         if const.MatchStrings.SLC_RANGE_SAMPLES.value in line:
             _, value = line.split()
             return int(value)
 
-    msg = 'Cannot locate "{}" value in resampled master MLI'
+    msg = 'Cannot locate "{}" value in resampled primary MLI'
     raise ProcessIfgException(msg.format(const.MatchStrings.SLC_RANGE_SAMPLES.value))
 
 
@@ -179,8 +179,8 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames):
     # Calculate and refine offset between interferometric SLC pair
     if not ic.ifg_off.exists():
         pg.create_offset(
-            ic.r_master_slc_par,
-            ic.r_slave_slc_par,
+            ic.r_primary_slc_par,
+            ic.r_secondary_slc_par,
             ic.ifg_off,
             const.OFFSET_ESTIMATION_INTENSITY_CROSS_CORRELATION,
             pc.range_looks,
@@ -189,10 +189,10 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames):
         )
 
         pg.offset_pwr(
-            ic.r_master_slc,  # single-look complex image 1 (reference)
-            ic.r_slave_slc,  # single-look complex image 2
-            ic.r_master_slc_par,  # SLC-1 ISP image parameter file
-            ic.r_slave_slc_par,  # SLC-2 ISP image parameter file
+            ic.r_primary_slc,  # single-look complex image 1 (reference)
+            ic.r_secondary_slc,  # single-look complex image 2
+            ic.r_primary_slc_par,  # SLC-1 ISP image parameter file
+            ic.r_secondary_slc_par,  # SLC-2 ISP image parameter file
             ic.ifg_off,  # ISP offset/interferogram parameter file
             ic.ifg_offs,  # (output) offset estimates in range and azimuth (fcomplex)
             ic.ifg_ccp,  # (output) cross-correlation of each patch (0.0->1.0) (float)
@@ -241,18 +241,18 @@ def initial_flattened_ifg(
     # the baseline is the spatial distance between the two satellite positions at the time of
     # acquisition of first and second images.
     pg.base_orbit(
-        ic.r_master_slc_par, ic.r_slave_slc_par, ic.ifg_base_init,
+        ic.r_primary_slc_par, ic.r_secondary_slc_par, ic.ifg_base_init,
     )
 
     # Simulate phase from the DEM & linear baseline model
     # linear baseline model may be inadequate for longer scenes, in which case use phase_sim_orb
     pg.phase_sim_orb(
-        ic.r_master_slc_par,
-        ic.r_slave_slc_par,
+        ic.r_primary_slc_par,
+        ic.r_secondary_slc_par,
         ic.ifg_off,
         dc.rdc_dem,
         ic.ifg_sim_unw0,
-        ic.r_master_slc_par,
+        ic.r_primary_slc_par,
         const.NOT_PROVIDED,
         const.NOT_PROVIDED,
         const.INT_MODE_REPEAT_PASS,
@@ -263,10 +263,10 @@ def initial_flattened_ifg(
     # Multi-look complex interferogram generation from co-registered SLC data and a simulated
     # interferogram derived from a DEM.
     pg.SLC_diff_intf(
-        ic.r_master_slc,
-        ic.r_slave_slc,
-        ic.r_master_slc_par,
-        ic.r_slave_slc_par,
+        ic.r_primary_slc,
+        ic.r_secondary_slc,
+        ic.r_primary_slc_par,
+        ic.r_secondary_slc_par,
         ic.ifg_off,
         ic.ifg_sim_unw0,
         ic.ifg_flat0,
@@ -300,7 +300,7 @@ def refined_flattened_ifg(
     """
     # Estimate residual baseline from the fringe rate of differential interferogram (using FFT)
     pg.base_init(
-        ic.r_master_slc_par,
+        ic.r_primary_slc_par,
         const.NOT_PROVIDED,
         ic.ifg_off,
         ifg_file,
@@ -315,7 +315,7 @@ def refined_flattened_ifg(
 
     # Simulate the phase from the DEM and refined baseline model
     pg.phase_sim(
-        ic.r_master_slc_par,
+        ic.r_primary_slc_par,
         ic.ifg_off,
         ic.ifg_base,
         dc.rdc_dem,
@@ -331,10 +331,10 @@ def refined_flattened_ifg(
 
     # Calculate second refined flattened interferogram (baselines refined using fringe rate)
     pg.SLC_diff_intf(
-        ic.r_master_slc,
-        ic.r_slave_slc,
-        ic.r_master_slc_par,
-        ic.r_slave_slc_par,
+        ic.r_primary_slc,
+        ic.r_secondary_slc,
+        ic.r_primary_slc_par,
+        ic.r_secondary_slc_par,
         ic.ifg_off,
         ic.ifg_sim_unw1,
         ic.ifg_flat1,
@@ -522,7 +522,7 @@ def precise_flattened_ifg(
 
     # Calculate precision baseline from GCP phase data
     pg.base_ls(
-        ic.r_master_slc_par,
+        ic.r_primary_slc_par,
         ic.ifg_off,
         ic.ifg_gcp_ph,
         ic.ifg_base,
@@ -536,7 +536,7 @@ def precise_flattened_ifg(
 
     # Simulate the phase from the DEM and precision baseline model.
     pg.phase_sim(
-        ic.r_master_slc_par,
+        ic.r_primary_slc_par,
         ic.ifg_off,
         ic.ifg_base,
         dc.rdc_dem,
@@ -558,10 +558,10 @@ def precise_flattened_ifg(
     # Calculate final flattened interferogram with common band filtering (diff ifg generation from
     # co-registered SLCs and a simulated interferogram)
     pg.SLC_diff_intf(
-        ic.r_master_slc,
-        ic.r_slave_slc,
-        ic.r_master_slc_par,
-        ic.r_slave_slc_par,
+        ic.r_primary_slc,
+        ic.r_secondary_slc,
+        ic.r_primary_slc_par,
+        ic.r_secondary_slc_par,
         ic.ifg_off,
         ic.ifg_sim_unw,
         ic.ifg_flat,
@@ -627,7 +627,7 @@ def calc_bperp_coh_filt(
         raise ProcessIfgException(msg)
 
     # Calculate perpendicular baselines
-    _, cout, _ = pg.base_perp(ifg_baseline, ic.r_master_slc_par, ic.ifg_off)
+    _, cout, _ = pg.base_perp(ifg_baseline, ic.r_primary_slc_par, ic.ifg_off)
 
     # copy content to bperp file instead of rerunning EXE (like the old Bash code)
     try:
@@ -642,8 +642,8 @@ def calc_bperp_coh_filt(
     # MG: WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
     pg.cc_wave(
         ifg_file,  # normalised complex interferogram
-        ic.r_master_mli,  # multi-look intensity image of the first scene (float)
-        ic.r_slave_mli,  # multi-look intensity image of the second scene (float)
+        ic.r_primary_mli,  # multi-look intensity image of the first scene (float)
+        ic.r_secondary_mli,  # multi-look intensity image of the second scene (float)
         ic.ifg_flat_coh,  # interferometric correlation coefficient (float)
         ifg_width,  # number of samples/line
         pc.ifg_coherence_window,  # estimation window size in columns

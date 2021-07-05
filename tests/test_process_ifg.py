@@ -76,8 +76,8 @@ def ic_mock():
     base_path = pathlib.Path(test_dir.name)
 
     ic.ifg_dir = base_path / "INT" / '20151103-20151127'
-    ic.master_dir = base_path / "SLC" / '20151103'
-    ic.slave_dir = base_path / "SLC" / '20151127'
+    ic.primary_dir = base_path / "SLC" / '20151103'
+    ic.secondary_dir = base_path / "SLC" / '20151127'
     ic.ifg_unw_geocode_2pi_bmp = ic.ifg_dir / 'geo_unw_2pi.bmp'
     ic.ifg_unw_geocode_6pi_bmp = ic.ifg_dir / 'geo_unw_6pi.bmp'
     ic.ifg_flat_geocode_bmp = ic.ifg_dir / 'ifg_flat_geocode.bmp'
@@ -91,10 +91,10 @@ def ic_mock():
     ic.ifg_base = ic.ifg_dir / "test_base.par"
 
     ic.ifg_bperp = mock_path()
-    ic.r_master_slc = mock_path()
-    ic.r_master_mli = mock_path()
-    ic.r_slave_slc = mock_path()
-    ic.r_slave_mli = mock_path()
+    ic.r_primary_slc = mock_path()
+    ic.r_primary_mli = mock_path()
+    ic.r_secondary_slc = mock_path()
+    ic.r_secondary_mli = mock_path()
 
     ic.ifg_flat = mock_path()
     ic.ifg_flat1 = mock_path()
@@ -171,8 +171,8 @@ def test_run_workflow_full(
     assert remove_mock.called
 
 
-def test_run_workflow_missing_r_master_slc(ic_mock, tc_mock):
-    ic_mock.r_master_slc.exists.return_value = False
+def test_run_workflow_missing_r_primary_slc(ic_mock, tc_mock):
+    ic_mock.r_primary_slc.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
         process_ifg.run_workflow(
@@ -180,9 +180,9 @@ def test_run_workflow_missing_r_master_slc(ic_mock, tc_mock):
         )
 
 
-def test_run_workflow_missing_r_master_mli(ic_mock, tc_mock):
-    ic_mock.r_master_slc.exists.return_value = True
-    ic_mock.r_master_mli.exists.return_value = False
+def test_run_workflow_missing_r_primary_mli(ic_mock, tc_mock):
+    ic_mock.r_primary_slc.exists.return_value = True
+    ic_mock.r_primary_mli.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
         process_ifg.run_workflow(
@@ -190,10 +190,10 @@ def test_run_workflow_missing_r_master_mli(ic_mock, tc_mock):
         )
 
 
-def test_run_workflow_missing_r_slave_slc(ic_mock, tc_mock):
-    ic_mock.r_master_slc.exists.return_value = True
-    ic_mock.r_master_mli.exists.return_value = True
-    ic_mock.r_slave_slc.exists.return_value = False
+def test_run_workflow_missing_r_secondary_slc(ic_mock, tc_mock):
+    ic_mock.r_primary_slc.exists.return_value = True
+    ic_mock.r_primary_mli.exists.return_value = True
+    ic_mock.r_secondary_slc.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
         process_ifg.run_workflow(
@@ -201,11 +201,11 @@ def test_run_workflow_missing_r_slave_slc(ic_mock, tc_mock):
         )
 
 
-def test_run_workflow_missing_r_slave_mli(ic_mock, tc_mock):
-    ic_mock.r_master_slc.exists.return_value = True
-    ic_mock.r_master_mli.exists.return_value = True
-    ic_mock.r_slave_slc.exists.return_value = True
-    ic_mock.r_slave_mli.exists.return_value = False
+def test_run_workflow_missing_r_secondary_mli(ic_mock, tc_mock):
+    ic_mock.r_primary_slc.exists.return_value = True
+    ic_mock.r_primary_mli.exists.return_value = True
+    ic_mock.r_secondary_slc.exists.return_value = True
+    ic_mock.r_secondary_mli.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
         process_ifg.run_workflow(

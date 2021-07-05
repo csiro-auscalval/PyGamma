@@ -17,7 +17,7 @@ S1_ORBITS=/g/data/fj7/Copernicus/Sentinel-1
 POEORB_PATH=/g/data/fj7/Copernicus/Sentinel-1/POEORB
 RESORB_PATH=/g/data/fj7/Copernicus/Sentinel-1/RESORB
 S1_PATH=/g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC
-MASTER_DEM_IMAGE=/g/data/dg9/MASTER_DEM/GAMMA_DEM_SRTM_1as_mosaic.img
+PRIMARY_DEM_IMAGE=/g/data/dg9/MASTER_DEM/GAMMA_DEM_SRTM_1as_mosaic.img
 
 JOB_PATH=
 OUTPUT_PATH=
@@ -41,7 +41,7 @@ RAW_DATA_DIR=raw_data
 -----INPUT TEXT FILES-----------------------------------------------------------------------------------
 
 SCENE_LIST=scenes.list
-SLAVE_LIST=slaves.list
+SECONDARY_LIST=slaves.list
 IFG_LIST=ifgs.list
 FRAME_LIST=frame.list
 S1_BURST_LIST=subset_burst.list
@@ -112,7 +112,7 @@ AZIMUTH_LOOKS=auto
     # Options: chain (use daisy-chain), sbas (use reference master) or single (use single master)
 PROCESS_METHOD=single
     # Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated
-REF_MASTER_SCENE=20151127
+REF_PRIMARY_SCENE=20151127
     # thresholds for minimum and maximum number of SBAS connections
 MIN_CONNECT=4
     # default is 7 for S1, 10 for other sensors (e.g. RSAT2)
@@ -124,7 +124,7 @@ MAX_CONNECT=7
 WORKFLOW=INTERFEROGRAM
 
 # Leave as 'auto' if not pre-selecting a scene, it will then be calculated and updated
-# Scene can be different from the MASTER_SCENE used in Processing Method
+# Scene can be different from the PRIMARY_SCENE used in Processing Method
 S1_RESIZE_REF_SLC=auto
 
 # Clean up intermediate processing files
@@ -155,7 +155,7 @@ DEM_SNR=0.15
 DEM_RAD_MAX=4
 
 
------SLAVE COREGISTRATION PARAMETERS--------------------------------------------------------------------
+-----SECONDARY COREGISTRATION PARAMETERS--------------------------------------------------------------------
 
     # Cross-correlation threshold for offset rejection (default: 0.1)
 COREG_CC_THRESH=0.1
@@ -172,11 +172,11 @@ COREG_NUM_ITERATIONS=5
 
     -----FOR create_diff_par-----
     # Enter number of offset measurements in range, azimuth (default: 32 32)
-SLAVE_OFFSET_MEASURE=32 32
+SECONDARY_OFFSET_MEASURE=32 32
     # Search window sizes (32, 64, 128...) (range, azimuth) (default: 256 256)
-SLAVE_WIN=256 256
+SECONDARY_WIN=256 256
     # Cross-correlation threshold (default: 0.15)
-SLAVE_CC_THRESH=0.15
+SECONDARY_CC_THRESH=0.15
 
     -----SENTINEL-1 ONLY-----
     # Coherence threshold used (default: 0.6)

@@ -147,35 +147,35 @@ class CoregisterDem:
         self.multi_look = multi_look
         self.adjust_dem_parameters()
 
-        self.dem_master_slc = self.slc
-        self.dem_master_slc_par = self.slc_par
+        self.dem_primary_slc = self.slc
+        self.dem_primary_slc_par = self.slc_par
 
         self.dem_width = None
         self.dem_height = None
-        self.r_dem_master_mli_width = None
-        self.r_dem_master_mli_length = None
+        self.r_dem_primary_mli_width = None
+        self.r_dem_primary_mli_length = None
         self.dem_files = self.dem_filenames(
             dem_prefix=f"{self.slc.stem}_{self.rlks}rlks", outdir=self.dem_outdir
         )
-        self.dem_masters = self.dem_master_names(
+        self.dem_primarys = self.dem_primary_names(
             slc_prefix=f"{self.slc.stem}_{self.rlks}rlks",
             r_slc_prefix=f"r{self.slc.stem}",
             outdir=self.slc_outdir,
         )
 
         # set more class attributes needed for DEM-SLC co-registration
-        for _key, val in {**self.dem_files, **self.dem_masters}.items():
+        for _key, val in {**self.dem_files, **self.dem_primarys}.items():
             setattr(self, _key, val)
 
         if ext_image_flt is not None:
             self.ext_image_flt.symlink_to(ext_image_flt)
 
     @staticmethod
-    def dem_master_names(
+    def dem_primary_names(
         slc_prefix: str, r_slc_prefix: str, outdir: Union[Path, str],
     ) -> Dict:
         """
-        Collate DEM master file names used need in CoregisterDem class.
+        Collate DEM primary file names used need in CoregisterDem class.
         :param slc_prefix:
             A pre_fix of SLC image file.
         :param r_slc_prefix:
@@ -187,26 +187,26 @@ class CoregisterDem:
         """
 
         attrs = dict()
-        attrs["dem_master_mli"] = outdir.joinpath(f"{slc_prefix}.mli")
-        attrs["dem_master_mli_par"] = attrs["dem_master_mli"].with_suffix(
-            attrs["dem_master_mli"].suffix + ".par"
+        attrs["dem_primary_mli"] = outdir.joinpath(f"{slc_prefix}.mli")
+        attrs["dem_primary_mli_par"] = attrs["dem_primary_mli"].with_suffix(
+            attrs["dem_primary_mli"].suffix + ".par"
         )
-        attrs["dem_master_sigma0"] = outdir.joinpath(f"{slc_prefix}.sigma0")
-        attrs["dem_master_sigma0_geo"] = outdir.joinpath(f"{slc_prefix}_geo.sigma0")
-        attrs["dem_master_sigma0_geo_tif"] = append_suffix(attrs["dem_master_sigma0_geo"], ".tif")
-        attrs["dem_master_gamma0"] = outdir.joinpath(f"{slc_prefix}.gamma0")
-        attrs["dem_master_gamma0_bmp"] = append_suffix(attrs["dem_master_gamma0"], ".bmp")
-        attrs["dem_master_gamma0_geo"] = outdir.joinpath(f"{slc_prefix}_geo.gamma0")
-        attrs["dem_master_gamma0_geo_bmp"] = append_suffix(attrs["dem_master_gamma0_geo"], ".bmp")
-        attrs["dem_master_gamma0_geo_tif"] = append_suffix(attrs["dem_master_gamma0_geo_bmp"], ".tif")
+        attrs["dem_primary_sigma0"] = outdir.joinpath(f"{slc_prefix}.sigma0")
+        attrs["dem_primary_sigma0_geo"] = outdir.joinpath(f"{slc_prefix}_geo.sigma0")
+        attrs["dem_primary_sigma0_geo_tif"] = append_suffix(attrs["dem_primary_sigma0_geo"], ".tif")
+        attrs["dem_primary_gamma0"] = outdir.joinpath(f"{slc_prefix}.gamma0")
+        attrs["dem_primary_gamma0_bmp"] = append_suffix(attrs["dem_primary_gamma0"], ".bmp")
+        attrs["dem_primary_gamma0_geo"] = outdir.joinpath(f"{slc_prefix}_geo.gamma0")
+        attrs["dem_primary_gamma0_geo_bmp"] = append_suffix(attrs["dem_primary_gamma0_geo"], ".bmp")
+        attrs["dem_primary_gamma0_geo_tif"] = append_suffix(attrs["dem_primary_gamma0_geo_bmp"], ".tif")
 
-        attrs["r_dem_master_slc"] = outdir.joinpath(f"{r_slc_prefix}.slc")
-        attrs["r_dem_master_slc_par"] = outdir.joinpath(f"{r_slc_prefix}.slc.par")
-        attrs["r_dem_master_mli"] = outdir.joinpath("r{}.mli".format(slc_prefix))
-        attrs["r_dem_master_mli_par"] = attrs["r_dem_master_mli"].with_suffix(
-            attrs["r_dem_master_mli"].suffix + ".par"
+        attrs["r_dem_primary_slc"] = outdir.joinpath(f"{r_slc_prefix}.slc")
+        attrs["r_dem_primary_slc_par"] = outdir.joinpath(f"{r_slc_prefix}.slc.par")
+        attrs["r_dem_primary_mli"] = outdir.joinpath("r{}.mli".format(slc_prefix))
+        attrs["r_dem_primary_mli_par"] = attrs["r_dem_primary_mli"].with_suffix(
+            attrs["r_dem_primary_mli"].suffix + ".par"
         )
-        attrs["r_dem_master_mli_bmp"] = append_suffix(attrs["r_dem_master_mli"], ".bmp")
+        attrs["r_dem_primary_mli_bmp"] = append_suffix(attrs["r_dem_primary_mli"], ".bmp")
         return attrs
 
     @staticmethod
@@ -262,13 +262,13 @@ class CoregisterDem:
 
     def _set_attrs(self) -> None:
         """
-        Internal class dem master attributes setter.
+        Internal class dem primary attributes setter.
         """
 
-        if self.r_dem_master_mli_width is None:
-            mli_par = pg.ParFile(str(self.r_dem_master_mli_par))
-            self.r_dem_master_mli_width = mli_par.get_value("range_samples", dtype=int, index=0)
-            self.r_dem_master_mli_length = mli_par.get_value("azimuth_lines", dtype=int, index=0)
+        if self.r_dem_primary_mli_width is None:
+            mli_par = pg.ParFile(str(self.r_dem_primary_mli_par))
+            self.r_dem_primary_mli_width = mli_par.get_value("range_samples", dtype=int, index=0)
+            self.r_dem_primary_mli_length = mli_par.get_value("azimuth_lines", dtype=int, index=0)
 
         if self.dem_width is None:
             geo_dem_par = pg.ParFile(str(self.geo_dem_par))
@@ -334,14 +334,14 @@ class CoregisterDem:
             An Optional flag to output raster files.
         """
 
-        # copy SLC image file to new file r_dem_master_slc.
+        # copy SLC image file to new file r_dem_primary_slc.
         # TODO this step seems redundant if we can directly use SLC image file to
         # multi-look. (Confirm with InSAR geodesy Team)
 
-        slc_in_pathname = str(self.dem_master_slc)
-        slc_par_in_pathname = str(self.dem_master_slc_par)
-        slc_out_pathname = str(self.r_dem_master_slc)
-        slc_par_out_pathname = str(self.r_dem_master_slc_par)
+        slc_in_pathname = str(self.dem_primary_slc)
+        slc_par_in_pathname = str(self.dem_primary_slc_par)
+        slc_out_pathname = str(self.r_dem_primary_slc)
+        slc_par_out_pathname = str(self.r_dem_primary_slc_par)
         fcase = 1  # FCOMPLEX
         sc = "-"  # scale factor
 
@@ -355,10 +355,10 @@ class CoregisterDem:
         )
 
         # multi-look SLC image file
-        slc_pathname = str(self.r_dem_master_slc)
-        slc_par_pathname = str(self.r_dem_master_slc_par)
-        mli_pathname = str(self.r_dem_master_mli)
-        mli_par_pathname = str(self.r_dem_master_mli_par)
+        slc_pathname = str(self.r_dem_primary_slc)
+        slc_par_pathname = str(self.r_dem_primary_slc_par)
+        mli_pathname = str(self.r_dem_primary_mli)
+        mli_par_pathname = str(self.r_dem_primary_mli_par)
         rlks = self.rlks
         azlks = self.alks
         loff = 0  # offset to starting line
@@ -377,8 +377,8 @@ class CoregisterDem:
         # TODO only useful for visual debugging phase.
         # This is redundant in production phase (Consult InSAR team and remove)
         if raster_out:
-            pwr_pathname = str(self.r_dem_master_mli)
-            mli_par = pg.ParFile(str(self.r_dem_master_mli_par))
+            pwr_pathname = str(self.r_dem_primary_mli)
+            mli_par = pg.ParFile(str(self.r_dem_primary_mli_par))
             width = mli_par.get_value("range_samples", dtype=int, index=0)
             start = 1
             nlines = 0  # default (to end of file)
@@ -387,7 +387,7 @@ class CoregisterDem:
             scale = 1.0
             exp = 0.35
             lr = 1  # left/right mirror image flag
-            rasf_pathname = str(self.r_dem_master_mli_bmp)
+            rasf_pathname = str(self.r_dem_primary_mli_bmp)
 
             pg.raspwr(
                 pwr_pathname,
@@ -411,7 +411,7 @@ class CoregisterDem:
 
         # generate initial geocoding look-up-table and simulated SAR image
 
-        mli_par_pathname = str(self.r_dem_master_mli_par)
+        mli_par_pathname = str(self.r_dem_primary_mli_par)
         off_par_pathname = "-"
         dem_par_pathname = str(self.dem_par)
         dem_pathname = str(self.dem)
@@ -487,7 +487,7 @@ class CoregisterDem:
             )
 
         # generate initial gamma0 pixel normalisation area image in radar geometry
-        mli_par_pathname = str(self.r_dem_master_mli_par)
+        mli_par_pathname = str(self.r_dem_primary_mli_par)
         dem_par_pathname = str(self.geo_dem_par)
         dem_pathname = str(self.geo_dem)
         lookup_table_pathname = str(self.dem_lt_rough)
@@ -507,12 +507,12 @@ class CoregisterDem:
             pix_gamma0_pathname,
         )
 
-        # any of the dem master mli size is not set. Set the dem size attributes.
+        # any of the dem primary mli size is not set. Set the dem size attributes.
         if any(
             item is None
             for item in [
-                self.r_dem_master_mli_width,
-                self.r_dem_master_mli_length,
+                self.r_dem_primary_mli_width,
+                self.r_dem_primary_mli_length,
                 self.dem_width,
             ]
         ):
@@ -547,8 +547,8 @@ class CoregisterDem:
             data_in_pathname = str(self.ext_image_flt)
             width_in = self.dem_width
             data_out_pathname = str(self.ext_image_init_sar)
-            width_out = self.r_dem_master_mli_width
-            nlines_out = self.r_dem_master_mli_length
+            width_out = self.r_dem_primary_mli_width
+            nlines_out = self.r_dem_primary_mli_length
             interp_mode = 1  # nearest neighbor
             dtype = 0  # FLOAT
             lr_in = "-"
@@ -574,7 +574,7 @@ class CoregisterDem:
             )
 
     def create_diff_par(self) -> None:
-        """Fine coregistration of master MLI and simulated SAR image."""
+        """Fine coregistration of primary MLI and simulated SAR image."""
         with tempfile.TemporaryDirectory() as temp_dir:
             return_file = Path(temp_dir).joinpath("returns")
             with open(return_file, "w") as fid:
@@ -587,7 +587,7 @@ class CoregisterDem:
             # FIXME: non-interactive would be better...
             command = [
                 "create_diff_par",
-                self.r_dem_master_mli_par.as_posix(),
+                self.r_dem_primary_mli_par.as_posix(),
                 "-",
                 self.dem_diff.as_posix(),
                 "1",
@@ -610,20 +610,20 @@ class CoregisterDem:
         if any(
             item is None
             for item in [
-                self.r_dem_master_mli_width,
-                self.r_dem_master_mli_length,
+                self.r_dem_primary_mli_width,
+                self.r_dem_primary_mli_length,
                 self.dem_width,
             ]
         ):
             self._set_attrs()
 
         # Read land center coordinates from shape file
-        land_center = read_land_center_coords(pg, self.r_dem_master_mli_par, Path(self.shapefile))
+        land_center = read_land_center_coords(pg, self.r_dem_primary_mli_par, Path(self.shapefile))
 
         if land_center is not None:
             _LOG.info(
                 "Land center for DEM coregistration determined from shape file",
-                mli=self.r_dem_master_mli,
+                mli=self.r_dem_primary_mli,
                 shapefile=self.shapefile,
                 land_center=land_center
             )
@@ -635,7 +635,7 @@ class CoregisterDem:
 
         # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than simulated SAR image in offset calculation
         mli_1_pathname = str(self.dem_pix_gam)
-        mli_2_pathname = str(self.r_dem_master_mli)
+        mli_2_pathname = str(self.r_dem_primary_mli)
         diff_par_pathname = str(self.dem_diff)
         rlks = 1
         azlks = 1
@@ -663,7 +663,7 @@ class CoregisterDem:
         )
 
         mli_1_pathname = str(self.dem_pix_gam)
-        mli_2_pathname = str(self.r_dem_master_mli)
+        mli_2_pathname = str(self.r_dem_primary_mli)
         diff_par_pathname = str(self.dem_diff)
         offs_pathname = str(self.dem_offs)
         ccp_pathname = str(self.dem_ccp)
@@ -729,7 +729,7 @@ class CoregisterDem:
         with tempfile.TemporaryDirectory() as temp_dir:
             pix = Path(temp_dir).joinpath("pix")
 
-            mli_par_pathname = str(self.r_dem_master_mli_par)
+            mli_par_pathname = str(self.r_dem_primary_mli_par)
             dem_par_pathname = str(self.geo_dem_par)
             dem_pathname = str(self.geo_dem)
             lookup_table_pathname = str(self.dem_lt_fine)
@@ -752,7 +752,7 @@ class CoregisterDem:
             # interpolate holes
             data_in_pathname = str(pix)
             data_out_pathname = str(self.dem_pix_gam)
-            width = self.r_dem_master_mli_width
+            width = self.r_dem_primary_mli_width
             r_max = "-"  # maximum interpolation window radius
             np_min = "-"  # minimum number of points used for the interpolation
             np_max = "-"  # maximum number of points used for the interpolation
@@ -775,8 +775,8 @@ class CoregisterDem:
             # obtain ellipsoid-based ground range sigma0 pixel reference area
             sigma0 = Path(temp_dir).joinpath("sigma0")
 
-            mli_pathname = str(self.r_dem_master_mli)
-            mli_par_pathname = str(self.r_dem_master_mli_par)
+            mli_pathname = str(self.r_dem_primary_mli)
+            mli_par_pathname = str(self.r_dem_primary_mli_par)
             off_par = "-"  # ISP offset/interferogram parameter file
             cmli = str(sigma0)  # radiometrically calibrated output MLI
             antenna = "-"  # 1-way antenna gain pattern file
@@ -801,14 +801,14 @@ class CoregisterDem:
                 pix_area_pathname,
             )
 
-            # Generate Gamma0 backscatter image for master scene according to equation
+            # Generate Gamma0 backscatter image for primary scene according to equation
             # in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
             temp1 = Path(temp_dir).joinpath("temp1")
 
-            d1_pathname = str(self.r_dem_master_mli)
+            d1_pathname = str(self.r_dem_primary_mli)
             d2_pathname = str(self.ellip_pix_sigma0)
             d_out_pathname = str(temp1)
-            width = self.r_dem_master_mli_width
+            width = self.r_dem_primary_mli_width
             mode = 2  # multiplication
 
             pg.float_math(
@@ -817,17 +817,17 @@ class CoregisterDem:
 
             d1_pathname = str(temp1)
             d2_pathname = str(self.dem_pix_gam)
-            d_out_pathname = str(self.dem_master_gamma0)
-            width = self.r_dem_master_mli_width
+            d_out_pathname = str(self.dem_primary_gamma0)
+            width = self.r_dem_primary_mli_width
             mode = 3  # division
 
             pg.float_math(
                 d1_pathname, d2_pathname, d_out_pathname, width, mode,
             )
 
-            # create raster for comparison with master mli raster
-            pwr_pathname = str(self.dem_master_gamma0)
-            width = self.r_dem_master_mli_width
+            # create raster for comparison with primary mli raster
+            pwr_pathname = str(self.dem_primary_gamma0)
+            width = self.r_dem_primary_mli_width
             start = 1
             nlines = 0  # 0 is to end of file
             pixavr = 20
@@ -835,7 +835,7 @@ class CoregisterDem:
             scale = 1.0
             exp = 0.35
             lr = 1  # left/right mirror image flag
-            rasf_pathname = str(self.dem_master_gamma0_bmp)
+            rasf_pathname = str(self.dem_primary_gamma0_bmp)
 
             pg.raspwr(
                 pwr_pathname,
@@ -916,8 +916,8 @@ class CoregisterDem:
         if any(
             item is None
             for item in [
-                self.r_dem_master_mli_width,
-                self.r_dem_master_mli_length,
+                self.r_dem_primary_mli_width,
+                self.r_dem_primary_mli_length,
                 self.dem_width,
             ]
         ):
@@ -928,8 +928,8 @@ class CoregisterDem:
         data_in_pathname = str(self.geo_dem)
         width_in = self.dem_width
         data_out_pathname = str(self.rdc_dem)
-        width_out = self.r_dem_master_mli_width
-        nlines_out = self.r_dem_master_mli_length
+        width_out = self.r_dem_primary_mli_width
+        nlines_out = self.r_dem_primary_mli_length
         interp_mode = 1
         dtype = 0  # FLOAT
         lr_in = "-"
@@ -958,8 +958,8 @@ class CoregisterDem:
             rdc_dem_bmp = Path(temp_dir).joinpath("rdc_dem.bmp")
 
             hgt_pathname = str(self.rdc_dem)
-            pwr_pathname = str(self.r_dem_master_mli)
-            width = self.r_dem_master_mli_width
+            pwr_pathname = str(self.r_dem_primary_mli)
+            width = self.r_dem_primary_mli_width
             start_hgt = 1
             start_pwr = 1
             nlines = 0
@@ -996,8 +996,8 @@ class CoregisterDem:
         data_in_pathname = str(self.dem_geo_sim_sar)
         width_in = self.dem_width
         data_out_pathname = str(self.dem_rdc_sim_sar)
-        width_out = self.r_dem_master_mli_width
-        nlines_out = self.r_dem_master_mli_length
+        width_out = self.r_dem_primary_mli_width
+        nlines_out = self.r_dem_primary_mli_length
         interp_mode = 0  # resampling interpolation; 1/dist
         dtype = 0  # FLOAT
         lr_in = "-"
@@ -1027,8 +1027,8 @@ class CoregisterDem:
         data_in_pathname = str(self.dem_loc_inc)
         width_in = self.dem_width
         data_out_pathname = str(self.dem_rdc_inc)
-        width_out = self.r_dem_master_mli_width
-        nlines_out = self.r_dem_master_mli_length
+        width_out = self.r_dem_primary_mli_width
+        nlines_out = self.r_dem_primary_mli_length
         interp_mode = 0  # resampling interpolation; 1/dist
         dtype = 0  # FLOAT
         lr_in = "-"
@@ -1059,8 +1059,8 @@ class CoregisterDem:
             data_in_pathname = str(self.ext_image_flt)
             width_in = self.dem_width
             data_out_pathname = str(self.ext_image_sar)
-            width_out = self.r_dem_master_mli_width
-            nlines_out = self.r_dem_master_mli_length
+            width_out = self.r_dem_primary_mli_width
+            nlines_out = self.r_dem_primary_mli_length
             interp_mode = 0  # resampling interpolation; 1/dist
             dtype = 0  # FLOAT
             lr_in = "-"
@@ -1123,10 +1123,10 @@ class CoregisterDem:
         ls_mask_file = None
 
         # Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
-        data_in_pathname = str(self.dem_master_gamma0)
-        width_in = self.r_dem_master_mli_width
+        data_in_pathname = str(self.dem_primary_gamma0)
+        width_in = self.r_dem_primary_mli_width
         lookup_table_pathname = str(self.dem_lt_fine)
-        data_out_pathname = str(self.dem_master_gamma0_geo)
+        data_out_pathname = str(self.dem_primary_gamma0_geo)
         width_out = self.dem_width
         nlines_out = "-"
         interp_mode = 5  # B-spline interpolation sqrt(x)
@@ -1150,7 +1150,7 @@ class CoregisterDem:
         )
 
         # make quick-look png image
-        pwr_pathname = str(self.dem_master_gamma0_geo)
+        pwr_pathname = str(self.dem_primary_gamma0_geo)
         width = self.dem_width
         start = 1
         nlines = 0  # to end of file
@@ -1159,7 +1159,7 @@ class CoregisterDem:
         scale = "-"
         exp = "-"
         lr = "-"
-        rasf_pathname = str(self.dem_master_gamma0_geo_bmp)
+        rasf_pathname = str(self.dem_primary_gamma0_geo_bmp)
 
         pg.raspwr(
             pwr_pathname,
@@ -1175,18 +1175,18 @@ class CoregisterDem:
         )
 
         # Convert the bitmap to a PNG w/ black pixels made transparent
-        img = Image.open(self.dem_master_gamma0_geo_bmp.as_posix())
+        img = Image.open(self.dem_primary_gamma0_geo_bmp.as_posix())
         img = np.array(img.convert("RGBA"))
         img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
         Image.fromarray(img).save(
-            self.dem_master_gamma0_geo_bmp.with_suffix(".png").as_posix()
+            self.dem_primary_gamma0_geo_bmp.with_suffix(".png").as_posix()
         )
 
         # geotiff gamma0 file
         dem_par_pathname = str(self.geo_dem_par)
-        data_pathname = str(self.dem_master_gamma0_geo)
+        data_pathname = str(self.dem_primary_gamma0_geo)
         dtype = 2  # FLOAT
-        geotiff_pathname = self.dem_master_gamma0_geo_tif
+        geotiff_pathname = self.dem_primary_gamma0_geo_tif
         nodata = 0.0
 
         pg.data2geotiff(
@@ -1194,12 +1194,12 @@ class CoregisterDem:
         )
 
         # geocode sigma0 mli
-        shutil.copyfile(self.r_dem_master_mli, self.dem_master_sigma0)
+        shutil.copyfile(self.r_dem_primary_mli, self.dem_primary_sigma0)
 
-        data_in_pathname = str(self.dem_master_sigma0)
-        width_in = self.r_dem_master_mli_width
+        data_in_pathname = str(self.dem_primary_sigma0)
+        width_in = self.r_dem_primary_mli_width
         lookup_table_pathname = str(self.dem_lt_fine)
-        data_out_pathname = str(self.dem_master_sigma0_geo)
+        data_out_pathname = str(self.dem_primary_sigma0_geo)
         width_out = self.dem_width
         nlines_out = "-"
         interp_mode = 0
@@ -1222,9 +1222,9 @@ class CoregisterDem:
 
         # geotiff sigma0 file
         dem_par_pathname = str(self.geo_dem_par)
-        data_pathname = str(self.dem_master_sigma0_geo)
+        data_pathname = str(self.dem_primary_sigma0_geo)
         dtype = 2  # FLOAT
-        geotiff_pathname = str(self.dem_master_sigma0_geo_tif)
+        geotiff_pathname = str(self.dem_primary_sigma0_geo_tif)
         nodata = 0.0
 
         pg.data2geotiff(
@@ -1243,9 +1243,9 @@ class CoregisterDem:
         )
 
         # create kml
-        image_pathname = str(self.dem_master_gamma0_geo_bmp.with_suffix(".png"))
+        image_pathname = str(self.dem_primary_gamma0_geo_bmp.with_suffix(".png"))
         dem_par_pathname = str(self.geo_dem_par)
-        kml_pathname = str(self.dem_master_gamma0_geo_bmp.with_suffix(".kml"))
+        kml_pathname = str(self.dem_primary_gamma0_geo_bmp.with_suffix(".kml"))
 
         pg.kml_map(
             image_pathname, dem_par_pathname, kml_pathname,
@@ -1258,7 +1258,7 @@ class CoregisterDem:
             self.dem_coffs,
             self.dem_coffsets,
             self.dem_lt_rough,
-            self.dem_master_gamma0_geo_bmp,
+            self.dem_primary_gamma0_geo_bmp,
         ]:
             # TODO uncomment remove comment in production phase.
             if item.exists():
@@ -1269,7 +1269,7 @@ class CoregisterDem:
         """Create look vector files."""
 
         # create angles look vector image
-        slc_par_pathname = str(self.r_dem_master_slc_par)
+        slc_par_pathname = str(self.r_dem_primary_slc_par)
         off_par_pathname = "-"
         dem_par_pathname = str(self.geo_dem_par)
         dem_pathname = str(self.geo_dem)

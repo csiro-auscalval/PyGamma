@@ -4,7 +4,7 @@ import pytest
 
 import numpy as np
 
-from insar.scripts.process_gamma import find_scenes_in_range, create_slave_coreg_tree
+from insar.scripts.process_gamma import find_scenes_in_range, create_secondary_coreg_tree
 
 def _generate_dates(first_date, last_date, N=100):
     dt_diff = last_date - first_date
@@ -46,9 +46,9 @@ def test_tree_structure():
     test_dates = _generate_dates(date_a, date_b)
     thres_days = 50
 
-    tree = create_slave_coreg_tree(today, test_dates, thres_days)
+    tree = create_secondary_coreg_tree(today, test_dates, thres_days)
 
-    master_dates = [today, today]
+    primary_dates = [today, today]
     last_level = test_dates
 
     # We should have a non-empty tree w/ non-empty data!
@@ -58,12 +58,12 @@ def test_tree_structure():
         # Shouldn't have any empty levels
         assert(len(level) > 0)
 
-        # Should be within thres_days of our master dates
+        # Should be within thres_days of our primary dates
         for dt in level:
-            lhs_dist = abs(dt - master_dates[0])
-            rhs_dist = abs(dt - master_dates[1])
+            lhs_dist = abs(dt - primary_dates[0])
+            rhs_dist = abs(dt - primary_dates[1])
 
             assert(lhs_dist.days <= thres_days or rhs_dist.days <= thres_days)
 
-        master_dates = [level[0], level[-1]]
+        primary_dates = [level[0], level[-1]]
         last_level = level

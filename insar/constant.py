@@ -11,8 +11,8 @@ SAFE_FMT = "{s}.SAFE"
 S1_SOURCE_DIR_FMT = "{y}/{y}-{m}/{g}/{f}"
 DATE_FMT = "*{dt}*"
 SCENE_DATE_FMT = "%Y%m%d"
-COREG_JOB_FILE_FMT = "{master}_{slave}.bash"
-COREG_JOB_ERROR_FILE_FMT = "{master}_{slave}.error"
+COREG_JOB_FILE_FMT = "{primary}_{secondary}.bash"
+COREG_JOB_ERROR_FILE_FMT = "{primary}_{secondary}.error"
 
 # generic Gamma interface
 COUT = "cout"

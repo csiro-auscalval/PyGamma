@@ -99,7 +99,7 @@ class BaselineProcess:
         self,
         slc_par_list: List[Path],
         polarization: List[str],
-        master_scene: datetime.date,
+        primary_scene: datetime.date,
         scene_list: Optional[Path] = None,
         outdir: Optional[Path] = None,
     ) -> None:
@@ -107,14 +107,14 @@ class BaselineProcess:
         Calculate initial and precision baselines for SLC image stack.
 
         Provides access to functionality to generate Interferometric-pair List
-        using sbas_list, single_master_list and daisy_chain_list methods.
+        using sbas_list, single_primary_list and daisy_chain_list methods.
 
         :param slc_par_list:
             List of Paths of a slc parameter file.
         :param polarization:
             A polarization of slc scenes. SLC parameter list  must be of  same polarization.
-        :param master_scene:
-            Acquisition date of a master SLC scene.
+        :param primary_scene:
+            Acquisition date of a primary SLC scene.
         :param scene_list:
             Optional scene_list file path containing the slc acquisition dates in 'YYYYMMDD' format.
             Otherwise, slc acquisition dates will be parsed from parameter file in the slc_par_list.
@@ -124,13 +124,13 @@ class BaselineProcess:
 
         self.slc_par_list = slc_par_list
         self.scenes_list = scene_list
-        self.master_scene = master_scene
+        self.primary_scene = primary_scene
         self.polarization = polarization
         self.slc_dates = self.list_slc_dates()
         self.slc_par_list_posix = list(map(lambda x: x.as_posix(), self.slc_par_list))
         # select the mater to be center date is None
-        if self.master_scene is None:
-            self.master_scene = self.slc_dates[int(len(self.slc_dates) / 2)]
+        if self.primary_scene is None:
+            self.primary_scene = self.slc_dates[int(len(self.slc_dates) / 2)]
         self.outdir = outdir
         if self.outdir is None:
             self.outdir = os.getcwd()
@@ -191,9 +191,9 @@ class BaselineProcess:
 
         relBperps = np.zeros((len(self.slc_dates), len(self.slc_dates) - 1))
 
-        # compute baseline for treating each slc scene as a master slc
-        for m_idx, master_date in enumerate(self.slc_dates):
-            m_data = SlcParFileParser(Path(self._match_par(master_date)))
+        # compute baseline for treating each slc scene as a primary slc
+        for m_idx, primary_date in enumerate(self.slc_dates):
+            m_data = SlcParFileParser(Path(self._match_par(primary_date)))
             m_P = self.llh2xyz(m_data.slc_par_params.lat, m_data.slc_par_params.lon, 0.0)
             m_M = self.calc_orbit_pos(
                 m_data.orbit_par_params.t,
@@ -203,11 +203,11 @@ class BaselineProcess:
                 m_P,
             )
             R1 = m_M - m_P
-            slaves = self.slc_dates[:]
-            slaves.pop(m_idx)
+            secondaries = self.slc_dates[:]
+            secondaries.pop(m_idx)
             Bperps = []
-            for s_idx, slave_date in enumerate(slaves):
-                s_data = SlcParFileParser(Path(self._match_par(slave_date)))
+            for s_idx, secondary_date in enumerate(secondaries):
+                s_data = SlcParFileParser(Path(self._match_par(secondary_date)))
                 s_M = self.calc_orbit_pos(
                     s_data.orbit_par_params.t,
                     m_data.slc_par_params.tmin,
@@ -238,7 +238,7 @@ class BaselineProcess:
                 Bperp_temp = Bperp
                 count_rel += 1
         relBperps_median = np.median(relBperps, axis=0)
-        m_idx = self.slc_dates.index(self.master_scene)
+        m_idx = self.slc_dates.index(self.primary_scene)
         sum_rel = 0
         Bperps[m_idx] = 0.0
         for i in range(m_idx - 1, -1, -1):
@@ -249,13 +249,13 @@ class BaselineProcess:
             sum_rel += relBperps_median[i - 1]
             Bperps[i] = sum_rel
 
-        slaves = self.slc_dates[:]
-        slaves.pop(m_idx)
+        secondaries = self.slc_dates[:]
+        secondaries.pop(m_idx)
 
         Bdopp = []
-        m_data = SlcParFileParser(Path(self._match_par(self.master_scene)))
-        for idx, slave in enumerate(slaves):
-            s_data = SlcParFileParser(Path(self._match_par(slave)))
+        m_data = SlcParFileParser(Path(self._match_par(self.primary_scene)))
+        for idx, secondary in enumerate(secondaries):
+            s_data = SlcParFileParser(Path(self._match_par(secondary)))
             Bdopp.append(s_data.orbit_par_params.fDC - m_data.orbit_par_params.fDC)
         Bdopp.insert(m_idx, 0.0)
 
@@ -274,8 +274,8 @@ class BaselineProcess:
         """
 
         bperps, bdopp = self.compute_perpendicular_baseline()
-        m_idx = self.slc_dates.index(self.master_scene)
-        m_data = SlcParFileParser(Path(self._match_par(self.master_scene)))
+        m_idx = self.slc_dates.index(self.primary_scene)
+        m_data = SlcParFileParser(Path(self._match_par(self.primary_scene)))
 
         bperp_max = (
             (m_data.slc_par_params.Br / m_data.slc_par_params.f)
@@ -313,24 +313,24 @@ class BaselineProcess:
                 )
 
     @staticmethod
-    def single_master_list(
-        master: datetime.date, slaves: List[datetime.date], outfile: Path,
+    def single_primary_list(
+        primary: datetime.date, secondaries: List[datetime.date], outfile: Path,
     ) -> None:
         """
-        Create single Master Interferogram List.
+        Create single primary interferogram list.
 
-        :param master:
-            Acquisition date for slc master scene.
-        :param slaves:
-            List of acquisition date for slaves slc scenes.
+        :param primary:
+            Acquisition date for slc primary scene.
+        :param secondaries:
+            List of acquisition date for secondaries slc scenes.
         :param outfile:
             A full path of an outfile to write interferometric-pair list
         """
 
         with open(outfile.as_posix(), "w") as fid:
-            for slave in slaves:
+            for secondary in secondaries:
                 fid.write(
-                    master.strftime("%Y%m%d") + "," + slave.strftime("%Y%m%d") + "\n"
+                    primary.strftime("%Y%m%d") + "," + secondary.strftime("%Y%m%d") + "\n"
                 )
 
     @staticmethod
@@ -440,7 +440,7 @@ class BaselineProcess:
         poly_x_der = poly_x.deriv()
         poly_y_der = poly_y.deriv()
         poly_z_der = poly_z.deriv()
-        # find point from where scene centre is acquired on master orbit
+        # find point from where scene centre is acquired on primary orbit
         tm = 0
         dt = 1
         x = xyz_centre[0]
@@ -463,7 +463,7 @@ class BaselineProcess:
 
     @staticmethod
     def epoch_baselines(
-        epochs, bperp, masidx, slvidx, supermaster,
+        epochs, bperp, masidx, slvidx, superprimary,
     ):
         """Determine relative perpendicular baselines of epochs from interferometric baselines.
 
@@ -472,10 +472,10 @@ class BaselineProcess:
         :param bperp:
             List of interferogram absolute perpendicular baselines.
         :param masidx:
-            List of master indices from get_index.
+            List of primary indices from get_index.
         :param slvidx:
-            List of slave indices from get_index.
-        :param supermaster:
+            List of secondary indices from get_index.
+        :param superprimary:
             Epoch to set relative bperp to zero (integer).
 
         returns:
@@ -494,8 +494,8 @@ class BaselineProcess:
         # Initialise design matrix 'A'
         A = np.zeros((nifgs + 1, nepochs))
 
-        # assign super-master epoch to constrain relative baselines
-        A[0, supermaster] = 1
+        # assign super-primary epoch to constrain relative baselines
+        A[0, superprimary] = 1
         b = np.zeros(nifgs + 1)
         b[1 : nifgs + 1] = bperp
 
@@ -515,7 +515,7 @@ class BaselineProcess:
         dates: List[datetime.date],
         Bperps: List[float],
         Bdopp: List[float],
-        master_ix: int,
+        primary_ix: int,
         Btemp_max: float,
         Bperp_max: float,
         Ba: float,
@@ -530,11 +530,11 @@ class BaselineProcess:
         :param dates:
             List of slc acquisition dates sorted (ascending).
         :param Bperps:
-            List of perpendicular baselines w.r.t master slc..
+            List of perpendicular baselines w.r.t primary slc..
         :param Bdopp:
-            List of doppler centroid frequency (fDC) difference w.r.t to master slc.
-        :param master_idx:
-            index of master scene in the list of slc dates.
+            List of doppler centroid frequency (fDC) difference w.r.t to primary slc.
+        :param primary_idx:
+            index of primary scene in the list of slc dates.
         :param Btemp_max:
             Maximum Btemp(total decorrelation).
         :param Bperp_max:
@@ -562,9 +562,9 @@ class BaselineProcess:
         # calculate Btemp differences in days (ddiff) for all possible IFG comb.
         dates_diff_days = [0] * num_scenes
         i = 0
-        # loop needed to convert date objects to integer dates (eg wrt master)
+        # loop needed to convert date objects to integer dates (eg wrt primary)
         for line in dates:
-            dates_diff_days[i] = (line - dates[master_ix]).days
+            dates_diff_days[i] = (line - dates[primary_ix]).days
             i = i + 1
         X, Y = np.meshgrid(dates_diff_days, dates_diff_days)
         ddiff = abs(X - Y)
@@ -676,7 +676,7 @@ class BaselineProcess:
 
     @staticmethod
     def plot_baseline_time_sm(
-        epochs, Bperps, master_ix, filename,
+        epochs, Bperps, primary_ix, filename,
     ):
         """
         Make a baseline time plot and save to disk
@@ -697,10 +697,10 @@ class BaselineProcess:
             markerfacecolor="black",
             linestyle="None",
         )
-        # use a red circle for master date
+        # use a red circle for primary date
         ax1.plot_date(
-            epochs[master_ix],
-            Bperps[master_ix],
+            epochs[primary_ix],
+            Bperps[primary_ix],
             xdate=True,
             ydate=False,
             marker="o",

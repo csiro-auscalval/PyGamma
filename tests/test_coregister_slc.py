@@ -34,8 +34,8 @@ def get_test_context():
     # raspwr needs to create a dummy bmp
     def raspwr_se(*args, **kwargs):
         rasf = args[9]
-        slave_gamma0_geo = data_dir / rasf
-        Image.new('RGB', size=(50, 50), color=(155, 0, 0)).save(slave_gamma0_geo)
+        secondary_gamma0_geo = data_dir / rasf
+        Image.new('RGB', size=(50, 50), color=(155, 0, 0)).save(secondary_gamma0_geo)
         return pgp.raspwr(*args, **kwargs)
 
     def mcf_se(*args, **kwargs):
@@ -96,14 +96,14 @@ def get_test_context():
     data = {
         'proc': proc_config,
         'list_idx': '-',
-        'slc_master': data_dir / '20151127_VV.slc',
-        'slc_slave': data_dir / '20151127_VV.slc',  # if slave/master are the same... everything should still run i assume? just useless outputs?
-        'slave_mli': data_dir / '20151127_VV_8rlks.mli',
+        'slc_primary': data_dir / '20151127_VV.slc',
+        'slc_secondary': data_dir / '20151127_VV.slc',  # if secondary/primary are the same... everything should still run i assume? just useless outputs?
+        'secondary_mli': data_dir / '20151127_VV_8rlks.mli',
         'range_looks': 1,
         'azimuth_looks': 1,
         'ellip_pix_sigma0': data_dir / '20151127_VV_8rlks_ellip_pix.sigma0',
         'dem_pix_gamma0': data_dir / '20151127_VV_8rlks_rdc_pix.gamma0',
-        'r_dem_master_mli': data_dir / 'r20151127_VV_8rlks.mli',
+        'r_dem_primary_mli': data_dir / 'r20151127_VV_8rlks.mli',
         'rdc_dem': data_dir / '20151127_VV_8rlks_rdc.dem',
         'geo_dem_par': data_dir / '20180127_VV_8rlks_geo.dem.par',
         'dem_lt_fine': data_dir / '20151127_VV_8rlks_geo_to_rdc.lt',
@@ -141,16 +141,16 @@ def test_valid_data(monkeypatch):
         assert(pgp.error_count == 0)
 
         # Assert outputs exist
-        assert(coreg.r_slave_slc.exists())
+        assert(coreg.r_secondary_slc.exists())
 
-        slave_gamma0 = coreg.out_dir / f"{coreg.slave_mli.stem}.gamma0"
-        slave_gamma0_geo = coreg.out_dir / f"{coreg.slave_mli.stem}_geo.gamma0"
-        assert(slave_gamma0.exists())
-        assert(slave_gamma0_geo.exists())
+        secondary_gamma0 = coreg.out_dir / f"{coreg.secondary_mli.stem}.gamma0"
+        secondary_gamma0_geo = coreg.out_dir / f"{coreg.secondary_mli.stem}_geo.gamma0"
+        assert(secondary_gamma0.exists())
+        assert(secondary_gamma0_geo.exists())
 
         # Assert quick-look images exist
-        slave_png = coreg.out_dir / f"{slave_gamma0_geo.name}.png"
-        assert(slave_png.exists())
+        secondary_png = coreg.out_dir / f"{secondary_gamma0_geo.name}.png"
+        assert(secondary_png.exists())
 
 
 def test_set_tab_files(monkeypatch):
@@ -164,16 +164,16 @@ def test_set_tab_files(monkeypatch):
         )
 
         coreg.set_tab_files()
-        assert(coreg.slave_slc_tab.exists())
-        assert(coreg.r_slave_slc_tab.exists())
-        assert(coreg.master_slc_tab.exists())
+        assert(coreg.secondary_slc_tab.exists())
+        assert(coreg.r_secondary_slc_tab.exists())
+        assert(coreg.primary_slc_tab.exists())
 
         custom_dir = 'test123abc'
         (Path(temp_path) / custom_dir).mkdir()
         coreg.set_tab_files(Path(temp_path) / custom_dir)
-        assert(coreg.slave_slc_tab.exists() and coreg.slave_slc_tab.parent.name == custom_dir)
-        assert(coreg.r_slave_slc_tab.exists() and coreg.r_slave_slc_tab.parent.name == custom_dir)
-        assert(coreg.master_slc_tab.exists() and coreg.master_slc_tab.parent.name == custom_dir)
+        assert(coreg.secondary_slc_tab.exists() and coreg.secondary_slc_tab.parent.name == custom_dir)
+        assert(coreg.r_secondary_slc_tab.exists() and coreg.r_secondary_slc_tab.parent.name == custom_dir)
+        assert(coreg.primary_slc_tab.exists() and coreg.primary_slc_tab.parent.name == custom_dir)
 
 
 def test_get_lookup(monkeypatch):
@@ -187,15 +187,15 @@ def test_get_lookup(monkeypatch):
         )
 
         # Create dummy inputs that are expected
-        coreg.r_dem_master_mli_par.touch()
+        coreg.r_dem_primary_mli_par.touch()
         coreg.rdc_dem.touch()
-        coreg.slave_mli_par.touch()
+        coreg.secondary_mli_par.touch()
 
         # Run function
         coreg.get_lookup()
 
         # Ensure the output is produced
-        assert(coreg.slave_lt.exists())
+        assert(coreg.secondary_lt.exists())
 
 
 def test_resample_full(monkeypatch):
@@ -216,9 +216,9 @@ def test_resample_full(monkeypatch):
 
         coreg.resample_full()
 
-        assert(Path(coreg.r_slave_slc_tab).exists())
-        assert(Path(coreg.r_slave_slc).exists())
-        assert(Path(coreg.r_slave_slc_par).exists())
+        assert(Path(coreg.r_secondary_slc_tab).exists())
+        assert(Path(coreg.r_secondary_slc).exists())
+        assert(Path(coreg.r_secondary_slc_par).exists())
 
 
 def test_multi_look(monkeypatch):
@@ -240,8 +240,8 @@ def test_multi_look(monkeypatch):
 
         coreg.multi_look()
 
-        assert(Path(coreg.r_slave_mli).exists())
-        assert(Path(coreg.r_slave_mli_par).exists())
+        assert(Path(coreg.r_secondary_mli).exists())
+        assert(Path(coreg.r_secondary_mli_par).exists())
 
 
 def test_generate_normalised_backscatter(monkeypatch):
@@ -264,18 +264,18 @@ def test_generate_normalised_backscatter(monkeypatch):
 
         coreg.generate_normalised_backscatter()
 
-        slave_gamma0 = coreg.out_dir / f"{coreg.slave_mli.stem}.gamma0"
-        slave_gamma0_geo = coreg.out_dir / f"{coreg.slave_mli.stem}_geo.gamma0"
-        slave_png = coreg.out_dir / f"{slave_gamma0_geo.name}.png"
+        secondary_gamma0 = coreg.out_dir / f"{coreg.secondary_mli.stem}.gamma0"
+        secondary_gamma0_geo = coreg.out_dir / f"{coreg.secondary_mli.stem}_geo.gamma0"
+        secondary_png = coreg.out_dir / f"{secondary_gamma0_geo.name}.png"
 
-        assert(slave_gamma0.exists())
-        assert(slave_gamma0_geo.exists())
-        assert(slave_png.exists())
+        assert(secondary_gamma0.exists())
+        assert(secondary_gamma0_geo.exists())
+        assert(secondary_png.exists())
 
-        assert(slave_gamma0_geo.with_suffix(".gamma0.tif").exists())
+        assert(secondary_gamma0_geo.with_suffix(".gamma0.tif").exists())
 
-        assert(slave_gamma0_geo.with_suffix(".sigma0").exists())
-        assert(slave_gamma0_geo.with_suffix(".sigma0.tif").exists())
+        assert(secondary_gamma0_geo.with_suffix(".sigma0").exists())
+        assert(secondary_gamma0_geo.with_suffix(".sigma0.tif").exists())
 
 
 # TODO: Test more specific corner cases (what are they?)

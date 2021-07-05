@@ -709,12 +709,12 @@ def grid_definition(
         # create kmls if >= 1 frame exist #
         # ------------------------------- #
         if create_kml and gpd_cnt > 0:
-            master_kml = Generate_kml()
+            primary_kml = Generate_kml()
 
             # add ROI polygon
             ROI_lons = [bbox_wlon, bbox_elon, bbox_elon, bbox_wlon, bbox_wlon]
             ROI_lats = [bbox_nlat, bbox_nlat, bbox_slat, bbox_slat, bbox_nlat]
-            master_kml.add_polygon(
+            primary_kml.add_polygon(
                 polygon_name="ROI",
                 polygon_coords=[xy for xy in zip(ROI_lons, ROI_lats)],
                 polygon_width=5,
@@ -724,7 +724,7 @@ def grid_definition(
 
             # add Frames
             for frame_num in frame_obj.frame_numbers:
-                master_kml.add_polygon(
+                primary_kml.add_polygon(
                     polygon_name="Frame_{:02}".format(frame_num),
                     polygon_coords=frame_obj.get_frame_coords_list(frame_num),
                     polygon_width=4,
@@ -747,7 +747,7 @@ def grid_definition(
                 #             (lon1,lat1)]
 
                 # add polygons to kml with a random colour
-                master_kml.add_multipolygon(
+                primary_kml.add_multipolygon(
                     polygon_name="Bursts_in_{}".format(Frames_in_grid),
                     polygon_list=burst_coord_list,
                     polygon_width=3,
@@ -768,7 +768,7 @@ def grid_definition(
             )
 
             # save kml
-            master_kml.save_kml(kml_filename)
+            primary_kml.save_kml(kml_filename)
 
             if os.path.exists(kml_filename):
                 _LOG.info(

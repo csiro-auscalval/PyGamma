@@ -34,8 +34,8 @@ def get_test_context():
     # raspwr needs to create a dummy bmp
     def raspwr_se(*args, **kwargs):
         rasf = args[9]
-        slave_gamma0_geo = data_dir / rasf
-        Image.new("RGB", size=(50, 50), color=(155, 0, 0)).save(slave_gamma0_geo)
+        secondary_gamma0_geo = data_dir / rasf
+        Image.new("RGB", size=(50, 50), color=(155, 0, 0)).save(secondary_gamma0_geo)
         return pgp.raspwr(*args, **kwargs)
 
     def SLC_copy_se(*args, **kwargs):
@@ -228,15 +228,15 @@ def test_copy_slc(monkeypatch):
 
         coreg.copy_slc(False)
 
-        assert Path(coreg.r_dem_master_mli).exists()
-        assert Path(coreg.r_dem_master_mli_par).exists()
-        assert not Path(coreg.r_dem_master_mli_bmp).exists()
+        assert Path(coreg.r_dem_primary_mli).exists()
+        assert Path(coreg.r_dem_primary_mli_par).exists()
+        assert not Path(coreg.r_dem_primary_mli_bmp).exists()
 
         coreg.copy_slc(True)
 
-        assert Path(coreg.r_dem_master_mli).exists()
-        assert Path(coreg.r_dem_master_mli_par).exists()
-        assert Path(coreg.r_dem_master_mli_bmp).exists()
+        assert Path(coreg.r_dem_primary_mli).exists()
+        assert Path(coreg.r_dem_primary_mli_par).exists()
+        assert Path(coreg.r_dem_primary_mli_bmp).exists()
 
 
 def test_gen_dem_rdc(monkeypatch):
@@ -323,8 +323,8 @@ def test_offset_calc(monkeypatch):
         coreg.offset_calc()
 
         assert Path(coreg.dem_lt_fine).exists()
-        assert Path(coreg.dem_master_gamma0).exists()
-        assert Path(coreg.dem_master_gamma0_bmp).exists()
+        assert Path(coreg.dem_primary_gamma0).exists()
+        assert Path(coreg.dem_primary_gamma0_bmp).exists()
         assert Path(coreg.seamask).exists()
 
 
@@ -351,14 +351,14 @@ def test_geocode(monkeypatch):
         assert Path((coreg.dem_outdir / coreg.rdc_dem).with_suffix(".png")).exists()
         assert Path(coreg.dem_rdc_sim_sar).exists()
         assert Path(coreg.dem_rdc_inc).exists()
-        assert Path(coreg.dem_master_gamma0_geo).exists()
-        assert Path(coreg.dem_master_gamma0_geo_bmp).exists()
-        assert Path(coreg.dem_master_gamma0_geo_bmp.with_suffix(".png")).exists()
-        assert Path(coreg.dem_master_gamma0_geo_tif).exists()
-        assert Path(coreg.dem_master_sigma0_geo).exists()
-        assert Path(coreg.dem_master_sigma0_geo_tif).exists()
+        assert Path(coreg.dem_primary_gamma0_geo).exists()
+        assert Path(coreg.dem_primary_gamma0_geo_bmp).exists()
+        assert Path(coreg.dem_primary_gamma0_geo_bmp.with_suffix(".png")).exists()
+        assert Path(coreg.dem_primary_gamma0_geo_tif).exists()
+        assert Path(coreg.dem_primary_sigma0_geo).exists()
+        assert Path(coreg.dem_primary_sigma0_geo_tif).exists()
 
-        assert Path(coreg.dem_master_gamma0_geo_bmp.with_suffix(".kml")).exists()
+        assert Path(coreg.dem_primary_gamma0_geo_bmp.with_suffix(".kml")).exists()
 
         # And with external image
         Path(coreg.ext_image_flt).touch()

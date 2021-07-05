@@ -22,101 +22,101 @@ def parse_date(scene_name):
 
 
 def coregristration_candidates(
-    scenes, master_idx, threshold, max_slave_idx=None,
+    scenes, primary_idx, threshold, max_secondary_idx=None,
 ):
     """
-    Returns slave scene index  to be co-registered with master scene and
+    Returns secondary scene index  to be co-registered with primary scene and
     checks if co-registration of scenes are complete or not.
     """
-    if master_idx == len(scenes) - 1:
+    if primary_idx == len(scenes) - 1:
         return None, True
 
-    slave_idx = None
+    secondary_idx = None
     is_complete = False
-    _master_date = parse_date(scenes[master_idx])
+    _primary_date = parse_date(scenes[primary_idx])
 
-    for idx, scene in enumerate(scenes[master_idx + 1 :], master_idx + 1):
-        if max_slave_idx and idx > max_slave_idx:
+    for idx, scene in enumerate(scenes[primary_idx + 1 :], primary_idx + 1):
+        if max_secondary_idx and idx > max_secondary_idx:
             break
-        if abs((parse_date(scene) - _master_date).days) > threshold:
+        if abs((parse_date(scene) - _primary_date).days) > threshold:
             break
-        slave_idx = idx
+        secondary_idx = idx
 
-    if slave_idx and slave_idx == len(scenes) - 1:
+    if secondary_idx and secondary_idx == len(scenes) - 1:
         is_complete = True
 
-    if not slave_idx and idx < len(scenes) - 1:
-        slave_idx = idx
+    if not secondary_idx and idx < len(scenes) - 1:
+        secondary_idx = idx
 
-    return slave_idx, is_complete
+    return secondary_idx, is_complete
 
 
-def coreg_candidates_after_master_scene(
-    scenes, masters_list, main_master,
+def coreg_candidates_after_primary_scene(
+    scenes, primaries_list, main_primary,
 ):
     """
-    Return co-registration pairs for scenes after main master scene's date.
+    Return co-registration pairs for scenes after main primary scene's date.
     :param scenes: list of scenes strings in '%Y%m%d' format.
-    :param masters: list of master scenes strings in '%Y%m%d format.
-    :return coregistration_scenes as a dict with key = master and
-            values = list of slave scenes for a master to be coregistered with.
+    :param primaries: list of primary scenes strings in '%Y%m%d format.
+    :return coregistration_scenes as a dict with key = primary and
+            values = list of secondary scenes for a primary to be coregistered with.
     """
-    # secondary masters(inclusive of main master scene) are sorted in ascending order with
-    # main master scene as a starting scene
-    masters = [
-        scene for scene in masters_list if parse_date(scene) >= parse_date(main_master)
+    # secondary primaries(inclusive of main primary scene) are sorted in ascending order with
+    # main primary scene as a starting scene
+    primaries = [
+        scene for scene in primaries_list if parse_date(scene) >= parse_date(main_primary)
     ]
-    masters.sort(key=lambda date: datetime.datetime.strptime(date, SCENE_DATE_FMT))
+    primaries.sort(key=lambda date: datetime.datetime.strptime(date, SCENE_DATE_FMT))
 
     coregistration_scenes = {}
-    for idx, master in enumerate(masters):
+    for idx, primary in enumerate(primaries):
         tmp_list = []
-        if idx < len(masters) - 1:
+        if idx < len(primaries) - 1:
             for scene in scenes:
-                if parse_date(master) < parse_date(scene) < parse_date(masters[idx + 1]):
+                if parse_date(primary) < parse_date(scene) < parse_date(primaries[idx + 1]):
                     tmp_list.append(scene)
-            coregistration_scenes[master] = tmp_list
+            coregistration_scenes[primary] = tmp_list
         else:
             for scene in scenes:
-                if parse_date(scene) > parse_date(master):
+                if parse_date(scene) > parse_date(primary):
                     tmp_list.append(scene)
-            coregistration_scenes[master] = tmp_list
+            coregistration_scenes[primary] = tmp_list
     return coregistration_scenes
 
 
-def coreg_candidates_before_master_scene(
-    scenes, masters_list, main_master,
+def coreg_candidates_before_primary_scene(
+    scenes, primaries_list, main_primary,
 ):
     """
-    Return co-registration pairs for scenes before main master scene's date.
+    Return co-registration pairs for scenes before main primary scene's date.
 
     :param scenes: list of scenes strings in '%Y%m%d' format.
-    :param masters: list of master scenes strings in '%Y%m%d format.
-    :return coregistration_scenes: dict with master(key) and scenes(value)
+    :param primaries: list of primary scenes strings in '%Y%m%d format.
+    :return coregistration_scenes: dict with primary(key) and scenes(value)
     """
-    # secondary masters (inclusive of master scene) are sorted in descending order with
-    # main master scene as starting scene
-    masters = [
-        scene for scene in masters_list if parse_date(scene) <= parse_date(main_master)
+    # secondary primaries (inclusive of primary scene) are sorted in descending order with
+    # main primary scene as starting scene
+    primaries = [
+        scene for scene in primaries_list if parse_date(scene) <= parse_date(main_primary)
     ]
-    masters.sort(
+    primaries.sort(
         key=lambda date: datetime.datetime.strptime(date, SCENE_DATE_FMT), reverse=True,
     )
 
     coregistration_scenes = {}
-    for idx, master in enumerate(masters):
+    for idx, primary in enumerate(primaries):
         tmp_list = []
-        if idx < len(masters) - 1:
+        if idx < len(primaries) - 1:
             for scene in scenes:
-                if parse_date(master) > parse_date(scene) > parse_date(masters[idx + 1]):
+                if parse_date(primary) > parse_date(scene) > parse_date(primaries[idx + 1]):
                     tmp_list.append(scene)
 
-            coregistration_scenes[master] = tmp_list
+            coregistration_scenes[primary] = tmp_list
         else:
             for scene in scenes:
-                if parse_date(scene) < parse_date(master):
+                if parse_date(scene) < parse_date(primary):
                     tmp_list.append(scene)
-            coregistration_scenes[master] = tmp_list
+            coregistration_scenes[primary] = tmp_list
     return coregistration_scenes
 
 

@@ -248,15 +248,15 @@ def query_job_dir(dir: Path):
             # TODO: Eventually coreg/backscatter will be separated
             if "SLC coregistration" in event:
                 # Skip higher level non-processing task logs
-                if "slave_date" not in log:
+                if "secondary_date" not in log:
                     continue
 
-                index = f"{log['slave_date']}-{log['polarization']}"
+                index = f"{log['secondary_date']}-{log['polarization']}"
                 entry = (
                     timestamp,
                     log["polarization"],
-                    log["master_date"],
-                    log["slave_date"],
+                    log["primary_date"],
+                    log["secondary_date"],
                 )
 
                 if "Beginning SLC coregistration" in event:
@@ -281,11 +281,11 @@ def query_job_dir(dir: Path):
 
             elif "interferogram" in event.lower():
                 # Skip higher level non-processing task logs
-                if "master_date" not in log:
+                if "primary_date" not in log:
                     continue
 
-                date_pair = f"{log['master_date']}-{log['slave_date']}"
-                entry = (timestamp, "VV", log["master_date"], log["slave_date"])
+                date_pair = f"{log['primary_date']}-{log['secondary_date']}"
+                entry = (timestamp, "VV", log["primary_date"], log["secondary_date"])
 
                 if "Beginning interferogram processing" in event:
                     # Remove failed/completed status if we resumed!
@@ -378,7 +378,7 @@ def generate_summary(job_dir: Optional[Path], out_dir: Optional[Path]):
         num_completed_ifgs = len(job_query["completed_ifgs"])
         num_completed_backscatter_outdir = len(out_query["completed_backscatter"])
         num_completed_ifgs_outdir = len(out_query["completed_ifgs"])
-        # FIXME: master reference date issues?
+        # FIXME: primary reference date issues?
         #assert num_completed_backscatter == num_completed_backscatter_outdir
         assert num_completed_ifgs == num_completed_ifgs_outdir
 
@@ -664,7 +664,7 @@ def print_report(summary: dict):
             for log_entry in errors:
                 entry_desc = ""
 
-                for idx_id in ["master_date", "slave_date", "scene_date"]:
+                for idx_id in ["primary_date", "secondary_date", "scene_date"]:
                     if idx_id in log_entry:
                         entry_desc += f" | {idx_id}: {log_entry[idx_id]}"
 
