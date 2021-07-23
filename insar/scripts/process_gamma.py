@@ -7,6 +7,7 @@ import traceback
 import os.path
 from os.path import exists, join as pjoin
 from pathlib import Path
+from typing import List
 import luigi
 import luigi.configuration
 import logging
@@ -31,6 +32,7 @@ from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
 from insar.process_ifg import run_workflow, get_ifg_width, TempFileConfig, validate_ifg_input_files, ProcessIfgException
 from insar.project import ProcConfig, DEMFileNames, IfgFileNames, ARDWorkflow
+from insar.process_backscatter import generate_normalised_backscatter
 
 from insar.meta_data.s1_slc import S1DataDownload
 from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
@@ -256,6 +258,44 @@ def create_secondary_coreg_tree(primary_dt, date_list, thres_days=63):
         last_list = sub_list1 + sub_list2
 
     return lists
+
+
+def get_coreg_date_pairs(outdir: Path, proc_config: ProcConfig):
+    list_dir = outdir / proc_config.list_dir
+    primary_scene = read_primary_date(outdir).strftime(__DATE_FMT__)
+
+    pairs = []
+
+    for secondaries_list in list_dir.glob("secondaries*.list"):
+        list_index = int(secondaries_list.stem[11:])
+        prev_list_idx = list_index - 1
+
+        with secondaries_list.open("r") as file:
+            list_date_strings = file.read().splitlines()
+
+        # The first tier of the tree is always coregistered to primary ref date
+        if list_index == 1:
+            pairs += [(primary_scene, dt) for dt in list_date_strings]
+
+        # All the rest coregister to
+        else:
+            for slc_scene in list_date_strings:
+                if int(slc_scene) < int(proc_config.ref_primary_scene):
+                    coreg_ref_scene = read_file_line(list_dir / f'secondaries{prev_list_idx}.list', 0)
+                elif int(slc_scene) > int(proc_config.ref_primary_scene):
+                    coreg_ref_scene = read_file_line(list_dir / f'secondaries{prev_list_idx}.list', -1)
+                else:  # slc_scene == primary_scene
+                    continue
+
+            pairs.append((coreg_ref_scene, slc_scene))
+
+    return pairs
+
+
+def read_file_line(filepath, line: int):
+    """Reads a specific line from a text file"""
+    with Path(filepath).open('r') as file:
+        return file.read().splitlines()[line]
 
 
 def calculate_primary(scenes_list) -> datetime:
@@ -546,7 +586,7 @@ class InitialSetup(luigi.Task):
         with (outdir / "metadata.json").open("w") as file:
             json.dump(metadata, file, indent=2)
 
-        with (workdir.parent / "metadata.json").open("w") as file:
+        with (workdir / "metadata.json").open("w") as file:
             json.dump(metadata, file, indent=2)
 
 
@@ -1316,6 +1356,74 @@ class CoregisterDemPrimary(luigi.Task):
             out_fid.write("")
 
 
+def get_coreg_kwargs(proc_file: Path, scene_date=None, scene_pol=None):
+    # Load the gamma proc config file
+    with proc_file.open("r") as proc_fileobj:
+        proc_config = ProcConfig.from_file(proc_fileobj)
+
+    outdir = Path(proc_config.output_path)
+
+    # Load project metadata
+    with (outdir / "metadata.json").open("r") as file:
+        metadta = json.load(file)
+
+    tfs = metadta["track_frame_sensor"]
+    track, frame, sensor = tfs.split("_")
+    workdir = Path(proc_config.job_path) / tfs
+    primary_scene = read_primary_date(outdir)
+
+    # get range and azimuth looked values
+    ml_file = workdir / f"{track}_{frame}_createmultilook_status_logs.out"
+    rlks, alks = read_rlks_alks(ml_file)
+
+    primary_scene = primary_scene.strftime(__DATE_FMT__)
+    primary_pol = str(proc_config.polarisation).upper()
+
+    primary_slc_prefix = (f"{primary_scene}_{primary_pol}")
+    primary_slc_rlks_prefix = f"{primary_slc_prefix}_{rlks}rlks"
+    r_dem_primary_slc_prefix = f"r{primary_slc_prefix}"
+
+    dem_dir = outdir / proc_config.dem_dir
+    dem_filenames = CoregisterDem.dem_filenames(
+        dem_prefix=primary_slc_rlks_prefix,
+        outdir=dem_dir
+    )
+
+    slc_primary_dir = outdir / proc_config.slc_dir / primary_scene
+    dem_primary_names = CoregisterDem.dem_primary_names(
+        slc_prefix=primary_slc_rlks_prefix,
+        r_slc_prefix=r_dem_primary_slc_prefix,
+        outdir=slc_primary_dir,
+    )
+
+    kwargs = {
+        "proc_file": proc_file,
+        "list_idx": "-",
+        "slc_primary": slc_primary_dir.joinpath(f"{primary_slc_prefix}.slc"),
+        "range_looks": rlks,
+        "azimuth_looks": alks,
+        "ellip_pix_sigma0": dem_filenames["ellip_pix_sigma0"],
+        "dem_pix_gamma0": dem_filenames["dem_pix_gam"],
+        "r_dem_primary_mli": dem_primary_names["r_dem_primary_mli"],
+        "rdc_dem": dem_filenames["rdc_dem"],
+        "geo_dem_par": dem_filenames["geo_dem_par"],
+        "dem_lt_fine": dem_filenames["dem_lt_fine"],
+        "outdir": outdir,
+        "workdir": workdir,
+    }
+
+    if scene_date:
+        if not scene_pol:
+            scene_pol = primary_pol
+
+        secondary_dir = outdir / proc_config.slc_dir / scene_date
+
+        secondary_slc_prefix = f"{scene_date}_{scene_pol}"
+        kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
+        kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
+
+    return kwargs
+
 class CoregisterSecondary(luigi.Task):
     """
     Runs the primary-secondary co-registration task, followed by backscatter.
@@ -1323,9 +1431,6 @@ class CoregisterSecondary(luigi.Task):
     Optionally, just runs backscattter if provided with a coreg_offset and
     coreg_lut parameter to use.
     """
-
-    # TODO: A longer term task exists to separate coregistration and backscatter
-    # GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/211
 
     proc_file = luigi.Parameter()
     list_idx = luigi.Parameter()
@@ -1343,15 +1448,6 @@ class CoregisterSecondary(luigi.Task):
     outdir = luigi.Parameter()
     workdir = luigi.Parameter()
 
-    # External coregistration data to re-use instead of
-    # computing our own (for non-primary polarisations)
-    #
-    # This is a hack until we properly separate backscatter
-    # from coregistration.
-    coreg_offset = luigi.OptionalParameter(default=None)
-    coreg_lut = luigi.OptionalParameter(default=None)
-    just_backscatter = luigi.BoolParameter()
-
     def output(self):
         return luigi.LocalTarget(
             Path(self.workdir).joinpath(
@@ -1359,11 +1455,11 @@ class CoregisterSecondary(luigi.Task):
             )
         )
 
-    def get_coreg_info(self):
+    def get_processor(self):
         with open(str(self.proc_file), "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
-        coreg = CoregisterSlc(
+        return CoregisterSlc(
             proc=proc_config,
             list_idx=str(self.list_idx),
             slc_primary=Path(str(self.slc_primary)),
@@ -1379,17 +1475,23 @@ class CoregisterSecondary(luigi.Task):
             dem_lt_fine=Path(str(self.dem_lt_fine)),
         )
 
-        return (coreg.secondary_lt, coreg.secondary_off)
+    def requires(self):
+        proc_path = Path(self.proc_file)
+        with proc_path.open("r") as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj)
+
+        primary_pol = proc_config.polarisation
+        secondary_date, secondary_pol = Path(self.slc_secondary).stem.split('_')
+
+        # Non-primary polarised products depend on polarised coregistration
+        if secondary_pol != primary_pol:
+            yield CoregisterSecondary(**get_coreg_kwargs(proc_path, secondary_date, primary_pol))
 
     def run(self):
         secondary_date, secondary_pol = Path(self.slc_secondary).stem.split('_')
         primary_date, primary_pol = Path(self.slc_primary).stem.split('_')
 
-        is_actually_backscatter = self.just_backscatter
-
-        # coreg between differently polarised data makes no sense
-        if not is_actually_backscatter:
-            assert(secondary_pol == primary_pol)
+        is_secondary_pol = secondary_pol != primary_pol
 
         log = STATUS_LOGGER.bind(
             outdir=self.outdir,
@@ -1402,7 +1504,8 @@ class CoregisterSecondary(luigi.Task):
         log.info("Beginning SLC coregistration")
 
         # Load the gamma proc config file
-        with open(str(self.proc_file), "r") as proc_fileobj:
+        proc_path = Path(self.proc_file)
+        with proc_path.open("r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
         failed = False
@@ -1411,35 +1514,18 @@ class CoregisterSecondary(luigi.Task):
         # This is to allow processing to fail without stopping the Luigi pipeline, and thus
         # allows as many scenes as possible to fully process even if some scenes fail.
         try:
-            coreg_secondary = CoregisterSlc(
-                proc=proc_config,
-                list_idx=str(self.list_idx),
-                slc_primary=Path(str(self.slc_primary)),
-                slc_secondary=Path(str(self.slc_secondary)),
-                secondary_mli=Path(str(self.secondary_mli)),
-                range_looks=int(str(self.range_looks)),
-                azimuth_looks=int(str(self.azimuth_looks)),
-                ellip_pix_sigma0=Path(str(self.ellip_pix_sigma0)),
-                dem_pix_gamma0=Path(str(self.dem_pix_gamma0)),
-                r_dem_primary_mli=Path(str(self.r_dem_primary_mli)),
-                rdc_dem=Path(str(self.rdc_dem)),
-                geo_dem_par=Path(str(self.geo_dem_par)),
-                dem_lt_fine=Path(str(self.dem_lt_fine)),
-            )
+            coreg_secondary = self.get_processor()
 
-            if is_actually_backscatter:
-                # Backscatter w/ LUT for resampling
-                if self.coreg_offset and self.coreg_lut:
-                    coreg_secondary.main_backscatter(
-                        Path(self.coreg_offset),
-                        Path(self.coreg_lut)
-                    )
-                # Backscatter w/o resampling (eg: for other polarisations in the reference date)
-                else:
-                    coreg_secondary.main_backscatter(None, None)
-            else:
-                # Full coregistration (currently also includes backscatter)
+            # Full coregistration for primary pol
+            if not is_secondary_pol:
                 coreg_secondary.main()
+            # But just application (of primary pol's coregistration LUTs) for secondary pol
+            else:
+                primary_task = get_coreg_kwargs(proc_path, secondary_date, primary_pol)
+                primary_task = CoregisterSecondary(**primary_task)
+                processor = primary_task.get_processor()
+
+                coreg_secondary.apply_coregistration(processor.secondary_off, processor.secondary_lt)
 
             log.info("SLC coregistration complete")
         except Exception as e:
@@ -1473,7 +1559,7 @@ class CreateCoregisterSecondaries(luigi.Task):
             )
         )
 
-    def trigger_resume(self, reprocess_dates, reprocess_failed_scenes):
+    def trigger_resume(self, reprocess_dates: List[str], reprocess_failed_scenes: bool):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
 
         # Remove our output to re-trigger this job, which will trigger CoregisterSecondary
@@ -1513,59 +1599,6 @@ class CreateCoregisterSecondaries(luigi.Task):
 
         return triggered_pairs
 
-
-    def get_base_kwargs(self):
-        outdir = Path(self.outdir)
-
-        # Load the gamma proc config file
-        with open(str(self.proc_file), "r") as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj)
-
-        slc_frames = get_scenes(self.burst_data_csv)
-
-        primary_scene = read_primary_date(outdir)
-
-        # get range and azimuth looked values
-        ml_file = Path(self.workdir).joinpath(
-            f"{self.track}_{self.frame}_createmultilook_status_logs.out"
-        )
-        rlks, alks = read_rlks_alks(ml_file)
-
-        primary_scene = primary_scene.strftime(__DATE_FMT__)
-        primary_slc_prefix = (
-            f"{primary_scene}_{str(self.primary_scene_polarization).upper()}"
-        )
-        primary_slc_rlks_prefix = f"{primary_slc_prefix}_{rlks}rlks"
-        r_dem_primary_slc_prefix = f"r{primary_slc_prefix}"
-
-        dem_dir = outdir / __DEM__
-        dem_filenames = CoregisterDem.dem_filenames(
-            dem_prefix=primary_slc_rlks_prefix, outdir=dem_dir
-        )
-        slc_primary_dir = outdir / __SLC__ / primary_scene
-        dem_primary_names = CoregisterDem.dem_primary_names(
-            slc_prefix=primary_slc_rlks_prefix,
-            r_slc_prefix=r_dem_primary_slc_prefix,
-            outdir=slc_primary_dir,
-        )
-        kwargs = {
-            "proc_file": self.proc_file,
-            "list_idx": "-",
-            "slc_primary": slc_primary_dir.joinpath(f"{primary_slc_prefix}.slc"),
-            "range_looks": rlks,
-            "azimuth_looks": alks,
-            "ellip_pix_sigma0": dem_filenames["ellip_pix_sigma0"],
-            "dem_pix_gamma0": dem_filenames["dem_pix_gam"],
-            "r_dem_primary_mli": dem_primary_names["r_dem_primary_mli"],
-            "rdc_dem": dem_filenames["rdc_dem"],
-            "geo_dem_par": dem_filenames["geo_dem_par"],
-            "dem_lt_fine": dem_filenames["dem_lt_fine"],
-            "outdir": self.outdir,
-            "workdir": Path(self.workdir),
-        }
-
-        return kwargs
-
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
         log.info("co-register primary-secondaries task")
@@ -1573,7 +1606,8 @@ class CreateCoregisterSecondaries(luigi.Task):
         outdir = Path(self.outdir)
 
         # Load the gamma proc config file
-        with open(str(self.proc_file), "r") as proc_fileobj:
+        proc_path = Path(self.proc_file)
+        with proc_path.open("r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
         slc_frames = get_scenes(self.burst_data_csv)
@@ -1605,15 +1639,8 @@ class CreateCoregisterSecondaries(luigi.Task):
         rlks, alks = read_rlks_alks(ml_file)
 
         primary_scene = primary_scene.strftime(__DATE_FMT__)
-        primary_slc_prefix = (
-            f"{primary_scene}_{primary_pol}"
-        )
 
-        slc_primary_dir = outdir / __SLC__ / primary_scene
-
-        kwargs = self.get_base_kwargs()
-        kwargs["coreg_offset"] = None
-        kwargs["coreg_lut"] = None
+        kwargs = get_coreg_kwargs(proc_path)
 
         secondary_coreg_jobs = []
 
@@ -1647,15 +1674,13 @@ class CreateCoregisterSecondaries(luigi.Task):
 
                 secondary_dir = outdir / __SLC__ / slc_scene
 
-                # Schedule primary polarisation first (as other polarisations depend on it's coreg)
-                # Note: eventually coreg and backscatter code will be separated, and this would
-                # be where we do coreg for primary pol, and we'd do backscatter in it's own task.
-                # GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/211
-                secondary_slc_prefix = f"{slc_scene}_{primary_pol}"
-                kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
-                kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
-                secondary_coreg_jobs.append(CoregisterSecondary(**kwargs))
-
+                # Process coreg for all polarisations, the secondary polarisations will
+                # simply apply primary LUTs to secondary products.
+                for pol in _pols:
+                    secondary_slc_prefix = f"{slc_scene}_{pol}"
+                    kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
+                    kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
+                    secondary_coreg_jobs.append(CoregisterSecondary(**kwargs))
 
         yield secondary_coreg_jobs
 
@@ -1663,15 +1688,87 @@ class CreateCoregisterSecondaries(luigi.Task):
             f.write("")
 
 
-@requires(CreateCoregisterSecondaries)
-class CreateBackscatter(luigi.Task):
+class ProcessBackscatter(luigi.Task):
     """
-    Runs the backscatter tasks.
+    Produces the NBR (normalised radar backscatter) product for an SLC.
     """
 
     proc_file = luigi.Parameter()
-    primary_scene_polarization = luigi.Parameter(default="VV")
-    primary_scene = luigi.OptionalParameter(default=None)
+    outdir = luigi.Parameter()
+    workdir = luigi.Parameter()
+
+    src_mli = luigi.Parameter()
+    ellip_pix_sigma0 = luigi.Parameter()
+    dem_pix_gamma0 = luigi.Parameter()
+    dem_lt_fine = luigi.Parameter()
+    geo_dem_par = luigi.Parameter()
+    dst_stem = luigi.Parameter()
+
+    def output(self):
+        return luigi.LocalTarget(
+            Path(self.workdir).joinpath(
+                f"{Path(str(self.src_mli)).stem}_nbr_logs.out"
+            )
+        )
+
+    def run(self):
+        slc_date, slc_pol = Path(self.src_mli).stem.split('_')[:2]
+        slc_date = slc_date.lstrip("r")
+
+        log = STATUS_LOGGER.bind(
+            slc=self.src_mli,
+        )
+
+        # Load the gamma proc config file
+        with open(str(self.proc_file), "r") as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj)
+
+        failed = False
+
+        try:
+            structlog.threadlocal.clear_threadlocal()
+            structlog.threadlocal.bind_threadlocal(
+                task="SLC backscatter",
+                slc_dir=self.outdir,
+                slc_date=slc_date,
+                slc_pol=slc_pol
+            )
+
+            log.info("Beginning SLC backscatter")
+
+            generate_normalised_backscatter(
+                Path(self.outdir),
+                Path(self.src_mli),
+                Path(self.ellip_pix_sigma0),
+                Path(self.dem_pix_gamma0),
+                Path(self.dem_lt_fine),
+                Path(self.geo_dem_par),
+                Path(self.dst_stem),
+            )
+
+            log.info("SLC backscatter complete")
+        except Exception as e:
+            log.error("SLC backscatter failed with exception", exc_info=True)
+            failed = True
+        finally:
+            # We flag a task as complete no matter if the scene failed or not!
+            # - however we do write if the scene failed, so it can be reprocessed
+            # - later automatically if need be.
+            with self.output().open("w") as f:
+                f.write("FAILED" if failed else "")
+
+            structlog.threadlocal.clear_threadlocal()
+
+
+@requires(CreateCoregisterSecondaries)
+class CreateCoregisteredBackscatter(luigi.Task):
+    """
+    Runs the backscatter tasks for all coregistered scenes,
+    as well as the primary reference scene used for coreg.
+    """
+
+    proc_file = luigi.Parameter()
+    polarization = luigi.ListParameter(default=None)
 
     def output(self):
         return luigi.LocalTarget(
@@ -1688,19 +1785,43 @@ class CreateBackscatter(luigi.Task):
 
         return CreateCoregisterSecondaries(**kwargs)
 
-    def trigger_resume(self, reprocess_dates, reprocess_failed_scenes):
+    def trigger_resume(self, reprocess_dates: List[str], reprocess_failed_scenes: bool):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
 
+        # All we need to do is drop our outputs, as the backscatter
+        # task can safely over-write itself...
         if self.output().exists():
             self.output().remove()
 
-        create_coregs_task = self.get_create_coreg_task()
+        # Remove completion status files for any failed SLC coreg tasks
+        triggered_dates = []
 
-        # FIXME: We need to separate backscatter from coreg
-        return create_coregs_task.trigger_resume(reprocess_dates, reprocess_failed_scenes)
+        if reprocess_failed_scenes:
+            for status_out in Path(self.workdir).glob("*_nbr_logs.out"):
+                mli = status_out.name[:-13] + ".mli"
+                scene_date = mli.split("_")[0].lstrip("r")
 
-    def get_base_kwargs(self):
-        return self.get_create_coreg_task().get_base_kwargs()
+                with status_out.open("r") as file:
+                    contents = file.read().splitlines()
+
+                if len(contents) > 0 and "FAILED" in contents[0]:
+                    triggered_dates.append(scene_date)
+
+                    log.info(f"Resuming SLC backscatter ({mli}) because of FAILED processing")
+                    status_out.unlink()
+
+        # Remove completion status files for any we're asked to
+        for date in reprocess_dates:
+            for status_out in Path(self.workdir).glob(f"*{date}_*_nbr_logs.out"):
+                mli = status_out.name[:-13] + ".mli"
+                scene_date = mli.split("_")[0].lstrip("r")
+
+                triggered_dates.append(scene_date)
+
+                log.info(f"Resuming SLC backscatter ({mli}) because of dependency")
+                status_out.unlink()
+
+        return triggered_dates
 
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
@@ -1709,34 +1830,9 @@ class CreateBackscatter(luigi.Task):
         outdir = Path(self.outdir)
 
         # Load the gamma proc config file
-        with open(str(self.proc_file), "r") as proc_fileobj:
+        proc_path = Path(self.proc_file)
+        with proc_path.open("r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
-
-        slc_frames = get_scenes(self.burst_data_csv)
-
-        primary_scene = read_primary_date(outdir)
-
-        coreg_tree = create_secondary_coreg_tree(
-            primary_scene, [dt for dt, _, _ in slc_frames]
-        )
-
-        primary_polarizations = [
-            pols for dt, _, pols in slc_frames if dt.date() == primary_scene
-        ]
-
-        # Sanity check there's only a single primary scene entry
-        assert len(primary_polarizations) == 1
-
-        primary_polarizations = primary_polarizations[0]
-
-        # TODO if primary polarization data does not exist in SLC archive then
-        # TODO choose other polarization or raise Error.
-        if self.primary_scene_polarization not in primary_polarizations:
-            raise ValueError(
-                f"{self.primary_scene_polarization}  not available in SLC data for {primary_scene}"
-            )
-
-        primary_pol = str(self.primary_scene_polarization).upper()
 
         # get range and azimuth looked values
         ml_file = Path(self.workdir).joinpath(
@@ -1744,94 +1840,59 @@ class CreateBackscatter(luigi.Task):
         )
         rlks, alks = read_rlks_alks(ml_file)
 
-        primary_scene = primary_scene.strftime(__DATE_FMT__)
-        primary_slc_prefix = (
-            f"{primary_scene}_{primary_pol}"
-        )
+        coreg_kwargs = get_coreg_kwargs(proc_path)
 
-        kwargs = self.get_base_kwargs()
-        kwargs["just_backscatter"] = True
+        kwargs = {
+            "proc_file": self.proc_file,
+            "outdir": self.outdir,
+            "workdir": self.workdir,
 
-        secondary_coreg_jobs = []
+            "ellip_pix_sigma0": coreg_kwargs["ellip_pix_sigma0"],
+            "dem_pix_gamma0": coreg_kwargs["dem_pix_gamma0"],
+            "dem_lt_fine": coreg_kwargs["dem_lt_fine"],
+            "geo_dem_par": coreg_kwargs["geo_dem_par"],
+        }
 
-        # Produce backscatter for the reference date
-        slc_primary_dir = outdir / __SLC__ / primary_scene
-        kwargs["coreg_offset"] = None
-        kwargs["coreg_lut"] = None
+        jobs = []
 
-        for pol in primary_polarizations:
-            secondary_slc_prefix = f"{primary_scene}_{pol.upper()}"
+        # Create backscatter for primary reference scene
+        # we do this even though it's not coregistered
+        primary_scene = read_primary_date(outdir).strftime(__DATE_FMT__)
+        primary_dir = outdir / proc_config.slc_dir / primary_scene
+        primary_pol = proc_config.polarisation.upper()
 
-            kwargs["slc_secondary"] = slc_primary_dir / f"{secondary_slc_prefix}.slc"
-            kwargs["secondary_mli"] = slc_primary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
+        for pol in list(self.polarization):
+            prefix = f"{primary_scene}_{pol.upper()}_{rlks}rlks"
 
-            secondary_coreg_jobs.append(CoregisterSecondary(**kwargs))
+            # Note: primary date has no coregistered/resampled files
+            # since it 'is' the reference date for coreg, this we
+            # use the plain old multisampled SLC for this date.
+            kwargs["src_mli"] = primary_dir / f"{prefix}.mli"
+            kwargs["dst_stem"] = primary_dir / f"{prefix}"
 
-        for list_index, list_dates in enumerate(coreg_tree):
-            list_index += 1  # list index is 1-based
-            list_frames = [i for i in slc_frames if i[0].date() in list_dates]
+            task = ProcessBackscatter(**kwargs)
+            jobs.append(task)
 
-            # Write list file
-            list_file_path = outdir / proc_config.list_dir / f"secondaries{list_index}.list"
-            if not list_file_path.parent.exists():
-                list_file_path.parent.mkdir(parents=True)
+        # Create backscatter tasks for all coregistered scenes
+        coreg_date_pairs = get_coreg_date_pairs(outdir, proc_config)
 
-            with open(list_file_path, "w") as listfile:
-                list_date_strings = [
-                    dt.strftime(__DATE_FMT__) for dt, _, _ in list_frames
-                ]
-                listfile.write("\n".join(list_date_strings))
+        for _, secondary_date in coreg_date_pairs:
+            secondary_dir = outdir / __SLC__ / secondary_date
 
-            # Bash passes '-' for secondaries1.list, and list_index there after.
-            if list_index > 1:
-                kwargs["list_idx"] = list_index
+            for pol in list(self.polarization):
+                prefix = f"{secondary_date}_{pol.upper()}_{rlks}rlks"
 
-            for _dt, _, _pols in list_frames:
-                slc_scene = _dt.strftime(__DATE_FMT__)
-                if slc_scene == primary_scene:
-                    continue
+                kwargs["src_mli"] = secondary_dir / f"r{prefix}.mli"
+                # TBD: We have always written the backscatter w/ the same
+                # pattern, but going forward we might want coregistered
+                # backscatter to also have the 'r' prefix?  as some
+                # backscatters in the future will 'not' be coregistered...
+                kwargs["dst_stem"] = secondary_dir / f"{prefix}"
 
-                if primary_pol not in _pols:
-                    continue
+                task = ProcessBackscatter(**kwargs)
+                jobs.append(task)
 
-                secondary_dir = outdir / __SLC__ / slc_scene
-
-                # Schedule primary polarisation first (as other polarisations depend on it's coreg)
-                # Note: eventually coreg and backscatter code will be separated, and this would
-                # be where we do coreg for primary pol, and we'd do backscatter for all pols in the loop
-                # below.  GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/211
-                secondary_slc_prefix = f"{slc_scene}_{primary_pol}"
-                kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
-                kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
-                kwargs["coreg_offset"] = None
-                kwargs["coreg_lut"] = None
-                primary_pol_task = CoregisterSecondary(**kwargs)
-                # Note: we are NOT scheduling this (until backscatter is separated from coreg)
-                # - coreg task currently schedules primary pol tasks, and we schedule others here
-
-                primary_pol_lt, primary_pol_off = primary_pol_task.get_coreg_info()
-
-                # Then schedule other polarisations w/ dependency on primary pol
-                for _pol in _pols:
-                    # Skip products that aren't of the polarisation we're processing
-                    if _pol not in self.polarization:
-                        continue
-
-                    # Skip primary polarisation (processed explicitly above)
-                    if _pol == primary_pol:
-                        continue
-
-                    secondary_slc_prefix = f"{slc_scene}_{_pol.upper()}"
-                    kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
-                    kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
-                    kwargs["coreg_offset"] = primary_pol_off
-                    kwargs["coreg_lut"] = primary_pol_lt
-
-                    task = CoregisterSecondary(**kwargs)
-                    secondary_coreg_jobs.append(task)
-
-
-        yield secondary_coreg_jobs
+        yield jobs
 
         with self.output().open("w") as f:
             f.write("")
@@ -1906,7 +1967,7 @@ class ProcessIFG(luigi.Task):
                 f.write("FAILED" if failed else "")
 
 
-@requires(CreateBackscatter)
+@requires(CreateCoregisteredBackscatter)
 class CreateProcessIFGs(luigi.Task):
     """
     Runs the interferogram processing tasks.
@@ -1972,7 +2033,7 @@ class CreateProcessIFGs(luigi.Task):
                     contents = file.read().splitlines()
 
                 if len(contents) > 0 and "FAILED" in contents[0]:
-                    primary_date, secondary_date = re.split("[-_]", status_out.stem)[2:3]
+                    primary_date, secondary_date = re.split("[-_]", status_out.stem)[3:5]
 
                     log.info(f"Resuming IFG ({primary_date},{secondary_date}) because of FAILED processing")
                     reprocess_pairs.append((primary_date, secondary_date))
@@ -2050,7 +2111,6 @@ class TriggerResume(luigi.Task):
     poeorb_path = luigi.Parameter()
     resorb_path = luigi.Parameter()
 
-    resume = luigi.BoolParameter()
     reprocess_failed = luigi.BoolParameter()
     resume_token = luigi.Parameter()
 
@@ -2101,10 +2161,12 @@ class TriggerResume(luigi.Task):
         outdir = Path(self.outdir)
 
         # Load the gamma proc config file
-        with open(str(self.proc_file), 'r') as proc_fileobj:
+        proc_path = Path(self.proc_file)
+        with proc_path.open('r') as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
-        backscatter_task = CreateBackscatter(**kwargs)
+        backscatter_task = CreateCoregisteredBackscatter(**kwargs)
+        coreg_task = backscatter_task.get_create_coreg_task()
         ifgs_task = CreateProcessIFGs(**kwargs)
 
         if self.workflow == ARDWorkflow.Interferogram:
@@ -2131,8 +2193,8 @@ class TriggerResume(luigi.Task):
         if num_completed_coregs == 0 and num_completed_ifgs == 0:
             log.info("No products need resuming, continuing w/ normal pipeline...")
 
-            if backscatter_task.get_create_coreg_task().output().exists():
-                backscatter_task.get_create_coreg_task().output().remove()
+            if coreg_task.output().exists():
+                coreg_task.output().remove()
 
             if backscatter_task.output().exists():
                 backscatter_task.output().remove()
@@ -2167,8 +2229,9 @@ class TriggerResume(luigi.Task):
             log.info("Re-processing IFGs", list=reprocessed_ifgs)
 
             # We need to verify the SLC inputs still exist for these IFGs... if not, reprocess
-            reprocessed_slc_coregs = []
             reprocessed_single_slcs = []
+            reprocessed_slc_coregs = []
+            reprocessed_slc_backscatter = []
 
             if self.workflow == ARDWorkflow.Interferogram:
                 for primary_date, secondary_date in reprocessed_ifgs:
@@ -2197,14 +2260,14 @@ class TriggerResume(luigi.Task):
                         # Add tertiary scene (if any)
                         for slc_scene in [primary_date, secondary_date]:
                             # Re-use slc coreg task for parameter acquisition
-                            coreg_kwargs = backscatter_task.get_base_kwargs()
+                            coreg_kwargs = get_coreg_kwargs(proc_path, slc_scene, pol)
                             del coreg_kwargs["proc_file"]
                             del coreg_kwargs["outdir"]
                             del coreg_kwargs["workdir"]
                             list_idx = "-"
 
                             for list_file_path in (outdir / proc_config.list_dir).glob("secondaries*.list"):
-                                list_file_idx = int(list_file_path.stem[6:])
+                                list_file_idx = int(list_file_path.stem[11:])
 
                                 with list_file_path.open('r') as file:
                                     list_dates = file.read().splitlines()
@@ -2216,28 +2279,28 @@ class TriggerResume(luigi.Task):
                                     break
 
                             coreg_kwargs["list_idx"] = list_idx
-
-                            secondary_dir = outdir / __SLC__ / slc_scene
-                            secondary_slc_prefix = f"{slc_scene}_{pol}"
-                            coreg_kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
-                            coreg_kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
-                            coreg_task = CoregisterSlc(proc=proc_config, **coreg_kwargs)
-
-                            tertiary_date = coreg_task.get_tertiary_coreg_scene()
+                            tertiary_task = CoregisterSlc(proc=proc_config, **coreg_kwargs)
+                            tertiary_date = tertiary_task.get_tertiary_coreg_scene()
 
                             if tertiary_date:
                                 reprocessed_single_slcs.append(tertiary_date)
 
-            # Finally trigger SLC coreg resumption (which will process related to above)
-            triggered_slc_coregs = backscatter_task.trigger_resume(reprocessed_slc_coregs, self.reprocess_failed)
+            # Finally trigger SLC coreg & backscatter resumption
+            # given the scenes from the missing IFG pairs
+            triggered_slc_coregs = coreg_task.trigger_resume(reprocessed_slc_coregs, self.reprocess_failed)
             for primary_date, secondary_date in triggered_slc_coregs:
                 reprocessed_slc_coregs.append(secondary_date)
 
                 reprocessed_single_slcs.append(primary_date)
                 reprocessed_single_slcs.append(secondary_date)
 
+            triggered_slc_backscatter = backscatter_task.trigger_resume(reprocessed_slc_coregs, self.reprocess_failed)
+            for scene_date in triggered_slc_backscatter:
+                reprocessed_slc_backscatter.append(scene_date)
+
             reprocessed_slc_coregs = set(reprocessed_slc_coregs)
-            reprocessed_single_slcs = set(reprocessed_single_slcs) | reprocessed_slc_coregs
+            reprocessed_single_slcs = set(reprocessed_single_slcs) | reprocessed_slc_coregs | set(reprocessed_single_slcs)
+            reprocessed_slc_backscatter = set(reprocessed_slc_backscatter) | reprocessed_single_slcs
 
             if len(reprocessed_single_slcs) > 0:
                 # Unfortunately if we're missing SLC coregs, we may also need to reprocess the SLC
@@ -2289,8 +2352,6 @@ class TriggerResume(luigi.Task):
                     prerequisite_tasks.append(slc_reprocess)
 
                 reprocessed_single_slcs -= existing_single_slcs
-                log.info("Re-processing singular SLCs", list=reprocessed_single_slcs)
-                log.info("Re-processing SLC coregistrations", list=reprocessed_slc_coregs)
 
                 # Trigger DEM tasks if we're re-processing SLC coreg as well
                 #
@@ -2306,6 +2367,9 @@ class TriggerResume(luigi.Task):
                     coreg_dem_task.output().remove()
 
             self.triggered_path().touch()
+            log.info("Re-processing singular SLCs", list=reprocessed_single_slcs)
+            log.info("Re-processing SLC coregistrations", list=reprocessed_slc_coregs)
+            log.info("Re-processing SLC backscatter", list=reprocessed_slc_backscatter)
 
             # Yield pre-requisite tasks first
             if prerequisite_tasks:
@@ -2370,12 +2434,8 @@ class ARD(luigi.WrapperTask):
     )
 
     # Job resume triggers
-    resume = luigi.BoolParameter(
-        default=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
-    )
-    reprocess_failed = luigi.BoolParameter(
-        default=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
-    )
+    resume = luigi.BoolParameter()
+    reprocess_failed = luigi.BoolParameter()
 
     def requires(self):
         log = STATUS_LOGGER.bind(shape_file=self.shape_file)
@@ -2477,7 +2537,7 @@ class ARD(luigi.WrapperTask):
         # Also this causes a disconnect between --outdir (base dir to put tfs dir into)
         # vs .proc OUTPUT_PATH which is the actual output path (not a base dir)
         self.output_path = (Path(self.outdir) / tfs).as_posix() if self.outdir else None
-        self.job_path = (Path(self.workdir) / tfs).as_posix() if self.workdir else None
+        self.job_path = Path(self.workdir).as_posix() if self.workdir else None
 
         override_params = [
             # Note: "sensor" is NOT over-written...
@@ -2498,7 +2558,7 @@ class ARD(luigi.WrapperTask):
         ]
 
         for name in override_params:
-            if hasattr(self, name) and getattr(self, name):
+            if hasattr(self, name) and getattr(self, name) is not None:
                 override_value = getattr(self, name)
                 log.info("Overriding .proc setting",
                     setting=name,
@@ -2530,7 +2590,7 @@ class ARD(luigi.WrapperTask):
 
         # Infer key variables from it
         self.output_path = Path(proc_config.output_path)
-        self.job_path = Path(proc_config.job_path)
+        self.job_path = Path(proc_config.job_path) / tfs
         orbit = proc_config.orbit[:1].upper()
         proc_file = self.output_path / "config.proc"
 
@@ -2555,6 +2615,10 @@ class ARD(luigi.WrapperTask):
 
             conflicts = []
             for name in proc_config.__slots__:
+                # special case for cleanup, which we allow to change
+                if name == "cleanup":
+                    continue
+
                 new_val = getattr(proc_config, name)
                 old_val = getattr(existing_config, name)
 
@@ -2604,14 +2668,14 @@ class ARD(luigi.WrapperTask):
             "resorb_path": proc_config.resorb_path,
             "multi_look": int(proc_config.multi_look),
             "burst_data_csv": self.output_path / f"{track}_{frame}_burst_data.csv",
-            "cleanup": proc_config.cleanup,
+            "cleanup": bool(proc_config.cleanup),
         }
 
         # Yield appropriate workflow
         if self.resume:
-            ard_tasks.append(TriggerResume(resume_token=self.resume_token, workflow=workflow, **kwargs))
+            ard_tasks.append(TriggerResume(resume_token=self.resume_token, reprocess_failed=self.reprocess_failed, workflow=workflow, **kwargs))
         elif workflow == ARDWorkflow.Backscatter:
-            ard_tasks.append(CreateBackscatter(**kwargs))
+            ard_tasks.append(CreateCoregisteredBackscatter(**kwargs))
         elif workflow == ARDWorkflow.Interferogram:
             ard_tasks.append(CreateProcessIFGs(**kwargs))
         else:

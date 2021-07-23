@@ -134,7 +134,7 @@ def _gen_pbs(
         pbs += " \\\n    --resume"
 
     if reprocess_failed:
-        pbs += " \\\n    --reprocess_failed"
+        pbs += " \\\n    --reprocess-failed"
 
     # If we're resuming a job, generate the resume script
     out_fname = Path(job_dir) / f"job{jobid}.bash"

@@ -1349,175 +1349,11 @@ class CoregisterSlc:
             slc_pathname, slc_par_pathname, mli_pathname, mli_par_pathname, rlks, alks,
         )
 
-    def generate_normalised_backscatter(self):
-        """
-        Normalised radar backscatter.
 
-        Generate Gamma0 backscatter image for secondary scene according to equation in
-        Section 10.6 of Gamma Geocoding and Image Registration Users Guide.
-        """
-        secondary_gamma0 = self.out_dir.joinpath(f"{self.secondary_mli.stem}.gamma0")
-        secondary_gamma0_geo = self.out_dir.joinpath(f"{self.secondary_mli.stem}_geo.gamma0")
-
-        # If a resampled MLI exists, this is coregistered (eg: most dates)
-        if self.r_secondary_mli and self.r_secondary_mli.exists():
-            src_mli = self.r_secondary_mli
-        # Otherwise, this is the reference date which has no resampling
-        # (as the reference date "is" what other dates are resampling to)
-        else:
-            src_mli = self.secondary_mli
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_dir = Path(temp_dir)
-            temp_output = temp_dir.joinpath("temp_output")
-            with working_directory(temp_dir):
-                d1_pathname = str(src_mli)
-                d2_pathname = str(self.ellip_pix_sigma0)
-                d_out_pathname = str(temp_output)
-                width = self.primary_sample.mli_width_end
-                mode = 2  # multiplication
-
-                pg.float_math(
-                    d1_pathname, d2_pathname, d_out_pathname, width, mode,
-                )
-
-            d1_pathname = str(temp_output)
-            d2_pathname = str(self.dem_pix_gamma0)
-            d_out_pathname = str(secondary_gamma0)
-            width = self.primary_sample.mli_width_end
-            mode = 3  # division
-
-            pg.float_math(
-                d1_pathname, d2_pathname, d_out_pathname, width, mode,
-            )
-
-            # back geocode gamma0 backscatter product to map geometry using B-spline interpolation on sqrt data
-            geo_dem_par_vals = pg.ParFile(str(self.geo_dem_par))
-            dem_width = geo_dem_par_vals.get_value("width", dtype=int, index=0)
-
-            data_in_pathname = str(secondary_gamma0)
-            width_in = self.primary_sample.mli_width_end
-            lookup_table_pathname = str(self.dem_lt_fine)
-            data_out_pathname = str(secondary_gamma0_geo)
-            width_out = dem_width
-            nlines_out = const.NOT_PROVIDED
-            interp_mode = 5  # B-spline interpolation
-            dtype = 0  # float
-            lr_in = const.NOT_PROVIDED
-            lr_out = const.NOT_PROVIDED
-            order = 5  # B-spline degree
-
-            pg.geocode_back(
-                data_in_pathname,
-                width_in,
-                lookup_table_pathname,
-                data_out_pathname,
-                width_out,
-                nlines_out,
-                interp_mode,
-                dtype,
-                lr_in,
-                lr_out,
-                order,
-            )
-
-            # make quick-look png image
-            temp_bmp = temp_dir.joinpath(f"{secondary_gamma0_geo.name}.bmp")
-            secondary_png = self.out_dir.joinpath(temp_bmp.with_suffix(".png").name)
-
-            with working_directory(temp_dir):
-                pwr_pathname = str(secondary_gamma0_geo)
-                width = dem_width
-                start = 1
-                nlines = 0
-                pixavr = 20
-                pixavaz = 20
-                scale = const.NOT_PROVIDED
-                exp = const.NOT_PROVIDED
-                lr = const.NOT_PROVIDED
-                rasf_pathname = str(temp_bmp)
-
-                pg.raspwr(
-                    pwr_pathname,
-                    width,
-                    start,
-                    nlines,
-                    pixavr,
-                    pixavaz,
-                    scale,
-                    exp,
-                    lr,
-                    rasf_pathname,
-                )
-
-                # Convert the bitmap to a PNG w/ black pixels made transparent
-                img = Image.open(temp_bmp.as_posix())
-                img = np.array(img.convert('RGBA'))
-                img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
-                Image.fromarray(img).save(secondary_png.as_posix())
-
-                # convert gamma0 Gamma file to GeoTIFF
-                dem_par_pathname = str(self.geo_dem_par)
-                data_pathname = str(secondary_gamma0_geo)
-                dtype = 2  # float
-                geotiff_pathname = str(secondary_gamma0_geo.with_suffix(".gamma0.tif"))
-                nodata = 0.0
-
-                pg.data2geotiff(
-                    dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
-                )
-
-                # create KML map of PNG file
-                image_pathname = str(secondary_png)
-                dem_par_pathname = str(self.geo_dem_par)
-                kml_pathname = str(secondary_png.with_suffix(".kml"))
-
-                pg.kml_map(
-                    image_pathname, dem_par_pathname, kml_pathname,
-                )
-
-                # geocode sigma0 mli
-                secondary_sigma0_geo = secondary_gamma0_geo.with_suffix(".sigma0")
-
-                data_in_pathname = str(src_mli)
-                width_in = self.primary_sample.mli_width_end
-                lookup_table_pathname = str(self.dem_lt_fine)
-                data_out_pathname = str(secondary_sigma0_geo)
-                width_out = dem_width
-                nlines_out = const.NOT_PROVIDED
-                interp_mode = 0  # nearest-neighbor
-                dtype = 0  # float
-                lr_in = const.NOT_PROVIDED
-                lr_out = const.NOT_PROVIDED
-
-                pg.geocode_back(
-                    data_in_pathname,
-                    width_in,
-                    lookup_table_pathname,
-                    data_out_pathname,
-                    width_out,
-                    nlines_out,
-                    interp_mode,
-                    dtype,
-                    lr_in,
-                    lr_out,
-                )
-
-                # convert sigma0 Gamma file to GeoTIFF
-                dem_par_pathname = str(self.geo_dem_par)
-                data_pathname = str(secondary_sigma0_geo)
-                dtype = 2  # float
-                geotiff_pathname = str(secondary_sigma0_geo.with_suffix(".sigma0.tif"))
-                nodata = 0.0
-
-                pg.data2geotiff(
-                    dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
-                )
-
-    def main(self, inc_backscatter=True):
+    def main(self):
         """Main method to process SLC coregistration products."""
 
-        # Re-bind thread local context to IFG processing state
+        # Re-bind thread local context
         try:
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
@@ -1533,47 +1369,43 @@ class CoregisterSlc:
                 self.reduce_offset()
                 self.fine_coregistration(self.secondary_date, self.list_idx)
 
-                if inc_backscatter:
-                    self.resample_full()
-                    self.multi_look()
-                    self.generate_normalised_backscatter()
+                # Note: for now, resampling/multilook remains part of "coregistration"
+                # - this is technically 1) the application of the coregisration and 2) downsampling...
+                self.resample_full()
+                self.multi_look()
 
         finally:
             structlog.threadlocal.clear_threadlocal()
 
-    def main_backscatter(
+
+    def apply_coregistration(
         self,
         secondary_off: Optional[Path],
         lookup_table: Optional[Path]
     ):
-        """Main method to process SLC backscatter products."""
+        """Applies a coregistration to to SLC products."""
 
-        enable_resampling = secondary_off and lookup_table
-        if enable_resampling:
-            self.secondary_lt = lookup_table
-            self.secondary_off = secondary_off
-
-        # Re-bind thread local context to IFG processing state
+        # Re-bind thread local context
         try:
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
-                task="SLC backscatter",
+                task="SLC coregistration resampling",
                 slc_dir=self.out_dir,
                 primary_date=self.primary_date,
-                secondary_date=self.secondary_date,
-                secondary_lt=self.secondary_lt,
-                secondary_off=self.secondary_off
+                secondary_date=self.secondary_date
             )
+
+            # Set coregistration LUTs
+            self.secondary_lt = lookup_table
+            self.secondary_off = secondary_off
 
             with working_directory(self.out_dir):
                 self.set_tab_files()
 
-                if enable_resampling:
-                    self.resample_full()
-                    self.multi_look()
-
-                self.generate_normalised_backscatter()
+                # Note: for now, resampling/multilook remains part of "coregistration"
+                # - this is technically 1) the application of the coregisration and 2) downsampling...
+                self.resample_full()
+                self.multi_look()
 
         finally:
             structlog.threadlocal.clear_threadlocal()
-

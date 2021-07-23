@@ -9,6 +9,7 @@ from tests.py_gamma_test_proxy import PyGammaTestProxy
 
 import insar.coregister_slc
 from insar.coregister_slc import CoregisterSlc, CoregisterSlcException
+from insar.process_backscatter import generate_normalised_backscatter
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 
 
@@ -140,17 +141,12 @@ def test_valid_data(monkeypatch):
         # Assert no failure status for any gamma call
         assert(pgp.error_count == 0)
 
-        # Assert outputs exist
+        # Assert coregistration LUTs exist
+        assert(coreg.secondary_lt.exists())
+        assert(coreg.secondary_off.exists())
+
+        # Assert coregistered SLC outputs exist
         assert(coreg.r_secondary_slc.exists())
-
-        secondary_gamma0 = coreg.out_dir / f"{coreg.secondary_mli.stem}.gamma0"
-        secondary_gamma0_geo = coreg.out_dir / f"{coreg.secondary_mli.stem}_geo.gamma0"
-        assert(secondary_gamma0.exists())
-        assert(secondary_gamma0_geo.exists())
-
-        # Assert quick-look images exist
-        secondary_png = coreg.out_dir / f"{secondary_gamma0_geo.name}.png"
-        assert(secondary_png.exists())
 
 
 def test_set_tab_files(monkeypatch):
@@ -246,27 +242,25 @@ def test_multi_look(monkeypatch):
 
 def test_generate_normalised_backscatter(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
-    monkeypatch.setattr(insar.coregister_slc, 'pg', pgmock)
+    monkeypatch.setattr(insar.process_backscatter, 'pg', pgmock)
 
     with temp_dir as temp_path:
-        coreg = CoregisterSlc(
-            *data.values(),
-            Path(temp_path)
+        # Pre-work before backscatter (coarse coreg is enough)
+        test_output = Path(temp_path) / "test_output"
+
+        generate_normalised_backscatter(
+            test_output.parent,
+            data["slc_secondary"],
+            data["ellip_pix_sigma0"],
+            data["dem_pix_gamma0"],
+            data["dem_lt_fine"],
+            data["geo_dem_par"],
+            test_output
         )
 
-        # Pre-work before backscatter (coarse coreg is enough)
-        coreg.set_tab_files()
-        coreg.get_lookup()
-        coreg.reduce_offset()
-        coreg.coarse_registration()
-        coreg.resample_full()
-        coreg.multi_look()
-
-        coreg.generate_normalised_backscatter()
-
-        secondary_gamma0 = coreg.out_dir / f"{coreg.secondary_mli.stem}.gamma0"
-        secondary_gamma0_geo = coreg.out_dir / f"{coreg.secondary_mli.stem}_geo.gamma0"
-        secondary_png = coreg.out_dir / f"{secondary_gamma0_geo.name}.png"
+        secondary_gamma0 = test_output.with_suffix(".gamma0")
+        secondary_gamma0_geo = secondary_gamma0.parent / (secondary_gamma0.stem + "_geo" + secondary_gamma0.suffix)
+        secondary_png = secondary_gamma0_geo.with_suffix(".gamma0.png")
 
         assert(secondary_gamma0.exists())
         assert(secondary_gamma0_geo.exists())
