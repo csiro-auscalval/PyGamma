@@ -1728,13 +1728,13 @@ class ProcessBackscatter(luigi.Task):
         try:
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
-                task="SLC backscatter",
+                task="Normalised radar backscatter backscatter",
                 slc_dir=self.outdir,
                 slc_date=slc_date,
                 slc_pol=slc_pol
             )
 
-            log.info("Beginning SLC backscatter")
+            log.info("Generating normalised radar backscatter")
 
             generate_normalised_backscatter(
                 Path(self.outdir),
@@ -1746,9 +1746,9 @@ class ProcessBackscatter(luigi.Task):
                 Path(self.dst_stem),
             )
 
-            log.info("SLC backscatter complete")
+            log.info("Normalised radar backscatter complete")
         except Exception as e:
-            log.error("SLC backscatter failed with exception", exc_info=True)
+            log.error("Normalised radar backscatter failed with exception", exc_info=True)
             failed = True
         finally:
             # We flag a task as complete no matter if the scene failed or not!

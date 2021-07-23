@@ -1304,9 +1304,10 @@ class CoregisterSlc:
         return azimuth_pixel_offset, azpol
 
     def resample_full(self):
-        """Resample full data set"""
-
-        # re-sample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials
+        """
+        Resample full-resolution SLC image using a look-up table and SLC offset polynomials for refinement
+        Uses the GAMMA DIFF/GEO program: SLC_interp_lt_ScanSAR (suitable for Sentinel-1 IW data)
+        """
         slc2_tab = str(self.secondary_slc_tab)
         slc2_par = str(self.slc_secondary_par)
         slc1_tab = str(self.primary_slc_tab)
@@ -1334,7 +1335,10 @@ class CoregisterSlc:
         )
 
     def multi_look(self):
-        """Multi-look co-registered secondaries."""
+        """
+        Generates down-sampled multi-look intensity image from a secondary SLC image.
+        Uses the GAMMA ISP program: multi_look
+        """
         self.r_secondary_mli = self.out_dir.joinpath(f"r{self.secondary_mli.name}")
         self.r_secondary_mli_par = self.r_secondary_mli.with_suffix(".mli.par")
 
@@ -1351,13 +1355,13 @@ class CoregisterSlc:
 
 
     def main(self):
-        """Main method to process SLC coregistration products."""
+        """Main method to process coregistered SLC products."""
 
         # Re-bind thread local context
         try:
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
-                task="SLC coregistration",
+                task="SLC coregistration and multi-looking",
                 slc_dir=self.out_dir,
                 primary_date=self.primary_date,
                 secondary_date=self.secondary_date
@@ -1370,7 +1374,7 @@ class CoregisterSlc:
                 self.fine_coregistration(self.secondary_date, self.list_idx)
 
                 # Note: for now, resampling/multilook remains part of "coregistration"
-                # - this is technically 1) the application of the coregisration and 2) downsampling...
+                # - this is technically 1) resampling based on the coregisration and 2) downsampling...
                 self.resample_full()
                 self.multi_look()
 
@@ -1383,19 +1387,19 @@ class CoregisterSlc:
         secondary_off: Optional[Path],
         lookup_table: Optional[Path]
     ):
-        """Applies a coregistration to to SLC products."""
+        """Applies a coregistration LUT and offset refinements to SLC products."""
 
         # Re-bind thread local context
         try:
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
-                task="SLC coregistration resampling",
+                task="SLC coregistration and resampling",
                 slc_dir=self.out_dir,
                 primary_date=self.primary_date,
                 secondary_date=self.secondary_date
             )
 
-            # Set coregistration LUTs
+            # Set coregistration LUT and offsets
             self.secondary_lt = lookup_table
             self.secondary_off = secondary_off
 

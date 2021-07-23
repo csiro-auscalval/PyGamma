@@ -34,10 +34,10 @@ def generate_normalised_backscatter(
     dst_stem: Path,
 ):
     """
-    Normalised radar backscatter.
+    Generate Normalised Radar Backscatter (gamma0) image for secondary scene according to equation in
+    Section 10.6 of GAMMA Geocoding and Image Registration Users Guide (p25):
 
-    Generate Gamma0 backscatter image for secondary scene according to equation in
-    Section 10.6 of Gamma Geocoding and Image Registration Users Guide.
+        gamma0 = src_mli * ellip_pix_sigma0 / dem_pix_gamma0
 
     :param outdir:
         The output directory where all outputs of the processing should go.
