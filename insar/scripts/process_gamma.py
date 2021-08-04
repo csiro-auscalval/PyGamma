@@ -466,7 +466,8 @@ class InitialSetup(luigi.Task):
         # here scenes_list and download_list are overwritten for each polarization
         # IW products in conflict-free mode products VV and VH polarization over land
         slc_inputs_df = pd.concat(
-            [slc_inputs(slc_query_results[pol]) for pol in pols]
+            [slc_inputs(slc_query_results[pol]) for pol in pols],
+            ignore_index=True
         )
 
         # download slc data
@@ -1669,7 +1670,13 @@ class CreateCoregisterSecondaries(luigi.Task):
                     continue
 
                 if primary_pol not in _pols:
-                    log.warning(f"Skipping {_pol} coreg/backscatter for {slc_scene} due to missing primary polarisation data for that date")
+                    log.warning(
+                        f"Skipping SLC coregistration due to missing primary polarisation data for that date",
+                        primary_pol=primary_pol,
+                        pols=_pols,
+                        slc_scene=slc_scene
+                    )
+
                     continue
 
                 secondary_dir = outdir / __SLC__ / slc_scene
