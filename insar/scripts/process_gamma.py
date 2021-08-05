@@ -32,7 +32,7 @@ from insar.make_gamma_dem import create_gamma_dem
 from insar.process_s1_slc import SlcProcess
 from insar.process_ifg import run_workflow, get_ifg_width, TempFileConfig, validate_ifg_input_files, ProcessIfgException
 from insar.project import ProcConfig, DEMFileNames, IfgFileNames, ARDWorkflow
-from insar.process_backscatter import generate_normalised_backscatter
+from insar.process_backscatter import generate_normalised_backscatter, generate_nrt_backscatter
 
 from insar.meta_data.s1_slc import S1DataDownload
 from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
@@ -587,7 +587,7 @@ class InitialSetup(luigi.Task):
         with (outdir / "metadata.json").open("w") as file:
             json.dump(metadata, file, indent=2)
 
-        with (workdir / "metadata.json").open("w") as file:
+        with (workdir.parent / "metadata.json").open("w") as file:
             json.dump(metadata, file, indent=2)
 
 
@@ -1307,57 +1307,73 @@ class CoregisterDemPrimary(luigi.Task):
 
     def run(self):
         log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
-        log.info("Beginning DEM primary coregistration")
-
         outdir = Path(self.outdir)
+        failed = False
 
-        # Read rlks/alks from multilook status
-        ml_file = f"{self.track}_{self.frame}_createmultilook_status_logs.out"
-        rlks, alks = read_rlks_alks(Path(self.workdir) / ml_file)
+        try:
+            primary_scene = read_primary_date(outdir).strftime(__DATE_FMT__)
+            primary_pol = str(self.primary_scene_polarization).upper()
 
-        primary_scene = read_primary_date(outdir)
+            structlog.threadlocal.clear_threadlocal()
+            structlog.threadlocal.bind_threadlocal(
+                task="DEM primary coregistration",
+                slc_dir=self.outdir,
+                slc_date=primary_scene,
+                slc_pol=primary_pol
+            )
 
-        primary_slc = pjoin(
-            outdir,
-            __SLC__,
-            primary_scene.strftime(__DATE_FMT__),
-            "{}_{}.slc".format(
-                primary_scene.strftime(__DATE_FMT__), self.primary_scene_polarization
-            ),
-        )
+            log.info("Beginning DEM primary coregistration")
 
-        primary_slc_par = Path(primary_slc).with_suffix(".slc.par")
-        dem = (
-            outdir
-            .joinpath(__DEM_GAMMA__)
-            .joinpath(f"{self.track}_{self.frame}.dem")
-        )
-        dem_par = dem.with_suffix(dem.suffix + ".par")
+            # Read rlks/alks from multilook status
+            ml_file = f"{self.track}_{self.frame}_createmultilook_status_logs.out"
+            rlks, alks = read_rlks_alks(Path(self.workdir) / ml_file)
 
-        dem_outdir = outdir / __DEM__
-        mk_clean_dir(dem_outdir)
+            primary_slc = pjoin(
+                outdir,
+                __SLC__,
+                primary_scene,
+                "{}_{}.slc".format(
+                    primary_scene, self.primary_scene_polarization
+                ),
+            )
 
-        coreg = CoregisterDem(
-            rlks=rlks,
-            alks=alks,
-            shapefile=str(self.shape_file),
-            dem=dem,
-            slc=Path(primary_slc),
-            dem_par=dem_par,
-            slc_par=primary_slc_par,
-            dem_outdir=dem_outdir,
-            multi_look=self.multi_look,
-        )
+            primary_slc_par = Path(primary_slc).with_suffix(".slc.par")
+            dem = (
+                outdir
+                .joinpath(__DEM_GAMMA__)
+                .joinpath(f"{self.track}_{self.frame}.dem")
+            )
+            dem_par = dem.with_suffix(dem.suffix + ".par")
 
-        coreg.main()
+            dem_outdir = outdir / __DEM__
+            mk_clean_dir(dem_outdir)
 
-        log.info("DEM primary coregistration complete")
+            coreg = CoregisterDem(
+                rlks=rlks,
+                alks=alks,
+                shapefile=str(self.shape_file),
+                dem=dem,
+                slc=Path(primary_slc),
+                dem_par=dem_par,
+                slc_par=primary_slc_par,
+                dem_outdir=dem_outdir,
+                multi_look=self.multi_look,
+            )
 
-        with self.output().open("w") as out_fid:
-            out_fid.write("")
+            coreg.main()
+
+            log.info("DEM primary coregistration complete")
+        except Exception as e:
+            log.error("DEM primary coregistration failed with exception", exc_info=True)
+            failed = True
+        finally:
+            with self.output().open("w") as f:
+                f.write("FAILED" if failed else "")
+
+            structlog.threadlocal.clear_threadlocal()
 
 
-def get_coreg_kwargs(proc_file: Path, scene_date=None, scene_pol=None):
+def load_settings(proc_file: Path):
     # Load the gamma proc config file
     with proc_file.open("r") as proc_fileobj:
         proc_config = ProcConfig.from_file(proc_fileobj)
@@ -1366,9 +1382,15 @@ def get_coreg_kwargs(proc_file: Path, scene_date=None, scene_pol=None):
 
     # Load project metadata
     with (outdir / "metadata.json").open("r") as file:
-        metadta = json.load(file)
+        metadata = json.load(file)
 
-    tfs = metadta["track_frame_sensor"]
+    return proc_config, metadata
+
+def get_coreg_kwargs(proc_file: Path, scene_date=None, scene_pol=None):
+    proc_config, metadata = load_settings(proc_file)
+    outdir = Path(proc_config.output_path)
+
+    tfs = metadata["track_frame_sensor"]
     track, frame, sensor = tfs.split("_")
     workdir = Path(proc_config.job_path) / tfs
     primary_scene = read_primary_date(outdir)
@@ -1803,9 +1825,12 @@ class CreateCoregisteredBackscatter(luigi.Task):
         # Remove completion status files for any failed SLC coreg tasks
         triggered_dates = []
 
+        nbr_outfile_pattern = "*_nbr_logs.out"
+        nbr_outfile_suffix_len = len(nbr_outfile_pattern)-1
+
         if reprocess_failed_scenes:
-            for status_out in Path(self.workdir).glob("*_nbr_logs.out"):
-                mli = status_out.name[:-13] + ".mli"
+            for status_out in Path(self.workdir).glob(nbr_outfile_pattern):
+                mli = status_out.name[:-nbr_outfile_suffix_len] + ".mli"
                 scene_date = mli.split("_")[0].lstrip("r")
 
                 with status_out.open("r") as file:
@@ -1819,8 +1844,8 @@ class CreateCoregisteredBackscatter(luigi.Task):
 
         # Remove completion status files for any we're asked to
         for date in reprocess_dates:
-            for status_out in Path(self.workdir).glob(f"*{date}_*_nbr_logs.out"):
-                mli = status_out.name[:-13] + ".mli"
+            for status_out in Path(self.workdir).glob(f"*{date}_" + nbr_outfile_pattern):
+                mli = status_out.name[:-nbr_outfile_suffix_len] + ".mli"
                 scene_date = mli.split("_")[0].lstrip("r")
 
                 triggered_dates.append(scene_date)
@@ -1904,6 +1929,178 @@ class CreateCoregisteredBackscatter(luigi.Task):
         with self.output().open("w") as f:
             f.write("")
 
+
+class ProcessNRTBackscatter(luigi.Task):
+    """
+    Produces a quick radar backscatter product for an SLC.
+    """
+
+    proc_file = luigi.Parameter()
+    outdir = luigi.Parameter()
+    workdir = luigi.Parameter()
+
+    src_path = luigi.Parameter()
+    #dem_path = luigi.Parameter()
+    dst_stem = luigi.Parameter()
+
+    def output(self):
+        return luigi.LocalTarget(
+            Path(self.workdir).joinpath(
+                f"{Path(str(self.src_path)).stem}_nrt_nbr_logs.out"
+            )
+        )
+
+    def run(self):
+        log = STATUS_LOGGER.bind(
+            slc=self.src_path,
+        )
+
+        try:
+            structlog.threadlocal.clear_threadlocal()
+
+            outdir = Path(self.outdir)
+            slc_date, slc_pol = Path(self.src_path).stem.split('_')[:2]
+            slc_date = slc_date.lstrip("r")
+
+            structlog.threadlocal.bind_threadlocal(
+                task="SLC backscatter (NRT)",
+                slc_dir=outdir,
+                slc_date=slc_date,
+                slc_pol=slc_pol
+            )
+
+            proc_config, metadata = load_settings(Path(self.proc_file))
+            tfs = metadata["track_frame_sensor"]
+            track, frame, sensor = tfs.split("_")
+
+            failed = False
+            dem = outdir / __DEM_GAMMA__ / f"{track}_{frame}.dem"
+            log.info("Beginning SLC backscatter (NRT)", dem=dem)
+
+            generate_nrt_backscatter(
+                Path(self.outdir),
+                Path(self.src_path),
+                dem,
+                Path(self.dst_stem),
+            )
+
+            log.info("SLC backscatter (NRT) complete")
+        except Exception as e:
+            log.error("SLC backscatter (NRT) failed with exception", exc_info=True)
+            failed = True
+        finally:
+            # We flag a task as complete no matter if the scene failed or not!
+            # - however we do write if the scene failed, so it can be reprocessed
+            # - later automatically if need be.
+            with self.output().open("w") as f:
+                f.write("FAILED" if failed else "")
+
+            structlog.threadlocal.clear_threadlocal()
+
+
+@requires(CreateGammaDem, CalcInitialBaseline)
+class CreateNRTBackscatter(luigi.Task):
+    """
+    Runs the backscatter tasks for all SLC scenes from their multi-looked
+    images, not their coregistered/resampled images.
+    """
+
+    proc_file = luigi.Parameter()
+    polarization = luigi.ListParameter(default=None)
+
+    def output(self):
+        return luigi.LocalTarget(
+            Path(self.workdir).joinpath(
+                f"{self.track}_{self.frame}_nrt_nbr_status_logs.out"
+            )
+        )
+
+    def trigger_resume(self, reprocess_dates: List[str], reprocess_failed_scenes: bool):
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+
+        # All we need to do is drop our outputs, as the backscatter
+        # task can safely over-write itself...
+        if self.output().exists():
+            self.output().remove()
+
+        # Remove completion status files for any failed SLC coreg tasks
+        triggered_dates = []
+
+        nbr_outfile_pattern = "*_nrt_nbr_logs.out"
+        nbr_outfile_suffix_len = len(nbr_outfile_pattern)-1
+
+        if reprocess_failed_scenes:
+            for status_out in Path(self.workdir).glob(nbr_outfile_pattern):
+                mli = status_out.name[:-nbr_outfile_suffix_len] + ".mli"
+                scene_date = mli.split("_")[0].lstrip("r")
+
+                with status_out.open("r") as file:
+                    contents = file.read().splitlines()
+
+                if len(contents) > 0 and "FAILED" in contents[0]:
+                    triggered_dates.append(scene_date)
+
+                    log.info(f"Resuming SLC backscatter ({mli}) because of FAILED processing")
+                    status_out.unlink()
+
+        # Remove completion status files for any we're asked to
+        for date in reprocess_dates:
+            for status_out in Path(self.workdir).glob(f"*{date}_" + nbr_outfile_pattern):
+                mli = status_out.name[:-nbr_outfile_suffix_len] + ".mli"
+                scene_date = mli.split("_")[0].lstrip("r")
+
+                triggered_dates.append(scene_date)
+
+                log.info(f"Resuming SLC backscatter ({mli}) because of dependency")
+                status_out.unlink()
+
+        return triggered_dates
+
+    def run(self):
+        log = STATUS_LOGGER.bind(track_frame=f"{self.track}_{self.frame}")
+        log.info("Scheduling NRT backscatter tasks...")
+
+        outdir = Path(self.outdir)
+
+        # Load the gamma proc config file
+        proc_path = Path(self.proc_file)
+        with proc_path.open("r") as proc_fileobj:
+            proc_config = ProcConfig.from_file(proc_fileobj)
+
+        slc_frames = get_scenes(self.burst_data_csv)
+
+        # get range and azimuth looked values
+        ml_file = Path(self.workdir).joinpath(
+            f"{self.track}_{self.frame}_createmultilook_status_logs.out"
+        )
+        rlks, alks = read_rlks_alks(ml_file)
+
+        kwargs = {
+            "proc_file": self.proc_file,
+            "outdir": self.outdir,
+            "workdir": self.workdir,
+        }
+
+        jobs = []
+
+        # Create backscatter tasks for all scenes
+        for dt, _, pols in slc_frames:
+            scene_date = dt.strftime(__DATE_FMT__)
+            scene_dir = outdir / proc_config.slc_dir / scene_date
+
+            for pol in pols:
+                prefix = f"{scene_date}_{pol.upper()}_{rlks}rlks"
+
+                kwargs["src_path"] = scene_dir / f"{prefix}.mli"
+                kwargs["dst_stem"] = scene_dir / f"nrt_{prefix}"
+
+                task = ProcessNRTBackscatter(**kwargs)
+                jobs.append(task)
+
+        yield jobs
+
+        with self.output().open("w") as f:
+            f.write("")
 
 class ProcessIFG(luigi.Task):
     """
@@ -2172,13 +2369,22 @@ class TriggerResume(luigi.Task):
         with proc_path.open('r') as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
-        backscatter_task = CreateCoregisteredBackscatter(**kwargs)
-        coreg_task = backscatter_task.get_create_coreg_task()
-        ifgs_task = CreateProcessIFGs(**kwargs)
+        # Get appropriate task objects
+        coreg_task = None
+        ifgs_task = None
+
+        if self.workflow == ARDWorkflow.BackscatterNRT:
+            backscatter_task = CreateNRTBackscatter(**kwargs)
+        else:
+            backscatter_task = CreateCoregisteredBackscatter(**kwargs)
+            coreg_task = backscatter_task.get_create_coreg_task()
+            ifgs_task = CreateProcessIFGs(**kwargs)
 
         if self.workflow == ARDWorkflow.Interferogram:
             workflow_task = ifgs_task
         elif self.workflow == ARDWorkflow.Backscatter:
+            workflow_task = backscatter_task
+        elif self.workflow == ARDWorkflow.BackscatterNRT:
             workflow_task = backscatter_task
         else:
             raise Exception(f"Unsupported ARD workflow: {self.workflow}")
@@ -2200,13 +2406,13 @@ class TriggerResume(luigi.Task):
         if num_completed_coregs == 0 and num_completed_ifgs == 0:
             log.info("No products need resuming, continuing w/ normal pipeline...")
 
-            if coreg_task.output().exists():
+            if coreg_task and coreg_task.output().exists():
                 coreg_task.output().remove()
 
-            if backscatter_task.output().exists():
+            if backscatter_task and backscatter_task.output().exists():
                 backscatter_task.output().remove()
 
-            if ifgs_task.output().exists():
+            if ifgs_task and ifgs_task.output().exists():
                 ifgs_task.output().remove()
 
             self.triggered_path().touch()
@@ -2231,16 +2437,16 @@ class TriggerResume(luigi.Task):
             tfs = outdir.name
             log.info(f"Resuming {tfs}")
 
-            # Trigger IFGs resume, this will tell us what pairs are being reprocessed
-            reprocessed_ifgs = ifgs_task.trigger_resume(self.reprocess_failed)
-            log.info("Re-processing IFGs", list=reprocessed_ifgs)
-
             # We need to verify the SLC inputs still exist for these IFGs... if not, reprocess
             reprocessed_single_slcs = []
             reprocessed_slc_coregs = []
             reprocessed_slc_backscatter = []
 
             if self.workflow == ARDWorkflow.Interferogram:
+                # Trigger IFGs resume, this will tell us what pairs are being reprocessed
+                reprocessed_ifgs = ifgs_task.trigger_resume(self.reprocess_failed)
+                log.info("Re-processing IFGs", list=reprocessed_ifgs)
+
                 for primary_date, secondary_date in reprocessed_ifgs:
                     ic = IfgFileNames(proc_config, Path(self.shape_file), primary_date, secondary_date, outdir)
 
@@ -2294,12 +2500,13 @@ class TriggerResume(luigi.Task):
 
             # Finally trigger SLC coreg & backscatter resumption
             # given the scenes from the missing IFG pairs
-            triggered_slc_coregs = coreg_task.trigger_resume(reprocessed_slc_coregs, self.reprocess_failed)
-            for primary_date, secondary_date in triggered_slc_coregs:
-                reprocessed_slc_coregs.append(secondary_date)
+            if coreg_task:
+                triggered_slc_coregs = coreg_task.trigger_resume(reprocessed_slc_coregs, self.reprocess_failed)
+                for primary_date, secondary_date in triggered_slc_coregs:
+                    reprocessed_slc_coregs.append(secondary_date)
 
-                reprocessed_single_slcs.append(primary_date)
-                reprocessed_single_slcs.append(secondary_date)
+                    reprocessed_single_slcs.append(primary_date)
+                    reprocessed_single_slcs.append(secondary_date)
 
             triggered_slc_backscatter = backscatter_task.trigger_resume(reprocessed_slc_coregs, self.reprocess_failed)
             for scene_date in triggered_slc_backscatter:
@@ -2685,6 +2892,8 @@ class ARD(luigi.WrapperTask):
             ard_tasks.append(CreateCoregisteredBackscatter(**kwargs))
         elif workflow == ARDWorkflow.Interferogram:
             ard_tasks.append(CreateProcessIFGs(**kwargs))
+        elif workflow == ARDWorkflow.BackscatterNRT:
+            ard_tasks.append(CreateNRTBackscatter(**kwargs))
         else:
             raise Exception(f'Unsupported workflow provided: {workflow}')
 
@@ -2772,11 +2981,6 @@ def run():
 
     with open("insar-log.jsonl", "a") as fobj:
         structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj))
-
-        try:
-            luigi.run()
-        except:
-            STATUS_LOGGER.error("Unhandled exception running ARD workflow", exc_info=True)
 
         try:
             luigi.run()

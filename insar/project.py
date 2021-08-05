@@ -14,6 +14,7 @@ class ARDWorkflow(enum.Enum):
 
     Backscatter = 1, 'Produce all products up to (and including) SLC backscatter'
     Interferogram = 2, 'Product all products up to (and including) interferograms'
+    BackscatterNRT = 3, 'Produce SLC and their backscatter, without coregistration'
 
 
 class ProcConfig:

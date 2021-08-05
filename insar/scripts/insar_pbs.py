@@ -105,10 +105,6 @@ def _gen_pbs(
     if not exists(job_dir):
         os.makedirs(job_dir)
 
-    # Convert workflow from whatever human formatting was used
-    # into Capitalised formatting to match enum
-    workflow = workflow.capitalize()
-
     # Create PBS script from a template w/ all required params
     pbs = PBS_TEMPLATE.format(
         pbs_resources=pbs_resource,
@@ -372,6 +368,12 @@ def ard_insar(
 
     if outdir.find("home") != -1:
         warnings.warn(warn_msg.format("outdir"))
+
+    # Convert workflow into correct case, as we allow insensitve
+    # casing to help usability, but Luigi requires sensitive.
+    workflows = [o.name.lower() for o in ARDWorkflow]
+    workflow_idx = workflows.index(workflow.lower())
+    workflow = [o.name for o in ARDWorkflow][workflow_idx]
 
     # The polarization command for gamma_insar ARD is a Luigi
     # ListParameter, where the list is a <JSON string>
