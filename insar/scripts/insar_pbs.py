@@ -14,6 +14,7 @@ import click
 import warnings
 import subprocess
 import datetime
+from typing import List
 from pathlib import Path
 from os.path import join as pjoin, dirname, exists, basename
 from insar.project import ARDWorkflow, ProcConfig
@@ -41,8 +42,8 @@ export TMP=$TMPDIR
 gamma_insar ARD \
     --proc-file {proc_file} \
     --shape-file {shape_file} \
-    --start-date {start_date} \
-    --end-date {end_date} \
+    --include-dates '{include_dates}' \
+    --exclude-dates '{exclude_dates}' \
     --workdir {workdir} \
     --outdir {outdir} \
     --polarization '{json_polar}' \
@@ -66,6 +67,7 @@ package \
 
 STORAGE = "+gdata/{proj}"
 
+__DATE_FMT__ = "%Y-%m-%d"
 
 def scatter(iterable, n):
     """
@@ -80,13 +82,12 @@ def scatter(iterable, n):
 
 def _gen_pbs(
     proc_file,
-    jobid,
     shape_file,
     env,
-    workdir,
+    job_dir,
     outdir,
-    start_date,
-    end_date,
+    include_dates,
+    exclude_dates,
     json_polar,
     pbs_resource,
     cpu_count,
@@ -99,11 +100,11 @@ def _gen_pbs(
     workflow
 ):
     """
-    Generates a pbs scripts
+    Generates a PBS submission script for the stack processing job
     """
-    job_dir = pjoin(workdir, f"jobid-{jobid}")
-    if not exists(job_dir):
-        os.makedirs(job_dir)
+    # Convert dates into comma separated range strings
+    include_dates = ','.join([f'{d1}-{d2}' for d1,d2 in include_dates])
+    exclude_dates = ','.join([f'{d1}-{d2}' for d1,d2 in exclude_dates])
 
     # Create PBS script from a template w/ all required params
     pbs = PBS_TEMPLATE.format(
@@ -111,8 +112,8 @@ def _gen_pbs(
         env=env,
         proc_file=proc_file,
         shape_file=shape_file,
-        start_date=start_date,
-        end_date=end_date,
+        include_dates=include_dates,
+        exclude_dates=exclude_dates,
         workdir=job_dir,
         outdir=outdir,
         json_polar=json_polar,
@@ -133,22 +134,11 @@ def _gen_pbs(
         pbs += " \\\n    --reprocess-failed"
 
     # If we're resuming a job, generate the resume script
-    out_fname = Path(job_dir) / f"job{jobid}.bash"
+    out_fname = Path(job_dir) / f"job.bash"
 
     if resume or reprocess_failed:
-        # Drop everything after the -<node> suffix in job ID, which is what older job names were
-        old_fname = out_fname.parent / (out_fname.name[:out_fname.name.rfind("-")] + ".bash")
-
-        # Detect and use old name jobs if it exists (eg: from initial processing datasets)
-        if not out_fname.exists() and old_fname.exists():
-            out_fname = old_fname
-
-        if not out_fname.exists():
-            print(f"Failed to resume, job script does not exist: {out_fname}")
-            exit(1)
-
         # Create resumption job
-        resume_fname = out_fname.parent / (out_fname.stem + "_resume.bash")
+        resume_fname = Path(job_dir) / f"job_resume.bash"
 
         with resume_fname.open("w") as src:
             src.writelines(pbs)
@@ -202,25 +192,37 @@ def _submit_pbs(job_path, test):
     help="The path to the shapefile for SLC acquisition",
 )
 @click.option(
-    "--start-date",
-    type=click.DateTime(),
-    default="2016-1-1",
-    help="The start date of SLC acquisition",
+    "--date-range",
+    type=click.DateTime(), nargs=2,
+    multiple=True,
+    help="Includes the specified date range to be processed",
 )
 @click.option(
-    "--end-date",
+    "--date",
     type=click.DateTime(),
-    default="2021-04-30",
-    help="The end date of SLC acquisition",
+    multiple=True,
+    help="Includes the specified date to be processed",
+)
+@click.option(
+    "--exclude-date-range",
+    type=click.DateTime(), nargs=2,
+    multiple=True,
+    help="Excludes the specified date range from being processed",
+)
+@click.option(
+    "--exclude-date",
+    type=click.DateTime(),
+    multiple=True,
+    help="Excludes the specified date from being processed",
 )
 @click.option(
     "--workdir",
-    type=click.Path(exists=True, writable=True, file_okay=False, dir_okay=True),
+    type=click.Path(exists=False, writable=True, file_okay=False, dir_okay=True),
     help="The base working and scripts output directory.",
 )
 @click.option(
     "--outdir",
-    type=click.Path(exists=True, writable=True, file_okay=False, dir_okay=True),
+    type=click.Path(exists=False, writable=True, file_okay=False, dir_okay=True),
     help="The output directory for processed data",
 )
 @click.option(
@@ -314,12 +316,6 @@ def _submit_pbs(job_path, test):
     default=False
 )
 @click.option(
-    "--job-name",
-    type=click.STRING,
-    help="An optional name to assign to the job (instead of a random name by default)",
-    required=False
-)
-@click.option(
     "--workflow",
     type=click.Choice([o.name for o in ARDWorkflow], case_sensitive=False),
     help="The workflow to run",
@@ -329,8 +325,10 @@ def _submit_pbs(job_path, test):
 def ard_insar(
     proc_file: click.Path,
     shape_file: click.Path,
-    start_date: click.DateTime,
-    end_date: click.DateTime,
+    date_range: List[click.DateTime],
+    date: List[click.DateTime],
+    exclude_date_range: List[click.DateTime],
+    exclude_date: List[click.DateTime],
     workdir: click.Path,
     outdir: click.Path,
     polarization: click.Tuple,
@@ -351,7 +349,6 @@ def ard_insar(
     sensor: click.STRING,
     resume: click.BOOL,
     reprocess_failed: click.BOOL,
-    job_name: click.STRING,
     workflow: click.STRING
 ):
     """
@@ -369,6 +366,25 @@ def ard_insar(
     if outdir.find("home") != -1:
         warnings.warn(warn_msg.format("outdir"))
 
+    workpath = Path(workdir)
+    outpath = Path(outdir)
+
+    if resume:
+        if not workpath.exists() or not any(workpath.iterdir()):
+            click.echo("Error: Provided job work directory has no existing job!", err=True)
+            exit(1)
+    else:
+        if workpath.exists() and any(workpath.iterdir()):
+            click.echo("Error: Provided job work directory already exists!", err=True)
+            exit(1)
+
+        if outpath.exists() and any(outpath.iterdir()):
+            click.echo("Error: Provided job output directory already exists!", err=True)
+            exit(1)
+
+        workpath.mkdir(parents=True, exist_ok=True)
+        outpath.mkdir(parents=True, exist_ok=True)
+
     # Convert workflow into correct case, as we allow insensitve
     # casing to help usability, but Luigi requires sensitive.
     workflows = [o.name.lower() for o in ARDWorkflow]
@@ -384,17 +400,14 @@ def ard_insar(
     # The json module can achieve this by: json.dumps(polarization)
     json_pol = json.dumps(list(polarization))
 
-    start_date = start_date.date()
-    end_date = end_date.date()
-
     # Sanity check number of threads
     num_threads = int(num_threads)
     if num_threads <= 0:
-        print("Number of threads must be greater than 0!")
+        click.echo("Number of threads must be greater than 0!", err=True)
         exit(1)
 
     if not Path(shape_file).exists():
-        print("Shape file does not exist:", shape_file)
+        click.echo(f"Shape file does not exist: {shape_file}", err=True)
         exit(1)
 
     storage_names = "".join([STORAGE.format(proj=p) for p in storage])
@@ -419,13 +432,19 @@ def ard_insar(
     else:
         num_workers = workers
 
-    # Assign job names to each node's job
-    if not job_name:
-        job_name = uuid.uuid4().hex[0:6]
+    # Convert input params into consistent date ranges
+    include_dates = list(date_range)
+    for d in date:
+        include_dates.append((d,d))
+
+    exclude_dates = list(exclude_date_range)
+    for d in exclude_date:
+        exclude_dates.append((d,d))
 
     # Validate date range
-    if start_date.year < 2016:
-        print("Dates prior to 2016 are currently not supported due to poor sensor data.")
+    for from_date, to_date in include_dates:
+        if from_date.year < 2016 or to_date.year < 2016:
+            click.echo("[WARNING] Dates prior to 2016 are well not supported due to poor sensor data.", err=True)
 
     # TODO: Would be good to query the database for the latest date available, to use as an end-date bound
 
@@ -435,20 +454,25 @@ def ard_insar(
 
     proc_valid_error = proc_config.validate()
     if proc_valid_error:
-        print("Provided .proc configuration file is invalid:")
-        print(proc_valid_error)
+        click.echo(f"Provided .proc configuration file is invalid:\n{proc_valid_error}", err=True)
         exit(1)
+
+    # Convert dates into string format
+    def fmtdate(dt):
+        return dt.strftime(__DATE_FMT__)
+
+    include_dates = [(fmtdate(d1), fmtdate(d2)) for d1,d2 in include_dates]
+    exclude_dates = [(fmtdate(d1), fmtdate(d2)) for d1,d2 in exclude_dates]
 
     # Generate and submit the PBS script to run the job
     pbs_script = _gen_pbs(
         proc_file,
-        job_name,
         shape_file,
         env,
         workdir,
         outdir,
-        start_date,
-        end_date,
+        include_dates,
+        exclude_dates,
         json_pol,
         pbs_resources,
         ncpus,

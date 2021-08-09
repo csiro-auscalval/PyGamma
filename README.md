@@ -188,8 +188,7 @@ This example processes a temporal stack from Sentinel-1 source data (both VV and
 gamma_insar ARD \
     --proc-file config.proc \
     --shape-file shape_file.shp \
-    --start-date 2016-01-01 \
-    --end-date 2017-01-01 \
+    --include-dates '2016-01-01-2017-01-01' \
     --polarization '["VV", "VH"]' \
     --workdir /path/to/job_logs_and_state \
     --outdir /path/to/final_output_data \
@@ -247,7 +246,7 @@ pbs-insar \
     --job-name example_job \
     --project example_proj \
     --proc-file config.proc --shape-file frame.shp \
-    --start-date 2016-01-01 --end-date 2017-01-01 \
+    --date-range 2016-01-01 2017-01-01 \
     --polarization VV --polarization VH \
     --workdir /path/to/job_logs_and_state \
     --outdir /path/to/final_output_data \

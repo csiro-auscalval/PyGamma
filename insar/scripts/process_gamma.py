@@ -7,7 +7,7 @@ import traceback
 import os.path
 from os.path import exists, join as pjoin
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 import luigi
 import luigi.configuration
 import logging
@@ -91,6 +91,42 @@ def on_success(task):
         frame=getattr(task, "frame", ""),
         status="success",
     )
+
+
+class DateListParameter(luigi.Parameter):
+    """
+    A Parameter whose value is a list of :py:class:`~luigi.date_interval.DateInterval`.
+
+    See: https://luigi.readthedocs.io/en/stable/api/luigi.parameter.html#luigi.parameter.DateIntervalParameter
+    """
+    def parse(self, s):
+        if not s:
+            return []
+
+        from luigi import date_interval as d
+
+        # Handle tuple and list syntax as well (Luigi often uses tuple, command line supports anything)
+        s = s.strip("[](), ")
+        if not s:
+            return []
+
+        dates = [i.strip() for i in s.split(',')]
+        value = []
+
+        for date in dates:
+            interval = None
+
+            for cls in [d.Year, d.Month, d.Week, d.Date, d.Custom]:
+                interval = cls.parse(date)
+                if interval is not None:
+                    break
+
+            if interval is None:
+                raise ValueError('Invalid date interval - could not be parsed: ' + s + " (type: " + str(type(s)) + ")")
+
+            value.append(interval)
+
+        return value
 
 
 # TODO: This should take a primary polarisation to filter on
@@ -313,6 +349,76 @@ def read_primary_date(outdir: Path):
     return datetime.datetime.strptime(date, __DATE_FMT__).date()
 
 
+one_day = datetime.timedelta(days=1)
+
+
+def merge_overlapping_date_ranges(dates: List[Tuple[datetime.date]]) -> List[Tuple[datetime.date]]:
+    if not dates:
+        return dates
+
+    dates = sorted(dates, key=lambda x: x[0])
+    result = []
+    current = dates[0]
+
+    # Range should be (from, to)
+    if(current[1] < current[0]):
+        raise RuntimeError("Provided date ranges should be (min, max) order")
+
+    for date in dates[1:]:
+        lhs, rhs = date
+
+        # Range should be (from, to)
+        if(rhs < lhs):
+            raise RuntimeError("Provided date ranges should be (min, max) order")
+
+        # Simple 1D line intersection of date ranges
+        overlaps = (current[1] + one_day) >= lhs and (rhs + one_day) >= current[0]
+
+        if overlaps:
+            current = (min(current[0], lhs), max(current[1], rhs))
+        else:
+            result.append(current)
+            current = date
+
+    result.append(current)
+    return result
+
+
+def simplify_dates(include_dates: List[Tuple[datetime.date]], exclude_dates: List[Tuple[datetime.date]]) -> List[Tuple[datetime.date]]:
+    # Merge include dates (eg: if they overlap), this will return a sorted result
+    simple_includes = merge_overlapping_date_ranges(include_dates)
+    simple_excludes = merge_overlapping_date_ranges(exclude_dates)
+
+    final_include_ranges = []
+
+    # Note: We iterate w/ dynamic index as the list may grow while iterating
+    i = 0
+    while i < len(simple_includes):
+        lhs, rhs = simple_includes[i]
+
+        for exclude_lhs, exclude_rhs in simple_excludes:
+            # Remove whole range
+            if lhs >= exclude_lhs and rhs <= exclude_rhs:
+                lhs, rhs = None, None
+            # Split down center
+            elif exclude_lhs > lhs and exclude_rhs < rhs:
+                simple_includes.append((exclude_rhs + one_day, rhs))
+                rhs = exclude_lhs - one_day
+            # Chop off the left
+            elif lhs >= exclude_lhs and lhs <= exclude_rhs:
+                lhs = exclude_rhs + one_day
+            # Chop off the right
+            elif rhs >= exclude_lhs and rhs <= exclude_rhs:
+                rhs = exclude_lhs - one_day
+
+        if lhs is not None and rhs is not None:
+            final_include_ranges.append((lhs, rhs))
+
+        i += 1
+
+    return final_include_ranges
+
+
 class ExternalFileChecker(luigi.ExternalTask):
     """checks the external dependencies."""
 
@@ -354,6 +460,10 @@ def read_rlks_alks(ml_file: Path):
     return rlks, alks
 
 
+def tdir(workdir):
+    return Path(workdir) / 'tasks'
+
+
 class SlcDataDownload(luigi.Task):
     """
     Downloads/copies the raw data for an SLC scene, for all requested polarisations.
@@ -368,9 +478,7 @@ class SlcDataDownload(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(str(self.workdir)).joinpath(
-                f"{Path(str(self.slc_scene)).stem}_slc_download.out"
-            )
+            tdir(self.workdir) / f"{Path(self.slc_scene).stem}_slc_download.out"
         )
 
     def run(self):
@@ -407,8 +515,8 @@ class InitialSetup(luigi.Task):
     """
 
     proc_file = luigi.Parameter()
-    start_date = luigi.Parameter()
-    end_date = luigi.Parameter()
+    include_dates = DateListParameter()
+    exclude_dates = DateListParameter()
     shape_file = luigi.Parameter()
     orbit = luigi.Parameter()
     sensor = luigi.Parameter()
@@ -425,9 +533,7 @@ class InitialSetup(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(str(self.workdir)).joinpath(
-                f"{self.track}_{self.frame}_initialsetup_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_initialsetup_status_logs.out"
         )
 
     def run(self):
@@ -443,12 +549,29 @@ class InitialSetup(luigi.Task):
         # get the relative orbit number, which is int value of the numeric part of the track name
         rel_orbit = int(re.findall(r"\d+", str(self.track))[0])
 
-        # get slc input information
+        # Convert luigi half-open DateInterval into the inclusive tuple ranges we use
+        init_include_dates = [(d.date_a, d.date_b) for d in self.include_dates or []]
+        init_exclude_dates = [(d.date_a, d.date_b) for d in self.exclude_dates or []]
+
+        # Find the maximum extent of the queried dates
+        include_dates = sorted(simplify_dates(init_include_dates, init_exclude_dates))
+        min_date = include_dates[0][0]
+        max_date = max([d[1] for d in include_dates])
+
+        log.info(
+            "Simplified final include dates",
+            final_dates=include_dates,
+            initial_includes=init_include_dates,
+            initial_excludes=init_exclude_dates
+        )
+
+        # Query SLCs that match our search criteria for the maximum span
+        # of dates that covers all of our include dates.
         slc_query_results = query_slc_inputs(
             str(proc_config.database_path),
             str(self.shape_file),
-            self.start_date,
-            self.end_date,
+            min_date,
+            max_date,
             str(self.orbit),
             rel_orbit,
             pols,
@@ -458,17 +581,41 @@ class InitialSetup(luigi.Task):
         if slc_query_results is None:
             raise ValueError(
                 f"Nothing was returned for {self.track}_{self.frame} "
-                f"start_date: {self.start_date} "
-                f"end_date: {self.end_date} "
+                f"from date: {min_date} "
+                f"to date: {max_date} "
                 f"orbit: {self.orbit}"
             )
 
-        # here scenes_list and download_list are overwritten for each polarization
-        # IW products in conflict-free mode products VV and VH polarization over land
         slc_inputs_df = pd.concat(
             [slc_inputs(slc_query_results[pol]) for pol in pols],
             ignore_index=True
         )
+
+        # Filter out dates we don't care about - as our search query is for
+        # a single giant span of dates, but our include dates may be more fine
+        # grained than the query supports.
+        exclude_indices = []
+
+        for index, row in slc_inputs_df.iterrows():
+            date = row["date"]
+
+            keep = any(date >= lhs or date <= rhs for lhs,rhs in include_dates)
+            if not keep:
+                exclude_indices.append(index)
+
+        slc_inputs_df.drop(exclude_indices, inplace=True)
+
+        # Determine the selected sensor(s) from the query, for directory naming
+        selected_sensors = set()
+
+        for pol, dated_scenes in slc_query_results.items():
+            for date, swathes in dated_scenes.items():
+                for swath, scenes in swathes.items():
+                    for slc_id, slc_metadata in scenes.items():
+                        if "sensor" in slc_metadata:
+                            selected_sensors.add(slc_metadata["sensor"])
+
+        selected_sensors = "_".join(sorted(selected_sensors))
 
         # download slc data
         download_dir = outdir / __RAW__
@@ -559,9 +706,9 @@ class InitialSetup(luigi.Task):
             # potentially in other plain text files - but repeated here
             # for easy access for external software so it doesn't need to
             # know the nity gritty of all our auxilliary files or logs.
-            "track_frame_sensor": workdir.name,
+            "track_frame_sensor": f"{self.track}_{self.frame}_{selected_sensors}",
             "original_work_dir": Path(self.outdir).as_posix(),
-            "original_job_dir": workdir.parent.as_posix(),
+            "original_job_dir": workdir.as_posix(),
             "shapefile": str(self.shape_file),
             "database": str(proc_config.database_path),
             "poeorb_path": str(self.poeorb_path),
@@ -569,10 +716,8 @@ class InitialSetup(luigi.Task):
             "source_data_path": str(os.path.commonpath(list(download_list))),
             "dem_path": str(self.dem_img),
             "primary_ref_scene": ref_scene_date.strftime(__DATE_FMT__),
-            "temporal_range": [
-                self.start_date.strftime(__DATE_FMT__),
-                self.end_date.strftime(__DATE_FMT__)
-            ],
+            "include_dates": [(d1.strftime(__DATE_FMT__), d2.strftime(__DATE_FMT__)) for d1,d2 in init_include_dates],
+            "exclude_dates": [(d1.strftime(__DATE_FMT__), d2.strftime(__DATE_FMT__)) for d1,d2 in init_exclude_dates],
             "burst_data": str(self.burst_data_csv),
             "num_scene_dates": len(formatted_scene_dates),
             "polarizations": pols,
@@ -587,7 +732,7 @@ class InitialSetup(luigi.Task):
         with (outdir / "metadata.json").open("w") as file:
             json.dump(metadata, file, indent=2)
 
-        with (workdir.parent / "metadata.json").open("w") as file:
+        with (workdir / "metadata.json").open("w") as file:
             json.dump(metadata, file, indent=2)
 
 
@@ -601,9 +746,7 @@ class CreateGammaDem(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_creategammadem_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_creategammadem_status_logs.out"
         )
 
     def run(self):
@@ -643,9 +786,7 @@ class ProcessSlc(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(str(self.workdir)).joinpath(
-                f"{self.scene_date}_{self.polarization}_slc_logs.out"
-            )
+            tdir(self.workdir) / f"{self.scene_date}_{self.polarization}_slc_logs.out"
         )
 
     def run(self):
@@ -681,9 +822,7 @@ class CreateFullSlc(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_createfullslc_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_createfullslc_status_logs.out"
         )
 
     def run(self):
@@ -800,9 +939,7 @@ class ProcessSlcMosaic(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(str(self.workdir)).joinpath(
-                f"{self.scene_date}_{self.polarization}_slc_subset_logs.out"
-            )
+            tdir(self.workdir) / f"{self.scene_date}_{self.polarization}_slc_subset_logs.out"
         )
 
     def run(self):
@@ -837,9 +974,7 @@ class CreateSlcMosaic(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_createslcmosaic_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_createslcmosaic_status_logs.out"
         )
 
     def run(self):
@@ -974,12 +1109,11 @@ class ReprocessSingleSLC(luigi.Task):
     resume_token = luigi.Parameter()
 
     def output_path(self):
-        return Path(
-            f"{self.track}_{self.frame}_reprocess_{self.scene_date}_{self.polarization}_{self.resume_token}_status.out"
-        )
+        fname = f"{self.track}_{self.frame}_reprocess_{self.scene_date}_{self.polarization}_{self.resume_token}_status.out"
+        return tdir(self.workdir) / fname
 
     def progress_path(self):
-        return Path(self.workdir) / self.output_path().with_suffix(".progress")
+        return tdir(self.workdir) / self.output_path().with_suffix(".progress")
 
     def output(self):
         return luigi.LocalTarget(self.output_path())
@@ -996,7 +1130,7 @@ class ReprocessSingleSLC(luigi.Task):
             return file.write(value)
 
     def get_key_outputs(self):
-        workdir = Path(self.workdir)
+        workdir = tdir(self.workdir)
 
         # Read rlks/alks from multilook status
         mlk_status = workdir / f"{self.track}_{self.frame}_createmultilook_status_logs.out"
@@ -1017,7 +1151,7 @@ class ReprocessSingleSLC(luigi.Task):
         return [slc, slc_par, mli, mli_par]
 
     def run(self):
-        workdir = Path(self.workdir)
+        workdir = tdir(self.workdir)
 
         # Read rlks/alks from multilook status
         mlk_status = workdir / f"{self.track}_{self.frame}_createmultilook_status_logs.out"
@@ -1138,7 +1272,7 @@ class Multilook(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(str(self.workdir)).joinpath(f"{Path(str(self.slc)).stem}_ml_logs.out")
+            tdir(self.workdir) / f"{Path(str(self.slc)).stem}_ml_logs.out"
         )
 
     def run(self):
@@ -1164,9 +1298,7 @@ class CreateMultilook(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_createmultilook_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_createmultilook_status_logs.out"
         )
 
     def run(self):
@@ -1224,9 +1356,7 @@ class CalcInitialBaseline(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_calcinitialbaseline_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_calcinitialbaseline_status_logs.out"
         )
 
     def run(self):
@@ -1300,9 +1430,7 @@ class CoregisterDemPrimary(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_coregisterdemprimary_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_coregisterdemprimary_status_logs.out"
         )
 
     def run(self):
@@ -1326,7 +1454,7 @@ class CoregisterDemPrimary(luigi.Task):
 
             # Read rlks/alks from multilook status
             ml_file = f"{self.track}_{self.frame}_createmultilook_status_logs.out"
-            rlks, alks = read_rlks_alks(Path(self.workdir) / ml_file)
+            rlks, alks = read_rlks_alks(tdir(self.workdir) / ml_file)
 
             primary_slc = pjoin(
                 outdir,
@@ -1392,11 +1520,11 @@ def get_coreg_kwargs(proc_file: Path, scene_date=None, scene_pol=None):
 
     tfs = metadata["track_frame_sensor"]
     track, frame, sensor = tfs.split("_")
-    workdir = Path(proc_config.job_path) / tfs
+    workdir = Path(proc_config.job_path)
     primary_scene = read_primary_date(outdir)
 
     # get range and azimuth looked values
-    ml_file = workdir / f"{track}_{frame}_createmultilook_status_logs.out"
+    ml_file = tdir(workdir) / f"{track}_{frame}_createmultilook_status_logs.out"
     rlks, alks = read_rlks_alks(ml_file)
 
     primary_scene = primary_scene.strftime(__DATE_FMT__)
@@ -1473,9 +1601,7 @@ class CoregisterSecondary(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{Path(str(self.slc_primary)).stem}_{Path(str(self.slc_secondary)).stem}_coreg_logs.out"
-            )
+            tdir(self.workdir) / f"{Path(str(self.slc_primary)).stem}_{Path(str(self.slc_secondary)).stem}_coreg_logs.out"
         )
 
     def get_processor(self):
@@ -1577,9 +1703,7 @@ class CreateCoregisterSecondaries(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_coregister_secondarys_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_coregister_secondarys_status_logs.out"
         )
 
     def trigger_resume(self, reprocess_dates: List[str], reprocess_failed_scenes: bool):
@@ -1596,7 +1720,7 @@ class CreateCoregisterSecondaries(luigi.Task):
         triggered_pairs = []
 
         if reprocess_failed_scenes:
-            for status_out in Path(self.workdir).glob("*_coreg_logs.out"):
+            for status_out in tdir(self.workdir).glob("*_coreg_logs.out"):
                 with status_out.open("r") as file:
                     contents = file.read().splitlines()
 
@@ -1611,7 +1735,7 @@ class CreateCoregisterSecondaries(luigi.Task):
 
         # Remove completion status files for any we're asked to
         for date in reprocess_dates:
-            for status_out in Path(self.workdir).glob(f"*_*_{date}_*_coreg_logs.out"):
+            for status_out in tdir(self.workdir).glob(f"*_*_{date}_*_coreg_logs.out"):
                 parts = status_out.name.split("_")
                 primary_date, secondary_date = parts[0], parts[2]
 
@@ -1656,7 +1780,7 @@ class CreateCoregisterSecondaries(luigi.Task):
         primary_pol = str(self.primary_scene_polarization).upper()
 
         # get range and azimuth looked values
-        ml_file = Path(self.workdir).joinpath(
+        ml_file = tdir(self.workdir).joinpath(
             f"{self.track}_{self.frame}_createmultilook_status_logs.out"
         )
         rlks, alks = read_rlks_alks(ml_file)
@@ -1735,9 +1859,7 @@ class ProcessBackscatter(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{Path(str(self.src_mli)).stem}_nbr_logs.out"
-            )
+            tdir(self.workdir) / f"{Path(str(self.src_mli)).stem}_nbr_logs.out"
         )
 
     def run(self):
@@ -1801,9 +1923,7 @@ class CreateCoregisteredBackscatter(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_backscatter_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_backscatter_status_logs.out"
         )
 
     def get_create_coreg_task(self):
@@ -1829,7 +1949,7 @@ class CreateCoregisteredBackscatter(luigi.Task):
         nbr_outfile_suffix_len = len(nbr_outfile_pattern)-1
 
         if reprocess_failed_scenes:
-            for status_out in Path(self.workdir).glob(nbr_outfile_pattern):
+            for status_out in tdir(self.workdir).glob(nbr_outfile_pattern):
                 mli = status_out.name[:-nbr_outfile_suffix_len] + ".mli"
                 scene_date = mli.split("_")[0].lstrip("r")
 
@@ -1844,7 +1964,7 @@ class CreateCoregisteredBackscatter(luigi.Task):
 
         # Remove completion status files for any we're asked to
         for date in reprocess_dates:
-            for status_out in Path(self.workdir).glob(f"*{date}_" + nbr_outfile_pattern):
+            for status_out in tdir(self.workdir).glob(f"*{date}_" + nbr_outfile_pattern):
                 mli = status_out.name[:-nbr_outfile_suffix_len] + ".mli"
                 scene_date = mli.split("_")[0].lstrip("r")
 
@@ -1867,7 +1987,7 @@ class CreateCoregisteredBackscatter(luigi.Task):
             proc_config = ProcConfig.from_file(proc_fileobj)
 
         # get range and azimuth looked values
-        ml_file = Path(self.workdir).joinpath(
+        ml_file = tdir(self.workdir).joinpath(
             f"{self.track}_{self.frame}_createmultilook_status_logs.out"
         )
         rlks, alks = read_rlks_alks(ml_file)
@@ -1945,7 +2065,7 @@ class ProcessNRTBackscatter(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
+            tdir(self.workdir).joinpath(
                 f"{Path(str(self.src_path)).stem}_nrt_nbr_logs.out"
             )
         )
@@ -2010,7 +2130,7 @@ class CreateNRTBackscatter(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
+            tdir(self.workdir).joinpath(
                 f"{self.track}_{self.frame}_nrt_nbr_status_logs.out"
             )
         )
@@ -2030,7 +2150,7 @@ class CreateNRTBackscatter(luigi.Task):
         nbr_outfile_suffix_len = len(nbr_outfile_pattern)-1
 
         if reprocess_failed_scenes:
-            for status_out in Path(self.workdir).glob(nbr_outfile_pattern):
+            for status_out in tdir(self.workdir).glob(nbr_outfile_pattern):
                 mli = status_out.name[:-nbr_outfile_suffix_len] + ".mli"
                 scene_date = mli.split("_")[0].lstrip("r")
 
@@ -2045,7 +2165,7 @@ class CreateNRTBackscatter(luigi.Task):
 
         # Remove completion status files for any we're asked to
         for date in reprocess_dates:
-            for status_out in Path(self.workdir).glob(f"*{date}_" + nbr_outfile_pattern):
+            for status_out in tdir(self.workdir).glob(f"*{date}_" + nbr_outfile_pattern):
                 mli = status_out.name[:-nbr_outfile_suffix_len] + ".mli"
                 scene_date = mli.split("_")[0].lstrip("r")
 
@@ -2070,7 +2190,7 @@ class CreateNRTBackscatter(luigi.Task):
         slc_frames = get_scenes(self.burst_data_csv)
 
         # get range and azimuth looked values
-        ml_file = Path(self.workdir).joinpath(
+        ml_file = tdir(self.workdir).joinpath(
             f"{self.track}_{self.frame}_createmultilook_status_logs.out"
         )
         rlks, alks = read_rlks_alks(ml_file)
@@ -2119,9 +2239,7 @@ class ProcessIFG(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_ifg_{self.primary_date}-{self.secondary_date}_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_ifg_{self.primary_date}-{self.secondary_date}_status_logs.out"
         )
 
     def run(self):
@@ -2186,9 +2304,7 @@ class CreateProcessIFGs(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            Path(self.workdir).joinpath(
-                f"{self.track}_{self.frame}_create_ifgs_status_logs.out"
-            )
+            tdir(self.workdir) / f"{self.track}_{self.frame}_create_ifgs_status_logs.out"
         )
 
     def trigger_resume(self, reprocess_failed_scenes=True):
@@ -2232,7 +2348,7 @@ class CreateProcessIFGs(luigi.Task):
         # in the error handler, thus for cases this occurs but the above logic doesn't
         # apply, we have this as well just in case.
         if reprocess_failed_scenes:
-            for status_out in Path(self.workdir).glob("*_ifg_*_status_logs.out"):
+            for status_out in tdir(self.workdir).glob("*_ifg_*_status_logs.out"):
                 with status_out.open("r") as file:
                     contents = file.read().splitlines()
 
@@ -2302,8 +2418,8 @@ class TriggerResume(luigi.Task):
     proc_file = luigi.Parameter()
     shape_file = luigi.Parameter()
     burst_data_csv = luigi.Parameter()
-    start_date = luigi.DateParameter()
-    end_date = luigi.DateParameter()
+    include_dates = DateListParameter()
+    exclude_dates = DateListParameter()
     sensor = luigi.Parameter()
     polarization = luigi.ListParameter()
     cleanup = luigi.BoolParameter()
@@ -2326,10 +2442,10 @@ class TriggerResume(luigi.Task):
         return Path(f"{self.track}_{self.frame}_resume_pipeline_{self.resume_token}_status.out")
 
     def output(self):
-        return luigi.LocalTarget(Path(self.workdir) / self.output_path())
+        return luigi.LocalTarget(tdir(self.workdir) / self.output_path())
 
     def triggered_path(self):
-        return Path(self.workdir) / self.output_path().with_suffix(".triggered")
+        return tdir(self.workdir) / self.output_path().with_suffix(".triggered")
 
     def run(self):
         log = STATUS_LOGGER.bind(outdir=self.outdir, workdir=self.workdir)
@@ -2345,8 +2461,8 @@ class TriggerResume(luigi.Task):
         kwargs = {
             "proc_file": self.proc_file,
             "shape_file": self.shape_file,
-            "start_date": self.start_date,
-            "end_date": self.end_date,
+            "include_dates": self.include_dates,
+            "exclude_dates": self.exclude_dates,
             "sensor": self.sensor,
             "polarization": self.polarization,
             "track": self.track,
@@ -2393,8 +2509,8 @@ class TriggerResume(luigi.Task):
         # reprocessing of bad/missing coregs and IFGs currently.
 
         # Count number of completed products
-        num_completed_coregs = len(list(Path(self.workdir).glob("*_coreg_logs.out")))
-        num_completed_ifgs = len(list(Path(self.workdir).glob("*_ifg_*_status_logs.out")))
+        num_completed_coregs = len(list(tdir(self.workdir).glob("*_coreg_logs.out")))
+        num_completed_ifgs = len(list(tdir(self.workdir).glob("*_ifg_*_status_logs.out")))
 
         log.info(
             f"TriggerResume of workflow {self.workflow} from {num_completed_coregs}x coreg and {num_completed_ifgs}x IFGs",
@@ -2418,7 +2534,7 @@ class TriggerResume(luigi.Task):
             self.triggered_path().touch()
 
         # Read rlks/alks
-        ml_file = Path(self.workdir).joinpath(
+        ml_file = tdir(self.workdir).joinpath(
             f"{self.track}_{self.frame}_createmultilook_status_logs.out"
         )
 
@@ -2456,7 +2572,7 @@ class TriggerResume(luigi.Task):
                     except ProcessIfgException as e:
                         pol = proc_config.polarisation
                         status_out = f"{primary_date}_{pol}_{secondary_date}_{pol}_coreg_logs.out"
-                        status_out = Path(self.workdir) / status_out
+                        status_out = tdir(self.workdir) / status_out
 
                         log.info("Triggering SLC reprocessing as coregistrations missing", missing=e.missing_files)
 
@@ -2624,8 +2740,8 @@ class ARD(luigi.WrapperTask):
 
     # Query params (must be provided to task)
     shape_file = luigi.Parameter()
-    start_date = luigi.DateParameter()
-    end_date = luigi.DateParameter()
+    include_dates = DateListParameter()
+    exclude_dates = DateListParameter(default=[])
 
     # Overridable query params (can come from .proc, or task)
     sensor = luigi.Parameter(default=None)
@@ -2705,52 +2821,10 @@ class ARD(luigi.WrapperTask):
             if dbf_tracks[0].strip() != track[1:-1]:  # dbf only has track number
                 raise Exception("Supplied shapefile track does not match job track")
 
-        # Query SLC inputs for this location (extent specified by shape file)
-        rel_orbit = int(re.findall(r"\d+", str(track))[0])
-        slc_query_results = query_slc_inputs(
-            proc_config.database_path,
-            str(shape_file),
-            self.start_date,
-            self.end_date,
-            orbit,
-            rel_orbit,
-            pols,
-            self.sensor
-        )
-
-        if slc_query_results is None:
-            raise ValueError(
-                f"Nothing was returned for {track}_{frame} "
-                f"start_date: {self.start_date} "
-                f"end_date: {self.end_date} "
-                f"orbit: {orbit}"
-            )
-
-        # Determine the selected sensor(s) from the query, for directory naming
-        selected_sensors = set()
-
-        for pol, dated_scenes in slc_query_results.items():
-            for date, swathes in dated_scenes.items():
-                for swath, scenes in swathes.items():
-                    for slc_id, slc_metadata in scenes.items():
-                        if "sensor" in slc_metadata:
-                            selected_sensors.add(slc_metadata["sensor"])
-
-        selected_sensors = "_".join(sorted(selected_sensors))
-
-        # Kick off processing task in appropriate frame dirs
-        tfs = f"{track}_{frame}_{selected_sensors}"
-
         # Override input proc settings as required...
         # - map luigi params to compatible names
 
-        # FIXME: We probably want to not do this (forcing tfs subdirs), this is opinionated
-        # and there's no clear reason for us to be opinionated here... the DB query to do
-        # so definitely complicates the code (40+ lines above), unnecessarily
-        #
-        # Also this causes a disconnect between --outdir (base dir to put tfs dir into)
-        # vs .proc OUTPUT_PATH which is the actual output path (not a base dir)
-        self.output_path = (Path(self.outdir) / tfs).as_posix() if self.outdir else None
+        self.output_path = Path(self.outdir).as_posix() if self.outdir else None
         self.job_path = Path(self.workdir).as_posix() if self.workdir else None
 
         override_params = [
@@ -2804,7 +2878,7 @@ class ARD(luigi.WrapperTask):
 
         # Infer key variables from it
         self.output_path = Path(proc_config.output_path)
-        self.job_path = Path(proc_config.job_path) / tfs
+        self.job_path = Path(proc_config.job_path)
         orbit = proc_config.orbit[:1].upper()
         proc_file = self.output_path / "config.proc"
 
@@ -2868,8 +2942,8 @@ class ARD(luigi.WrapperTask):
         kwargs = {
             "proc_file": proc_file,
             "shape_file": shape_file,
-            "start_date": self.start_date,
-            "end_date": self.end_date,
+            "include_dates": self.include_dates,
+            "exclude_dates": self.exclude_dates,
             "sensor": self.sensor,
             "polarization": pols,
             "track": track,
@@ -2985,8 +3059,12 @@ def run():
         try:
             luigi.run()
         except Exception as e:
+            # Log all exceptions to the status log
             state = e.state if hasattr(e, "state") else {}
             STATUS_LOGGER.error("Unhandled exception running ARD workflow", exc_info=True, **state)
+
+            # But don't catch them, release them back to Luigi
+            raise e
 
 
 if __name__ == "__name__":
