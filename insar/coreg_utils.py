@@ -120,14 +120,12 @@ def coreg_candidates_before_primary_scene(
     return coregistration_scenes
 
 
-def read_land_center_coords(pg, mli_par: Path, shapefile: Path):
+def read_land_center_coords(shapefile: Path):
     """
-    Reads the land center coordinates from a shapefile and converts it into pixel coordinates for a multilook image
+    Reads the land center coordinates from a shapefile, if any exists.
 
-    :param pg: the PyGamma wrapper object used to dispatch gamma commands
-    :param mli_par: the path to the .mli.par file in which the pixel coordinates should be for
     :param shapefie: the path to the shape file for the scene
-    :return (range/altitude, line/azimuth) pixel coordinates
+    :return (latitude, longitude) coordinates
     """
 
     # Load the land center from shape file
@@ -150,13 +148,26 @@ def read_land_center_coords(pg, mli_par: Path, shapefile: Path):
     if north_lat is None or east_lon is None:
         return None
 
+    return (north_lat, east_lon)
+
+def latlon_to_px(pg, mli_par: Path, lat, lon):
+    """
+    Reads the land center coordinates from a shapefile and converts it into pixel coordinates for a multilook image
+
+    :param pg: the PyGamma wrapper object used to dispatch gamma commands
+    :param mli_par: the path to the .mli.par file in which the pixel coordinates should be for
+    :param lat: The latitude coordinate
+    :param lon: The longitude coordinate
+    :return (range/altitude, line/azimuth) pixel coordinates
+    """
+
     # Convert lat/long to pixel coords
     _, cout, _ = pg.coord_to_sarpix(
         mli_par,
         const.NOT_PROVIDED,
         const.NOT_PROVIDED,
-        north_lat,
-        east_lon,
+        lat,
+        lon,
         const.NOT_PROVIDED,  # hgt
     )
 

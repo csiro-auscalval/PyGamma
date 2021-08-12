@@ -74,7 +74,7 @@ def get_s1_files(
     if not isinstance(burst_data, pd.DataFrame):
         burst_data = pd.read_csv(Path(burst_data).as_posix())
 
-    burst_data["acquisition_datetime"] = pd.to_datetime(burst_data["acquistion_datetime"])
+    burst_data["acquisition_datetime"] = pd.to_datetime(burst_data["acquisition_datetime"])
     burst_data["date"] = burst_data["acquisition_datetime"].apply(
         lambda x: pd.Timestamp(x).date()
     )

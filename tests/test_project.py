@@ -24,16 +24,12 @@ def test_read_proc_file():
     assert pv.nci_path.as_posix() == "/some/test/data"
     assert pv.slc_dir.as_posix() == "SLC"
     assert pv.ifg_list == "ifgs.list"
-    assert pv.primary_dem_image
+    assert pathlib.Path(pv.primary_dem_image).name == "GAMMA_DEM_SRTM_1as_mosaic.img"
 
     # check secondary variables derived from the proc file
-    assert pv.dem_img.as_posix() == "{}/GAMMA_DEM_SRTM_1as_mosaic.img".format(
-        pv.primary_dem_image
-    )
     assert pv.proj_dir.as_posix() == "{}/{}/{}/GAMMA".format(
         pv.nci_path, pv.project, pv.sensor
     )
-    assert pv.raw_data_track_dir.as_posix() == "{}/{}".format(pv.raw_data_dir, pv.track)
     assert pv.dem_noff1 == "0"
     assert pv.dem_noff2 == "0"
     assert pv.ifg_rpos == pv.dem_rpos
@@ -210,10 +206,9 @@ def test_default_dem_file_names(mproc):
 
 def test_default_ifg_file_names(mproc):
     mproc.int_dir = pathlib.Path("INT")
-    shapefile = pathlib.Path("shapefile.shp")
     primary = pathlib.Path("primary")
     secondary = pathlib.Path("secondary")
-    cfg = project.IfgFileNames(mproc, shapefile, primary, secondary)
+    cfg = project.IfgFileNames(mproc, primary, secondary)
     outdir = f"tmp/{mproc.track}"
     intdir = f"{outdir}/INT"
     slcdir = f"{outdir}/slc-dir"

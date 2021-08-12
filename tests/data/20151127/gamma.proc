@@ -1,5 +1,9 @@
 ##### GAMMA CONFIGURATION FILE #####
 
+STACK_ID=Fake Unit Testing Stack
+
+LAND_CENTER = -37.40552, 144.88774
+
 DATABASE_PATH = /g/data/u46/users/pd1813/INSAR/s1_slc_database.db
 ORBIT = Descending
 

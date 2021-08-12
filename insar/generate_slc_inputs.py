@@ -36,18 +36,32 @@ def _check_frame_bursts(primary_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict
         for swath, swath_val in dt_val.items():
             primary_swath_subset = primary_df[primary_df.swath == swath]
 
+            # Get the bounds of the swath (used for determine scene extent)
+            swath_bounds = [
+                geom.bounds
+                for _id in swath_val
+                for geom in swath_val[_id]["burst_extent"]
+            ]
+
+            swath_min = (min(minx for minx, _, _, _ in swath_bounds), min(miny for _, miny, _, _ in swath_bounds))
+            swath_max = (max(maxx for _, _, maxx, _ in swath_bounds), max(maxy for _, _, _, maxy in swath_bounds))
+
+            # check if primary bursts contains the centroids to determine missing bursts
             swath_centroids = [
                 geom.centroid
                 for _id in swath_val
                 for geom in swath_val[_id]["burst_extent"]
             ]
 
-            # check if primary bursts contains the centroids to determine missing bursts
             contained_bursts = []
+
             for idx, row in primary_swath_subset.iterrows():
                 for centroid in swath_centroids:
                     if row.geometry.contains(centroid):
                         contained_bursts.append(row.burst_num)
+
+            # Insert swath extent
+            input_data[dt_key][swath]["swath_extent"] = (swath_min, swath_max)
 
             # insert the missing bursts information into input_data
             input_data[dt_key][swath]["missing_primary_bursts"] = set(
@@ -339,21 +353,24 @@ def slc_inputs(slc_data_input: Dict) -> pd.DataFrame:
 
     for dt in scene_dates:
         for swath in _swath_keys:
-            missing_primary_bursts = list(
-                _get_id_data(dt, swath, _missing_primary_bursts_key)
-            )
-            for slc_id, slc_val in _get_swath_data(dt, swath).items():
+            swath_data = slc_data_input[dt][swath]
+
+            missing_primary_bursts = list(swath_data["missing_primary_bursts"])
+            swath_extent = swath_data["swath_extent"]
+
+            for slc_id, slc_val in swath_data.items():
                 if re.match(_regx_uuid, slc_id):
                     slc_input_df = slc_input_df.append(
                         {
                             "date": dt,
                             "swath": swath,
                             "burst_number": slc_val["burst_number"],
+                            "swath_extent": swath_extent,
                             "sensor": slc_val["sensor"],
                             "url": slc_val["url"],
                             "total_bursts": slc_val["total_bursts"],
                             "polarization": slc_val["polarization"],
-                            "acquistion_datetime": slc_val["acquisition_datetime"],
+                            "acquisition_datetime": slc_val["acquisition_datetime"],
                             "missing_primary_bursts": list(
                                 map(lambda x: int(x), missing_primary_bursts)
                             ),

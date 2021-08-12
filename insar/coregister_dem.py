@@ -13,7 +13,7 @@ from osgeo import gdal
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory, run_command
-from insar.coreg_utils import read_land_center_coords
+from insar.coreg_utils import latlon_to_px
 from insar import constant as const
 
 _LOG = structlog.get_logger("insar")
@@ -50,7 +50,6 @@ class CoregisterDem:
         self,
         rlks: int,
         alks: int,
-        shapefile: Union[Path, str],
         dem: Union[Path, str],
         slc: Union[Path, str],
         dem_par: Union[Path, str],
@@ -65,6 +64,7 @@ class CoregisterDem:
         dem_rad_max: Optional[int] = 4,
         dem_ovr: int = 1,
         multi_look: int = None,
+        land_center: Optional[Tuple[float, float]] = None,
         dem_outdir: Optional[Union[Path, str]] = None,
         slc_outdir: Optional[Union[Path, str]] = None,
         ext_image_flt: Optional[Union[Path, str]] = None,
@@ -75,9 +75,6 @@ class CoregisterDem:
             A range look value.
         :param alks:
             An azimuth look value.
-        :param shapefile:
-            A full path to the shape file that includes the DEM being processed.
-            This file is used for determining the scene center for initial offset.
         :param dem:
             A full path to a DEM image file.
         :param slc:
@@ -112,11 +109,13 @@ class CoregisterDem:
             An Optional full path to store SLC files.
         :param ext_image_flt:
             An Optional full path to an external image filter to be used in co-registration.
+        :param land_center:
+            A user defined scene center of (latitude, longitude) to use for initial offset.
         """
         # TODO: refactor all the paths/use ProcConfig, DemConfig ??
         self.alks = alks
         self.rlks = rlks
-        self.shapefile = shapefile
+        self.land_center = land_center
         self.dem = dem
         self.slc = slc
         self.dem_par = Path(dem_par)
@@ -617,18 +616,15 @@ class CoregisterDem:
         ):
             self._set_attrs()
 
-        # Read land center coordinates from shape file
-        land_center = read_land_center_coords(pg, self.r_dem_primary_mli_par, Path(self.shapefile))
+        if self.land_center is not None:
+            rpos, azpos = latlon_to_px(pg, self.r_dem_primary_mli_par, *self.land_center)
 
-        if land_center is not None:
             _LOG.info(
-                "Land center for DEM coregistration determined from shape file",
+                "Land center for DEM coregistration",
                 mli=self.r_dem_primary_mli,
-                shapefile=self.shapefile,
-                land_center=land_center
+                land_center=self.land_center,
+                land_center_px=(rpos, azpos)
             )
-
-            rpos, azpos = land_center
 
         else:
             rpos, azpos = None, None

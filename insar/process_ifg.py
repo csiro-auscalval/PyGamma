@@ -8,7 +8,7 @@ import numpy as np
 
 import structlog
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
-from insar.coreg_utils import read_land_center_coords
+from insar.coreg_utils import latlon_to_px
 import insar.constant as const
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
@@ -79,7 +79,8 @@ def run_workflow(
     dc: DEMFileNames,
     tc: TempFileConfig,
     ifg_width: int,
-    enable_refinement: bool = False
+    enable_refinement: bool = False,
+    land_center: Optional[Tuple[float, float]] = None,
 ):
     # Re-bind thread local context to IFG processing state
     try:
@@ -100,15 +101,16 @@ def run_workflow(
         with working_directory(ic.ifg_dir):
             validate_ifg_input_files(ic)
 
-            # Extract land center coordinates
-            land_center = read_land_center_coords(pg, ic.r_secondary_mli_par, ic.shapefile)
-
+            # Get land center pixel coordinates
             if land_center is not None:
+                land_center_latlon = land_center
+                land_center = latlon_to_px(pg, ic.r_secondary_mli_par, *land_center_latlon)
+
                 _LOG.info(
                     "Land center for IFG secondary",
                     mli=ic.r_secondary_mli,
-                    shapefile=ic.shapefile,
-                    land_center=land_center
+                    land_center_latlon=land_center_latlon,
+                    land_center_px=land_center
                 )
 
             # future version might want to allow selection of steps (skipped for simplicity Oct 2020)

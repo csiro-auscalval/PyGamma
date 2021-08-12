@@ -222,9 +222,9 @@ def query_job_dir(dir: Path):
         total_service_units += run["service_units"]
 
     # Check Luigi structure to detect completed products
-    tfs = metadata["track_frame_sensor"]
-    num_completed_backscatter = len(list((dir / tfs).glob("*_coreg_logs.out")))
-    num_completed_ifgs = len(list((dir / tfs).glob("*_ifg_*_status_logs.out")))
+    stack_id = metadata["stack_id"]
+    num_completed_backscatter = len(list((dir / stack_id).glob("*_coreg_logs.out")))
+    num_completed_ifgs = len(list((dir / stack_id).glob("*_ifg_*_status_logs.out")))
 
     # Parse status.log to detect run/fail/completed products
     started_backscatter = {}
@@ -587,7 +587,7 @@ def print_header_line(msg=None, width=80, filler='='):
 
 def print_report(summary: dict):
     metadata = summary["metadata"]
-    tfs = metadata["track_frame_sensor"]
+    stack_id = metadata["stack_id"]
     job_query = summary["job_query"]
     out_query = summary["out_query"]
 
@@ -595,7 +595,7 @@ def print_report(summary: dict):
     print_header_line("gamma_insar processing summary report")
     print_header_line(f"generated at {summary['timestamp']} on {summary['node']}")
     print_header_line()
-    print("Track/Frame/Sensor(s):",tfs)
+    print("Stack ID:",stack_id)
     print("Temporal range:", metadata["temporal_range"][0], "-", metadata["temporal_range"][1])
     print("Shape file:", metadata["shapefile"])
     print("Database:", metadata["database"])
@@ -802,23 +802,23 @@ if __name__ == "__main__":
         print("Job dir:", job_dir)
         print("Out dir:", out_dir)
         summary = generate_summary(job_dir, out_dir)
-        tfs = summary["metadata"]["track_frame_sensor"]
+        stack_id = summary["metadata"]["stack_id"]
 
-        if tfs in summaries:
+        if stack_id in summaries:
             # Check dirs
-            dirs_match = summaries[tfs]["job_dir"] == job_dir or summaries[tfs]["out_dir"] == out_dir
+            dirs_match = summaries[stack_id]["job_dir"] == job_dir or summaries[stack_id]["out_dir"] == out_dir
 
             if dirs_match:
-                print(f"Warning: Skipping duplicate summary for {tfs}...")
+                print(f"Warning: Skipping duplicate summary for {stack_id}...")
             else:
-                print(f"Error: Multiple jobs found for {tfs}, thus script can only handle 1 occurance of each frame.")
+                print(f"Error: Multiple jobs found for {stack_id}, thus script can only handle 1 occurrence of each frame.")
                 exit(1)
 
-        summaries[tfs] = summary
+        summaries[stack_id] = summary
 
     # Finally, generate report...
     if args.print:
-        for tfs, summary in summaries.items():
+        for stack_id, summary in summaries.items():
             print_report(summary)
 
     if args.json:
@@ -828,7 +828,7 @@ if __name__ == "__main__":
         with csv_path.open("w") as csv_file:
             csv_file.write("Frame,Completed IFGs,Total expected IFGs,Errors,Remaining,rough ETA (hours),comments,\n")
 
-            for tfs, summary in summaries.items():
+            for stack_id, summary in summaries.items():
                 num_total = summary["num_total_ifg_scenes"]
                 num_completed = summary["num_completed_ifgs"]
                 num_failed = summary["num_failed_ifgs"]
@@ -839,4 +839,4 @@ if __name__ == "__main__":
                 else:
                     eta = 0
 
-                csv_file.write(f"{tfs},{num_completed},{num_total},{num_failed},{num_missing},{eta},\n")
+                csv_file.write(f"{stack_id},{num_completed},{num_total},{num_failed},{num_missing},{eta},\n")

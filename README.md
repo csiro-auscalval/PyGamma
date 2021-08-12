@@ -22,7 +22,7 @@ releases any other way than via github.
 
 `gamma_insar` assumes some pre-existing native dependencies are installed on the system prior to installation:
  * [Python](https://www.python.org/) (3.6+)
- * [sqlite3](https://www.sqlite.org/index.html) w/ [spatialite](https://www.gaia-gis.it/fossil/libspatialite/index) extension
+ * [sqlite3](https://www.sqlite.org/index.html) with [spatialite](https://www.gaia-gis.it/fossil/libspatialite/index) extension
  * [GAMMA](http://www/gamma-rs.ch)
  * [GDAL](https://gdal.org/) (2.4+ and 3.0+ have been tested)
    * Note: version required is dictated by GAMMA release
@@ -176,7 +176,7 @@ slc-archive slc-ingest-yaml \
 ```
 Note: the run time can be quite long depending on how many yaml files there are.
 
-#### Data processing
+#### Data processing with geospatial query
 
 The data proccessing workflow queries the DB with a date range and shapefile to determine the source data that meets those parameters, and processes them into derived products (such as backscatter or interferograms).
 
@@ -190,6 +190,29 @@ gamma_insar ARD \
     --shape-file shape_file.shp \
     --include-dates '2016-01-01-2017-01-01' \
     --polarization '["VV", "VH"]' \
+    --workdir /path/to/job_logs_and_state \
+    --outdir /path/to/final_output_data \
+    --workers 4 \
+    --local-scheduler
+```
+
+An example proc file is available in `tests/data/20151127/gamma.proc`
+
+#### Data processing of source data directly
+
+It is also possible to process data bypassing the spatial/temporal query DB entirely, by directly providing a set of source data products to processes into derived products (such as backscatter or interferograms).
+
+As with standard geospatial/temporal extent processing in the previous section, most settings are set in the provided `--proc-file`, however some may be overriden via parameters (see: `gamma_insar --help` for details).
+
+This example processes a Sentinel-1 SLC product (both VV and VH) into a backscatter product:
+
+```BASH
+gamma_insar ARD \
+    --proc-file config.proc \
+    --shape-file shape_file.shp \
+    --source-data '["S1A_IW_SLC__1SDV_20210109T193325_20210109T193353_036065_043A21_39DA.zip", "S1A_IW_SLC__1SDV_20210109T193351_20210109T193418_036065_043A21_4E1D.zip"]' \
+    --polarization '["VV", "VH"]' \
+    --workflow backscatter \
     --workdir /path/to/job_logs_and_state \
     --outdir /path/to/final_output_data \
     --workers 4 \

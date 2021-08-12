@@ -592,7 +592,7 @@ class SlcProcess:
         """
 
         # TODO: fix key spelling here AND in generate_slc_inputs.py
-        acq_datetime_key = "acquistion_datetime"
+        acq_datetime_key = "acquisition_datetime"
 
         df = pd.read_csv(self.burst_data)
         df[acq_datetime_key] = pd.to_datetime(df[acq_datetime_key])

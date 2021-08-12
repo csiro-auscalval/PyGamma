@@ -55,7 +55,6 @@ def pc_mock():
 
     mock_path = functools.partial(mock.MagicMock, spec=pathlib.Path)
     pc.proj_dir = mock_path()
-    pc.raw_data_track_dir = mock_path()
 
     return pc
 

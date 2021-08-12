@@ -14,6 +14,8 @@ import click
 import warnings
 import subprocess
 import datetime
+import re
+import geopandas
 from typing import List
 from pathlib import Path
 from os.path import join as pjoin, dirname, exists, basename
@@ -29,6 +31,7 @@ PBS_RESOURCES = """#!/bin/bash
 #PBS -l wd
 #PBS -j oe
 #PBS -m e
+#PBS -N {job_name}
 """
 
 PBS_TEMPLATE = r"""{pbs_resources}
@@ -44,6 +47,7 @@ gamma_insar ARD \
     --shape-file {shape_file} \
     --include-dates '{include_dates}' \
     --exclude-dates '{exclude_dates}' \
+    --source-data '{source_data}' \
     --workdir {workdir} \
     --outdir {outdir} \
     --polarization '{json_polar}' \
@@ -81,6 +85,7 @@ def scatter(iterable, n):
 
 
 def _gen_pbs(
+    job_name,
     proc_file,
     shape_file,
     env,
@@ -88,6 +93,7 @@ def _gen_pbs(
     outdir,
     include_dates,
     exclude_dates,
+    source_data,
     json_polar,
     pbs_resource,
     cpu_count,
@@ -102,18 +108,27 @@ def _gen_pbs(
     """
     Generates a PBS submission script for the stack processing job
     """
+
+    # Validate .proc file
+    with open(proc_file, "r") as proc_file_obj:
+        proc_config = ProcConfig.from_file(proc_file_obj)
+
     # Convert dates into comma separated range strings
     include_dates = ','.join([f'{d1}-{d2}' for d1,d2 in include_dates])
     exclude_dates = ','.join([f'{d1}-{d2}' for d1,d2 in exclude_dates])
+
+    # Convert to Luigi list syntax
+    source_data = '[' + ','.join(f'"{i}"' for i in source_data) + ']'
 
     # Create PBS script from a template w/ all required params
     pbs = PBS_TEMPLATE.format(
         pbs_resources=pbs_resource,
         env=env,
         proc_file=proc_file,
-        shape_file=shape_file,
+        shape_file=shape_file or "''",
         include_dates=include_dates,
         exclude_dates=exclude_dates,
+        source_data=source_data,
         workdir=job_dir,
         outdir=outdir,
         json_polar=json_polar,
@@ -132,6 +147,9 @@ def _gen_pbs(
 
     if reprocess_failed:
         pbs += " \\\n    --reprocess-failed"
+
+    if not proc_config.stack_id:
+        pbs += " \\\n    --stack-id " + job_name.replace(" ", "_")
 
     # If we're resuming a job, generate the resume script
     out_fname = Path(job_dir) / f"job.bash"
@@ -177,6 +195,10 @@ def _submit_pbs(job_path, test):
             time.sleep(10)
 
 
+def fatal_error(msg: str, exit_code: int = 1):
+    click.echo(msg, err=True)
+    exit(exit_code)
+
 @click.command(
     "ard-insar",
     help="Equally partition a jobs into batches and submit each batch into the PBS queue.",
@@ -214,6 +236,12 @@ def _submit_pbs(job_path, test):
     type=click.DateTime(),
     multiple=True,
     help="Excludes the specified date from being processed",
+)
+@click.option(
+    "--src-file",
+    type=click.Path(exists=True, readable=True, file_okay=True, dir_okay=False),
+    multiple=True,
+    help="A path to source data file to process explicitly (in addition to any found from the query parameters)",
 )
 @click.option(
     "--workdir",
@@ -316,6 +344,12 @@ def _submit_pbs(job_path, test):
     default=False
 )
 @click.option(
+    "--job-name",
+    type=click.STRING,
+    help="An optional name to assign to the job (defaults to the stack id of the job)",
+    required=False
+)
+@click.option(
     "--workflow",
     type=click.Choice([o.name for o in ARDWorkflow], case_sensitive=False),
     help="The workflow to run",
@@ -329,6 +363,7 @@ def ard_insar(
     date: List[click.DateTime],
     exclude_date_range: List[click.DateTime],
     exclude_date: List[click.DateTime],
+    src_file: List[click.Path],
     workdir: click.Path,
     outdir: click.Path,
     polarization: click.Tuple,
@@ -349,11 +384,28 @@ def ard_insar(
     sensor: click.STRING,
     resume: click.BOOL,
     reprocess_failed: click.BOOL,
+    job_name: click.STRING,
     workflow: click.STRING
 ):
     """
     consolidates batch processing job script creation and submission of pbs jobs
     """
+
+    # Validate .proc file
+    with open(proc_file, "r") as proc_file_obj:
+        proc_config = ProcConfig.from_file(proc_file_obj)
+
+    proc_valid_error = proc_config.validate()
+    if proc_valid_error:
+        click.echo(f"Provided .proc configuration file is invalid:\n{proc_valid_error}", err=True)
+        exit(1)
+
+    # Validate we have a way to identify the stack
+    if not (job_name or proc_config.stack_id):
+        click.echo("No identifier for the job can be determined!", err=True)
+        click.echo("Either set a STACK_ID in the .proc config, or pass in a --job-name", err=True)
+        exit(1)
+
     # for GADI, a warning is provided in case the user
     # sets workdir or outdir to their home directory
     warn_msg = (
@@ -406,7 +458,7 @@ def ard_insar(
         click.echo("Number of threads must be greater than 0!", err=True)
         exit(1)
 
-    if not Path(shape_file).exists():
+    if not (shape_file and Path(shape_file).exists()) and not src_file:
         click.echo(f"Shape file does not exist: {shape_file}", err=True)
         exit(1)
 
@@ -419,6 +471,7 @@ def ard_insar(
         cpu_count=ncpus,
         jobfs_gb=jobfs,
         storages=storage_names,
+        job_name=job_name or proc_config.stack_id
     )
     # for some reason {email} is absent in PBS_RESOURCES.
     # Thus no email will be sent, even if specified.
@@ -448,14 +501,53 @@ def ard_insar(
 
     # TODO: Would be good to query the database for the latest date available, to use as an end-date bound
 
-    # Validate .proc file
-    with open(proc_file, "r") as proc_file_obj:
-        proc_config = ProcConfig.from_file(proc_file_obj)
+    # Validate shapefile if it conforms to a known framing definition
+    if shape_file:
+        shape_file = Path(shape_file)
 
-    proc_valid_error = proc_config.validate()
-    if proc_valid_error:
-        click.echo(f"Provided .proc configuration file is invalid:\n{proc_valid_error}", err=True)
-        exit(1)
+        __TRACK_FRAME__ = r"^T[0-9][0-9]?[0-9]?[A|D]_F[0-9][0-9]?"
+
+        # TODO: We should make this validation optional (this is specific to our framing definition)
+        # - we probably want to define a framing definition as a first-class concept
+        # - and allow it to validate extents / stack IDs / etc itself...
+
+        # Match <track>_<frame> prefix syntax
+        # Note: this doesn't match _<sensor> suffix which is unstructured
+        if not re.match(__TRACK_FRAME__, shape_file.stem):
+            msg = f"{shape_file.stem} should be of {__TRACK_FRAME__} format"
+            fatal_error(msg)
+
+        # Extract info from shape file
+        vec_file_parts = shape_file.stem.split("_")
+        if len(vec_file_parts) != 3:
+            msg = f"File '{shape_file}' does not match <track>_<frame>_<sensor>"
+            fatal_error(msg)
+
+        # Extract <track>_<frame>_<sensor> from shape file (eg: T118D_F32S_S1A.shp)
+        track, frame, shp_sensor = vec_file_parts
+
+        # Ensure shape file is for a single track/frame IF it specifies such info
+        # and that it matches the specified track/frame intended for the job.
+        #
+        # Note: Ideally we don't get track/frame/sensor from shape file at all,
+        # these should be task parameters (still need to validate shape file against that though)
+        shape_file_dbf = geopandas.GeoDataFrame.from_file(shape_file.with_suffix(".dbf"))
+
+        if hasattr(shape_file_dbf, "frame_ID") and hasattr(shape_file_dbf, "track"):
+            dbf_frames = shape_file_dbf.frame_ID.unique()
+            dbf_tracks = shape_file_dbf.track.unique()
+
+            if len(dbf_frames) != 1:
+                fatal_error("Supplied shape file contains more than one frame!")
+
+            if len(dbf_tracks) != 1:
+                fatal_error("Supplied shape file contains more than one track!")
+
+            if dbf_frames[0].strip().lower() != frame.lower():  # dbf has full TxxD track definition
+                fatal_error("Supplied shape file frame does not match job frame")
+
+            if dbf_tracks[0].strip() != track[1:-1]:  # dbf only has track number
+                fatal_error("Supplied shape file track does not match job track")
 
     # Convert dates into string format
     def fmtdate(dt):
@@ -466,6 +558,7 @@ def ard_insar(
 
     # Generate and submit the PBS script to run the job
     pbs_script = _gen_pbs(
+        job_name,
         proc_file,
         shape_file,
         env,
@@ -473,6 +566,7 @@ def ard_insar(
         outdir,
         include_dates,
         exclude_dates,
+        src_file,
         json_pol,
         pbs_resources,
         ncpus,

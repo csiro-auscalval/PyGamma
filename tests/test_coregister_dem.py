@@ -11,6 +11,7 @@ from tests.py_gamma_test_proxy import PyGammaTestProxy
 import insar.coregister_dem
 from insar.coregister_dem import CoregisterDem, CoregisterDemException
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
+from insar.coreg_utils import read_land_center_coords
 
 
 def get_test_context():
@@ -115,13 +116,15 @@ def get_test_context():
     test_data_dir = Path(__file__).parent.absolute() / "data"
     shutil.copytree(test_data_dir / "20151127", data_dir)
 
+    # Read land center coordinates from shape file
+    land_center = read_land_center_coords(test_data_dir / "T147D_F28S_S1A.shp")
+
     # Note: The filenames below aren't necessarily representative of a valid scene at the moment...
     # this isn't inherently a problem, as the unit tests don't test for file naming conventions of
     # input data (input data is outside the control of our code / not something we can test).
     data = {
         "rlks": 8,
         "alks": 8,
-        "shapefile": test_data_dir / "T147D_F28S_S1A.shp",
         "dem": data_dir / "20180127_VV_blah.dem",
         "slc": data_dir / "20151127_VV.slc",
         "dem_par": data_dir / "20180127_VV_8rlks_geo.dem.par",
@@ -136,6 +139,7 @@ def get_test_context():
         "dem_rad_max": 4,
         "dem_ovr": 1,
         "multi_look": 2,
+        "land_center": land_center
     }
 
     # Create dummy data inputs (config/par/etc files don't need to be touched, as we provide real test files for those)

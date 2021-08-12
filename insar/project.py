@@ -6,7 +6,7 @@ import string
 import pathlib
 import itertools
 import enum
-from collections import namedtuple
+import numbers
 
 
 class ARDWorkflow(enum.Enum):
@@ -60,9 +60,11 @@ class ProcConfig:
         *__path_attribs__,
         *__subdir_attribs__,
         *__filename_attribs__,
+        "stack_id",
         "project",
         "track",
         "orbit",
+        "land_center",
         "dem_area",
         "dem_name",
         "mdss_data_dir",
@@ -119,9 +121,7 @@ class ProcConfig:
         "ifg_init_win",
         "ifg_offset_win",
         # derived member vars
-        "dem_img",
         "proj_dir",
-        "raw_data_track_dir",
         "gamma_dem_dir",
         "results_dir",
         "dem_noff1",
@@ -141,12 +141,25 @@ class ProcConfig:
                 v = pathlib.Path(v)
             setattr(self, k, v)
 
+        # Convert settings to appropriate types
+        if self.land_center:
+            if isinstance(self.land_center, str):
+                try:
+                    self.land_center = self.land_center.strip("()[]").split(',')
+                    self.land_center = tuple(float(i.strip()) for i in self.land_center)
+                except:
+                    raise ValueError(f"Could not parse .proc land_center: '{self.land_center}'")
+
+            assert(len(self.land_center) == 2)
+            assert(isinstance(self.land_center[0], numbers.Number))
+            assert(isinstance(self.land_center[1], numbers.Number))
+
         # prepare derived settings variables
-        self.dem_img = (
-            pathlib.Path(self.primary_dem_image) / "GAMMA_DEM_SRTM_1as_mosaic.img"
-        )
+
+        # FIXME: proj_dir isn't used, nci_path isn't really NCI specific (and also unused), etc...
+        # ^- there's quite a few .proc settings we can remove! A good linter will pick up on
+        # these longer term when CI comes up..?
         self.proj_dir = pathlib.Path(self.nci_path) / self.project / self.sensor / "GAMMA"
-        self.raw_data_track_dir = pathlib.Path(self.raw_data_dir) / self.track
         self.gamma_dem_dir = "gamma_dem"
         self.results_dir = "results"
 
@@ -541,12 +554,9 @@ class IfgFileNames:
         "ifg_filt_geocode_out_tiff",
         "ifg_flat_coh_geocode_out_tiff",
         "ifg_filt_coh_geocode_out_tiff",
-        "shapefile",
     ]
 
-    def __init__(self, proc, shapefile, primary, secondary, out_dir = None):
-        self.shapefile = shapefile
-
+    def __init__(self, proc, primary, secondary, out_dir = None):
         if not out_dir:
             out_dir = proc.proj_dir / proc.track
 
