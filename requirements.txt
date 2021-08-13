@@ -9,25 +9,34 @@
 # - not need this hack... it's just for setup.py / PEP)
 dill>=0.3.3
 
-# Unversioned
+# Note: Avoid pinning to a specific major/minor version here
+# - adding minimum version requirements is fine, but nothing else.
+#
+# Good: GDAL
+# Good: GDAL>=2.4
+# Bad: GDAL~=2.4
+# Bad: GDAL==2.4
+# Bad: GDAL<3.0
+#
+# If we have speciifc version requirements, they should be enforced in
+# environment-specific setup/install scripts, NOT in requirements.txt
+# which is environment-agnostic (specific to our code, not target envs)
 pytest
 pytest-cov
 simplekml
 rasterio
-
-# Versioned
-pyproj~=2.4
-Click~=7.0
-click-plugins~=1.1.1
-GDAL~=2.4.0
-geopandas>=0.6
-luigi~=3.0
-matplotlib>=3.1
+pyproj>=2.4
+Click>=7.0
+click-plugins
+GDAL
+pandas
+geopandas
+luigi>=3.0
+matplotlib
 numpy>=1.17
-pandas>=0.25
-Pillow~=8.0.1
-PyYAML~=5.3
-six~=1.13.0
-spatialist>=0.4
+Pillow>=8.0.1
+PyYAML
+six
+spatialist
 structlog>=21.1
-eodatasets3>=0.18
+eodatasets3

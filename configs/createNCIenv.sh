@@ -21,12 +21,19 @@ source configs/activateNCI.env
 # Create new venv
 python3 -m venv $ENV_PATH
 source $ENV_PATH/bin/activate
+pushd $ENV_PATH > /dev/null
 
 # Add stand-alone env script for gamma_insar
 sed -e 's|VENV_PATH=$1'"|VENV_PATH=$ENV_PATH|" $REPO_ROOT/configs/activateNCI.env > $ENV_PATH/NCI.env
 
 # Upgrade pip (very important, wrong package version resolution with older PIP versions)
-python -m pip install --upgrade pip
+python -m pip install --upgrade pip wheel
+
+# Install pinned GDAL dependency for our environment ensuring that numpy extensions get installed
+python -m pip install --upgrade --force-reinstall numpy
+python -m pip install --upgrade --force-reinstall "GDAL~=$GDAL_VERSION" --global-option=build_ext --global-option="$(gdal-config --cflags)"
+
+popd > /dev/null
 
 # Install dependencies and gamma_insar into venv
 python3 -m pip install -r requirements.txt
