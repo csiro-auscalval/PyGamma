@@ -4,8 +4,6 @@
 PBS submission scripts.
 """
 
-from __future__ import print_function
-
 import os
 import uuid
 import time
@@ -13,12 +11,11 @@ import json
 import click
 import warnings
 import subprocess
-import datetime
 import re
 import geopandas
 from typing import List
 from pathlib import Path
-from os.path import join as pjoin, dirname, exists, basename
+from os.path import dirname, exists, basename
 from insar.project import ARDWorkflow, ProcConfig
 
 # Note that {email} is absent from PBS_RESOURCES
@@ -73,6 +70,7 @@ STORAGE = "+gdata/{proj}"
 
 __DATE_FMT__ = "%Y-%m-%d"
 
+
 def scatter(iterable, n):
     """
     Evenly scatters an interable by `n` blocks.
@@ -96,7 +94,6 @@ def _gen_pbs(
     source_data,
     json_polar,
     pbs_resource,
-    cpu_count,
     num_workers,
     num_threads,
     sensor,
@@ -199,6 +196,7 @@ def fatal_error(msg: str, exit_code: int = 1):
     click.echo(msg, err=True)
     exit(exit_code)
 
+
 @click.command(
     "ard-insar",
     help="Equally partition a jobs into batches and submit each batch into the PBS queue.",
@@ -284,9 +282,6 @@ def fatal_error(msg: str, exit_code: int = 1):
     default=None,
 )
 @click.option(
-    "--nodes", type=click.INT, help="Number of nodes to be requested", default=1,
-)
-@click.option(
     "--workers", type=click.INT, help="Number of workers", default=0,
 )
 @click.option(
@@ -326,7 +321,7 @@ def fatal_error(msg: str, exit_code: int = 1):
 @click.option(
     "--sensor",
     type=click.Choice(["S1A", "S1B", "ALL", "MAJORITY"], case_sensitive=False),
-    help="The sensor to use for processing (or 'MAJORITY' to use the sensor w/ the most data for the date range)",
+    help="The sensor to use for processing (or 'MAJORITY' to use the sensor with the most data for the date range)",
     required=False
 )
 @click.option(
@@ -372,7 +367,6 @@ def ard_insar(
     queue: click.STRING,
     hours: click.INT,
     email: click.STRING,
-    nodes: click.INT,
     workers: click.INT,
     jobfs: click.INT,
     storage: click.STRING,
@@ -388,7 +382,7 @@ def ard_insar(
     workflow: click.STRING
 ):
     """
-    consolidates batch processing job script creation and submission of pbs jobs
+    Consolidates creation of PBS job scripts and their submission.
     """
 
     # Validate .proc file
@@ -410,7 +404,7 @@ def ard_insar(
     # sets workdir or outdir to their home directory
     warn_msg = (
         "\nGADI's /home directory was specified as the {}, which "
-        "may not have enough memory storarge for SLC processing"
+        "may not have enough memory storage for SLC processing"
     )
     if workdir.find("home") != -1:
         warnings.warn(warn_msg.format("workdir"))
@@ -553,8 +547,8 @@ def ard_insar(
     def fmtdate(dt):
         return dt.strftime(__DATE_FMT__)
 
-    include_dates = [(fmtdate(d1), fmtdate(d2)) for d1,d2 in include_dates]
-    exclude_dates = [(fmtdate(d1), fmtdate(d2)) for d1,d2 in exclude_dates]
+    include_dates = [(fmtdate(d1), fmtdate(d2)) for d1, d2 in include_dates]
+    exclude_dates = [(fmtdate(d1), fmtdate(d2)) for d1, d2 in exclude_dates]
 
     # Generate and submit the PBS script to run the job
     pbs_script = _gen_pbs(
@@ -569,7 +563,6 @@ def ard_insar(
         src_file,
         json_pol,
         pbs_resources,
-        ncpus,
         num_workers,
         num_threads,
         sensor,
@@ -701,7 +694,6 @@ def ard_package(
     # add email to pbs_resource here.
     if email:
         pbs_resource += "#PBS -M {}".format(email)
-
 
     with open(input_list, "r") as src:
         # get a list of shapefiles as Path objects
