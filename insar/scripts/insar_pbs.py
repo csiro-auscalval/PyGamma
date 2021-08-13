@@ -71,17 +71,6 @@ STORAGE = "+gdata/{proj}"
 __DATE_FMT__ = "%Y-%m-%d"
 
 
-def scatter(iterable, n):
-    """
-    Evenly scatters an interable by `n` blocks.
-    """
-
-    q, r = len(iterable) // n, len(iterable) % n
-    res = (iterable[i * q + min(i, r) : (i + 1) * q + min(i + 1, r)] for i in range(n))
-
-    return list(res)
-
-
 def _gen_pbs(
     job_name,
     proc_file,
