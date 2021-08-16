@@ -292,8 +292,8 @@ def generate_nrt_backscatter(
 
     pg.pixel_area(
         src_par_path,
-        dem_par_path,
-        dem_path,
+        geo_dem_par_path,
+        geo_dem_path,
         geo_dem_lut_path,
         lsmap_path,
         linc_path,

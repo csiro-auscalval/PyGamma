@@ -110,7 +110,8 @@ def _usage2decl(module, program, file):
 
                 # Special case for certain "(input)"'s that aren't actually files...
                 # eg: coord_to_sarpix has (input) args that are numbers in meters "(m)" or degrees "(deg.)"
-                if " (m)" in desc or " (deg" in desc:
+                # eg: par_RSAT2_SLC has (input) image polarization: HH, VV, HV, VH
+                if " (m)" in desc or " (deg" in desc or "polarization" in desc:
                     is_inoutfile = False
                     is_infile = False
                     is_outfile = False

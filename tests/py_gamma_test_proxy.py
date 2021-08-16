@@ -2635,7 +2635,7 @@ class PyGammaTestProxy(object):
         self,
         annotation_XML: str,
         GeoTIFF: str,
-        polarization: str,
+        polarization,
         DEM_par: str,
         MLI_par: str,
         MLI: str,
@@ -2658,13 +2658,6 @@ class PyGammaTestProxy(object):
                 GeoTIFF == "-" or Path(GeoTIFF).exists(),
                 result,
                 f"GeoTIFF path does not exist ({GeoTIFF})",
-            )
-        if polarization is not None:
-            result = self._validate(
-                "par_RISAT_geo",
-                polarization == "-" or Path(polarization).exists(),
-                result,
-                f"polarization path does not exist ({polarization})",
             )
         if DEM_par is not None and DEM_par != "-":
             Path(DEM_par).touch()
@@ -14058,7 +14051,7 @@ class PyGammaTestProxy(object):
         product_XML: str,
         lut_XML: str,
         GeoTIFF: str,
-        polarization: str,
+        polarization,
         GRD_par: str,
         GRD: str,
     ):
@@ -14087,13 +14080,6 @@ class PyGammaTestProxy(object):
                 GeoTIFF == "-" or Path(GeoTIFF).exists(),
                 result,
                 f"GeoTIFF path does not exist ({GeoTIFF})",
-            )
-        if polarization is not None:
-            result = self._validate(
-                "par_RSAT2_SG",
-                polarization == "-" or Path(polarization).exists(),
-                result,
-                f"polarization path does not exist ({polarization})",
             )
         if GRD_par is not None and GRD_par != "-":
             Path(GRD_par).touch()
@@ -18633,7 +18619,7 @@ class PyGammaTestProxy(object):
         product_XML: str,
         lut_XML: str,
         GeoTIFF: str,
-        polarization: str,
+        polarization,
         SLC_par: str,
         SLC: str,
     ):
@@ -18662,13 +18648,6 @@ class PyGammaTestProxy(object):
                 GeoTIFF == "-" or Path(GeoTIFF).exists(),
                 result,
                 f"GeoTIFF path does not exist ({GeoTIFF})",
-            )
-        if polarization is not None:
-            result = self._validate(
-                "par_RSAT2_SLC",
-                polarization == "-" or Path(polarization).exists(),
-                result,
-                f"polarization path does not exist ({polarization})",
             )
         if SLC_par is not None and SLC_par != "-":
             Path(SLC_par).touch()
@@ -19203,34 +19182,13 @@ class PyGammaTestProxy(object):
         return result
 
     def m_chi(
-        self,
-        s0: str,
-        m: str,
-        s2chi: str,
-        S_par: str,
-        c1: str,
-        c2: str = None,
-        c3: str = None,
+        self, s0, m, s2chi: str, S_par: str, c1: str, c2: str = None, c3: str = None
     ):
         supplied_args = locals()
         result = (0, "", "")
 
         self.call_count["m-chi"] += 1
 
-        if s0 is not None:
-            result = self._validate(
-                "m-chi",
-                s0 == "-" or Path(s0).exists(),
-                result,
-                f"s0 path does not exist ({s0})",
-            )
-        if m is not None:
-            result = self._validate(
-                "m-chi",
-                m == "-" or Path(m).exists(),
-                result,
-                f"m path does not exist ({m})",
-            )
         if s2chi is not None:
             result = self._validate(
                 "m-chi",
@@ -19597,7 +19555,7 @@ class PyGammaTestProxy(object):
 
     def ras_m_chi(
         self,
-        s1: str,
+        s1,
         c1: str,
         c2: str,
         c3: str,
@@ -19615,13 +19573,6 @@ class PyGammaTestProxy(object):
 
         self.call_count["ras_m-chi"] += 1
 
-        if s1 is not None:
-            result = self._validate(
-                "ras_m-chi",
-                s1 == "-" or Path(s1).exists(),
-                result,
-                f"s1 path does not exist ({s1})",
-            )
         if c1 is not None:
             result = self._validate(
                 "ras_m-chi",
@@ -19817,34 +19768,13 @@ class PyGammaTestProxy(object):
         return result
 
     def m_alpha(
-        self,
-        s0: str,
-        m: str,
-        alpha: str,
-        S_par: str,
-        c1: str,
-        c2: str = None,
-        c3: str = None,
+        self, s0, m, alpha: str, S_par: str, c1: str, c2: str = None, c3: str = None
     ):
         supplied_args = locals()
         result = (0, "", "")
 
         self.call_count["m-alpha"] += 1
 
-        if s0 is not None:
-            result = self._validate(
-                "m-alpha",
-                s0 == "-" or Path(s0).exists(),
-                result,
-                f"s0 path does not exist ({s0})",
-            )
-        if m is not None:
-            result = self._validate(
-                "m-alpha",
-                m == "-" or Path(m).exists(),
-                result,
-                f"m path does not exist ({m})",
-            )
         if alpha is not None:
             result = self._validate(
                 "m-alpha",
@@ -20145,13 +20075,13 @@ class PyGammaTestProxy(object):
         self,
         S: str,
         S_par: str,
-        m: str = None,
+        m=None,
         s2chi: str = None,
         s2psi: str = None,
-        m_l: str = None,
-        m_c: str = None,
-        lp_ratio: str = None,
-        cp_ratio: str = None,
+        m_l=None,
+        m_c=None,
+        lp_ratio=None,
+        cp_ratio=None,
         mu: str = None,
         delta: str = None,
         alpha: str = None,
@@ -20176,20 +20106,10 @@ class PyGammaTestProxy(object):
                 result,
                 f"S_par path does not exist ({S_par})",
             )
-        if m is not None and m != "-":
-            Path(m).touch()
         if s2chi is not None and s2chi != "-":
             Path(s2chi).touch()
         if s2psi is not None and s2psi != "-":
             Path(s2psi).touch()
-        if m_l is not None and m_l != "-":
-            Path(m_l).touch()
-        if m_c is not None and m_c != "-":
-            Path(m_c).touch()
-        if lp_ratio is not None and lp_ratio != "-":
-            Path(lp_ratio).touch()
-        if cp_ratio is not None and cp_ratio != "-":
-            Path(cp_ratio).touch()
         if mu is not None and mu != "-":
             Path(mu).touch()
         if delta is not None and delta != "-":
@@ -20863,34 +20783,13 @@ class PyGammaTestProxy(object):
         return result
 
     def m_delta(
-        self,
-        s0: str,
-        m: str,
-        delta: str,
-        S_par: str,
-        c1: str,
-        c2: str = None,
-        c3: str = None,
+        self, s0, m, delta: str, S_par: str, c1: str, c2: str = None, c3: str = None
     ):
         supplied_args = locals()
         result = (0, "", "")
 
         self.call_count["m-delta"] += 1
 
-        if s0 is not None:
-            result = self._validate(
-                "m-delta",
-                s0 == "-" or Path(s0).exists(),
-                result,
-                f"s0 path does not exist ({s0})",
-            )
-        if m is not None:
-            result = self._validate(
-                "m-delta",
-                m == "-" or Path(m).exists(),
-                result,
-                f"m path does not exist ({m})",
-            )
         if delta is not None:
             result = self._validate(
                 "m-delta",
