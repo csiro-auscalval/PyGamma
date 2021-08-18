@@ -10,8 +10,6 @@ from typing import Optional
 from datetime import datetime, time, timedelta
 from statistics import mean
 
-# from insar.scripts.process_gamma import ARDWorkflow
-
 # Note: While working with dates, we primarily keep things in the original DT_FMT_SHORT string
 # formatting, we only convert to a date if we need to do date/time related ops.
 # This just keeps the code simpler (no useless conversions to/from string)

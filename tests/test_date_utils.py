@@ -2,7 +2,7 @@ import pytest
 import random
 from datetime import date, timedelta
 
-from insar.scripts.process_gamma import merge_overlapping_date_ranges, simplify_dates
+from insar.workflow.luigi.utils import merge_overlapping_date_ranges, simplify_dates
 
 def rand_delta_days(stop = 300, start = 3):
     return timedelta(days=random.randrange(start, stop))
