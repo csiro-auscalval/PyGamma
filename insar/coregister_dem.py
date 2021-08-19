@@ -307,7 +307,7 @@ class CoregisterDem:
         attrs["dem_lv_theta"] = outdir.joinpath(f"{dem_prefix}_geo.lv_theta")
         attrs["dem_lv_phi"] = outdir.joinpath(f"{dem_prefix}_geo.lv_phi")
         attrs["dem_lv_theta_geo"] = append_suffix(attrs["dem_lv_theta"], ".tif")
-        attrs["dem_lv_phi_geo"] = append_suffix(attrs["dem_lv_phi"],".tif")
+        attrs["dem_lv_phi_geo"] = append_suffix(attrs["dem_lv_phi"], ".tif")
 
         # external image parameters to be used in co-registration
         # DISABLED: attrs["ext_image_flt"] = outdir.joinpath(f"{dem_prefix}_ext_img_sar.flt")
@@ -392,15 +392,15 @@ class CoregisterDem:
         """
 
         # copy SLC image file to new file r_dem_primary_slc.
-        # TODO this step seems redundant if we can directly use SLC image file to
-        # multi-look. (Confirm with InSAR geodesy Team)
+        # TODO: this step seems redundant if we can directly use SLC image file
+        #       to multi-look. (Confirm with InSAR geodesy Team)
 
         slc_in_pathname = str(self.dem_primary_slc)
         slc_par_in_pathname = str(self.dem_primary_slc_par)
         slc_out_pathname = str(self.r_dem_primary_slc)
         slc_par_out_pathname = str(self.r_dem_primary_slc_par)
         fcase = 1  # FCOMPLEX
-        sc = "-"  # scale factor
+        sc = const.NOT_PROVIDED  # scale factor
 
         pg.SLC_copy(
             slc_in_pathname,
@@ -469,7 +469,7 @@ class CoregisterDem:
         # generate initial geocoding look-up-table and simulated SAR image
 
         mli_par_pathname = str(self.r_dem_primary_mli_par)
-        off_par_pathname = "-"
+        off_par_pathname = const.NOT_PROVIDED
         dem_par_pathname = str(self.dem_par)
         dem_pathname = str(self.dem)
         dem_seg_par_pathname = str(self.geo_dem_par)
@@ -478,11 +478,11 @@ class CoregisterDem:
         lat_ovr = self.dem_ovr
         lon_ovr = self.dem_ovr
         sim_sar_pathname = str(self.dem_geo_sim_sar)
-        u_zenith_angle = "-"
-        v_orientation_angle = "-"
+        u_zenith_angle = const.NOT_PROVIDED
+        v_orientation_angle = const.NOT_PROVIDED
         inc_angle_pathname = str(self.dem_loc_inc)
-        psi_projection_angle = "-"
-        pix = "-"  # pixel area normalization factor
+        psi_projection_angle = const.NOT_PROVIDED
+        pix = const.NOT_PROVIDED  # pixel area normalization factor
         ls_map_pathname = str(self.dem_lsmap)
         frame = 8
         ls_mode = 2
@@ -550,7 +550,7 @@ class CoregisterDem:
         lookup_table_pathname = str(self.dem_lt_rough)
         ls_map_pathname = str(self.dem_lsmap)
         inc_map_pathname = str(self.dem_loc_inc)
-        pix_sigma0_pathname = "-"  # no output
+        pix_sigma0_pathname = const.NOT_PROVIDED  # no output
         pix_gamma0_pathname = str(self.dem_pix_gam)
 
         pg.pixel_area(
@@ -648,7 +648,7 @@ class CoregisterDem:
             command = [
                 "create_diff_par",
                 self.r_dem_primary_mli_par.as_posix(),
-                "-",
+                const.NOT_PROVIDED,
                 self.dem_diff.as_posix(),
                 "1",
                 "<",
@@ -690,7 +690,8 @@ class CoregisterDem:
         else:
             rpos, azpos = None, None
 
-        # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than simulated SAR image in offset calculation
+        # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than
+        # simulated SAR image in offset calculation
         mli_1_pathname = str(self.dem_pix_gam)
         mli_2_pathname = str(self.r_dem_primary_mli)
         diff_par_pathname = str(self.dem_diff)
@@ -724,13 +725,13 @@ class CoregisterDem:
         diff_par_pathname = str(self.dem_diff)
         offs_pathname = str(self.dem_offs)
         ccp_pathname = str(self.dem_ccp)
-        rwin = "-"  # range patch size
-        azwin = "-"  # azimuth patch size
+        rwin = const.NOT_PROVIDED  # range patch size
+        azwin = const.NOT_PROVIDED  # azimuth patch size
         offsets_pathname = str(self.dem_offsets)
         n_ovr = 2
-        nr = "-"  # number of offset estimates in range direction
-        naz = "-"  # number of offset estimates in azimuth direction
-        thres = "-"  # Lanczos interpolator order
+        nr = const.NOT_PROVIDED  # number of offset estimates in range direction
+        naz = const.NOT_PROVIDED  # number of offset estimates in azimuth direction
+        thres = const.NOT_PROVIDED  # Lanczos interpolator order
 
         pg.offset_pwrm(
             mli_1_pathname,
@@ -752,7 +753,7 @@ class CoregisterDem:
         diff_par_pathname = str(self.dem_diff)
         coffs_pathname = str(self.dem_coffs)
         coffsets_pathname = str(self.dem_coffsets)
-        thres = "-"
+        thres = const.NOT_PROVIDED
 
         pg.offset_fitm(
             offs_pathname,
@@ -792,7 +793,7 @@ class CoregisterDem:
             lookup_table_pathname = str(self.dem_lt_fine)
             ls_map_pathname = str(self.dem_lsmap)
             inc_map_pathname = str(self.dem_loc_inc)
-            pix_sigma0 = "-"
+            pix_sigma0 = const.NOT_PROVIDED
             pix_gamma0 = str(pix)
 
             pg.pixel_area(
@@ -810,9 +811,9 @@ class CoregisterDem:
             data_in_pathname = str(pix)
             data_out_pathname = str(self.dem_pix_gam)
             width = self.r_dem_primary_mli_width
-            r_max = "-"  # maximum interpolation window radius
-            np_min = "-"  # minimum number of points used for the interpolation
-            np_max = "-"  # maximum number of points used for the interpolation
+            r_max = const.NOT_PROVIDED  # maximum interpolation window radius
+            np_min = const.NOT_PROVIDED  # minimum number of points used for the interpolation
+            np_max = const.NOT_PROVIDED  # maximum number of points used for the interpolation
             w_mode = 2  # data weighting mode
             dtype = 2  # FLOAT
             cp_data = 1  # copy input data values to output
@@ -834,14 +835,14 @@ class CoregisterDem:
 
             mli_pathname = str(self.r_dem_primary_mli)
             mli_par_pathname = str(self.r_dem_primary_mli_par)
-            off_par = "-"  # ISP offset/interferogram parameter file
+            off_par = const.NOT_PROVIDED  # ISP offset/interferogram parameter file
             cmli = str(sigma0)  # radiometrically calibrated output MLI
-            antenna = "-"  # 1-way antenna gain pattern file
+            antenna = const.NOT_PROVIDED  # 1-way antenna gain pattern file
             rloss_flag = 0  # range spreading loss correction
             ant_flag = 0  # antenna pattern correction
             refarea_flag = 1  # reference pixel area correction
-            sc_db = "-"  # scale factor in dB
-            k_db = "-"  # calibration factor in dB
+            sc_db = const.NOT_PROVIDED  # scale factor in dB
+            k_db = const.NOT_PROVIDED  # calibration factor in dB
             pix_area_pathname = str(self.ellip_pix_sigma0)
 
             pg.radcal_MLI(
@@ -931,7 +932,7 @@ class CoregisterDem:
             )
 
             hgt_pathname = str(temp)
-            pwr_pathname = "-"
+            pwr_pathname = const.NOT_PROVIDED
             width = self.dem_width
             start_hgt = 1
             start_pwr = 1
@@ -939,9 +940,9 @@ class CoregisterDem:
             pixavr = 1
             pixavaz = 1
             m_per_cycle = 100.0  # metres per color cycle
-            scale = "-"  # display scale factor
-            exp = "-"  # display exponent
-            lr = "-"  # left/right mirror image flag
+            scale = const.NOT_PROVIDED  # display scale factor
+            exp = const.NOT_PROVIDED  # display exponent
+            lr = const.NOT_PROVIDED  # left/right mirror image flag
             rasf_pathname = str(self.seamask)
 
             pg.rashgt(
@@ -988,12 +989,12 @@ class CoregisterDem:
         width_out = self.r_dem_primary_mli_width
         nlines_out = self.r_dem_primary_mli_length
         interp_mode = 1
-        dtype = 0  # FLOAT
-        lr_in = "-"
-        lr_out = "-"
+        dtype = const.DTYPE_FLOAT
+        lr_in = const.NOT_PROVIDED
+        lr_out = const.NOT_PROVIDED
         n_ovr = 2
         rad_max = self.dem_rad_max
-        nintr = "-"  # number of points required for interpolation
+        nintr = const.NOT_PROVIDED  # number of points required for interpolation
 
         pg.geocode(
             lookup_table_pathname,
@@ -1056,12 +1057,12 @@ class CoregisterDem:
         width_out = self.r_dem_primary_mli_width
         nlines_out = self.r_dem_primary_mli_length
         interp_mode = 0  # resampling interpolation; 1/dist
-        dtype = 0  # FLOAT
-        lr_in = "-"
-        lr_out = "-"
+        dtype = const.DTYPE_FLOAT
+        lr_in = const.NOT_PROVIDED
+        lr_out = const.NOT_PROVIDED
         n_ovr = 2
         rad_max = self.dem_rad_max  # maximum interpolation search radius
-        nintr = "-"  # number of points required for interpolation
+        nintr = const.NOT_PROVIDED  # number of points required for interpolation
 
         pg.geocode(
             lookup_table_pathname,
@@ -1087,12 +1088,12 @@ class CoregisterDem:
         width_out = self.r_dem_primary_mli_width
         nlines_out = self.r_dem_primary_mli_length
         interp_mode = 0  # resampling interpolation; 1/dist
-        dtype = 0  # FLOAT
-        lr_in = "-"
-        lr_out = "-"
+        dtype = const.DTYPE_FLOAT
+        lr_in = const.NOT_PROVIDED
+        lr_out = const.NOT_PROVIDED
         n_ovr = 2
         rad_max = self.dem_rad_max  # maximum interpolation search radius
-        nintr = "-"  # number of points required for interpolation
+        nintr = const.NOT_PROVIDED  # number of points required for interpolation
 
         pg.geocode(
             lookup_table_pathname,
@@ -1122,12 +1123,12 @@ class CoregisterDem:
             # width_out = self.r_dem_primary_mli_width
             # nlines_out = self.r_dem_primary_mli_length
             # interp_mode = 0  # resampling interpolation; 1/dist
-            # dtype = 0  # FLOAT
-            # lr_in = "-"
-            # lr_out = "-"
+            # dtype = const.DTYPE_FLOAT
+            # lr_in = const.NOT_PROVIDED
+            # lr_out = const.NOT_PROVIDED
             # n_ovr = 2
             # rad_max = self.dem_rad_max  # maximum interpolation search radius
-            # nintr = "-"  # number of points required for interpolation
+            # nintr = const.NOT_PROVIDED  # number of points required for interpolation
             #
             # pg.geocode(
             #     lookup_table_pathname,
@@ -1172,7 +1173,7 @@ class CoregisterDem:
             ls_map_mask_tif.as_posix(),
             ls_map_img.shape[1], ls_map_img.shape[0], 1,
             gdal.GDT_Byte,
-            options = ["COMPRESS=PACKBITS"]
+            options=["COMPRESS=PACKBITS"]
         )
 
         ls_mask_file.SetGeoTransform(ls_map_file.GetGeoTransform())
@@ -1180,7 +1181,7 @@ class CoregisterDem:
         ls_mask_file.GetRasterBand(1).WriteArray(ls_map_img)
         ls_mask_file.GetRasterBand(1).SetNoDataValue(0)
         ls_mask_file.FlushCache()
-        ls_mask_file = None
+        ls_mask_file = None  # noqa
 
         # Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
         data_in_pathname = str(self.dem_primary_gamma0)
@@ -1188,11 +1189,11 @@ class CoregisterDem:
         lookup_table_pathname = str(self.dem_lt_fine)
         data_out_pathname = str(self.dem_primary_gamma0_geo)
         width_out = self.dem_width
-        nlines_out = "-"
+        nlines_out = const.NOT_PROVIDED
         interp_mode = 5  # B-spline interpolation sqrt(x)
-        dtype = 0  # FLOAT
-        lr_in = "-"
-        lr_out = "-"
+        dtype = const.DTYPE_FLOAT
+        lr_in = const.NOT_PROVIDED
+        lr_out = const.NOT_PROVIDED
         order = 5  # Lanczos function order or B-spline degree
 
         pg.geocode_back(
@@ -1216,9 +1217,9 @@ class CoregisterDem:
         nlines = 0  # to end of file
         pixavr = 20
         pixavaz = 20
-        scale = "-"
-        exp = "-"
-        lr = "-"
+        scale = const.NOT_PROVIDED
+        exp = const.NOT_PROVIDED
+        lr = const.NOT_PROVIDED
         rasf_pathname = str(self.dem_primary_gamma0_geo_bmp)
 
         pg.raspwr(
@@ -1245,7 +1246,7 @@ class CoregisterDem:
         # geotiff gamma0 file
         dem_par_pathname = str(self.geo_dem_par)
         data_pathname = str(self.dem_primary_gamma0_geo)
-        dtype = 2  # FLOAT
+        dtype = const.DTYPE_GEOTIFF_FLOAT
         geotiff_pathname = self.dem_primary_gamma0_geo_tif
         nodata = 0.0
 
@@ -1261,11 +1262,11 @@ class CoregisterDem:
         lookup_table_pathname = str(self.dem_lt_fine)
         data_out_pathname = str(self.dem_primary_sigma0_geo)
         width_out = self.dem_width
-        nlines_out = "-"
+        nlines_out = const.NOT_PROVIDED
         interp_mode = 0
-        dtype = 0  # FLOAT
-        lr_in = "-"
-        lr_out = "-"
+        dtype = const.DTYPE_FLOAT
+        lr_in = const.NOT_PROVIDED
+        lr_out = const.NOT_PROVIDED
 
         pg.geocode_back(
             data_in_pathname,
@@ -1283,7 +1284,7 @@ class CoregisterDem:
         # geotiff sigma0 file
         dem_par_pathname = str(self.geo_dem_par)
         data_pathname = str(self.dem_primary_sigma0_geo)
-        dtype = 2  # FLOAT
+        dtype = const.DTYPE_GEOTIFF_FLOAT
         geotiff_pathname = str(self.dem_primary_sigma0_geo_tif)
         nodata = 0.0
 
@@ -1294,7 +1295,7 @@ class CoregisterDem:
         # geotiff DEM
         dem_par_pathname = str(self.geo_dem_par)
         data_pathname = str(self.geo_dem)
-        dtype = 2  # FLOAT
+        dtype = const.DTYPE_GEOTIFF_FLOAT
         geotiff_pathname = str(self.geo_dem_geo)
         nodata = 0.0
 
@@ -1330,7 +1331,7 @@ class CoregisterDem:
 
         # create angles look vector image
         slc_par_pathname = str(self.r_dem_primary_slc_par)
-        off_par_pathname = "-"
+        off_par_pathname = const.NOT_PROVIDED
         dem_par_pathname = str(self.geo_dem_par)
         dem_pathname = str(self.geo_dem)
         lv_theta_pathname = str(self.dem_lv_theta)
@@ -1348,7 +1349,7 @@ class CoregisterDem:
         # convert look vector files to geotiff file
         dem_par_pathname = str(self.geo_dem_par)
         data_pathname = str(self.dem_lv_theta)
-        dtype = 2  # FLOAT
+        dtype = const.DTYPE_GEOTIFF_FLOAT
         geotiff_pathname = str(self.dem_lv_theta_geo)
         nodata = 0.0
 
@@ -1358,7 +1359,7 @@ class CoregisterDem:
 
         dem_par_pathname = str(self.geo_dem_par)
         data_pathname = str(self.dem_lv_phi)
-        dtype = 2  # FLOAT
+        dtype = const.DTYPE_GEOTIFF_FLOAT
         geotiff_pathname = str(self.dem_lv_phi_geo)
         nodata = 0.0
 
