@@ -151,8 +151,18 @@ class CoregisterDem:
 
         self.dem_width = None
         self.dem_height = None
+
         self.r_dem_primary_mli_width = None
         self.r_dem_primary_mli_length = None
+        self.dem_primary_gamma0 = None
+        self.dem_primary_gamma0_geo = None
+        self.dem_primary_gamma0_bmp = None
+        self.dem_primary_gamma0_geo_bmp = None
+        self.dem_primary_gamma0_geo_tif = None
+        self.dem_primary_sigma0 = None
+        self.dem_primary_sigma0_geo = None
+        self.dem_primary_sigma0_geo_tif = None
+
         self.dem_files = self.dem_filenames(
             dem_prefix=f"{self.slc.stem}_{self.rlks}rlks", outdir=self.dem_outdir
         )
@@ -162,6 +172,43 @@ class CoregisterDem:
             outdir=self.slc_outdir,
         )
 
+        # TODO: review these var names sometime due to complexity leading to
+        #  possible duplication and bugs
+        self.geo_dem = None
+        self.geo_dem_geo = None
+        self.geo_dem_par = None
+
+        self.dem_diff = None
+        self.dem_lsmap = None
+        self.dem_offs = None
+        self.dem_offsets = None
+        self.dem_coffs = None
+        self.dem_coffsets = None
+        self.dem_ccp = None
+        self.dem_lt_fine = None
+        self.dem_lt_rough = None
+        self.dem_geo_sim_sar = None
+        self.dem_loc_inc = None
+        self.dem_pix_gam = None
+        self.dem_rdc_inc = None
+        self.dem_rdc_sim_sar = None
+
+        self.r_dem_primary_mli = None
+        self.r_dem_primary_mli_par = None
+        self.r_dem_primary_slc = None
+        self.r_dem_primary_slc_par = None
+        self.r_dem_primary_mli_bmp = None
+
+        self.dem_lv_phi = None
+        self.dem_lv_phi_geo = None
+        self.dem_lv_theta = None
+        self.dem_lv_theta_geo = None
+
+        self.ellip_pix_sigma0 = None
+        self.seamask = None
+        self.rdc_dem = None
+
+        # TODO: magic dynamic var setting here!
         # set more class attributes needed for DEM-SLC co-registration
         for _key, val in {**self.dem_files, **self.dem_primarys}.items():
             setattr(self, _key, val)
