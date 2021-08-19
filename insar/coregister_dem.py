@@ -2,7 +2,6 @@
 
 import os
 import tempfile
-from collections import namedtuple
 from typing import Optional, Tuple, Union, Dict
 import shutil
 from pathlib import Path
@@ -108,7 +107,8 @@ class CoregisterDem:
         :param slc_outdir:
             An Optional full path to store SLC files.
         :param ext_image_flt:
-            An Optional full path to an external image filter to be used in co-registration.
+            DISABLED: Optional full path to an external image filter to use for
+            co-registration in very flat scenes with no features (rarely used).
         :param land_center:
             A user defined scene center of (latitude, longitude) to use for initial offset.
         """
@@ -166,8 +166,19 @@ class CoregisterDem:
         for _key, val in {**self.dem_files, **self.dem_primarys}.items():
             setattr(self, _key, val)
 
+        self.ext_image_flt = None
+
         if ext_image_flt is not None:
-            self.ext_image_flt.symlink_to(ext_image_flt)
+            # From Matt Garth in MS Teams on 17/8/2021: This feature was
+            # developed when we had the case of processing a scene of very flat
+            # terrain. In that case, the synthetic amplitude image has no
+            # variation and therefore there is no features to use to align the
+            # image during co-registration. I am happy for it to be left out of
+            # pygamma. We haven't used the feature for many years. If we need it
+            # later we can implement it at that time.
+
+            msg = "Feature is rarely used & disabled until required"
+            raise NotImplementedError(msg)
 
     @staticmethod
     def dem_primary_names(
@@ -252,7 +263,7 @@ class CoregisterDem:
         attrs["dem_lv_phi_geo"] = append_suffix(attrs["dem_lv_phi"],".tif")
 
         # external image parameters to be used in co-registration
-        attrs["ext_image_flt"] = outdir.joinpath(f"{dem_prefix}_ext_img_sar.flt")
+        # DISABLED: attrs["ext_image_flt"] = outdir.joinpath(f"{dem_prefix}_ext_img_sar.flt")
         attrs["ext_image_init_sar"] = outdir.joinpath(f"{dem_prefix}_ext_img_init.sar")
         attrs["ext_image_sar"] = outdir.joinpath(f"{dem_prefix}_ext_img.sar")
         attrs["dem_check_file"] = outdir.joinpath(f"{dem_prefix}_DEM_coreg_results")
@@ -518,59 +529,62 @@ class CoregisterDem:
             self._set_attrs()
 
         if use_external_image:
-            # transform simulated SAR intensity image to radar geometry
-            dem1_par_pathname = str(self.dem_par)
-            data1_pathname = str(self.ext_image)
-            dem2_par_pathname = str(self.geo_dem_par)
-            data2_pathname = str(self.ext_image_flt)
-            lat_ovr = 1
-            lon_ovr = 1
-            interp_mode = 1  # bicubic spline
-            dtype = 0  # FLOAT
-            bflg = "-"  # use DEM bounds specified by dem2_par_pathname
+            msg = "Feature is rarely used & disabled until required"
+            raise NotImplementedError(msg)
 
-            pg.map_trans(
-                dem1_par_pathname,
-                data1_pathname,
-                dem2_par_pathname,
-                data2_pathname,
-                lat_ovr,
-                lon_ovr,
-                interp_mode,
-                dtype,
-                bflg,
-            )
-
-            # transform external image to radar geometry
-            lookup_table_pathname = str(self.dem_lt_rought)
-            data_in_pathname = str(self.ext_image_flt)
-            width_in = self.dem_width
-            data_out_pathname = str(self.ext_image_init_sar)
-            width_out = self.r_dem_primary_mli_width
-            nlines_out = self.r_dem_primary_mli_length
-            interp_mode = 1  # nearest neighbor
-            dtype = 0  # FLOAT
-            lr_in = "-"
-            lr_out = "-"
-            n_ovr = 2
-            rad_max = 4
-            nintr = "-"  # n points for interpolation when not nearest neighbor
-
-            pg.geocode(
-                lookup_table_pathname,
-                data_in_pathname,
-                width_in,
-                data_out_pathname,
-                width_out,
-                nlines_out,
-                interp_mode,
-                dtype,
-                lr_in,
-                lr_out,
-                n_ovr,
-                rad_max,
-                nintr,
-            )
+            # # transform simulated SAR intensity image to radar geometry
+            # dem1_par_pathname = str(self.dem_par)
+            # data1_pathname = str(self.ext_image)
+            # dem2_par_pathname = str(self.geo_dem_par)
+            # data2_pathname = str(self.ext_image_flt)
+            # lat_ovr = 1
+            # lon_ovr = 1
+            # interp_mode = 1  # bicubic spline
+            # dtype = const.DTYPE_FLOAT
+            # bflg = const.NOT_PROVIDED  # use DEM bounds specified by dem2_par_pathname
+            #
+            # pg.map_trans(
+            #     dem1_par_pathname,
+            #     data1_pathname,
+            #     dem2_par_pathname,
+            #     data2_pathname,
+            #     lat_ovr,
+            #     lon_ovr,
+            #     interp_mode,
+            #     dtype,
+            #     bflg,
+            # )
+            #
+            # # transform external image to radar geometry
+            # lookup_table_pathname = str(self.dem_lt_rought)
+            # data_in_pathname = str(self.ext_image_flt)
+            # width_in = self.dem_width
+            # data_out_pathname = str(self.ext_image_init_sar)
+            # width_out = self.r_dem_primary_mli_width
+            # nlines_out = self.r_dem_primary_mli_length
+            # interp_mode = 1  # nearest neighbor
+            # dtype = const.DTYPE_FLOAT
+            # lr_in = const.NOT_PROVIDED
+            # lr_out = const.NOT_PROVIDED
+            # n_ovr = 2
+            # rad_max = 4
+            # nintr = const.NOT_PROVIDED  # n points for interpolation when not nearest neighbor
+            #
+            # pg.geocode(
+            #     lookup_table_pathname,
+            #     data_in_pathname,
+            #     width_in,
+            #     data_out_pathname,
+            #     width_out,
+            #     nlines_out,
+            #     interp_mode,
+            #     dtype,
+            #     lr_in,
+            #     lr_out,
+            #     n_ovr,
+            #     rad_max,
+            #     nintr,
+            # )
 
     def create_diff_par(self) -> None:
         """Fine coregistration of primary MLI and simulated SAR image."""
@@ -1051,35 +1065,38 @@ class CoregisterDem:
 
         # Geocode external image to radar geometry
         if use_external_image:
-            lookup_table_pathname = str(self.dem_lt_fine)
-            data_in_pathname = str(self.ext_image_flt)
-            width_in = self.dem_width
-            data_out_pathname = str(self.ext_image_sar)
-            width_out = self.r_dem_primary_mli_width
-            nlines_out = self.r_dem_primary_mli_length
-            interp_mode = 0  # resampling interpolation; 1/dist
-            dtype = 0  # FLOAT
-            lr_in = "-"
-            lr_out = "-"
-            n_ovr = 2
-            rad_max = self.dem_rad_max  # maximum interpolation search radius
-            nintr = "-"  # number of points required for interpolation
+            msg = "Feature is rarely used & disabled until required"
+            raise NotImplementedError(msg)
 
-            pg.geocode(
-                lookup_table_pathname,
-                data_in_pathname,
-                width_in,
-                data_out_pathname,
-                width_out,
-                nlines_out,
-                interp_mode,
-                dtype,
-                lr_in,
-                lr_out,
-                n_ovr,
-                rad_max,
-                nintr,
-            )
+            # lookup_table_pathname = str(self.dem_lt_fine)
+            # data_in_pathname = str(self.ext_image_flt)
+            # width_in = self.dem_width
+            # data_out_pathname = str(self.ext_image_sar)
+            # width_out = self.r_dem_primary_mli_width
+            # nlines_out = self.r_dem_primary_mli_length
+            # interp_mode = 0  # resampling interpolation; 1/dist
+            # dtype = 0  # FLOAT
+            # lr_in = "-"
+            # lr_out = "-"
+            # n_ovr = 2
+            # rad_max = self.dem_rad_max  # maximum interpolation search radius
+            # nintr = "-"  # number of points required for interpolation
+            #
+            # pg.geocode(
+            #     lookup_table_pathname,
+            #     data_in_pathname,
+            #     width_in,
+            #     data_out_pathname,
+            #     width_out,
+            #     nlines_out,
+            #     interp_mode,
+            #     dtype,
+            #     lr_in,
+            #     lr_out,
+            #     n_ovr,
+            #     rad_max,
+            #     nintr,
+            # )
 
         # Convert lsmap to geotiff
         ls_map_tif = str(append_suffix(self.dem_lsmap, ".tif"))

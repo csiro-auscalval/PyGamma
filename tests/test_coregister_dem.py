@@ -10,7 +10,6 @@ from tests.py_gamma_test_proxy import PyGammaTestProxy
 
 import insar.coregister_dem
 from insar.coregister_dem import CoregisterDem, CoregisterDemException
-from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 from insar.coreg_utils import read_land_center_coords
 
 
@@ -66,6 +65,7 @@ def get_test_context():
         return pgp.rashgt(*args, **kwargs)
 
     coord_to_sarpix_cout = "SLC/MLI range, azimuth pixel (int):         7340        17060"
+
     def coord_to_sarpix_se(*args, **kwargs):
         result = pgp.coord_to_sarpix(*args, **kwargs)
         return (
@@ -107,7 +107,6 @@ def get_test_context():
         out_file_path = str(args[3])
         Image.new("L", (width, height)).save(out_file_path)
         return pgp.data2geotiff(*args, **kwargs)
-
 
     pgmock.data2geotiff.side_effect = data2geotiff_se
     pgmock.data2geotiff.return_value = 0, [], []
@@ -263,7 +262,11 @@ def test_gen_dem_rdc(monkeypatch):
         coreg.gen_dem_rdc(False)
 
         assert Path(coreg.dem_pix_gam).exists()
-        assert not Path(coreg.ext_image_flt).exists()
+
+        # change this if ext_image_flt is enabled in coregister_dem.py
+        # assert not Path(coreg.ext_image_flt).exists()
+        assert coreg.ext_image_flt is None
+
         assert not Path(coreg.ext_image_init_sar).exists()
 
         # FIXME: This branch seems to not be implemented fully/correctly (nothing ever sets ext_image)
@@ -364,12 +367,13 @@ def test_geocode(monkeypatch):
 
         assert Path(coreg.dem_primary_gamma0_geo_bmp.with_suffix(".kml")).exists()
 
+        # fix this if ext_image_flt is enabled in coregister_dem.py
         # And with external image
-        Path(coreg.ext_image_flt).touch()
-
-        coreg.geocode(True)
-
-        assert Path(coreg.ext_image_sar).exists()
+        # Path(coreg.ext_image_flt).touch()
+        #
+        # coreg.geocode(True)
+        #
+        # assert Path(coreg.ext_image_sar).exists()
 
 
 def test_look_vector(monkeypatch):
