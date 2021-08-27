@@ -20,7 +20,7 @@ import math
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory, run_command
 from insar.project import ProcConfig
-from insar.coreg_utils import rm_file
+from insar.coreg_utils import rm_file, grep_stdout
 import insar.constant as const
 
 _LOG = structlog.get_logger("insar")
@@ -151,8 +151,6 @@ class CoregisterSlc:
         self.r_secondary_slc_tab = None
         self.primary_slc_tab = None
         self.secondary_slc_tab = None
-        self.r_secondary_slc = None
-        self.r_secondary_slc_par = None
         self.r_secondary_mli = None
         self.r_secondary_mli_par = None
 
@@ -283,23 +281,6 @@ class CoregisterSlc:
                     _par = data_dir.joinpath(_par).as_posix()
                     _tops_par = data_dir.joinpath(_tops_par).as_posix()
                 fid.write(_slc + " " + _par + " " + _tops_par + "\n")
-
-    @staticmethod
-    def _grep_stdout(std_output: list, match_start_string: str,) -> str:
-        """
-        A helper method to return matched string from std_out.
-
-        :param std_output:
-            A list containing the std output collected by py_gamma.
-        :param match_start_string:
-            A case sensitive string to be scanned in stdout.
-
-        :returns:
-            A full string line of the matched string.
-        """
-        for line in std_output:
-            if line.startswith(match_start_string):
-                return line
 
     @staticmethod
     def _grep_offset_parameter(
@@ -439,7 +420,7 @@ class CoregisterSlc:
 
                     range_stdev, azimuth_stdev = re.findall(
                         r"[-+]?[0-9]*\.?[0-9]+",
-                        self._grep_stdout(
+                        grep_stdout(
                             cout, "final model fit std. dev. (samples) range:"
                         ),
                     )

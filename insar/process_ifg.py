@@ -10,6 +10,7 @@ import structlog
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 from insar.coreg_utils import latlon_to_px
 import insar.constant as const
+from insar.path_util import append_suffix
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory
@@ -20,16 +21,6 @@ _LOG = structlog.get_logger("insar")
 class ProcessIfgException(Exception):
     pass
 
-
-def append_suffix(path: pathlib.Path, suffix: str) -> pathlib.Path:
-    """
-    A simple filename append function that doesn't assume `.` based file extensions,
-    to replace pathlib.Path.with_suffix in cases we use `_` based file suffixes
-
-    >>> append_suffix(pathlib.Path('/tmp/test_geo'), '_int').as_posix()
-    '/tmp/test_geo_int'
-    """
-    return path.parent / (path.name + suffix)
 
 class TempFileConfig:
     """

@@ -9,6 +9,7 @@ import numpy as np
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory
 import insar.constant as const
+from insar.path_util import append_suffix
 
 _LOG = structlog.get_logger("insar")
 
@@ -171,10 +172,6 @@ def generate_normalised_backscatter(
             )
 
 
-def with_suffix(path: Path, suffix: str):
-    return path.parent / (path.name + suffix)
-
-
 def quicklook(src_path: Path, width: int, dst_path: Path):
     pg.raspwr(
         src_path,
@@ -213,23 +210,23 @@ def generate_nrt_backscatter(
     :param dst_stem:
         The destination path stem, which all outputs will be prefixed with.
     """
-    dem_par_path = with_suffix(dem_path, ".par")
+    dem_par_path = append_suffix(dem_path, ".par")
     dem_par = pg.ParFile(str(dem_par_path))
     dem_width = dem_par.get_value("width", dtype=int, index=0)
 
-    geo_dem_path = with_suffix(dst_stem, "_geo.dem")
-    geo_dem_par_path = with_suffix(geo_dem_path, ".par")
-    geo_dem_lut_path = with_suffix(dst_stem, "_dem_geo_to_rdc_rough.lt")
+    geo_dem_path = append_suffix(dst_stem, "_geo.dem")
+    geo_dem_par_path = append_suffix(geo_dem_path, ".par")
+    geo_dem_lut_path = append_suffix(dst_stem, "_dem_geo_to_rdc_rough.lt")
 
-    linc_path = with_suffix(dst_stem, "_linc")
-    lsmap_path = with_suffix(dst_stem, "_lsmap")
+    linc_path = append_suffix(dst_stem, "_linc")
+    lsmap_path = append_suffix(dst_stem, "_lsmap")
 
-    src_par_path = with_suffix(src_path, ".par")
+    src_par_path = append_suffix(src_path, ".par")
     src_par = pg.ParFile(str(src_par_path))
     src_width = src_par.get_value("range_samples", dtype=int, index=0)
 
-    dst_sigma0_path = with_suffix(dst_stem, "_sigma0")
-    dst_gamma0_path = with_suffix(dst_stem, "_gamma0")
+    dst_sigma0_path = append_suffix(dst_stem, "_sigma0")
+    dst_gamma0_path = append_suffix(dst_stem, "_gamma0")
 
     # This code branch is disabled as there's some gc_map2 related quirks we need to handle
     # - the end goal is to use gc_map2 though...
@@ -297,14 +294,14 @@ def generate_nrt_backscatter(
         geo_dem_lut_path,
         lsmap_path,
         linc_path,
-        with_suffix(dst_sigma0_path, "_ufratio"),
-        with_suffix(dst_gamma0_path, "_ufratio"),
+        append_suffix(dst_sigma0_path, "_ufratio"),
+        append_suffix(dst_gamma0_path, "_ufratio"),
     )
 
     # interpolate holes
     pg.interp_ad(
-        with_suffix(dst_sigma0_path, "_ufratio"),
-        with_suffix(dst_sigma0_path, "_ratio"),
+        append_suffix(dst_sigma0_path, "_ufratio"),
+        append_suffix(dst_sigma0_path, "_ratio"),
         src_width,
         const.NOT_PROVIDED,  # Interpolation window
         const.NOT_PROVIDED,  # Min points for interpolation
@@ -315,8 +312,8 @@ def generate_nrt_backscatter(
     )
 
     pg.interp_ad(
-        with_suffix(dst_gamma0_path, "_ufratio"),
-        with_suffix(dst_gamma0_path, "_ratio"),
+        append_suffix(dst_gamma0_path, "_ufratio"),
+        append_suffix(dst_gamma0_path, "_ratio"),
         src_width,
         const.NOT_PROVIDED,  # Interpolation window
         const.NOT_PROVIDED,  # Min points for interpolation
@@ -328,13 +325,13 @@ def generate_nrt_backscatter(
 
     # obtain ellipsoid-based ground range sigma0 pixel reference area
     # TBD: Is this required?
-    dst_sigma0_cal_path = with_suffix(dst_sigma0_path, "_cal")
-    dst_sigma0_cal_par_path = with_suffix(dst_sigma0_path, "_cal.par")
-    dst_sigma0_cal_area_path = with_suffix(dst_sigma0_path, "_cal_area")
+    dst_sigma0_cal_path = append_suffix(dst_sigma0_path, "_cal")
+    dst_sigma0_cal_par_path = append_suffix(dst_sigma0_path, "_cal.par")
+    dst_sigma0_cal_area_path = append_suffix(dst_sigma0_path, "_cal_area")
 
-    dst_gamma0_cal_path = with_suffix(dst_gamma0_path, "_cal")
-    dst_gamma0_cal_par_path = with_suffix(dst_gamma0_path, "_cal.par")
-    dst_gamma0_cal_area_path = with_suffix(dst_gamma0_path, "_cal_area")
+    dst_gamma0_cal_path = append_suffix(dst_gamma0_path, "_cal")
+    dst_gamma0_cal_par_path = append_suffix(dst_gamma0_path, "_cal.par")
+    dst_gamma0_cal_area_path = append_suffix(dst_gamma0_path, "_cal_area")
 
     # Apply radiometric calibration
     # In this prototype, this produces 2 things:
@@ -381,7 +378,7 @@ def generate_nrt_backscatter(
 
     pg.float_math(
         "temp",
-        with_suffix(dst_gamma0_path, "_ratio"),
+        append_suffix(dst_gamma0_path, "_ratio"),
         dst_gamma0_path,
         src_width,
         3,  # Divide
@@ -408,24 +405,24 @@ def generate_nrt_backscatter(
             geo_dem_par_path,
             dst,
             2,  # float
-            with_suffix(dst, ".tif"),
+            append_suffix(dst, ".tif"),
             0.0,  # no data value
         )
 
-        quicklook(src, src_width, with_suffix(dst, ".png"))
+        quicklook(src, src_width, append_suffix(dst, ".png"))
 
     # Convert to tif
     pg.data2tiff(
         src_path,
         src_width,
         2,  # float
-        with_suffix(src_path, ".tif"),
+        append_suffix(src_path, ".tif"),
         0.0,  # no data value
     )
 
-    geocode(src_path, with_suffix(src_path, "_geo"))
-    #geocode(dst_sigma0_path, with_suffix(dst_sigma0_path, "_geo"))
-    geocode(dst_gamma0_path, with_suffix(dst_gamma0_path, "_geo"))
-    geocode(dst_sigma0_cal_path, with_suffix(dst_sigma0_cal_path, "_geo"))
-    geocode(dst_gamma0_cal_path, with_suffix(dst_gamma0_cal_path, "_geo"))
+    geocode(src_path, append_suffix(src_path, "_geo"))
+    #geocode(dst_sigma0_path, append_suffix(dst_sigma0_path, "_geo"))
+    geocode(dst_gamma0_path, append_suffix(dst_gamma0_path, "_geo"))
+    geocode(dst_sigma0_cal_path, append_suffix(dst_sigma0_cal_path, "_geo"))
+    geocode(dst_gamma0_cal_path, append_suffix(dst_gamma0_cal_path, "_geo"))
 

@@ -591,7 +591,6 @@ class SlcProcess:
         the self.burst_data needed to form a full frame.
         """
 
-        # TODO: fix key spelling here AND in generate_slc_inputs.py
         acq_datetime_key = "acquisition_datetime"
 
         df = pd.read_csv(self.burst_data)

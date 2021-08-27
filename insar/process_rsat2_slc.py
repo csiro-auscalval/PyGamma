@@ -3,7 +3,7 @@ from pathlib import Path
 import structlog
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
-
+from insar.sensors.rsat2 import METADATA as rsat2
 
 # Customise Gamma shim to automatically handle basic error checking and logging
 class ProcessSlcException(Exception):
@@ -34,7 +34,7 @@ def process_rsat2_slc(
         The path to store the GAMMA SLC output.
     """
 
-    if pol not in ["VV", "VH", "HH", "HV"]:
+    if pol not in rsat2.polarisations:
         raise RuntimeError(f"Invalid polarisation: {pol}")
 
     if not product_path.exists():

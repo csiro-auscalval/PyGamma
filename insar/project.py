@@ -8,6 +8,8 @@ import itertools
 import enum
 import numbers
 
+import insar.sensors.s1 as s1
+import insar.sensors.rsat2 as rsat2
 
 class ARDWorkflow(enum.Enum):
     """Defines all the supported workflows of the processing script"""
@@ -215,21 +217,22 @@ class ProcConfig:
                 msg += f"Attribute {name} is not a valid path name: {pathname} (must not contain {invalid_chars})\n"
 
         # Validate sensor
-        # TODO: When we add multiple sensor support (eg: radarsat 2) we will want to generalise this into a kind of
-        # "capability" table somewhere that's re-used by the codebase.
+        sensor_caps = {
+            "S1": s1,
+            "RSAT2": rsat2
+        }
+
         if hasattr(self, "sensor"):
-            allowed_sensors = ["S1"]  # TODO: Add "RSAT2" when we support radarsat 2
-            if self.sensor not in allowed_sensors:
+            if self.sensor not in sensor_caps:
                 msg += f"Unsupported sensor: {self.sensor}\n"
+
+            caps = sensor_caps[self.sensor]
 
             # Validate polarisations
             # Note: currently this is just the 'primary' polarisation (used for IFGs)
             if hasattr(self, "polarisation"):
-                if self.sensor == "S1":
-                    allowed_s1_pols = ["VV", "VH"]
-
-                    if self.polarisation not in allowed_s1_pols:
-                        msg += f"Invalid polarisation for S1: {self.polarisation} (expected one of: {', '.join(allowed_s1_pols)})"
+                if self.polarisation not in caps.POLARISATIONS:
+                    msg += f"Invalid polarisation for {self.sensor}: {self.polarisation} (expected one of: {', '.join(caps.POLARISATIONS)})"
 
         if hasattr(self, "process_method"):
             if self.process_method != "sbas":

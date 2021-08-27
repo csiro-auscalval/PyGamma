@@ -4,8 +4,12 @@ import datetime
 from insar.constant import SCENE_DATE_FMT
 from pathlib import Path
 import geopandas
+import tempfile
+import os
+from typing import Tuple, Optional, List
 
 import insar.constant as const
+from insar.subprocess_utils import run_command
 
 
 def rm_file(path):
@@ -19,105 +23,6 @@ def rm_file(path):
 def parse_date(scene_name):
     """ Parse str scene_name into datetime object. """
     return datetime.datetime.strptime(scene_name, SCENE_DATE_FMT)
-
-
-def coregristration_candidates(
-    scenes, primary_idx, threshold, max_secondary_idx=None,
-):
-    """
-    Returns secondary scene index  to be co-registered with primary scene and
-    checks if co-registration of scenes are complete or not.
-    """
-    if primary_idx == len(scenes) - 1:
-        return None, True
-
-    secondary_idx = None
-    is_complete = False
-    _primary_date = parse_date(scenes[primary_idx])
-
-    for idx, scene in enumerate(scenes[primary_idx + 1 :], primary_idx + 1):
-        if max_secondary_idx and idx > max_secondary_idx:
-            break
-        if abs((parse_date(scene) - _primary_date).days) > threshold:
-            break
-        secondary_idx = idx
-
-    if secondary_idx and secondary_idx == len(scenes) - 1:
-        is_complete = True
-
-    if not secondary_idx and idx < len(scenes) - 1:
-        secondary_idx = idx
-
-    return secondary_idx, is_complete
-
-
-def coreg_candidates_after_primary_scene(
-    scenes, primaries_list, main_primary,
-):
-    """
-    Return co-registration pairs for scenes after main primary scene's date.
-    :param scenes: list of scenes strings in '%Y%m%d' format.
-    :param primaries: list of primary scenes strings in '%Y%m%d format.
-    :return coregistration_scenes as a dict with key = primary and
-            values = list of secondary scenes for a primary to be coregistered with.
-    """
-    # secondary primaries(inclusive of main primary scene) are sorted in ascending order with
-    # main primary scene as a starting scene
-    primaries = [
-        scene for scene in primaries_list if parse_date(scene) >= parse_date(main_primary)
-    ]
-    primaries.sort(key=lambda date: datetime.datetime.strptime(date, SCENE_DATE_FMT))
-
-    coregistration_scenes = {}
-    for idx, primary in enumerate(primaries):
-        tmp_list = []
-        if idx < len(primaries) - 1:
-            for scene in scenes:
-                if parse_date(primary) < parse_date(scene) < parse_date(primaries[idx + 1]):
-                    tmp_list.append(scene)
-            coregistration_scenes[primary] = tmp_list
-        else:
-            for scene in scenes:
-                if parse_date(scene) > parse_date(primary):
-                    tmp_list.append(scene)
-            coregistration_scenes[primary] = tmp_list
-    return coregistration_scenes
-
-
-def coreg_candidates_before_primary_scene(
-    scenes, primaries_list, main_primary,
-):
-    """
-    Return co-registration pairs for scenes before main primary scene's date.
-
-    :param scenes: list of scenes strings in '%Y%m%d' format.
-    :param primaries: list of primary scenes strings in '%Y%m%d format.
-    :return coregistration_scenes: dict with primary(key) and scenes(value)
-    """
-    # secondary primaries (inclusive of primary scene) are sorted in descending order with
-    # main primary scene as starting scene
-    primaries = [
-        scene for scene in primaries_list if parse_date(scene) <= parse_date(main_primary)
-    ]
-    primaries.sort(
-        key=lambda date: datetime.datetime.strptime(date, SCENE_DATE_FMT), reverse=True,
-    )
-
-    coregistration_scenes = {}
-    for idx, primary in enumerate(primaries):
-        tmp_list = []
-        if idx < len(primaries) - 1:
-            for scene in scenes:
-                if parse_date(primary) > parse_date(scene) > parse_date(primaries[idx + 1]):
-                    tmp_list.append(scene)
-
-            coregistration_scenes[primary] = tmp_list
-        else:
-            for scene in scenes:
-                if parse_date(scene) < parse_date(primary):
-                    tmp_list.append(scene)
-            coregistration_scenes[primary] = tmp_list
-    return coregistration_scenes
 
 
 def read_land_center_coords(shapefile: Path):
@@ -180,3 +85,94 @@ def latlon_to_px(pg, mli_par: Path, lat, lon):
 
     rpos, azpos = matched[0].split()[-2:]
     return (int(rpos), int(azpos))
+
+
+def create_diff_par(
+    first_par_path: Path,
+    second_par_path: Optional[Path],
+    diff_par_path: Path,
+    offset: Optional[Tuple[int, int]],
+    num_measurements: Optional[Tuple[int, int]],
+    window_sizes: Optional[Tuple[int, int]],
+    cc_thresh: Optional[float]
+) -> None:
+    """
+    This is a wrapper around the GAMMA `create_diff_par` program.
+
+    The wrapper exists as unlike most GAMMA programs `create_diff_par` cannot
+    actually be given all of it's settings via command line arguments, instead
+    it relies on an 'interactive' mode where it takes a sequence of settings
+    via the terminal's standard input (which this function constructs as a temp
+    file, and pipes into it so we can treat it like a non-interactive function)
+
+    `create_diff_par --help`:
+    Create DIFF/GEO parameter file for geocoding and differential interferometry.
+
+    All optional parameters will defer to GAMMA's defaults if set to `None`.
+
+    This is an initial stage in coregistration that kicks off the offset model
+    refinement stage.  At a high level it makes a few measurements at regular
+    locations across both images, and correlates them to determine an initial
+    set of polynomials from which the offset model is initalised.
+
+    :param first_par_path:
+        (input) image parameter file 1 (see PAR_type option)
+    :param second_par_path:
+        (input) image parameter file 2 (or - if not provided)
+    :param diff_par_path:
+        (input/output) DIFF/GEO parameter file
+    :param offset:
+        The known pixel offset estimate between first_par_path and second_par_path.
+    :param num_measurements:
+        The number of measurements to make along each axis.
+    :param window_sizes:
+        The window sizes (in pixels) of measurements being made.
+    :param cc_thresh:
+        The cross correlation threshold that must be met by measurements
+        to be included in the resulting diff.
+    """
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        return_file = Path(temp_dir) / "returns"
+
+        with return_file.open("w") as fid:
+            fid.write("\n")
+
+            for pair_param in [offset, num_measurements, window_sizes]:
+                if pair_param:
+                    fid.write("{} {}\n".format(*pair_param))
+                else:
+                    fid.write("\n")
+
+            if cc_thresh is not None:
+                fid.write("{}".format(cc_thresh))
+            else:
+                fid.write("\n")
+
+        command = [
+            "create_diff_par",
+            str(first_par_path),
+            str(second_par_path or const.NOT_PROVIDED),
+            str(diff_par_path),
+            "1", # SLC/MLI_par input types
+            "<",
+            return_file.as_posix(),
+        ]
+        run_command(command, os.getcwd())
+
+
+def grep_stdout(std_output: List[str], match_start_string: str) -> str:
+    """
+    A helper method to return matched string from std_out.
+
+    :param std_output:
+        A list containing the std output collected by py_gamma.
+    :param match_start_string:
+        A case sensitive string to be scanned in stdout.
+
+    :returns:
+        A full string line of the matched string.
+    """
+    for line in std_output:
+        if line.startswith(match_start_string):
+            return line

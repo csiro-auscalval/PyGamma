@@ -95,7 +95,6 @@ def _gen_pbs(
     Generates a PBS submission script for the stack processing job
     """
 
-    # Validate .proc file
     with open(proc_file, "r") as proc_file_obj:
         proc_config = ProcConfig.from_file(proc_file_obj)
 
@@ -226,7 +225,7 @@ def fatal_error(msg: str, exit_code: int = 1):
 )
 @click.option(
     "--src-file",
-    type=click.Path(exists=True, readable=True, file_okay=True, dir_okay=False),
+    type=click.Path(exists=True, readable=True, file_okay=True, dir_okay=True),
     multiple=True,
     help="A path to source data file to process explicitly (in addition to any found from the query parameters)",
 )
@@ -242,9 +241,9 @@ def fatal_error(msg: str, exit_code: int = 1):
 )
 @click.option(
     "--polarization",
-    type=click.Choice(["VV", "VH"], case_sensitive=False),
+    type=click.Choice(["VV", "VH", "HH", "HV"], case_sensitive=False),
     multiple=True,
-    help="Polarizations to be processed VV or VH, arg can be specified multiple times",
+    help="Polarizations to be processed, arg can be specified multiple times",
 )
 @click.option(
     "--ncpus",
@@ -383,6 +382,9 @@ def ard_insar(
         click.echo(f"Provided .proc configuration file is invalid:\n{proc_valid_error}", err=True)
         exit(1)
 
+    # Convert to absolute path
+    proc_file = Path(proc_file).absolute()
+
     # Validate we have a way to identify the stack
     if not (job_name or proc_config.stack_id):
         click.echo("No identifier for the job can be determined!", err=True)
@@ -410,11 +412,11 @@ def ard_insar(
             exit(1)
     else:
         if workpath.exists() and any(workpath.iterdir()):
-            click.echo("Error: Provided job work directory already exists!", err=True)
+            click.echo(f"Error: Provided job work directory already exists: {workpath}", err=True)
             exit(1)
 
         if outpath.exists() and any(outpath.iterdir()):
-            click.echo("Error: Provided job output directory already exists!", err=True)
+            click.echo(f"Error: Provided job output directory already exists: {outpath}", err=True)
             exit(1)
 
         workpath.mkdir(parents=True, exist_ok=True)
@@ -624,9 +626,9 @@ def ard_insar(
 )
 @click.option(
     "--polarization",
-    default=["VV", "VH"],
+    default=["VV", "VH", "HH", "HV"],
     multiple=True,
-    help="Polarizations to be processed VV or VH, arg can be specified multiple times",
+    help="Polarizations to be processed, arg can be specified multiple times",
 )
 @click.option(
     "--test",
