@@ -1,15 +1,13 @@
 import re
 from pathlib import Path
-from typing import List, Tuple
 import luigi
 import luigi.configuration
 from luigi.util import requires
 
-from insar.constant import SCENE_DATE_FMT
 from insar.process_ifg import run_workflow, get_ifg_width, TempFileConfig
 from insar.project import ProcConfig, DEMFileNames, IfgFileNames
 from insar.coreg_utils import read_land_center_coords
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import tdir, mk_clean_dir
 from insar.workflow.luigi.backscatter import CreateCoregisteredBackscatter

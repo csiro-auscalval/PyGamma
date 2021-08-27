@@ -1,7 +1,6 @@
 import os
 import re
 from pathlib import Path
-from typing import List, Tuple
 import luigi
 import luigi.configuration
 import pandas as pd
@@ -9,7 +8,7 @@ from luigi.util import requires
 
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+from insar.logs import STATUS_LOGGER
 from insar.process_s1_slc import SlcProcess
 
 from insar.workflow.luigi.utils import tdir, get_scenes
@@ -61,8 +60,6 @@ class CreateFullSlc(luigi.Task):
     """
     Runs the create full slc tasks
     """
-
-    proc_file = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget(

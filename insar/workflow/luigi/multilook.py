@@ -1,15 +1,15 @@
 import luigi
-from luigi.util import requires
+from luigi.util import inherits, common_params
 
 from pathlib import Path
 
 from insar.calc_multilook_values import multilook, calculate_mean_look_values
 from insar.project import ProcConfig
 from insar.constant import SCENE_DATE_FMT
+from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import tdir, get_scenes
-from insar.workflow.luigi.mosaic import CreateSlcMosaic
-
+from insar.workflow.luigi.stack_setup import InitialSetup
 
 class Multilook(luigi.Task):
     """
@@ -38,14 +38,13 @@ class Multilook(luigi.Task):
         with self.output().open("w") as f:
             f.write("")
 
-# FIXME: CreateSlcMosaic should NOT be a requirement (this is S1 specific...)
-@requires(CreateSlcMosaic)
+
+@inherits(InitialSetup)
 class CreateMultilook(luigi.Task):
     """
     Runs creation of multi-look image task for all scenes, for all polariastions.
     """
 
-    proc_file = luigi.Parameter()
     multi_look = luigi.IntParameter()
 
     def output(self):
@@ -53,11 +52,40 @@ class CreateMultilook(luigi.Task):
             tdir(self.workdir) / f"{self.stack_id}_createmultilook_status_logs.out"
         )
 
+    def requires(self):
+        with open(self.proc_file, "r") as proc_fileobj:
+            proc = ProcConfig.from_file(proc_fileobj)
+
+        deps = []
+
+        # Require S1 mosaic'd data if we have S1 sensor data
+        if proc.sensor == "S1":
+            from insar.workflow.luigi.mosaic import CreateSlcMosaic
+            deps.append(CreateSlcMosaic(
+                # We share identical params, so just forward them
+                **common_params(self, CreateSlcMosaic)
+            ))
+
+        # Require RSAT2 frames if we have RSAT2 sensor data
+        if proc.sensor == "RSAT2":
+            from insar.workflow.luigi.rsat2 import CreateRSAT2SlcTasks
+            deps.append(CreateRSAT2SlcTasks(
+                # We share identical params, so just forward them
+                **common_params(self, CreateRSAT2SlcTasks)
+            ))
+
+        return deps
+
     def run(self):
         outdir = Path(self.outdir)
 
         with open(self.proc_file, "r") as proc_fileobj:
             proc = ProcConfig.from_file(proc_fileobj)
+
+        primary_pol = proc.polarisation
+
+        log = STATUS_LOGGER.bind(multi_look=self.multi_look, primary_pol=primary_pol)
+        log.info("Beginning multilook")
 
         # calculate the mean range and azimuth look values
         slc_dir = outdir / proc.slc_dir
@@ -68,6 +96,7 @@ class CreateMultilook(luigi.Task):
             slc_scene = _dt.strftime(SCENE_DATE_FMT)
             for _pol in _pols:
                 if _pol not in self.polarization:
+                    log.info(f"Skipping non-primary polarisation {_pol} in multilook for {slc_scene}")
                     continue
 
                 slc_par = f"{slc_scene}_{_pol.upper()}.slc.par"
@@ -77,9 +106,9 @@ class CreateMultilook(luigi.Task):
 
                 slc_par_files.append(Path(slc_par))
 
-        # range and azimuth looks are only computed from VV polarization
+        # range and azimuth looks are only computed from primary polarization
         rlks, alks, *_ = calculate_mean_look_values(
-            [_par for _par in slc_par_files if "VV" in _par.stem],
+            [_par for _par in slc_par_files if primary_pol in _par.stem],
             int(str(self.multi_look)),
         )
 
@@ -94,6 +123,8 @@ class CreateMultilook(luigi.Task):
             )
 
         yield ml_jobs
+
+        log.info("Multilook complete")
 
         with self.output().open("w") as out_fid:
             out_fid.write("rlks:\t {}\n".format(str(rlks)))

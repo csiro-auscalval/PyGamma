@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List, Tuple
 import luigi
 import luigi.configuration
 import pandas as pd
@@ -9,7 +8,6 @@ import shutil
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.calc_multilook_values import calculate_mean_look_values
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
 
 from insar.workflow.luigi.utils import tdir, get_scenes
 from insar.workflow.luigi.s1 import CreateFullSlc, ProcessSlcMosaic
@@ -20,7 +18,6 @@ class CreateSlcMosaic(luigi.Task):
     Runs the final mosaics for all scenes, for all polarisations.
     """
 
-    proc_file = luigi.Parameter()
     multi_look = luigi.IntParameter()
 
     def output(self):

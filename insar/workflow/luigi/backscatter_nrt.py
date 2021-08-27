@@ -8,7 +8,7 @@ import structlog
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.process_backscatter import generate_nrt_backscatter
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import tdir, load_settings, get_scenes, read_rlks_alks
 from insar.workflow.luigi.dem import CreateGammaDem

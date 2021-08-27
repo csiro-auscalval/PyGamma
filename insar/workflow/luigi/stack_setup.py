@@ -5,30 +5,29 @@ import os
 import re
 import os.path
 from pathlib import Path
-from typing import List, Tuple
 import luigi
 import luigi.configuration
 import pandas as pd
 import osgeo.gdal
 import json
+import structlog
 
 import insar
 from insar.constant import SCENE_DATE_FMT
-from insar.sensors import get_data_swath_info
+from insar.sensors import identify_data_source, get_data_swath_info, acquire_source_data, S1_ID, RSAT2_ID
 from insar.sensors.s1 import ANY_S1_SAFE_PATTERN
 from insar.project import ProcConfig
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
-from insar.meta_data.s1_slc import S1DataDownload
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import DateListParameter, tdir, simplify_dates, calculate_primary
 
-class SlcDataDownload(luigi.Task):
+class DataDownload(luigi.Task):
     """
-    Downloads/copies the raw data for an SLC scene, for all requested polarisations.
+    Downloads/copies the raw source data for a scene, for all requested polarisations.
     """
 
-    slc_scene = luigi.Parameter()
+    data_path = luigi.Parameter()
     poeorb_path = luigi.Parameter()
     resorb_path = luigi.Parameter()
     output_dir = luigi.Parameter()
@@ -37,32 +36,54 @@ class SlcDataDownload(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            tdir(self.workdir) / f"{Path(self.slc_scene).stem}_slc_download.out"
+            tdir(self.workdir) / f"{Path(self.data_path).stem}_download.out"
         )
 
     def run(self):
-        log = STATUS_LOGGER.bind(slc_scene=self.slc_scene)
-
-        download_obj = S1DataDownload(
-            Path(str(self.slc_scene)),
-            list(self.polarization),
-            Path(str(self.poeorb_path)),
-            Path(str(self.resorb_path)),
-        )
+        log = STATUS_LOGGER.bind(data_path=self.data_path)
         failed = False
 
-        outdir = Path(self.output_dir)
-        outdir.mkdir(parents=True, exist_ok=True)
-
         try:
-            download_obj.slc_download(outdir)
+            structlog.threadlocal.clear_threadlocal()
+            structlog.threadlocal.bind_threadlocal(
+                task="Data download",
+                data_path=self.data_path,
+                polarisation=self.polarization
+            )
+
+            log.info("Beginning data download")
+
+            # Setup sensor-specific data acquisition info
+            constellation, sensor = identify_data_source(self.data_path)
+            kwargs = {}
+
+            if constellation == S1_ID:
+                kwargs["poeorb_path"] = self.poeorb_path
+                kwargs["resorb_path"] = self.resorb_path
+            elif constellation == RSAT2_ID:
+                # RSAT2 has no extra info
+                pass
+            else:
+                raise RuntimeError(f"Unsupported constellation: {constellation}")
+
+            outdir = Path(self.output_dir)
+            outdir.mkdir(parents=True, exist_ok=True)
+
+            acquire_source_data(
+                self.data_path,
+                outdir,
+                self.polarization,
+                **kwargs
+            )
+
+            log.info("Data download complete")
         except:
-            log.error("SLC download failed with exception", exc_info=True)
+            log.error("Data download failed with exception", exc_info=True)
             failed = True
         finally:
             with self.output().open("w") as f:
                 if failed:
-                    f.write(f"{Path(self.slc_scene).name}")
+                    f.write(f"{Path(self.data_path).name}")
                 else:
                     f.write("")
 
@@ -81,7 +102,7 @@ class InitialSetup(luigi.Task):
     source_data = luigi.ListParameter()
     orbit = luigi.Parameter()
     sensor = luigi.Parameter()
-    polarization = luigi.ListParameter(default=["VV"])
+    polarization = luigi.ListParameter()
     outdir = luigi.Parameter()
     workdir = luigi.Parameter()
     burst_data_csv = luigi.Parameter()
@@ -106,7 +127,9 @@ class InitialSetup(luigi.Task):
         pols = list(self.polarization)
 
         # If we have a shape file, query the DB for scenes in that extent
-        if self.shape_file:
+        # TBD: The database geospatial/temporal query is currently Sentinel-1 only
+        # GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/261
+        if self.shape_file and proc_config.sensor == "S1":
             # get the relative orbit number, which is int value of the numeric part of the track name
             # Note: This is S1 specific...
             rel_orbit = int(re.findall(r"\d+", str(proc_config.track))[0])
@@ -194,8 +217,8 @@ class InitialSetup(luigi.Task):
         for slc_url in download_list:
             scene_date = Path(slc_url).name.split("_")[5].split("T")[0]
             download_tasks.append(
-                SlcDataDownload(
-                    slc_scene=slc_url.rstrip(),
+                DataDownload(
+                    data_path=slc_url.rstrip(),
                     polarization=self.polarization,
                     poeorb_path=self.poeorb_path,
                     resorb_path=self.resorb_path,

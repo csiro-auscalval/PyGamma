@@ -1,6 +1,6 @@
 import datetime
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Any
 import luigi
 import luigi.configuration
 from luigi.util import requires
@@ -9,10 +9,12 @@ import structlog
 from insar.constant import SCENE_DATE_FMT
 from insar.coreg_utils import read_land_center_coords
 from insar.coregister_dem import CoregisterDem
+# FIXME: insar.coregister_slc is mostly S1 specific, should be renamed as such
 from insar.coregister_slc import CoregisterSlc
+from insar.coregister_secondary import coregister_secondary, apply_coregistration
 from insar.project import ProcConfig
 
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import read_primary_date, tdir, load_settings, read_rlks_alks, get_scenes, read_file_line, mk_clean_dir
 from insar.workflow.luigi.dem import CreateGammaDem
@@ -222,7 +224,7 @@ def get_coreg_kwargs(proc_file: Path, scene_date=None, scene_pol=None):
     kwargs = {
         "proc_file": proc_file,
         "list_idx": "-",
-        "slc_primary": slc_primary_dir.joinpath(f"{primary_slc_prefix}.slc"),
+        "slc_primary": slc_primary_dir / f"{primary_slc_prefix}.slc",
         "range_looks": rlks,
         "azimuth_looks": alks,
         "ellip_pix_sigma0": dem_filenames["ellip_pix_sigma0"],
@@ -255,7 +257,6 @@ class CoregisterDemPrimary(luigi.Task):
     """
 
     multi_look = luigi.IntParameter()
-    primary_scene_polarization = luigi.Parameter(default="VV")
     primary_scene = luigi.OptionalParameter(default=None)
 
     def output(self):
@@ -269,8 +270,12 @@ class CoregisterDemPrimary(luigi.Task):
         failed = False
 
         try:
+            # Load the gamma proc config file
+            with open(self.proc_file, "r") as proc_fileobj:
+                proc_config = ProcConfig.from_file(proc_fileobj)
+
             primary_scene = read_primary_date(outdir).strftime(SCENE_DATE_FMT)
-            primary_pol = str(self.primary_scene_polarization).upper()
+            primary_pol = proc_config.polarisation
 
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
@@ -281,10 +286,6 @@ class CoregisterDemPrimary(luigi.Task):
             )
 
             log.info("Beginning DEM primary coregistration")
-
-            # Load the gamma proc config file
-            with open(self.proc_file, "r") as proc_fileobj:
-                proc_config = ProcConfig.from_file(proc_fileobj)
 
             # Read rlks/alks from multilook status
             ml_file = f"{self.stack_id}_createmultilook_status_logs.out"
@@ -334,6 +335,62 @@ class CoregisterDemPrimary(luigi.Task):
             structlog.threadlocal.clear_threadlocal()
 
 
+# This is just a wrapper class so coregister_secondary can act like
+# coregister_slc / minimise code changes for review.  This should be
+# temporary code, until coregister_slc is also refactored to functional
+# style & we can unify the functional coreg API then.
+#
+# TODO: This will need revision when coregister_slc.py is refactored into
+# process_ifg.py style functional code.
+class CoregisterSecondaryProcessor:
+    kwargs: Dict[str, Any]
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+        slc_secondary = self.kwargs["slc_secondary"]
+        secondary_mli = self.kwargs["secondary_mli"]
+
+        self.r_secondary_slc_path = slc_secondary.parent / f"r{slc_secondary.name}"
+        self.r_secondary_mli_path = secondary_mli.parent / f"r{secondary_mli.name}"
+
+    @property
+    def secondary_off(self):
+        return self.r_secondary_slc_path.with_suffix(".off")
+
+    @property
+    def secondary_lt(self):
+        return self.r_secondary_slc_path.with_suffix(".lt")
+
+    def main(self):
+        coregister_secondary(
+            self.kwargs["proc"],
+            self.kwargs["slc_primary"],
+            self.kwargs["r_dem_primary_mli"],
+            self.kwargs["rdc_dem"],
+            self.kwargs["slc_secondary"],
+            self.kwargs["secondary_mli"],
+            self.r_secondary_slc_path,
+            self.r_secondary_mli_path,
+            self.kwargs["range_looks"],
+            self.kwargs["azimuth_looks"],
+        )
+
+    def apply_coregistration(self, secondary_off: Path, secondary_lt: Path):
+        apply_coregistration(
+            self.kwargs["slc_primary"],
+            self.kwargs["r_dem_primary_mli"],
+            self.kwargs["slc_secondary"],
+            self.kwargs["secondary_mli"],
+            self.r_secondary_slc_path,
+            self.r_secondary_mli_path,
+            secondary_lt,
+            secondary_off,
+            self.kwargs["range_looks"],
+            self.kwargs["azimuth_looks"],
+        )
+
+
 class CoregisterSecondary(luigi.Task):
     """
     Runs the primary-secondary co-registration task, followed by backscatter.
@@ -364,24 +421,26 @@ class CoregisterSecondary(luigi.Task):
         )
 
     def get_processor(self):
-        with open(str(self.proc_file), "r") as proc_fileobj:
+        proc_path = Path(self.proc_file)
+        with proc_path.open("r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
-        return CoregisterSlc(
-            proc=proc_config,
-            list_idx=str(self.list_idx),
-            slc_primary=Path(str(self.slc_primary)),
-            slc_secondary=Path(str(self.slc_secondary)),
-            secondary_mli=Path(str(self.secondary_mli)),
-            range_looks=int(str(self.range_looks)),
-            azimuth_looks=int(str(self.azimuth_looks)),
-            ellip_pix_sigma0=Path(str(self.ellip_pix_sigma0)),
-            dem_pix_gamma0=Path(str(self.dem_pix_gamma0)),
-            r_dem_primary_mli=Path(str(self.r_dem_primary_mli)),
-            rdc_dem=Path(str(self.rdc_dem)),
-            geo_dem_par=Path(str(self.geo_dem_par)),
-            dem_lt_fine=Path(str(self.dem_lt_fine)),
-        )
+        secondary_date, secondary_pol = Path(self.slc_secondary).stem.split('_')
+        kwargs = get_coreg_kwargs(proc_path, secondary_date, secondary_pol)
+
+        # kwargs takes ProcConfig, not a path
+        kwargs["proc"] = proc_config
+        del kwargs["proc_file"]
+
+        # Remove unused args
+        del kwargs["outdir"]
+        del kwargs["workdir"]
+
+        # Sentinel-1 uses a special coregistration module
+        if proc_config.sensor == "S1":
+            return CoregisterSlc(**kwargs)
+
+        return CoregisterSecondaryProcessor(**kwargs)
 
     def requires(self):
         proc_path = Path(self.proc_file)
@@ -457,7 +516,6 @@ class CreateCoregisterSecondaries(luigi.Task):
     """
 
     proc_file = luigi.Parameter()
-    primary_scene_polarization = luigi.Parameter(default="VV")
     primary_scene = luigi.OptionalParameter(default=None)
 
     def output(self):
@@ -519,6 +577,7 @@ class CreateCoregisterSecondaries(luigi.Task):
         slc_frames = get_scenes(self.burst_data_csv)
 
         primary_scene = read_primary_date(outdir)
+        primary_pol = proc_config.polarisation
 
         coreg_tree = create_secondary_coreg_tree(
             primary_scene, [dt for dt, _, _ in slc_frames]
@@ -529,14 +588,10 @@ class CreateCoregisterSecondaries(luigi.Task):
         ]
         assert len(primary_polarizations) == 1
 
-        # TODO if primary polarization data does not exist in SLC archive then
-        # TODO choose other polarization or raise Error.
-        if self.primary_scene_polarization not in primary_polarizations[0]:
+        if primary_pol not in primary_polarizations[0]:
             raise ValueError(
-                f"{self.primary_scene_polarization} not available in SLC data for {primary_scene}"
+                f"{primary_pol} not available in SLC data for {primary_scene}"
             )
-
-        primary_pol = str(self.primary_scene_polarization).upper()
 
         # get range and azimuth looked values
         ml_file = tdir(self.workdir) / f"{self.stack_id}_createmultilook_status_logs.out"

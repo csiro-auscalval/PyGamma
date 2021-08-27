@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 import luigi
 import luigi.configuration
 from luigi.util import requires
@@ -8,7 +8,7 @@ import structlog
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.process_backscatter import generate_normalised_backscatter
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import tdir, read_rlks_alks, read_primary_date
 from insar.workflow.luigi.coregistration import CreateCoregisterSecondaries, get_coreg_kwargs, get_coreg_date_pairs

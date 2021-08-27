@@ -4,11 +4,9 @@ import luigi.configuration
 from luigi.util import requires
 
 from pathlib import Path
-from typing import List, Tuple
-import structlog
 
 from insar.make_gamma_dem import create_gamma_dem
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import tdir, load_settings, mk_clean_dir
 from insar.workflow.luigi.stack_setup import InitialSetup

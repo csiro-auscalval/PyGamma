@@ -6,7 +6,7 @@ import os.path
 from pathlib import Path
 
 from insar.project import ProcConfig, ARDWorkflow
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import DateListParameter
 
