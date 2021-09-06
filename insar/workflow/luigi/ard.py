@@ -1,4 +1,5 @@
 import luigi
+from luigi.util import common_params
 import luigi.configuration
 import datetime
 import os
@@ -10,6 +11,7 @@ from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import DateListParameter
 
+from insar.workflow.luigi.stack_setup import InitialSetup
 from insar.workflow.luigi.resume import TriggerResume
 from insar.workflow.luigi.backscatter import CreateCoregisteredBackscatter
 from insar.workflow.luigi.interferogram import CreateProcessIFGs
@@ -223,6 +225,19 @@ class ARD(luigi.WrapperTask):
             "burst_data_csv": self.output_path / f"{stack_id}_burst_data.csv",
             "cleanup": bool(proc_config.cleanup),
         }
+
+        # Need to make an instance of anything that can hold all of kwargs, for common param
+        # calculations via luigi's util function
+        temp = CreateProcessIFGs(**kwargs)
+
+        # Yield stack setup first (so we can determine if there is any data to process at all)
+        yield InitialSetup(**common_params(temp, InitialSetup))
+
+        # Check if any input even exists (and skip yielding workflow if not)
+        scenes_list = self.output_path / proc_config.list_dir / "scenes.list"
+        if not scenes_list.exists() or not scenes_list.read_text().strip():
+            log.info("Stack processing aborted, no scenes provided or match query.")
+            return
 
         # Yield appropriate workflow
         if self.resume:

@@ -11,8 +11,8 @@ import numpy as np
 from osgeo import gdal
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
-from insar.subprocess_utils import working_directory, run_command
-from insar.coreg_utils import latlon_to_px
+from insar.subprocess_utils import working_directory
+from insar.coreg_utils import latlon_to_px, create_diff_par
 from insar import constant as const
 
 _LOG = structlog.get_logger("insar")
@@ -635,26 +635,16 @@ class CoregisterDem:
 
     def create_diff_par(self) -> None:
         """Fine coregistration of primary MLI and simulated SAR image."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            return_file = Path(temp_dir).joinpath("returns")
-            with open(return_file, "w") as fid:
-                fid.write("" + "\n")
-                fid.write("{} {}\n".format(*self.dem_offset))
-                fid.write("{} {}\n".format(*self.dem_offset_measure))
-                fid.write("{} {}\n".format(*self.dem_window))
-                fid.write("{}".format(self.dem_snr))
 
-            # FIXME: non-interactive would be better...
-            command = [
-                "create_diff_par",
-                self.r_dem_primary_mli_par.as_posix(),
-                const.NOT_PROVIDED,
-                self.dem_diff.as_posix(),
-                "1",
-                "<",
-                return_file.as_posix(),
-            ]
-            run_command(command, os.getcwd())
+        create_diff_par(
+            self.r_dem_primary_mli_par,
+            None,
+            self.dem_diff,
+            self.dem_offset,
+            self.dem_offset_measure,
+            self.dem_window,
+            self.dem_snr
+        )
 
     def offset_calc(
         self, npoly: Optional[int] = 1, use_external_image: Optional[bool] = False,

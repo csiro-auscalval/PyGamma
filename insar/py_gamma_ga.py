@@ -161,8 +161,7 @@ class GammaInterface:
     this module is designed to work around.
     """
 
-    # map through to the original
-    ParFile = py_gamma_broken.ParFile
+    _gamma_proxy = None
 
     def __init__(self, install_dir=None, gamma_exes=None, subprocess_func=None):
         """
@@ -183,7 +182,25 @@ class GammaInterface:
         _LOG.info("GAMMA install location", install_dir=install_dir)
 
     def __getattr__(self, name):
-        """Dynamically lookup Gamma programs as methods to avoid hardcoding."""
+        """
+        Dynamically lookup Gamma programs as methods to avoid hardcoding.
+
+        By default this will scan the GAMMA_INSTALL_DIR env var for executable
+        programs/scripts, to determine what GAMMA calls are available... however
+        it's also possible for the user to set a proxy object to use for
+        implementing a GAMMA-like interface instead.
+
+        If a proxy object is available it takes priority over any underlying
+        GAMMA install (if any exists).
+        """
+
+        # Forward to a proxy object's version of the call/program, if the user
+        # has set a GAMMA proxy (typically used by unit tests).
+        proxy = self._gamma_proxy or GammaInterface._gamma_proxy
+        if proxy:
+            return getattr(proxy, name)
+
+        # Otherwise get a subprocess functor for the appropriate executable
         if self.install_dir is None:
             msg = (
                 "GammaInterface shim install_dir not set. Check for the GAMMA_INSTALL_DIR environ var, "
@@ -201,6 +218,21 @@ class GammaInterface:
         cmd = os.path.join(self.install_dir, self._gamma_exes[name])
         return functools.partial(self.subprocess_func, cmd)
 
+    def ParFile(self, filepath: str):
+        proxy = self._gamma_proxy or GammaInterface._gamma_proxy
+        if proxy:
+            return proxy.ParFile(filepath)
+
+        return py_gamma_broken.ParFile(filepath)
+
+    @classmethod
+    def set_proxy(cls, proxy_object):
+        """
+        Sets the GAMMA-like proxy object to use for GAMMA programs/calls.
+
+        See :func:`~.GammaInterface.__getattr__`
+        """
+        GammaInterface._gamma_proxy = proxy_object
 
 try:
     GAMMA_INSTALL_DIR = os.environ["GAMMA_INSTALL_DIR"]

@@ -8,7 +8,8 @@ import insar.constant as const
 
 from tests.py_gamma_test_proxy import PyGammaTestProxy
 
-import insar.coregister_dem
+#import insar.coregister_dem
+import insar.coreg_utils
 from insar.coregister_dem import CoregisterDem, CoregisterDemException
 from insar.coreg_utils import read_land_center_coords
 
@@ -155,7 +156,7 @@ def fake_cmd_runner(cmds, cwd):
 def test_valid_data(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         out_dir = Path(temp_path)
@@ -191,7 +192,7 @@ def test_missing_par_files_cause_errors(monkeypatch):
     for pattern in par_file_patterns:
         pgp, pgmock, data, temp_dir = get_test_context()
         monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-        monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+        monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
         with temp_dir as temp_path:
             out_dir = Path(temp_path)
@@ -217,7 +218,7 @@ def test_missing_par_files_cause_errors(monkeypatch):
 def test_copy_slc(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         out_dir = Path(temp_path)
@@ -245,7 +246,7 @@ def test_copy_slc(monkeypatch):
 def test_gen_dem_rdc(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         out_dir = Path(temp_path)
@@ -280,7 +281,7 @@ def test_gen_dem_rdc(monkeypatch):
 def test_create_diff_par(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         outdir = Path(temp_path) / "20151127"
@@ -295,7 +296,7 @@ def test_create_diff_par(monkeypatch):
         # which defeats the purpose of the test right now - but when it's migrated to pg.create_diff_par
         # we can remove this hack.  At the very least this is a smoke test for CoregisterDemcreate_diff_par
         monkeypatch.setattr(
-            insar.coregister_dem,
+            insar.coreg_utils,
             "run_command",
             lambda cmds, cwd: Path(coreg.dem_diff).touch(),
         )
@@ -308,7 +309,7 @@ def test_create_diff_par(monkeypatch):
 def test_offset_calc(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         out_dir = Path(temp_path)
@@ -338,7 +339,7 @@ def test_offset_calc(monkeypatch):
 def test_geocode(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         outdir = Path(temp_path) / "20151127"
@@ -379,7 +380,7 @@ def test_geocode(monkeypatch):
 def test_look_vector(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         outdir = Path(temp_path) / "20151127"
@@ -401,7 +402,7 @@ def test_look_vector(monkeypatch):
 def test_small_settings_get_fixed_up(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         outdir = Path(temp_path) / "20151127"
@@ -427,7 +428,7 @@ def test_small_settings_get_fixed_up(monkeypatch):
 def test_adjust_dem_parameter(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         outdir = Path(temp_path) / "20151127"
@@ -445,7 +446,7 @@ def test_adjust_dem_parameter(monkeypatch):
 def test_failure_on_invalid_multilook(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         outdir = Path(temp_path) / "20151127"
@@ -459,7 +460,7 @@ def test_failure_on_invalid_multilook(monkeypatch):
 def test_failure_on_invalid_dem_window_setting(monkeypatch):
     pgp, pgmock, data, temp_dir = get_test_context()
     monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
-    monkeypatch.setattr(insar.coregister_dem, "run_command", fake_cmd_runner)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
 
     with temp_dir as temp_path:
         outdir = Path(temp_path) / "20151127"

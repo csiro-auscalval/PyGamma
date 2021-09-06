@@ -201,67 +201,92 @@ class InitialSetup(luigi.Task):
         # Add any explicit source data files
         for data_path in (self.source_data or []):
             for swath_data in get_data_swath_info(data_path):
+                if swath_data["polarization"] not in pols:
+                    log.info(
+                        "Skipping source data which does not match stack polarisations",
+                        source_file=data_path,
+                        source_pol=swath_data["polarization"],
+                        stack_pols=pols
+                    )
+                    continue
+
                 slc_inputs_df = slc_inputs_df.append(swath_data, ignore_index=True)
 
         # Determine the selected sensor(s) from the query, for directory naming
-        selected_sensors = slc_inputs_df.sensor.unique()
-        selected_sensors = "_".join(sorted(selected_sensors))
-
-        # download slc data
-        download_dir = outdir / proc_config.raw_data_dir
-
-        os.makedirs(download_dir, exist_ok=True)
-
-        download_list = slc_inputs_df.url.unique()
-        download_tasks = []
-        for slc_url in download_list:
-            scene_date = Path(slc_url).name.split("_")[5].split("T")[0]
-            download_tasks.append(
-                DataDownload(
-                    data_path=slc_url.rstrip(),
-                    polarization=self.polarization,
-                    poeorb_path=self.poeorb_path,
-                    resorb_path=self.resorb_path,
-                    workdir=self.workdir,
-                    output_dir=Path(download_dir).joinpath(scene_date),
-                )
-            )
-        yield download_tasks
-
-        # Detect scenes w/ incomplete/bad raw data, and remove those scenes from
-        # processing while logging the situation for post-processing analysis.
-        drop_whole_date_if_corrupt = True
-
-        if drop_whole_date_if_corrupt:
-            for _task in download_tasks:
-                with open(_task.output().path) as fid:
-                    failed_file = fid.readline().strip()
-                    if not failed_file:
-                        continue
-
-                    scene_date = failed_file.split("_")[5].split("T")[0]
-                    log.info(
-                        f"corrupted zip file {failed_file}, removed whole date {scene_date} from processing"
-                    )
-
-                    scene_date = f"{scene_date[0:4]}-{scene_date[4:6]}-{scene_date[6:8]}"
-                    indexes = slc_inputs_df[slc_inputs_df["date"].astype(str) == scene_date].index
-                    slc_inputs_df.drop(indexes, inplace=True)
+        if len(slc_inputs_df) == 0:
+            selected_sensors = "NONE"
         else:
-            for _task in download_tasks:
-                with open(_task.output().path) as fid:
-                    out_name = fid.readline().rstrip()
-                    if re.match(ANY_S1_SAFE_PATTERN, out_name):
+            selected_sensors = slc_inputs_df.sensor.unique()
+            selected_sensors = "_".join(sorted(selected_sensors))
+
+            # download slc data
+            download_dir = outdir / proc_config.raw_data_dir
+
+            os.makedirs(download_dir, exist_ok=True)
+
+            download_list = slc_inputs_df.url.unique()
+            download_tasks = []
+            for slc_url in download_list:
+                scene_date = Path(slc_url).name.split("_")[5].split("T")[0]
+                download_tasks.append(
+                    DataDownload(
+                        data_path=slc_url.rstrip(),
+                        polarization=self.polarization,
+                        poeorb_path=self.poeorb_path,
+                        resorb_path=self.resorb_path,
+                        workdir=self.workdir,
+                        output_dir=Path(download_dir).joinpath(scene_date),
+                    )
+                )
+            yield download_tasks
+
+            # Detect scenes w/ incomplete/bad raw data, and remove those scenes from
+            # processing while logging the situation for post-processing analysis.
+            drop_whole_date_if_corrupt = True
+
+            if drop_whole_date_if_corrupt:
+                for _task in download_tasks:
+                    with open(_task.output().path) as fid:
+                        failed_file = fid.readline().strip()
+                        if not failed_file:
+                            continue
+
+                        scene_date = failed_file.split("_")[5].split("T")[0]
                         log.info(
-                            f"corrupted zip file {out_name} removed from further processing"
+                            f"corrupted zip file {failed_file}, removed whole date {scene_date} from processing"
                         )
-                        indexes = slc_inputs_df[
-                            slc_inputs_df["url"].map(lambda x: Path(x).name) == out_name
-                        ].index
+
+                        scene_date = f"{scene_date[0:4]}-{scene_date[4:6]}-{scene_date[6:8]}"
+                        indexes = slc_inputs_df[slc_inputs_df["date"].astype(str) == scene_date].index
                         slc_inputs_df.drop(indexes, inplace=True)
+            else:
+                for _task in download_tasks:
+                    with open(_task.output().path) as fid:
+                        out_name = fid.readline().rstrip()
+                        if re.match(ANY_S1_SAFE_PATTERN, out_name):
+                            log.info(
+                                f"corrupted zip file {out_name} removed from further processing"
+                            )
+                            indexes = slc_inputs_df[
+                                slc_inputs_df["url"].map(lambda x: Path(x).name) == out_name
+                            ].index
+                            slc_inputs_df.drop(indexes, inplace=True)
 
         # save slc burst data details which is used by different tasks
         slc_inputs_df.to_csv(self.burst_data_csv)
+        num_scenes = len(slc_inputs_df)
+
+        if num_scenes == 0:
+            log.info("Stack setup failed - no valid scenes specified!")
+
+            # Touch an empty scenes.list just to make it clear there are
+            # simply no scenes in this stack...
+            (outdir / proc_config.list_dir / 'scenes.list').touch()
+
+            with self.output().open("w") as out_fid:
+                out_fid.write("")
+
+            return
 
         # Determine stack extents
         stack_extent = None
@@ -283,11 +308,11 @@ class InitialSetup(luigi.Task):
         ref_scene_date = calculate_primary(formatted_scene_dates)
         log.info("Automatically computed primary reference scene date", ref_scene_date=ref_scene_date)
 
-        with open(outdir / 'lists' / 'primary_ref_scene', 'w') as ref_scene_file:
+        with open(outdir / proc_config.list_dir / 'primary_ref_scene', 'w') as ref_scene_file:
             ref_scene_file.write(ref_scene_date.strftime(SCENE_DATE_FMT))
 
         # Write scenes list
-        with open(outdir / 'lists' / 'scenes.list', 'w') as scenes_list_file:
+        with open(outdir / proc_config.list_dir / 'scenes.list', 'w') as scenes_list_file:
             scenes_list_file.write('\n'.join(sorted(formatted_scene_dates)))
 
         with self.output().open("w") as out_fid:

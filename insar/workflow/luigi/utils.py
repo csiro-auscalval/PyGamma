@@ -145,16 +145,24 @@ class DateListParameter(luigi.Parameter):
 # TODO: This should take a primary polarisation to filter on
 def get_scenes(burst_data_csv):
     df = pd.read_csv(burst_data_csv)
+    if len(df) == 0:
+        return []
+
     scene_dates = [_dt for _dt in sorted(df.date.unique())]
 
     frames_data = []
 
     for _date in scene_dates:
         df_subset = df[df["date"] == _date]
+        if len(df_subset) == 0:
+            continue
+
         polarizations = df_subset.polarization.unique()
         # TODO: This filter should be to primary polarisation
         # (which is not necessarily polarizations[0])
         df_subset_new = df_subset[df_subset["polarization"] == polarizations[0]]
+        if len(df_subset_new) == 0:
+            continue
 
         complete_frame = True
         for swath in [1, 2, 3]:

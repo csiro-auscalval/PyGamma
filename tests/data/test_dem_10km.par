@@ -1,0 +1,26 @@
+Gamma DIFF&GEO DEM/MAP parameter file
+title: test_dem_10km
+DEM_projection:     EQA
+data_format:        REAL*4
+DEM_hgt_offset:          0.00000
+DEM_scale:               1.00000
+width:                 583
+nlines:                455
+corner_lat:     -6.5449169  decimal degrees
+corner_lon:    107.5451660  decimal degrees
+post_lat:   -9.0111472e-02  decimal degrees
+post_lon:    9.0054545e-02  decimal degrees
+
+ellipsoid_name: WGS 84
+ellipsoid_ra:        6378137.000   m
+ellipsoid_reciprocal_flattening:  298.2572236
+
+datum_name: WGS 84
+datum_shift_dx:              0.000   m
+datum_shift_dy:              0.000   m
+datum_shift_dz:              0.000   m
+datum_scale_m:         0.00000e+00
+datum_rotation_alpha:  0.00000e+00   arc-sec
+datum_rotation_beta:   0.00000e+00   arc-sec
+datum_rotation_gamma:  0.00000e+00   arc-sec
+datum_country_list: WGS 84
