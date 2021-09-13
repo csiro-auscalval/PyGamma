@@ -1,10 +1,7 @@
 import io
 import pathlib
-import subprocess
 import shutil
 from typing import Union, Tuple, Optional
-from PIL import Image
-import numpy as np
 
 import structlog
 from insar.project import ProcConfig, IfgFileNames, DEMFileNames
@@ -14,6 +11,7 @@ from insar.path_util import append_suffix
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory
+from insar.process_utils import convert
 
 _LOG = structlog.get_logger("insar")
 
@@ -1192,19 +1190,6 @@ def rascc_wrapper(
         leftright,
         output_file,
     )
-
-
-def convert(input_file: Union[pathlib.Path, str]):
-    """
-    Converts a BMP image to PNG.
-    :param input_file: The path to the bmp image to convert
-    """
-
-    # Convert the bitmap to a PNG w/ black pixels made transparent
-    img = Image.open(input_file)
-    img = np.array(img.convert('RGBA'))
-    img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
-    Image.fromarray(img).save(append_suffix(pathlib.Path(input_file.stem), ".png"))
 
 
 def kml_map(

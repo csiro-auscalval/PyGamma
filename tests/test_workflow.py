@@ -5,7 +5,7 @@ import tempfile
 from tests.fixtures import *
 
 from insar.scripts.process_gamma import run_ard_inline
-from insar.project import ARDWorkflow, ProcConfig
+from insar.project import ARDWorkflow, ProcConfig, IfgFileNames
 from insar.constant import SlcFilenames, MliFilenames
 import insar.workflow.luigi.coregistration
 
@@ -101,12 +101,11 @@ def do_ard_workflow_validation(
     rlks = int(proc_config.range_looks)
 
     # DEBUG for visualising output in tempdir
-    print_out_dir = debug
-
-    if print_out_dir:
+    if debug:
         print("===== DEBUG =====")
         print_dir_tree(out_dir)
         print("==="*5)
+        print((job_dir / "status-log.jsonl").read_text())
     # END DEBUG
 
     # Assert there were no GAMMA errors
@@ -145,14 +144,12 @@ def do_ard_workflow_validation(
 
         assert(primary_ref_scene == proc_config.ref_primary_scene)
 
-    ifgs_dir = out_dir / proc_config.int_dir
+    ifg_dir = out_dir / proc_config.int_dir
 
-    if len(source_data) < 2:
+    if len(scenes_list) < 2 or workflow != ARDWorkflow.Interferogram:
         assert(len(ifgs_list) == 0)
     else:
         assert(len(ifgs_list) > 0)
-
-    assert(count_dir_tree(ifgs_dir) == len(ifgs_list))
 
     # Assert each scene has an SLC (coregistered if not NRT)
     #
@@ -208,48 +205,36 @@ def do_ard_workflow_validation(
 
     # Assert each IFG date pair has phase unwrapped geolocated data
     if validate_ifg:
-        # TODO (no test data has pairs yet / will bring this up when we enable S1 testing)
-        pass
+        if not ifgs_list:
+            assert(not ifg_dir.exists() or len(list(ifg_dir.iterdir())) == 0)
+        else:
+            assert(len(list(ifg_dir.iterdir())) == len(ifgs_list))
+
+        for date_pair in ifgs_list:
+            primary_date, secondary_date = date_pair.split(",")
+
+            ic = IfgFileNames(proc_config, primary_date, secondary_date, out_dir)
+
+            # Make sure the main geo flat & unwrapped file exists
+            assert((ic.ifg_dir / ic.ifg_unw_geocode_out_tiff).exists())
+            assert((ic.ifg_dir / ic.ifg_flat_geocode_out_tiff).exists())
+            assert((ic.ifg_dir / ic.ifg_flat).exists())
+
+            # Ensure filt/flat products exist
+            assert((ic.ifg_dir / ic.ifg_filt_geocode_out_tiff).exists())
+            assert((ic.ifg_dir / ic.ifg_filt_coh_geocode_out_tiff).exists())
+            assert((ic.ifg_dir / ic.ifg_flat_geocode_out_tiff).exists())
+            assert((ic.ifg_dir / ic.ifg_flat_coh_geocode_out_tiff).exists())
 
     return out_dir, job_dir, temp_dir
 
-def test_ard_workflow_ifg_single_s1_scene(monkeypatch, pgp, pgmock, proc_config, rs2_slc):
-    # INCOMPLETE AND DISABLED until s1 testing is passing first, as we need to
-    # solve some S1 specific mocking issues first (burst tabs issues)
-    #
-    # See GH issue #273: https://github.com/GeoscienceAustralia/gamma_insar/issues/273
-    return
+def test_ard_workflow_ifg_single_s1_scene(pgp, pgmock, s1_proc, s1_test_data_zips):
+    # Take just first 2 source data files (which is a single date, each date has 2 acquisitions in a frame)
+    source_data = [str(i) for i in s1_test_data_zips[:2]]
+    pols = ["VV", "VH"]
 
-    temp_dir = tempfile.TemporaryDirectory()
-    job_dir = Path(temp_dir.name) / "job"
-    out_dir = Path(temp_dir.name) / "out"
-
-    job_dir.mkdir()
-    out_dir.mkdir()
-
-    source_data = [
-        str(test_data / "S1A_IW_SLC__1SDV_20190918T200909_20190918T200936_029080_034CEE_C1F9.zip"),
-        str(test_data / "S1A_IW_SLC__1SDV_20190918T200934_20190918T201001_029080_034CEE_270E.zip"),
-    ]
-
-    # Bypass DB w/ fake SLC data (resolves to test/data/*.zip fake data files)
-    # DISABLED: We don't implement the DB query side of things yet.  We're able to though
-    # - it was just easier as a first step to process .zip files directory.
-    #monkeypatch.setattr(insar.workflow.luigi.stack_setup, "query_slc_inputs", query_fake_slc)
-
-    # Transform .proc file into using test data paths
-    with (test_data / "T133D_F20S_S1A.proc").open("r") as procfile:
-        procfile_txt = procfile.read()
-
-    # replace /g/data with tempdir
-    procfile_txt = procfile_txt.replace("/g/data", temp_dir.name)
-
-    test_procfile_path = Path(temp_dir.name) / "T133D_F20S_S1A.proc"
-    with test_procfile_path.open("w") as procfile:
-        procfile.write(procfile_txt)
-
-    with test_procfile_path.open("r") as proc_file_obj:
-        proc_config = ProcConfig.from_file(proc_file_obj)
+    with s1_proc.open('r') as fileobj:
+        proc_config = ProcConfig.from_file(fileobj)
 
     # Create empty orbit files
     for name in ["s1_orbits", "poeorb_path", "resorb_path", "s1_path"]:
@@ -258,24 +243,42 @@ def test_ard_workflow_ifg_single_s1_scene(monkeypatch, pgp, pgmock, proc_config,
     poeorb = Path(proc_config.poeorb_path) / "S1A" / "S1A_OPER_AUX_POEORB_OPOD_20190918T120745_V20190917T225942_20190919T005942.EOF"
     poeorb.touch()
 
-    args = {
-        "proc_file": str(test_procfile_path),
-        "include_dates": '',
-        "exclude_dates": '',
-        "source_data": source_data,
-        "workdir": str(job_dir),
-        "outdir": str(out_dir),
-        "polarization": ["VV", "VH"],
-        "cleanup": True,
-        "workflow": ARDWorkflow.Interferogram
-    }
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        source_data,
+        pols,
+        s1_proc
+    )
 
-    run_ard_inline(args)
+
+def test_ard_workflow_ifg_smoketest_two_date_s1_stack(pgp, pgmock, s1_proc, s1_test_data_zips):
+    source_data = [str(i) for i in s1_test_data_zips]
+    pols = ["VV", "VH"]
+
+    with s1_proc.open('r') as fileobj:
+        proc_config = ProcConfig.from_file(fileobj)
+
+    # Create empty orbit files
+    for name in ["s1_orbits", "poeorb_path", "resorb_path", "s1_path"]:
+        (Path(getattr(proc_config, name)) / "S1A").mkdir(parents=True, exist_ok=True)
+
+    for date in S1_TEST_DATA_DATES:
+        poeorb = Path(proc_config.poeorb_path) / "S1A" / "S1A_OPER_AUX_POEORB_OPOD_20190918T120745_V20190917T225942_20190919T005942.EOF"
+        poeorb.touch()
+
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        source_data,
+        pols,
+        s1_proc
+    )
 
 
 def test_ard_workflow_ifg_smoketest_single_rs2_scene(pgp, pgmock, rs2_test_data, rs2_proc):
-    # Setup test workflow arguments
-    source_data = [str(rs2_test_data)]
+    # Setup test workflow arguments, taking just a single RS2 acquisition
+    source_data = [str(rs2_test_data[0])]
     pols = ["HH"]
 
     # Run standard ifg workflow validation test for this data
@@ -287,14 +290,31 @@ def test_ard_workflow_ifg_smoketest_single_rs2_scene(pgp, pgmock, rs2_test_data,
         rs2_proc
     )
 
-def test_ard_workflow_ifg_smoketest_scene_pair(pgp, pgmock):
-    # TODO: Using S1 data (as it's the only test data we have a pair of, other sensors just have 1 fake source date)
-    pass
+def test_ard_workflow_ifg_smoketest_two_date_rs2_stack(pgp, pgmock, rs2_test_data, rs2_proc):
+    # Setup test workflow arguments
+    source_data = [str(i) for i in rs2_test_data]
+    pols = ["HH"]
 
+    # Run standard ifg workflow validation test for this data
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        source_data,
+        pols,
+        rs2_proc
+    )
+
+
+#
+# Note: The tests below don't differ inside of the workflow between sensors,
+# as such to avoid duplicating tests for no reason we just have one version
+# of each based on RS2 data.  This 'might' change in the future, at which
+# point test coverage may drop (and this may need to be revised).
+#
 
 def test_ard_workflow_smoketest_nrt(pgp, pgmock, rs2_test_data, rs2_proc):
     # Setup test workflow arguments
-    source_data = [str(rs2_test_data)]
+    source_data = [str(i) for i in rs2_test_data]
     pols = ["HH"]
 
     # Run standard ifg workflow validation test for this data
@@ -309,7 +329,7 @@ def test_ard_workflow_smoketest_nrt(pgp, pgmock, rs2_test_data, rs2_proc):
 
 def test_ard_workflow_pol_mismatch_produces_no_data(pgp, pgmock, rs2_test_data, rs2_proc):
     # Setup test workflow arguments
-    source_data = [str(rs2_test_data)]
+    source_data = [str(i) for i in rs2_test_data]
     # But with a mismatching pols! (rs2 test data is HH, not VV)
     pols = ["VV"]
 
@@ -321,8 +341,7 @@ def test_ard_workflow_pol_mismatch_produces_no_data(pgp, pgmock, rs2_test_data, 
         source_data,
         pols,
         rs2_proc,
-        min_gamma_calls=0,
-        debug=True
+        min_gamma_calls=0
     )
 
     assert(not (out_dir / 'lists' / 'scenes.list').read_text().strip())
@@ -341,7 +360,7 @@ def test_ard_workflow_excepts_on_dag_errors(monkeypatch, pgp, pgmock, rs2_test_d
     monkeypatch.setattr(insar.workflow.luigi.coregistration, "get_scenes", get_exception)
 
     # Setup test workflow arguments
-    source_data = [str(rs2_test_data)]
+    source_data = [str(i) for i in rs2_test_data]
     pols = ["HH"]
 
     # Run standard ifg workflow validation test, which should raise our exception!
@@ -374,7 +393,7 @@ def test_ard_workflow_processing_errors_do_not_except(pgp, pgmock, rs2_test_data
     pgmock.float_math.side_effect = raise_error
 
     # Setup test workflow arguments
-    source_data = [str(rs2_test_data)]
+    source_data = [str(rs2_test_data[0])]
     pols = ["HH"]
 
     # Run standard ifg workflow validation test, it should NOT except in this case
@@ -387,7 +406,8 @@ def test_ard_workflow_processing_errors_do_not_except(pgp, pgmock, rs2_test_data
         pols,
         rs2_proc,
         # Don't validate outputs, as they won't exist from our error
-        validate_slc=False
+        validate_slc=False,
+        validate_ifg=False
     )
 
     # Assert our exception was thrown (despite it not making it outside of luigi)
@@ -400,7 +420,7 @@ def test_ard_workflow_processing_errors_do_not_except(pgp, pgmock, rs2_test_data
 
 def test_ard_workflow_excepts_on_invalid_proc(pgp, pgmock, rs2_test_data, rs2_proc):
     # Setup test workflow arguments
-    source_data = [str(rs2_test_data)]
+    source_data = [str(i) for i in rs2_test_data]
     pols = ["HH"]
 
     # Create invalid .proc file
@@ -445,7 +465,7 @@ def test_ard_workflow_no_op_for_empty_data(pgp, pgmock, rs2_proc):
 
 def test_ard_workflow_no_cleanup_keeps_raw_data(pgp, pgmock, rs2_test_data, rs2_proc):
     # Setup test workflow arguments
-    source_data = [str(rs2_test_data)]
+    source_data = [str(i) for i in rs2_test_data]
     pols = ["HH"]
 
     # Run standard ifg workflow validation test for this data

@@ -11,11 +11,11 @@ import datetime
 import pandas as pd
 import structlog
 import json
-import osgeo.gdal
 
 from insar import constant as const
 from insar.constant import SlcFilenames
-from insar.subprocess_utils import working_directory, run_command
+from insar.subprocess_utils import working_directory
+from insar.process_utils import convert
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 
 _LOG = structlog.get_logger("insar")
@@ -785,12 +785,7 @@ class SlcProcess:
                 )
 
                 # convert bmp file to png quick look image file
-                command = [
-                    "convert",
-                    bmp_file,
-                    Path(tab_names.slc).with_suffix(".png").as_posix(),
-                ]
-                run_command(command, os.getcwd())
+                convert(bmp_file, Path(tab_names.slc).with_suffix(".png"))
 
         tab_names_list = [
             self.swath_tab_names(swath, self.slc_prefix) for swath in [1, 2, 3]

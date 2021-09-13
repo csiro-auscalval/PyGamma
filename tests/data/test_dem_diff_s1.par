@@ -1,0 +1,37 @@
+Gamma DIFF&GEO Processing Parameters
+title: DIFF_par determined from ISP image parameter files
+initial_range_offset:                   -1
+initial_azimuth_offset:                  0
+range_samp_1:                         68415
+az_samp_1:                            18536
+first_nonzero_range_pixel_1:             0
+number_of_nonzero_range_pixels_1:     68415
+range_pixel_spacing_1:         1.863650e+01
+az_pixel_spacing_1:            2.813052e+01
+range_samp_2:                         68415
+az_samp_2:                            18536
+first_nonzero_range_pixel_2:             0
+number_of_nonzero_range_pixels_2:     68415
+range_pixel_spacing_2:         1.863650e+01
+az_pixel_spacing_2:            2.813052e+01
+offset_estimation_starting_range:       64
+offset_estimation_ending_range:       68415
+offset_estimation_range_samples:        32
+offset_estimation_range_spacing:       271
+offset_estimation_starting_azimuth:     64
+offset_estimation_ending_azimuth:     18536
+offset_estimation_azimuth_samples:      32
+offset_estimation_azimuth_spacing:     294
+offset_estimation_patch_width:         128
+offset_estimation_patch_height:        128
+offset_estimation_threshold:         0.150
+range_offset_polynomial:         -1.22500    0.0000e+00    0.0000e+00    0.0000e+00    0.0000e+00    0.0000e+00
+azimuth_offset_polynomial:        0.06807    0.0000e+00    0.0000e+00    0.0000e+00    0.0000e+00    0.0000e+00
+starting_azimuth_line:                   0
+map_azimuth_lines:                       0
+map_width:                               0
+first_map_range_pixel:                   0
+number_map_range_pixels:                 0
+range_looks:                             0
+azimuth_looks:                           0
+diff_phase_fit:       0.00000    0.0000e+00    0.0000e+00    0.0000e+00    0.0000e+00    0.0000e+00

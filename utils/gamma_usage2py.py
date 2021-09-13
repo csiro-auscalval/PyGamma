@@ -108,13 +108,25 @@ def _usage2decl(module, program, file):
                 is_infile = desc.startswith("(input)") or is_inoutfile
                 is_outfile = desc.startswith("(output)") or is_inoutfile
 
-                # Special case for certain "(input)"'s that aren't actually files...
-                # eg: coord_to_sarpix has (input) args that are numbers in meters "(m)" or degrees "(deg.)"
-                # eg: par_RSAT2_SLC has (input) image polarization: HH, VV, HV, VH
-                if " (m)" in desc or " (deg" in desc or "polarization" in desc:
-                    is_inoutfile = False
-                    is_infile = False
-                    is_outfile = False
+                if not is_outfile:
+                    # Special case for certain "(input)"'s that aren't actually files...
+                    # eg: coord_to_sarpix has (input) args that are numbers in meters "(m)" or degrees "(deg.)"
+                    # eg: par_RSAT2_SLC has (input) image polarization: HH, VV, HV, VH
+                    not_file_patterns = [
+                        " (m)",
+                        " (deg",
+                        "polarization",
+                        "meters",
+                        "days",
+                        "float",
+                        "mode"
+                    ]
+
+                    for pattern in not_file_patterns:
+                        if pattern in desc:
+                            is_inoutfile = False
+                            is_infile = False
+                            is_outfile = False
 
             else:  # continue parsing existing arg
                 desc = line.lstrip()
@@ -174,6 +186,11 @@ if __name__ == "__main__":
         "soil_moisture",
         "validate",
         "ASAR_XCA",  # This has two programs of the same name?
+    ]
+
+    # A set of programs that have variable arguments
+    vararg_programs = [
+        "rascc_mask_thinning"
     ]
 
     # Parse program details
@@ -317,11 +334,13 @@ if __name__ == "__main__":
                     if param["optional"]:
                         args += " = None"
 
+                var_args = ", *args" if program in vararg_programs else ""
+
                 writelines(
                     1,
                     [
                         "",
-                        f'def {program.replace("-", "_")}(self, {args}):',
+                        f'def {program.replace("-", "_")}(self, {args}{var_args}):',
                         "    supplied_args = locals()",
                         '    result = (0, "", "")',
                         "",

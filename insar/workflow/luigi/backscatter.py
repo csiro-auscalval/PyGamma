@@ -189,6 +189,7 @@ class CreateCoregisteredBackscatter(luigi.Task):
             # Note: primary date has no coregistered/resampled files
             # since it 'is' the reference date for coreg, this we
             # use the plain old multisampled SLC for this date.
+            kwargs["outdir"] = primary_dir
             kwargs["src_mli"] = primary_dir / f"{prefix}.mli"
             kwargs["dst_stem"] = primary_dir / f"{prefix}"
 
@@ -204,6 +205,7 @@ class CreateCoregisteredBackscatter(luigi.Task):
             for pol in list(self.polarization):
                 prefix = f"{secondary_date}_{pol.upper()}_{rlks}rlks"
 
+                kwargs["outdir"] = secondary_dir
                 kwargs["src_mli"] = secondary_dir / f"r{prefix}.mli"
                 # TBD: We have always written the backscatter w/ the same
                 # pattern, but going forward we might want coregistered

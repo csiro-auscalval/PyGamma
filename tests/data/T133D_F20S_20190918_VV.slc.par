@@ -1,0 +1,68 @@
+Gamma Interferometric SAR Processor (ISP) - Image Parameter File
+
+title:     s1a-iw1-slc-vv-20190918t200910-20190918t200935-029080-034cee-004.tiff S1A-IW-IW1-VV-29080 (software: Sentinel-1 IPF 003.10)
+sensor:    S1A IW IW1 VV
+date:      2019 09 18
+start_time:             72553.509539   s
+center_time:            72572.557351   s
+end_time:               72591.605164   s
+azimuth_line_time:     2.0555563e-03   s
+line_header_size:                  0
+range_samples:                 68415
+azimuth_lines:                 18534
+range_looks:                       1
+azimuth_looks:                     1
+image_format:               FCOMPLEX
+image_geometry:             SLANT_RANGE
+range_scale_factor:     1.0000000e+00
+azimuth_scale_factor:   1.0000000e+00
+center_latitude:         -19.5771958   degrees
+center_longitude:        140.1379506   degrees
+heading:                 192.3464932   degrees
+range_pixel_spacing:        2.329562   m
+azimuth_pixel_spacing:     14.065280   m
+near_range_slc:           800010.4690  m
+center_range_slc:         879697.7963  m
+far_range_slc:            959385.1237  m
+first_slant_range_polynomial:        0.00000      0.00000  0.00000e+00  0.00000e+00  0.00000e+00  0.00000e+00  s m 1 m^-1 m^-2 m^-3 
+center_slant_range_polynomial:       0.00000      0.00000  0.00000e+00  0.00000e+00  0.00000e+00  0.00000e+00  s m 1 m^-1 m^-2 m^-3 
+last_slant_range_polynomial:         0.00000      0.00000  0.00000e+00  0.00000e+00  0.00000e+00  0.00000e+00  s m 1 m^-1 m^-2 m^-3 
+incidence_angle:             39.2134   degrees
+azimuth_deskew:          ON
+azimuth_angle:               90.0000   degrees
+radar_frequency:        5.4050005e+09  Hz
+adc_sampling_rate:      6.4345241e+07  Hz
+chirp_bandwidth:        5.6500000e+07  Hz
+prf:                      486.4863103  Hz
+azimuth_proc_bandwidth:     327.00000  Hz
+doppler_polynomial:         37.91301 -1.14567e-04  1.00558e-09  0.00000e+00  Hz     Hz/m     Hz/m^2     Hz/m^3
+doppler_poly_dot:        0.00000e+00  0.00000e+00  0.00000e+00  0.00000e+00  Hz/s   Hz/s/m   Hz/s/m^2   Hz/s/m^3
+doppler_poly_ddot:       0.00000e+00  0.00000e+00  0.00000e+00  0.00000e+00  Hz/s^2 Hz/s^2/m Hz/s^2/m^2 Hz/s^2/m^3
+receiver_gain:                 0.0000  dB
+calibration_gain:              0.0000  dB
+sar_to_earth_center:             7079320.3174   m
+earth_radius_below_sensor:       6375853.8410   m
+earth_semi_major_axis:           6378137.0000   m
+earth_semi_minor_axis:           6356752.3141   m
+number_of_state_vectors:                    9
+time_of_first_state_vector:      72544.165983   s
+state_vector_interval:              10.000000   s
+state_vector_position_1:  -5504016.3964    3824982.3260   -2278048.6785   m   m   m
+state_vector_velocity_1:     2877.57143       -31.39876     -7025.59825   m/s m/s m/s
+state_vector_position_2:  -5474933.6302    3824433.2125   -2348174.9403   m   m   m
+state_vector_velocity_2:     2938.91541       -78.43734     -6999.52264   m/s m/s m/s
+state_vector_position_3:  -5445239.4281    3823413.3215   -2418036.5079   m   m   m
+state_vector_velocity_3:     2999.85745      -125.55326     -6972.65991   m/s m/s m/s
+state_vector_position_4:  -5414937.8440    3821921.9093   -2487625.5257   m   m   m
+state_vector_velocity_4:     3060.39062      -172.74060     -6945.01323   m/s m/s m/s
+state_vector_position_5:  -5384033.0013    3819958.2910   -2556934.1706   m   m   m
+state_vector_velocity_5:     3120.50805      -219.99347     -6916.58587   m/s m/s m/s
+state_vector_position_6:  -5352529.0915    3817521.8412   -2625954.6522   m   m   m
+state_vector_velocity_6:     3180.20292      -267.30592     -6887.38116   m/s m/s m/s
+state_vector_position_7:  -5320430.3739    3814611.9936   -2694679.2142   m   m   m
+state_vector_velocity_7:     3239.46848      -314.67202     -6857.40254   m/s m/s m/s
+state_vector_position_8:  -5287741.1750    3811228.2416   -2763100.1351   m   m   m
+state_vector_velocity_8:     3298.29806      -362.08582     -6826.65352   m/s m/s m/s
+state_vector_position_9:  -5254465.8880    3807370.1380   -2831209.7288   m   m   m
+state_vector_velocity_9:     3356.68502      -409.54134     -6795.13772   m/s m/s m/s
+
