@@ -16,6 +16,7 @@ from statistics import mean
 DT_FMT_SHORT = "%Y%m%d"
 DT_FMT_LONG = "%Y-%m-%d"
 DT_FMT_JSON="%Y-%m-%dT%H:%M:%S.%fZ"
+DT_FMT_NO_NS_JSON="%Y-%m-%dT%H:%M:%SZ"
 
 def query_out_dir(dir: Path):
     """
@@ -240,8 +241,12 @@ def query_job_dir(dir: Path):
     with (dir / "status.log").open("r") as status_file:
         for line in status_file:
             log = json.loads(line[line.index("{") :])
-            timestamp = datetime.strptime(log["timestamp"], DT_FMT_JSON)
             event = log["event"]
+
+            try:
+                timestamp = datetime.strptime(log["timestamp"], DT_FMT_JSON)
+            except ValueError:
+                timestamp = datetime.strptime(log["timestamp"], DT_FMT_NO_NS_JSON)
 
             # TODO: Eventually coreg/backscatter will be separated
             if "SLC coregistration" in event:
