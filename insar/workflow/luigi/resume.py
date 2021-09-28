@@ -11,7 +11,7 @@ from insar.process_ifg import validate_ifg_input_files, ProcessIfgException
 from insar.project import ProcConfig, IfgFileNames, ARDWorkflow
 from insar.logs import STATUS_LOGGER
 
-from insar.workflow.luigi.utils import DateListParameter, read_primary_date, tdir, read_rlks_alks
+from insar.workflow.luigi.utils import DateListParameter, PathParameter, read_primary_date, tdir, read_rlks_alks
 from insar.workflow.luigi.stack_setup import DataDownload
 from insar.workflow.luigi.s1 import ProcessSlc
 from insar.workflow.luigi.mosaic import ProcessSlcMosaic
@@ -38,20 +38,20 @@ class ReprocessSingleSLC(luigi.Task):
     thus assumes the existence of multilook status output containing rlks/alks.
     """
 
-    proc_file = luigi.Parameter()
+    proc_file = PathParameter()
     stack_id = luigi.Parameter()
     polarization = luigi.Parameter()
 
-    burst_data_csv = luigi.Parameter()
+    burst_data_csv = PathParameter()
 
-    poeorb_path = luigi.Parameter()
-    resorb_path = luigi.Parameter()
+    poeorb_path = PathParameter()
+    resorb_path = PathParameter()
 
     scene_date = luigi.Parameter()
-    ref_primary_tab = luigi.Parameter()
+    ref_primary_tab = PathParameter()
 
-    outdir = luigi.Parameter()
-    workdir = luigi.Parameter()
+    outdir = PathParameter()
+    workdir = PathParameter()
 
     resume_token = luigi.Parameter()
 
@@ -225,22 +225,22 @@ class TriggerResume(luigi.Task):
 
     # Note: This task needs to take all the parameters the others do,
     # so we can re-create the other tasks for resuming
-    proc_file = luigi.Parameter()
-    shape_file = luigi.Parameter()
+    proc_file = PathParameter()
+    shape_file = PathParameter()
     source_data = luigi.ListParameter()
-    burst_data_csv = luigi.Parameter()
+    burst_data_csv = PathParameter()
     include_dates = DateListParameter()
     exclude_dates = DateListParameter()
-    sensor = luigi.Parameter()
+    sensor = luigi.OptionalParameter()
     polarization = luigi.ListParameter()
     cleanup = luigi.BoolParameter()
-    outdir = luigi.Parameter()
-    workdir = luigi.Parameter()
+    outdir = PathParameter()
+    workdir = PathParameter()
     orbit = luigi.Parameter()
-    dem_img = luigi.Parameter()
+    dem_img = PathParameter()
     multi_look = luigi.IntParameter()
-    poeorb_path = luigi.Parameter()
-    resorb_path = luigi.Parameter()
+    poeorb_path = PathParameter()
+    resorb_path = PathParameter()
 
     reprocess_failed = luigi.BoolParameter()
     resume_token = luigi.Parameter()

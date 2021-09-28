@@ -8,7 +8,7 @@ from pathlib import Path
 from insar.make_gamma_dem import create_gamma_dem
 from insar.logs import STATUS_LOGGER
 
-from insar.workflow.luigi.utils import tdir, load_settings, mk_clean_dir
+from insar.workflow.luigi.utils import tdir, load_settings, mk_clean_dir, PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
 
 # TBD: This doesn't have a .proc setting for some reason
@@ -20,7 +20,7 @@ class CreateGammaDem(luigi.Task):
     Runs create gamma dem task
     """
 
-    dem_img = luigi.Parameter()
+    dem_img = PathParameter()
 
     def output(self):
         return luigi.LocalTarget(

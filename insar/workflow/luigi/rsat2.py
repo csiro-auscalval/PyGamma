@@ -11,7 +11,7 @@ from insar.project import ProcConfig
 from insar.logs import STATUS_LOGGER
 from insar.process_rsat2_slc import process_rsat2_slc
 
-from insar.workflow.luigi.utils import tdir, get_scenes
+from insar.workflow.luigi.utils import tdir, get_scenes, PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
 
 class ProcessRSAT2Slc(luigi.Task):
@@ -19,15 +19,15 @@ class ProcessRSAT2Slc(luigi.Task):
     Produces an SLC product for a single date/polarisation of RSAT2 data.
     """
 
-    raw_path = luigi.Parameter()
+    raw_path = PathParameter()
 
     scene_date = luigi.Parameter()
     polarization = luigi.Parameter()
 
-    burst_data = luigi.Parameter()
+    burst_data = PathParameter()
 
-    slc_dir = luigi.Parameter()
-    workdir = luigi.Parameter()
+    slc_dir = PathParameter()
+    workdir = PathParameter()
 
     def output(self):
         return luigi.LocalTarget(

@@ -11,7 +11,7 @@ from insar.project import ProcConfig
 from insar.logs import STATUS_LOGGER
 from insar.process_s1_slc import SlcProcess
 
-from insar.workflow.luigi.utils import tdir, get_scenes
+from insar.workflow.luigi.utils import tdir, get_scenes, PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
 
 class ProcessSlc(luigi.Task):
@@ -20,12 +20,12 @@ class ProcessSlc(luigi.Task):
     """
 
     scene_date = luigi.Parameter()
-    raw_path = luigi.Parameter()
+    raw_path = PathParameter()
     polarization = luigi.Parameter()
-    burst_data = luigi.Parameter()
-    slc_dir = luigi.Parameter()
-    workdir = luigi.Parameter()
-    ref_primary_tab = luigi.Parameter(default=None)
+    burst_data = PathParameter()
+    slc_dir = PathParameter()
+    workdir = PathParameter()
+    ref_primary_tab = PathParameter(default=None)
 
     def output(self):
         return luigi.LocalTarget(
@@ -170,13 +170,13 @@ class ProcessSlcMosaic(luigi.Task):
     """
 
     scene_date = luigi.Parameter()
-    raw_path = luigi.Parameter()
+    raw_path = PathParameter()
     polarization = luigi.Parameter()
-    burst_data = luigi.Parameter()
-    slc_dir = luigi.Parameter()
-    outdir = luigi.Parameter()
-    workdir = luigi.Parameter()
-    ref_primary_tab = luigi.Parameter(default=None)
+    burst_data = PathParameter()
+    slc_dir = PathParameter()
+    outdir = PathParameter()
+    workdir = PathParameter()
+    ref_primary_tab = PathParameter(default=None)
     rlks = luigi.IntParameter()
     alks = luigi.IntParameter()
 

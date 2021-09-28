@@ -10,7 +10,7 @@ from insar.project import ProcConfig
 from insar.process_backscatter import generate_nrt_backscatter
 from insar.logs import STATUS_LOGGER
 
-from insar.workflow.luigi.utils import tdir, load_settings, get_scenes, read_rlks_alks
+from insar.workflow.luigi.utils import PathParameter, tdir, load_settings, get_scenes, read_rlks_alks
 from insar.workflow.luigi.dem import CreateGammaDem
 from insar.workflow.luigi.multilook import CreateMultilook
 
@@ -22,13 +22,12 @@ class ProcessNRTBackscatter(luigi.Task):
     Produces a quick radar backscatter product for an SLC.
     """
 
-    proc_file = luigi.Parameter()
-    outdir = luigi.Parameter()
-    workdir = luigi.Parameter()
+    proc_file = PathParameter()
+    outdir = PathParameter()
+    workdir = PathParameter()
 
-    src_path = luigi.Parameter()
-    #dem_path = luigi.Parameter()
-    dst_stem = luigi.Parameter()
+    src_path = PathParameter()
+    dst_stem = PathParameter()
 
     def output(self):
         return luigi.LocalTarget(
@@ -91,7 +90,7 @@ class CreateNRTBackscatter(luigi.Task):
     images, not their coregistered/resampled images.
     """
 
-    proc_file = luigi.Parameter()
+    proc_file = PathParameter()
     polarization = luigi.ListParameter(default=None)
 
     def output(self):

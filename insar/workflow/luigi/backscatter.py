@@ -10,7 +10,7 @@ from insar.project import ProcConfig
 from insar.process_backscatter import generate_normalised_backscatter
 from insar.logs import STATUS_LOGGER
 
-from insar.workflow.luigi.utils import tdir, read_rlks_alks, read_primary_date
+from insar.workflow.luigi.utils import PathParameter, tdir, read_rlks_alks, read_primary_date
 from insar.workflow.luigi.coregistration import CreateCoregisterSecondaries, get_coreg_kwargs, get_coreg_date_pairs
 
 class ProcessBackscatter(luigi.Task):
@@ -18,16 +18,16 @@ class ProcessBackscatter(luigi.Task):
     Produces the NBR (normalised radar backscatter) product for an SLC.
     """
 
-    proc_file = luigi.Parameter()
-    outdir = luigi.Parameter()
-    workdir = luigi.Parameter()
+    proc_file = PathParameter()
+    outdir = PathParameter()
+    workdir = PathParameter()
 
-    src_mli = luigi.Parameter()
-    ellip_pix_sigma0 = luigi.Parameter()
-    dem_pix_gamma0 = luigi.Parameter()
-    dem_lt_fine = luigi.Parameter()
-    geo_dem_par = luigi.Parameter()
-    dst_stem = luigi.Parameter()
+    src_mli = PathParameter()
+    ellip_pix_sigma0 = PathParameter()
+    dem_pix_gamma0 = PathParameter()
+    dem_lt_fine = PathParameter()
+    geo_dem_par = PathParameter()
+    dst_stem = PathParameter()
 
     def output(self):
         return luigi.LocalTarget(
@@ -90,7 +90,7 @@ class CreateCoregisteredBackscatter(luigi.Task):
     as well as the primary reference scene used for coreg.
     """
 
-    proc_file = luigi.Parameter()
+    proc_file = PathParameter()
     polarization = luigi.ListParameter(default=None)
 
     def output(self):

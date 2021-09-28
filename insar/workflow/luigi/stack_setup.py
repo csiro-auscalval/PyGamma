@@ -20,19 +20,19 @@ from insar.project import ProcConfig
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.logs import STATUS_LOGGER
 
-from insar.workflow.luigi.utils import DateListParameter, tdir, simplify_dates, calculate_primary
+from insar.workflow.luigi.utils import DateListParameter, PathParameter, tdir, simplify_dates, calculate_primary
 
 class DataDownload(luigi.Task):
     """
     Downloads/copies the raw source data for a scene, for all requested polarisations.
     """
 
-    data_path = luigi.Parameter()
-    poeorb_path = luigi.Parameter()
-    resorb_path = luigi.Parameter()
-    output_dir = luigi.Parameter()
+    data_path = PathParameter()
+    poeorb_path = PathParameter()
+    resorb_path = PathParameter()
+    output_dir = PathParameter()
     polarization = luigi.ListParameter()
-    workdir = luigi.Parameter()
+    workdir = PathParameter()
 
     def output(self):
         return luigi.LocalTarget(
@@ -95,21 +95,21 @@ class InitialSetup(luigi.Task):
     """
 
     stack_id = luigi.Parameter()
-    proc_file = luigi.Parameter()
+    proc_file = PathParameter()
     include_dates = DateListParameter()
     exclude_dates = DateListParameter()
-    shape_file = luigi.Parameter()
+    shape_file = PathParameter()
     source_data = luigi.ListParameter()
     orbit = luigi.Parameter()
-    sensor = luigi.Parameter()
+    sensor = luigi.OptionalParameter()
     polarization = luigi.ListParameter()
-    outdir = luigi.Parameter()
-    workdir = luigi.Parameter()
-    burst_data_csv = luigi.Parameter()
-    poeorb_path = luigi.Parameter()
-    resorb_path = luigi.Parameter()
+    outdir = PathParameter()
+    workdir = PathParameter()
+    burst_data_csv = PathParameter()
+    poeorb_path = PathParameter()
+    resorb_path = PathParameter()
     cleanup = luigi.BoolParameter()
-    dem_img = luigi.Parameter()
+    dem_img = PathParameter()
 
     def output(self):
         return luigi.LocalTarget(

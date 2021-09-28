@@ -101,10 +101,18 @@ def simplify_dates(include_dates: List[Tuple[datetime.date]], exclude_dates: Lis
 
 
 class ListParameter(luigi.Parameter):
-    """Converts luigi parameters separated by comma to a list."""
+    """A parameter whose value is in fact a list of comma separated values."""
 
     def parse(self, arguments):
-        return arguments.split(",")
+        return None if arguments is None else arguments.split(",")
+
+
+class PathParameter(luigi.Parameter):
+    """A parameter whose value is a file path."""
+
+    def parse(self, arguments):
+        return None if arguments is None else Path(arguments)
+
 
 class DateListParameter(luigi.Parameter):
     """

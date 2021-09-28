@@ -8,7 +8,7 @@ from insar.project import ProcConfig
 from insar.constant import SCENE_DATE_FMT
 from insar.logs import STATUS_LOGGER
 
-from insar.workflow.luigi.utils import tdir, get_scenes
+from insar.workflow.luigi.utils import tdir, get_scenes, PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
 
 class Multilook(luigi.Task):
@@ -16,11 +16,11 @@ class Multilook(luigi.Task):
     Produces multilooked SLC given a specified rlks/alks for multilooking
     """
 
-    slc = luigi.Parameter()
-    slc_par = luigi.Parameter()
+    slc = PathParameter()
+    slc_par = PathParameter()
     rlks = luigi.IntParameter()
     alks = luigi.IntParameter()
-    workdir = luigi.Parameter()
+    workdir = PathParameter()
 
     def output(self):
         return luigi.LocalTarget(

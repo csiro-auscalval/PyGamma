@@ -7,7 +7,7 @@ from insar.project import ProcConfig
 from insar.calc_baselines_new import BaselineProcess
 from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
 
-from insar.workflow.luigi.utils import tdir, get_scenes, read_primary_date
+from insar.workflow.luigi.utils import PathParameter, tdir, get_scenes, read_primary_date
 from insar.workflow.luigi.multilook import CreateMultilook
 
 
@@ -17,7 +17,7 @@ class CalcInitialBaseline(luigi.Task):
     Runs calculation of initial baseline task
     """
 
-    proc_file = luigi.Parameter()
+    proc_file = PathParameter()
 
     def output(self):
         return luigi.LocalTarget(

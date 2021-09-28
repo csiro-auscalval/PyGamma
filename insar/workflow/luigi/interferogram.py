@@ -9,7 +9,7 @@ from insar.project import ProcConfig, DEMFileNames, IfgFileNames
 from insar.coreg_utils import read_land_center_coords
 from insar.logs import STATUS_LOGGER
 
-from insar.workflow.luigi.utils import tdir, mk_clean_dir
+from insar.workflow.luigi.utils import tdir, mk_clean_dir, PathParameter
 from insar.workflow.luigi.backscatter import CreateCoregisteredBackscatter
 
 
@@ -18,11 +18,11 @@ class ProcessIFG(luigi.Task):
     Runs the interferogram processing tasks for primary polarisation.
     """
 
-    proc_file = luigi.Parameter()
-    shape_file = luigi.Parameter()
+    proc_file = PathParameter()
+    shape_file = PathParameter()
     stack_id = luigi.Parameter()
-    outdir = luigi.Parameter()
-    workdir = luigi.Parameter()
+    outdir = PathParameter()
+    workdir = PathParameter()
 
     primary_date = luigi.Parameter()
     secondary_date = luigi.Parameter()
@@ -93,11 +93,11 @@ class CreateProcessIFGs(luigi.Task):
     Runs the interferogram processing tasks.
     """
 
-    proc_file = luigi.Parameter()
-    shape_file = luigi.Parameter()
+    proc_file = PathParameter()
+    shape_file = PathParameter()
     stack_id = luigi.Parameter()
-    outdir = luigi.Parameter()
-    workdir = luigi.Parameter()
+    outdir = PathParameter()
+    workdir = PathParameter()
 
     def output(self):
         return luigi.LocalTarget(

@@ -17,6 +17,7 @@ from insar.project import ProcConfig
 from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import read_primary_date, tdir, load_settings, read_rlks_alks, get_scenes, read_file_line, mk_clean_dir
+from insar.workflow.luigi.utils import PathParameter
 from insar.workflow.luigi.dem import CreateGammaDem
 from insar.workflow.luigi.baseline import CalcInitialBaseline
 
@@ -399,21 +400,21 @@ class CoregisterSecondary(luigi.Task):
     coreg_lut parameter to use.
     """
 
-    proc_file = luigi.Parameter()
+    proc_file = PathParameter()
     list_idx = luigi.Parameter()
-    slc_primary = luigi.Parameter()
-    slc_secondary = luigi.Parameter()
-    secondary_mli = luigi.Parameter()
+    slc_primary = PathParameter()
+    slc_secondary = PathParameter()
+    secondary_mli = PathParameter()
     range_looks = luigi.IntParameter()
     azimuth_looks = luigi.IntParameter()
-    ellip_pix_sigma0 = luigi.Parameter()
-    dem_pix_gamma0 = luigi.Parameter()
-    r_dem_primary_mli = luigi.Parameter()
-    rdc_dem = luigi.Parameter()
-    geo_dem_par = luigi.Parameter()
-    dem_lt_fine = luigi.Parameter()
-    outdir = luigi.Parameter()
-    workdir = luigi.Parameter()
+    ellip_pix_sigma0 = PathParameter()
+    dem_pix_gamma0 = PathParameter()
+    r_dem_primary_mli = PathParameter()
+    rdc_dem = PathParameter()
+    geo_dem_par = PathParameter()
+    dem_lt_fine = PathParameter()
+    outdir = PathParameter()
+    workdir = PathParameter()
 
     def output(self):
         return luigi.LocalTarget(
@@ -515,7 +516,7 @@ class CreateCoregisterSecondaries(luigi.Task):
     up by each sub-tree of secondary-secondary coregistrations in the coregistration network.
     """
 
-    proc_file = luigi.Parameter()
+    proc_file = PathParameter()
     primary_scene = luigi.OptionalParameter(default=None)
 
     def output(self):

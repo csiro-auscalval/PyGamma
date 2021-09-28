@@ -9,7 +9,7 @@ from pathlib import Path
 from insar.project import ProcConfig, ARDWorkflow
 from insar.logs import STATUS_LOGGER
 
-from insar.workflow.luigi.utils import DateListParameter
+from insar.workflow.luigi.utils import DateListParameter, PathParameter
 
 from insar.workflow.luigi.stack_setup import InitialSetup
 from insar.workflow.luigi.resume import TriggerResume
@@ -38,7 +38,7 @@ class ARD(luigi.WrapperTask):
     """
 
     # .proc config path (holds all settings except query)
-    proc_file = luigi.Parameter()
+    proc_file = PathParameter()
 
     # Query params (to find source data for processing)
     shape_file = luigi.Parameter(default="")
@@ -49,22 +49,22 @@ class ARD(luigi.WrapperTask):
     source_data = luigi.ListParameter(default=[])
 
     # Overridable query params (can come from .proc, or task)
-    stack_id = luigi.Parameter(default=None)
-    sensor = luigi.Parameter(default=None)
+    stack_id = luigi.OptionalParameter(default=None)
+    sensor = luigi.OptionalParameter(default=None)
     polarization = luigi.ListParameter(default=None)
-    orbit = luigi.Parameter(default=None)
+    orbit = luigi.OptionalParameter(default=None)
 
     # .proc overrides
     cleanup = luigi.BoolParameter(
         default=None, significant=False, parsing=luigi.BoolParameter.EXPLICIT_PARSING
     )
-    outdir = luigi.Parameter(default=None)
-    workdir = luigi.Parameter(default=None)
-    database_path = luigi.Parameter(default=None)
-    primary_dem_image = luigi.Parameter(default=None)
+    outdir = PathParameter(default=None)
+    workdir = PathParameter(default=None)
+    database_path = PathParameter(default=None)
+    primary_dem_image = PathParameter(default=None)
     multi_look = luigi.IntParameter(default=None)
-    poeorb_path = luigi.Parameter(default=None)
-    resorb_path = luigi.Parameter(default=None)
+    poeorb_path = luigi.OptionalParameter(default=None)
+    resorb_path = luigi.OptionalParameter(default=None)
     workflow = luigi.EnumParameter(
         enum=ARDWorkflow, default=None
     )
