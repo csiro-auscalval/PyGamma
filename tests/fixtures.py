@@ -1,4 +1,3 @@
-from attr import asdict
 import pytest
 import tempfile
 import shutil
@@ -7,10 +6,16 @@ import re
 from zipfile import ZipFile
 from datetime import datetime, timedelta
 from osgeo import gdal
+from osgeo import osr
 from PIL import Image
 import pandas as pd
 from pathlib import Path
 from unittest import mock
+import numpy as np
+import logging.config
+import structlog
+import pkg_resources
+from insar.logs import COMMON_PROCESSORS
 
 from tests.py_gamma_test_proxy import PyGammaTestProxy
 
@@ -39,6 +44,11 @@ S1_TEST_DATA_IDS = [
     "S1A_IW_SLC__1SDV_20190918T200934_20190918T201001_029080_034CEE_270E",
     "S1A_IW_SLC__1SDV_20190930T200910_20190930T200937_029255_0352F4_A544",
     "S1A_IW_SLC__1SDV_20190930T200935_20190930T201002_029255_0352F4_7CBB",
+]
+
+RS2_TEST_DATA_DATES = [
+    "20170430",
+    "20170617",
 ]
 
 RS2_TEST_DATA_IDS = [
@@ -86,6 +96,12 @@ def rs2_proc(test_data_dir):
 
     return test_procfile_path
 
+
+@pytest.fixture
+def rs2_test_zips():
+    return [TEST_DATA_BASE / f"{id}.zip" for id in RS2_TEST_DATA_IDS]
+
+
 @pytest.fixture(scope="session")
 def rs2_test_data(test_data_dir):
     # Extract test data
@@ -123,6 +139,25 @@ def s1_proc(test_data_dir):
     test_procfile_path = test_data_dir / src_proc_path.name
     with test_procfile_path.open("w") as procfile:
         procfile.write(procfile_txt)
+
+    with test_procfile_path.open('r') as fileobj:
+        proc_config = ProcConfig.from_file(fileobj)
+
+    # Create empty orbit files
+    for name in ["s1_orbits", "poeorb_path", "resorb_path", "s1_path"]:
+        (Path(getattr(proc_config, name)) / "S1A").mkdir(parents=True, exist_ok=True)
+
+    for src_date in S1_TEST_DATA_DATES:
+        # Create a fake orbit file as well (stack setup typically does this)
+        # as the S1 SLC processing seems to assume this will exist here too
+        src_day = datetime.strptime(src_date, SCENE_DATE_FMT)
+        day_prior = (src_day - timedelta(days=1)).strftime(SCENE_DATE_FMT)
+        day_after = (src_day + timedelta(days=1)).strftime(SCENE_DATE_FMT)
+
+        fake_orbit_name = f"S1A_OPER_AUX_POEORB_OPOD_{src_date}T120745_V{day_prior}T225942_{day_after}T005942.EOF"
+
+        poeorb = Path(proc_config.poeorb_path) / "S1A" / fake_orbit_name
+        poeorb.touch()
 
     return test_procfile_path
 
@@ -179,6 +214,14 @@ def s1_test_data_csv(pgp, pgmock, test_data_dir, s1_test_data_zips):
 def pgp():
     return PyGammaTestProxy(exception_type=RuntimeError)
 
+def copy_tab_entries(src_tab_lines, dst_tab_lines):
+    for src_line, dst_line in zip(src_tab_lines, dst_tab_lines):
+        src_slc, src_par, src_tops_par = src_line.split()
+        dst_slc, dst_par, dst_tops_par = dst_line.split()
+        shutil.copyfile(src_slc, dst_slc)
+        shutil.copyfile(src_par, dst_par)
+        shutil.copyfile(src_tops_par, dst_tops_par)
+
 @pytest.fixture
 def pgmock(monkeypatch, pgp):
     pgmock = mock.Mock(spec=PyGammaTestProxy, wraps=pgp)
@@ -199,6 +242,31 @@ def pgmock(monkeypatch, pgp):
         return result
 
     pgmock.par_RSAT2_SLC.side_effect = par_RSAT2_SLC_mock
+
+    def par_S1_SLC_mock(*args, **kwargs):
+        result = pgp.par_S1_SLC(*args, **kwargs)
+
+        xml_path, _, _, _, out_par, _, out_tops_par = args[:7]
+
+        # Substitute well-known .par files for well-known data
+        # so unit tests have real data to work with...
+        #
+        # Note: Unlike RS2, this is not-exact... S1 has subswaths,
+        # and our test file is for an IW1, but we're using it as the
+        # source for IW1+IW2+IW3... in reality this would cause incorrect
+        # data outputs, but since our GAMMA mock doesn't do anything real
+        # this works out fine for our testing purposes...
+        for date in S1_TEST_DATA_DATES:
+            if f"_{date}T" in str(xml_path):
+                test_slc_par = TEST_DATA_BASE / f"{S1_TEST_STACK_ID}_{date}_VV.slc.par"
+                test_tops_slc_par = TEST_DATA_BASE / f"{S1_TEST_STACK_ID}_{date}_VV.slc.TOPS_par"
+                shutil.copyfile(test_slc_par, out_par)
+                shutil.copyfile(test_tops_slc_par, out_tops_par)
+                break
+
+        return result
+
+    pgmock.par_S1_SLC.side_effect = par_S1_SLC_mock
 
     def dem_import_mock(*args, **kwargs):
         result = pgp.dem_import(*args, **kwargs)
@@ -246,42 +314,73 @@ def pgmock(monkeypatch, pgp):
     # Note: pixel contents or image resolution usually don't matter in our higher level
     # logic, so we use a tiny 32x32 image to keep IO down. Exceptional cases do write
     # resolution-appropriate images (eg: data2geotiff).
-    fake_image = Image.new("L", (32, 32))
+    def save_fake_img(path: Path, width: int = 32, height: int = 32):
+        if path.suffix == ".tif" or path.suffix == ".tiff":
+            gtiff_file = gdal.GetDriverByName("GTiff").Create(
+                str(path),
+                width, height, 1,
+                gdal.GDT_Byte,
+                options=["COMPRESS=PACKBITS"]
+            )
+
+            # Add some fake georeferencing (eastern australia) to our fake image
+            srs = osr.SpatialReference()
+            srs.ImportFromEPSG(4326)
+            projection = srs.ExportToWkt()
+
+            tl = gdal.GCP(138.7354168, -18.1726391, 0, 0, 0)
+            br = gdal.GCP(141.7201391, -21.0256947, 0, width-1, height-1)
+
+            gtiff_file.SetProjection(projection)
+            gtiff_file.SetGeoTransform([
+                tl.GCPX,
+                (br.GCPX - tl.GCPX) / width,
+                0.0,
+                tl.GCPY,
+                0.0,
+                (br.GCPY - tl.GCPY) / height
+            ])
+            gtiff_file.GetRasterBand(1).WriteArray(np.zeros((height, width), dtype=np.uint8))
+            gtiff_file.GetRasterBand(1).SetNoDataValue(0)
+            gtiff_file.FlushCache()
+            gtiff_file = None
+        else:
+            Image.new("L", (width, height)).save(path)
 
     def raspwr_mock(*args, **kwargs):
         result = pgp.raspwr(*args, **kwargs)
-        out_file = args[9]
-        fake_image.save(out_file)
+        out_file = Path(args[9])
+        save_fake_img(out_file)
         return result
 
     def rashgt_mock(*args, **kwargs):
         result = pgp.rashgt(*args, **kwargs)
-        out_file = args[12]
-        fake_image.save(out_file)
+        out_file = Path(args[12])
+        save_fake_img(out_file)
         return result
 
     def rascc_mock(*args, **kwargs):
         result = pgp.rascc(*args, **kwargs)
-        out_file = args[13]
-        fake_image.save(out_file)
+        out_file = Path(args[13])
+        save_fake_img(out_file)
         return result
 
     def ras2ras_mock(*args, **kwargs):
         result = pgp.ras2ras(*args, **kwargs)
-        out_file = args[1]
-        fake_image.save(out_file)
+        out_file = Path(args[1])
+        save_fake_img(out_file)
         return result
 
     def rasrmg_mock(*args, **kwargs):
         result = pgp.rasrmg(*args, **kwargs)
-        out_file = args[13]
-        fake_image.save(out_file)
+        out_file = Path(args[13])
+        save_fake_img(out_file)
         return result
 
     def rasSLC_mock(*args, **kwargs):
         result = pgp.rasSLC(*args, **kwargs)
-        out_file = args[11]
-        fake_image.save(out_file)
+        out_file = Path(args[11])
+        save_fake_img(out_file)
         return result
 
     def data2geotiff_mock(*args, **kwargs):
@@ -289,14 +388,14 @@ def pgmock(monkeypatch, pgp):
         par_file = pgp.ParFile(args[0])
         width = par_file.get_value("width", dtype=int, index=0)
         height = par_file.get_value("nlines", dtype=int, index=0)
-        out_file = args[3]
-        Image.new("L", (width, height)).save(out_file)
+        out_file = Path(args[3])
+        save_fake_img(out_file, width, height)
         return result
 
     def data2tiff_mock(*args, **kwargs):
         result = pgp.data2tiff(*args, **kwargs)
-        out_file = args[3]
-        fake_image.save(out_file)
+        out_file = Path(args[3])
+        save_fake_img(out_file)
         return result
 
     pgmock.raspwr.side_effect = raspwr_mock
@@ -320,15 +419,32 @@ def pgmock(monkeypatch, pgp):
     # Coreg tests need some stdout data from offset_fit to work...
     # - this fake data should meet accuracy requirements / result in just
     # - a single refinement iteration as a result (which is all we need for testing).
-    pgmock.offset_fit.return_value = (
-        0,
-        [
-            "final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943",
-            "final range offset poly. coeff.:             -0.00408   5.88056e-07   3.95634e-08  -1.75528e-11",
-            "final azimuth offset poly. coeff.:             -0.00408   5.88056e-07   3.95634e-08  -1.75528e-11",
-        ],
-        [],
-    )
+    offset_fit_stdout = [
+        "final model fit std. dev. (samples) range:   0.3699  azimuth:   0.1943",
+        "final range offset poly. coeff.:             -0.00408   5.88056e-07   3.95634e-08  -1.75528e-11",
+        "final azimuth offset poly. coeff.:             -0.00408   5.88056e-07   3.95634e-08  -1.75528e-11",
+    ]
+
+    offset_fit_doff = [
+        "fake header",
+        "",
+        "range_offset_polynomial:         0.00587   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00",
+        "azimuth_offset_polynomial:      -0.00227   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00",
+        "slc1_starting_azimuth_line:               0",
+        "interferogram_azimuth_lines:           9268",
+        "interferogram_width:                   8551",
+    ]
+
+    def offset_fit_mock(*args, **kwargs):
+        result = pgp.offset_fit(*args, **kwargs)
+
+        doff = Path(args[2])
+        with doff.open("w") as file:
+            file.write("\n".join(offset_fit_doff))
+
+        return result[0], offset_fit_stdout, []
+
+    pgmock.offset_fit.side_effect = offset_fit_mock
 
     # Note: This is a hack to get data processing working... but it's incorrect (gives a single static subswath no matter the input)
     # - we'd probably be better recording this for our test data scenes we use for processing instead, and returning those pre-recorded
@@ -371,11 +487,7 @@ def pgmock(monkeypatch, pgp):
                 assert(Path(par).exists())
                 assert(Path(tops_par).exists())
 
-        for line in out_tab:
-            slc, par, tops_par = line.split()
-            Path(slc).touch()
-            Path(par).touch()
-            Path(tops_par).touch()
+        copy_tab_entries(in_tab1, out_tab)
 
         return result
 
@@ -408,17 +520,15 @@ def pgmock(monkeypatch, pgp):
         with open(slc2_tab, 'r') as file:
             slc2_tab = file.read().splitlines()
 
+        assert(len(slc1_tab) == len(slc2_tab))
+
         for line in slc1_tab:
             slc, par, tops_par = line.split()
             assert(Path(slc).exists())
             assert(Path(par).exists())
             assert(Path(tops_par).exists())
 
-        for line in slc2_tab:
-            slc, par, tops_par = line.split()
-            Path(slc).touch()
-            Path(par).touch()
-            Path(tops_par).touch()
+        copy_tab_entries(slc1_tab, slc2_tab)
 
         return result
 
@@ -453,6 +563,29 @@ def pgmock(monkeypatch, pgp):
 
     pgmock.SLC_interp_lt.side_effect = SLC_interp_lt_mock
 
+    def SLC_interp_lt_ScanSAR_mock(*args, **kwargs):
+        result = pgp.SLC_interp_lt_ScanSAR(*args, **kwargs)
+
+        SLC2_tab, SLC2_par = args[:2]
+        SLC2R_tab, _, SLC2R_par = args[8:11]
+
+        SLC2_tab = Path(SLC2_tab)
+        SLC2R_tab = Path(SLC2R_tab)
+
+        if SLC2R_tab.exists():
+            SLC2_tab = SLC2_tab.read_text().splitlines()
+            SLC2R_tab = SLC2R_tab.read_text().splitlines()
+
+            copy_tab_entries(SLC2_tab, SLC2R_tab)
+        else:
+            shutil.copyfile(SLC2_tab, SLC2R_tab)
+
+        shutil.copyfile(SLC2_par, SLC2R_par)
+
+        return result
+
+    pgmock.SLC_interp_lt_ScanSAR.side_effect = SLC_interp_lt_ScanSAR_mock
+
     def multi_look_mock(*args, **kwargs):
         result = pgp.multi_look(*args, **kwargs)
 
@@ -463,6 +596,23 @@ def pgmock(monkeypatch, pgp):
         return result
 
     pgmock.multi_look.side_effect = multi_look_mock
+
+    def image_stat_mock(*args, **kwargs):
+        result = pgp.image_stat(*args, **kwargs)
+
+        dst_stat_file = Path(args[6])
+        with dst_stat_file.open("w") as file:
+            # Produce some fake image stats for a very flat image
+            # - this implicitly passes all our coreg iterations,
+            # - which is simply trying to minimise the difference
+            # - between two images, thus smaller = less difference
+            file.write("mean: 0.1\n")
+            file.write("stdev: 0.01\n")
+            file.write("fraction_valid: 0.98\n")
+
+        return result
+
+    pgmock.image_stat.side_effect = image_stat_mock
 
     # Record pre-mock state (so it can be restored after)
     orig_install = os.environ.get("GAMMA_INSTALL_DIR")
@@ -493,3 +643,26 @@ def pgmock(monkeypatch, pgp):
         insar.coregister_secondary.pg = before_pg
         insar.coregister_dem.create_diff_par = before_diff_par
         insar.coregister_secondary.create_diff_par = before_diff_par
+
+
+@pytest.fixture
+def logging_ctx():
+    """
+    This fixture creates a temporary logging context for our code which expects
+    to be able to use our structlog configuration.  This is useful for tests
+    which use code that uses these logs implicitly (eg: S1 metadata code...)
+    """
+    temp_dir = tempfile.TemporaryDirectory()
+
+    with temp_dir as temp_path:
+        os.chdir(temp_path)
+
+        # Configure logging from built-in script logging config file
+        logging_conf = pkg_resources.resource_filename("insar", "logging.cfg")
+        logging.config.fileConfig(logging_conf)
+
+        insar_log_path = Path(temp_path) / "insar-log.jsonl"
+        with insar_log_path.open("a") as fobj:
+            structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj), processors=COMMON_PROCESSORS)
+            yield insar_log_path
+

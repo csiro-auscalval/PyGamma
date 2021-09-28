@@ -36,7 +36,7 @@ def identify_data_source(name: str):
     if rsat2_match:
         # There is only a single satellite in RSAT2 constellation,
         # so it has a hard-coded sensor name.
-        return rsat2.METADATA.constellation_name, rsat2.METADATA.name
+        return rsat2.METADATA.constellation_name, rsat2.METADATA.constellation_members[0]
 
     raise Exception(f"Unrecognised data source file: {name}")
 
@@ -50,13 +50,40 @@ def _dispatch(constellation_or_pathname: str):
 
     return _sensors[id_constellation]
 
+
 def get_data_swath_info(data_path: str):
+    """
+    Extract information for each (sub)swath in a data product.
+
+    Each (sub)swath information dict has the following entries:
+     * `date`: The date assigned to the (sub)swath.
+     * `swath_extent`: The geospatial extent ((minx, miny), (maxx, maxy)) of the (sub)swath.
+     * `sensor`: The sensor that acquired this (sub)swath.
+     * `url`: The original URL of the source data containing this (sub)swath
+     * `polarization`: The polarisation of the (sub)swath
+     * `acquisition_datetime`: The UTC timestamp the (sub)swath acquisition by the satellite STARTED
+     * `swath`: A swath index IF the data source contains many consecutive (sub)swaths.
+     * `burst_number`: What burst indices are contained within this swath (if any)
+     * `total_bursts`: Total number of bursts in this swath (if any)
+     * `missing_primary_bursts`: What burst indices are missing from this swath (if any)
+
+    Note: Some satellites break (sub)swaths into finer elements, which we call
+    bursts (following ESA terminology for S1).  For satellites which do NOT do
+    this refinement, burst-related information values are ignored.
+
+    :param name:
+        The source data path name to be identified.
+    :returns:
+        A list of dictionary objects representing swaths (or subswaths) in the data product.
+    """
+
     try:
         local_path = Path(data_path)
 
         return _dispatch(local_path.name).get_data_swath_info(local_path)
     except Exception as e:
         raise RuntimeError("Unsupported path!\n" + str(e))
+
 
 # Note: source_path is explicitly a str... it's possible we may need
 # to support non-local-file paths in the future (eg: S3 buckets or NCI MDSS paths)

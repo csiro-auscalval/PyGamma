@@ -735,6 +735,10 @@ class S1DataDownload(SlcMetadata):
             [],
         )
 
+        # If there are no matching polarisations, exit early
+        if not files_download:
+            return
+
         files_download.append(self.manifest_file)
 
         # get a base slc directory where files will be downloaded

@@ -2,14 +2,11 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
 import re
-from numpy import source
-import rasterio
 from zipfile import ZipFile
 import shutil
 import xml.etree.ElementTree as etree
 
 from insar.sensors.types import SensorMetadata
-from insar.xml_util import getNamespaces
 
 # Example: RS2_OK127568_PK1123201_DK1078370_F0W2_20170430_084253_HH_SLC
 # Parts: RS2_OK{order key}_PK{product key}_DK{delivery key}_{beam mode}_{acquisition date}_{start time}_{polarisation}_{product type}
@@ -33,7 +30,7 @@ SUPPORTS_GEOSPATIAL_DB = False
 METADATA = SensorMetadata(
     "RADARSAT-2",
     "RADARSAT",
-    ["RSAT2"],
+    ["RS2"],
     798.0,
     5.405,
     POLARISATIONS
@@ -113,7 +110,7 @@ def get_data_swath_info(data_path: Path):
     result = {
         "date": date.date(),
         "swath_extent": swath_extent,
-        "sensor": METADATA.name,
+        "sensor": METADATA.constellation_members[0],
         "url": str(data_path),
         "polarization": pol,
         "acquisition_datetime": date,
@@ -135,7 +132,14 @@ def acquire_source_data(source_path: str, dst_dir: Path, pols: Optional[List[str
 
     # The end result is a subdir in dst_dir w/ the same name as the source data
     if source_path.is_dir():
-        shutil.copytree(source_path, dst_dir / source_path.stem)
+        def ignore_filter(dir, names):
+            included_imagery = [f"imagery_{p}" for p in pols]
+            return [i for i in names if "imagery" in i and Path(i).stem not in included_imagery]
+
+        if pols:
+            shutil.copytree(source_path, dst_dir / source_path.stem, ignore=ignore_filter)
+        else:
+            shutil.copytree(source_path, dst_dir / source_path.stem)
 
     elif source_path.suffix == ".zip":
         with ZipFile(source_path, "r") as zip:

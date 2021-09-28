@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import shutil
 import yaml
 import attr
 import click
@@ -14,9 +15,10 @@ import json
 from insar.py_gamma_ga import pg
 from eodatasets3 import DatasetAssembler
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata
-from insar.logs import COMMON_PROCESSORS
 
-structlog.configure(processors=COMMON_PROCESSORS)
+from insar.project import ProcConfig
+from insar.workflow.luigi.utils import load_settings
+
 _LOG = structlog.get_logger("insar")
 
 
@@ -28,8 +30,8 @@ def map_product(product: str) -> Dict:
     """Returns product names mapped to a product filename suffix."""
     _map_dict = {
         "sar": {
-            "suffixs": ("gamma0.tif", "sigma0.tif"),
-            "angles": ("lv_phi.tif", "lv_theta.tif"),
+            "suffixs": ("geo_gamma0.tif", "geo_sigma0.tif"),
+            "angles": ("geo_lv_phi.tif", "geo_lv_theta.tif"),
             "product_base": "SLC",
             "dem_base": "DEM",
             "product_family": "nrb",
@@ -155,15 +157,17 @@ def _write_measurements(
         product = Path(product)
 
         # TODO currently assumes that filename is of
-        # r'^[0-9]{8}_[VV|VH]_*_*.tif'
+        # r'^[0-9]{8}_[VV|VH]_*_{projection}_{product_type}.tif'
         try:
-            _, pol, _, _suffix = product.stem.split("_")
+            file_parts = product.stem.split("_")
+            pol = file_parts[1]
+            prod_type = "_".join(file_parts[4:])
         except:
             _LOG.error("filename pattern not recognized", product_name=product.name)
             raise ValueError(f"{product.name} not recognized filename pattern")
 
         p.write_measurement(
-            f"{_suffix.split('.')[1]}_{pol.lower()}", product, overviews=None
+            f"{prod_type}_{pol.lower()}", product, overviews=None
         )
 
 
@@ -179,12 +183,14 @@ def _write_angles_measurements(
         # TODO currently assumes that filename is of
         # r'^[0-9]{8}_[VV|VH]_*_*_*.tif'
         try:
-            _, _name = product.stem.split(".")
+            file_parts = product.stem.split("_")
+            pol = file_parts[1]
+            prod_type = "_".join(file_parts[4:])
         except:
             _LOG.error("filename pattern not recognized", product_name=product.name)
             raise ValueError(f"{product.name} not recognized filename pattern")
 
-        p.write_measurement(f"{_name}", product, overviews=None)
+        p.write_measurement(f"{prod_type}", product, overviews=None)
 
 
 @attr.s(auto_attribs=True)
@@ -212,21 +218,17 @@ class SLC:
         product: str,
         yaml_base_dir: Union[Path, str, None],
     ):
+        proc_config, metadata = load_settings(stack_base_path / "config.proc")
+
+        stack_base_path = Path(stack_base_path)
+        prod_base = (stack_base_path / map_product(product)["product_base"])
 
         if product == "sar":
             # currently, map_product("sar")["product_base"] = "SLC"
-            for slc_scene_path in (
-                Path(stack_base_path)
-                .joinpath(map_product(product)["product_base"])
-                .iterdir()
-            ):
+            for slc_scene_path in prod_base.iterdir():
                 package_status = True
-                dem_path = Path(stack_base_path).joinpath(
-                    map_product(product)["dem_base"]
-                )
-                burst_data = Path(stack_base_path).joinpath(
-                    f"{_track}_{_frame}_burst_data.csv"
-                )
+                dem_path = stack_base_path / map_product(product)["dem_base"]
+                burst_data = Path(metadata["burst_data"])
 
                 if not burst_data.exists():
                     package_status = False
@@ -601,6 +603,9 @@ def package(
                 # Or skip if we're not going to over-write it
                 elif overwrite_existing:
                     _LOG.info("re-packaging existing scene", slc_scene=str(slc.slc_path))
+                    for dir in scene_pkg_YYYYMMdir.glob(f"{scene_day}*"):
+                        _LOG.info("Deleting existing packaged scene", dir=str(dir))
+                        shutil.rmtree(dir)
 
                 # Otherwise, skip packaging this product
                 # - assume it's already been packaged / it's fine.

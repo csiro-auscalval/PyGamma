@@ -96,7 +96,7 @@ def get_data_swath_info(data_path: Path):
             "swath": swath_id,
             "burst_number": burst_numbers,
             "swath_extent": swath_extent,
-            "sensor": sensor,
+            "sensor": sensor.upper(),
             "url": str(data_path),
             "total_bursts": "?",  # Filled in below
             "polarization": pol,

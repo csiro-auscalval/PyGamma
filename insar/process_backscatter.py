@@ -56,9 +56,9 @@ def generate_normalised_backscatter(
         The destination path stem, which all outputs will be prefixed with.
     """
     dst_geo_stem = dst_stem.parent / (dst_stem.stem + "_geo" + dst_stem.suffix)
-    secondary_gamma0 = outdir / dst_stem.with_suffix(".gamma0")
-    secondary_gamma0_geo = outdir / dst_geo_stem.with_suffix(".gamma0")
-    secondary_sigma0_geo = secondary_gamma0_geo.with_suffix(".sigma0")
+    secondary_gamma0 = outdir / append_suffix(dst_stem, "_gamma0")
+    secondary_gamma0_geo = outdir / append_suffix(dst_geo_stem, "_gamma0")
+    secondary_sigma0_geo = outdir / append_suffix(dst_geo_stem, "_sigma0")
 
     par_mli = pg.ParFile(str(src_mli.with_suffix(src_mli.suffix + ".par")))
     mli_width = par_mli.get_value("range_samples", dtype=int, index=0)
@@ -134,7 +134,7 @@ def generate_normalised_backscatter(
                 geo_dem_par,
                 secondary_gamma0_geo,
                 2,  # float
-                secondary_gamma0_geo.with_suffix(".gamma0.tif"),
+                append_suffix(secondary_gamma0_geo, ".tif"),
                 0.0,  # no data value
             )
 
@@ -167,7 +167,7 @@ def generate_normalised_backscatter(
                 geo_dem_par,
                 secondary_sigma0_geo,
                 2,  # float dtype
-                secondary_sigma0_geo.with_suffix(".sigma0.tif"),
+                append_suffix(secondary_sigma0_geo, ".tif"),
                 0.0,  # no data value
             )
 

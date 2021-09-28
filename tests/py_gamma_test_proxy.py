@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Sequence, NamedTuple, Dict
+from typing import Sequence, NamedTuple, Dict, Optional
 from collections import Counter
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -34,11 +34,17 @@ class SimpleParFile(object):
 
                 self.values[value_id] = value_data
 
-    def get_value(self, value_id: str, dtype=str, index: int = 0):
-        if dtype == str:
-            return self.values[value_id]
+    def get_value(self, value_id: str, dtype=str, index: Optional[int] = None):
+        def attempt_convert(val):
+            try:
+                return dtype(val)
+            except:
+                return val
 
-        return dtype(self.values[value_id].split()[index])
+        if index is not None:
+            return attempt_convert(self.values[value_id].split()[index])
+        else:
+            return [attempt_convert(i) for i in self.values[value_id].split()]
 
 
 class PyGammaTestProxy(object):

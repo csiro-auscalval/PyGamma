@@ -2,7 +2,6 @@ import tempfile
 import shutil
 from pathlib import Path
 from unittest import mock
-import pytest
 from PIL import Image
 
 from tests.py_gamma_test_proxy import PyGammaTestProxy
@@ -10,8 +9,8 @@ from tests.py_gamma_test_proxy import PyGammaTestProxy
 import insar.coregister_slc
 from insar.coregister_slc import CoregisterSlc, CoregisterSlcException
 from insar.process_backscatter import generate_normalised_backscatter
-from insar.project import ProcConfig, IfgFileNames, DEMFileNames
-
+from insar.project import ProcConfig
+from insar.path_util import append_suffix
 
 def get_test_context():
     temp_dir = tempfile.TemporaryDirectory()
@@ -258,18 +257,18 @@ def test_generate_normalised_backscatter(monkeypatch):
             test_output
         )
 
-        secondary_gamma0 = test_output.with_suffix(".gamma0")
-        secondary_gamma0_geo = secondary_gamma0.parent / (secondary_gamma0.stem + "_geo" + secondary_gamma0.suffix)
-        secondary_png = secondary_gamma0_geo.with_suffix(".gamma0.png")
+        secondary_gamma0 = append_suffix(test_output, "_gamma0")
+        secondary_gamma0_geo = append_suffix(test_output, "_geo_gamma0")
+        secondary_sigma0_geo = append_suffix(test_output, "_geo_sigma0")
 
         assert(secondary_gamma0.exists())
+
         assert(secondary_gamma0_geo.exists())
-        assert(secondary_png.exists())
+        assert(append_suffix(secondary_gamma0_geo, ".tif").exists())
+        assert(append_suffix(secondary_gamma0_geo, ".png").exists())
 
-        assert(secondary_gamma0_geo.with_suffix(".gamma0.tif").exists())
-
-        assert(secondary_gamma0_geo.with_suffix(".sigma0").exists())
-        assert(secondary_gamma0_geo.with_suffix(".sigma0.tif").exists())
+        assert(secondary_sigma0_geo.exists())
+        assert(append_suffix(secondary_sigma0_geo, ".tif").exists())
 
 
 # TODO: Test more specific corner cases (what are they?)

@@ -22,18 +22,18 @@ def print_dir_tree(dir: Path, depth=0):
         else:
             print("  " * depth + i.name)
 
-def dir_tree(dir: Path) -> Generator[Path, None, None]:
+def dir_tree(dir: Path, include_dirs: bool = True) -> Generator[Path, None, None]:
     for i in dir.iterdir():
         yield i
 
         if i.is_dir():
-            yield from dir_tree(i)
+            yield from dir_tree(i, include_dirs)
 
-def count_dir_tree(dir: Path) -> int:
+def count_dir_tree(dir: Path, include_dirs: bool = True) -> int:
     if not dir.exists():
         return 0
 
-    return len(list(dir_tree(dir)))
+    return len(list(dir_tree(dir, include_dirs)))
 
 # Note: these tests run on fake source data products, so...
 # 1) This doesn't test any of the DB query side of things
@@ -193,8 +193,8 @@ def do_ard_workflow_validation(
                     gamma0_path = scene_dir / f"nrt_{scene}_{pol}_{rlks}rlks_gamma0_geo"
                     gamma0_tif_path = scene_dir / f"nrt_{scene}_{pol}_{rlks}rlks_gamma0_geo.tif"
                 else:
-                    gamma0_path = scene_dir / f"{scene}_{pol}_{rlks}rlks_geo.gamma0"
-                    gamma0_tif_path = scene_dir / f"{scene}_{pol}_{rlks}rlks_geo.gamma0.tif"
+                    gamma0_path = scene_dir / f"{scene}_{pol}_{rlks}rlks_geo_gamma0"
+                    gamma0_tif_path = scene_dir / f"{scene}_{pol}_{rlks}rlks_geo_gamma0.tif"
 
                 # Raw data only kept if not cleanup
                 if not cleanup:
@@ -233,16 +233,6 @@ def test_ard_workflow_ifg_single_s1_scene(pgp, pgmock, s1_proc, s1_test_data_zip
     source_data = [str(i) for i in s1_test_data_zips[:2]]
     pols = ["VV", "VH"]
 
-    with s1_proc.open('r') as fileobj:
-        proc_config = ProcConfig.from_file(fileobj)
-
-    # Create empty orbit files
-    for name in ["s1_orbits", "poeorb_path", "resorb_path", "s1_path"]:
-        (Path(getattr(proc_config, name)) / "S1A").mkdir(parents=True)
-
-    poeorb = Path(proc_config.poeorb_path) / "S1A" / "S1A_OPER_AUX_POEORB_OPOD_20190918T120745_V20190917T225942_20190919T005942.EOF"
-    poeorb.touch()
-
     do_ard_workflow_validation(
         pgp,
         ARDWorkflow.Interferogram,
@@ -255,17 +245,6 @@ def test_ard_workflow_ifg_single_s1_scene(pgp, pgmock, s1_proc, s1_test_data_zip
 def test_ard_workflow_ifg_smoketest_two_date_s1_stack(pgp, pgmock, s1_proc, s1_test_data_zips):
     source_data = [str(i) for i in s1_test_data_zips]
     pols = ["VV", "VH"]
-
-    with s1_proc.open('r') as fileobj:
-        proc_config = ProcConfig.from_file(fileobj)
-
-    # Create empty orbit files
-    for name in ["s1_orbits", "poeorb_path", "resorb_path", "s1_path"]:
-        (Path(getattr(proc_config, name)) / "S1A").mkdir(parents=True, exist_ok=True)
-
-    for date in S1_TEST_DATA_DATES:
-        poeorb = Path(proc_config.poeorb_path) / "S1A" / "S1A_OPER_AUX_POEORB_OPOD_20190918T120745_V20190917T225942_20190919T005942.EOF"
-        poeorb.touch()
 
     do_ard_workflow_validation(
         pgp,
