@@ -111,7 +111,7 @@ class PathParameter(luigi.Parameter):
     """A parameter whose value is a file path."""
 
     def parse(self, arguments):
-        return None if arguments is None else Path(arguments)
+        return None if not arguments else Path(arguments)
 
 
 class DateListParameter(luigi.Parameter):

@@ -10,6 +10,7 @@ import numbers
 
 import insar.sensors.s1 as s1
 import insar.sensors.rsat2 as rsat2
+import insar.sensors.palsar as palsar
 
 class ARDWorkflow(enum.Enum):
     """Defines all the supported workflows of the processing script"""
@@ -219,7 +220,9 @@ class ProcConfig:
         # Validate sensor
         sensor_caps = {
             "S1": s1,
-            "RSAT2": rsat2
+            "RSAT2": rsat2,
+            "PALSAR1": palsar,
+            "PALSAR2": palsar,
         }
 
         if hasattr(self, "sensor"):

@@ -14,7 +14,7 @@ import structlog
 
 import insar
 from insar.constant import SCENE_DATE_FMT
-from insar.sensors import identify_data_source, get_data_swath_info, acquire_source_data, S1_ID, RSAT2_ID
+from insar.sensors import identify_data_source, get_data_swath_info, acquire_source_data, S1_ID, RSAT2_ID, PALSAR_ID
 from insar.sensors.s1 import ANY_S1_SAFE_PATTERN
 from insar.project import ProcConfig
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
@@ -54,7 +54,7 @@ class DataDownload(luigi.Task):
             log.info("Beginning data download")
 
             # Setup sensor-specific data acquisition info
-            constellation, sensor = identify_data_source(self.data_path)
+            constellation, _, _ = identify_data_source(self.data_path)
             kwargs = {}
 
             if constellation == S1_ID:
@@ -62,6 +62,9 @@ class DataDownload(luigi.Task):
                 kwargs["resorb_path"] = self.resorb_path
             elif constellation == RSAT2_ID:
                 # RSAT2 has no extra info
+                pass
+            elif constellation == PALSAR_ID:
+                # ALOS PALSAR has no extra info
                 pass
             else:
                 raise RuntimeError(f"Unsupported constellation: {constellation}")
@@ -83,7 +86,7 @@ class DataDownload(luigi.Task):
         finally:
             with self.output().open("w") as f:
                 if failed:
-                    f.write(f"{Path(self.data_path).name}")
+                    f.write(str(self.data_path))
                 else:
                     f.write("")
 
@@ -198,9 +201,70 @@ class InitialSetup(luigi.Task):
             init_include_dates = []
             init_exclude_dates = []
 
-        # Add any explicit source data files
-        for data_path in (self.source_data or []):
-            for swath_data in get_data_swath_info(data_path):
+        # Determine the selected sensor(s) from the query, for directory naming
+        additional_scenes = list(self.source_data or [])
+        selected_sensors = "NONE"
+        num_input_scenes = len(slc_inputs_df) + len(additional_scenes)
+
+        if num_input_scenes > 0:
+            # Compile list of source data to acquire / 'download'
+            download_list = additional_scenes
+
+            if len(slc_inputs_df) > 0:
+                selected_sensors = slc_inputs_df.sensor.unique()
+                selected_sensors = "_".join(sorted(selected_sensors))
+
+                download_list = download_list + list(slc_inputs_df.url.unique())
+
+            # download slc data
+            download_dir = outdir / proc_config.raw_data_dir
+
+            os.makedirs(download_dir, exist_ok=True)
+
+            download_tasks = []
+            for slc_url in download_list:
+                _, _, scene_date = identify_data_source(slc_url)
+
+                download_tasks.append(
+                    DataDownload(
+                        data_path=slc_url.rstrip(),
+                        polarization=self.polarization,
+                        poeorb_path=self.poeorb_path,
+                        resorb_path=self.resorb_path,
+                        workdir=self.workdir,
+                        output_dir=download_dir / scene_date,
+                    )
+                )
+            yield download_tasks
+
+            # Detect scenes w/ incomplete/bad raw data, and remove those scenes from
+            # processing while logging the situation for post-processing analysis.
+            for _task in download_tasks:
+                with open(_task.output().path) as fid:
+                    failed_file = fid.readline().strip()
+                    if not failed_file:
+                        continue
+
+                    _, _, scene_date = identify_data_source(failed_file)
+
+                    log.info(
+                        f"corrupted zip file detected, removed whole date from processing",
+                        failed_file=failed_file,
+                        scene_date=scene_date
+                    )
+
+                    if failed_file in additional_scenes:
+                        additional_scenes.remove(failed_file)
+                    else:
+                        scene_date = f"{scene_date[0:4]}-{scene_date[4:6]}-{scene_date[6:8]}"
+                        indexes = slc_inputs_df[slc_inputs_df["date"].astype(str) == scene_date].index
+                        slc_inputs_df.drop(indexes, inplace=True)
+
+        # Add any explicit source data files into the "inputs" data frame
+        for data_path in additional_scenes:
+            _, _, scene_date = identify_data_source(data_path)
+
+            for swath_data in get_data_swath_info(data_path, download_dir / scene_date):
                 if swath_data["polarization"] not in pols:
                     log.info(
                         "Skipping source data which does not match stack polarisations",
@@ -211,66 +275,6 @@ class InitialSetup(luigi.Task):
                     continue
 
                 slc_inputs_df = slc_inputs_df.append(swath_data, ignore_index=True)
-
-        # Determine the selected sensor(s) from the query, for directory naming
-        if len(slc_inputs_df) == 0:
-            selected_sensors = "NONE"
-        else:
-            selected_sensors = slc_inputs_df.sensor.unique()
-            selected_sensors = "_".join(sorted(selected_sensors))
-
-            # download slc data
-            download_dir = outdir / proc_config.raw_data_dir
-
-            os.makedirs(download_dir, exist_ok=True)
-
-            download_list = slc_inputs_df.url.unique()
-            download_tasks = []
-            for slc_url in download_list:
-                scene_date = Path(slc_url).name.split("_")[5].split("T")[0]
-                download_tasks.append(
-                    DataDownload(
-                        data_path=slc_url.rstrip(),
-                        polarization=self.polarization,
-                        poeorb_path=self.poeorb_path,
-                        resorb_path=self.resorb_path,
-                        workdir=self.workdir,
-                        output_dir=Path(download_dir).joinpath(scene_date),
-                    )
-                )
-            yield download_tasks
-
-            # Detect scenes w/ incomplete/bad raw data, and remove those scenes from
-            # processing while logging the situation for post-processing analysis.
-            drop_whole_date_if_corrupt = True
-
-            if drop_whole_date_if_corrupt:
-                for _task in download_tasks:
-                    with open(_task.output().path) as fid:
-                        failed_file = fid.readline().strip()
-                        if not failed_file:
-                            continue
-
-                        scene_date = failed_file.split("_")[5].split("T")[0]
-                        log.info(
-                            f"corrupted zip file {failed_file}, removed whole date {scene_date} from processing"
-                        )
-
-                        scene_date = f"{scene_date[0:4]}-{scene_date[4:6]}-{scene_date[6:8]}"
-                        indexes = slc_inputs_df[slc_inputs_df["date"].astype(str) == scene_date].index
-                        slc_inputs_df.drop(indexes, inplace=True)
-            else:
-                for _task in download_tasks:
-                    with open(_task.output().path) as fid:
-                        out_name = fid.readline().rstrip()
-                        if re.match(ANY_S1_SAFE_PATTERN, out_name):
-                            log.info(
-                                f"corrupted zip file {out_name} removed from further processing"
-                            )
-                            indexes = slc_inputs_df[
-                                slc_inputs_df["url"].map(lambda x: Path(x).name) == out_name
-                            ].index
-                            slc_inputs_df.drop(indexes, inplace=True)
 
         # save slc burst data details which is used by different tasks
         slc_inputs_df.to_csv(self.burst_data_csv)

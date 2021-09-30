@@ -11,6 +11,7 @@ import socket
 import functools
 import subprocess
 import warnings
+from pathlib import Path
 
 import structlog
 import insar.constant as const
@@ -219,11 +220,14 @@ class GammaInterface:
         return functools.partial(self.subprocess_func, cmd)
 
     def ParFile(self, filepath: str):
+        if not Path(filepath).exists():
+            raise Exception(f"The specified path does not exist: {filepath}")
+
         proxy = self._gamma_proxy or GammaInterface._gamma_proxy
         if proxy:
             return proxy.ParFile(filepath)
 
-        return py_gamma_broken.ParFile(filepath)
+        return py_gamma_broken.ParFile(str(filepath))
 
     @classmethod
     def set_proxy(cls, proxy_object):

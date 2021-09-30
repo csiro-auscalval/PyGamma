@@ -17,17 +17,19 @@ RS2_DATA_PATH_BAD_EXAMPLE = "tests/data/RS2_OK127568_PK1123201_DK1078370_F0W2_20
 
 
 def test_s1_source_data_identification():
-    constellation, sensor = identify_data_source(S1_DATA_PATH_EXAMPLE)
+    constellation, sensor, scene_date = identify_data_source(S1_DATA_PATH_EXAMPLE)
 
     assert(constellation == S1_METADATA.constellation_name)
     assert(sensor == "S1A")
+    assert(scene_date == "20190918")
 
 
 def test_rs2_source_data_identification():
-    constellation, sensor = identify_data_source(RS2_DATA_PATH_EXAMPLE)
+    constellation, sensor, scene_date = identify_data_source(RS2_DATA_PATH_EXAMPLE)
 
     assert(constellation == RS2_METADATA.constellation_name)
     assert(sensor == "RS2")
+    assert(scene_date == "20170430")
 
 
 def test_invalid_source_data_identification():

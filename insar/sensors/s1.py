@@ -36,7 +36,10 @@ METADATA = SensorMetadata(
     POLARISATIONS
 )
 
-def get_data_swath_info(data_path: Path):
+def get_data_swath_info(
+    data_path: Path,
+    raw_data_path: Optional[Path]
+):
     s1_match = re.match(ANY_S1_SAFE_PATTERN, data_path.name)
     if not s1_match:
         raise RuntimeError("Invalid data path, does not match a SAFE path")

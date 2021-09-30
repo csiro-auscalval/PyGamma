@@ -37,7 +37,10 @@ METADATA = SensorMetadata(
 )
 
 
-def get_data_swath_info(data_path: Path):
+def get_data_swath_info(
+    data_path: Path,
+    raw_data_path: Optional[Path]
+):
     match = re.match(ANY_DATA_PATTERN, data_path.name)
     if not match:
         raise RuntimeError("Invalid data path, does not match an RSAT2 data path")

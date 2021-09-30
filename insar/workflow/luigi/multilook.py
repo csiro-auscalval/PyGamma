@@ -74,6 +74,14 @@ class CreateMultilook(luigi.Task):
                 **common_params(self, CreateRSAT2SlcTasks)
             ))
 
+        # Require PALSAR frames if we have PALSAR sensor data
+        if proc.sensor.startswith("PALSAR"):
+            from insar.workflow.luigi.process_alos import CreateALOSSlcTasks
+            deps.append(CreateALOSSlcTasks(
+                # We share identical params, so just forward them
+                **common_params(self, CreateALOSSlcTasks)
+            ))
+
         return deps
 
     def run(self):

@@ -1,14 +1,18 @@
 import re
-import datetime
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
 from . import s1
 from . import rsat2
+from . import palsar
+
+from insar.constant import SCENE_DATE_FMT
 
 _sensors = {
     s1.METADATA.constellation_name: s1,
     rsat2.METADATA.constellation_name: rsat2,
+    palsar.METADATA.constellation_name: palsar,
 }
 
 def identify_data_source(name: str):
@@ -29,14 +33,22 @@ def identify_data_source(name: str):
     # Check Sentinel-1
     s1_match = re.match(s1.SOURCE_DATA_PATTERN, name)
     if s1_match:
-        return s1.METADATA.constellation_name, s1_match.group("sensor")
+        scene_date = datetime.strptime(s1_match.group("start"), "%Y%m%dT%H%M%S")
+        return s1.METADATA.constellation_name, s1_match.group("sensor"), scene_date.strftime(SCENE_DATE_FMT)
 
     # Check RADARSAT-2
     rsat2_match = re.match(rsat2.SOURCE_DATA_PATTERN, name)
     if rsat2_match:
         # There is only a single satellite in RSAT2 constellation,
         # so it has a hard-coded sensor name.
-        return rsat2.METADATA.constellation_name, rsat2.METADATA.constellation_members[0]
+        scene_date = rsat2_match.group("start_date")
+        return rsat2.METADATA.constellation_name, rsat2.METADATA.constellation_members[0], scene_date
+
+    # Check ALOS PALSAR
+    palsar_match = re.match(palsar.SOURCE_DATA_PATTERN, name)
+    if palsar_match:
+        scene_date = palsar_match.group("product_date")
+        return palsar.METADATA.constellation_name, palsar_match.group("sensor_id"), scene_date
 
     raise Exception(f"Unrecognised data source file: {name}")
 
@@ -44,14 +56,17 @@ def _dispatch(constellation_or_pathname: str):
     if constellation_or_pathname in _sensors:
         return _sensors[constellation_or_pathname]
 
-    id_constellation, id_sensor = identify_data_source(constellation_or_pathname)
+    id_constellation, _, _ = identify_data_source(constellation_or_pathname)
     if id_constellation not in _sensors:
         raise RuntimeError("Unsupported data source: " + constellation_or_pathname)
 
     return _sensors[id_constellation]
 
 
-def get_data_swath_info(data_path: str):
+def get_data_swath_info(
+    source_data: str,
+    raw_data_path: Optional[Path] = None
+):
     """
     Extract information for each (sub)swath in a data product.
 
@@ -71,16 +86,23 @@ def get_data_swath_info(data_path: str):
     bursts (following ESA terminology for S1).  For satellites which do NOT do
     this refinement, burst-related information values are ignored.
 
-    :param name:
+    :param source_data:
         The source data path name to be identified.
+
+    :param raw_data_path:
+        An optional path to a local path which contains the contents of the acquired `source_data`.
+
+        This allows the backend to get swath info without having to extract/download contents from
+        the source data path which may have already been acquired (reduced duplication of work).
+
     :returns:
         A list of dictionary objects representing swaths (or subswaths) in the data product.
     """
 
     try:
-        local_path = Path(data_path)
+        local_path = Path(source_data)
 
-        return _dispatch(local_path.name).get_data_swath_info(local_path)
+        return _dispatch(local_path.name).get_data_swath_info(local_path, raw_data_path)
     except Exception as e:
         raise RuntimeError("Unsupported path!\n" + str(e))
 
