@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import datetime
 from insar.constant import SCENE_DATE_FMT
 from pathlib import Path
@@ -13,7 +11,11 @@ from insar.subprocess_utils import run_command
 
 
 def rm_file(path):
-    '''A hacky unlink/delete file function for Python <3.8 which lacks a missing_ok parameter in Path.unlink'''
+    """
+    A hacky unlink/delete file function for Python <3.8.
+
+    The pathlib module <3.8 lacks a missing_ok parameter in Path.unlink().
+    """
     path = Path(path)
 
     if path.exists():
@@ -29,12 +31,17 @@ def read_land_center_coords(shapefile: Path):
     """
     Reads the land center coordinates from a shapefile, if any exists.
 
-    :param shapefie: the path to the shape file for the scene
+    :param shapefile: the path to the shape file for the scene
     :return (latitude, longitude) coordinates
     """
 
+    path = shapefile.with_suffix(".dbf")
+
+    if not path.exists():
+        raise FileNotFoundError(path)
+
     # Load the land center from shape file
-    dbf = geopandas.GeoDataFrame.from_file(shapefile.with_suffix(".dbf"))
+    dbf = geopandas.GeoDataFrame.from_file(path)
 
     north_lat, east_lon = None, None
 
@@ -53,11 +60,12 @@ def read_land_center_coords(shapefile: Path):
     if north_lat is None or east_lon is None:
         return None
 
-    return (north_lat, east_lon)
+    return north_lat, east_lon
+
 
 def latlon_to_px(pg, mli_par: Path, lat, lon):
     """
-    Reads the land center coordinates from a shapefile and converts it into pixel coordinates for a multilook image
+    Reads land center coordinates from a shapefile and converts into pixel coordinates for a multilook image
 
     :param pg: the PyGamma wrapper object used to dispatch gamma commands
     :param mli_par: the path to the .mli.par file in which the pixel coordinates should be for
@@ -84,7 +92,7 @@ def latlon_to_px(pg, mli_par: Path, lat, lon):
         raise Exception(error_msg)
 
     rpos, azpos = matched[0].split()[-2:]
-    return (int(rpos), int(azpos))
+    return int(rpos), int(azpos)
 
 
 def create_diff_par(
@@ -113,7 +121,7 @@ def create_diff_par(
     This is an initial stage in coregistration that kicks off the offset model
     refinement stage.  At a high level it makes a few measurements at regular
     locations across both images, and correlates them to determine an initial
-    set of polynomials from which the offset model is initalised.
+    set of polynomials from which the offset model is initialised.
 
     :param first_par_path:
         (input) image parameter file 1 (see PAR_type option)
@@ -154,7 +162,7 @@ def create_diff_par(
             str(first_par_path),
             str(second_par_path or const.NOT_PROVIDED),
             str(diff_par_path),
-            "1", # SLC/MLI_par input types
+            "1",  # SLC/MLI_par input types
             "<",
             return_file.as_posix(),
         ]
