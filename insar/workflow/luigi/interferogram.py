@@ -3,9 +3,10 @@ from pathlib import Path
 import luigi
 import luigi.configuration
 from luigi.util import requires
+import json
 
 from insar.process_ifg import run_workflow, get_ifg_width, TempFileConfig
-from insar.project import ProcConfig, DEMFileNames, IfgFileNames
+from insar.project import ProcConfig, DEMFileNames, IfgFileNames, is_flag_value_enabled
 from insar.coreg_utils import read_land_center_coords
 from insar.logs import STATUS_LOGGER
 
@@ -65,6 +66,56 @@ class ProcessIFG(luigi.Task):
             elif self.shape_file:
                 land_center = read_land_center_coords(Path(self.shape_file))
 
+            # Determine date pair orbit attributes
+            # Note: This only works for S1 (but also... S1 is the only sensor we support whose data comes w/ orbit files)
+            # - other sensors we ignore entirely (and thus do no baseline refinement unless forced ON), which is the safest
+            # - option (and why this was the only hard-coded option before now, and remains the default).
+            first_slc_meta = ic.primary_dir / f"metadata_{proc_config.polarisation}.json"
+            second_slc_meta = ic.secondary_dir / f"metadata_{proc_config.polarisation}.json"
+
+            first_orbit_precise = None
+            second_orbit_precise = None
+
+            # As noted above, only sensors which have orbit files will have this metadata
+            # (which is just S1 for now)
+            if first_slc_meta.exists():
+                first_slc_meta = json.loads(first_slc_meta.read_text())
+
+                # And some sensors may have metadata, but simply no orbit files
+                if "slc" in first_slc_meta and "orbit_url" in first_slc_meta["slc"]:
+                    first_orbit_precise = "POEORB" in first_slc_meta["slc"]["orbit_url"]
+
+            if second_slc_meta.exists():
+                second_slc_meta = json.loads(second_slc_meta.read_text())
+
+                if "slc" in second_slc_meta and "orbit_url" in second_slc_meta["slc"]:
+                    second_orbit_precise = "POEORB" in second_slc_meta["slc"]["orbit_url"]
+
+            # Determine if baseline refinement should be enabled based on a .proc
+            # setting (this exists as InSAR team aren't sure on their exact requirements
+            # right now / there's no obvious "general" solution for all cases)
+            enable_refinement = False
+
+            try:
+                enable_refinement = is_flag_value_enabled(proc_config.ifg_baseline_refinement)
+
+            except ValueError:
+                if first_orbit_precise is not None and second_orbit_precise is not None:
+                    if proc_config.ifg_baseline_refinement.upper() == "IF_ANY_NOT_PRECISE":
+                        enable_refinement = not first_orbit_precise or not second_orbit_precise
+
+                    elif proc_config.ifg_baseline_refinement.upper() == "IF_BOTH_NOT_PRECISE":
+                        enable_refinement = not first_orbit_precise and not second_orbit_precise
+
+                    elif proc_config.ifg_baseline_refinement.upper() == "IF_FIRST_NOT_PRECISE":
+                        enable_refinement = not first_orbit_precise
+
+                    elif proc_config.ifg_baseline_refinement.upper() == "IF_SECOND_NOT_PRECISE":
+                        enable_refinement = not second_orbit_precise
+
+            if enable_refinement:
+                log.info("IFG baseline refinement enabled", ifg_baseline_refinement=proc_config.ifg_baseline_refinement)
+
             # Make sure output IFG dir is clean/empty, in case
             # we're resuming an incomplete/partial job.
             mk_clean_dir(ic.ifg_dir)
@@ -75,7 +126,9 @@ class ProcessIFG(luigi.Task):
                 dc,
                 tc,
                 ifg_width,
-                land_center=land_center)
+                land_center=land_center,
+                enable_refinement=enable_refinement
+            )
 
             log.info("Interferogram complete")
         except Exception as e:

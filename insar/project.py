@@ -7,6 +7,7 @@ import pathlib
 import itertools
 import enum
 import numbers
+from typing import Union
 
 import insar.sensors.s1 as s1
 import insar.sensors.rsat2 as rsat2
@@ -123,6 +124,7 @@ class ProcConfig:
         "ifg_thres",
         "ifg_init_win",
         "ifg_offset_win",
+        "ifg_baseline_refinement",
         # derived member vars
         "proj_dir",
         "gamma_dem_dir",
@@ -169,6 +171,7 @@ class ProcConfig:
         self.dem_noff1, self.dem_noff2 = self.dem_offset.split(" ")
         self.ifg_rpos = self.dem_rpos
         self.ifg_azpos = self.dem_azpos
+
 
     @classmethod
     def from_file(cls, file_obj):
@@ -235,16 +238,16 @@ class ProcConfig:
             # Note: currently this is just the 'primary' polarisation (used for IFGs)
             if hasattr(self, "polarisation"):
                 if self.polarisation not in caps.POLARISATIONS:
-                    msg += f"Invalid polarisation for {self.sensor}: {self.polarisation} (expected one of: {', '.join(caps.POLARISATIONS)})"
+                    msg += f"Invalid polarisation for {self.sensor}: {self.polarisation} (expected one of: {', '.join(caps.POLARISATIONS)})\n"
 
         if hasattr(self, "process_method"):
             if self.process_method != "sbas":
-                msg += f"Attribute process_method must be sbas, not: {self.process_method} (currently only sbas is supported)"
+                msg += f"Attribute process_method must be sbas, not: {self.process_method} (currently only sbas is supported)\n"
 
         if hasattr(self, "workflow"):
             workflow_values = [o.name.lower() for o in ARDWorkflow]
             if self.workflow and self.workflow.lower() not in workflow_values:
-                msg += f"Attribute workflow must be one of {'/'.join(workflow_values)}, not {self.workflow}"
+                msg += f"Attribute workflow must be one of {'/'.join(workflow_values)}, not {self.workflow}\n"
 
         # Validate flag properties
         flag_values = ["yes", "no", "enable", "disable", "true", "false"]
@@ -254,16 +257,32 @@ class ProcConfig:
                 value = getattr(self, name)
 
                 if value and value.lower() not in flag_values:
-                    msg += f"Attribute {name} must be one of {'/'.join(flag_values)}, not {value}"
+                    msg += f"Attribute {name} must be one of {'/'.join(flag_values)}, not {value}\n"
 
-        # Validate date proeprties
+        # Validate date properties
         date_properties = ["ref_primary_scene", "s1_resize_ref_slc"]
         for name in date_properties:
             if hasattr(self, name):
                 value = getattr(self, name)
 
                 if value and value.lower() != "auto" and (value.isdigit() and len(value) == 8):
-                    msg += f"Attribute {name} must be a YYYYMMDD date or 'auto', not {value}"
+                    msg += f"Attribute {name} must be a YYYYMMDD date or 'auto', not {value}\n"
+
+        # Validate IFG flags
+        ifg_baseline_refinement_values = flag_values + [
+            "OFF",
+            "ON",
+            "IF_ANY_NOT_PRECISE",
+            "IF_BOTH_NOT_PRECISE",
+            "IF_FIRST_NOT_PRECISE",
+            "IF_SECOND_NOT_PRECISE"
+        ]
+
+        if hasattr(self, "ifg_baseline_refinement"):
+            self.ifg_baseline_refinement = self.ifg_baseline_refinement.upper()
+
+            if self.ifg_baseline_refinement not in ifg_baseline_refinement_values:
+                msg += f"Attribute ifg_baseline_refinement must be one of {ifg_baseline_refinement_values}\n"
 
         # Note: In the future we may want to limit some of the numeric values, but for now we
         # simply let them remain as-is.
@@ -291,6 +310,32 @@ def is_valid_config_line(line):
     if not line.startswith("#"):
         return "=" in line
     return False
+
+
+def is_flag_value_enabled(value: Union[str, bool]) -> bool:
+    """
+    Checks if a value (typically from a ProcConfig / .proc settings file) is an enabled/on flag, or not.
+
+    :param value:
+        The flag value being checked.
+    :returns:
+        True if the supplied value indicates the setting should be enabled, otherwise False.
+    """
+
+    # Falsey is disabled... (could be None or "" = no setting = off, or a boolean)
+    if not value:
+        return False
+
+    on_values = ["yes", "enable", "true", "on"]
+    off_values = ["no", "disable", "false", "off"]
+
+    if str(value).lower() in off_values:
+        return False
+
+    if str(value).lower() in on_values:
+        return True
+
+    raise ValueError(f"Unsupported boolean settings flag: {value}")
 
 
 class DEMPrimaryNames:

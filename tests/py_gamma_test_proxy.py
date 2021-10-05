@@ -2669,7 +2669,7 @@ class PyGammaTestProxy(object):
 
     def coord_to_sarpix(
         self,
-        SLC_par,
+        SLC_par: str,
         OFF_par: str,
         DEM_par: str,
         north_lat=None,
@@ -2682,6 +2682,13 @@ class PyGammaTestProxy(object):
 
         self.call_count["coord_to_sarpix"] += 1
 
+        if SLC_par is not None:
+            result = self._validate(
+                "coord_to_sarpix",
+                SLC_par == "-" or Path(SLC_par).exists(),
+                result,
+                f"SLC_par path does not exist ({SLC_par})",
+            )
         if OFF_par is not None:
             result = self._validate(
                 "coord_to_sarpix",
@@ -5399,9 +5406,9 @@ class PyGammaTestProxy(object):
 
     def dop_interf(
         self,
-        SAR_par1,
-        PROC_par1,
-        PROC_par2,
+        SAR_par1: str,
+        PROC_par1: str,
+        PROC_par2: str,
         PROC_par1_out: str,
         PROC_par2_out: str,
         dop: str,
@@ -5411,6 +5418,27 @@ class PyGammaTestProxy(object):
 
         self.call_count["dop_interf"] += 1
 
+        if SAR_par1 is not None:
+            result = self._validate(
+                "dop_interf",
+                SAR_par1 == "-" or Path(SAR_par1).exists(),
+                result,
+                f"SAR_par1 path does not exist ({SAR_par1})",
+            )
+        if PROC_par1 is not None:
+            result = self._validate(
+                "dop_interf",
+                PROC_par1 == "-" or Path(PROC_par1).exists(),
+                result,
+                f"PROC_par1 path does not exist ({PROC_par1})",
+            )
+        if PROC_par2 is not None:
+            result = self._validate(
+                "dop_interf",
+                PROC_par2 == "-" or Path(PROC_par2).exists(),
+                result,
+                f"PROC_par2 path does not exist ({PROC_par2})",
+            )
         if PROC_par1_out is not None and PROC_par1_out != "-":
             Path(PROC_par1_out).touch()
         if PROC_par2_out is not None and PROC_par2_out != "-":
@@ -6142,7 +6170,12 @@ class PyGammaTestProxy(object):
         return result
 
     def RSAT_lks(
-        self, SLC_PROC_par: str, MLI_PROC_par: str, SLC_image: str, ML_image, kaiser=None
+        self,
+        SLC_PROC_par: str,
+        MLI_PROC_par: str,
+        SLC_image: str,
+        ML_image: str,
+        kaiser=None,
     ):
         supplied_args = locals()
         result = (0, "", "")
@@ -6165,6 +6198,8 @@ class PyGammaTestProxy(object):
                 result,
                 f"SLC_image path does not exist ({SLC_image})",
             )
+        if ML_image is not None and ML_image != "-":
+            Path(ML_image).touch()
         if self._wraps is not None:
             result = self._wraps.RSAT_lks(*supplied_args)
 
@@ -9256,12 +9291,19 @@ class PyGammaTestProxy(object):
         self._on_error("ras_cpt", supplied_args, result[0])
         return result
 
-    def uchar2float(self, infile, outfile, scale, exp, offset=None):
+    def uchar2float(self, infile: str, outfile, scale, exp, offset=None):
         supplied_args = locals()
         result = (0, "", "")
 
         self.call_count["uchar2float"] += 1
 
+        if infile is not None:
+            result = self._validate(
+                "uchar2float",
+                infile == "-" or Path(infile).exists(),
+                result,
+                f"infile path does not exist ({infile})",
+            )
         if self._wraps is not None:
             result = self._wraps.uchar2float(*supplied_args)
 
@@ -10957,13 +10999,20 @@ class PyGammaTestProxy(object):
         return result
 
     def par_ASF_SLC(
-        self, CEOS_SAR_leader, SLC_par: str, CEOS_data: str = None, SLC: str = None
+        self, CEOS_SAR_leader: str, SLC_par: str, CEOS_data: str = None, SLC: str = None
     ):
         supplied_args = locals()
         result = (0, "", "")
 
         self.call_count["par_ASF_SLC"] += 1
 
+        if CEOS_SAR_leader is not None:
+            result = self._validate(
+                "par_ASF_SLC",
+                CEOS_SAR_leader == "-" or Path(CEOS_SAR_leader).exists(),
+                result,
+                f"CEOS_SAR_leader path does not exist ({CEOS_SAR_leader})",
+            )
         if SLC_par is not None and SLC_par != "-":
             Path(SLC_par).touch()
         if CEOS_data is not None:
@@ -11982,9 +12031,9 @@ class PyGammaTestProxy(object):
         self,
         GeoTIFF: str,
         MLI_par: str,
-        mli=None,
+        mli: str = None,
         GRD_par: str = None,
-        GRD=None,
+        GRD: str = None,
         rps=None,
     ):
         supplied_args = locals()
@@ -12006,8 +12055,12 @@ class PyGammaTestProxy(object):
                 result,
                 f"MLI_par path does not exist ({MLI_par})",
             )
+        if mli is not None and mli != "-":
+            Path(mli).touch()
         if GRD_par is not None and GRD_par != "-":
             Path(GRD_par).touch()
+        if GRD is not None and GRD != "-":
+            Path(GRD).touch()
         if self._wraps is not None:
             result = self._wraps.par_ICEYE_GRD(*supplied_args)
 
@@ -12851,7 +12904,7 @@ class PyGammaTestProxy(object):
         SLC_2R: str,
         SLC2R_par: str,
         OFF_par2: str,
-        coffs_sm,
+        coffs_sm: str,
         loff=None,
         nlines=None,
         mode=None,
@@ -12900,6 +12953,13 @@ class PyGammaTestProxy(object):
                 OFF_par2 == "-" or Path(OFF_par2).exists(),
                 result,
                 f"OFF_par2 path does not exist ({OFF_par2})",
+            )
+        if coffs_sm is not None:
+            result = self._validate(
+                "SLC_interp_map",
+                coffs_sm == "-" or Path(coffs_sm).exists(),
+                result,
+                f"coffs_sm path does not exist ({coffs_sm})",
             )
         valid_values = [0, 1] + [None]
         result = self._validate(
@@ -15008,7 +15068,7 @@ class PyGammaTestProxy(object):
         return result
 
     def ScanSAR_burst_to_mosaic(
-        self, DATA_tab: str, mosaic: str, MLI_par: str, mflg=None, dtype=None
+        self, DATA_tab: str, mosaic: str, MLI_par: str, mflg=None, dtype: str = None
     ):
         supplied_args = locals()
         result = (0, "", "")
@@ -15033,6 +15093,13 @@ class PyGammaTestProxy(object):
             result,
             f"mflg is not a valid value (expects: {valid_values}, got: {mflg})",
         )
+        if dtype is not None:
+            result = self._validate(
+                "ScanSAR_burst_to_mosaic",
+                dtype == "-" or Path(dtype).exists(),
+                result,
+                f"dtype path does not exist ({dtype})",
+            )
         if self._wraps is not None:
             result = self._wraps.ScanSAR_burst_to_mosaic(*supplied_args)
 
@@ -15232,7 +15299,7 @@ class PyGammaTestProxy(object):
         self._on_error("par_CS_SLC", supplied_args, result[0])
         return result
 
-    def par_TX_GRD(self, annotation_XML: str, COSAR, GRD_par, GRD: str, pol=None):
+    def par_TX_GRD(self, annotation_XML: str, COSAR: str, GRD_par, GRD: str, pol=None):
         supplied_args = locals()
         result = (0, "", "")
 
@@ -15244,6 +15311,13 @@ class PyGammaTestProxy(object):
                 annotation_XML == "-" or Path(annotation_XML).exists(),
                 result,
                 f"annotation_XML path does not exist ({annotation_XML})",
+            )
+        if COSAR is not None:
+            result = self._validate(
+                "par_TX_GRD",
+                COSAR == "-" or Path(COSAR).exists(),
+                result,
+                f"COSAR path does not exist ({COSAR})",
             )
         if GRD is not None and GRD != "-":
             Path(GRD).touch()
@@ -15305,7 +15379,7 @@ class PyGammaTestProxy(object):
         SLC2_par: str,
         OFF_par: str,
         interf: str,
-        base,
+        base: str,
         mflag=None,
         nrfft=None,
         nazfft=None,
@@ -15345,6 +15419,8 @@ class PyGammaTestProxy(object):
                 result,
                 f"interf path does not exist ({interf})",
             )
+        if base is not None and base != "-":
+            Path(base).touch()
         valid_values = [0, 1, 2, 3, 4] + [None]
         result = self._validate(
             "base_init",
@@ -18424,9 +18500,9 @@ class PyGammaTestProxy(object):
 
     def ras_to_rgb(
         self,
-        red_channel: str,
-        green_channel: str,
-        blue_channel: str,
+        red_channel,
+        green_channel,
+        blue_channel,
         ras_out: str,
         LR=None,
         null_flag=None,
@@ -18436,27 +18512,6 @@ class PyGammaTestProxy(object):
 
         self.call_count["ras_to_rgb"] += 1
 
-        if red_channel is not None:
-            result = self._validate(
-                "ras_to_rgb",
-                red_channel == "-" or Path(red_channel).exists(),
-                result,
-                f"red_channel path does not exist ({red_channel})",
-            )
-        if green_channel is not None:
-            result = self._validate(
-                "ras_to_rgb",
-                green_channel == "-" or Path(green_channel).exists(),
-                result,
-                f"green_channel path does not exist ({green_channel})",
-            )
-        if blue_channel is not None:
-            result = self._validate(
-                "ras_to_rgb",
-                blue_channel == "-" or Path(blue_channel).exists(),
-                result,
-                f"blue_channel path does not exist ({blue_channel})",
-            )
         if ras_out is not None and ras_out != "-":
             Path(ras_out).touch()
         valid_values = [0, 1] + [None]

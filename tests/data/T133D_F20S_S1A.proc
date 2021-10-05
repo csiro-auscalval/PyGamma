@@ -206,6 +206,10 @@ IFG_COHERENCE_WINDOW=3
         # Baseline estimation
 IFG_ITERATIVE=no
 
+# IFG baseline refinement is enabled for our S1 tests (just to increase code coverage)
+# - we've disabled it for RS2 to cover the other code path...
+IFG_BASELINE_REFINEMENT=ON
+
     -----CSK SPOTLIGHT ONLY-----
     # Cross-correlation threshold (default: 0.15)
 IFG_THRES=0.15

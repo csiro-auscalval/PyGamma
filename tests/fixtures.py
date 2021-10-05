@@ -614,6 +614,21 @@ def pgmock(monkeypatch, pgp):
 
     pgmock.image_stat.side_effect = image_stat_mock
 
+    def multi_cpx_mock(*args, **kwargs):
+        result = pgp.multi_cpx(*args, **kwargs)
+
+        OFF_par_in = args[1]
+        OFF_par_out = args[3]
+
+        # Just copy the .par file, this is inaccurate... but since
+        # our tests don't truly process data, it doesn't matter (as long
+        # as the output has resolution info, that's all that matters)
+        shutil.copyfile(OFF_par_in, OFF_par_out)
+
+        return result
+
+    pgmock.multi_cpx.side_effect = multi_cpx_mock
+
     # Record pre-mock state (so it can be restored after)
     orig_install = os.environ.get("GAMMA_INSTALL_DIR")
     orig_proxy = GammaInterface._gamma_proxy

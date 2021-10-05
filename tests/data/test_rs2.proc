@@ -204,6 +204,7 @@ IFG_FILTERING_WINDOW=32
 IFG_COHERENCE_WINDOW=3
         # Baseline estimation
 IFG_ITERATIVE=no
+IFG_BASELINE_REFINEMENT=OFF
 
     -----CSK SPOTLIGHT ONLY-----
     # Cross-correlation threshold (default: 0.15)

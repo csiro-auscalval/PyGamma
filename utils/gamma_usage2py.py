@@ -70,6 +70,7 @@ def _usage2decl(module, program, file):
             # Start parsing new arg
             if not line.startswith("    "):
                 argname = line.split()[0]
+                desc_argname = argname
 
                 ignore_arg = argname.lower().startswith("note:")
                 ignore_arg |= argname.lower().startswith("remark")
@@ -101,7 +102,7 @@ def _usage2decl(module, program, file):
                         "optional": is_opt,
                     }
 
-                desc_starts = len(argname) + 2
+                desc_starts = len(desc_argname) + 2
                 desc = line[desc_starts:].lstrip()
 
                 is_inoutfile = desc.startswith("(input/output)")
