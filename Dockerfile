@@ -13,7 +13,7 @@ COPY requirements.txt ./
 RUN apt-get update
 
 # Note: freetype/postgress dev requirements are weird native dependencies of some of our python deps...
-RUN apt-get install -y python3-pip libfreetype-dev libpq-dev
+RUN apt-get install -y python3-pip libfreetype-dev libpq-dev sqlite3 libsqlite3-mod-spatialite
 
 # Install python GDAL bindings for 3.3 (as that's what gdal:ubuntu-small-3.3.1 uses)
 RUN pip3 install --no-cache-dir GDAL~=3.3

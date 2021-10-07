@@ -5,6 +5,18 @@ from insar.process_s1_slc import SlcProcess
 
 S1_TEST_DATA_DATE = S1_TEST_DATA_DATES[0]
 
+def count_post_query_gamma_calls(gamma_calls):
+    """
+    This is a simple len() sort of function which filters out S1_burstloc calls
+    which are used to parse input/source data information before processing.
+
+    The reason we filter this out in these tests is because even with some invalid
+    settings or outputs... inputs may still need to be parsed using GAMMA.
+    """
+
+    filtered_calls = [i for i in gamma_calls if i.program != 'S1_burstloc']
+    return len(filtered_calls)
+
 # Note: This is not a fixture, as it's just a wrapper around what S1 SLC processing
 # may eventually look like (a function, not a class)
 def process_s1_slc(test_data_dir, temp_out_dir, s1_proc, s1_test_data_csv, pol):
@@ -65,7 +77,7 @@ def test_s1_slc_fails_with_missing_input(pgp, pgmock, temp_out_dir, s1_proc, s1_
         )
 
     # Ensure not a single GAMMA call occured & no output exists
-    assert(len(pgp.call_sequence) == 0)
+    assert(count_post_query_gamma_calls(pgp.call_sequence) == 0)
 
 
 def test_s1_slc_fails_with_bad_polarisation(pgp, pgmock, temp_out_dir, s1_proc, s1_test_data, s1_test_data_csv):
@@ -85,7 +97,7 @@ def test_s1_slc_fails_with_bad_polarisation(pgp, pgmock, temp_out_dir, s1_proc, 
         )
 
     # Ensure not a single GAMMA call occured & no output exists
-    assert(len(pgp.call_sequence) == 0)
+    assert(count_post_query_gamma_calls(pgp.call_sequence) == 0)
     assert(not test_out_slc.exists())
     assert(not test_out_slc_par.exists())
 
@@ -107,7 +119,7 @@ def test_s1_slc_fails_with_missing_polarisation(pgp, pgmock, temp_out_dir, s1_pr
         )
 
     # Ensure not a single GAMMA call occured & no output exists
-    assert(len(pgp.call_sequence) == 0)
+    assert(count_post_query_gamma_calls(pgp.call_sequence) == 0)
     assert(not test_out_slc.exists())
     assert(not test_out_slc_par.exists())
 
@@ -132,6 +144,6 @@ def test_s1_slc_fails_with_incomplete_data(pgp, pgmock, temp_out_dir, s1_proc, s
         )
 
     # Ensure not a single GAMMA call occured & no output exists
-    assert(len(pgp.call_sequence) == 0)
+    assert(count_post_query_gamma_calls(pgp.call_sequence) == 0)
     assert(not test_out_slc.exists())
     assert(not test_out_slc_par.exists())

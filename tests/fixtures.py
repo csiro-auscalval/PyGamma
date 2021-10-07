@@ -28,6 +28,9 @@ import insar.process_rsat2_slc
 import insar.coregister_dem
 import insar.coregister_secondary
 
+from insar.meta_data.s1_slc import Archive
+from insar.meta_data.s1_gridding_utils import generate_slc_metadata
+
 TEST_DATA_BASE = Path(__file__).parent.absolute() / "data"
 
 TEST_DEM_DIFF_S1 = TEST_DATA_BASE / "test_dem_diff_s1.par"
@@ -63,7 +66,7 @@ def proc_config():
 
 @pytest.fixture
 def temp_out_dir():
-    """Simply returns a temporary directory that lives as long as the rest"""
+    """Simply returns a temporary directory that lives as long as the test"""
     dir = tempfile.TemporaryDirectory()
 
     with dir as dir_path:
@@ -71,6 +74,7 @@ def temp_out_dir():
 
 @pytest.fixture(scope="session")
 def test_data_dir():
+    """A fixture for a common session-wide directory that stores read-only/shared test data."""
     dir = tempfile.TemporaryDirectory()
 
     with dir as dir_path:
@@ -446,23 +450,15 @@ def pgmock(monkeypatch, pgp):
 
     pgmock.offset_fit.side_effect = offset_fit_mock
 
-    # Note: This is a hack to get data processing working... but it's incorrect (gives a single static subswath no matter the input)
-    # - we'd probably be better recording this for our test data scenes we use for processing instead, and returning those pre-recorded
-    # - outputs specific to each .xml in the test S1A_IW_SLC .SAFE's
-    pgmock.S1_burstloc.return_value = (
-        0,
-        [
-            "Burst: s1a-iw1-slc-vh-20190918t200935-20190918t201000-029080-034cee-001.xml   1    133 IW1 VH 72577.10938100 201.19792562  0.00000000     -20.05066032 141.33827992     -20.23086577 141.29334202     -20.04635710 140.49153530     -19.86643746 140.53751416",
-            "Burst: s1a-iw1-slc-vh-20190918t200935-20190918t201000-029080-034cee-001.xml   2    133 IW1 VH 72579.86793700 201.36680827  0.16888265     -20.21664279 141.29689276     -20.39658715 141.25191976     -20.21181426 140.44914628     -20.03215673 140.49516859",
-            "Burst: s1a-iw1-slc-vh-20190918t200935-20190918t201000-029080-034cee-001.xml   3    133 IW1 VH 72582.62649400 201.53568026  0.16887198     -20.38261265 141.25541628     -20.56279048 141.21028353     -20.37775129 140.40653133     -20.19786210 140.45272467",
-            "Burst: s1a-iw1-slc-vh-20190918t200935-20190918t201000-029080-034cee-001.xml   4    133 IW1 VH 72585.38505000 201.70454140  0.16886114     -20.54716454 141.20767637     -20.72720258 141.16246734     -20.54246531 140.36031242     -20.36271633 140.40658711",
-            "Burst: s1a-iw1-slc-vh-20190918t200935-20190918t201000-029080-034cee-001.xml   5    133 IW1 VH 72588.14360700 201.87339177  0.16885037     -20.71310677 141.16601094     -20.89325434 141.12067116     -20.70824908 140.31752379     -20.52839219 140.36393985",
-            "Burst: s1a-iw1-slc-vh-20190918t200935-20190918t201000-029080-034cee-001.xml   6    133 IW1 VH 72590.90216300 202.04223120  0.16883944     -20.87903594 141.12425376     -21.05916928 141.07881344     -20.87389490 140.27466521     -20.69405368 140.32119173",
-            "Burst: s1a-iw1-slc-vh-20190918t200935-20190918t201000-029080-034cee-001.xml   7    133 IW1 VH 72593.65866400 202.21093395  0.16870275     -21.04482842 141.08243522     -21.22482380 141.03692484     -21.03927935 140.23176809     -20.85957735 140.27837387",
-            "Burst: s1a-iw1-slc-vh-20190918t200935-20190918t201000-029080-034cee-001.xml   8    133 IW1 VH 72596.41516500 202.37962575  0.16869180     -21.21073132 141.04049214     -21.39071226 140.99487952     -21.20489598 140.18870351     -21.02520990 140.23542155",
-        ],
-        []
-    )
+    def S1_burstloc_mock(*args, **kwargs):
+        from tests.fixture_S1_burstloc import S1_burstloc_outputs
+
+        result = pgp.S1_burstloc(*args, **kwargs)
+        xml_file = Path(args[0])
+
+        return result[0], S1_burstloc_outputs[xml_file.name], []
+
+    pgmock.S1_burstloc.side_effect = S1_burstloc_mock
 
     def SLC_cat_ScanSAR_se(*args, **kwargs):
         result = pgp.SLC_cat_ScanSAR(*args, **kwargs)
@@ -681,3 +677,16 @@ def logging_ctx():
             structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj), processors=COMMON_PROCESSORS)
             yield insar_log_path
 
+
+@pytest.fixture
+def s1_test_db(logging_ctx, s1_test_data_zips):
+    dir = tempfile.TemporaryDirectory()
+
+    with dir as dir_path:
+        db_path = Path(dir_path) / "test.db"
+        with Archive(db_path) as archive:
+            for scene_zip in s1_test_data_zips:
+                scene_metadata = generate_slc_metadata(scene_zip)
+                archive.archive_scene(scene_metadata)
+
+        yield db_path

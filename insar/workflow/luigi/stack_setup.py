@@ -20,7 +20,7 @@ from insar.project import ProcConfig
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.logs import STATUS_LOGGER
 
-from insar.workflow.luigi.utils import DateListParameter, PathParameter, tdir, simplify_dates, calculate_primary
+from insar.workflow.luigi.utils import DateListParameter, PathParameter, tdir, simplify_dates, calculate_primary, one_day
 
 class DataDownload(luigi.Task):
     """
@@ -119,6 +119,25 @@ class InitialSetup(luigi.Task):
             tdir(self.workdir) / f"{self.stack_id}_initialsetup_status_logs.out"
         )
 
+    def _abort_stack_processing(self, msg: str):
+        log = STATUS_LOGGER.bind(stack_id=self.stack_id)
+        log.info(msg)
+
+        with open(self.proc_file, "r") as proc_file_obj:
+            proc_config = ProcConfig.from_file(proc_file_obj)
+
+        outdir = Path(proc_config.output_path)
+
+        # Touch empty scenes.list and burst csv files to make it
+        # clear that the stack simply has no data...
+        (outdir / proc_config.list_dir / 'scenes.list').touch()
+        self.burst_data_csv.touch()
+
+        # Touch task output file / mark task as complete
+        task_status = self.output()
+        task_status.makedirs()
+        Path(task_status.path).touch()
+
     def run(self):
         log = STATUS_LOGGER.bind(stack_id=self.stack_id)
         log.info("initial setup task", sensor=self.sensor)
@@ -138,8 +157,8 @@ class InitialSetup(luigi.Task):
             rel_orbit = int(re.findall(r"\d+", str(proc_config.track))[0])
 
             # Convert luigi half-open DateInterval into the inclusive tuple ranges we use
-            init_include_dates = [(d.date_a, d.date_b) for d in self.include_dates or []]
-            init_exclude_dates = [(d.date_a, d.date_b) for d in self.exclude_dates or []]
+            init_include_dates = [(d.date_a, d.date_b + one_day) for d in self.include_dates or []]
+            init_exclude_dates = [(d.date_a, d.date_b + one_day) for d in self.exclude_dates or []]
 
             # Find the maximum extent of the queried dates
             include_dates = sorted(simplify_dates(init_include_dates, init_exclude_dates))
@@ -167,7 +186,7 @@ class InitialSetup(luigi.Task):
             )
 
             if slc_query_results is None:
-                raise ValueError(
+                self._abort_stack_processing(
                     f"No {pols} data was returned for {str(self.shape_file)} "
                     f"from date: {min_date} "
                     f"to date: {max_date} "
@@ -175,6 +194,7 @@ class InitialSetup(luigi.Task):
                     f"sensor: {self.sensor} "
                     f"in DB: {str(proc_config.database_path)}"
                 )
+                return
 
             slc_inputs_df = pd.concat(
                 [slc_inputs(slc_query_results[pol]) for pol in pols],
@@ -281,15 +301,7 @@ class InitialSetup(luigi.Task):
         num_scenes = len(slc_inputs_df)
 
         if num_scenes == 0:
-            log.info("Stack setup failed - no valid scenes specified!")
-
-            # Touch an empty scenes.list just to make it clear there are
-            # simply no scenes in this stack...
-            (outdir / proc_config.list_dir / 'scenes.list').touch()
-
-            with self.output().open("w") as out_fid:
-                out_fid.write("")
-
+            self._abort_stack_processing("Stack setup failed - no valid scenes specified!")
             return
 
         # Determine stack extents

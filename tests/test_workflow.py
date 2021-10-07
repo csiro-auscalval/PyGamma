@@ -1,6 +1,8 @@
 from pathlib import Path
-from typing import Generator, List, Tuple
+from typing import Generator, List, Tuple, Optional
 import tempfile
+from dataclasses import dataclass
+from luigi.date_interval import Custom as LuigiDate
 
 from tests.fixtures import *
 
@@ -53,6 +55,12 @@ def count_dir_tree(dir: Path, include_dirs: bool = True) -> int:
 # These tests legitimately run the real-deal ARD luigi workflow directly,
 # albeit slowly (single-threaded in the calling thread).
 
+@dataclass
+class GeospatialQuery:
+    database_path: Path
+    shapefile: Path
+    include_dates: List[Tuple[datetime, datetime]]
+    exclude_dates: List[Tuple[datetime, datetime]]
 
 def do_ard_workflow_validation(
     pgp,
@@ -65,7 +73,9 @@ def do_ard_workflow_validation(
     validate_slc: bool = True,
     validate_ifg: bool = True,
     cleanup: bool = True,
-    debug: bool = False
+    debug: bool = False,
+    expected_scenes: Optional[int] = None,
+    geospatial_query: Optional[GeospatialQuery] = None
 ) -> Tuple[Path, Path, tempfile.TemporaryDirectory]:
     # Setup temporary dirs to run the workflow in
     temp_dir = tempfile.TemporaryDirectory()
@@ -78,8 +88,6 @@ def do_ard_workflow_validation(
     # Setup test workflow arguments
     args = {
         "proc_file": str(proc_file_path),
-        "include_dates": '',
-        "exclude_dates": '',
         "source_data": source_data,
         "workdir": str(job_dir),
         "outdir": str(out_dir),
@@ -87,6 +95,12 @@ def do_ard_workflow_validation(
         "cleanup": cleanup,
         "workflow": workflow
     }
+
+    if geospatial_query:
+        args["database_path"] = geospatial_query.database_path
+        args["shape_file"] = geospatial_query.shapefile
+        args["include_dates"] = geospatial_query.include_dates
+        args["exclude_dates"] = geospatial_query.exclude_dates
 
     # Run the workflow
     run_ard_inline(args)
@@ -96,8 +110,8 @@ def do_ard_workflow_validation(
     with finalised_proc_path.open('r') as fileobj:
         proc_config = ProcConfig.from_file(fileobj)
 
-    is_nrt = args["workflow"] == ARDWorkflow.BackscatterNRT
-    is_coregistered = args["workflow"] != ARDWorkflow.BackscatterNRT
+    is_nrt = workflow == ARDWorkflow.BackscatterNRT
+    is_coregistered = workflow != ARDWorkflow.BackscatterNRT
     rlks = int(proc_config.range_looks)
 
     # DEBUG for visualising output in tempdir
@@ -105,6 +119,7 @@ def do_ard_workflow_validation(
         print("===== DEBUG =====")
         print_dir_tree(out_dir)
         print("==="*5)
+        print((job_dir / "insar-log.jsonl").read_text())
         print((job_dir / "status-log.jsonl").read_text())
     # END DEBUG
 
@@ -137,6 +152,12 @@ def do_ard_workflow_validation(
 
     scenes_list = out_dir / proc_config.list_dir / "scenes.list"
     scenes_list = scenes_list.read_text().strip().splitlines()
+
+    if expected_scenes is not None:
+        if expected_scenes == 0:
+            assert(not scenes_list)
+        else:
+            assert(len(scenes_list) == expected_scenes)
 
     if scenes_list:
         primary_ref_scene = out_dir / proc_config.list_dir / "primary_ref_scene"
@@ -459,3 +480,117 @@ def test_ard_workflow_no_cleanup_keeps_raw_data(pgp, pgmock, rs2_test_data, rs2_
 
     # Note: do_ard_workflow_validation does all the validation we care about when cleanup == False
     # - no need to duplicate it here.
+
+
+def test_ard_workflow_with_good_s1_db_query(logging_ctx, pgp, pgmock, s1_test_db, s1_proc):
+    first_date = S1_TEST_DATA_DATES[0]
+    last_date = S1_TEST_DATA_DATES[-1]
+
+    first_date = f"{first_date[:4]}-{first_date[4:6]}-{first_date[6:]}"
+    last_date = f"{last_date[:4]}-{last_date[4:6]}-{last_date[6:]}"
+
+    query = GeospatialQuery(
+        s1_test_db,
+        TEST_DATA_BASE / "T133D_F20S_S1A.shp",
+        [LuigiDate.parse(f"{first_date}-{last_date}")],
+        []
+    )
+
+    # Run standard ifg workflow w/ a query that covers our test data
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        [],
+        ["VV", "VH"],
+        s1_proc,
+        geospatial_query=query,
+        expected_scenes=2
+    )
+
+    # Note: do_ard_workflow_validation does all the validation we care about
+    # - this test should not except / should complete cleanly.
+
+
+def test_ard_workflow_with_db_query_no_spatial_coverage(logging_ctx, pgp, pgmock, s1_test_db, s1_proc):
+    first_date = S1_TEST_DATA_DATES[0]
+    last_date = S1_TEST_DATA_DATES[-1]
+
+    first_date = f"{first_date[:4]}-{first_date[4:6]}-{first_date[6:]}"
+    last_date = f"{last_date[:4]}-{last_date[4:6]}-{last_date[6:]}"
+
+    query = GeospatialQuery(
+        s1_test_db,
+        # Note: using shape file which does NOT cover our standard test data
+        TEST_DATA_BASE / "T147D_F28S_S1A.shp",
+        [LuigiDate.parse(f"{first_date}-{last_date}")],
+        []
+    )
+
+    # Run standard ifg workflow w/ our query (that doesn't spatially cover test data)
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        [],
+        ["VV", "VH"],
+        s1_proc,
+        geospatial_query=query,
+        # The stack should not process / there should be no data returned by this query.
+        expected_scenes=0
+    )
+
+
+def test_ard_workflow_with_db_query_no_temporal_coverage(logging_ctx, pgp, pgmock, s1_test_db, s1_proc):
+    # Note: using dates which do NOT cover our test data
+    first_date = f"3000-01-01"
+    last_date = f"4000-12-25"
+
+    query = GeospatialQuery(
+        s1_test_db,
+        TEST_DATA_BASE / "T133D_F20S_S1A.shp",
+        [LuigiDate.parse(f"{first_date}-{last_date}")],
+        []
+    )
+
+    # Run standard ifg workflow w/ our query (that doesn't temporally cover test data)
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        [],
+        ["VV", "VH"],
+        s1_proc,
+        geospatial_query=query,
+        # The stack should not process / there should be no data returned by this query.
+        expected_scenes=0
+    )
+
+
+def test_ard_workflow_with_empty_db(logging_ctx, test_data_dir, pgp, pgmock, s1_test_db, s1_proc):
+    # Create an empty database
+    empty_db_path = test_data_dir / "test.db"
+    with Archive(empty_db_path) as archive:
+        pass
+
+    first_date = S1_TEST_DATA_DATES[0]
+    last_date = S1_TEST_DATA_DATES[-1]
+
+    first_date = f"{first_date[:4]}-{first_date[4:6]}-{first_date[6:]}"
+    last_date = f"{last_date[:4]}-{last_date[4:6]}-{last_date[6:]}"
+
+    query = GeospatialQuery(
+        empty_db_path,
+        TEST_DATA_BASE / "T133D_F20S_S1A.shp",
+        [LuigiDate.parse(f"{first_date}-{last_date}")],
+        []
+    )
+
+    # Run standard ifg workflow w/ a query that covers our test data
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        [],
+        ["VV", "VH"],
+        s1_proc,
+        geospatial_query=query,
+        # The stack should not process / there's no scenes in our DB...
+        expected_scenes=0
+    )
