@@ -294,5 +294,3 @@ Due to how coregistration & interferogram trees work - only dates that share ide
 The reason for this largely comes down to the fact that both coregistration and interferograms are in their nature an operation between two distinct scenes, and thus if data in scene A does not exist in scene B there is nothing to coregister with nor produce an interferogram from...
 
 For this reason it is strongly recommended that shapefiles are produced in such a way that all scenes will consistently have the same set of data.
-
-Note: A prototype grid based shapefile generation scheme exists in `insar/scripts/grid_processing.py` however this is not used/maintained, and is just an example of what one option could be (the method used on NCI by GA will be documented and made available in the near future)
