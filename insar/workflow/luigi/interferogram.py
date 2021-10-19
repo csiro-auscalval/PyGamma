@@ -83,13 +83,13 @@ class ProcessIFG(luigi.Task):
 
                 # And some sensors may have metadata, but simply no orbit files
                 if "slc" in first_slc_meta and "orbit_url" in first_slc_meta["slc"]:
-                    first_orbit_precise = "POEORB" in first_slc_meta["slc"]["orbit_url"]
+                    first_orbit_precise = "POEORB" in (first_slc_meta["slc"]["orbit_url"] or "")
 
             if second_slc_meta.exists():
                 second_slc_meta = json.loads(second_slc_meta.read_text())
 
                 if "slc" in second_slc_meta and "orbit_url" in second_slc_meta["slc"]:
-                    second_orbit_precise = "POEORB" in second_slc_meta["slc"]["orbit_url"]
+                    second_orbit_precise = "POEORB" in (second_slc_meta["slc"]["orbit_url"] or "")
 
             # Determine if baseline refinement should be enabled based on a .proc
             # setting (this exists as InSAR team aren't sure on their exact requirements

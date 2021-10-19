@@ -788,8 +788,8 @@ class S1DataDownload(SlcMetadata):
 
             if not orbit_source_file:
                 msg = f"No orbit files found for {start_datetime}"
-                _LOG.error(msg, slc_scene=self.scene)
-                raise SlcException(msg)
+                _LOG.warning(msg, slc_scene=self.scene)
+                return
 
             orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
 

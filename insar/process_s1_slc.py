@@ -190,20 +190,28 @@ class SlcProcess:
             _concat_tabs[_id]["datetime"] = start_datetime
 
             for swath in [1, 2, 3]:
-                # TODO: swath is <int>, never have an item as an
-                # TODO: <int> -> This should be changed
                 _concat_tabs[_id][swath] = dict()
                 tab_names = self.swath_tab_names(swath, _id)
-                raw_files = [
-                    list(
-                        save_file.glob(
-                            val.format(
-                                swath=swath, polarization=self.polarization.lower()
-                            )
-                        )
-                    )[0].as_posix()
-                    for key, val in self.raw_files_patterns.items()
-                ]
+                raw_files = []
+
+                # Find this swath's raw data files
+                for key, val in self.raw_files_patterns.items():
+                    pattern = val.format(swath=swath, polarization=self.polarization.lower())
+                    matched_files = list(save_file.glob(pattern))
+
+                    # Sanity check SAFE file structure
+                    if not matched_files:
+                        # We allow orbit files to be missing (also they're not part of SAFE file contents)
+                        if key == "orbit_file":
+                            raw_files.append(None)
+                            continue
+                        else:
+                            raise FileNotFoundError(f"Failed to find required S1 {key} files")
+
+                    elif len(matched_files) != 1:
+                        raise ProcessSlcException(f"Invalid ESA SAFE structure, more than one {key} file found for IW{swath}")
+
+                    raw_files.append(matched_files[0].as_posix())
 
                 # collect the variables needed to perform slc processing
                 _concat_tabs[_id][swath]["slc"] = tab_names.slc
@@ -572,6 +580,10 @@ class SlcProcess:
 
     def orbits(self):
         """Extract Sentinel-1 OPOD state vectors and copy into the ISP image parameter file"""
+
+        if not self.orbit_file:
+            self.log.warning("No orbit file for this scene exists")
+            return
 
         slc_tab = self.slc_tab_names(self.slc_prefix)
 
