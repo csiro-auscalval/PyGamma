@@ -34,7 +34,9 @@ class TempFileConfig:
         "unwrapped_filtered_ifg",
         "geocode_unwrapped_ifg",
         "geocode_flat_ifg",
+        "geocode_flat_ifg_cpx",
         "geocode_filt_ifg",
+        "geocode_filt_ifg_cpx",
         "geocode_flat_coherence_file",
         "geocode_filt_coherence_file",
     ]
@@ -51,7 +53,9 @@ class TempFileConfig:
         # temp files from geocoding step
         self.geocode_unwrapped_ifg = pathlib.Path("geocode_unw_ifg.tmp")
         self.geocode_flat_ifg = pathlib.Path("geocode_flat_ifg.tmp")
+        self.geocode_flat_ifg_cpx = pathlib.Path("geocode_flat_ifg_cpx.tmp")
         self.geocode_filt_ifg = pathlib.Path("geocode_filt_ifg.tmp")
+        self.geocode_filt_ifg_cpx = pathlib.Path("geocode_filt_ifg_cpx.tmp")
         self.geocode_flat_coherence_file = pathlib.Path("geocode_flat_coherence_file.tmp.bmp")
         self.geocode_filt_coherence_file = pathlib.Path("geocode_filt_coherence_file.tmp.bmp")
 
@@ -976,11 +980,11 @@ def geocode_flattened_ifg(
     """
     # # Use bicubic spline interpolation for geocoded flattened interferogram
     # convert to float and extract phase
-    pg.cpx_to_real(
-        ic.ifg_flat, ic.ifg_flat_float, width_in, const.CPX_TO_REAL_OUTPUT_TYPE_PHASE
-    )
     pg.geocode_back(
-        ic.ifg_flat_float, width_in, dc.dem_lt_fine, tc.geocode_flat_ifg, width_out
+        ic.ifg_flat, width_in, dc.dem_lt_fine, tc.geocode_flat_ifg_cpx, width_out
+    )
+    pg.cpx_to_real(
+        tc.geocode_flat_ifg_cpx, tc.geocode_flat_ifg, width_out, const.CPX_TO_REAL_OUTPUT_TYPE_PHASE
     )
 
     # apply sea mask to phase data
@@ -1005,11 +1009,11 @@ def geocode_filtered_ifg(
     :param width_out:
     :return:
     """
-    pg.cpx_to_real(
-        ic.ifg_filt, ic.ifg_filt_float, width_in, const.CPX_TO_REAL_OUTPUT_TYPE_PHASE
-    )
     pg.geocode_back(
-        ic.ifg_filt_float, width_in, dc.dem_lt_fine, tc.geocode_filt_ifg, width_out
+        ic.ifg_filt, width_in, dc.dem_lt_fine, tc.geocode_filt_ifg_cpx, width_out
+    )
+    pg.cpx_to_real(
+        tc.geocode_filt_ifg_cpx, tc.geocode_filt_ifg, width_out, const.CPX_TO_REAL_OUTPUT_TYPE_PHASE
     )
 
     # apply sea mask to phase data
