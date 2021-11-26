@@ -5,6 +5,7 @@ import re
 from zipfile import ZipFile
 import shutil
 import xml.etree.ElementTree as etree
+import os.path
 
 from insar.sensors.types import SensorMetadata
 
@@ -144,6 +145,8 @@ def acquire_source_data(source_path: str, dst_dir: Path, pols: Optional[List[str
         else:
             shutil.copytree(source_path, dst_dir / source_path.stem)
 
+        return dst_dir / source_path.stem
+
     elif source_path.suffix == ".zip":
         with ZipFile(source_path, "r") as zip:
             filtered_list = None
@@ -156,5 +159,8 @@ def acquire_source_data(source_path: str, dst_dir: Path, pols: Optional[List[str
 
             zip.extractall(dst_dir, filtered_list)
 
+        return dst_dir / os.path.commonpath(zip.namelist())
+
     else:
         raise RuntimeError("Unsupported source data path...")
+

@@ -1,3 +1,4 @@
+import itertools
 import luigi
 from luigi.util import common_params
 import luigi.configuration
@@ -9,13 +10,15 @@ from pathlib import Path
 from insar.project import ProcConfig, ARDWorkflow
 from insar.logs import STATUS_LOGGER
 
-from insar.workflow.luigi.utils import DateListParameter, PathParameter
+from insar.stack import load_stack_config, load_stack_scenes, resolve_stack_scene_query, load_stack_scene_dates
 
 from insar.workflow.luigi.stack_setup import InitialSetup
 from insar.workflow.luigi.resume import TriggerResume
 from insar.workflow.luigi.backscatter import CreateCoregisteredBackscatter
 from insar.workflow.luigi.interferogram import CreateProcessIFGs
 from insar.workflow.luigi.backscatter_nrt import CreateNRTBackscatter
+from insar.workflow.luigi.append import AppendDatesToStack
+from insar.workflow.luigi.utils import DateListParameter, PathParameter, simplify_dates, one_day
 
 class ARD(luigi.WrapperTask):
     """
@@ -41,12 +44,15 @@ class ARD(luigi.WrapperTask):
     proc_file = PathParameter()
 
     # Query params (to find source data for processing)
-    shape_file = luigi.Parameter(default="")
+    shape_file = PathParameter(default=None)
     include_dates = DateListParameter(default=[])
     exclude_dates = DateListParameter(default=[])
 
     # Explicit source data (in addition to that found via DB query)
     source_data = luigi.ListParameter(default=[])
+
+    # Stack modification params
+    append = luigi.BoolParameter(default=False)
 
     # Overridable query params (can come from .proc, or task)
     stack_id = luigi.OptionalParameter(default=None)
@@ -136,36 +142,93 @@ class ARD(luigi.WrapperTask):
 
         if pols:
             # Note: proc_config only takes the primary polarisation
-            # - this is the polarisation used for IFGs, not secondary.
+            # - this is the polarisation used for IFGs (not secondary pols).
             #
             # We assume first polarisation is the primary.
             proc_config.polarisation = pols[0]
         else:
             pols = [proc_config.polarisation or "VV"]
 
-        # Infer key variables from it
+        # Infer key variables from the config
         self.output_path = Path(proc_config.output_path)
         self.job_path = Path(proc_config.job_path)
         orbit = proc_config.orbit[:1].upper()
         proc_file = self.output_path / "config.proc"
+        existing_stack = False
+        append = bool(self.append)
 
-        # Create dirs
-        os.makedirs(self.output_path / proc_config.list_dir, exist_ok=True)
-        os.makedirs(self.job_path, exist_ok=True)
+        # Check if this stack already exists (eg: has a config.proc and scenes.list)
+        if proc_file.exists():
+            existing_config = load_stack_config(proc_file)
 
-        # If proc_file already exists (eg: because this is a resume), assert that
-        # this job has identical settings to the last one, so we don't produce
-        # inconsistent data.
+            # Determine what scenes have already been added to the stack
+            # - this is from prior include date queries + explicit source data
+            existing_scenes = load_stack_scenes(existing_config)
+            existing_stack = bool(existing_scenes)
+
+        # If the stack DOES already exist...
+        if existing_stack:
+            # Determine what scenes we're now asking to be in the stack...
+            include_date_spec = [(d.date_a, d.date_b + one_day) for d in self.include_dates or []]
+            exclude_date_spec = [(d.date_a, d.date_b + one_day) for d in self.exclude_dates or []]
+
+            new_scenes_query = sorted(simplify_dates(include_date_spec, exclude_date_spec))
+            new_scenes, _ = resolve_stack_scene_query(
+                existing_config,
+                new_scenes_query + list(self.source_data),
+                [proc_config.sensor],
+                self.orbit,
+                pols,
+                [self.sensor],
+                Path(self.shape_file) if self.shape_file else None
+            )
+
+            # Note: We're actually throwing away information here, by assuming existing dates never get
+            # retrospectively updated (eg: database might get an update w/ no-longer-missing/un-corrupted data)
+            new_append_idx = len(load_stack_scene_dates(proc_config))
+            existing_scenes = set(itertools.chain(*[urls for _, urls in existing_scenes]))
+            new_scenes = set(itertools.chain(*[urls for _, urls in new_scenes]))
+
+            # Check if the specified dates are DIFFERENT from the existing stack
+            added_scenes = new_scenes - existing_scenes
+            removed_scenes = existing_scenes - (new_scenes - added_scenes)
+            scenes_differ = bool(added_scenes or removed_scenes)
+
+            if removed_scenes:
+                # This is not currently a use case we require (thus do not support)
+                # - supporting it gets complicated (makes the whole stack mutable)
+                # - our current approach is append-only and much simpler as a result.
+                raise RuntimeError("Can not remove dates from a stack")
+
+            if append:
+                append = added_scenes
+
+                if not hasattr(self, 'append_idx'):
+                    # existing_scenes = original scenes.list + all the appended scenesN.list
+                    # where N is 1 base for all appends, eg: scenes1.list is the first append
+                    # thus... the current 'N' we're creating the baseline for is simple len()
+                    self.append_idx = new_append_idx
+
+            elif scenes_differ:
+                raise RuntimeError("Provided dates do not match existing stack's dates with no --append specified")
+
+            log.info(
+                "Appending existing stack",
+                new_query=new_scenes_query,
+                new_source_data=self.source_data,
+                adding_scenes=added_scenes,
+                removing_scenes=removed_scenes
+            )
+
+        # If proc_file already exists (eg: because this is an append or resume),
+        # assert that this job has identical settings to the last one, so we don't
+        # produce inconsistent data.
         #
         # In this process we also re-inherit any auto/blank settings.
         # Note: This is only required due to the less than ideal design we
         # have where we have had to put a fair bit of logic into requires()
         # which is in fact called multiple times (even after InitialSetup!)
-
         if proc_file.exists():
-            with proc_file.open("r") as proc_fileobj:
-                existing_config = ProcConfig.from_file(proc_fileobj)
-
             assert(existing_config.__slots__ == proc_config.__slots__)
 
             conflicts = []
@@ -193,7 +256,11 @@ class ARD(luigi.WrapperTask):
                 log.info(msg, **error.state)
                 raise error
 
-        # Finally save final config and
+        # Create dirs
+        os.makedirs(self.output_path / proc_config.list_dir, exist_ok=True)
+        os.makedirs(self.job_path, exist_ok=True)
+
+        # Save final config w/ any newly supplied or inferred settings.
         with open(proc_file, "w") as proc_fileobj:
             proc_config.save(proc_fileobj)
 
@@ -242,6 +309,13 @@ class ARD(luigi.WrapperTask):
         # Yield appropriate workflow
         if self.resume:
             ard_tasks.append(TriggerResume(resume_token=self.resume_token, reprocess_failed=self.reprocess_failed, workflow=workflow, **kwargs))
+        elif append:
+            ard_tasks.append(AppendDatesToStack(
+                append_idx=self.append_idx,
+                append_scenes=[str(i) for i in append],
+                workflow=workflow,
+                **common_params(temp, AppendDatesToStack)
+            ))
         elif workflow == ARDWorkflow.Backscatter:
             ard_tasks.append(CreateCoregisteredBackscatter(**kwargs))
         elif workflow == ARDWorkflow.Interferogram:

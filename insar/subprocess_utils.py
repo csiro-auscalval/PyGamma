@@ -45,7 +45,7 @@ def run_command(
     Raises a CalledProcessError for backwards compatibility
     """
     _proc = subprocess.Popen(
-        " ".join(command),
+        " ".join([str(i) for i in command]),
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
         preexec_fn=os.setsid,

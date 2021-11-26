@@ -115,7 +115,7 @@ class CreateRSAT2SlcTasks(luigi.Task):
         yield slc_tasks
 
         # Remove any failed scenes from upstream processing if SLC files fail processing
-        slc_inputs_df = pd.read_csv(self.burst_data_csv)
+        slc_inputs_df = pd.read_csv(self.burst_data_csv, index_col=0)
         rewrite = False
 
         for _slc_task in slc_tasks:

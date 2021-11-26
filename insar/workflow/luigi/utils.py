@@ -152,7 +152,7 @@ class DateListParameter(luigi.Parameter):
 
 # TODO: This should take a primary polarisation to filter on
 def get_scenes(burst_data_csv):
-    df = pd.read_csv(burst_data_csv)
+    df = pd.read_csv(burst_data_csv, index_col=0)
     if len(df) == 0:
         return []
 

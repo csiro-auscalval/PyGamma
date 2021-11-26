@@ -6,6 +6,7 @@ import tarfile
 import shutil
 import tempfile
 import structlog
+import os.path
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 
@@ -179,6 +180,8 @@ def acquire_source_data(source_path: str, dst_dir: Path, pols: Optional[List[str
         else:
             shutil.copytree(source_path, dst_dir / source_path.stem)
 
+        return dst_dir / source_path.stem
+
     # This extracts the contents of the archive directly into dst_dir, JAXA ALOS
     # products contain a {scene_date}/... top level directory, thus we should end up
     # with a dst_dir/{scene_date} dir of the archive contents.
@@ -193,6 +196,8 @@ def acquire_source_data(source_path: str, dst_dir: Path, pols: Optional[List[str
                 filtered_list = [i for i in filtered_list if "IMG-" not in i.name or Path(i.name).name[:6] in included_imagery]
 
             archive.extractall(dst_dir, filtered_list)
+
+            return dst_dir / os.path.commonpath(i.name for i in archive.getmembers())
 
     else:
         raise RuntimeError(f"Unsupported source data path: {source_path}")

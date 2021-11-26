@@ -100,6 +100,9 @@ def run_ard_inline(args: Dict[str, Any]):
         # Process workflow DAG
         while tasks:
             current = tasks[-1]
+            if current.complete():
+                tasks.pop()
+                continue
 
             # Check and run direct depedencies
             pending_deps = [dep for dep in current.deps() if not dep.complete()]

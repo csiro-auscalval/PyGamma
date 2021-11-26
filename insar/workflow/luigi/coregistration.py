@@ -1,4 +1,3 @@
-import datetime
 from pathlib import Path
 from typing import Dict, List, Any
 import luigi
@@ -7,7 +6,7 @@ from luigi.util import requires
 import structlog
 
 from insar.constant import SCENE_DATE_FMT
-from insar.coreg_utils import read_land_center_coords
+from insar.coreg_utils import read_land_center_coords, create_secondary_coreg_tree
 from insar.coregister_dem import CoregisterDem
 # FIXME: insar.coregister_slc is mostly S1 specific, should be renamed as such
 from insar.coregister_slc import CoregisterSlc
@@ -25,138 +24,6 @@ from insar.workflow.luigi.baseline import CalcInitialBaseline
 __DEM_GAMMA__ = "GAMMA_DEM"
 
 _LOG = structlog.get_logger("insar")
-
-def find_scenes_in_range(
-    primary_dt, date_list, thres_days: int, include_closest: bool = True
-):
-    """
-    Creates a list of frame dates that within range of a primary date.
-
-    :param primary_dt:
-        The primary date in which we are searching for scenes relative to.
-    :param date_list:
-        The list which we're searching for dates in.
-    :param thres_days:
-        The number of days threshold in which scenes must be within relative to
-        the primary date.
-    :param include_closest:
-        When true - if there exist slc frames on either side of the primary date, which are NOT
-        within the threshold window then the closest date from each side will be
-        used instead of no scene at all.
-    """
-
-    # We do everything with datetime.date's (can't mix and match date vs. datetime)
-    if isinstance(primary_dt, datetime.datetime):
-        primary_dt = primary_dt.date()
-    elif not isinstance(primary_dt, datetime.date):
-        primary_dt = datetime.date(primary_dt)
-
-    thresh_dt = datetime.timedelta(days=thres_days)
-    tree_lhs = []  # This was the 'lower' side in the bash...
-    tree_rhs = []  # This was the 'upper' side in the bash...
-    closest_lhs = None
-    closest_rhs = None
-    closest_lhs_diff = None
-    closest_rhs_diff = None
-
-    for dt in date_list:
-        if isinstance(dt, datetime.datetime):
-            dt = dt.date()
-        elif not isinstance(primary_dt, datetime.date):
-            dt = datetime.date(dt)
-
-        dt_diff = dt - primary_dt
-
-        # Skip scenes that match the primary date
-        if dt_diff.days == 0:
-            continue
-
-        # Record closest scene
-        if dt_diff < datetime.timedelta(0):
-            is_closer = closest_lhs is None or dt_diff > closest_lhs_diff
-            closest_lhs = dt if is_closer else closest_lhs
-            closest_lhs_diff = dt_diff
-        else:
-            is_closer = closest_rhs is None or dt_diff < closest_rhs_diff
-            closest_rhs = dt if is_closer else closest_rhs
-            closest_rhs_diff = dt_diff
-
-        # Skip scenes outside threshold window
-        if abs(dt_diff) > thresh_dt:
-            continue
-
-        if dt_diff < datetime.timedelta(0):
-            tree_lhs.append(dt)
-        else:
-            tree_rhs.append(dt)
-
-    # Use closest scene if none are in threshold window
-    if include_closest:
-        if len(tree_lhs) == 0 and closest_lhs is not None:
-            _LOG.info(
-                f"Date difference to closest secondary greater than {thres_days} days, using closest secondary only: {closest_lhs}"
-            )
-            tree_lhs = [closest_lhs]
-
-        if len(tree_rhs) == 0 and closest_rhs is not None:
-            _LOG.info(
-                f"Date difference to closest secondary greater than {thres_days} days, using closest secondary only: {closest_rhs}"
-            )
-            tree_rhs = [closest_rhs]
-
-    return tree_lhs, tree_rhs
-
-
-def create_secondary_coreg_tree(primary_dt, date_list, thres_days=63):
-    """
-    Creates a set of co-registration lists containing subsets of the prior set, to create a tree-like co-registration structure.
-
-    Notes from the bash on :thres_days: parameter:
-        #thres_days=93 # three months, S1A/B repeats 84, 90, 96, ... (90 still ok, 96 too long)
-        # -> some secondaries with zero averages for azimuth offset refinement
-        thres_days=63 # three months, S1A/B repeats 54, 60, 66, ... (60 still ok, 66 too long)
-         -> 63 days seems to be a good compromise between runtime and coregistration success
-        #thres_days=51 # maximum 7 weeks, S1A/B repeats 42, 48, 54, ... (48 still ok, 54 too long)
-        # -> longer runtime compared to 63, similar number of badly coregistered scenes
-        # do secondaries with time difference less than thres_days
-    """
-
-    # We do everything with datetime.date's (can't mix and match date vs. datetime)
-    if isinstance(primary_dt, datetime.datetime):
-        primary_dt = primary_dt.date()
-    elif not isinstance(primary_dt, datetime.date):
-        primary_dt = datetime.date(primary_dt)
-
-    lists = []
-
-    # Note: when compositing the lists, rhs comes first because the bash puts the rhs as
-    # the "lower" part of the tree, which seems to appear first in the list file...
-    #
-    # I've opted for rhs vs. lhs because it's more obvious, newer scenes are to the right
-    # in sequence as they're greater than, older scenes are to the left / less than.
-
-    # Initial Primary<->Secondary coreg list
-    lhs, rhs = find_scenes_in_range(primary_dt, date_list, thres_days)
-    last_list = lhs + rhs
-
-    while len(last_list) > 0:
-        lists.append(last_list)
-
-        if last_list[0] < primary_dt:
-            lhs, rhs = find_scenes_in_range(last_list[0], date_list, thres_days)
-            sub_list1 = lhs
-        else:
-            sub_list1 = []
-
-        if last_list[-1] > primary_dt:
-            lhs, rhs = find_scenes_in_range(last_list[-1], date_list, thres_days)
-            sub_list2 = rhs
-        else:
-            sub_list2 = []
-
-        last_list = sub_list1 + sub_list2
-
-    return lists
 
 
 def get_coreg_date_pairs(outdir: Path, proc_config: ProcConfig):
@@ -176,7 +43,7 @@ def get_coreg_date_pairs(outdir: Path, proc_config: ProcConfig):
         if list_index == 1:
             pairs += [(primary_scene, dt) for dt in list_date_strings]
 
-        # All the rest coregister to
+        # All the rest coregister to the closest "end" date in the previous level of the tree
         else:
             for slc_scene in list_date_strings:
                 if int(slc_scene) < int(proc_config.ref_primary_scene):
@@ -189,6 +56,7 @@ def get_coreg_date_pairs(outdir: Path, proc_config: ProcConfig):
             pairs.append((coreg_ref_scene, slc_scene))
 
     return pairs
+
 
 def get_coreg_kwargs(proc_file: Path, scene_date=None, scene_pol=None):
     proc_config, metadata = load_settings(proc_file)

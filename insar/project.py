@@ -133,6 +133,7 @@ class ProcConfig:
         "dem_noff2",
         "ifg_rpos",
         "ifg_azpos",
+        "num_linked_append_dates"
     ]
 
     def __init__(self, **kwargs):
@@ -250,13 +251,13 @@ class ProcConfig:
                 msg += f"Attribute workflow must be one of {'/'.join(workflow_values)}, not {self.workflow}\n"
 
         # Validate flag properties
-        flag_values = ["yes", "no", "enable", "disable", "true", "false"]
+        flag_values = ["YES", "NO", "ENABLE", "DISABLE", "TRUE", "FALSE"]
         flag_properties = ["cleanup", "ifg_unw_mask", "ifg_iterative", "ifg_geotiff"]
         for name in flag_properties:
             if hasattr(self, name):
                 value = getattr(self, name)
 
-                if value and value.lower() not in flag_values:
+                if value and value.upper() not in flag_values:
                     msg += f"Attribute {name} must be one of {'/'.join(flag_values)}, not {value}\n"
 
         # Validate date properties

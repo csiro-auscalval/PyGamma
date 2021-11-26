@@ -3,6 +3,7 @@ from pathlib import Path
 from attr.setters import convert
 import structlog
 import os
+import json
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory
@@ -415,3 +416,24 @@ def process_alos_slc(
     )
 
     convert("temp.bmp", paths.slc.with_suffix(".png"))
+
+    # Identify source data URL
+    src_url = product_path / "src_url"
+    # - if this is raw_data we've extracted from a source archive, a src_url file will exist (in parent dir for ALOS)
+    if src_url.exists():
+        src_url = src_url.read_text()
+    # - otherwise it's a source data directory that's been provided by the user
+    else:
+        src_url = product_path.as_posix()
+
+    # Write metadata used to produce this SLC
+    metadata_path = output_slc_path.parent / f"metadata_{pol}.json"
+
+    metadata = {
+        product_path.name: {
+            "src_url": src_url
+        }
+    }
+
+    with metadata_path.open("w") as file:
+        json.dump(metadata, file, indent=2)

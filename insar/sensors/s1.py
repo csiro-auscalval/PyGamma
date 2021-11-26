@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import re
 from typing import List, Optional
+from shapely.geometry import Point
 
 from insar.sensors.types import SensorMetadata
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata
@@ -68,9 +69,8 @@ def get_data_swath_info(
         pol = pol.upper()
 
         # Track burst numbers
-        burst_numbers = [v["burst_num"] for k,v in data.items() if k.startswith("burst ")]
-
-        all_bursts = all_bursts | set(burst_numbers)
+        burst_numbers = []
+        burst_centroids = []
 
         # Measure swath extent
         swath_extent = None
@@ -85,6 +85,12 @@ def get_data_swath_info(
             maxx = max(x for x,y in v["coordinate"])
             maxy = max(y for x,y in v["coordinate"])
 
+            centroid_x = (minx + maxx) / 2
+            centroid_y = (miny + maxy) / 2
+
+            burst_numbers.append(v["burst_num"])
+            burst_centroids.append(Point(centroid_x, centroid_y))
+
             if swath_extent:
                 swath_min, swath_max = swath_extent
                 swath_extent = (
@@ -94,10 +100,13 @@ def get_data_swath_info(
             else:
                 swath_extent = ((minx, miny), (maxx, maxy))
 
+        all_bursts = all_bursts | set(burst_numbers)
+
         swath_data = {
             "date": date.date(),
             "swath": swath_id,
             "burst_number": burst_numbers,
+            "burst_centroid": burst_centroids,
             "swath_extent": swath_extent,
             "sensor": sensor.upper(),
             "url": str(data_path),
@@ -126,4 +135,6 @@ def acquire_source_data(source_path: str, dst_dir: Path, pols: Optional[List[str
         Path(resorb_path) if resorb_path else None,
     )
 
-    download_obj.slc_download(dst_dir)
+    result = download_obj.slc_download(dst_dir)
+
+    return None if not result else Path(result)

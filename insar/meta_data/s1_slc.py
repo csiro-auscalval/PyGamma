@@ -737,7 +737,7 @@ class S1DataDownload(SlcMetadata):
 
         # If there are no matching polarisations, exit early
         if not files_download:
-            return
+            return None
 
         files_download.append(self.manifest_file)
 
@@ -789,12 +789,14 @@ class S1DataDownload(SlcMetadata):
             if not orbit_source_file:
                 msg = f"No orbit files found for {start_datetime}"
                 _LOG.warning(msg, slc_scene=self.scene)
-                return
+                return base_dir
 
             orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
 
         if not os.path.exists(orbit_destination_file):
             shutil.copyfile(orbit_source_file, orbit_destination_file)
+
+        return base_dir
 
 
 class Archive:

@@ -3,7 +3,7 @@
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Optional
 
 import geopandas as gpd
 import pandas as pd
@@ -12,7 +12,6 @@ from spatialist import Vector
 import structlog
 
 from insar.meta_data.s1_slc import Archive
-from insar.logs import get_wrapped_logger
 
 _LOG = structlog.get_logger("insar")
 
@@ -64,6 +63,8 @@ def _check_frame_bursts(primary_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict
             input_data[dt_key][swath]["swath_extent"] = (swath_min, swath_max)
 
             # insert the missing bursts information into input_data
+            # TODO: de-duplicate shapefile burst availability logic w/ the same code
+            # in stack.py
             input_data[dt_key][swath]["missing_primary_bursts"] = set(
                 primary_swath_subset.burst_num.values
             ) - set(contained_bursts)
@@ -188,7 +189,7 @@ def _check_slc_input_data(
 
 def query_slc_inputs(
     dbfile: Union[Path, str],
-    shapefile: Union[Path, str],
+    shapefile: Optional[Union[Path, str]],
     start_date: datetime,
     end_date: datetime,
     orbit: str,
@@ -262,7 +263,7 @@ def query_slc_inputs(
             tables_join_string=tables_join_string,
             orbit=orbit,
             track=track,
-            spatial_subset=Vector(shapefile),
+            spatial_subset=Vector(str(shapefile)) if shapefile else None,
             columns=columns,
             min_date_arg=min_date_arg,
             max_date_arg=max_date_arg,

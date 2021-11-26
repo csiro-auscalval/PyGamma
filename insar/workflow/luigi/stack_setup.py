@@ -14,11 +14,11 @@ import structlog
 
 import insar
 from insar.constant import SCENE_DATE_FMT
-from insar.sensors import identify_data_source, get_data_swath_info, acquire_source_data, S1_ID, RSAT2_ID, PALSAR_ID
-from insar.sensors.s1 import ANY_S1_SAFE_PATTERN
+from insar.sensors import identify_data_source, acquire_source_data, S1_ID, RSAT2_ID, PALSAR_ID
 from insar.project import ProcConfig
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.logs import STATUS_LOGGER
+from insar.stack import resolve_stack_scene_additional_files
 
 from insar.workflow.luigi.utils import DateListParameter, PathParameter, tdir, simplify_dates, calculate_primary, one_day
 
@@ -48,7 +48,8 @@ class DataDownload(luigi.Task):
             structlog.threadlocal.bind_threadlocal(
                 task="Data download",
                 data_path=self.data_path,
-                polarisation=self.polarization
+                polarisation=self.polarization,
+                outdir=self.output_dir
             )
 
             log.info("Beginning data download")
@@ -72,12 +73,16 @@ class DataDownload(luigi.Task):
             outdir = Path(self.output_dir)
             outdir.mkdir(parents=True, exist_ok=True)
 
-            acquire_source_data(
+            product_dir = acquire_source_data(
                 self.data_path,
                 outdir,
                 self.polarization,
                 **kwargs
             )
+
+            # Record source url in the raw_data copy of the data
+            if product_dir:
+                (product_dir / "src_url").write_text(str(self.data_path))
 
             log.info("Data download complete")
         except:
@@ -148,10 +153,12 @@ class InitialSetup(luigi.Task):
         outdir = Path(proc_config.output_path)
         pols = list(self.polarization)
 
+        shape_file = Path(self.shape_file) if self.shape_file else None
+
         # If we have a shape file, query the DB for scenes in that extent
         # TBD: The database geospatial/temporal query is currently Sentinel-1 only
         # GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/261
-        if self.shape_file and proc_config.sensor == "S1":
+        if shape_file and proc_config.sensor == "S1":
             # get the relative orbit number, which is int value of the numeric part of the track name
             # Note: This is S1 specific...
             rel_orbit = int(re.findall(r"\d+", str(proc_config.track))[0])
@@ -176,7 +183,7 @@ class InitialSetup(luigi.Task):
             # of dates that covers all of our include dates.
             slc_query_results = query_slc_inputs(
                 str(proc_config.database_path),
-                str(self.shape_file),
+                shape_file,
                 min_date,
                 max_date,
                 str(self.orbit),
@@ -187,7 +194,7 @@ class InitialSetup(luigi.Task):
 
             if slc_query_results is None:
                 self._abort_stack_processing(
-                    f"No {pols} data was returned for {str(self.shape_file)} "
+                    f"No {pols} data was returned for {shape_file} "
                     f"from date: {min_date} "
                     f"to date: {max_date} "
                     f"orbit: {self.orbit} "
@@ -281,20 +288,13 @@ class InitialSetup(luigi.Task):
                         slc_inputs_df.drop(indexes, inplace=True)
 
         # Add any explicit source data files into the "inputs" data frame
-        for data_path in additional_scenes:
-            _, _, scene_date = identify_data_source(data_path)
-
-            for swath_data in get_data_swath_info(data_path, download_dir / scene_date):
-                if swath_data["polarization"] not in pols:
-                    log.info(
-                        "Skipping source data which does not match stack polarisations",
-                        source_file=data_path,
-                        source_pol=swath_data["polarization"],
-                        stack_pols=pols
-                    )
-                    continue
-
-                slc_inputs_df = slc_inputs_df.append(swath_data, ignore_index=True)
+        slc_inputs_df = resolve_stack_scene_additional_files(
+            slc_inputs_df,
+            proc_config,
+            pols,
+            additional_scenes,
+            shape_file
+        )
 
         # save slc burst data details which is used by different tasks
         slc_inputs_df.to_csv(self.burst_data_csv)
@@ -358,7 +358,7 @@ class InitialSetup(luigi.Task):
             #"track_frame_sensor": f"{self.track}_{self.frame}_{selected_sensors}",
             "original_work_dir": Path(self.outdir).as_posix(),
             "original_job_dir": workdir.as_posix(),
-            "shape_file": str(self.shape_file),
+            "shape_file": str(shape_file),
             "database": str(proc_config.database_path),
             "source_data": self.source_data,
             "stack_extent": stack_extent,

@@ -4,7 +4,7 @@ import pytest
 
 import numpy as np
 
-from insar.workflow.luigi.coregistration import find_scenes_in_range, create_secondary_coreg_tree
+from insar.coreg_utils import find_scenes_in_range, create_secondary_coreg_tree
 
 def _generate_dates(first_date, last_date, N=100):
     dt_diff = last_date - first_date

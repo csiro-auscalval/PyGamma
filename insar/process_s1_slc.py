@@ -178,9 +178,18 @@ class SlcProcess:
             # _id = basename of .SAFE folder, e.g.
             # S1A_IW_SLC__1SDV_20180103T191741_20180103T191808_019994_0220EE_1A2D
 
+            # Identify source data URL
+            src_url = save_file / "src_url"
+            # - if this is raw_data we've extracted from a source archive, a src_url file will exist
+            if src_url.exists():
+                src_url = src_url.read_text()
+            # - otherwise it's a source data directory that's been provided by the user
+            else:
+                src_url = save_file.as_posix()
+
             self.acquisition_bursts[_id] = {}
             self.metadata[_id] = {
-                "src_url": save_file.as_posix()
+                "src_url": src_url
             }
 
             # add start time to dict
@@ -605,7 +614,7 @@ class SlcProcess:
 
         acq_datetime_key = "acquisition_datetime"
 
-        df = pd.read_csv(self.burst_data)
+        df = pd.read_csv(self.burst_data, index_col=0)
         df[acq_datetime_key] = pd.to_datetime(df[acq_datetime_key])
         df["date"] = df[acq_datetime_key].apply(lambda x: pd.Timestamp(x).date())
         df_subset = df[
@@ -709,6 +718,7 @@ class SlcProcess:
                         f"to resize incomplete frame for scene {self.scene_date}"
                     )
                     raise ValueError(err)
+
                 self.frame_resize(self.ref_primary_tab, sub_slc_in)
 
             else:

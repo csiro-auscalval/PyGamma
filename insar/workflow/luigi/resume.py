@@ -117,56 +117,70 @@ class ReprocessSingleSLC(luigi.Task):
         rlks, alks = read_rlks_alks(mlk_status)
 
         # Read scenes CSV and schedule SLC download via URLs
+        slc_inputs_df = pd.read_csv(self.burst_data_csv, index_col=0)
+
+        os.makedirs(raw_data_path, exist_ok=True)
+
+        download_list = slc_inputs_df.url.unique()
+        download_tasks = []
+
+        for slc_url in download_list:
+            url_scene_date = Path(slc_url).name.split("_")[5].split("T")[0]
+
+            if url_scene_date == self.scene_date:
+                download_task = DataDownload(
+                    data_path=slc_url.rstrip(),
+                    polarization=[self.polarization],
+                    poeorb_path=self.poeorb_path,
+                    resorb_path=self.resorb_path,
+                    workdir=self.workdir,
+                    output_dir=raw_data_path / url_scene_date,
+                )
+
+                download_tasks.append(download_task)
+
         if self.progress() is None:
-            slc_inputs_df = pd.read_csv(self.burst_data_csv)
-
-            os.makedirs(raw_data_path, exist_ok=True)
-
-            download_list = slc_inputs_df.url.unique()
-            download_tasks = []
-
-            for slc_url in download_list:
-                url_scene_date = Path(slc_url).name.split("_")[5].split("T")[0]
-
-                if url_scene_date == self.scene_date:
-                    download_task = DataDownload(
-                        data_path=slc_url.rstrip(),
-                        polarization=self.polarization,
-                        poeorb_path=self.poeorb_path,
-                        resorb_path=self.resorb_path,
-                        workdir=self.workdir,
-                        output_dir=raw_data_path / url_scene_date,
-                    )
-
-                    # Force re-download, we clean raw data so the output status file is a lie...
-                    if download_task.output().exists():
-                        download_task.output().remove()
-
-                    download_tasks.append(download_task)
-
             self.set_progress("download_tasks")
+
+            for download_task in download_tasks:
+                # Force re-download, we clean raw data so the output status file is a lie...
+                status_path = Path(download_task.output().path)
+                if status_path.exists():
+                    status_path.unlink()
+
             yield download_tasks
+
+        for task in download_tasks:
+            failed_file = Path(task.output().path).read_text().strip()
+            if failed_file:
+                Path(self.output().path).write_text(failed_file)
+                return
 
         slc_dir = outdir / proc_config.slc_dir
         slc = slc_dir / self.scene_date / SlcFilenames.SLC_FILENAME.value.format(self.scene_date, self.polarization.upper())
         slc_par = slc_dir / self.scene_date / SlcFilenames.SLC_PAR_FILENAME.value.format(self.scene_date, self.polarization.upper())
 
-        if self.progress() == "download_tasks":
-            slc_task = ProcessSlc(
-                scene_date=self.scene_date,
-                raw_path=raw_data_path,
-                polarization=self.polarization,
-                burst_data=self.burst_data_csv,
-                slc_dir=slc_dir,
-                workdir=self.workdir,
-                ref_primary_tab=self.ref_primary_tab,
-            )
+        slc_task = ProcessSlc(
+            scene_date=self.scene_date,
+            raw_path=raw_data_path,
+            polarization=self.polarization,
+            burst_data=self.burst_data_csv,
+            slc_dir=slc_dir,
+            workdir=self.workdir,
+            ref_primary_tab=self.ref_primary_tab,
+        )
 
+        if self.progress() == "download_tasks":
             if slc_task.output().exists():
                 slc_task.output().remove()
 
             self.set_progress("slc_task")
             yield slc_task
+
+        failed_file = Path(task.output().path).read_text().strip()
+        if failed_file:
+            Path(self.output().path).write_text(failed_file)
+            return
 
         if not slc.exists():
             raise ValueError(f'Critical failure reprocessing, SLC file not found: {slc}')
@@ -211,7 +225,7 @@ class ReprocessSingleSLC(luigi.Task):
             raise RuntimeError("Unexpected dynamic dependency error in ReprocessSingleSLC task")
 
         with self.output().open("w") as f:
-            f.write(str(datetime.datetime.now()))
+            f.write("")
 
 
 class TriggerResume(luigi.Task):

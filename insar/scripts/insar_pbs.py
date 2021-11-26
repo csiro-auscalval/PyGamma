@@ -7,6 +7,7 @@ PBS submission scripts.
 import os
 import uuid
 import time
+import datetime
 import json
 import click
 import warnings
@@ -87,6 +88,7 @@ def _gen_pbs(
     num_threads,
     sensor,
     cleanup,
+    append,
     resume,
     reprocess_failed,
     workflow
@@ -127,6 +129,9 @@ def _gen_pbs(
     if sensor is not None and len(sensor) > 0:
         pbs += " \\\n    --sensor " + sensor
 
+    if append:
+        pbs += " \\\n    --append"
+
     if resume:
         pbs += " \\\n    --resume"
 
@@ -138,16 +143,27 @@ def _gen_pbs(
 
     # If we're resuming a job, generate the resume script
     out_fname = Path(job_dir) / f"job.bash"
+    token = datetime.datetime.now().strftime("%Y%m%d_%H%M")
 
-    if resume or reprocess_failed:
+    if append:
         # Create resumption job
-        resume_fname = Path(job_dir) / f"job_resume.bash"
+        append_fname = Path(job_dir) / f"job_append_{token}.bash"
+
+        with append_fname.open("w") as src:
+            src.writelines(pbs)
+            src.write("\n")
+
+        click.echo(f"Appending stack: {out_fname.parent}")
+        return append_fname
+    elif resume or reprocess_failed:
+        # Create resumption job
+        resume_fname = Path(job_dir) / f"job_resume_{token}.bash"
 
         with resume_fname.open("w") as src:
             src.writelines(pbs)
             src.write("\n")
 
-        print('Resuming existing job:', out_fname.parent)
+        click.echo(f"Resuming existing job: {out_fname.parent}")
         return resume_fname
 
     # Otherwise, create the new fresh job script
@@ -163,10 +179,10 @@ def _submit_pbs(job_path, test):
     """
     Submits a pbs job or mocks if set to test
     """
-    print(job_path)
+    click.echo(job_path)
     if test:
         time.sleep(1)
-        print("qsub", job_path)
+        click.echo("qsub", job_path)
     else:
         time.sleep(1)
         os.chdir(dirname(job_path))
@@ -176,7 +192,7 @@ def _submit_pbs(job_path, test):
             if ret == 0:
                 break
 
-            print(f"qsub failed, retrying ({retry+1}/10) in 10 seconds...")
+            click.echo(f"qsub failed, retrying ({retry+1}/10) in 10 seconds...")
             time.sleep(10)
 
 
@@ -313,6 +329,13 @@ def fatal_error(msg: str, exit_code: int = 1):
     required=False
 )
 @click.option(
+    "--append",
+    type=click.BOOL,
+    is_flag=True,
+    help="Indicates the job is appending new dates to an existing stack.",
+    default=False
+)
+@click.option(
     "--resume",
     type=click.BOOL,
     is_flag=True,
@@ -364,6 +387,7 @@ def ard_insar(
     cleanup: click.BOOL,
     num_threads: click.INT,
     sensor: click.STRING,
+    append: click.BOOL,
     resume: click.BOOL,
     reprocess_failed: click.BOOL,
     job_name: click.STRING,
@@ -406,7 +430,7 @@ def ard_insar(
     workpath = Path(workdir)
     outpath = Path(outdir)
 
-    if resume:
+    if resume or append:
         if not workpath.exists() or not any(workpath.iterdir()):
             click.echo("Error: Provided job work directory has no existing job!", err=True)
             exit(1)
@@ -558,6 +582,7 @@ def ard_insar(
         num_threads,
         sensor,
         cleanup,
+        append,
         resume,
         reprocess_failed,
         workflow
