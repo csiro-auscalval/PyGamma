@@ -305,6 +305,36 @@ def test_ard_workflow_ifg_smoketest_two_date_rs2_stack(pgp, pgmock, rs2_test_dat
     )
 
 
+def test_ard_workflow_ifg_smoketest_single_alos1_scene(pgp, pgmock, test_data_dir, alos1_test_zips, alos1_proc_config_path):
+    # Setup test workflow arguments, taking just a single RS2 acquisition
+    source_data = [str(alos1_test_zips[0])]
+    pols = ["HH"]
+
+    # Run standard ifg workflow validation test for this data
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        source_data,
+        pols,
+        alos1_proc_config_path
+    )
+
+
+def test_ard_workflow_ifg_smoketest_single_alos2_scene(pgp, pgmock, test_data_dir, alos2_test_zips, alos2_proc_config_path):
+    # Setup test workflow arguments, taking just a single RS2 acquisition
+    source_data = [str(alos2_test_zips[0])]
+    pols = ["HH"]
+
+    # Run standard ifg workflow validation test for this data
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        source_data,
+        pols,
+        alos2_proc_config_path
+    )
+
+
 #
 # Note: The tests below don't differ inside of the workflow between sensors,
 # as such to avoid duplicating tests for no reason we just have one version

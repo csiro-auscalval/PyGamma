@@ -44,7 +44,7 @@ def _usage2decl(module, program, file):
             if line.startswith("usage:"):
                 # Grab arugments from 'usage' line:
                 m = regex.match(
-                    r"usage: +([\w\-\\/_]+)( *\<([\w\-_]+)\>)*( *\[([\w\-_]+)\])*", line
+                    r"usage: +([\w\-\\/_]+)( *\<([\w\-\\/_]+)\>)*( *\[([\w\-\\/_]+)\])*", line
                 )
 
                 try:
@@ -69,6 +69,11 @@ def _usage2decl(module, program, file):
 
             # Start parsing new arg
             if not line.startswith("    "):
+                # Stop parsing once we've got all our args
+                # - this basically ignores suffix doco after the param descriptions
+                if last_arg == len(all_args):
+                    break
+
                 argname = line.split()[0]
                 desc_argname = argname
 
@@ -76,7 +81,7 @@ def _usage2decl(module, program, file):
                 ignore_arg |= argname.lower().startswith("remark")
                 ignore_arg |= argname.lower().startswith("example:")
 
-                # HACK: This is... not ideal, ... (usually?) means variable number of arguments
+                # HACK: This is... not ideal, "..." (usually?) means variable number of arguments
                 ignore_arg |= argname.startswith("...")
 
                 if not ignore_arg:
@@ -181,7 +186,6 @@ if __name__ == "__main__":
     blacklist = [
         "coord_trans",  # This isn't a normal gamma command
         "mosaic",
-        "PALSAR_antpat",
         "JERS_fix",
         "comb_hsi",
         "soil_moisture",
@@ -325,6 +329,7 @@ if __name__ == "__main__":
             for program, decl in programs.items():
 
                 args = ""
+                has_optionals = False
 
                 for argname, param in decl["params"].items():
                     if args != "":
@@ -338,8 +343,9 @@ if __name__ == "__main__":
                     if param["type"] == "path":
                         args += ": str"
 
-                    if param["optional"]:
+                    if param["optional"] or has_optionals:
                         args += " = None"
+                        has_optionals = True
 
                 var_args = ", *args" if program in vararg_programs else ""
 

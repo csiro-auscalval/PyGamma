@@ -22,9 +22,6 @@ pg = GammaInterface(
     subprocess_func=auto_logging_decorator(subprocess_wrapper, ProcessSlcException, _LOG)
 )
 
-# TBD: should probably abstract this in py_gamma_ga.py for easier testing/mocking
-MSP_HOME = os.environ.get("MSP_HOME")
-
 @dataclass
 class ALOSPaths:
     sensor_par: Path
@@ -102,6 +99,8 @@ def level0_lslc(
         # eg: `cat_raw $raw_file_list $sensor_par $msp_par $raw 1 0 -`
         # where raw_file_list = line separated list of "$raw $sensor_par $msp_par" for each input
 
+        # TODO: should probably abstract this in py_gamma_ga.py for easier testing/mocking
+        MSP_HOME = os.environ.get("MSP_HOME")
         # Correction for antenna pattern
         sensor_antpat = f"{MSP_HOME}/sensors/palsar_ant_20061024.dat"
 
@@ -298,7 +297,7 @@ def level1_slc(
                 break
 
         if not new_doppler_estimate:
-            raise Exception("Failed to determine new doppler estimate")
+            raise ProcessSlcException("Failed to determine new doppler estimate")
 
         # update ISP file with new estimated doppler centroid frequency (must be done manually)
         doppler_polynomial = pg.ParFile(paths.slc_par).get_value("doppler_polynomial", index=0)
@@ -323,21 +322,21 @@ def process_alos_slc(
     alos2_acquisitions = list(product_path.glob("IMG-*-ALOS*"))
 
     if not alos1_acquisitions and not alos2_acquisitions:
-        raise Exception(f"Provided product does not contain any ALOS data")
+        raise ProcessSlcException(f"Provided product does not contain any ALOS data")
 
     # Raise errors if things don't match up / make sense...
     alos1_pol_acquisitions = list(product_path.glob(f"IMG-{pol}-ALP*"))
     alos2_pol_acquisitions = list(product_path.glob(f"IMG-{pol}-ALOS*"))
 
     if not alos1_pol_acquisitions and not alos2_pol_acquisitions:
-        raise Exception(f"Product path does not contain any data for requested polarisation ({pol})")
+        raise ProcessSlcException(f"Product path does not contain any data for requested polarisation ({pol})")
 
     if len(alos1_acquisitions) > 0 and len(alos2_acquisitions) > 0:
-        raise Exception("Unsupported ALOS product, has a mix of both PALSAR 1 and 2 products")
+        raise ProcessSlcException("Unsupported ALOS product, has a mix of both PALSAR 1 and 2 products")
 
     product_sensor = "PALSAR1" if alos1_acquisitions else "PALSAR2"
     if sensor != product_sensor:
-        raise Exception(f"Mismatch between requested {sensor} sensor and provided {product_sensor} product")
+        raise ProcessSlcException(f"Mismatch between requested {sensor} sensor and provided {product_sensor} product")
 
     # Determine mode
     alos1_hv_acquisitions = list(product_path.glob("IMG-HV-ALP*"))

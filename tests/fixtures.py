@@ -4,6 +4,7 @@ import shutil
 import os
 import re
 from zipfile import ZipFile
+import tarfile
 from datetime import datetime, timedelta
 from osgeo import gdal
 from osgeo import osr
@@ -59,10 +60,70 @@ RS2_TEST_DATA_IDS = [
     "RS2_OK127568_PK1123206_DK1078375_F0W2_20170617_084251_HH_SLC"
 ]
 
+ALOS1_TEST_DATA_IDS = [
+    "20100117_PALSAR1_T433A_F6530",
+    "20100304_PALSAR1_T433A_F6530"
+]
+
+ALOS2_TEST_DATA_IDS = [
+    "20151215_PALSAR2_T124A_F6660",
+    "20160614_PALSAR2_T124A_F6660"
+]
+
+def copy_test_proc_into_dir(proc_path, out_dir):
+    # Load test .proc text
+    with proc_path.open("r") as procfile:
+        procfile_txt = procfile.read()
+
+    # Replace NCI style paths w/ out dir
+    procfile_txt = procfile_txt.replace("/g/data", str(out_dir))
+
+    # Set DEM path to our 10km test dem
+    dem_path = TEST_DATA_BASE / "test_dem_10km.tif"
+    procfile_txt = re.sub("PRIMARY_DEM_IMAGE.*", "PRIMARY_DEM_IMAGE="+str(dem_path), procfile_txt)
+
+    test_procfile_path = out_dir / proc_path.name
+    with test_procfile_path.open("w") as procfile:
+        procfile.write(procfile_txt)
+
+    return test_procfile_path
+
 @pytest.fixture(scope="session")
-def proc_config():
-    with open(TEST_DATA_BASE / '20151127' / 'gamma.proc', 'r') as fileobj:
-        return ProcConfig.from_file(fileobj)
+def proc_config_path():
+    return TEST_DATA_BASE / "20151127" / "gamma.proc"
+
+@pytest.fixture(scope="session")
+def proc_config(proc_config_path):
+    with proc_config_path.open('r') as fileobj:
+        result = ProcConfig.from_file(fileobj)
+
+    return result
+
+@pytest.fixture(scope="session")
+def alos1_proc_config_path(test_data_dir):
+    src_proc_path = TEST_DATA_BASE / "test_alos1.proc"
+
+    return copy_test_proc_into_dir(src_proc_path, test_data_dir)
+
+@pytest.fixture(scope="session")
+def alos1_proc_config(alos1_proc_config_path):
+    with alos1_proc_config_path.open('r') as fileobj:
+        result = ProcConfig.from_file(fileobj)
+
+    return result
+
+@pytest.fixture(scope="session")
+def alos2_proc_config_path(test_data_dir):
+    src_proc_path = TEST_DATA_BASE / "test_alos2.proc"
+
+    return copy_test_proc_into_dir(src_proc_path, test_data_dir)
+
+@pytest.fixture(scope="session")
+def alos2_proc_config(alos2_proc_config_path):
+    with alos2_proc_config_path.open('r') as fileobj:
+        result = ProcConfig.from_file(fileobj)
+
+    return result
 
 @pytest.fixture
 def temp_out_dir():
@@ -78,27 +139,19 @@ def test_data_dir():
     dir = tempfile.TemporaryDirectory()
 
     with dir as dir_path:
+        # Setup a fake GAMMA MSP home in our data dir
+        msp_home = Path(dir_path) / "msp"
+        (msp_home / "sensors").mkdir(parents=True)
+        (msp_home / "sensors" / "palsar_ant_20061024.dat").touch()
+        os.environ["MSP_HOME"] = str(msp_home)
+
         yield Path(dir_path)
 
 @pytest.fixture(scope="session")
 def rs2_proc(test_data_dir):
-    # Load test .proc text
     src_proc_path = TEST_DATA_BASE / "test_rs2.proc"
-    with (src_proc_path).open("r") as procfile:
-        procfile_txt = procfile.read()
 
-    # Replace NCI style paths w/ test data dir
-    procfile_txt = procfile_txt.replace("/g/data", str(test_data_dir))
-
-    # Set DEM path
-    dem_path = TEST_DATA_BASE / "test_dem_10km.tif"
-    procfile_txt = re.sub("PRIMARY_DEM_IMAGE.*", "PRIMARY_DEM_IMAGE="+str(dem_path), procfile_txt)
-
-    test_procfile_path = test_data_dir / "test_rs2.proc"
-    with test_procfile_path.open("w") as procfile:
-        procfile.write(procfile_txt)
-
-    return test_procfile_path
+    return copy_test_proc_into_dir(src_proc_path, test_data_dir)
 
 
 @pytest.fixture
@@ -126,24 +179,41 @@ def rs2_slc(pgp, pgmock, rs2_test_data):
 
     return out_path
 
+
+@pytest.fixture
+def alos1_test_zips():
+    return [TEST_DATA_BASE / f"{id}.tar.gz" for id in ALOS1_TEST_DATA_IDS]
+
+
+@pytest.fixture(scope="session")
+def alos1_test_data(test_data_dir):
+    # Extract test data
+    for id in ALOS1_TEST_DATA_IDS:
+        with tarfile.open(TEST_DATA_BASE / f"{id}.tar.gz", 'r') as archive:
+            archive.extractall(test_data_dir)
+
+    return [test_data_dir / i[:8] for i in ALOS1_TEST_DATA_IDS]
+
+
+@pytest.fixture
+def alos2_test_zips():
+    return [TEST_DATA_BASE / f"{id}.tar.gz" for id in ALOS2_TEST_DATA_IDS]
+
+
+@pytest.fixture(scope="session")
+def alos2_test_data(test_data_dir):
+    # Extract test data
+    for id in ALOS2_TEST_DATA_IDS:
+        with tarfile.open(TEST_DATA_BASE / f"{id}.tar.gz", 'r') as archive:
+            archive.extractall(test_data_dir)
+
+    return [test_data_dir / i[:8] for i in ALOS2_TEST_DATA_IDS]
+
+
 @pytest.fixture(scope="session")
 def s1_proc(test_data_dir):
-    # Load test .proc text
     src_proc_path = TEST_DATA_BASE / f"{S1_TEST_STACK_ID}_S1A.proc"
-    with (src_proc_path).open("r") as procfile:
-        procfile_txt = procfile.read()
-
-    # Replace NCI style paths w/ test data dir
-    procfile_txt = procfile_txt.replace("/g/data", str(test_data_dir))
-
-    # Set DEM path
-    dem_path = TEST_DATA_BASE / "test_dem_10km.tif"
-    procfile_txt = re.sub("PRIMARY_DEM_IMAGE.*", "PRIMARY_DEM_IMAGE="+str(dem_path), procfile_txt)
-
-    test_procfile_path = test_data_dir / src_proc_path.name
-    with test_procfile_path.open("w") as procfile:
-        procfile.write(procfile_txt)
-
+    test_procfile_path = copy_test_proc_into_dir(src_proc_path, test_data_dir)
     with test_procfile_path.open('r') as fileobj:
         proc_config = ProcConfig.from_file(fileobj)
 
@@ -581,6 +651,52 @@ def pgmock(monkeypatch, pgp):
         return result
 
     pgmock.SLC_interp_lt_ScanSAR.side_effect = SLC_interp_lt_ScanSAR_mock
+
+    # Simple par_MSP & par_EORC_PALSAR mocks that write dummy azimuth/range looks to slc .par file
+    def par_MSP(*args, **kwargs):
+        result = pgp.par_MSP(*args, **kwargs)
+
+        SLC_MLI_par = Path(args[2])
+        SLC_MLI_par.write_text(Path(TEST_DATA_BASE / "test_alos.slc.par").read_text())
+
+        return result
+
+    pgmock.par_MSP.side_effect = par_MSP
+
+    def par_EORC_PALSAR_mock(*args, **kwargs):
+        result = pgp.par_EORC_PALSAR(*args, **kwargs)
+
+        SLC_par = Path(args[1])
+        SLC_par.write_text(Path(TEST_DATA_BASE / "test_alos.slc.par").read_text())
+
+        return result
+
+    pgmock.par_EORC_PALSAR.side_effect = par_EORC_PALSAR_mock
+
+    def PALSAR_proc_mock(*args, **kwargs):
+        result = pgp.PALSAR_proc(*args, **kwargs)
+
+        PROC_par = Path(args[2])
+        par_text = Path(TEST_DATA_BASE / "test_alos.slc.par").read_text()
+        # ALOS 2 uses a different name for some reason
+        par_text = par_text.replace("center_latitude", "scene_center_latitude")
+        par_text = par_text.replace("center_longitude", "scene_center_longitude")
+        PROC_par.write_text(par_text)
+
+        return result
+
+    pgmock.PALSAR_proc.side_effect = PALSAR_proc_mock
+
+    def az_spec_SLC_mock(*args, **kwargs):
+        result = pgp.az_spec_SLC(*args, **kwargs)
+
+        mock_output = [
+            "new Doppler centroid estimate (Hz): 1234"
+        ]
+
+        return result[0], mock_output, result[2]
+
+    pgmock.az_spec_SLC.side_effect = az_spec_SLC_mock
 
     def multi_look_mock(*args, **kwargs):
         result = pgp.multi_look(*args, **kwargs)
