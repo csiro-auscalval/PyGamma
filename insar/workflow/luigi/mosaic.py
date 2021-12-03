@@ -40,7 +40,7 @@ class CreateSlcMosaic(luigi.Task):
         for _dt, status_frame, _pols in slc_frames:
             slc_scene = _dt.strftime(SCENE_DATE_FMT)
             for _pol in _pols:
-                if _pol not in self.polarization or _pol.upper() != "VV":
+                if _pol not in self.polarization or _pol.upper() != proc_config.polarisation:
                     continue
 
                 slc_par = slc_dir / slc_scene / f"{slc_scene}_{_pol.upper()}.slc.par"

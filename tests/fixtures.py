@@ -772,6 +772,31 @@ def pgmock(monkeypatch, pgp):
         insar.coregister_secondary.create_diff_par = before_diff_par
 
 
+def safe_get_cwd():
+    """
+    This function behaves like os.cwd() but fail-safe's to os.environ['PWD']
+
+    This is to handle various tests doing things w/ temp dirs that may be changed into but
+    deleted due to inconsistent use of context managers for changing directory outside of
+    our control (eg: Luigi, pytest itself, etc - all chdir w/o context management)
+    """
+    try:
+        return os.getcwd()
+
+    # If the old dir doesn't exist (eg: something is trying to chdir back to a temp dir we've lost context of)
+    # we attempt to get the PWD env var instead (this assumes pytest is run from a shell)
+    except FileNotFoundError:
+        try:
+            return os.environ['PWD']
+
+        # But even this might fail (can technically run pytest process w/o a shell, eg: from an IDE or docker)
+        # - in this case, return the root dir of the repo (as if the user ran pytest in a shell from there)
+        except KeyError:
+            return Path(__file__).parent
+
+    raise FileNotFoundError("Cannot determine working dir")
+
+
 @pytest.fixture
 def logging_ctx():
     """

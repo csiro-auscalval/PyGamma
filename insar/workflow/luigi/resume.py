@@ -13,13 +13,16 @@ from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import DateListParameter, PathParameter, read_primary_date, tdir, read_rlks_alks
 from insar.workflow.luigi.stack_setup import DataDownload
-from insar.workflow.luigi.s1 import ProcessSlc
 from insar.workflow.luigi.mosaic import ProcessSlcMosaic
 from insar.workflow.luigi.multilook import Multilook
 from insar.workflow.luigi.coregistration import CreateGammaDem, CoregisterDemPrimary, get_coreg_kwargs
 from insar.workflow.luigi.backscatter import CreateCoregisteredBackscatter
 from insar.workflow.luigi.backscatter_nrt import CreateNRTBackscatter
 from insar.workflow.luigi.interferogram import CreateProcessIFGs
+
+from insar.workflow.luigi.s1 import ProcessSlc
+from insar.workflow.luigi.rsat2 import ProcessRSAT2Slc
+from insar.workflow.luigi.process_alos import ProcessALOSSlc
 
 def _forward_kwargs(cls, kwargs):
     ids = cls.get_param_names()
@@ -101,6 +104,8 @@ class ReprocessSingleSLC(luigi.Task):
         return [slc, slc_par, mli, mli_par]
 
     def run(self):
+        log = STATUS_LOGGER.bind(stack_id=self.stack_id, resume_token=self.resume_token)
+
         workdir = tdir(self.workdir)
         outdir = Path(self.outdir)
 
@@ -160,15 +165,65 @@ class ReprocessSingleSLC(luigi.Task):
         slc = slc_dir / self.scene_date / SlcFilenames.SLC_FILENAME.value.format(self.scene_date, self.polarization.upper())
         slc_par = slc_dir / self.scene_date / SlcFilenames.SLC_PAR_FILENAME.value.format(self.scene_date, self.polarization.upper())
 
-        slc_task = ProcessSlc(
-            scene_date=self.scene_date,
-            raw_path=raw_data_path,
-            polarization=self.polarization,
-            burst_data=self.burst_data_csv,
-            slc_dir=slc_dir,
-            workdir=self.workdir,
-            ref_primary_tab=self.ref_primary_tab,
-        )
+        if proc_config.sensor == "S1":
+            slc_task = ProcessSlc(
+                scene_date=self.scene_date,
+                raw_path=raw_data_path,
+                polarization=self.polarization,
+                burst_data=self.burst_data_csv,
+                slc_dir=slc_dir,
+                workdir=self.workdir,
+                ref_primary_tab=self.ref_primary_tab,
+            )
+
+        if proc_config.sensor == "RSAT2":
+            rs2_dirs = list((raw_data_path / self.scene_date).glob("RS2_*"))
+            if not rs2_dirs:
+                msg = f"Missing raw {self.polarization} data for {self.scene_date}!"
+                log.error(msg)
+                raise RuntimeError(msg)
+
+            if len(rs2_dirs) > 1:
+                msg = f"Skipping {self.scene_date} for {self.polarization} due to multiple data products\nRSAT2 mosaics not supported!"
+                log.error(msg)
+                raise RuntimeError(msg)
+
+            slc_task = ProcessRSAT2Slc(
+                scene_date=self.scene_date,
+                raw_path=rs2_dirs[0],
+                polarization=self.polarization,
+                burst_data=self.burst_data_csv,
+                slc_dir=slc_dir,
+                workdir=self.workdir,
+            )
+
+        if proc_config.sensor.startswith("PALSAR"):
+            alos1_acquisitions = list((raw_data_path / self.scene_date).glob("*/IMG-*-ALP*"))
+            alos2_acquisitions = list((raw_data_path / self.scene_date).glob("*/IMG-*-ALOS*"))
+
+            if not alos1_acquisitions and not alos2_acquisitions:
+                msg = f"Missing raw {self.polarization} data for {self.scene_date}!"
+                log.error(msg)
+                raise RuntimeError(msg)
+
+            if (len(alos1_acquisitions) + len(alos2_acquisitions)) > 1:
+                msg = f"Skipping {self.scene_date} for {self.polarization} due to multiple data products\nALOS mosaics not supported!"
+                log.error(msg)
+                raise RuntimeError(msg)
+
+            alos_dir = (alos1_acquisitions or alos2_acquisitions)[0].parent
+            sensor = "PALSAR1" if alos1_acquisitions else "PALSAR2"
+
+            slc_task = ProcessALOSSlc(
+                proc_file=self.proc_file,
+                scene_date=self.scene_date,
+                raw_path=alos_dir,
+                sensor=sensor,
+                polarization=self.polarization,
+                burst_data=self.burst_data_csv,
+                slc_dir=slc_dir,
+                workdir=self.workdir,
+            )
 
         if self.progress() == "download_tasks":
             if slc_task.output().exists():
@@ -186,24 +241,26 @@ class ReprocessSingleSLC(luigi.Task):
             raise ValueError(f'Critical failure reprocessing, SLC file not found: {slc}')
 
         if self.progress() == "slc_task":
-            mosaic_task = ProcessSlcMosaic(
-                scene_date=self.scene_date,
-                raw_path=raw_data_path,
-                polarization=self.polarization,
-                burst_data=self.burst_data_csv,
-                slc_dir=slc_dir,
-                outdir=self.outdir,
-                workdir=self.workdir,
-                ref_primary_tab=self.ref_primary_tab,
-                rlks=rlks,
-                alks=alks,
-            )
-
-            if mosaic_task.output().exists():
-                mosaic_task.output().remove()
-
             self.set_progress("mosaic_task")
-            yield mosaic_task
+
+            if proc_config.sensor == "S1":
+                mosaic_task = ProcessSlcMosaic(
+                    scene_date=self.scene_date,
+                    raw_path=raw_data_path,
+                    polarization=self.polarization,
+                    burst_data=self.burst_data_csv,
+                    slc_dir=slc_dir,
+                    outdir=self.outdir,
+                    workdir=self.workdir,
+                    ref_primary_tab=self.ref_primary_tab,
+                    rlks=rlks,
+                    alks=alks,
+                )
+
+                if mosaic_task.output().exists():
+                    mosaic_task.output().remove()
+
+                yield mosaic_task
 
         if self.progress() == "mosaic_task":
             mli_task = Multilook(

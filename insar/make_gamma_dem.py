@@ -64,7 +64,7 @@ def create_gamma_dem(
             str(max_lat),
             str(max_lon),
             str(min_lat),
-            dem_img,
+            str(dem_img),
             outfile,
         ]
         run_command(command, tmpdir)

@@ -1,17 +1,23 @@
+from logging import debug
 from pathlib import Path
 from typing import Generator, List, Tuple, Optional
 import tempfile
 from dataclasses import dataclass
 from luigi.date_interval import Custom as LuigiDate
+import itertools
+from shutil import rmtree
 
 from tests.fixtures import *
+from unittest import mock
 
 from insar.scripts.process_gamma import run_ard_inline
 from insar.project import ARDWorkflow, ProcConfig, IfgFileNames
 from insar.constant import SlcFilenames, MliFilenames
+from insar.stack import load_stack_scene_dates, load_stack_ifg_pairs
 import insar.workflow.luigi.coregistration
 
 test_data = Path(__file__).parent.absolute() / 'data'
+rs2_pols = ["HH"]
 
 def print_dir_tree(dir: Path, depth=0):
     print("  " * depth + dir.name + "/")
@@ -75,25 +81,41 @@ def do_ard_workflow_validation(
     cleanup: bool = True,
     debug: bool = False,
     expected_scenes: Optional[int] = None,
-    geospatial_query: Optional[GeospatialQuery] = None
+    geospatial_query: Optional[GeospatialQuery] = None,
+    temp_dir: Optional[tempfile.TemporaryDirectory] = None,
+    append: bool = False,
+    resume: bool = False,
+    reprocess_failed: bool = False
 ) -> Tuple[Path, Path, tempfile.TemporaryDirectory]:
+    # Reset pygamma proxy/mock stats
+    pgp.reset_proxy()
+
     # Setup temporary dirs to run the workflow in
-    temp_dir = tempfile.TemporaryDirectory()
+    if temp_dir is None:
+        temp_dir = tempfile.TemporaryDirectory()
+
     job_dir = Path(temp_dir.name) / "job"
     out_dir = Path(temp_dir.name) / "out"
 
-    job_dir.mkdir()
-    out_dir.mkdir()
+    job_dir.mkdir(exist_ok=True)
+    out_dir.mkdir(exist_ok=True)
+
+    # Record starting dir, and move into temp dir
+    orig_cwd = safe_get_cwd()
+    os.chdir(temp_dir.name)
 
     # Setup test workflow arguments
     args = {
         "proc_file": str(proc_file_path),
-        "source_data": source_data,
+        "source_data": [str(i) for i in source_data],
         "workdir": str(job_dir),
         "outdir": str(out_dir),
         "polarization": pols,
         "cleanup": cleanup,
-        "workflow": workflow
+        "workflow": workflow,
+        "append": append,
+        "resume": resume,
+        "reprocess_failed": reprocess_failed
     }
 
     if geospatial_query:
@@ -103,7 +125,12 @@ def do_ard_workflow_validation(
         args["exclude_dates"] = geospatial_query.exclude_dates
 
     # Run the workflow
-    run_ard_inline(args)
+    try:
+        run_ard_inline(args)
+
+    # Go back to the processes original work
+    finally:
+        os.chdir(orig_cwd)
 
     # Load final .proc config
     finalised_proc_path = out_dir / "config.proc"
@@ -144,14 +171,11 @@ def do_ard_workflow_validation(
     assert(burst_data_csv.exists())
 
     # Assert our scene lists make sense
-    ifgs_list = out_dir / proc_config.list_dir / "ifgs.list"
-    if ifgs_list.exists():
-        ifgs_list = ifgs_list.read_text().strip().splitlines()
-    else:
-        ifgs_list = []
+    ifgs_list = load_stack_ifg_pairs(proc_config)
+    ifgs_list = list(itertools.chain(*ifgs_list))
 
-    scenes_list = out_dir / proc_config.list_dir / "scenes.list"
-    scenes_list = scenes_list.read_text().strip().splitlines()
+    scenes_list = load_stack_scene_dates(proc_config)
+    scenes_list = list(itertools.chain(*scenes_list))
 
     if expected_scenes is not None:
         if expected_scenes == 0:
@@ -167,9 +191,9 @@ def do_ard_workflow_validation(
 
     ifg_dir = out_dir / proc_config.int_dir
 
-    if len(scenes_list) < 2 or workflow != ARDWorkflow.Interferogram:
+    if len(scenes_list) < 2:
         assert(len(ifgs_list) == 0)
-    else:
+    elif workflow == ARDWorkflow.Interferogram:
         assert(len(ifgs_list) > 0)
 
     # Assert each scene has an SLC (coregistered if not NRT)
@@ -225,15 +249,10 @@ def do_ard_workflow_validation(
                 assert(gamma0_tif_path.exists())
 
     # Assert each IFG date pair has phase unwrapped geolocated data
-    if validate_ifg:
-        if not ifgs_list:
-            assert(not ifg_dir.exists() or len(list(ifg_dir.iterdir())) == 0)
-        else:
-            assert(len(list(ifg_dir.iterdir())) == len(ifgs_list))
+    if validate_ifg and workflow == ARDWorkflow.Interferogram and len(scenes_list) > 1:
+        assert(len(list(ifg_dir.iterdir())) == len(ifgs_list))
 
-        for date_pair in ifgs_list:
-            primary_date, secondary_date = date_pair.split(",")
-
+        for primary_date, secondary_date in ifgs_list:
             ic = IfgFileNames(proc_config, primary_date, secondary_date, out_dir)
 
             # Make sure the main geo flat & unwrapped file exists
@@ -565,7 +584,8 @@ def test_ard_workflow_with_db_query_no_spatial_coverage(logging_ctx, pgp, pgmock
         s1_proc,
         geospatial_query=query,
         # The stack should not process / there should be no data returned by this query.
-        expected_scenes=0
+        expected_scenes=0,
+        min_gamma_calls=0
     )
 
 
@@ -590,7 +610,8 @@ def test_ard_workflow_with_db_query_no_temporal_coverage(logging_ctx, pgp, pgmoc
         s1_proc,
         geospatial_query=query,
         # The stack should not process / there should be no data returned by this query.
-        expected_scenes=0
+        expected_scenes=0,
+        min_gamma_calls=0
     )
 
 
@@ -622,5 +643,362 @@ def test_ard_workflow_with_empty_db(logging_ctx, test_data_dir, pgp, pgmock, s1_
         s1_proc,
         geospatial_query=query,
         # The stack should not process / there's no scenes in our DB...
-        expected_scenes=0
+        expected_scenes=0,
+        min_gamma_calls=0
     )
+
+
+def test_ard_workflow_no_append_new_dates_raises_error(pgp, pgmock, rs2_test_data, rs2_proc):
+    # Run a normal workflow with just one scene
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data[:1],
+        rs2_pols,
+        rs2_proc
+    )
+
+    # Assert there's only one date
+    first_products = list(out_dir.glob("SLC/*/*gamma0.tif"))
+    assert len(first_products) == 1
+    first_mtime = first_products[0].stat().st_mtime
+
+    # Then try and run another without append, should raise error
+    with pytest.raises(RuntimeError):
+        out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+            pgp,
+            ARDWorkflow.Interferogram,
+            sorted(rs2_test_data),
+            rs2_pols,
+            rs2_proc,
+            temp_dir=temp_dir
+        )
+
+    # Assert nothing changed (still just one date, not modified)
+    second_products = sorted(list(out_dir.glob("SLC/*/*gamma0.tif")))
+    assert len(second_products) == 1
+    second_mtime = second_products[0].stat().st_mtime
+
+    assert first_mtime == second_mtime
+
+
+def test_ard_workflow_append_new_dates(pgp, pgmock, rs2_test_data, rs2_proc):
+    # Run a normal workflow with just one scene
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data[:1],
+        rs2_pols,
+        rs2_proc
+    )
+
+    # Assert there's only one date
+    products = list(out_dir.glob("SLC/*/*gamma0.tif"))
+    assert len(products) == 1
+    first_mtime = products[0].stat().st_mtime
+
+    # Then try and run another WITH append, should succeed w/o issue
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        sorted(rs2_test_data),
+        rs2_pols,
+        rs2_proc,
+        append=True,
+        temp_dir=temp_dir
+    )
+
+    # Assert there are now two dates, and the first was unchanged (eg: only new one was made)
+    second_products = sorted(list(out_dir.glob("SLC/*/*gamma0.tif")))
+    assert products[0] == second_products[0]
+    assert len(second_products) == 2
+
+    assert first_mtime == second_products[0].stat().st_mtime
+    assert second_products[1].stat().st_mtime > second_products[0].stat().st_mtime
+
+
+def test_ard_workflow_remove_dates_fails(pgp, pgmock, rs2_test_data, rs2_proc):
+    # Run a normal workflow with many dates
+    assert(len(rs2_test_data) > 1)
+
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data,
+        rs2_pols,
+        rs2_proc
+    )
+
+    # Then run again w/o append passing in less dates, ensuring an error is raised
+    with pytest.raises(RuntimeError):
+        out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+            pgp,
+            ARDWorkflow.Interferogram,
+            rs2_test_data[:-1],
+            rs2_pols,
+            rs2_proc,
+            temp_dir=temp_dir,
+            min_gamma_calls=0
+        )
+
+    # Then run again WITH append passing in less dates, ensuring an error is still raised
+    # (we can't remove dates even if we want to)
+    with pytest.raises(RuntimeError):
+        out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+            pgp,
+            ARDWorkflow.Interferogram,
+            rs2_test_data[:-1],
+            rs2_pols,
+            rs2_proc,
+            append=True,
+            temp_dir=temp_dir,
+            min_gamma_calls=0
+        )
+
+
+def test_ard_workflow_append_no_dates_is_no_op(pgp, pgmock, rs2_test_data, rs2_proc):
+    # Run a normal workflow with many dates
+    assert(len(rs2_test_data) > 1)
+
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data,
+        rs2_pols,
+        rs2_proc
+    )
+
+    products = list(out_dir.glob("SLC/*/*gamma0.tif"))
+    first_mtimes = [i.stat().st_mtime for i in products]
+
+    # Re-run it with append (note: data already processed above)
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data,
+        rs2_pols,
+        rs2_proc,
+        append=True,
+        temp_dir=temp_dir,
+        # It should result in no GAMMA calls / no work to process
+        min_gamma_calls=0
+    )
+
+    # Sanity check outputs to ensure nothing changed!
+    assert sorted(list(out_dir.glob("SLC/*/*gamma0.tif"))) == sorted(products)
+
+    for first_mtime, prod_url in zip(first_mtimes, products):
+        assert first_mtime == prod_url.stat().st_mtime
+
+
+def test_ard_workflow_resume_failed_processing(pgp, pgmock, rs2_test_data, rs2_proc):
+    orig_side_effect = pgmock.phase_sim_orb.side_effect
+
+    try:
+        # Get the mock to raise an error in SLC processing of one scene
+        pgmock.phase_sim_orb.side_effect = mock.Mock(side_effect=Exception('Not yet...'))
+
+        # Run a normal workflow w/ 2 scenes (should produce 1 ifg if not for error)
+        out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+            pgp,
+            ARDWorkflow.Interferogram,
+            rs2_test_data[:2],
+            rs2_pols,
+            rs2_proc,
+            # Note: we still expect 0 errors (our side effect transcends our pg mock proxy w/ error counting)
+            expected_errors=0,
+            validate_ifg=False
+        )
+
+        # Assert the interferogram doesn't exist due to the exception
+        #
+        # Note: Due to intentional design decisions in our workflow, the workflow still succeeds / no exception
+        # or error raised.  Instead the interferogram task has been marked as having had an exception, but the task
+        # itself at the Luigi level has 'succeeded' (but no data was generated).  This is why we have/need resume!
+        ifg_tifs = list(out_dir.glob("INT/*/*.tif"))
+        assert(not ifg_tifs)
+
+    finally:
+        # Fix mock to not raise errors
+        pgmock.phase_sim_orb.side_effect = orig_side_effect
+
+    # Re-run the same workflow with resume, will produce 1 ifg now the error is gone
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data[:2],
+        rs2_pols,
+        rs2_proc,
+        temp_dir=temp_dir,
+        resume=True,
+        reprocess_failed=True,
+        expected_errors=0,
+        validate_ifg=True
+    )
+
+    # Note: do_ard_worfklow_validation w/ validate_ifg=True does all our asserts we care about
+    # - but we explicitly check the above tif condition is now true!  Just for consistency
+    ifg_tifs = list(out_dir.glob("INT/*/*.tif"))
+    assert(len(ifg_tifs) > 0)
+
+
+def test_ard_workflow_resume_lost_slcs(pgp, pgmock, rs2_test_data, rs2_proc):
+    orig_side_effect = pgmock.phase_sim_orb.side_effect
+
+    # Run a normal workflow
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data,
+        rs2_pols,
+        rs2_proc
+    )
+
+    # Delete half the SLCs
+    slc_dir = out_dir / "SLC"
+    slcs = list(slc_dir.iterdir())
+    slcs = slcs[:(len(slcs)+1) // 2]
+
+    orig_time = slcs[0].stat().st_mtime
+
+    for slc in slcs:
+        rmtree(slc)
+
+    # Delete the IFGs too (--resume doesn't re-create SLCs unless they're needed for an IFG just yet)
+    rmtree(out_dir / "INT")
+
+    # Re-run the same workflow with resume
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data,
+        rs2_pols,
+        rs2_proc,
+        temp_dir=temp_dir,
+        resume=True
+    )
+
+    # Assert the SLCs were re-created
+    for slc in slcs:
+        assert(slc.exists())
+        assert(slc.stat().st_mtime > orig_time)
+
+
+def test_ard_workflow_resume_lost_ifgs(pgp, pgmock, rs2_test_data, rs2_proc):
+    orig_side_effect = pgmock.phase_sim_orb.side_effect
+
+    # Run a normal workflow
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data,
+        rs2_pols,
+        rs2_proc
+    )
+
+    # Delete the interferogram dir entirely!
+    rmtree(out_dir / "INT")
+
+    # Re-run the same workflow with resume
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data,
+        rs2_pols,
+        rs2_proc,
+        temp_dir=temp_dir,
+        resume=True
+    )
+
+    # Assert the IFGs were re-created
+    assert((out_dir / "INT").exists())
+    # the 2pi.png quicklook images are the final product made, so if these
+    # exist all the other products should as well (validated via do_ard_workflow_validation)
+    assert(len(list(out_dir.glob("INT/*/*2pi.png"))) >= 1)
+
+
+def test_ard_workflow_resume_complete_job(pgp, pgmock, rs2_test_data, rs2_proc):
+    # Run a normal workflow
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data[:2],
+        rs2_pols,
+        rs2_proc,
+    )
+
+    # Re-run it with resume, ensure no work occurs (data already processed)
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data[:2],
+        rs2_pols,
+        rs2_proc,
+        temp_dir=temp_dir,
+        resume=True,
+        # No errors should occur
+        expected_errors=0,
+        # Because no data processing should even occur! (everything already processed)
+        min_gamma_calls=0
+    )
+
+    # Note: This unit test just builds on / accepts all the asserts done in do_ard_workflow_validation
+
+
+def test_ard_workflow_resume_crashed_job(pgp, pgmock, monkeypatch, rs2_test_data, rs2_proc):
+    # Create a temporary directory up-front to work in (can't use
+    # a returned one, as the first function that would normally make
+    # it is expected to crash in this test)
+    temp_dir = tempfile.TemporaryDirectory()
+
+    # Copy the original function so we can restore it later
+    orig_function = insar.workflow.luigi.coregistration.get_coreg_kwargs
+
+    try:
+        # Get the mock to raise an error in the Luigi DAG causing it to fail AFTER
+        # already processing coregistered SLC (eg: fails before IFG)
+        #
+        # This is similar to test_ard_workflow_resume_failed_processing, but the
+        # error happens in the DAG code, 'not' in the data processing code (where
+        # errors are allowed/expected and handled differently) - errors in the DAG
+        # should propagate to the caller / into Luigi, causing a crash!
+        monkeypatch.setattr(
+            insar.workflow.luigi.coregistration,
+            'get_coreg_kwargs',
+            mock.Mock(side_effect=Exception("Goodbye cruel world!"))
+        )
+
+        # Run a normal workflow, but it will crash!
+        with pytest.raises(Exception):
+            out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+                pgp,
+                ARDWorkflow.Interferogram,
+                rs2_test_data,
+                rs2_pols,
+                rs2_proc,
+                temp_dir=temp_dir
+            )
+
+    finally:
+        # Restore original function, so we'll no longer crash...
+        monkeypatch.setattr(
+            insar.workflow.luigi.coregistration,
+            'get_coreg_kwargs',
+            orig_function
+        )
+
+    # Re-run the same workflow with resume, will produce 1 ifg now the error is gone
+    out_dir, job_dir, temp_dir = do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        rs2_test_data,
+        rs2_pols,
+        rs2_proc,
+        temp_dir=temp_dir,
+        resume=True,
+        expected_errors=0,
+        validate_ifg=True
+    )
+
+    # Note: do_ard_worfklow_validation w/ validate_ifg=True does all our asserts we care about
+

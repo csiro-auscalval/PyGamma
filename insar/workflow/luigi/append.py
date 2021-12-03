@@ -54,6 +54,10 @@ class AppendDatesToStack(luigi.Task):
         # wasted too much time / decided to just complicate things more w/ a new task to "get it done" first)
 
         log = STATUS_LOGGER.bind(stack_id=self.stack_id, append_idx=self.append_idx)
+        if not self.append_scenes:
+            log.info("No data to append to stack / nothing to process!")
+            return
+
         log.info(
             "Appending dates to stack...",
             append_scenes=self.append_scenes

@@ -358,7 +358,7 @@ class InitialSetup(luigi.Task):
             #"track_frame_sensor": f"{self.track}_{self.frame}_{selected_sensors}",
             "original_work_dir": Path(self.outdir).as_posix(),
             "original_job_dir": workdir.as_posix(),
-            "shape_file": str(shape_file),
+            "shape_file": str(shape_file) if shape_file else None,
             "database": str(proc_config.database_path),
             "source_data": self.source_data,
             "stack_extent": stack_extent,

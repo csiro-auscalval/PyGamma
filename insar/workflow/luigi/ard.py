@@ -186,22 +186,28 @@ class ARD(luigi.WrapperTask):
             # Note: We're actually throwing away information here, by assuming existing dates never get
             # retrospectively updated (eg: database might get an update w/ no-longer-missing/un-corrupted data)
             new_append_idx = len(load_stack_scene_dates(proc_config))
-            existing_scenes = set(itertools.chain(*[urls for _, urls in existing_scenes]))
-            new_scenes = set(itertools.chain(*[urls for _, urls in new_scenes]))
+            existing_urls = set(itertools.chain(*[urls for _, urls in existing_scenes]))
+            new_urls = set(itertools.chain(*[urls for _, urls in new_scenes]))
 
             # Check if the specified dates are DIFFERENT from the existing stack
-            added_scenes = new_scenes - existing_scenes
-            removed_scenes = existing_scenes - (new_scenes - added_scenes)
-            scenes_differ = bool(added_scenes or removed_scenes)
+            added_urls = new_urls - existing_urls
+            removed_urls = existing_urls - (new_urls - added_urls)
+            urls_differ = bool(added_urls or removed_urls)
 
-            if removed_scenes:
+            if removed_urls:
                 # This is not currently a use case we require (thus do not support)
                 # - supporting it gets complicated (makes the whole stack mutable)
                 # - our current approach is append-only and much simpler as a result.
                 raise RuntimeError("Can not remove dates from a stack")
 
             if append:
-                append = added_scenes
+                append = added_urls
+
+                # If we were supposed to be appending data, but there's in fact no new
+                # data to append (eg: the stack already had it all) - early exit... no-op
+                if not append:
+                    log.info("No new data to append to stack, processing already completed.")
+                    return
 
                 if not hasattr(self, 'append_idx'):
                     # existing_scenes = original scenes.list + all the appended scenesN.list
@@ -209,15 +215,31 @@ class ARD(luigi.WrapperTask):
                     # thus... the current 'N' we're creating the baseline for is simple len()
                     self.append_idx = new_append_idx
 
-            elif scenes_differ:
-                raise RuntimeError("Provided dates do not match existing stack's dates with no --append specified")
+            elif self.resume:
+                # Note: resume works w/ dates, not data... resume could occur due to source data
+                # corruption being fixed (which means source data may indeed be removed / replaced
+                # with a new data file for the same date).
+                existing_dates = set([date for date, _ in existing_scenes])
+                new_dates = set([date for date, _ in new_scenes])
+
+                added_dates = new_dates - existing_dates
+                removed_dates = existing_dates - (new_dates - added_dates)
+
+                # Resume could 'add' dates that were removed, but must never remove anything.
+                if removed_dates:
+                    raise RuntimeError("Provided dates do not match existing stack's dates with no --append specified")
+
+            elif urls_differ:
+                raise RuntimeError("Provided source data does not match existing stack's data with no --append specified")
 
             log.info(
-                "Appending existing stack",
+                "Updating existing stack",
                 new_query=new_scenes_query,
                 new_source_data=self.source_data,
-                adding_scenes=added_scenes,
-                removing_scenes=removed_scenes
+                adding_data=added_urls,
+                removing_data=removed_urls,
+                append=bool(append),
+                resume=bool(self.resume)
             )
 
         # If proc_file already exists (eg: because this is an append or resume),

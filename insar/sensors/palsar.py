@@ -176,9 +176,9 @@ def acquire_source_data(source_path: str, dst_dir: Path, pols: Optional[List[str
             return [i for i in names if "imagery" in i and Path(i).stem not in included_imagery]
 
         if pols:
-            shutil.copytree(source_path, dst_dir / source_path.stem, ignore=ignore_filter)
+            shutil.copytree(source_path, dst_dir / source_path.stem, ignore=ignore_filter, dirs_exist_ok=True)
         else:
-            shutil.copytree(source_path, dst_dir / source_path.stem)
+            shutil.copytree(source_path, dst_dir / source_path.stem, dirs_exist_ok=True)
 
         return dst_dir / source_path.stem
 

@@ -203,7 +203,7 @@ class CreateProcessIFGs(luigi.Task):
                     contents = file.read().splitlines()
 
                 if len(contents) > 0 and "FAILED" in contents[0]:
-                    primary_date, secondary_date = re.split("[-_]", status_out.stem)[3:5]
+                    primary_date, secondary_date = re.split("[-_]", status_out.stem)[-4:-2]
 
                     log.info(f"Resuming IFG ({primary_date},{secondary_date}) because of FAILED processing")
                     reprocess_pairs.append((primary_date, secondary_date))
@@ -212,7 +212,7 @@ class CreateProcessIFGs(luigi.Task):
 
         # Any pairs that need reprocessing, we remove the status file of + clean the tree
         for primary_date, secondary_date in reprocess_pairs:
-            status_file = self.workdir / f"{self.stack_id}_ifg_{primary_date}-{secondary_date}_status_logs.out"
+            status_file = tdir(self.workdir) / f"{self.stack_id}_ifg_{primary_date}-{secondary_date}_status_logs.out"
 
             # Remove Luigi status file
             if status_file.exists():

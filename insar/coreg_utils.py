@@ -383,12 +383,29 @@ def append_secondary_coreg_tree(primary_dt, old_date_lists, new_date_list, thres
     # We do everything with datetime.date's (can't mix and match date vs. datetime)
     primary_dt = standardise_to_date(primary_dt)
 
+    # Find the original stack dates, as there would be no tree if only 1 date
+    # was in the stack at first (very niche corner case - common in our unit tests though).
+    first_tree_dates = []
+    first_trees_count = 0
+    for list in old_date_lists:
+        first_tree_dates += list
+        first_trees_count += 1
+
+        if len(first_tree_dates) >= 2:
+            break
+
+    # If there was no tree originally, create our first tree w/ the original products + appended
+    if len(first_tree_dates) < 2:
+        first_tree_dates += new_date_list
+        return create_secondary_coreg_tree(primary_dt, first_tree_dates, thres_days=thres_days)
+
     # Note: we are intentionally re-producing the full tree from the original + all the
     # new sets of dates.  This allows us to be a bit paranoid and double-check everything
     # remains consistent every run instead of just blindly writing the new elements and
     # hope nothing has changed since the stack last processed
-    og_tree = create_secondary_coreg_tree(primary_dt, old_date_lists[0], thres_days=thres_days)
-    new_date_lists = list(old_date_lists[1:]) + [new_date_list]
+    og_tree = create_secondary_coreg_tree(primary_dt, first_tree_dates, thres_days=thres_days)
+
+    new_date_lists = list(old_date_lists[first_trees_count:]) + [new_date_list]
 
     final_tree = og_tree.copy()
     last_list = final_tree[-1]
