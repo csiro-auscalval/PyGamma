@@ -114,6 +114,9 @@ REF_PRIMARY_SCENE=auto
 MIN_CONNECT=4
     # default is 7 for S1, 10 for other sensors (e.g. RSAT2)
 MAX_CONNECT=7
+# How many of the latest dates in a stack to include in the SBAS network of appended stacks
+# (eg: how many existing dates to link with the new dates being appended)
+NUM_LINKED_APPEND_DATES=5
 
 -----PROCESSING STEPS-----------------------------------------------------------------------------------
 
