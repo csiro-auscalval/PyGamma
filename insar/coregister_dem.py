@@ -667,6 +667,7 @@ class CoregisterDem:
         ):
             self._set_attrs()
 
+        # Get land center from user provided value if possible
         if self.land_center is not None:
             rpos, azpos = latlon_to_px(pg, self.r_dem_primary_mli_par, *self.land_center)
 
@@ -677,8 +678,10 @@ class CoregisterDem:
                 land_center_px=(rpos, azpos)
             )
 
+        # Worst case we fall back to center of image (same as GAMMA default)
         else:
-            rpos, azpos = None, None
+            rpos = self.r_dem_primary_mli_width // 2
+            azpos = self.r_dem_primary_mli_length // 2
 
         # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than
         # simulated SAR image in offset calculation
@@ -695,20 +698,65 @@ class CoregisterDem:
         patch = self.dem_patch_window
         cflag = 1  # copy constant range and azimuth offsets
 
-        pg.init_offsetm(
-            mli_1_pathname,
-            mli_2_pathname,
-            diff_par_pathname,
-            rlks,
-            azlks,
-            rpos,
-            azpos,
-            offr,
-            offaz,
-            thres,
-            patch,
-            cflag,
-        )
+        # Note: these are in no particular order
+        grid = np.array([
+            # top, right, bottom, left
+            [0, patch], [patch, 0], [0, -patch], [-patch, 0],
+            # top left, top right, bottom right, bottom left
+            [-patch, patch], [patch, patch], [patch, -patch], [-patch, -patch]
+        ])
+
+        # Note: These start at land center, and progressively move further out
+        grid_attempts = [[0,0], *(grid * 0.25), *(grid * 0.5), *(grid * 0.75), *grid]
+
+        # Attempt w/ land center pixel, and spiral out if we fail to find a match
+        succeeded_land_center = None
+
+        for attempt_offset in grid_attempts:
+            try:
+                # Note: We rely on GAMMA to error-out if these are out-of-bounds
+                # - just like it errors out if the center doesn't find a good enough correlation.
+                attempt_rpos = int(rpos + attempt_offset[0])
+                attempt_azpos = int(azpos + attempt_offset[1])
+
+                pg.init_offsetm(
+                    mli_1_pathname,
+                    mli_2_pathname,
+                    diff_par_pathname,
+                    rlks,
+                    azlks,
+                    attempt_rpos,
+                    attempt_azpos,
+                    offr,
+                    offaz,
+                    thres,
+                    patch,
+                    cflag,
+                )
+
+                succeeded_land_center = (attempt_rpos, attempt_azpos)
+                _LOG.info(
+                    f"DEM coregistration succeeded for land center",
+                    range_px_coord=attempt_rpos,
+                    azimuth_px_coord=attempt_azpos
+                )
+
+                break
+
+            except CoregisterDemException:
+                _LOG.info(
+                    f"DEM coregistration failed for land center",
+                    range_px_coord=attempt_rpos,
+                    azimuth_px_coord=attempt_azpos
+                )
+
+                # Do NOT raise this exception, we loop through attempting other
+                # land centers instead (and finally raise our own exception if all fail)
+                pass
+
+        # If no land center succeeded, raise an exception for the failure
+        if succeeded_land_center is None:
+            raise CoregisterDemException("Failed to coregister primary scene to DEM!")
 
         mli_1_pathname = str(self.dem_pix_gam)
         mli_2_pathname = str(self.r_dem_primary_mli)

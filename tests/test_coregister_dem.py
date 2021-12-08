@@ -476,4 +476,51 @@ def test_failure_on_invalid_dem_window_setting(monkeypatch):
                 assert coreg is not None
 
 
-# TODO: Test more specific corner cases (what are they?)
+def test_offset_model_bad_init_center(monkeypatch):
+    pgp, pgmock, data, temp_dir = get_test_context()
+
+    # Fail the first 3 attempts of init_offsetm
+    # - this simulates failing to initialise the offset model
+    # - due to a bad land center...
+    #
+    # The 4th location attempt should then succeed!
+    expected_fails = 3
+    num_fails = expected_fails
+
+    def init_offsetm_mock(*args, **kwargs):
+        nonlocal num_fails
+
+        if num_fails > 0:
+            num_fails -= 1
+            raise CoregisterDemException("simulated bad land center")
+
+        return pgp.init_offsetm(*args, **kwargs)
+
+    pgmock.init_offsetm.side_effect = init_offsetm_mock
+
+    # apply mocks
+    monkeypatch.setattr(insar.coregister_dem, "pg", pgmock)
+    monkeypatch.setattr(insar.coreg_utils, "run_command", fake_cmd_runner)
+
+    # Run CoregisterDem on our standard test data
+    with temp_dir as temp_path:
+        slc_outdir = Path(temp_path) / "20151127"
+        dem_outdir = slc_outdir / "20151127" / "dem"
+
+        coreg = CoregisterDem(*data.values(), dem_outdir, slc_outdir)
+        dem_outdir.mkdir(parents=True, exist_ok=True)
+        slc_outdir.mkdir(parents=True, exist_ok=True)
+        assert str(coreg.dem_outdir) == str(dem_outdir)
+
+        coreg.main()
+
+        # Should succeed (note: our errors above bypass the GAMMA mock object, thus don't contribute)
+        assert pgp.error_count == 0
+
+        # But we should still have data, due to the retries!
+        dem_filenames = coreg.dem_filenames(
+            dem_prefix=f"{coreg.slc.stem}_{coreg.rlks}rlks", outdir=coreg.dem_outdir
+        )
+        for name, path in dem_filenames.items():
+            if path.suffix == ".dem":
+                assert Path(path).exists()
