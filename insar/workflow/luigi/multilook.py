@@ -29,6 +29,7 @@ class Multilook(luigi.Task):
 
     def run(self):
         multilook(
+            self.workdir,
             Path(str(self.slc)),
             Path(str(self.slc_par)),
             int(str(self.rlks)),

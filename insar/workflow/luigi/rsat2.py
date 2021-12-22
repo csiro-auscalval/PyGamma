@@ -6,7 +6,8 @@ import luigi.configuration
 import pandas as pd
 from luigi.util import requires
 
-from insar.constant import SCENE_DATE_FMT, SlcFilenames
+from insar.constant import SCENE_DATE_FMT
+from insar.paths.slc import SlcPaths
 from insar.project import ProcConfig
 from insar.logs import STATUS_LOGGER
 from insar.process_rsat2_slc import process_rsat2_slc
@@ -41,12 +42,12 @@ class ProcessRSAT2Slc(luigi.Task):
         scene_out_dir = Path(self.slc_dir) / str(self.scene_date)
         scene_out_dir.mkdir(parents=True, exist_ok=True)
 
-        slc_filename = SlcFilenames.SLC_FILENAME.value.format(self.scene_date, self.polarization)
+        paths = SlcPaths(self.workdir, self.scene_date, self.polarization)
 
         process_rsat2_slc(
             Path(self.raw_path),
             str(self.polarization),
-            scene_out_dir / slc_filename
+            paths.slc
         )
 
         log.info("SLC processing complete")

@@ -1,7 +1,6 @@
 import io
 import pathlib
 import functools
-import subprocess
 from unittest import mock
 from tempfile import TemporaryDirectory
 from PIL import Image
@@ -14,6 +13,8 @@ from insar.project import ProcConfig, IfgFileNames, DEMFileNames
 
 import structlog
 import pytest
+
+from tests.fixtures import *
 
 
 # FIXME: tweak settings to ensure working dir doesn't have to be changed for INT processing (do in workflow)
@@ -119,7 +120,7 @@ def remove_mock():
 
 
 def test_run_workflow_full(
-    monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, remove_mock
+    logging_ctx, monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, remove_mock
 ):
     """Test workflow runs from end to end"""
 
@@ -170,7 +171,7 @@ def test_run_workflow_full(
     assert remove_mock.called
 
 
-def test_run_workflow_missing_r_primary_slc(ic_mock, tc_mock):
+def test_run_workflow_missing_r_primary_slc(ic_mock, tc_mock, logging_ctx):
     ic_mock.r_primary_slc.exists.return_value = False
 
     with pytest.raises(ProcessIfgException):
@@ -179,7 +180,7 @@ def test_run_workflow_missing_r_primary_slc(ic_mock, tc_mock):
         )
 
 
-def test_run_workflow_missing_r_primary_mli(ic_mock, tc_mock):
+def test_run_workflow_missing_r_primary_mli(ic_mock, tc_mock, logging_ctx):
     ic_mock.r_primary_slc.exists.return_value = True
     ic_mock.r_primary_mli.exists.return_value = False
 
@@ -189,7 +190,7 @@ def test_run_workflow_missing_r_primary_mli(ic_mock, tc_mock):
         )
 
 
-def test_run_workflow_missing_r_secondary_slc(ic_mock, tc_mock):
+def test_run_workflow_missing_r_secondary_slc(ic_mock, tc_mock, logging_ctx):
     ic_mock.r_primary_slc.exists.return_value = True
     ic_mock.r_primary_mli.exists.return_value = True
     ic_mock.r_secondary_slc.exists.return_value = False
@@ -200,7 +201,7 @@ def test_run_workflow_missing_r_secondary_slc(ic_mock, tc_mock):
         )
 
 
-def test_run_workflow_missing_r_secondary_mli(ic_mock, tc_mock):
+def test_run_workflow_missing_r_secondary_mli(ic_mock, tc_mock, logging_ctx):
     ic_mock.r_primary_slc.exists.return_value = True
     ic_mock.r_primary_mli.exists.return_value = True
     ic_mock.r_secondary_slc.exists.return_value = True
@@ -225,7 +226,7 @@ def test_get_ifg_width_not_found():
         process_ifg.get_ifg_width(config)
 
 
-def test_calc_int(monkeypatch, pg_int_mock, pc_mock, ic_mock):
+def test_calc_int(logging_ctx, monkeypatch, pg_int_mock, pc_mock, ic_mock):
     """Verify default path through the INT processing step."""
 
     # craftily substitute the 'pg' py_gamma obj for a mock:
@@ -243,7 +244,7 @@ def test_calc_int(monkeypatch, pg_int_mock, pc_mock, ic_mock):
     assert pg_int_mock.create_diff_par.called
 
 
-def test_error_handling_decorator(monkeypatch):
+def test_error_handling_decorator(monkeypatch, logging_ctx):
     m_subprocess_wrapper = mock.Mock()
 
     # ensure mock logger has all core error(), msg() etc logging functions
@@ -310,7 +311,7 @@ def dc_mock():
 
 
 def test_initial_flattened_ifg(
-    monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock
+    logging_ctx, monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_flat_mock)
 
@@ -333,7 +334,7 @@ def test_initial_flattened_ifg(
 
 
 def test_refined_flattened_ifg(
-    monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock
+    logging_ctx, monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_flat_mock)
 
@@ -356,7 +357,7 @@ def test_refined_flattened_ifg(
 
 
 def test_precise_flattened_ifg(
-    monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock, tc_mock
+    logging_ctx, monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock, tc_mock
 ):
     # test refinement of baseline model using ground control points
     monkeypatch.setattr(process_ifg, "pg", pg_flat_mock)
@@ -399,7 +400,7 @@ def test_precise_flattened_ifg(
 
 
 def test_calc_bperp_coh_filt_write_fail(
-    monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock, tc_mock
+    logging_ctx, monkeypatch, pg_flat_mock, pc_mock, ic_mock, dc_mock, tc_mock
 ):
     monkeypatch.setattr(process_ifg, "get_width10", lambda _: 52)
     monkeypatch.setattr(process_ifg, "pg", pg_flat_mock)
@@ -453,7 +454,7 @@ def pg_filt_mock():
     return pgm
 
 
-def test_calc_bperp_coh_filt(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
+def test_calc_bperp_coh_filt(logging_ctx, monkeypatch, pg_filt_mock, pc_mock, ic_mock):
     monkeypatch.setattr(process_ifg, "pg", pg_filt_mock)
     ic_mock.ifg_flat.exists.return_value = True
 
@@ -466,7 +467,7 @@ def test_calc_bperp_coh_filt(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
     assert pg_filt_mock.adf.called
 
 
-def test_calc_bperp_coh_filt_no_flat_file(monkeypatch, pg_filt_mock, pc_mock, ic_mock):
+def test_calc_bperp_coh_filt_no_flat_file(logging_ctx, monkeypatch, pg_filt_mock, pc_mock, ic_mock):
     monkeypatch.setattr(process_ifg, "pg", pg_filt_mock)
     ic_mock.ifg_flat.exists.return_value = False
 
@@ -487,7 +488,7 @@ def pg_unw_mock():
     return pgm
 
 
-def test_calc_unw(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
+def test_calc_unw(logging_ctx, monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
     # NB: (m)looks will always be 2 for Sentinel-1 ARD product generation
     monkeypatch.setattr(process_ifg, "pg", pg_unw_mock)
 
@@ -509,7 +510,7 @@ def test_calc_unw(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
     assert pg_unw_mock.mask_data.called is False
 
 
-def test_calc_unw_no_ifg_filt(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
+def test_calc_unw_no_ifg_filt(logging_ctx, monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
     monkeypatch.setattr(process_ifg, "pg", pg_unw_mock)
     ic_mock.ifg_filt.exists.return_value = False
 
@@ -518,7 +519,7 @@ def test_calc_unw_no_ifg_filt(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_moc
 
 
 def test_calc_unw_with_mask(
-    monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock, remove_mock
+    logging_ctx, monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_unw_mock)
     monkeypatch.setattr(process_ifg, "remove_files", remove_mock)
@@ -534,7 +535,7 @@ def test_calc_unw_with_mask(
 
 
 def test_calc_unw_mlooks_over_threshold_not_implemented(
-    monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock
+    logging_ctx, monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_unw_mock)
     pc_mock.multi_look = 5
@@ -543,7 +544,7 @@ def test_calc_unw_mlooks_over_threshold_not_implemented(
         process_ifg.calc_unw(pc_mock, ic_mock, tc_mock, ifg_width=15)
 
 
-def test_calc_unw_thinning(monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
+def test_calc_unw_thinning(logging_ctx, monkeypatch, pg_unw_mock, pc_mock, ic_mock, tc_mock):
     monkeypatch.setattr(process_ifg, "pg", pg_unw_mock)
 
     assert pg_unw_mock.rascc_mask_thinning.called is False
@@ -577,7 +578,7 @@ def pg_geocode_mock():
 
 # TODO: can fixtures call other fixtures to get their setup? (e.g. mock pg inside another fixture?)
 def test_geocode_unwrapped_ifg(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
+    logging_ctx, monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -607,7 +608,7 @@ def test_geocode_unwrapped_ifg(
 
 
 def test_geocode_flattened_ifg(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
+    logging_ctx, monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -638,7 +639,7 @@ def test_geocode_flattened_ifg(
 
 
 def test_geocode_filtered_ifg(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
+    logging_ctx, monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -669,7 +670,7 @@ def test_geocode_filtered_ifg(
 
 
 def test_geocode_flat_coherence_file(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
+    logging_ctx, monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -698,7 +699,7 @@ def test_geocode_flat_coherence_file(
 
 
 def test_geocode_filtered_coherence_file(
-    monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
+    logging_ctx, monkeypatch, ic_mock, dc_mock, pg_geocode_mock, tc_mock, remove_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
 
@@ -726,7 +727,7 @@ def test_geocode_filtered_coherence_file(
 
 
 def test_do_geocode(
-    monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, pg_geocode_mock, remove_mock
+    logging_ctx, monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, pg_geocode_mock, remove_mock
 ):
     """Test the full geocode step"""
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
@@ -775,7 +776,7 @@ def test_do_geocode(
 
 
 def test_do_geocode_no_geotiff(
-    monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, pg_geocode_mock
+    logging_ctx, monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, pg_geocode_mock
 ):
     fake_ifg_width = 32
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
@@ -798,7 +799,7 @@ def test_do_geocode_no_geotiff(
 
 
 def test_do_geocode_width_mismatch(
-    monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, pg_geocode_mock
+    logging_ctx, monkeypatch, pc_mock, ic_mock, dc_mock, tc_mock, pg_geocode_mock
 ):
     monkeypatch.setattr(process_ifg, "pg", pg_geocode_mock)
     pc_mock.ifg_geotiff.lower.return_value = "no"

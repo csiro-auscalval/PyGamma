@@ -32,6 +32,14 @@ def load_stack_config(stack_proc_path: Union[str, Path]) -> ProcConfig:
         raise ValueError("Specified path does not exist!")
 
     if stack_proc_path.is_dir():
+        # This is kind of a "hack", but still legitimate & slightly faster...
+        # We check for a config.proc straight up in case this is the dir we're looking
+        # for - this avoids indirection via the metadata.json, but mostly it's to make
+        # our SLC unit testing lives easier (w/o having to setup a stack)
+        config = stack_proc_path / "config.proc"
+        if config.exists():
+            return load_stack_config(config)
+
         metadata = stack_proc_path / "metadata.json"
         if not metadata.exists():
             raise ValueError("Expected stack dir - metadata.json missing from specified directory!")

@@ -285,6 +285,20 @@ def s1_test_data_csv(pgp, pgmock, test_data_dir, s1_test_data_zips):
     return result_path
 
 @pytest.fixture
+def s1_temp_job_proc(logging_ctx, temp_out_dir, s1_proc):
+    """Returns a .proc file for a temporary S1 job"""
+    with s1_proc.open('r') as fileobj:
+        proc_config = ProcConfig.from_file(fileobj)
+
+    proc_config.output_path = temp_out_dir
+    proc_config.job_path = temp_out_dir
+
+    with (temp_out_dir / "config.proc").open("w") as file:
+        proc_config.save(file)
+
+    yield proc_config
+
+@pytest.fixture
 def pgp():
     return PyGammaTestProxy(exception_type=RuntimeError)
 

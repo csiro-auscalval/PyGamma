@@ -201,26 +201,6 @@ INIT_OFFSETM_CORRELATION_PATCH_SIZES = (128, 256, 512, 1024)
 MIN_DEM_WIN_AXIS = 8
 
 
-class SlcFilenames(Enum):
-    """SLC filenames """
-
-    SLC_FILENAME = "{}_{}.slc"
-    SLC_PAR_FILENAME = "{}_{}.slc.par"
-    SLC_TOPS_PAR_FILENAME = "{}_{}.slc.TOPS_par"
-    SLC_TAB_FILENAME = "{}_{}_tab"
-
-    SLC_IW_FILENAME = "{}_{}_IW{}.slc"
-    SLC_IW_PAR_FILENAME = "{}_{}_IW{}.slc.par"
-    SLC_IW_TOPS_PAR_FILENAME = "{}_{}_IW{}.slc.TOPS_par"
-
-
-class MliFilenames(Enum):
-    """ MLI filenames """
-
-    MLI_FILENAME = "{scene_date}_{pol}_{rlks}rlks.mli"
-    MLI_PAR_FILENAME = "{scene_date}_{pol}_{rlks}rlks.mli.par"
-
-
 class Wildcards(Enum):
     """
     Defines the wildcard patterns which are used in finding files with

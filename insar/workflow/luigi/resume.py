@@ -1,11 +1,11 @@
 from pathlib import Path
 import os
 import pandas as pd
-import datetime
 import luigi
 import luigi.configuration
 
-from insar.constant import SCENE_DATE_FMT, SlcFilenames, MliFilenames
+from insar.constant import SCENE_DATE_FMT
+from insar.paths.slc import SlcPaths
 from insar.coregister_slc import CoregisterSlc
 from insar.process_ifg import validate_ifg_input_files, ProcessIfgException
 from insar.project import ProcConfig, IfgFileNames, ARDWorkflow
@@ -91,17 +91,11 @@ class ReprocessSingleSLC(luigi.Task):
             raise ValueError(f"Failed to reprocess SLC, missing multilook status: {mlk_status}")
 
         rlks, alks = read_rlks_alks(mlk_status)
-
         pol = self.polarization.upper()
 
-        slc_dir = Path(self.outdir) / proc_config.slc_dir / self.scene_date
-        slc = slc_dir / SlcFilenames.SLC_FILENAME.value.format(self.scene_date, pol)
-        slc_par = slc_dir / SlcFilenames.SLC_PAR_FILENAME.value.format(self.scene_date, pol)
+        paths = SlcPaths(proc_config, self.scene_date, pol, rlks)
 
-        mli = slc_dir / MliFilenames.MLI_FILENAME.value.format(scene_date=self.scene_date, pol=pol, rlks=str(rlks))
-        mli_par = slc_dir / MliFilenames.MLI_PAR_FILENAME.value.format(scene_date=self.scene_date, pol=pol, rlks=str(rlks))
-
-        return [slc, slc_par, mli, mli_par]
+        return [paths.slc, paths.slc_par, paths.mli, paths.mli_par]
 
     def run(self):
         log = STATUS_LOGGER.bind(stack_id=self.stack_id, resume_token=self.resume_token)
@@ -161,9 +155,7 @@ class ReprocessSingleSLC(luigi.Task):
                 Path(self.output().path).write_text(failed_file)
                 return
 
-        slc_dir = outdir / proc_config.slc_dir
-        slc = slc_dir / self.scene_date / SlcFilenames.SLC_FILENAME.value.format(self.scene_date, self.polarization.upper())
-        slc_par = slc_dir / self.scene_date / SlcFilenames.SLC_PAR_FILENAME.value.format(self.scene_date, self.polarization.upper())
+        paths = SlcPaths(proc_config, self.scene_date, self.polarization.upper())
 
         if proc_config.sensor == "S1":
             slc_task = ProcessSlc(
@@ -171,7 +163,7 @@ class ReprocessSingleSLC(luigi.Task):
                 raw_path=raw_data_path,
                 polarization=self.polarization,
                 burst_data=self.burst_data_csv,
-                slc_dir=slc_dir,
+                slc_dir=paths.dir,
                 workdir=self.workdir,
                 ref_primary_tab=self.ref_primary_tab,
             )
@@ -193,7 +185,7 @@ class ReprocessSingleSLC(luigi.Task):
                 raw_path=rs2_dirs[0],
                 polarization=self.polarization,
                 burst_data=self.burst_data_csv,
-                slc_dir=slc_dir,
+                slc_dir=paths.dir,
                 workdir=self.workdir,
             )
 
@@ -221,7 +213,7 @@ class ReprocessSingleSLC(luigi.Task):
                 sensor=sensor,
                 polarization=self.polarization,
                 burst_data=self.burst_data_csv,
-                slc_dir=slc_dir,
+                slc_dir=paths.dir,
                 workdir=self.workdir,
             )
 
@@ -237,8 +229,8 @@ class ReprocessSingleSLC(luigi.Task):
             Path(self.output().path).write_text(failed_file)
             return
 
-        if not slc.exists():
-            raise ValueError(f'Critical failure reprocessing, SLC file not found: {slc}')
+        if not paths.slc.exists():
+            raise ValueError(f'Critical failure reprocessing, SLC file not found: {paths.slc}')
 
         if self.progress() == "slc_task":
             self.set_progress("mosaic_task")
@@ -249,7 +241,7 @@ class ReprocessSingleSLC(luigi.Task):
                     raw_path=raw_data_path,
                     polarization=self.polarization,
                     burst_data=self.burst_data_csv,
-                    slc_dir=slc_dir,
+                    slc_dir=paths.dir,
                     outdir=self.outdir,
                     workdir=self.workdir,
                     ref_primary_tab=self.ref_primary_tab,
@@ -264,8 +256,8 @@ class ReprocessSingleSLC(luigi.Task):
 
         if self.progress() == "mosaic_task":
             mli_task = Multilook(
-                slc=slc,
-                slc_par=slc_par,
+                slc=paths.slc,
+                slc_par=paths.slc_par,
                 rlks=rlks,
                 alks=alks,
                 workdir=self.workdir,
@@ -469,9 +461,6 @@ class TriggerResume(luigi.Task):
                         for slc_scene in [primary_date, secondary_date]:
                             # Re-use slc coreg task for parameter acquisition
                             coreg_kwargs = get_coreg_kwargs(proc_path, slc_scene, pol)
-                            del coreg_kwargs["proc_file"]
-                            del coreg_kwargs["outdir"]
-                            del coreg_kwargs["workdir"]
                             list_idx = "-"
 
                             for list_file_path in (outdir / proc_config.list_dir).glob("secondaries*.list"):
@@ -486,8 +475,15 @@ class TriggerResume(luigi.Task):
 
                                     break
 
-                            coreg_kwargs["list_idx"] = list_idx
-                            tertiary_task = CoregisterSlc(proc=proc_config, **coreg_kwargs)
+                            tertiary_task = CoregisterSlc(
+                                proc_config,
+                                list_idx,
+                                coreg_kwargs["slc_primary"],
+                                coreg_kwargs["slc_secondary"],
+                                coreg_kwargs["range_looks"],
+                                coreg_kwargs["azimuth_looks"],
+                                coreg_kwargs["rdc_dem"]
+                            )
                             tertiary_date = tertiary_task.get_tertiary_coreg_scene()
 
                             if tertiary_date:

@@ -73,6 +73,8 @@ def get_coreg_kwargs(proc_file: Path, scene_date=None, scene_pol=None):
     primary_scene = primary_scene.strftime(SCENE_DATE_FMT)
     primary_pol = str(proc_config.polarisation).upper()
 
+    # FIXME: Migrate to CoregisteredSlcPaths
+
     primary_slc_prefix = (f"{primary_scene}_{primary_pol}")
     primary_slc_rlks_prefix = f"{primary_slc_prefix}_{rlks}rlks"
     r_dem_primary_slc_prefix = f"r{primary_slc_prefix}"
@@ -307,7 +309,17 @@ class CoregisterSecondary(luigi.Task):
 
         # Sentinel-1 uses a special coregistration module
         if proc_config.sensor == "S1":
-            return CoregisterSlc(**kwargs)
+            # Note: This mess is temporary (will dissapear when we drop OOP / move to functional
+            # - it'll take a primary/secondary date, pol, and multilooks and that's it...)
+            return CoregisterSlc(
+                proc_config,
+                "-",
+                kwargs["slc_primary"],
+                kwargs["slc_secondary"],
+                kwargs["range_looks"],
+                kwargs["azimuth_looks"],
+                kwargs["rdc_dem"],
+            )
 
         return CoregisterSecondaryProcessor(**kwargs)
 
@@ -361,7 +373,7 @@ class CoregisterSecondary(luigi.Task):
                 primary_task = CoregisterSecondary(**primary_task)
                 processor = primary_task.get_processor()
 
-                coreg_secondary.apply_coregistration(processor.secondary_off, processor.secondary_lt)
+                coreg_secondary.apply_coregistration(processor.ctx.paths.secondary_off, processor.ctx.paths.secondary_lt)
 
             log.info("SLC coregistration complete")
         except Exception as e:

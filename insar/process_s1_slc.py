@@ -13,7 +13,7 @@ import structlog
 import json
 
 from insar import constant as const
-from insar.constant import SlcFilenames
+from insar.paths.slc import SlcPaths
 from insar.subprocess_utils import working_directory
 from insar.process_utils import convert
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
@@ -100,35 +100,30 @@ class SlcProcess:
 
         self.log = _LOG.bind(task="S1 SLC processing", scene_date=scene_date, ref_primary_tab=ref_primary_tab)
 
-    def swath_tab_names(self, swath: int, pre_fix: str,) -> namedtuple:
+        self.paths = SlcPaths(self.output_dir.parent, scene_date, polarization)
+
+    def swath_tab_names(self, swath: int, pre_fix: Optional[str] = None) -> namedtuple:
         """Formats slc swath tab file names using swath and pre_fix."""
 
         swath_tab = namedtuple("swath_tab", ["slc", "par", "tops_par"])
-        return swath_tab(
-            SlcFilenames.SLC_IW_FILENAME.value.format(
-                pre_fix, self.polarization.upper(), swath
-            ),
-            SlcFilenames.SLC_IW_PAR_FILENAME.value.format(
-                pre_fix, self.polarization.upper(), swath
-            ),
-            SlcFilenames.SLC_IW_TOPS_PAR_FILENAME.value.format(
-                pre_fix, self.polarization.upper(), swath
-            ),
-        )
 
-    def slc_tab_names(self, pre_fix: str,) -> namedtuple:
+        # Note: swath - 1 is to convert base-1 indices into base 0 for array indexing
+        slc = self.paths.iw_slc[swath - 1]
+        slc_par = self.paths.iw_slc_par[swath - 1]
+        slc_tops_par = self.paths.iw_slc_tops_par[swath - 1]
+
+        if pre_fix:
+            slc = slc.parent / f"{pre_fix}_{slc.name}"
+            slc_par = slc_par.parent / f"{pre_fix}_{slc_par.name}"
+            slc_tops_par = slc_tops_par.parent / f"{pre_fix}_{slc_tops_par.name}"
+
+        return swath_tab(slc.name, slc_par.name, slc_tops_par.name)
+
+    def slc_tab_names(self) -> namedtuple:
         """Formats slc tab file names using prefix."""
 
         slc_tab = namedtuple("slc_tab", ["slc", "par", "tops_par"])
-        return slc_tab(
-            SlcFilenames.SLC_FILENAME.value.format(pre_fix, self.polarization.upper()),
-            SlcFilenames.SLC_PAR_FILENAME.value.format(
-                pre_fix, self.polarization.upper()
-            ),
-            SlcFilenames.SLC_TOPS_PAR_FILENAME.value.format(
-                pre_fix, self.polarization.upper()
-            ),
-        )
+        return slc_tab(self.paths.slc.name, self.paths.slc_par.name, self.paths.slc_tops_par.name)
 
     def slc_safe_files(self) -> List[Path]:
         """Returns list of .SAFE file paths need to form full SLC for a date."""
@@ -319,9 +314,9 @@ class SlcProcess:
                     # *_iw{swath}.slc.TOPS_par
                     #
                     # using _id. self.swath_tab_names should create
-                    # {_id}_{polarisation}_iw{swath}.slc
-                    # {_id}_{polarisation}_iw{swath}.slc.par
-                    # {_id}_{polarisation}_iw{swath}.slc.TOPS_par
+                    # {_id}_*_{polarisation}_iw{swath}.slc
+                    # {_id}_*_{polarisation}_iw{swath}.slc.par
+                    # {_id}_*_{polarisation}_iw{swath}.slc.TOPS_par
                     tab_names = self.swath_tab_names(swath, _id)
 
                     _slc = tab_names.slc
@@ -367,6 +362,10 @@ class SlcProcess:
             _, _initial_dict = first_tabs
             _dt = _initial_dict["datetime"]
 
+            self.slc_prefix = "{0:04}{1:02}{2:02}".format(
+                _dt.year, _dt.month, _dt.day
+            )
+
             if not remaining_tabs:
                 # There is only one acquisition for this day, hence
                 # remaining_tabs is None, and there is no need to
@@ -378,13 +377,13 @@ class SlcProcess:
                     "{}_{}_tab".format(self.slc_prefix, self.polarization)
                 )
                 for swath in [1, 2, 3]:
-                    _tab_names = self.swath_tab_names(swath, self.slc_prefix)
+                    _tab_names = self.swath_tab_names(swath)
                     os.rename(_initial_dict[swath]["slc"], _tab_names.slc)
                     os.rename(_initial_dict[swath]["par"], _tab_names.par)
                     os.rename(_initial_dict[swath]["tops_par"], _tab_names.tops_par)
 
                 files_in_slc_tab = self._write_tabs(
-                    self.slc_tab, _id=self.slc_prefix, slc_data_dir=os.getcwd()
+                    self.slc_tab, slc_data_dir=os.getcwd()
                 )
 
             else:
@@ -427,18 +426,15 @@ class SlcProcess:
                     # specify slc_prefix
                     if idx == len(remaining_tabs) - 1:
                         # for the last iteration set slc_prefix
-                        # as year and date of acquisition. This
-                        # will be used in the merging table
-                        slc_prefix = "{0:04}{1:02}{2:02}".format(
-                            _dt.year, _dt.month, _dt.day
-                        )
+                        # we don't use a custom prefix / use standard naming
+                        tab_slc_prefix = None
                     else:
                         # it is crucial that slc_prefix is different
                         # for every iteration, otherwise SLC_cat_ScanSAR
                         # will attempt to overwrite the concatenated
                         # files which cause SLC_cat_ScanSAR to
                         # raise errors and then exit.
-                        slc_prefix = "{0:04}{1:02}{2:02}{3:02}{4:02}{5:02}_ix{6}".format(
+                        tab_slc_prefix = "{0:04}{1:02}{2:02}{3:02}{4:02}{5:02}_ix{6}".format(
                             _dt.year,
                             _dt.month,
                             _dt.day,
@@ -473,7 +469,7 @@ class SlcProcess:
                     slc_merge_tab_ofile = tmpdir.joinpath(f"slc_merged_tab_{idx}.txt")
                     files_in_slc_tab3.append(
                         self._write_tabs(
-                            slc_merge_tab_ofile, _id=slc_prefix, slc_data_dir=os.getcwd()
+                            slc_merge_tab_ofile, _id=tab_slc_prefix, slc_data_dir=os.getcwd()
                         )
                     )
 
@@ -511,14 +507,11 @@ class SlcProcess:
                 for fp in self.temp_slc:
                     os.remove(fp)
 
-                # prefix for final slc
-                self.slc_prefix = slc_prefix
-
                 # set the slc_tab file name
                 self.slc_tab = shutil.move(
                     slc_merge_tab_ofile,
                     Path(os.getcwd()).joinpath(
-                        "{}_{}_tab".format(slc_prefix, self.polarization)
+                        "{}_{}_tab".format(self.slc_prefix, self.polarization)
                     ),
                 )
             # end-else
@@ -541,7 +534,7 @@ class SlcProcess:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             slc_dir = Path(os.getcwd())
-            tab_names = self.swath_tab_names(swath, self.slc_prefix)
+            tab_names = self.swath_tab_names(swath)
 
             with working_directory(tmpdir):
                 slc_1_pathname = str(slc_dir.joinpath(tab_names.slc))
@@ -577,7 +570,7 @@ class SlcProcess:
             An Optional azimuth look value. Otherwise default alks is used.
         """
 
-        slc_tab = self.slc_tab_names(self.slc_prefix)
+        slc_tab = self.slc_tab_names()
 
         slc_tab_pathname = str(self.slc_tab)
         slc_pathname = slc_tab.slc
@@ -594,7 +587,7 @@ class SlcProcess:
             self.log.warning("No orbit file for this scene exists")
             return
 
-        slc_tab = self.slc_tab_names(self.slc_prefix)
+        slc_tab = self.slc_tab_names()
 
         slc_par_pathname = slc_tab.par
         opod_pathname = self.orbit_file
@@ -674,7 +667,7 @@ class SlcProcess:
                         end_burst = burst_offs + max(burst_nums)
 
                     fid.write(str(start_burst) + " " + str(end_burst) + "\n")
-                    tab_names = self.swath_tab_names(swath, self.slc_prefix)
+                    tab_names = self.swath_tab_names(swath)
                     tmp_dict["slc"] = tab_names.slc
                     tmp_dict["par"] = tab_names.par
                     tmp_dict["tops_par"] = tab_names.tops_par
@@ -688,7 +681,7 @@ class SlcProcess:
 
             sub_slc_out = tmpdir.joinpath("sub_slc_output_tab")
             files_in_slc_out = self._write_tabs(
-                sub_slc_out, _id=self.slc_prefix, slc_data_dir=tmpdir
+                sub_slc_out, slc_data_dir=tmpdir
             )
 
             # run the subset
@@ -705,7 +698,7 @@ class SlcProcess:
 
             # replace concatenate slc with burst-subset of concatenated slc
             for swath in [1, 2, 3]:
-                tab_names = self.swath_tab_names(swath, self.slc_prefix)
+                tab_names = self.swath_tab_names(swath)
                 for item in [tab_names.slc, tab_names.par, tab_names.tops_par]:
                     shutil.move(tmpdir.joinpath(item), item)
 
@@ -752,7 +745,7 @@ class SlcProcess:
             # write output in a temp directory
             resize_slc_tab = tmpdir.joinpath("sub_slc_output_tab")
             files_in_resize_tab = self._write_tabs(
-                resize_slc_tab, _id=self.slc_prefix, slc_data_dir=tmpdir
+                resize_slc_tab, slc_data_dir=tmpdir
             )
 
             slc1_tab_pathname = str(full_slc_tab)
@@ -768,7 +761,7 @@ class SlcProcess:
 
             # replace full slc with re-sized slc
             for swath in [1, 2, 3]:
-                tab_names = self.swath_tab_names(swath, self.slc_prefix)
+                tab_names = self.swath_tab_names(swath)
                 for item in [tab_names.slc, tab_names.par, tab_names.tops_par]:
                     shutil.move(tmpdir.joinpath(item), item)
 
@@ -810,9 +803,9 @@ class SlcProcess:
                 convert(bmp_file, Path(tab_names.slc).with_suffix(".png"))
 
         tab_names_list = [
-            self.swath_tab_names(swath, self.slc_prefix) for swath in [1, 2, 3]
+            self.swath_tab_names(swath) for swath in [1, 2, 3]
         ]
-        tab_names_list.append(self.slc_tab_names(self.slc_prefix))
+        tab_names_list.append(self.slc_tab_names())
         for tab in tab_names_list:
             _make_png(tab)
 

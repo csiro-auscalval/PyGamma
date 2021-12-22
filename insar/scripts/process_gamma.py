@@ -6,13 +6,10 @@ from typing import Dict, Any
 
 import luigi
 import luigi.configuration
-import logging
-import logging.config
-import structlog
-import pkg_resources
 
 from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
 from insar.workflow.luigi.ard import ARD
+from insar.logs import logging_directory
 
 @luigi.Task.event_handler(luigi.Event.FAILURE)
 def on_failure(task, exception):
@@ -42,13 +39,7 @@ def on_success(task):
 
 
 def run():
-    # Configure logging from built-in script logging config file
-    logging_conf = pkg_resources.resource_filename("insar", "logging.cfg")
-    logging.config.fileConfig(logging_conf)
-
-    with open("insar-log.jsonl", "a") as fobj:
-        structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj), processors=COMMON_PROCESSORS)
-
+    with logging_directory(os.getcwd()):
         try:
             luigi.run()
         except Exception as e:
@@ -82,17 +73,13 @@ def run_ard_inline(args: Dict[str, Any]):
 
     from luigi.task import flatten
 
-    # Configure logging into the job dir
-    job_dir = Path(args["workdir"])
-    os.chdir(job_dir)
+    # Run Luigi from the working directory
+    work_dir = Path(args["workdir"])
+    work_dir.mkdir(parents=True, exist_ok=True)
+    os.chdir(work_dir)
 
-    # Configure logging from built-in script logging config file
-    logging_conf = pkg_resources.resource_filename("insar", "logging.cfg")
-    logging.config.fileConfig(logging_conf)
-
-    with (job_dir / "insar-log.jsonl").open("a") as fobj:
-        structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj), processors=COMMON_PROCESSORS)
-
+    # And have logs also written to the working directory
+    with logging_directory(work_dir):
         # Create top level ARD task
         ard = ARD(**args)
         tasks = [ard]

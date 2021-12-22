@@ -1,11 +1,13 @@
 #! /usr/bin/env python
 
 import math
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Union
 from pathlib import Path
 import structlog
 
-from insar.constant import MliFilenames
+from insar.project import ProcConfig
+from insar.stack import load_stack_config
+from insar.paths.slc import SlcPaths
 from insar.subprocess_utils import working_directory
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
@@ -80,14 +82,18 @@ def calculate_mean_look_values(slc_par_files: List, multi_look: int,) -> Tuple:
 
 
 def multilook(
+    stack_config: Union[ProcConfig, Path],
     slc: Union[Path, str],
     slc_par: Union[Path, str],
     rlks: int,
-    alks: int,
-    outdir: Optional[Path] = None,
+    alks: int
 ) -> None:
     """Calculate a multi-look indensity (MLI) image from an SLC image.
 
+    The MLI file will be produced in the same directory as the provided SLC path.
+
+    :param stack_config:
+        The stack config (or path-like compatible with `load_stack_config`) for the stack which owns the provided slc files.
     :param slc:
         A full path to SLC image file.
     :param slc_par:
@@ -96,11 +102,13 @@ def multilook(
         Range look value.
     :param alks:
         Azimuth look value.
-    :param outdir:
-        An Optional path of an output director. Otherwise parent director
-        of 'slc' file is default output directory.
     """
 
+    if not isinstance(stack_config, ProcConfig):
+        stack_config = load_stack_config(stack_config)
+
+    # FIXME: when we clean up multilook code... this needs to go / be based on the insar.paths module
+    # - we shouldn't be making assumptions about filenames / trying to extract dates.
     slc = Path(slc)
     slc_par = Path(slc_par)
 
@@ -110,35 +118,19 @@ def multilook(
         err_msg = f"{slc.stem} needs to be in scene_date_polarization format"
         raise ValueError(err_msg)
 
-    mli = MliFilenames.MLI_FILENAME.value.format(
-        scene_date=scene_date, pol=pol, rlks=str(rlks)
-    )
+    paths = SlcPaths(stack_config, scene_date, pol, rlks)
 
-    mli_par = MliFilenames.MLI_PAR_FILENAME.value.format(
-        scene_date=scene_date, pol=pol, rlks=str(rlks)
-    )
+    # Temporary, until we clean-up the multilook code to take more sensible inputs
+    assert(slc == paths.slc)
+    assert(slc_par == paths.slc_par)
 
-    work_dir = slc.parent
-
-    if outdir is not None:
-        mli = outdir.joinpath(mli)
-        mli_par = outdir.joinpath(mli_par)
-        work_dir = outdir
-
-    with working_directory(work_dir.as_posix()):
-        slc_pathname = str(slc)
-        slc_par_pathname = str(slc_par)
-        mli_pathname = mli
-        mli_par_pathname = mli_par
-        azlks = alks
-        loff = 0
-
-        stat = pg.multi_look(
-            slc_pathname,
-            slc_par_pathname,
-            mli_pathname,
-            mli_par_pathname,
+    with working_directory(paths.dir.as_posix()):
+        pg.multi_look(
+            paths.slc,
+            paths.slc_par,
+            paths.mli,
+            paths.mli_par,
             rlks,
-            azlks,
-            loff,
+            alks,
+            0,  # No offset
         )

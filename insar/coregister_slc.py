@@ -13,15 +13,16 @@ from pathlib import Path
 import re
 import shutil
 import structlog
-from PIL import Image
-import numpy as np
 import math
+from dataclasses import dataclass
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
-from insar.subprocess_utils import working_directory, run_command
+from insar.subprocess_utils import working_directory
 from insar.project import ProcConfig
 from insar.coreg_utils import rm_file, grep_stdout
 import insar.constant as const
+
+from insar.paths.coregistration import CoregisteredSlcPaths
 
 _LOG = structlog.get_logger("insar")
 
@@ -36,6 +37,72 @@ pg = GammaInterface(
     )
 )
 
+
+# FIXME: This could ba generic write_tabs_file that takes a pattern which we write
+# per-swath parts into - to be re-used by this + slc + any others
+# - when we fix this, move it to use the SlcPaths class.
+def write_tabs_file(
+    tab_file: Union[Path, str],
+    _id: str,
+    data_dir: Optional[Path] = None
+):
+    """Writes a tab file input as required by GAMMA."""
+    with open(tab_file, "w") as fid:
+        for swath in [1, 2, 3]:
+            # FIXME: Path class? (these are probably duplicated elsewhere)
+            swath_par = f"{_id}_IW{swath}.slc.par"
+            swath_tops_par = f"{_id}_IW{swath}.slc.TOPS_par"
+            swath_slc = f"{_id}_IW{swath}.slc"
+
+            if data_dir is not None:
+                swath_slc = str(data_dir / swath_slc)
+                swath_par = str(data_dir / swath_par)
+                swath_tops_par = str(data_dir / swath_tops_par)
+
+            fid.write(swath_slc + " " + swath_par + " " + swath_tops_par + "\n")
+
+
+def READ_TAB(tab_file: Union[str, Path]):
+    """
+    Read a tab file, returning the (slc, par, TOPS_par) for each
+    available sub-swath in the tab file.
+    """
+
+    tab_record = namedtuple("tab_record", ["slc", "par", "TOPS_par"])
+
+    with open(tab_file, 'r') as file:
+        lines = file.read().splitlines()
+
+        # Remove empty lines
+        lines = [line for line in lines if len(line.strip()) > 0]
+
+        # determine number of rows and columns of tab file
+        nrows = len(lines)
+        ncols = len(lines[0].split())
+
+        # first line
+        IW1_result = tab_record(*lines[0].split())
+
+        # second line
+        IW2_result = None
+        if nrows > 1:
+            IW2_result = tab_record(*lines[1].split())
+
+        # third line
+        IW3_result = None
+        if nrows > 2:
+            IW3_result = tab_record(*lines[2].split())
+
+        return (IW1_result, IW2_result, IW3_result)
+
+
+@dataclass
+class CoregistrationContext:
+    proc: ProcConfig
+    paths: CoregisteredSlcPaths
+    log: structlog.BoundLogger
+
+
 class CoregisterSlc:
     def __init__(
         self,
@@ -43,15 +110,9 @@ class CoregisterSlc:
         list_idx: Union[str, int],
         slc_primary: Union[str, Path],
         slc_secondary: Union[str, Path],
-        secondary_mli: Union[str, Path],
         range_looks: int,
         azimuth_looks: int,
-        ellip_pix_sigma0: Union[str, Path],
-        dem_pix_gamma0: Union[str, Path],
-        r_dem_primary_mli: Union[str, Path],
         rdc_dem: Union[str, Path],
-        geo_dem_par: Union[str, Path],
-        dem_lt_fine: Union[str, Path],
         outdir: Optional[Union[str, Path]] = None,
     ) -> None:
         """
@@ -66,164 +127,98 @@ class CoregisterSlc:
             A full path to a primary (reference) SLC image file.
         :param slc_secondary:
             A full Path to a secondary SLC image file.
-        :param secondary_mli:
-            A full path to a secondary image multi-looked image file.
         :param range_looks:
             A range look value.
         :param azimuth_looks:
             An azimuth look value.
-        :param ellip_pix_sigma0:
-            A full path to a sigma0 product generated during primary-dem co-registration.
-        :param dem_pix_gamma0:
-            A full path to a gamma0 product generated during primary-dem co-registration.
-        :param r_dem_primary_mli:
-            A full path to a reference multi-looked image parameter file.
         :param rdc_dem:
             A full path to a dem (height map) in RDC of primary SLC.
-        :param geo_dem_par:
-            A full path to a geo dem par generated during primary-dem co-registration.
-        :param dem_lt_fine:
-            A full path to a geo_to_rdc look-up table generated during primary-dem co-registration.
         :param outdir:
             A full path to a output directory.
         """
         self.proc = proc
         self.list_idx = list_idx
-        self.slc_primary = slc_primary
-        self.slc_secondary = slc_secondary
         self.rdc_dem = rdc_dem
-        self.secondary_mli = secondary_mli
         self.alks = azimuth_looks
         self.rlks = range_looks
-        self.r_dem_primary_mli = r_dem_primary_mli
-        self.ellip_pix_sigma0 = ellip_pix_sigma0
-        self.dem_pix_gamma0 = dem_pix_gamma0
-        self.geo_dem_par = geo_dem_par
-        self.dem_lt_fine = dem_lt_fine
-        self.out_dir = outdir
-        if self.out_dir is None:
-            self.out_dir = Path(self.slc_secondary).parent
-        self.accuracy_warning = self.out_dir / "ACCURACY_WARNING"
 
-        self.secondary_date, self.secondary_pol = self.slc_secondary.stem.split('_')
-        self.primary_date, self.primary_pol = self.slc_primary.stem.split('_')
+        self.secondary_date, self.secondary_pol = slc_secondary.stem.split('_')
+        self.primary_date, self.primary_pol = slc_primary.stem.split('_')
 
         self.log = _LOG.bind(
             task="SLC coregistration",
             polarization=self.secondary_pol,
             secondary_date=self.secondary_date,
-            slc_secondary=self.slc_secondary,
+            slc_secondary=slc_secondary,
             primary_date=self.primary_date,
-            slc_primary=self.slc_primary,
+            slc_primary=slc_primary,
             list_idx=self.list_idx
         )
 
-        self.r_dem_primary_mli_par = self.r_dem_primary_mli.with_suffix(".mli.par")
-        if not self.r_dem_primary_mli_par.exists():
-            self.log.error(
-                "DEM primary MLI par file not found",
-                pathname=str(self.r_dem_primary_mli_par),
-            )
-
-        # Note: the slc_primary dir is the correct directory / this matches the bash
-        self.r_dem_primary_slc_par = self.slc_primary.with_suffix(".slc.par")
-        self.r_dem_primary_slc_par = self.r_dem_primary_slc_par.parent / ("r" + self.r_dem_primary_slc_par.name)
-        if not self.r_dem_primary_slc_par.exists():
-            self.log.error(
-                "DEM primary SLC par file not found",
-                pathname=str(self.r_dem_primary_slc_par),
-            )
-
-        self.slc_secondary_par = self.slc_secondary.with_suffix(".slc.par")
-        if not self.slc_secondary_par.exists():
-            self.log.error("SLC secondary par file not found", pathname=str(self.slc_secondary_par))
-
-        self.secondary_mli_par = self.secondary_mli.with_suffix(".mli.par")
-        if not self.secondary_mli_par.exists():
-            self.log.error("Secondary MLI par file not found", pathname=str(self.secondary_mli_par))
-
         self.range_step = None
         self.azimuth_step = None
-        self.r_secondary_slc = None
-        self.r_secondary_slc_par = None
-        self.r_secondary_slc_tab = None
-        self.primary_slc_tab = None
-        self.secondary_slc_tab = None
-        self.r_secondary_mli = None
-        self.r_secondary_mli_par = None
         self.primary_sample = None
 
-        primary_secondary_prefix = f"{self.primary_date}-{self.secondary_date}"
-        self.r_primary_secondary_name = f"{primary_secondary_prefix}_{self.secondary_pol}_{self.rlks}rlks"
+        paths = CoregisteredSlcPaths(
+            proc,
+            self.primary_date,
+            self.secondary_date,
+            self.secondary_pol,
+            range_looks
+        )
 
-        self.secondary_lt = self.out_dir / f"{self.r_primary_secondary_name}.lt"
-        self.secondary_off = self.out_dir / f"{self.r_primary_secondary_name}.off"
+        self.out_dir = outdir
+        if self.out_dir is None:
+            self.out_dir = paths.secondary.dir
+        self.accuracy_warning = self.out_dir / "ACCURACY_WARNING"
 
-    @staticmethod
-    def swath_tab_names(swath: int, prefix: str,) -> namedtuple:
-        """
-        Returns namedtuple swath-slc names.
+        self.ctx = CoregistrationContext(proc, paths, self.log)
 
-        :param swath:
-            An IW swath number.
-        :param prefix:
-            A prefix of full SLC name.
-
-        :returns:
-            A namedtuple containing the names of slc, par and tops_par.
-        """
-
-        swath_par = f"{prefix}_IW{swath}.slc.par"
-        swath_tops_par = f"{prefix}_IW{swath}.slc.TOPS_par"
-        swath_slc = f"{prefix}_IW{swath}.slc"
-
-        # TODO: refactor to define in module scope
-        swath_tab = namedtuple("swath_tab", ["slc", "par", "tops_par"])
-        return swath_tab(swath_slc, swath_par, swath_tops_par)
 
     def set_tab_files(
-        self, out_dir: Optional[Union[Path, str]] = None,
+        self,
+        paths: CoregisteredSlcPaths
     ):
         """Writes tab files used in secondary co-registration."""
 
-        if out_dir is None:
-            out_dir = self.out_dir
-
         # write a secondary slc tab file
-        self.secondary_slc_tab = out_dir.joinpath(f"{self.slc_secondary.stem}_tab")
-        self._write_tabs(self.secondary_slc_tab, self.slc_secondary.stem, self.slc_secondary.parent)
+        write_tabs_file(paths.secondary_slc_tab, paths.secondary.slc.stem, paths.secondary.dir)
 
         # write a re-sampled secondary slc tab file
-        self.r_secondary_slc_tab = out_dir.joinpath(f"r{self.slc_secondary.stem}_tab")
-        self._write_tabs(
-            self.r_secondary_slc_tab, f"r{self.slc_secondary.stem}", self.slc_secondary.parent
+        write_tabs_file(
+            paths.r_secondary_slc_tab, paths.r_secondary_slc.stem, paths.secondary.dir
         )
 
         # write primary slc tab file
-        self.primary_slc_tab = out_dir.joinpath(f"{self.slc_primary.stem}_tab")
-        self._write_tabs(
-            self.primary_slc_tab, self.slc_primary.stem, self.slc_primary.parent
+        write_tabs_file(
+            paths.primary_slc_tab, paths.primary.slc.stem, paths.primary.dir
         )
 
-        self.r_secondary_slc = out_dir.joinpath(f"r{self.slc_secondary.name}")
-        self.r_secondary_slc_par = out_dir.joinpath(f"r{self.slc_secondary.name}.par")
 
-    def get_lookup(self) -> None:
-        """Determine lookup table based on orbit data and DEM."""
+    def get_lookup(self, lut_path: Path, rdc_dem: Path) -> None:
+        """
+        Determine lookup table based on orbit data and DEM.
 
-        mli1_par_pathname = str(self.r_dem_primary_mli_par)
-        dem_rdc_pathname = str(self.rdc_dem)
-        mli2_par_pathname = str(self.secondary_mli_par)
-        lookup_table_pathname = str(self.secondary_lt)
+        :param rdc_dem:
+            A full path to a dem (height map) in RDC of primary SLC.
+        """
+
+        paths = self.ctx.paths
 
         pg.rdc_trans(
-            mli1_par_pathname, dem_rdc_pathname, mli2_par_pathname, lookup_table_pathname,
+            paths.r_dem_primary_mli_par,
+            rdc_dem,
+            paths.secondary.mli_par,
+            lut_path,
         )
 
     def primary_sample_size(self):
         """Returns the start and end rows and cols."""
-        par_slc = pg.ParFile(str(self.r_dem_primary_slc_par))
-        par_mli = pg.ParFile(str(self.r_dem_primary_mli_par))
+
+        paths = self.ctx.paths
+
+        par_slc = pg.ParFile(str(paths.r_dem_primary_slc_par))
+        par_mli = pg.ParFile(str(paths.r_dem_primary_mli_par))
         sample_size = namedtuple(
             "primary",
             [
@@ -262,26 +257,6 @@ class CoregisterSlc:
         )
         if azimuth_offset_max > self.azimuth_step:
             self.azimuth_step = azimuth_offset_max
-
-    def _write_tabs(
-        self,
-        tab_file: Union[Path, str],
-        _id: str,
-        data_dir: Optional[Union[Path, str]] = None,
-    ):
-        """Writes a tab file input as required by GAMMA."""
-        with open(tab_file, "w") as fid:
-            for swath in [1, 2, 3]:
-                tab_names = self.swath_tab_names(swath, _id)
-                _slc = tab_names.slc
-                _par = tab_names.par
-                _tops_par = tab_names.tops_par
-
-                if data_dir is not None:
-                    _slc = data_dir.joinpath(_slc).as_posix()
-                    _par = data_dir.joinpath(_par).as_posix()
-                    _tops_par = data_dir.joinpath(_tops_par).as_posix()
-                fid.write(_slc + " " + _par + " " + _tops_par + "\n")
 
     @staticmethod
     def _grep_offset_parameter(
@@ -324,16 +299,19 @@ class CoregisterSlc:
         using intensity matching (offset_pwr_tracking).
         """
 
+        paths = self.ctx.paths
+
         self.log.info("Beginning coarse coregistration")
 
         # coreg between differently polarised data makes no sense
-        assert(self.secondary_pol == self.primary_pol)
+        if self.secondary_pol != self.primary_pol:
+            raise ValueError("Can not coregister two scenes of different polarisation!")
 
         # create secondary offset
         pg.create_offset(
-            str(self.r_dem_primary_slc_par),
-            str(self.slc_secondary_par),
-            str(self.secondary_off),
+            str(paths.r_dem_primary_slc_par),
+            str(paths.secondary.slc_par),
+            str(paths.secondary_off),
             1,          # intensity cross-correlation
             self.rlks,
             self.alks,
@@ -346,29 +324,29 @@ class CoregisterSlc:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir)
 
-            secondary_doff = self.out_dir / f"{self.r_primary_secondary_name}.doff"
-            secondary_offs = temp_dir.joinpath(f"{self.r_primary_secondary_name}.offs")
-            secondary_snr = temp_dir.joinpath(f"{self.r_primary_secondary_name}.snr")
-            secondary_diff_par = temp_dir.joinpath(f"{self.r_primary_secondary_name}.diff_par")
+            secondary_doff = self.out_dir / f"{paths.r_primary_secondary_name}.doff"
+            secondary_offs = temp_dir.joinpath(f"{paths.r_primary_secondary_name}.offs")
+            secondary_snr = temp_dir.joinpath(f"{paths.r_primary_secondary_name}.snr")
+            secondary_diff_par = temp_dir.joinpath(f"{paths.r_primary_secondary_name}.diff_par")
 
             while abs(d_azimuth) > max_azimuth_threshold and iteration < max_iteration:
-                secondary_off_start = temp_dir.joinpath(f"{self.secondary_off.name}.start")
-                shutil.copy(self.secondary_off, secondary_off_start)
+                secondary_off_start = temp_dir.joinpath(f"{paths.secondary_off.name}.start")
+                shutil.copy(paths.secondary_off, secondary_off_start)
 
                 # re-sample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials for refinement
                 with working_directory(temp_dir):
                     pg.SLC_interp_lt_ScanSAR(
-                        str(self.secondary_slc_tab),
-                        str(self.slc_secondary_par),
-                        str(self.primary_slc_tab),
-                        str(self.r_dem_primary_slc_par),
-                        str(self.secondary_lt),
-                        str(self.r_dem_primary_mli_par),
-                        str(self.secondary_mli_par),
+                        str(paths.secondary_slc_tab),
+                        str(paths.secondary.slc_par),
+                        str(paths.primary_slc_tab),
+                        str(paths.r_dem_primary_slc_par),
+                        str(paths.secondary_lt),
+                        str(paths.r_dem_primary_mli_par),
+                        str(paths.secondary.mli_par),
                         str(secondary_off_start),
-                        str(self.r_secondary_slc_tab),
-                        str(self.r_secondary_slc),
-                        str(self.r_secondary_slc_par),
+                        str(paths.r_secondary_slc_tab),
+                        str(paths.r_secondary_slc),
+                        str(paths.r_secondary_slc_par),
                     )
 
                     if secondary_doff.exists():
@@ -376,8 +354,8 @@ class CoregisterSlc:
 
                     # create and update ISP offset parameter file
                     pg.create_offset(
-                        str(self.r_dem_primary_slc_par),
-                        str(self.slc_secondary_par),
+                        str(paths.r_dem_primary_slc_par),
+                        str(paths.secondary.slc_par),
                         str(secondary_doff),
                         1,          # intensity cross-correlation
                         self.rlks,
@@ -387,10 +365,10 @@ class CoregisterSlc:
 
                     # offset tracking between SLC images using intensity cross-correlation
                     pg.offset_pwr_tracking(
-                        str(self.slc_primary),
-                        str(self.r_secondary_slc),
-                        str(self.r_dem_primary_slc_par),
-                        str(self.r_secondary_slc_par),
+                        str(paths.primary.slc),
+                        str(paths.r_secondary_slc),
+                        str(paths.r_dem_primary_slc_par),
+                        str(paths.r_secondary_slc_par),
                         str(secondary_doff),
                         str(secondary_offs),
                         str(secondary_snr),
@@ -456,8 +434,8 @@ class CoregisterSlc:
                         os.remove(secondary_diff_par)
 
                     # create template diff parameter file for geocoding
-                    par1_pathname = str(self.r_dem_primary_mli_par)
-                    par2_pathname = str(self.r_dem_primary_mli_par)
+                    par1_pathname = str(paths.r_dem_primary_mli_par)
+                    par2_pathname = str(paths.r_dem_primary_mli_par)
                     diff_par_pathname = str(secondary_diff_par)
                     par_type = 1  # SLC/MLI_par ISP SLC/MLI parameters
                     iflg = 0  # non-interactive mode
@@ -487,15 +465,15 @@ class CoregisterSlc:
                     )
 
                     # update look-up table
-                    _secondary_lt = temp_dir.joinpath(f"{self.secondary_lt.name}.{iteration}")
-                    shutil.copy(self.secondary_lt, _secondary_lt)
+                    _secondary_lt = temp_dir.joinpath(f"{paths.secondary_lt.name}.{iteration}")
+                    shutil.copy(paths.secondary_lt, _secondary_lt)
 
                     # geocoding look-up table refinement using diff par offset polynomial
                     pg.gc_map_fine(
                         str(_secondary_lt),
                         self.primary_sample.mli_width_end,
                         str(secondary_diff_par),
-                        str(self.secondary_lt),
+                        str(paths.secondary_lt),
                         1,  # ref_flg
                     )
 
@@ -524,42 +502,6 @@ class CoregisterSlc:
 
         return -1
 
-    def READ_TAB(
-        self,
-        tab_file: Union[str, Path]
-    ):
-        """
-        Read a tab file, returning the (slc, par, TOPS_par) for each
-        available sub-swath in the tab file.
-        """
-
-        tab_record = namedtuple("tab_record", ["slc", "par", "TOPS_par"])
-
-        with open(tab_file, 'r') as file:
-            lines = file.read().splitlines()
-
-            # Remove empty lines
-            lines = [line for line in lines if len(line.strip()) > 0]
-
-            # determine number of rows and columns of tab file
-            nrows = len(lines)
-            ncols = len(lines[0].split())
-
-            # first line
-            IW1_result = tab_record(*lines[0].split())
-
-            # second line
-            IW2_result = None
-            if nrows > 1:
-                IW2_result = tab_record(*lines[1].split())
-
-            # third line
-            IW3_result = None
-            if nrows > 2:
-                IW3_result = tab_record(*lines[2].split())
-
-            return (IW1_result, IW2_result, IW3_result)
-
 
     def get_tertiary_coreg_scene(
         self,
@@ -572,9 +514,11 @@ class CoregisterSlc:
         if list_idx is None:
             list_idx = self.list_idx
 
+        paths = self.ctx.paths
+
         # slc_secondary is something like:
         # /g/data/dz56/insar_initial_processing/T147D_F28S_S1A/SLC/20180220/20180220_VV.slc.par
-        list_dir = Path(self.slc_secondary).parent.parent.parent / self.proc.list_dir
+        list_dir = Path(self.proc.output_path) / self.proc.list_dir
 
         coreg_secondary = None
 
@@ -626,14 +570,15 @@ class CoregisterSlc:
 
         self.coarse_registration(max_iteration, max_azimuth_threshold)
         daz = None
+        paths = self.ctx.paths
 
         self.log.info("Beginning fine coregistration")
 
         # slc_secondary is something like:
         # /g/data/dz56/insar_initial_processing/T147D_F28S_S1A/SLC/20180220/20180220_VV.slc.par
-        slc_dir = Path(self.slc_secondary).parent.parent.parent / self.proc.slc_dir
+        slc_dir = Path(self.proc.output_path) / self.proc.slc_dir
 
-        with tempfile.TemporaryDirectory() as temp_dir, open(Path(temp_dir) / f"{self.r_primary_secondary_name}.ovr_results", 'w') as secondary_ovr_res:
+        with tempfile.TemporaryDirectory() as temp_dir, open(Path(temp_dir) / f"{paths.r_primary_secondary_name}.ovr_results", 'w') as secondary_ovr_res:
             temp_dir = Path(temp_dir)
 
             # initialize the output text file
@@ -647,22 +592,22 @@ class CoregisterSlc:
 
             for iteration in range(1, max_iteration+1):
                 # cp -rf $secondary_off $secondary_off_start
-                secondary_off_start = temp_dir.joinpath(f"{self.secondary_off.name}.start")
-                shutil.copy(self.secondary_off, secondary_off_start)
+                secondary_off_start = temp_dir.joinpath(f"{paths.secondary_off.name}.start")
+                shutil.copy(paths.secondary_off, secondary_off_start)
 
                 # GM SLC_interp_lt_S1_TOPS $secondary_slc_tab $secondary_slc_par $primary_slc_tab $r_dem_primary_slc_par $secondary_lt $r_dem_primary_mli_par $secondary_mli_par $secondary_off_start $r_secondary_slc_tab $r_secondary_slc $r_secondary_slc_par
                 pg.SLC_interp_lt_ScanSAR(
-                    str(self.secondary_slc_tab),
-                    str(self.slc_secondary_par),
-                    str(self.primary_slc_tab),
-                    str(self.r_dem_primary_slc_par),
-                    str(self.secondary_lt),
-                    str(self.r_dem_primary_mli_par),
-                    str(self.secondary_mli_par),
+                    str(paths.secondary_slc_tab),
+                    str(paths.secondary.slc_par),
+                    str(paths.primary_slc_tab),
+                    str(paths.r_dem_primary_slc_par),
+                    str(paths.secondary_lt),
+                    str(paths.r_dem_primary_mli_par),
+                    str(paths.secondary.mli_par),
                     str(secondary_off_start),
-                    str(self.r_secondary_slc_tab),
-                    str(self.r_secondary_slc),
-                    str(self.r_secondary_slc_par),
+                    str(paths.r_secondary_slc_tab),
+                    str(paths.r_secondary_slc),
+                    str(paths.r_secondary_slc_par),
                 )
 
                 # Query tertiary coreg scene (based on list_idx)
@@ -675,8 +620,8 @@ class CoregisterSlc:
                 iter_log = self.log.bind(
                     iteration=iteration,
                     max_iteration=max_iteration,
-                    primary_slc_tab=self.primary_slc_tab,
-                    r_secondary_slc_tab=self.r_secondary_slc_tab,
+                    primary_slc_tab=paths.primary_slc_tab,
+                    r_secondary_slc_tab=paths.r_secondary_slc_tab,
                     r_secondary2_slc_tab=r_coreg_secondary_tab
                 )
 
@@ -685,11 +630,11 @@ class CoregisterSlc:
                     daz, azpol = self.S1_COREG_OVERLAP(
                         iteration,
                         secondary_ovr_res,
-                        str(self.r_primary_secondary_name),
-                        str(self.primary_slc_tab),
-                        str(self.r_secondary_slc_tab),
+                        str(paths.r_primary_secondary_name),
+                        str(paths.primary_slc_tab),
+                        str(paths.r_secondary_slc_tab),
                         str(secondary_off_start),
-                        str(self.secondary_off),
+                        str(paths.secondary_off),
                         float(self.proc.coreg_s1_cc_thresh),
                         float(self.proc.coreg_s1_frac_thresh),
                         float(self.proc.coreg_s1_stdev_thresh),
@@ -700,7 +645,7 @@ class CoregisterSlc:
                     # ^--> we return this directly from S1_COREG_OVERLAP (no need to keep reading the file over and over like bash does)
 
                     # cp -rf $secondary_off $secondary_off.az_ovr.$it
-                    shutil.copy(self.secondary_off, f"{self.secondary_off}.az_ovr.{iteration}")
+                    shutil.copy(paths.secondary_off, f"{paths.secondary_off}.az_ovr.{iteration}")
 
                     iter_log.info(f'fine iteration update', daz=daz, azpol=azpol)
 
@@ -722,8 +667,8 @@ class CoregisterSlc:
                     # This action is simply to use the coarse .doff as a best estimate.
                     if iteration == 1:
                         iter_log.warning("CAUTION: No fine coregistration iterations succeeded, proceeding with coarse coregistration")
-                        secondary_doff = self.out_dir / f"{self.r_primary_secondary_name}.doff"
-                        shutil.copy(secondary_doff, self.secondary_off)
+                        secondary_doff = self.out_dir / f"{paths.r_primary_secondary_name}.doff"
+                        shutil.copy(secondary_doff, paths.secondary_off)
 
                     break
 
@@ -759,12 +704,12 @@ class CoregisterSlc:
         log = self.log.bind(az_ovr_iter=iteration, primary_slc_tab=primary_slc_tab, r_secondary_slc_tab=r_secondary_slc_tab, r_secondary2_slc_tab=r_secondary2_slc_tab)
 
         # determine number of rows and columns of tab file and read burst SLC filenames from tab files
-        primary_IWs = self.READ_TAB(primary_slc_tab)
-        r_secondary_IWs = self.READ_TAB(r_secondary_slc_tab)
+        primary_IWs = READ_TAB(primary_slc_tab)
+        r_secondary_IWs = READ_TAB(r_secondary_slc_tab)
 
         # option to coregister to another secondary
         if r_secondary2_slc_tab is not None:
-            r_secondary2_IWs = self.READ_TAB(r_secondary2_slc_tab)
+            r_secondary2_IWs = READ_TAB(r_secondary2_slc_tab)
 
         def calc_line_offset(IW):
             IW_par = pg.ParFile(IW.par)
@@ -1285,32 +1230,33 @@ class CoregisterSlc:
 
         return azimuth_pixel_offset, azpol
 
-    def resample_full(self):
+    def resample_full(self, lut_path: Path, offset_path: Path):
         """
         Resample full-resolution SLC image using a look-up table and SLC offset polynomials for refinement
         Uses the GAMMA DIFF/GEO program: SLC_interp_lt_ScanSAR (suitable for Sentinel-1 IW data)
         """
-        slc2_tab = str(self.secondary_slc_tab)
-        slc2_par = str(self.slc_secondary_par)
-        slc1_tab = str(self.primary_slc_tab)
-        slc1_par = str(self.r_dem_primary_slc_par)
-        lookup_table_pathname = str(self.secondary_lt)
-        mli1_par = str(self.r_dem_primary_mli_par)
-        mli2_par = str(self.secondary_mli_par)
-        off_par = str(self.secondary_off)
-        slc2r_tab = str(self.r_secondary_slc_tab)
-        slc_2r = str(self.r_secondary_slc)
-        slc2r_par = str(self.r_secondary_slc_par)
+
+        paths = self.ctx.paths
+
+        slc2_tab = str(paths.secondary_slc_tab)
+        slc2_par = str(paths.secondary.slc_par)
+        slc1_tab = str(paths.primary_slc_tab)
+        slc1_par = str(paths.r_dem_primary_slc_par)
+        mli1_par = str(paths.r_dem_primary_mli_par)
+        mli2_par = str(paths.secondary.mli_par)
+        slc2r_tab = str(paths.r_secondary_slc_tab)
+        slc_2r = str(paths.r_secondary_slc)
+        slc2r_par = str(paths.r_secondary_slc_par)
 
         pg.SLC_interp_lt_ScanSAR(
             slc2_tab,
             slc2_par,
             slc1_tab,
             slc1_par,
-            lookup_table_pathname,
+            lut_path,
             mli1_par,
             mli2_par,
-            off_par,
+            offset_path,
             slc2r_tab,
             slc_2r,
             slc2r_par,
@@ -1321,13 +1267,13 @@ class CoregisterSlc:
         Generates down-sampled multi-look intensity image from a secondary SLC image.
         Uses the GAMMA ISP program: multi_look
         """
-        self.r_secondary_mli = self.out_dir.joinpath(f"r{self.secondary_mli.name}")
-        self.r_secondary_mli_par = self.r_secondary_mli.with_suffix(".mli.par")
 
-        slc_pathname = str(self.r_secondary_slc)
-        slc_par_pathname = str(self.r_secondary_slc_par)
-        mli_pathname = str(self.r_secondary_mli)
-        mli_par_pathname = str(self.r_secondary_mli_par)
+        paths = self.ctx.paths
+
+        slc_pathname = str(paths.r_secondary_slc)
+        slc_par_pathname = str(paths.r_secondary_slc_par)
+        mli_pathname = str(paths.r_secondary_mli)
+        mli_par_pathname = str(paths.r_secondary_mli_par)
         rlks = self.rlks
         alks = self.alks
 
@@ -1349,15 +1295,37 @@ class CoregisterSlc:
                 secondary_date=self.secondary_date
             )
 
+            # Validate inputs
+            paths = self.ctx.paths
+
+            if not paths.r_dem_primary_mli_par.exists():
+                self.log.error(
+                    "DEM primary MLI par file not found",
+                    pathname=paths.r_dem_primary_mli_par,
+                )
+
+            if not paths.r_dem_primary_slc_par.exists():
+                self.log.error(
+                    "DEM primary SLC par file not found",
+                    pathname=paths.r_dem_primary_slc_par,
+                )
+
+            if not paths.secondary.slc_par.exists():
+                self.log.error("SLC secondary par file not found", pathname=paths.secondary.slc_par)
+
+            if not paths.secondary.mli_par.exists():
+                self.log.error("Secondary MLI par file not found", pathname=paths.secondary.mli_par)
+
+
             with working_directory(self.out_dir):
-                self.set_tab_files()
-                self.get_lookup()
+                self.set_tab_files(paths)
+                self.get_lookup(paths.secondary_lt, self.rdc_dem)
                 self.reduce_offset()
                 self.fine_coregistration(self.secondary_date, self.list_idx)
 
                 # Note: for now, resampling/multilook remains part of "coregistration"
-                # - this is technically 1) resampling based on the coregisration and 2) downsampling...
-                self.resample_full()
+                # - this is technically 1) resampling based on the coregistration and 2) downsampling...
+                self.resample_full(paths.secondary_lt, paths.secondary_off)
                 self.multi_look()
 
         finally:
@@ -1371,6 +1339,14 @@ class CoregisterSlc:
     ):
         """Applies a coregistration LUT and offset refinements to SLC products."""
 
+        paths = self.ctx.paths
+
+        if secondary_off is None:
+            secondary_off = paths.secondary_off
+
+        if lookup_table is None:
+            lookup_table = paths.secondary_lt
+
         # Re-bind thread local context
         try:
             structlog.threadlocal.clear_threadlocal()
@@ -1381,16 +1357,12 @@ class CoregisterSlc:
                 secondary_date=self.secondary_date
             )
 
-            # Set coregistration LUT and offsets
-            self.secondary_lt = lookup_table
-            self.secondary_off = secondary_off
-
             with working_directory(self.out_dir):
-                self.set_tab_files()
+                self.set_tab_files(self.ctx.paths)
 
                 # Note: for now, resampling/multilook remains part of "coregistration"
-                # - this is technically 1) the application of the coregisration and 2) downsampling...
-                self.resample_full()
+                # - this is technically 1) the application of the coregistration and 2) downsampling...
+                self.resample_full(lookup_table, secondary_off)
                 self.multi_look()
 
         finally:

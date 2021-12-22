@@ -1,6 +1,6 @@
 from tests.fixtures import *
 
-from insar.constant import SlcFilenames
+from insar.paths.slc import SlcPaths
 from insar.process_s1_slc import SlcProcess
 
 S1_TEST_DATA_DATE = S1_TEST_DATA_DATES[0]
@@ -19,14 +19,18 @@ def count_post_query_gamma_calls(gamma_calls):
 
 # Note: This is not a fixture, as it's just a wrapper around what S1 SLC processing
 # may eventually look like (a function, not a class)
-def process_s1_slc(test_data_dir, temp_out_dir, s1_proc, s1_test_data_csv, pol):
-    Path(temp_out_dir / S1_TEST_DATA_DATE).mkdir(exist_ok=True, parents=True)
+def process_s1_slc(s1_test_data, temp_out_dir, s1_test_data_csv, pol):
+    test_date = s1_test_data[0].parent.name
+    test_data_dir = s1_test_data[0].parent.parent
+
+    paths = SlcPaths(temp_out_dir, test_date, pol)
+    paths.dir.mkdir(exist_ok=True, parents=True)
 
     processor = SlcProcess(
         test_data_dir,
-        temp_out_dir,
+        paths.dir.parent,
         pol,
-        S1_TEST_DATA_DATE,
+        test_date,
         s1_test_data_csv
     )
 
@@ -34,36 +38,28 @@ def process_s1_slc(test_data_dir, temp_out_dir, s1_proc, s1_test_data_csv, pol):
 
     return processor
 
-def test_s1_slc_processing(pgp, pgmock, temp_out_dir, s1_proc, s1_test_data, s1_test_data_csv):
-    # Unfortunately SlcProcess has assumptions on sub-dirs within the dir you provide it, as it
-    # has it's own opinions on structure (unlike other modules which get it's structure from
-    # the caller and .proc settings) - so for now, we have to hard-code this here too...
-    out_dir = temp_out_dir / S1_TEST_DATA_DATE
-    test_out_slc = out_dir / SlcFilenames.SLC_FILENAME.value.format(S1_TEST_DATA_DATE, "VV")
-    test_out_slc_par = out_dir / SlcFilenames.SLC_PAR_FILENAME.value.format(S1_TEST_DATA_DATE, "VV")
-    # Note: .parent.parent is hacky implementation detail that's hard-coded into SlcProcess...
-    # - this will almost certainly be fixed when it's refactored to follow the same standards as
-    # - the other processing modules.
-    test_data_dir = s1_test_data[0].parent.parent
+def test_s1_slc_processing(pgp, pgmock, temp_out_dir, s1_temp_job_proc, s1_test_data, s1_test_data_csv):
+    paths = SlcPaths(s1_temp_job_proc, S1_TEST_DATA_DATE, "VV")
+
+    assert(not paths.slc.exists())
 
     process_s1_slc(
-        test_data_dir,
+        s1_test_data,
         temp_out_dir,
-        s1_proc,
         s1_test_data_csv,
         "VV"
     )
 
     # Ensure the output is created and no errors occured
     assert(pgp.error_count == 0)
-    assert(test_out_slc.exists())
-
-    # Clean up output for subsequent tests (as we share test_data for the whole module to reduce IO)
-    test_out_slc.unlink()
-    test_out_slc_par.unlink()
+    assert(paths.slc.exists())
 
 
-def test_s1_slc_fails_with_missing_input(pgp, pgmock, temp_out_dir, s1_proc, s1_test_data, s1_test_data_csv):
+def test_s1_slc_fails_with_missing_input(pgp, pgmock, temp_out_dir, s1_temp_job_proc, s1_test_data_csv):
+    paths = SlcPaths(s1_temp_job_proc, S1_TEST_DATA_DATE, "VV")
+
+    assert(not paths.slc.exists())
+
     missing_data_dir = temp_out_dir / "does_not_exist"
 
     # Run w/ intentional typo
@@ -71,7 +67,6 @@ def test_s1_slc_fails_with_missing_input(pgp, pgmock, temp_out_dir, s1_proc, s1_
         process_s1_slc(
             missing_data_dir,
             temp_out_dir,
-            s1_proc,
             s1_test_data_csv,
             "VV"
         )
@@ -80,55 +75,50 @@ def test_s1_slc_fails_with_missing_input(pgp, pgmock, temp_out_dir, s1_proc, s1_
     assert(count_post_query_gamma_calls(pgp.call_sequence) == 0)
 
 
-def test_s1_slc_fails_with_bad_polarisation(pgp, pgmock, temp_out_dir, s1_proc, s1_test_data, s1_test_data_csv):
-    out_dir = temp_out_dir / S1_TEST_DATA_DATE
-    test_out_slc = out_dir / SlcFilenames.SLC_FILENAME.value.format(S1_TEST_DATA_DATE, "VV")
-    test_out_slc_par = out_dir / SlcFilenames.SLC_PAR_FILENAME.value.format(S1_TEST_DATA_DATE, "VV")
-    test_data_dir = s1_test_data[0].parent.parent
+def test_s1_slc_fails_with_bad_polarisation(pgp, pgmock, temp_out_dir, s1_temp_job_proc, s1_test_data, s1_test_data_csv):
+    paths = SlcPaths(s1_temp_job_proc, S1_TEST_DATA_DATE, "VV")
+
+    assert(not paths.slc.exists())
 
     # Run w/ intentional typo
     with pytest.raises(Exception):
         process_s1_slc(
-            test_data_dir,
+            s1_test_data,
             temp_out_dir,
-            s1_proc,
             s1_test_data_csv,
             "BAD"
         )
 
     # Ensure not a single GAMMA call occured & no output exists
     assert(count_post_query_gamma_calls(pgp.call_sequence) == 0)
-    assert(not test_out_slc.exists())
-    assert(not test_out_slc_par.exists())
+    assert(not paths.slc.exists())
+    assert(not paths.slc_par.exists())
 
 
-def test_s1_slc_fails_with_missing_polarisation(pgp, pgmock, temp_out_dir, s1_proc, s1_test_data, s1_test_data_csv):
-    out_dir = temp_out_dir / S1_TEST_DATA_DATE
-    test_out_slc = out_dir / SlcFilenames.SLC_FILENAME.value.format(S1_TEST_DATA_DATE, "VV")
-    test_out_slc_par = out_dir / SlcFilenames.SLC_PAR_FILENAME.value.format(S1_TEST_DATA_DATE, "VV")
-    test_data_dir = s1_test_data[0].parent.parent
+def test_s1_slc_fails_with_missing_polarisation(pgp, pgmock, temp_out_dir, s1_temp_job_proc, s1_test_data, s1_test_data_csv):
+    paths = SlcPaths(s1_temp_job_proc, S1_TEST_DATA_DATE, "VV")
+
+    assert(not paths.slc.exists())
 
     # Run w/ valid pol that doesn't exist
     with pytest.raises(Exception):
         process_s1_slc(
-            test_data_dir,
+            s1_test_data,
             temp_out_dir,
-            s1_proc,
             s1_test_data_csv,
             "HH"
         )
 
     # Ensure not a single GAMMA call occured & no output exists
     assert(count_post_query_gamma_calls(pgp.call_sequence) == 0)
-    assert(not test_out_slc.exists())
-    assert(not test_out_slc_par.exists())
+    assert(not paths.slc.exists())
+    assert(not paths.slc_par.exists())
 
 
-def test_s1_slc_fails_with_incomplete_data(pgp, pgmock, temp_out_dir, s1_proc, s1_test_data, s1_test_data_csv):
-    out_dir = temp_out_dir / S1_TEST_DATA_DATE
-    test_out_slc = out_dir / SlcFilenames.SLC_FILENAME.value.format(S1_TEST_DATA_DATE, "VV")
-    test_out_slc_par = out_dir / SlcFilenames.SLC_PAR_FILENAME.value.format(S1_TEST_DATA_DATE, "VV")
-    test_data_dir = s1_test_data[0].parent.parent
+def test_s1_slc_fails_with_incomplete_data(pgp, pgmock, temp_out_dir, s1_temp_job_proc, s1_test_data, s1_test_data_csv):
+    paths = SlcPaths(s1_temp_job_proc, S1_TEST_DATA_DATE, "VV")
+
+    assert(not paths.slc.exists())
 
     # Delete important source data files to make it incomplete
     for xml in s1_test_data[0].glob("*annotation/*.xml"):
@@ -136,14 +126,13 @@ def test_s1_slc_fails_with_incomplete_data(pgp, pgmock, temp_out_dir, s1_proc, s
 
     with pytest.raises(Exception):
         process_s1_slc(
-            test_data_dir,
+            s1_test_data,
             temp_out_dir,
-            s1_proc,
             s1_test_data_csv,
             "VV"
         )
 
     # Ensure not a single GAMMA call occured & no output exists
     assert(count_post_query_gamma_calls(pgp.call_sequence) == 0)
-    assert(not test_out_slc.exists())
-    assert(not test_out_slc_par.exists())
+    assert(not paths.slc.exists())
+    assert(not paths.slc_par.exists())

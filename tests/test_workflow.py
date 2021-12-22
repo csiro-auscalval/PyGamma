@@ -12,7 +12,7 @@ from unittest import mock
 
 from insar.scripts.process_gamma import run_ard_inline
 from insar.project import ARDWorkflow, ProcConfig, IfgFileNames
-from insar.constant import SlcFilenames, MliFilenames
+from insar.paths.slc import SlcPaths
 from insar.stack import load_stack_scene_dates, load_stack_ifg_pairs
 import insar.workflow.luigi.coregistration
 
@@ -203,7 +203,7 @@ def do_ard_workflow_validation(
     # to exist (and are thus saved from being cleaned up).
     #
     # Might want to do this 'in addition' to this explicit code-based approach
-    # as this current approach validates our SlcFilenames/etc constants are
+    # as this current approach validates our SlcPaths/etc constants are
     # being respected.  Where as the glob patterns are more of a higher level
     # encoding/representation of a business requirement.
     if validate_slc:
@@ -212,26 +212,24 @@ def do_ard_workflow_validation(
             assert(scene_dir.exists())
 
             for pol in pols:
-                slc_file = scene_dir / SlcFilenames.SLC_FILENAME.value.format(scene, pol)
-                slc_par_file = scene_dir / SlcFilenames.SLC_PAR_FILENAME.value.format(scene, pol)
-                mli_file = scene_dir / MliFilenames.MLI_FILENAME.value.format(scene_date=scene, pol=pol, rlks=rlks)
-                mli_par_file = scene_dir / MliFilenames.MLI_PAR_FILENAME.value.format(scene_date=scene, pol=pol, rlks=rlks)
+                slc_paths = SlcPaths(proc_config, scene, pol, rlks)
 
                 # If we haven't cleaned up, SLC data should exist
                 if not cleanup:
-                    assert(slc_file.exists())
-                    assert(slc_par_file.exists())
-                    assert(mli_file.exists())
-                    assert(mli_par_file.exists())
+                    assert(slc_paths.slc.exists())
+                    assert(slc_paths.slc_par.exists())
+                    assert(slc_paths.mli.exists())
+                    assert(slc_paths.mli_par.exists())
 
                     def resampled(path: Path):
                         return path.parent / f"r{path.name}"
 
                     if is_coregistered and scene != primary_ref_scene:
-                        assert(resampled(slc_file).exists())
-                        assert(resampled(slc_par_file).exists())
-                        assert(resampled(mli_file).exists())
-                        assert(resampled(mli_par_file).exists())
+                        # FIXME: CoregisteredSlcPaths has these?
+                        assert(resampled(slc_paths.slc).exists())
+                        assert(resampled(slc_paths.slc_par).exists())
+                        assert(resampled(slc_paths.mli).exists())
+                        assert(resampled(slc_paths.mli_par).exists())
 
                 # Assert each scene has backscatter products
                 if is_nrt:
