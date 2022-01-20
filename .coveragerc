@@ -4,9 +4,10 @@ branch = True
 
 source =
     insar/
-    
-omit = 
+
+omit =
     .gamma/
+    insar/_version.py
 
 [report]
 # Regexes for lines to exclude from consideration

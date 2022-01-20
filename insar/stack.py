@@ -325,7 +325,7 @@ def resolve_stack_scene_query(
     for query in include_queries:
         # Strings may be a YYYYMMDD date, or a file path
         if isinstance(query, str):
-            if re.match("\d{8}", query):
+            if re.match(r"\d{8}", query):
                 query = datetime.datetime.strptime(query, SCENE_DATE_FMT).date()
                 include_dates.append((query,query))
 

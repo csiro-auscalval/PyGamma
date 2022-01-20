@@ -4,6 +4,7 @@ from attr.setters import convert
 import structlog
 import os
 import json
+import tempfile
 
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.subprocess_utils import working_directory
@@ -377,46 +378,52 @@ def process_alos_slc(
 
     # FBD -> FBS conversion
     if pol == "HH" and mode == "FBD":
-        temp_slc = Path("temp.slc")
-        temp_slc_par = Path("temp.slc.par")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
 
-        pg.SLC_ovr(
-            paths.slc,
-            paths.slc_par,
-            temp_slc,
-            temp_slc_par,
-            2
-        )
+            temp_slc = tmpdir / "temp.slc"
+            temp_slc_par = tmpdir / "temp.slc.par"
 
-        paths.slc.unlink()
-        paths.slc_par.unlink()
+            pg.SLC_ovr(
+                paths.slc,
+                paths.slc_par,
+                temp_slc,
+                temp_slc_par,
+                2
+            )
 
-        temp_slc.rename(paths.slc)
-        temp_slc_par.rename(paths.slc_par)
+            paths.slc.unlink()
+            paths.slc_par.unlink()
+
+            temp_slc.rename(paths.slc)
+            temp_slc_par.rename(paths.slc_par)
 
     # Generate quicklook
     slc_par = pg.ParFile(paths.slc_par)
     width = slc_par.get_value("range_samples", dtype=int, index=0)
     lines = slc_par.get_value("azimuth_lines", dtype=int, index=0)
-    temp_bmp = Path("temp.bmp")
 
-    pg.rasSLC(
-        paths.slc,
-        width,
-        1,
-        lines,
-        50,
-        20,
-        const.NOT_PROVIDED,
-        const.NOT_PROVIDED,
-        1,
-        0,
-        0,
-        temp_bmp
-    )
 
-    convert(temp_bmp, paths.slc.with_suffix(".png"))
-    temp_bmp.unlink()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        temp_bmp = tmpdir / "temp.bmp"
+
+        pg.rasSLC(
+            paths.slc,
+            width,
+            1,
+            lines,
+            50,
+            20,
+            const.NOT_PROVIDED,
+            const.NOT_PROVIDED,
+            1,
+            0,
+            0,
+            temp_bmp
+        )
+
+        convert(temp_bmp, paths.slc.with_suffix(".png"))
 
     # Identify source data URL
     src_url = product_path / "src_url"
