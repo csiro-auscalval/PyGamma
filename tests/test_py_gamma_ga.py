@@ -1,11 +1,12 @@
 import os
 import subprocess
 from unittest import mock
-from collections import Sequence, namedtuple
+from collections import namedtuple
+from collections.abc import Sequence
 from insar import py_gamma_ga
 
 import pytest
-from tests.fixtures import logging_ctx
+from tests.fixtures import logging_ctx  # noqa
 
 FAKE_INSTALL_DIR = "/fake/gamma/dir"
 
@@ -23,7 +24,7 @@ def test_find_gamma_installed_exes(monkeypatch):
         """Fake os.walk()"""
         yield "/some/dir", "", ["S1_burstloc", "FakeProg"]
 
-    def dummy_access(path, flag):
+    def dummy_access(_path, _flag):
         """Fake os.access()"""
         return True
 
@@ -105,15 +106,15 @@ FakeCompletedProcess = namedtuple(
 )
 
 
-def fake_subprocess_run(cmd_list, *args, **kwargs):
+def fake_subprocess_run(cmd_list, *args, **kwargs):  # noqa/ignore unused args
     return FakeCompletedProcess(0, "Line 1\nLine 2\nLine 3\n", "")
 
 
-def fake_subprocess_run2(cmd_list, *args, **kwargs):
+def fake_subprocess_run2(cmd_list, *args, **kwargs):  # noqa
     return FakeCompletedProcess(0, "Line 1\nLine 2\nLine 3\n", None)
 
 
-def fake_subprocess_run_error(cmd_list, *args, **kwargs):
+def fake_subprocess_run_error(cmd_list, *args, **kwargs):  # noqa
     return FakeCompletedProcess(255, "Line 1\n", "ERROR: it broke!")
 
 
