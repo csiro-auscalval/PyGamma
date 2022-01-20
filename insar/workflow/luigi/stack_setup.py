@@ -112,6 +112,7 @@ class InitialSetup(luigi.Task):
     orbit = luigi.Parameter()
     sensor = luigi.OptionalParameter()
     polarization = luigi.ListParameter()
+    require_precise_orbit = luigi.BoolParameter(default=False)
     outdir = PathParameter()
     workdir = PathParameter()
     cleanup = luigi.BoolParameter()
@@ -185,6 +186,7 @@ class InitialSetup(luigi.Task):
             # Query SLCs that match our search criteria for the maximum span
             # of dates that covers all of our include dates.
             slc_query_results = query_slc_inputs(
+                proc_config,
                 str(proc_config.database_path),
                 shape_file,
                 min_date,
@@ -192,7 +194,8 @@ class InitialSetup(luigi.Task):
                 str(self.orbit),
                 rel_orbit,
                 pols,
-                self.sensor
+                self.sensor,
+                exclude_imprecise_orbit=self.require_precise_orbit
             )
 
             if slc_query_results is None:

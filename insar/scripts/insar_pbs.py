@@ -91,7 +91,8 @@ def _gen_pbs(
     append,
     resume,
     reprocess_failed,
-    workflow
+    workflow,
+    require_precise_orbit
 ):
     """
     Generates a PBS submission script for the stack processing job
@@ -140,6 +141,9 @@ def _gen_pbs(
 
     if not proc_config.stack_id:
         pbs += " \\\n    --stack-id " + job_name.replace(" ", "_")
+
+    if require_precise_orbit:
+        pbs += " \\\n    --require-precise-orbit"
 
     # If we're resuming a job, generate the resume script
     out_fname = Path(job_dir) / f"job.bash"
@@ -362,6 +366,13 @@ def fatal_error(msg: str, exit_code: int = 1):
     required=False,
     default="interferogram"
 )
+@click.option(
+    "--require-precise-orbit",
+    type=click.BOOL,
+    is_flag=True,
+    help="If enabled, only scenes with precise orbit files will be considered for processing.",
+    default=False
+)
 def ard_insar(
     proc_file: click.Path,
     shape_file: click.Path,
@@ -391,7 +402,8 @@ def ard_insar(
     resume: click.BOOL,
     reprocess_failed: click.BOOL,
     job_name: click.STRING,
-    workflow: click.STRING
+    workflow: click.STRING,
+    require_precise_orbit: click.BOOL
 ):
     """
     Consolidates creation of PBS job scripts and their submission.
@@ -585,7 +597,8 @@ def ard_insar(
         append,
         resume,
         reprocess_failed,
-        workflow
+        workflow,
+        require_precise_orbit
     )
 
     _submit_pbs(pbs_script, test)

@@ -71,6 +71,8 @@ ALOS2_TEST_DATA_IDS = [
 ]
 
 def copy_test_proc_into_dir(proc_path, out_dir):
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     # Load test .proc text
     with proc_path.open("r") as procfile:
         procfile_txt = procfile.read()
@@ -213,30 +215,40 @@ def alos2_test_data(test_data_dir):
     return [test_data_dir / i[:8] for i in ALOS2_TEST_DATA_IDS]
 
 
-@pytest.fixture(scope="session")
-def s1_proc(test_data_dir):
+def generate_testable_s1_proc(test_data_dir, touch_poeorb):
     src_proc_path = TEST_DATA_BASE / f"{S1_TEST_STACK_ID}_S1A.proc"
     test_procfile_path = copy_test_proc_into_dir(src_proc_path, test_data_dir)
     with test_procfile_path.open('r') as fileobj:
         proc_config = ProcConfig.from_file(fileobj)
 
-    # Create empty orbit files
+    # Create various ancillary data directories
     for name in ["s1_orbits", "poeorb_path", "resorb_path", "s1_path"]:
         (Path(getattr(proc_config, name)) / "S1A").mkdir(parents=True, exist_ok=True)
 
-    for src_date in S1_TEST_DATA_DATES:
-        # Create a fake orbit file as well (stack setup typically does this)
-        # as the S1 SLC processing seems to assume this will exist here too
-        src_day = datetime.strptime(src_date, SCENE_DATE_FMT)
-        day_prior = (src_day - timedelta(days=1)).strftime(SCENE_DATE_FMT)
-        day_after = (src_day + timedelta(days=1)).strftime(SCENE_DATE_FMT)
+    # Create empty orbit files
+    if touch_poeorb:
+        for src_date in S1_TEST_DATA_DATES:
+            # Create a fake orbit file as well (stack setup typically does this)
+            # as the S1 SLC processing seems to assume this will exist here too
+            src_day = datetime.strptime(src_date, SCENE_DATE_FMT)
+            day_prior = (src_day - timedelta(days=1)).strftime(SCENE_DATE_FMT)
+            day_after = (src_day + timedelta(days=1)).strftime(SCENE_DATE_FMT)
 
-        fake_orbit_name = f"S1A_OPER_AUX_POEORB_OPOD_{src_date}T120745_V{day_prior}T225942_{day_after}T005942.EOF"
+            fake_orbit_name = f"S1A_OPER_AUX_POEORB_OPOD_{src_date}T120745_V{day_prior}T225942_{day_after}T005942.EOF"
 
-        poeorb = Path(proc_config.poeorb_path) / "S1A" / fake_orbit_name
-        poeorb.touch()
+            poeorb = Path(proc_config.poeorb_path) / "S1A" / fake_orbit_name
+            poeorb.touch()
 
     return test_procfile_path
+
+
+@pytest.fixture(scope="session")
+def s1_proc(test_data_dir):
+    return generate_testable_s1_proc(test_data_dir / "with_poeorb", True)
+
+@pytest.fixture(scope="session")
+def s1_proc_without_poeorb(test_data_dir):
+    return generate_testable_s1_proc(test_data_dir / "missing_poeorb", False)
 
 @pytest.fixture(scope="session")
 def s1_test_data_zips():

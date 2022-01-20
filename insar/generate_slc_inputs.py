@@ -11,7 +11,8 @@ import shapely.wkt
 from spatialist import Vector
 import structlog
 
-from insar.meta_data.s1_slc import Archive
+from insar.meta_data.s1_slc import Archive, S1DataDownload
+from insar.project import ProcConfig
 
 _LOG = structlog.get_logger("insar")
 
@@ -73,11 +74,13 @@ def _check_frame_bursts(primary_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict
 
 
 def _check_slc_input_data(
+    proc: ProcConfig,
     results_df: pd.DataFrame,
     primary_df: gpd.GeoDataFrame,
     rel_orbit: int,
     polarization: str,
-    exclude_incomplete: bool
+    exclude_incomplete: bool,
+    exclude_imprecise_orbit: bool
 ) -> Dict:
     """
     Checks if input (results_df) has required data to form a full SLC.
@@ -88,6 +91,8 @@ def _check_slc_input_data(
     and not raise error. Implementation needs to be changed, if failed scenes
     need to be handled separately.
 
+    :param proc:
+        The .proc config of the stack we're validating scenes for.
     :param results_df:
         An input dataframe with queried attribute results from SLC input database.
     :param primary_df:
@@ -96,6 +101,10 @@ def _check_slc_input_data(
         Sentinel-1 relative orbit used in vector file framing.
     :param polarization:
         A polarization subset the data while checking full frame.
+    :param exclude_incomplete:
+        A flag which if true will exclude returning any scenes which are missing bursts.
+    :param exclude_imprecise_orbit:
+        A flag which if true will exclude returning any scenes which don't have a precise orbit (POEORB) file.
 
     :returns:
         A dict with information of slc scenes to form full SLC.
@@ -167,27 +176,58 @@ def _check_slc_input_data(
 
     checked_data = _check_frame_bursts(primary_df, data_dict)
 
-    # Filter checked data (removing any incomplete scenes)
-    if exclude_incomplete:
-        excluded_dates = []
+    # Filter checked data (removing any incomplete or imprecise scenes)
+    excluded_dates = []
 
-        # Check for any swathes missing bursts...
-        for dt, swath_dict in checked_data.items():
-            for swath, slc_dict in swath_dict.items():
-                is_missing_bursts = len(slc_dict["missing_primary_bursts"]) > 0
+    # Check for any swathes missing bursts...
+    for dt, swath_dict in checked_data.items():
+        for swath, slc_dict in swath_dict.items():
+            is_missing_bursts = len(slc_dict["missing_primary_bursts"]) > 0
 
-                if is_missing_bursts:
-                    excluded_dates.append(dt)
-                    break
+            if exclude_incomplete and is_missing_bursts:
+                _LOG.info(
+                    "Ignoring queried date due to missing bursts",
+                    date=dt
+                )
+                excluded_dates.append(dt)
+                break
 
-        # ... and remove them from the resulting dict
-        for dt in excluded_dates:
-            del checked_data[dt]
+            if exclude_imprecise_orbit:
+                for scene_id, scene_data in slc_dict.items():
+                    # This is to skip the "missing_primary_bursts" and other date-level metadata
+                    # that gets mixed in with the acquisition metadata for that date.
+                    if "url" not in scene_data:
+                        continue
+
+                    src_url = scene_data["url"]
+
+                    helper = S1DataDownload(
+                        Path(src_url),
+                        [polarization],
+                        proc.poeorb_path,
+                        proc.resorb_path
+                    )
+
+                    poe_file = helper.get_poeorb_orbit_file()
+                    if not poe_file:
+                        _LOG.info(
+                            "Ignoring queried date due to missing precise orbit file",
+                            date=dt,
+                            scene=scene_id,
+                            scene_url=src_url,
+                        )
+                        excluded_dates.append(dt)
+                        break
+
+    # ... and remove them from the resulting dict
+    for dt in set(excluded_dates):
+        del checked_data[dt]
 
     return checked_data
 
 
 def query_slc_inputs(
+    proc: ProcConfig,
     dbfile: Union[Path, str],
     shapefile: Optional[Union[Path, str]],
     start_date: datetime,
@@ -196,10 +236,15 @@ def query_slc_inputs(
     track: int,
     polarization: List[str],
     filter_by_sensor: str = None,
-    exclude_incomplete: bool = True
+    exclude_incomplete: bool = True,
+    exclude_imprecise_orbit: bool = False
 ) -> Dict:
-    """A method to query sqlite database and generate slc input dict.
+    """A method to query sqlite database and generate slc input dict for a stack's scenes.
 
+    :param proc:
+        The .proc config for the stack this function is querying scenes for.
+
+        This is mostly so we know where to find orbit files/etc to implement filters.
     :param dbfile:
         A full path to a sqlite database with SLC metadata including burst
         informations needed to process SLC.
@@ -220,6 +265,10 @@ def query_slc_inputs(
 
         Alternativelt this may be set to "MAJORITY" which will filter by the sensor which has the most data,
         eg: if a query has 8x S1A .slc files and 6x S1B .slc files, only the 8x S1A .slc files will be returned.
+    :param exclude_incomplete:
+        A flag which if true will exclude returning any scenes which are missing bursts.
+    :param exclude_imprecise_orbit:
+        A flag which if true will exclude returning any scenes which don't have a precise orbit (POEORB) file.
 
     :return:
         Returns slc input field values for all unique date queried
@@ -305,7 +354,7 @@ def query_slc_inputs(
 
             #  check queried results against primary dataframe to form slc inputs
             return {
-                pol: _check_slc_input_data(slc_df, gpd.read_file(shapefile), track, pol, exclude_incomplete)
+                pol: _check_slc_input_data(proc, slc_df, gpd.read_file(shapefile), track, pol, exclude_incomplete, exclude_imprecise_orbit)
                 for pol in polarization
             }
 

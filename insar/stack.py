@@ -273,6 +273,7 @@ def resolve_stack_scene_query(
     polarisations: List[str],
     sensor_filters: List[Optional[str]],
     shape_file: Optional[Path] = None,
+    exclude_imprecise_orbit: bool = False
 ) -> Tuple[List[Tuple[datetime.date, List[Path]]], pd.DataFrame]:
     """
     Resolve a scene query (a set of dates, date ranges, or source data files) to a set
@@ -305,6 +306,8 @@ def resolve_stack_scene_query(
         used to filter out unwanted bursts in scenes from processing - this is useful
         as not all S1 acquisitions are consistent (bursts in acquisitions vary over time).
         As well as identify what bursts from the shapefile are missing for each date (if any).
+    :param exclude_imprecise_orbit:
+        A flag that if true will not include any scenes which are missing precise orbit files.
 
     :returns:
         Returns two values (scene_list, scene_dataframe).
@@ -361,6 +364,7 @@ def resolve_stack_scene_query(
                 # Query SLCs that match our search criteria for the maximum span
                 # of dates that covers all of our include dates.
                 slc_query_results = query_slc_inputs(
+                    proc_config,
                     str(proc_config.database_path),
                     str(shape_file),
                     min_date,
@@ -368,7 +372,8 @@ def resolve_stack_scene_query(
                     orbit,
                     rel_orbit,
                     polarisations,
-                    sensor_filter
+                    sensor_filter,
+                    exclude_imprecise_orbit=exclude_imprecise_orbit
                 )
 
                 if slc_query_results is None:

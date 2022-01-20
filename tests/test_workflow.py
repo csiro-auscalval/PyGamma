@@ -86,7 +86,8 @@ def do_ard_workflow_validation(
     temp_dir: Optional[tempfile.TemporaryDirectory] = None,
     append: bool = False,
     resume: bool = False,
-    reprocess_failed: bool = False
+    reprocess_failed: bool = False,
+    require_poeorb: bool = False
 ) -> Tuple[Path, Path, tempfile.TemporaryDirectory]:
     # Reset pygamma proxy/mock stats
     pgp.reset_proxy()
@@ -116,7 +117,8 @@ def do_ard_workflow_validation(
         "workflow": workflow,
         "append": append,
         "resume": resume,
-        "reprocess_failed": reprocess_failed
+        "reprocess_failed": reprocess_failed,
+        "require_precise_orbit": require_poeorb
     }
 
     if geospatial_query:
@@ -1001,3 +1003,84 @@ def test_ard_workflow_resume_crashed_job(pgp, pgmock, monkeypatch, rs2_test_data
 
     # Note: do_ard_worfklow_validation w/ validate_ifg=True does all our asserts we care about
 
+def test_ard_workflow_missing_orbits_still_succeeds(
+    logging_ctx,
+    pgp,
+    pgmock,
+    s1_test_db,
+    s1_proc_without_poeorb
+):
+    """
+    This tests that the workflow can still generate data w/o external orbit files - relying on the internal
+    in-flight orbital state vectors that come w/ the SLC data.
+
+    This is the default behaviour without --requires-precise-orbit being specified (defaults to false).
+    """
+
+    first_date = S1_TEST_DATA_DATES[0]
+    last_date = S1_TEST_DATA_DATES[-1]
+
+    first_date = f"{first_date[:4]}-{first_date[4:6]}-{first_date[6:]}"
+    last_date = f"{last_date[:4]}-{last_date[4:6]}-{last_date[6:]}"
+
+    query = GeospatialQuery(
+        s1_test_db,
+        TEST_DATA_BASE / "T133D_F20S_S1A.shp",
+        [LuigiDate.parse(f"{first_date}-{last_date}")],
+        []
+    )
+
+    # Run standard ifg workflow w/ a query that covers our test data
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        [],
+        ["VV", "VH"],
+        s1_proc_without_poeorb,
+        geospatial_query=query
+    )
+
+
+def test_ard_workflow_query_requiring_missing_orbits_produces_no_scenes(
+    logging_ctx,
+    pgp,
+    pgmock,
+    s1_test_db,
+    s1_proc_without_poeorb
+):
+    """
+    This tests that the workflow using geospatial DB queries with --requires-precise-orbit
+    when poeorb files are 'not' available... will NOT generate any data / produce any scenes.
+
+    Note: This is otherwise identical to `test_ard_workflow_with_good_s1_db_query` - just
+    with a different .proc file whose source data has no orbit files, thus we expect the
+    different outcome to the original test.
+    """
+
+    first_date = S1_TEST_DATA_DATES[0]
+    last_date = S1_TEST_DATA_DATES[-1]
+
+    first_date = f"{first_date[:4]}-{first_date[4:6]}-{first_date[6:]}"
+    last_date = f"{last_date[:4]}-{last_date[4:6]}-{last_date[6:]}"
+
+    query = GeospatialQuery(
+        s1_test_db,
+        TEST_DATA_BASE / "T133D_F20S_S1A.shp",
+        [LuigiDate.parse(f"{first_date}-{last_date}")],
+        []
+    )
+
+    # Run standard ifg workflow w/ a query that covers our test data
+    do_ard_workflow_validation(
+        pgp,
+        ARDWorkflow.Interferogram,
+        [],
+        ["VV", "VH"],
+        # Given no poeorb, but requiring scenes w/ precise orbits...
+        s1_proc_without_poeorb,
+        require_poeorb=True,
+        geospatial_query=query,
+        # ... we expect 0 scenes to be processed.
+        expected_scenes=0,
+        min_gamma_calls=0
+    )

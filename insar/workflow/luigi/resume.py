@@ -288,6 +288,7 @@ class TriggerResume(luigi.Task):
     exclude_dates = DateListParameter()
     sensor = luigi.OptionalParameter()
     polarization = luigi.ListParameter()
+    require_precise_orbit = luigi.BoolParameter(default=False)
     cleanup = luigi.BoolParameter()
     outdir = PathParameter()
     workdir = PathParameter()

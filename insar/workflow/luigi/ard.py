@@ -59,6 +59,7 @@ class ARD(luigi.WrapperTask):
     sensor = luigi.OptionalParameter(default=None)
     polarization = luigi.ListParameter(default=None)
     orbit = luigi.OptionalParameter(default=None)
+    require_precise_orbit = luigi.BoolParameter(default=False)
 
     # .proc overrides
     cleanup = luigi.BoolParameter(
@@ -180,7 +181,8 @@ class ARD(luigi.WrapperTask):
                 self.orbit,
                 pols,
                 [self.sensor],
-                Path(self.shape_file) if self.shape_file else None
+                Path(self.shape_file) if self.shape_file else None,
+                exclude_imprecise_orbit=self.require_precise_orbit
             )
 
             # Note: We're actually throwing away information here, by assuming existing dates never get
@@ -310,6 +312,7 @@ class ARD(luigi.WrapperTask):
             "dem_img": proc_config.primary_dem_image,
             "multi_look": int(proc_config.multi_look),
             "cleanup": bool(proc_config.cleanup),
+            "require_precise_orbit": self.require_precise_orbit,
         }
 
         # Need to make an instance of anything that can hold all of kwargs, for common param

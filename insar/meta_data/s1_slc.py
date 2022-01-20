@@ -793,6 +793,13 @@ class S1DataDownload(SlcMetadata):
 
             orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
 
+        _LOG.info(
+            "Downloading orbit file",
+            scene=self.raw_data_path,
+            src_file=orbit_source_file,
+            dst_file=orbit_destination_file,
+        )
+
         if not os.path.exists(orbit_destination_file):
             shutil.copyfile(orbit_source_file, orbit_destination_file)
 
