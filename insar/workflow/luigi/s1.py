@@ -13,12 +13,15 @@ from insar.process_s1_slc import SlcProcess
 
 from insar.workflow.luigi.utils import tdir, get_scenes, PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
+from insar.paths.stack import StackPaths
+from insar.paths.slc import SlcPaths
 
 class ProcessSlc(luigi.Task):
     """
     Runs single slc processing task for a single polarisation.
     """
 
+    proc_file = PathParameter()
     scene_date = luigi.Parameter()
     raw_path = PathParameter()
     polarization = luigi.Parameter()
@@ -73,11 +76,10 @@ class CreateFullSlc(luigi.Task):
         with open(self.proc_file, "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
-        outdir = Path(self.outdir)
-        slc_dir = outdir / proc_config.slc_dir
-        os.makedirs(slc_dir, exist_ok=True)
+        paths = StackPaths(proc_config)
+        os.makedirs(paths.slc_dir, exist_ok=True)
 
-        slc_frames = get_scenes(self.burst_data_csv)
+        slc_frames = get_scenes(paths.acquisition_csv)
 
         # first create slc for one complete frame which will be a reference frame
         # to resize the incomplete frames.
@@ -89,15 +91,16 @@ class CreateFullSlc(luigi.Task):
             for _pol in _pols:
                 if status_frame:
                     resize_task = ProcessSlc(
+                        proc_file=self.proc_file,
                         scene_date=slc_scene,
-                        raw_path=outdir / proc_config.raw_data_dir,
+                        raw_path=paths.acquisition_dir,
                         polarization=_pol,
-                        burst_data=self.burst_data_csv,
-                        slc_dir=slc_dir,
+                        burst_data=paths.acquisition_csv,
+                        slc_dir=paths.slc_dir,
                         workdir=self.workdir,
                     )
                     yield resize_task
-                    resize_primary_tab = slc_dir / slc_scene / f"{slc_scene}_{_pol.upper()}_tab"
+                    resize_primary_tab = paths.slc_dir / slc_scene / f"{slc_scene}_{_pol.upper()}_tab"
                     break
             if resize_primary_tab is not None:
                 if resize_primary_tab.exists():
@@ -126,11 +129,12 @@ class CreateFullSlc(luigi.Task):
                     continue
                 slc_tasks.append(
                     ProcessSlc(
+                        proc_file=self.proc_file,
                         scene_date=slc_scene,
-                        raw_path=outdir / proc_config.raw_data_dir,
+                        raw_path=paths.acquisition_dir,
                         polarization=_pol,
-                        burst_data=self.burst_data_csv,
-                        slc_dir=slc_dir,
+                        burst_data=paths.acquisition_csv,
+                        slc_dir=paths.slc_dir,
                         workdir=self.workdir,
                         ref_primary_tab=resize_primary_tab,
                     )
@@ -138,7 +142,7 @@ class CreateFullSlc(luigi.Task):
         yield slc_tasks
 
         # Remove any failed scenes from upstream processing if SLC files fail processing
-        slc_inputs_df = pd.read_csv(self.burst_data_csv, index_col=0)
+        slc_inputs_df = pd.read_csv(paths.acquisition_csv, index_col=0)
         rewrite = False
         for _slc_task in slc_tasks:
             with open(_slc_task.output().path) as fid:
@@ -152,12 +156,12 @@ class CreateFullSlc(luigi.Task):
                     slc_inputs_df.drop(indexes, inplace=True)
                     rewrite = True
 
-        # rewrite the burst_data_csv with removed scenes
+        # rewrite the csv with removed scenes
         if rewrite:
             log.info(
                 f"re-writing the burst data csv files after removing failed slc scenes"
             )
-            slc_inputs_df.to_csv(self.burst_data_csv)
+            slc_inputs_df.to_csv(paths.acquisition_csv)
 
         with self.output().open("w") as out_fid:
             out_fid.write("")
@@ -174,7 +178,6 @@ class ProcessSlcMosaic(luigi.Task):
     polarization = luigi.Parameter()
     burst_data = PathParameter()
     slc_dir = PathParameter()
-    outdir = PathParameter()
     workdir = PathParameter()
     ref_primary_tab = PathParameter(default=None)
     rlks = luigi.IntParameter()

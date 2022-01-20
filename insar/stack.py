@@ -14,6 +14,10 @@ from insar.sensors import identify_data_source, get_data_swath_info
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.logs import STATUS_LOGGER
 
+# TODO: We may need to split this up:
+# * query utils should be their own file for sure
+# * some of these functions would be best built on SlcPaths, but SlcPaths depends on some of these functions...
+
 def load_stack_config(stack_proc_path: Union[str, Path]) -> ProcConfig:
     """
     Loads a stack's .proc config file from a supplied stack path.
@@ -59,44 +63,67 @@ def load_stack_config(stack_proc_path: Union[str, Path]) -> ProcConfig:
             return ProcConfig.from_file(proc_file_obj)
 
 
-def load_stack_scene_dates(proc_config: ProcConfig) -> List[List[str]]:
-    list_dir = proc_config.output_path / proc_config.list_dir
+def load_stack_list_file(path: Path) -> List[Union[str, List[str]]]:
+    """A simple helper function for loading stack list directory files of all kinds"""
+
+    results = path.read_text().splitlines()
+
+    return [i.split(",") if "," in i else i for i in results]
+
+
+def find_stack_list_series(base_file: Path):
+    """
+    This function loads a series of stack list files starting from a provided path
+    in that series, returning that plus all subsequent in the series.
+
+    :param base_file:
+        The first path in the series of list files to load.
+    :return:
+        A list of paths for the series that the `base_file` belongs to,
+        from the range of `base_file` (inclusive) until the end.
+    """
     result = []
 
-    append_idx = 0
-    scene_file = Path(list_dir / "scenes.list")
+    list_dir = base_file.parent
+    list_id = base_file.stem.strip("0123456789")
+    list_suffix = base_file.suffix
+    base_idx = base_file.stem.replace(list_id, "")
 
-    while scene_file.exists():
-        result.append(scene_file.read_text().strip().splitlines())
+    # Un-indexed file doesn't need to exist (mostly for ifgs.list, but we allow it across the board)
+    if not base_idx:
+        path = list_dir / f"{list_id}{list_suffix}"
+        if path.exists():
+            result.append(path)
 
-        append_idx += 1
-        scene_file = Path(list_dir / f"scenes{append_idx}.list")
+    # Indexed files all have to exist in sequence
+    base_idx = int(base_idx or 1)
+    path = list_dir / f"{list_id}{base_idx}{list_suffix}"
+
+    while path.exists():
+        result.append(path)
+
+        base_idx += 1
+        path = list_dir / f"{list_id}{base_idx}{list_suffix}"
 
     return result
+
+
+def load_stack_list_series(base_file: Path) -> List[List[Union[str, List[str]]]]:
+    paths = find_stack_list_series(base_file)
+
+    return [load_stack_list_file(i) for i in paths]
+
+
+def load_stack_scene_dates(proc_config: ProcConfig) -> List[List[str]]:
+    list_dir = proc_config.output_path / proc_config.list_dir
+
+    return load_stack_list_series(list_dir / "scenes.list")
 
 
 def load_stack_ifg_pairs(proc_config: ProcConfig) -> List[List[Tuple[str,str]]]:
     list_dir = proc_config.output_path / proc_config.list_dir
-    result = []
 
-    append_idx = 0
-
-    # First ifgs.list doesn't need to exist (may have just had 1 scene)
-    ifgs_file = Path(list_dir / "ifgs.list")
-    if ifgs_file.exists():
-        result.append(i.split(",") for i in ifgs_file.read_text().strip().splitlines())
-
-    append_idx += 1
-    ifgs_file = Path(list_dir / f"ifgs{append_idx}.list")
-
-    # The others do... (can't make an appended stack w/ less than 2 scenes, so the rest must exist)
-    while ifgs_file.exists():
-        result.append(i.split(",") for i in ifgs_file.read_text().strip().splitlines())
-
-        append_idx += 1
-        ifgs_file = Path(list_dir / f"ifgs{append_idx}.list")
-
-    return result
+    return load_stack_list_series(list_dir / "ifgs.list")
 
 
 def load_stack_scenes(proc_config: ProcConfig) -> List[Tuple[datetime.date, List[Path]]]:

@@ -3,12 +3,15 @@ import os
 import pandas as pd
 import luigi
 import luigi.configuration
+from luigi.util import common_params
 
 from insar.constant import SCENE_DATE_FMT
+from insar.paths.stack import StackPaths
 from insar.paths.slc import SlcPaths
+from insar.paths.interferogram import InterferogramPaths
 from insar.coregister_slc import CoregisterSlc
 from insar.process_ifg import validate_ifg_input_files, ProcessIfgException
-from insar.project import ProcConfig, IfgFileNames, ARDWorkflow
+from insar.project import ProcConfig, ARDWorkflow
 from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import DateListParameter, PathParameter, read_primary_date, tdir, read_rlks_alks
@@ -23,11 +26,6 @@ from insar.workflow.luigi.interferogram import CreateProcessIFGs
 from insar.workflow.luigi.s1 import ProcessSlc
 from insar.workflow.luigi.rsat2 import ProcessRSAT2Slc
 from insar.workflow.luigi.process_alos import ProcessALOSSlc
-
-def _forward_kwargs(cls, kwargs):
-    ids = cls.get_param_names()
-
-    return {k:v for k,v in kwargs.items() if k in ids}
 
 
 class ReprocessSingleSLC(luigi.Task):
@@ -44,11 +42,6 @@ class ReprocessSingleSLC(luigi.Task):
     proc_file = PathParameter()
     stack_id = luigi.Parameter()
     polarization = luigi.Parameter()
-
-    burst_data_csv = PathParameter()
-
-    poeorb_path = PathParameter()
-    resorb_path = PathParameter()
 
     scene_date = luigi.Parameter()
     ref_primary_tab = PathParameter()
@@ -93,20 +86,19 @@ class ReprocessSingleSLC(luigi.Task):
         rlks, alks = read_rlks_alks(mlk_status)
         pol = self.polarization.upper()
 
-        paths = SlcPaths(proc_config, self.scene_date, pol, rlks)
+        slc_paths = SlcPaths(proc_config, self.scene_date, pol, rlks)
 
-        return [paths.slc, paths.slc_par, paths.mli, paths.mli_par]
+        return [slc_paths.slc, slc_paths.slc_par, slc_paths.mli, slc_paths.mli_par]
 
     def run(self):
         log = STATUS_LOGGER.bind(stack_id=self.stack_id, resume_token=self.resume_token)
 
         workdir = tdir(self.workdir)
-        outdir = Path(self.outdir)
 
         with open(self.proc_file, "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
-        raw_data_path = outdir / proc_config.raw_data_dir
+        paths = StackPaths(proc_config)
 
         # Read rlks/alks from multilook status
         mlk_status = workdir / f"{self.stack_id}_createmultilook_status_logs.out"
@@ -116,9 +108,9 @@ class ReprocessSingleSLC(luigi.Task):
         rlks, alks = read_rlks_alks(mlk_status)
 
         # Read scenes CSV and schedule SLC download via URLs
-        slc_inputs_df = pd.read_csv(self.burst_data_csv, index_col=0)
+        slc_inputs_df = pd.read_csv(paths.acquisition_csv, index_col=0)
 
-        os.makedirs(raw_data_path, exist_ok=True)
+        os.makedirs(paths.acquisition_dir, exist_ok=True)
 
         download_list = slc_inputs_df.url.unique()
         download_tasks = []
@@ -130,10 +122,10 @@ class ReprocessSingleSLC(luigi.Task):
                 download_task = DataDownload(
                     data_path=slc_url.rstrip(),
                     polarization=[self.polarization],
-                    poeorb_path=self.poeorb_path,
-                    resorb_path=self.resorb_path,
+                    poeorb_path=proc_config.poeorb_path,
+                    resorb_path=proc_config.resorb_path,
                     workdir=self.workdir,
-                    output_dir=raw_data_path / url_scene_date,
+                    output_dir=paths.acquisition_dir / url_scene_date,
                 )
 
                 download_tasks.append(download_task)
@@ -155,21 +147,22 @@ class ReprocessSingleSLC(luigi.Task):
                 Path(self.output().path).write_text(failed_file)
                 return
 
-        paths = SlcPaths(proc_config, self.scene_date, self.polarization.upper())
+        slc_paths = SlcPaths(proc_config, self.scene_date, self.polarization.upper())
 
         if proc_config.sensor == "S1":
             slc_task = ProcessSlc(
+                proc_file=self.proc_file,
                 scene_date=self.scene_date,
-                raw_path=raw_data_path,
+                raw_path=paths.acquisition_dir,
                 polarization=self.polarization,
-                burst_data=self.burst_data_csv,
-                slc_dir=paths.dir,
+                burst_data=paths.acquisition_csv,
+                slc_dir=slc_paths.dir,
                 workdir=self.workdir,
                 ref_primary_tab=self.ref_primary_tab,
             )
 
         if proc_config.sensor == "RSAT2":
-            rs2_dirs = list((raw_data_path / self.scene_date).glob("RS2_*"))
+            rs2_dirs = list((paths.acquisition_dir / self.scene_date).glob("RS2_*"))
             if not rs2_dirs:
                 msg = f"Missing raw {self.polarization} data for {self.scene_date}!"
                 log.error(msg)
@@ -184,14 +177,14 @@ class ReprocessSingleSLC(luigi.Task):
                 scene_date=self.scene_date,
                 raw_path=rs2_dirs[0],
                 polarization=self.polarization,
-                burst_data=self.burst_data_csv,
-                slc_dir=paths.dir,
+                burst_data=paths.acquisition_csv,
+                slc_dir=slc_paths.dir,
                 workdir=self.workdir,
             )
 
         if proc_config.sensor.startswith("PALSAR"):
-            alos1_acquisitions = list((raw_data_path / self.scene_date).glob("*/IMG-*-ALP*"))
-            alos2_acquisitions = list((raw_data_path / self.scene_date).glob("*/IMG-*-ALOS*"))
+            alos1_acquisitions = list((paths.acquisition_dir / self.scene_date).glob("*/IMG-*-ALP*"))
+            alos2_acquisitions = list((paths.acquisition_dir / self.scene_date).glob("*/IMG-*-ALOS*"))
 
             if not alos1_acquisitions and not alos2_acquisitions:
                 msg = f"Missing raw {self.polarization} data for {self.scene_date}!"
@@ -212,8 +205,8 @@ class ReprocessSingleSLC(luigi.Task):
                 raw_path=alos_dir,
                 sensor=sensor,
                 polarization=self.polarization,
-                burst_data=self.burst_data_csv,
-                slc_dir=paths.dir,
+                burst_data=paths.acquisition_csv,
+                slc_dir=slc_paths.dir,
                 workdir=self.workdir,
             )
 
@@ -229,8 +222,8 @@ class ReprocessSingleSLC(luigi.Task):
             Path(self.output().path).write_text(failed_file)
             return
 
-        if not paths.slc.exists():
-            raise ValueError(f'Critical failure reprocessing, SLC file not found: {paths.slc}')
+        if not slc_paths.slc.exists():
+            raise ValueError(f'Critical failure reprocessing, SLC file not found: {slc_paths.slc}')
 
         if self.progress() == "slc_task":
             self.set_progress("mosaic_task")
@@ -238,10 +231,10 @@ class ReprocessSingleSLC(luigi.Task):
             if proc_config.sensor == "S1":
                 mosaic_task = ProcessSlcMosaic(
                     scene_date=self.scene_date,
-                    raw_path=raw_data_path,
+                    raw_path=paths.acquisition_dir,
                     polarization=self.polarization,
-                    burst_data=self.burst_data_csv,
-                    slc_dir=paths.dir,
+                    burst_data=paths.acquisition_csv,
+                    slc_dir=slc_paths.dir,
                     outdir=self.outdir,
                     workdir=self.workdir,
                     ref_primary_tab=self.ref_primary_tab,
@@ -256,8 +249,8 @@ class ReprocessSingleSLC(luigi.Task):
 
         if self.progress() == "mosaic_task":
             mli_task = Multilook(
-                slc=paths.slc,
-                slc_par=paths.slc_par,
+                slc=slc_paths.slc,
+                slc_par=slc_paths.slc_par,
                 rlks=rlks,
                 alks=alks,
                 workdir=self.workdir,
@@ -291,7 +284,6 @@ class TriggerResume(luigi.Task):
     proc_file = PathParameter()
     shape_file = PathParameter()
     source_data = luigi.ListParameter()
-    burst_data_csv = PathParameter()
     include_dates = DateListParameter()
     exclude_dates = DateListParameter()
     sensor = luigi.OptionalParameter()
@@ -302,8 +294,6 @@ class TriggerResume(luigi.Task):
     orbit = luigi.Parameter()
     dem_img = PathParameter()
     multi_look = luigi.IntParameter()
-    poeorb_path = PathParameter()
-    resorb_path = PathParameter()
 
     reprocess_failed = luigi.BoolParameter()
     resume_token = luigi.Parameter()
@@ -324,34 +314,6 @@ class TriggerResume(luigi.Task):
     def run(self):
         log = STATUS_LOGGER.bind(outdir=self.outdir, workdir=self.workdir)
 
-        #kwargs = {k:v for k,v in self.get_params()}
-
-        # Remove args that are just for this task
-        #for arg in ["resume", "reprocess_failed", "resume_token"]:
-        #    del kwargs[arg]
-
-        # Note: The above doesn't work, and I'm not too sure why... so we're
-        # manually re-creating kwargs just like the ARD task does...
-        kwargs = {
-            "proc_file": self.proc_file,
-            "shape_file": self.shape_file,
-            "include_dates": self.include_dates,
-            "exclude_dates": self.exclude_dates,
-            "source_data": self.source_data,
-            "sensor": self.sensor,
-            "polarization": self.polarization,
-            "stack_id": self.stack_id,
-            "outdir": self.outdir,
-            "workdir": self.workdir,
-            "orbit": self.orbit,
-            "dem_img": self.dem_img,
-            "poeorb_path": self.poeorb_path,
-            "resorb_path": self.resorb_path,
-            "multi_look": self.multi_look,
-            "burst_data_csv": self.burst_data_csv,
-            "cleanup": self.cleanup,
-        }
-
         outdir = Path(self.outdir)
 
         # Load the gamma proc config file
@@ -359,16 +321,22 @@ class TriggerResume(luigi.Task):
         with proc_path.open('r') as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
+        paths = StackPaths(proc_config)
+
         # Get appropriate task objects
         coreg_task = None
         ifgs_task = None
 
         if self.workflow == ARDWorkflow.BackscatterNRT:
-            backscatter_task = CreateNRTBackscatter(**kwargs)
+            backscatter_task = CreateNRTBackscatter(
+                **common_params(self, CreateNRTBackscatter)
+            )
         else:
-            backscatter_task = CreateCoregisteredBackscatter(**kwargs)
+            backscatter_task = CreateCoregisteredBackscatter(
+                **common_params(self, CreateCoregisteredBackscatter)
+            )
             coreg_task = backscatter_task.get_create_coreg_task()
-            ifgs_task = CreateProcessIFGs(**kwargs)
+            ifgs_task = CreateProcessIFGs(**common_params(self, CreateProcessIFGs))
 
         if self.workflow == ARDWorkflow.Interferogram:
             workflow_task = ifgs_task
@@ -435,7 +403,7 @@ class TriggerResume(luigi.Task):
                 log.info("Re-processing IFGs", list=reprocessed_ifgs)
 
                 for primary_date, secondary_date in reprocessed_ifgs:
-                    ic = IfgFileNames(proc_config, primary_date, secondary_date, outdir)
+                    ic = InterferogramPaths(proc_config, primary_date, secondary_date)
 
                     # We re-use ifg's own input handling to detect this
                     try:
@@ -531,9 +499,6 @@ class TriggerResume(luigi.Task):
                         proc_file = self.proc_file,
                         stack_id = self.stack_id,
                         polarization = proc_config.polarisation,
-                        burst_data_csv = self.burst_data_csv,
-                        poeorb_path = self.poeorb_path,
-                        resorb_path = self.resorb_path,
                         scene_date = date,
                         ref_primary_tab = None,  # FIXME: GH issue #200
                         outdir = self.outdir,
@@ -561,8 +526,8 @@ class TriggerResume(luigi.Task):
                 #
                 # Note: We don't add this to pre-requisite tasks, it's implied by
                 # CreateCoregisterSecondaries's @requires
-                dem_task = CreateGammaDem(**_forward_kwargs(CreateGammaDem, kwargs))
-                coreg_dem_task = CoregisterDemPrimary(**_forward_kwargs(CoregisterDemPrimary, kwargs))
+                dem_task = CreateGammaDem(**common_params(self, CreateGammaDem))
+                coreg_dem_task = CoregisterDemPrimary(**common_params(self, CoregisterDemPrimary))
 
                 if dem_task.output().exists():
                     dem_task.output().remove()

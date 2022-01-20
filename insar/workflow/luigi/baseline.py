@@ -1,11 +1,12 @@
 import luigi
 from luigi.util import requires
-from pathlib import Path
 
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.calc_baselines_new import BaselineProcess
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+from insar.logs import STATUS_LOGGER
+from insar.paths.stack import StackPaths
+from insar.paths.slc import SlcPaths
 
 from insar.workflow.luigi.utils import PathParameter, tdir, get_scenes, read_primary_date
 from insar.workflow.luigi.multilook import CreateMultilook
@@ -28,13 +29,13 @@ class CalcInitialBaseline(luigi.Task):
         log = STATUS_LOGGER.bind(stack_id=self.stack_id)
         log.info("Beginning baseline calculation")
 
-        outdir = Path(self.outdir)
-
         # Load the gamma proc config file
         with open(str(self.proc_file), "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
-        slc_frames = get_scenes(self.burst_data_csv)
+        paths = StackPaths(proc_config)
+        slc_frames = get_scenes(paths.acquisition_csv)
+
         slc_par_files = []
         primary_pol = proc_config.polarisation
         polarizations = [primary_pol]
@@ -44,27 +45,25 @@ class CalcInitialBaseline(luigi.Task):
 
         for _dt, _, _pols in slc_frames:
             slc_scene = _dt.strftime(SCENE_DATE_FMT)
-            scene_dir = outdir / proc_config.slc_dir / slc_scene
 
             if primary_pol in _pols:
-                slc_par = f"{slc_scene}_{primary_pol}.slc.par"
+                slc_paths = SlcPaths(proc_config, slc_scene, primary_pol)
             elif not enable_cross_pol_ifgs:
                 continue
             else:
-                slc_par = f"{slc_scene}_{_pols[0]}.slc.par"
+                slc_paths = SlcPaths(proc_config, slc_scene, _pols[0])
                 polarizations.append(_pols[0])
 
-            slc_par = scene_dir / slc_par
-            if not slc_par.exists():
-                raise FileNotFoundError(f"missing {slc_par} file")
+            if not slc_paths.slc_par.exists():
+                raise FileNotFoundError(f"missing {slc_paths.slc_par} file")
 
-            slc_par_files.append(Path(slc_par))
+            slc_par_files.append(slc_paths.slc_par)
 
         baseline = BaselineProcess(
             slc_par_files,
             list(set(polarizations)),
-            primary_scene=read_primary_date(outdir),
-            outdir=outdir,
+            primary_scene=read_primary_date(paths.output_dir),
+            outdir=paths.output_dir,
         )
 
         # creates a ifg list based on sbas-network

@@ -7,6 +7,9 @@ import json
 
 from insar.coreg_utils import append_secondary_coreg_tree, load_coreg_tree
 from insar.stack import load_stack_config, load_stack_scene_dates
+from insar.paths.coregistration import CoregisteredSlcPaths
+from insar.paths.slc import SlcPaths
+from insar.paths.stack import StackPaths
 from insar.project import ARDWorkflow
 from insar.logs import STATUS_LOGGER
 from insar.sensors import identify_data_source
@@ -66,25 +69,26 @@ class AppendDatesToStack(luigi.Task):
         # Load stack details
         append_idx = self.append_idx
         proc_config = load_stack_config(self.proc_file)
-        outdir = Path(proc_config.output_path)
-        workdir = Path(proc_config.job_path)
-        list_dir = outdir / proc_config.list_dir
-        append_manifest = list_dir / f"append{append_idx}.manifest"
-        append_dates_list = list_dir / f"scenes{append_idx}.list"
-        metadata = json.loads((outdir / "metadata.json").read_text())
+        paths = StackPaths(proc_config)
+        append_manifest = paths.list_dir / f"append{append_idx}.manifest"
+        append_dates_list = paths.list_dir / f"scenes{append_idx}.list"
+        metadata = json.loads(paths.metadata.read_text())
         shape_file = None
-        burst_data_csv = metadata["burst_data"]
         pols = metadata["polarizations"]
         append_scenes = self.append_scenes
-        primary_scene = read_primary_date(outdir)
+        primary_scene = read_primary_date(paths.output_dir)
         primary_pol = proc_config.polarisation
 
         if "shape_file" in metadata:
             shape_file = metadata["shape_file"]
             shape_file = Path(shape_file) if shape_file else None
 
+        # get range and azimuth looked values
+        ml_file = tdir(paths.job_dir) / f"{self.stack_id}_createmultilook_status_logs.out"
+        rlks, alks = read_rlks_alks(ml_file)
+
         # Load the stack's existing scene data
-        slc_inputs_df = pd.read_csv(burst_data_csv, index_col=0)
+        slc_inputs_df = pd.read_csv(paths.acquisition_csv, index_col=0)
 
         # If the new scenes haven't had SLC generated yet, do so...
         # - this gate exists as Luigi w/ runtime dependencies will call run()
@@ -124,7 +128,7 @@ class AppendDatesToStack(luigi.Task):
                     raise RuntimeError("Data corruption prevented, an existing stack scene entry does not match appended results")
 
             # Finally, if everything seems above board - save the new SLC inputs
-            slc_inputs_df.to_csv(burst_data_csv)
+            slc_inputs_df.to_csv(paths.acquisition_csv)
 
             # Process the SLC of the new scenes
             append_scene_tasks = []
@@ -135,13 +139,10 @@ class AppendDatesToStack(luigi.Task):
                         proc_file = self.proc_file,
                         stack_id = self.stack_id,
                         polarization = pol,
-                        burst_data_csv = burst_data_csv,
-                        poeorb_path = proc_config.poeorb_path,
-                        resorb_path = proc_config.resorb_path,
                         scene_date = scene,
                         ref_primary_tab = None,  # FIXME: GH issue #200
-                        outdir = outdir,
-                        workdir = workdir,
+                        outdir = paths.output_dir,
+                        workdir = paths.job_dir,
                         resume_token = "append"
                     )
 
@@ -174,7 +175,7 @@ class AppendDatesToStack(luigi.Task):
 
             if corrupt_indices:
                 slc_inputs_df.drop(corrupt_indices, inplace=True)
-                slc_inputs_df.to_csv(burst_data_csv)
+                slc_inputs_df.to_csv(paths.acquisition_csv)
 
             # Write newly appended scenes .list file
             append_dates_list.write_text("\n".join(append_dates))
@@ -183,7 +184,7 @@ class AppendDatesToStack(luigi.Task):
             append_dates = append_dates_list.read_text().splitlines()
 
         # Load the appended scenes
-        slc_frames = get_scenes(burst_data_csv)
+        slc_frames = get_scenes(paths.acquisition_csv)
         stack_dates = load_stack_scene_dates(proc_config)[:self.append_idx]
 
         #
@@ -211,7 +212,7 @@ class AppendDatesToStack(luigi.Task):
             for i in range(first_new_coreg_level, second_new_coreg_level):
                 new_tree_level = new_coreg_tree[i]
 
-                scene_file = Path(list_dir / f"secondaries{i+1}.list")
+                scene_file = Path(paths.list_dir / f"secondaries{i+1}.list")
                 scene_file.write_text("\n".join([i.strftime(SCENE_DATE_FMT) for i in new_tree_level]))
 
             # Write a simple description of 'what' the append added to the stack (eg: what is new to the append)
@@ -238,23 +239,22 @@ class AppendDatesToStack(luigi.Task):
         network_scenes = prior_dates[-num_connections:] + list(append_dates)
 
         # Create SBAS network from the scene subset & write to ifg date-pair list
-        ifgs_outfile = list_dir / f"ifgs{append_idx}.list"
+        ifgs_outfile = paths.list_dir / f"ifgs{append_idx}.list"
         slc_par_files = []
 
         for slc_scene in network_scenes:
-            scene_dir = outdir / proc_config.slc_dir / slc_scene
+            slc_paths = SlcPaths(proc_config, slc_scene, primary_pol, rlks)
 
-            slc_par = scene_dir / f"{slc_scene}_{primary_pol}.slc.par"
-            if not slc_par.exists():
-                raise FileNotFoundError(f"missing {slc_par} file")
+            if not slc_paths.slc_par.exists():
+                raise FileNotFoundError(f"missing {slc_paths.slc_par} file")
 
-            slc_par_files.append(slc_par)
+            slc_par_files.append(slc_paths.slc_par)
 
         baseline = BaselineProcess(
             slc_par_files,
             [primary_pol],
             primary_scene=primary_scene,
-            outdir=outdir,
+            outdir=paths.output_dir,
         )
 
         # creates a ifg list based on sbas-network
@@ -263,10 +263,6 @@ class AppendDatesToStack(luigi.Task):
             nmax=int(proc_config.max_connect),
             outfile=ifgs_outfile
         )
-
-        # get range and azimuth looked values
-        ml_file = tdir(workdir) / f"{self.stack_id}_createmultilook_status_logs.out"
-        rlks, alks = read_rlks_alks(ml_file)
 
         # Schedule the new scenes for coregistration
         coreg_kwargs = get_coreg_kwargs(self.proc_file)
@@ -295,14 +291,14 @@ class AppendDatesToStack(luigi.Task):
                     )
                     continue
 
-                secondary_dir = outdir / proc_config.slc_dir / slc_scene
-
                 # Process coreg for all polarisations, the secondary polarisations will
                 # simply apply primary LUTs to secondary products.
                 for pol in _pols:
-                    secondary_slc_prefix = f"{slc_scene}_{pol}"
-                    coreg_kwargs["slc_secondary"] = secondary_dir / f"{secondary_slc_prefix}.slc"
-                    coreg_kwargs["secondary_mli"] = secondary_dir / f"{secondary_slc_prefix}_{rlks}rlks.mli"
+                    slc_paths = SlcPaths(proc_config, slc_scene, pol, rlks)
+
+                    coreg_kwargs["slc_secondary"] = slc_paths.slc
+                    coreg_kwargs["secondary_mli"] = slc_paths.mli
+
                     coreg_tasks.append(CoregisterSecondary(**coreg_kwargs))
 
         yield coreg_tasks
@@ -314,8 +310,8 @@ class AppendDatesToStack(luigi.Task):
 
             nrb_kwargs = {
                 "proc_file": self.proc_file,
-                "outdir": outdir,
-                "workdir": workdir,
+                "outdir": paths.output_dir,
+                "workdir": paths.job_dir,
 
                 "ellip_pix_sigma0": coreg_kwargs["ellip_pix_sigma0"],
                 "dem_pix_gamma0": coreg_kwargs["dem_pix_gamma0"],
@@ -324,18 +320,16 @@ class AppendDatesToStack(luigi.Task):
             }
 
             for secondary_date in append_dates:
-                secondary_dir = outdir / proc_config.slc_dir / secondary_date
-
                 for pol in pols:
-                    prefix = f"{secondary_date}_{pol.upper()}_{rlks}rlks"
+                    coreg_paths = CoregisteredSlcPaths(proc_config, primary_scene, secondary_date, pol, rlks)
 
-                    nrb_kwargs["outdir"] = secondary_dir
-                    nrb_kwargs["src_mli"] = secondary_dir / f"r{prefix}.mli"
+                    nrb_kwargs["outdir"] = coreg_paths.secondary.dir
+                    nrb_kwargs["src_mli"] = coreg_paths.r_secondary_mli
                     # TBD: We have always written the backscatter w/ the same
                     # pattern, but going forward we might want coregistered
                     # backscatter to also have the 'r' prefix?  as some
                     # backscatters in the future will 'not' be coregistered...
-                    nrb_kwargs["dst_stem"] = secondary_dir / f"{prefix}"
+                    nrb_kwargs["dst_stem"] = coreg_paths.secondary.dir / coreg_paths.secondary.mli.stem
 
                     task = ProcessBackscatter(**nrb_kwargs)
                     backscatter_tasks.append(task)
@@ -354,8 +348,8 @@ class AppendDatesToStack(luigi.Task):
                         proc_file=self.proc_file,
                         shape_file=shape_file,
                         stack_id=self.stack_id,
-                        outdir=outdir,
-                        workdir=workdir,
+                        outdir=paths.output_dir,
+                        workdir=paths.job_dir,
                         primary_date=primary_date,
                         secondary_date=secondary_date
                     )

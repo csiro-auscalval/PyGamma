@@ -1,4 +1,3 @@
-from logging import debug
 from pathlib import Path
 from typing import Generator, List, Tuple, Optional
 import tempfile
@@ -11,9 +10,11 @@ from tests.fixtures import *
 from unittest import mock
 
 from insar.scripts.process_gamma import run_ard_inline
-from insar.project import ARDWorkflow, ProcConfig, IfgFileNames
+from insar.project import ARDWorkflow, ProcConfig
 from insar.paths.slc import SlcPaths
+from insar.paths.interferogram import InterferogramPaths
 from insar.stack import load_stack_scene_dates, load_stack_ifg_pairs
+from insar.paths.stack import StackPaths
 import insar.workflow.luigi.coregistration
 
 test_data = Path(__file__).parent.absolute() / 'data'
@@ -137,6 +138,7 @@ def do_ard_workflow_validation(
     with finalised_proc_path.open('r') as fileobj:
         proc_config = ProcConfig.from_file(fileobj)
 
+    paths = StackPaths(proc_config)
     is_nrt = workflow == ARDWorkflow.BackscatterNRT
     is_coregistered = workflow != ARDWorkflow.BackscatterNRT
     rlks = int(proc_config.range_looks)
@@ -167,8 +169,7 @@ def do_ard_workflow_validation(
         assert(count_dir_tree(raw_data_dir) > 10)
 
     # Assert we have a csv of source data
-    burst_data_csv = out_dir / f"{proc_config.stack_id}_burst_data.csv"
-    assert(burst_data_csv.exists())
+    assert(paths.acquisition_csv.exists())
 
     # Assert our scene lists make sense
     ifgs_list = load_stack_ifg_pairs(proc_config)
@@ -251,7 +252,7 @@ def do_ard_workflow_validation(
         assert(len(list(ifg_dir.iterdir())) == len(ifgs_list))
 
         for primary_date, secondary_date in ifgs_list:
-            ic = IfgFileNames(proc_config, primary_date, secondary_date, out_dir)
+            ic = InterferogramPaths(proc_config, primary_date, secondary_date)
 
             # Make sure the main geo flat & unwrapped file exists
             assert((ic.ifg_dir / ic.ifg_unw_geocode_out_tiff).exists())

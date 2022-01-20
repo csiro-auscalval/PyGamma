@@ -3,13 +3,13 @@ import pathlib
 import functools
 from unittest import mock
 from tempfile import TemporaryDirectory
-from PIL import Image
-import numpy as np
 
 import insar.constant as const
 from insar import process_ifg, py_gamma_ga
 from insar.process_ifg import ProcessIfgException, TempFileConfig
-from insar.project import ProcConfig, IfgFileNames, DEMFileNames
+from insar.project import ProcConfig
+from insar.paths.interferogram import InterferogramPaths
+from insar.paths.dem import DEMPaths
 
 import structlog
 import pytest
@@ -50,11 +50,11 @@ def pc_mock():
     with open(pathlib.Path(__file__).parent.absolute() / 'data' / '20151127' / 'gamma.proc', 'r') as fileobj:
         proc_config = ProcConfig.from_file(fileobj)
 
-    pc = mock.NonCallableMock(spec=ProcConfig, wraps=proc_config)
+    pc = mock.NonCallableMagicMock(spec=ProcConfig, wraps=proc_config)
     pc.multi_look = 2  # always 2 for Sentinel 1
     pc.ifg_coherence_threshold = 2.5  # fake value
 
-    mock_path = functools.partial(mock.MagicMock, spec=pathlib.Path)
+    mock_path = functools.partial(mock.NonCallableMagicMock, spec=pathlib.Path)
     pc.proj_dir = mock_path()
 
     return pc
@@ -62,10 +62,10 @@ def pc_mock():
 
 @pytest.fixture
 def ic_mock():
-    """Returns basic mock to simulate an IfgFileNames object."""
-    ic = mock.NonCallableMock(spec=IfgFileNames)
+    """Returns basic mock to simulate an InterferogramPaths object."""
+    ic = mock.NonCallableMagicMock(spec=InterferogramPaths)
 
-    mock_path = functools.partial(mock.MagicMock, spec=pathlib.Path)
+    mock_path = functools.partial(mock.NonCallableMagicMock, spec=pathlib.Path)
 
     # Explicitly set a bunch of path objecst (as the mocked Path objects don't
     # implement / or + correctly).   Note: the unit tests are all mocked, the
@@ -108,7 +108,7 @@ def ic_mock():
 @pytest.fixture
 def tc_mock():
     """Returns basic mock to simulate a TempFileConfig object."""
-    tc = mock.NonCallableMock(spec=TempFileConfig)
+    tc = mock.NonCallableMagicMock(spec=TempFileConfig)
     return tc
 
 
@@ -281,7 +281,7 @@ def test_error_handling_decorator(monkeypatch, logging_ctx):
 @pytest.fixture
 def pg_flat_mock():
     """Create basic mock of the py_gamma module for the FLAT processing step."""
-    pg_mock = mock.NonCallableMock()
+    pg_mock = mock.NonCallableMagicMock()
     pg_mock.base_orbit.return_value = PG_RETURN_VALUE
     pg_mock.phase_sim_orb.return_value = PG_RETURN_VALUE
     pg_mock.SLC_diff_intf.return_value = PG_RETURN_VALUE
@@ -304,9 +304,9 @@ def pg_flat_mock():
 
 
 @pytest.fixture
-def dc_mock():
-    """Default mock for DEMFileNames config."""
-    dcm = mock.NonCallableMock(spec=DEMFileNames)
+def dc_mock(pc_mock):
+    """Default mock for DEMPaths config."""
+    dcm = mock.NonCallableMagicMock(spec=DEMPaths(pc_mock))
     return dcm
 
 
@@ -424,7 +424,7 @@ def _get_mock_file_and_path(fake_content):
     m_file.readlines.return_value = fake_content
 
     # TRICKY: mock chain of open() calls, context manager etc to return custom file mock
-    m_path = mock.MagicMock(spec=pathlib.Path)
+    m_path = mock.NonCallableMagicMock(spec=pathlib.Path)
     m_path.open.return_value.__enter__.return_value = m_file
     return m_file, m_path
 

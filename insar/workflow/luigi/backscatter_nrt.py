@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 import luigi
 import luigi.configuration
 from luigi.util import requires
@@ -9,13 +9,12 @@ from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.process_backscatter import generate_nrt_backscatter
 from insar.logs import STATUS_LOGGER
+from insar.paths.slc import SlcPaths
+from insar.paths.stack import StackPaths
 
 from insar.workflow.luigi.utils import PathParameter, tdir, load_settings, get_scenes, read_rlks_alks
 from insar.workflow.luigi.dem import CreateGammaDem
 from insar.workflow.luigi.multilook import CreateMultilook
-
-# TBD: This doesn't have a .proc setting for some reason
-__DEM_GAMMA__ = "GAMMA_DEM"
 
 class ProcessNRTBackscatter(luigi.Task):
     """
@@ -59,7 +58,7 @@ class ProcessNRTBackscatter(luigi.Task):
             stack_id = metadata["stack_id"]
 
             failed = False
-            dem = outdir / __DEM_GAMMA__ / f"{stack_id}.dem"
+            dem = outdir / proc_config.gamma_dem_dir / f"{stack_id}.dem"
             log.info("Beginning SLC backscatter (NRT)", dem=dem)
 
             generate_nrt_backscatter(
@@ -145,23 +144,23 @@ class CreateNRTBackscatter(luigi.Task):
         log = STATUS_LOGGER.bind(stack_id=self.stack_id)
         log.info("Scheduling NRT backscatter tasks...")
 
-        outdir = Path(self.outdir)
-
         # Load the gamma proc config file
         proc_path = Path(self.proc_file)
         with proc_path.open("r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
-        slc_frames = get_scenes(self.burst_data_csv)
+        paths = StackPaths(proc_config)
+
+        slc_frames = get_scenes(paths.acquisition_csv)
 
         # get range and azimuth looked values
-        ml_file = tdir(self.workdir) / f"{self.stack_id}_createmultilook_status_logs.out"
+        ml_file = tdir(paths.job_dir) / f"{proc_config.stack_id}_createmultilook_status_logs.out"
         rlks, alks = read_rlks_alks(ml_file)
 
         kwargs = {
-            "proc_file": self.proc_file,
-            "outdir": self.outdir,
-            "workdir": self.workdir,
+            "proc_file": proc_path,
+            "outdir": paths.output_dir,
+            "workdir": paths.job_dir,
         }
 
         jobs = []
@@ -169,13 +168,12 @@ class CreateNRTBackscatter(luigi.Task):
         # Create backscatter tasks for all scenes
         for dt, _, pols in slc_frames:
             scene_date = dt.strftime(SCENE_DATE_FMT)
-            scene_dir = outdir / proc_config.slc_dir / scene_date
 
             for pol in pols:
-                prefix = f"{scene_date}_{pol.upper()}_{rlks}rlks"
+                slc_paths = SlcPaths(proc_config, scene_date, pol, rlks)
 
-                kwargs["src_path"] = scene_dir / f"{prefix}.mli"
-                kwargs["dst_stem"] = scene_dir / f"nrt_{prefix}"
+                kwargs["src_path"] = slc_paths.mli
+                kwargs["dst_stem"] = slc_paths.dir / f"nrt_{slc_paths.mli.stem}"
 
                 task = ProcessNRTBackscatter(**kwargs)
                 jobs.append(task)

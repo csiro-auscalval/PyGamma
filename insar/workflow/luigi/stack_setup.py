@@ -19,6 +19,7 @@ from insar.project import ProcConfig
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.logs import STATUS_LOGGER
 from insar.stack import resolve_stack_scene_additional_files
+from insar.paths.stack import StackPaths
 
 from insar.workflow.luigi.utils import DateListParameter, PathParameter, tdir, simplify_dates, calculate_primary, one_day
 
@@ -113,9 +114,6 @@ class InitialSetup(luigi.Task):
     polarization = luigi.ListParameter()
     outdir = PathParameter()
     workdir = PathParameter()
-    burst_data_csv = PathParameter()
-    poeorb_path = PathParameter()
-    resorb_path = PathParameter()
     cleanup = luigi.BoolParameter()
     dem_img = PathParameter()
 
@@ -131,12 +129,16 @@ class InitialSetup(luigi.Task):
         with open(self.proc_file, "r") as proc_file_obj:
             proc_config = ProcConfig.from_file(proc_file_obj)
 
+        paths = StackPaths(proc_config)
         outdir = Path(proc_config.output_path)
+
+        if paths.num_appends < 0:
+            paths.append(0, (0,0))
 
         # Touch empty scenes.list and burst csv files to make it
         # clear that the stack simply has no data...
-        (outdir / proc_config.list_dir / 'scenes.list').touch()
-        self.burst_data_csv.touch()
+        paths.scenes_lists[0].touch()
+        paths.acquisition_csv.touch()
 
         # Touch task output file / mark task as complete
         task_status = self.output()
@@ -150,6 +152,7 @@ class InitialSetup(luigi.Task):
         with open(self.proc_file, "r") as proc_file_obj:
             proc_config = ProcConfig.from_file(proc_file_obj)
 
+        paths = StackPaths(proc_config)
         outdir = Path(proc_config.output_path)
         pols = list(self.polarization)
 
@@ -256,8 +259,8 @@ class InitialSetup(luigi.Task):
                     DataDownload(
                         data_path=slc_url.rstrip(),
                         polarization=self.polarization,
-                        poeorb_path=self.poeorb_path,
-                        resorb_path=self.resorb_path,
+                        poeorb_path=proc_config.poeorb_path,
+                        resorb_path=proc_config.resorb_path,
                         workdir=self.workdir,
                         output_dir=download_dir / scene_date,
                     )
@@ -297,7 +300,7 @@ class InitialSetup(luigi.Task):
         )
 
         # save slc burst data details which is used by different tasks
-        slc_inputs_df.to_csv(self.burst_data_csv)
+        slc_inputs_df.to_csv(paths.acquisition_csv)
         num_scenes = len(slc_inputs_df)
 
         if num_scenes == 0:
@@ -324,11 +327,11 @@ class InitialSetup(luigi.Task):
         ref_scene_date = calculate_primary(formatted_scene_dates)
         log.info("Automatically computed primary reference scene date", ref_scene_date=ref_scene_date)
 
-        with open(outdir / proc_config.list_dir / 'primary_ref_scene', 'w') as ref_scene_file:
+        with open(paths.list_dir / 'primary_ref_scene', 'w') as ref_scene_file:
             ref_scene_file.write(ref_scene_date.strftime(SCENE_DATE_FMT))
 
         # Write scenes list
-        with open(outdir / proc_config.list_dir / 'scenes.list', 'w') as scenes_list_file:
+        with open(paths.list_dir / 'scenes.list', 'w') as scenes_list_file:
             scenes_list_file.write('\n'.join(sorted(formatted_scene_dates)))
 
         with self.output().open("w") as out_fid:
@@ -362,14 +365,14 @@ class InitialSetup(luigi.Task):
             "database": str(proc_config.database_path),
             "source_data": self.source_data,
             "stack_extent": stack_extent,
-            "poeorb_path": str(self.poeorb_path),
-            "resorb_path": str(self.resorb_path),
+            "poeorb_path": str(proc_config.poeorb_path),
+            "resorb_path": str(proc_config.resorb_path),
             "source_data_path": str(os.path.commonpath(list(download_list))),
             "dem_path": str(self.dem_img),
             "primary_ref_scene": ref_scene_date.strftime(SCENE_DATE_FMT),
             "include_dates": [(d1.strftime(SCENE_DATE_FMT), d2.strftime(SCENE_DATE_FMT)) for d1,d2 in init_include_dates],
             "exclude_dates": [(d1.strftime(SCENE_DATE_FMT), d2.strftime(SCENE_DATE_FMT)) for d1,d2 in init_exclude_dates],
-            "burst_data": str(self.burst_data_csv),
+            "burst_data": str(paths.acquisition_csv),
             "num_scene_dates": len(formatted_scene_dates),
             "polarizations": pols,
 

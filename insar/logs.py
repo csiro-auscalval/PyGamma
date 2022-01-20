@@ -52,6 +52,7 @@ STATUS_LOGGER = get_wrapped_logger("status")
 
 INTERFACE_LOGGER = logging.getLogger("luigi-interface")
 
+INSAR_LOG = get_wrapped_logger("insar")
 
 @contextlib.contextmanager
 def logging_directory(path: Union[str, Path]):

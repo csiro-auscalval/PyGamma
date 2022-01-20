@@ -1,6 +1,8 @@
 from typing import Optional, List, Union
 from pathlib import Path
+import datetime
 
+from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.stack import load_stack_config
 
@@ -60,7 +62,7 @@ class SlcPaths:
     def __init__(
         self,
         stack_config: Union[ProcConfig, Path],
-        date: str,
+        date: Union[str, datetime.datetime, datetime.date],
         pol: str,
         rlks: Optional[int] = None
     ):
@@ -82,6 +84,16 @@ class SlcPaths:
 
         if not isinstance(stack_config, ProcConfig):
             stack_config = load_stack_config(stack_config)
+
+        if isinstance(date, str):
+            # Parse as a date to sanity check
+            date = datetime.datetime.strptime(date, SCENE_DATE_FMT)
+            # Back to str if it passes...
+            date = date.strftime(SCENE_DATE_FMT)
+        elif isinstance(date, datetime.datetime):
+            date = date.strftime(SCENE_DATE_FMT)
+        elif isinstance(date, datetime.date):
+            date = date.strftime(SCENE_DATE_FMT)
 
         # TODO: Should be based on some kind of 'stack' paths?
         slc_dir = Path(stack_config.output_path) / stack_config.slc_dir / date

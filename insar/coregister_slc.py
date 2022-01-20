@@ -574,10 +574,6 @@ class CoregisterSlc:
 
         self.log.info("Beginning fine coregistration")
 
-        # slc_secondary is something like:
-        # /g/data/dz56/insar_initial_processing/T147D_F28S_S1A/SLC/20180220/20180220_VV.slc.par
-        slc_dir = Path(self.proc.output_path) / self.proc.slc_dir
-
         with tempfile.TemporaryDirectory() as temp_dir, open(Path(temp_dir) / f"{paths.r_primary_secondary_name}.ovr_results", 'w') as secondary_ovr_res:
             temp_dir = Path(temp_dir)
 
@@ -615,7 +611,9 @@ class CoregisterSlc:
                 r_coreg_secondary_tab = None
 
                 if coreg_secondary:
-                    r_coreg_secondary_tab = f'{slc_dir}/{coreg_secondary}/r{coreg_secondary}_{self.proc.polarisation}_tab'
+                    tertiary_paths = CoregisteredSlcPaths(self.proc, self.primary_date, coreg_secondary, self.primary_pol, self.rlks)
+
+                    r_coreg_secondary_tab = tertiary_paths.r_secondary_slc_tab
 
                 iter_log = self.log.bind(
                     iteration=iteration,

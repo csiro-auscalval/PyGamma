@@ -6,8 +6,12 @@ from luigi.util import requires
 import json
 
 from insar.process_ifg import run_workflow, get_ifg_width, TempFileConfig
-from insar.project import ProcConfig, DEMFileNames, IfgFileNames, is_flag_value_enabled
+from insar.project import ProcConfig, is_flag_value_enabled
+from insar.paths.interferogram import InterferogramPaths
+from insar.paths.stack import StackPaths
+from insar.paths.dem import DEMPaths
 from insar.coreg_utils import read_land_center_coords
+from insar.stack import load_stack_ifg_pairs
 from insar.logs import STATUS_LOGGER
 
 from insar.workflow.luigi.utils import tdir, mk_clean_dir, PathParameter
@@ -51,12 +55,12 @@ class ProcessIFG(luigi.Task):
         # allows as many scenes as possible to fully process even if some scenes fail.
         failed = False
         try:
-            ic = IfgFileNames(proc_config, self.primary_date, self.secondary_date, self.outdir)
-            dc = DEMFileNames(proc_config, self.outdir)
+            ic = InterferogramPaths(proc_config, self.primary_date, self.secondary_date)
+            dc = DEMPaths(proc_config)
             tc = TempFileConfig(ic)
 
             # Run interferogram processing workflow w/ ifg width specified in r_primary_mli par file
-            with open(Path(self.outdir) / ic.r_primary_mli_par, 'r') as fileobj:
+            with ic.r_primary_mli_par.open('r') as fileobj:
                 ifg_width = get_ifg_width(fileobj)
 
             # Read land center coordinates from shape file (if it exists)
@@ -164,6 +168,8 @@ class CreateProcessIFGs(luigi.Task):
         with open(str(self.proc_file), 'r') as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
+        stack_paths = StackPaths(proc_config)
+
         # Remove our output to re-trigger this job, which will trigger ProcessIFGs
         # for all date pairs, however only those missing IFG outputs will run.
         output = self.output()
@@ -177,13 +183,14 @@ class CreateProcessIFGs(luigi.Task):
         # - and cases where jobs have been terminated mid processing.
         reprocess_pairs = []
 
-        ifgs_list = Path(self.outdir) / proc_config.list_dir / proc_config.ifg_list
+        load_stack_ifg_pairs(proc_config)
+        ifgs_list = stack_paths.ifg_pair_lists[0]
         if ifgs_list.exists():
             with open(ifgs_list) as ifg_list_file:
                 ifgs_list = [dates.split(",") for dates in ifg_list_file.read().splitlines()]
 
             for primary_date, secondary_date in ifgs_list:
-                ic = IfgFileNames(proc_config, primary_date, secondary_date, self.outdir)
+                ic = InterferogramPaths(proc_config, primary_date, secondary_date)
 
                 # Check for existence of filtered coh geocode files, if neither exist we need to re-run.
                 ifg_filt_coh_geo_out = ic.ifg_dir / ic.ifg_filt_coh_geocode_out

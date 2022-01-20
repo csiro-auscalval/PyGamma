@@ -398,6 +398,7 @@ def process_alos_slc(
     slc_par = pg.ParFile(paths.slc_par)
     width = slc_par.get_value("range_samples", dtype=int, index=0)
     lines = slc_par.get_value("azimuth_lines", dtype=int, index=0)
+    temp_bmp = Path("temp.bmp")
 
     pg.rasSLC(
         paths.slc,
@@ -411,10 +412,11 @@ def process_alos_slc(
         1,
         0,
         0,
-        "temp.bmp"
+        temp_bmp
     )
 
-    convert("temp.bmp", paths.slc.with_suffix(".png"))
+    convert(temp_bmp, paths.slc.with_suffix(".png"))
+    temp_bmp.unlink()
 
     # Identify source data URL
     src_url = product_path / "src_url"

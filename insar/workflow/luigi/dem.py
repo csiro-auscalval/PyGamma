@@ -11,9 +11,6 @@ from insar.logs import STATUS_LOGGER
 from insar.workflow.luigi.utils import tdir, load_settings, mk_clean_dir, PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
 
-# TBD: This doesn't have a .proc setting for some reason
-__DEM_GAMMA__ = "GAMMA_DEM"
-
 @requires(InitialSetup)
 class CreateGammaDem(luigi.Task):
     """
@@ -33,7 +30,7 @@ class CreateGammaDem(luigi.Task):
 
         proc_config, metadata = load_settings(Path(self.proc_file))
 
-        gamma_dem_dir = Path(self.outdir) / __DEM_GAMMA__
+        gamma_dem_dir = Path(self.outdir) / proc_config.gamma_dem_dir
         mk_clean_dir(gamma_dem_dir)
 
         kwargs = {

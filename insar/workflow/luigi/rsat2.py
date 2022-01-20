@@ -11,6 +11,7 @@ from insar.paths.slc import SlcPaths
 from insar.project import ProcConfig
 from insar.logs import STATUS_LOGGER
 from insar.process_rsat2_slc import process_rsat2_slc
+from insar.paths.stack import StackPaths
 
 from insar.workflow.luigi.utils import tdir, get_scenes, PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
@@ -78,12 +79,13 @@ class CreateRSAT2SlcTasks(luigi.Task):
         with open(self.proc_file, "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
+        paths = StackPaths(proc_config)
         outdir = Path(self.outdir)
         slc_dir = outdir / proc_config.slc_dir
         raw_dir = outdir / proc_config.raw_data_dir
         os.makedirs(slc_dir, exist_ok=True)
 
-        slc_frames = get_scenes(self.burst_data_csv)
+        slc_frames = get_scenes(paths.acquisition_csv)
 
         slc_tasks = []
         for _dt, status_frame, pols in slc_frames:
@@ -107,7 +109,7 @@ class CreateRSAT2SlcTasks(luigi.Task):
                         scene_date=slc_scene,
                         raw_path=rs2_dirs[0],
                         polarization=pol,
-                        burst_data=self.burst_data_csv,
+                        burst_data=paths.acquisition_csv,
                         slc_dir=slc_dir,
                         workdir=self.workdir,
                     )
@@ -116,7 +118,7 @@ class CreateRSAT2SlcTasks(luigi.Task):
         yield slc_tasks
 
         # Remove any failed scenes from upstream processing if SLC files fail processing
-        slc_inputs_df = pd.read_csv(self.burst_data_csv, index_col=0)
+        slc_inputs_df = pd.read_csv(paths.acquisition_csv, index_col=0)
         rewrite = False
 
         for _slc_task in slc_tasks:
@@ -131,12 +133,12 @@ class CreateRSAT2SlcTasks(luigi.Task):
                     slc_inputs_df.drop(indexes, inplace=True)
                     rewrite = True
 
-        # rewrite the burst_data_csv with removed scenes
+        # rewrite the csv with removed scenes
         if rewrite:
             log.info(
                 f"re-writing the burst data csv files after removing failed slc scenes"
             )
-            slc_inputs_df.to_csv(self.burst_data_csv)
+            slc_inputs_df.to_csv(paths.acquisition_csv)
 
         with self.output().open("w") as out_fid:
             out_fid.write("")

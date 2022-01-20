@@ -1,19 +1,11 @@
 import io
 import pathlib
 from insar import project
+from insar.paths.interferogram import InterferogramPaths
+from insar.paths.dem import DEMPaths
 
-from unittest.mock import Mock
+from unittest.mock import MagicMock
 import pytest
-
-
-def test_create_config():
-    config = project.Config()
-    assert config.proc_variables is None
-    assert config.final_file_loc is None
-    assert config.dem_primary_names is None
-    assert config.dem_file_names is None
-    assert config.ifg_file_names is None
-
 
 # tests for ProcConfig
 def test_read_proc_file():
@@ -27,9 +19,6 @@ def test_read_proc_file():
     assert pathlib.Path(pv.primary_dem_image).name == "GAMMA_DEM_SRTM_1as_mosaic.img"
 
     # check secondary variables derived from the proc file
-    assert pv.proj_dir.as_posix() == "{}/{}/{}/GAMMA".format(
-        pv.nci_path, pv.project, pv.sensor
-    )
     assert pv.dem_noff1 == "0"
     assert pv.dem_noff2 == "0"
     assert pv.ifg_rpos == pv.dem_rpos
@@ -62,10 +51,10 @@ MANUAL_BASE = "tmp/manual"
 @pytest.fixture
 def mproc():
     """Mock the Gamma proc file/config settings."""
-    mock_proc = Mock()
+    mock_proc = MagicMock()
     mock_proc.batch_job_dir = BATCH_BASE
     mock_proc.manual_job_dir = MANUAL_BASE
-    mock_proc.proj_dir = pathlib.Path("tmp/")
+    mock_proc.output_path = pathlib.Path("tmp/")
     mock_proc.slc_dir = "slc-dir"
     mock_proc.ref_primary_scene = "ref-primary-scene"
     mock_proc.polarisation = "polarisation"
@@ -75,92 +64,28 @@ def mproc():
     mock_proc.dem_dir = "dem-dir"
     mock_proc.results_dir = "results-dir"
     mock_proc.track = "track"
+    mock_proc.stack_id = "test_stack"
 
     return mock_proc
 
 
-def test_default_dem_primary_paths(mproc):
-    slc_dir = f"tmp/{mproc.track}/slc-dir"
-    ref_primary_scene = "ref-primary-scene"
-    polarisation = "polarisation"
-    range_looks = "range-looks"
-
-    cfg = project.DEMPrimaryNames(mproc)
-    assert len([x for x in dir(cfg) if x.startswith("dem_")]) == 12
-    assert len([x for x in dir(cfg) if x.startswith("r_dem_")]) == 7
-
-    # pathlib.Path objs are immutable, requiring as_posix() & changing full ext using with_suffix()
-    # some of this is a bit ugly
-    assert cfg.dem_primary_dir.as_posix() == "{}/{}".format(slc_dir, ref_primary_scene)
-    assert cfg.dem_primary_slc_name.as_posix() == "{}/{}_{}".format(
-        cfg.dem_primary_dir, ref_primary_scene, polarisation
-    )
-    assert cfg.dem_primary_slc == cfg.dem_primary_slc_name.with_suffix(".slc")
-    assert cfg.dem_primary_slc_par == cfg.dem_primary_slc.with_suffix(".slc.par")
-
-    assert cfg.dem_primary_mli_name.as_posix() == "{}/{}_{}_{}rlks".format(
-        cfg.dem_primary_dir, ref_primary_scene, polarisation, range_looks
-    )
-    assert cfg.dem_primary_mli == cfg.dem_primary_mli_name.with_suffix(".mli")
-    assert cfg.dem_primary_mli_par == cfg.dem_primary_mli.with_suffix(".mli.par")
-
-    assert cfg.dem_primary_gamma0 == cfg.dem_primary_mli_name.with_suffix(".gamma0")
-    assert cfg.dem_primary_gamma0_bmp == cfg.dem_primary_gamma0.with_suffix(".gamma0.bmp")
-    assert (
-        cfg.dem_primary_gamma0_geo.as_posix()
-        == cfg.dem_primary_mli_name.as_posix() + "_geo.gamma0"
-    )
-    assert (
-        cfg.dem_primary_gamma0_geo_bmp.as_posix()
-        == cfg.dem_primary_gamma0_geo.as_posix() + ".bmp"
-    )
-    assert (
-        cfg.dem_primary_gamma0_geo_geo.as_posix()
-        == cfg.dem_primary_gamma0_geo.as_posix() + ".tif"
-    )
-
-    assert cfg.r_dem_primary_slc_name.as_posix() == "{}/r{}_{}".format(
-        cfg.dem_primary_dir, ref_primary_scene, polarisation
-    )
-    assert cfg.r_dem_primary_slc == cfg.r_dem_primary_slc_name.with_suffix(".slc")
-    assert cfg.r_dem_primary_slc_par == cfg.r_dem_primary_slc.with_suffix(".slc.par")
-
-    assert cfg.r_dem_primary_mli_name.as_posix() == "{}/r{}_{}_{}rlks".format(
-        cfg.dem_primary_dir, ref_primary_scene, polarisation, range_looks
-    )
-
-    assert cfg.r_dem_primary_mli == cfg.r_dem_primary_mli_name.with_suffix(".mli")
-    assert cfg.r_dem_primary_mli_par == cfg.r_dem_primary_mli.with_suffix(".mli.par")
-    assert cfg.r_dem_primary_mli_bmp == cfg.r_dem_primary_mli.with_suffix(".mli.bmp")
-
-
-def test_default_dem_primary_paths_none_setting(mproc):
-    """Ensure incomplete proc settings prevent DEM config from being initialised."""
-    mproc.slc_dir = None
-
-    with pytest.raises(Exception):
-        project.DEMPrimaryNames(mproc)
-
-
 def test_default_dem_file_names(mproc):
-    cfg = project.DEMFileNames(mproc)
+    cfg = DEMPaths(mproc)
 
-    outdir = pathlib.Path("tmp/") / mproc.track
-
-    assert cfg.dem.as_posix() == "tmp/{}/{}/{}.dem".format(
-        mproc.track, mproc.gamma_dem_dir, mproc.dem_name
+    assert cfg.dem.as_posix() == "{}/{}/{}.dem".format(
+        mproc.output_path, mproc.gamma_dem_dir, mproc.stack_id
     )
     assert cfg.dem_par.as_posix() == "{}.par".format(cfg.dem)
-    assert cfg.dem_primary_name.as_posix() == "tmp/{}/{}/{}_{}_{}rlks".format(
-        mproc.track,
+    assert cfg.dem_primary_name.as_posix() == "{}/{}/{}_{}_{}rlks".format(
+        mproc.output_path,
         mproc.dem_dir,
         mproc.ref_primary_scene,
         mproc.polarisation,
         mproc.range_looks,
     )
 
-    assert cfg.dem_diff.as_posix() == "tmp/{}/{}/diff_{}_{}_{}rlks.par".format(
-        mproc.track,
+    assert cfg.dem_diff.as_posix() == "{}/{}/diff_{}_{}_{}rlks.par".format(
+        mproc.output_path,
         mproc.dem_dir,
         mproc.ref_primary_scene,
         mproc.polarisation,
@@ -196,20 +121,23 @@ def test_default_dem_file_names(mproc):
     assert cfg.dem_coffsets == tail(dem_primary_name, ".coffsets")
     assert cfg.dem_lv_theta == tail(dem_primary_name, "_geo.lv_theta")
     assert cfg.dem_lv_phi == tail(dem_primary_name, "_geo.lv_phi")
-    assert cfg.ext_image_flt == tail(dem_primary_name, "_ext_img_sar.flt")
-    assert cfg.ext_image_init_sar == tail(dem_primary_name, "_ext_img_init.sar")
-    assert cfg.ext_image_sar == tail(dem_primary_name, "_ext_img.sar")
-
-    assert cfg.dem_check_file == outdir / "results-dir/track_DEM_coreg_results"
-    assert cfg.lat_lon_pix == outdir / "dem-dir/track_range-looksrlks_sar_latlon.txt"
 
 
+# TODO: I'm not sure what to do w/ these tests... having tests that compare
+# fields (which are set to some structured path in the __init__ of their class)
+# to some other structured paths in the test doesn't really test anything besides
+# that two people wrote the same structured paths in two different files.
+#
+# I guess the intent of the test is to check the stack structure? but over
+# many tests (for each set of file path classes) - might be better to
+# do this as an actual workflow test that sanity checks the actual stack output
+# structure in this case? (we already partially do this in test_workflow)
 def test_default_ifg_file_names(mproc):
     mproc.int_dir = pathlib.Path("INT")
     primary = pathlib.Path("primary")
     secondary = pathlib.Path("secondary")
-    cfg = project.IfgFileNames(mproc, primary, secondary)
-    outdir = f"tmp/{mproc.track}"
+    cfg = InterferogramPaths(mproc, primary, secondary)
+    outdir = mproc.output_path
     intdir = f"{outdir}/INT"
     slcdir = f"{outdir}/slc-dir"
 

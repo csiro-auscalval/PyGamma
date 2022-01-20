@@ -8,6 +8,8 @@ import shutil
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.calc_multilook_values import calculate_mean_look_values
+from insar.paths.stack import StackPaths
+from insar.paths.slc import SlcPaths
 
 from insar.workflow.luigi.utils import tdir, get_scenes
 from insar.workflow.luigi.s1 import CreateFullSlc, ProcessSlcMosaic
@@ -31,23 +33,25 @@ class CreateSlcMosaic(luigi.Task):
         with open(self.proc_file, "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
+        paths = StackPaths(proc_config)
         slc_dir = outdir / proc_config.slc_dir
-        slc_frames = get_scenes(self.burst_data_csv)
-        raw_data_path = outdir / proc_config.raw_data_dir
+        slc_frames = get_scenes(paths.acquisition_csv)
 
         # Get all VV par files and compute range and azimuth looks
         slc_par_files = []
         for _dt, status_frame, _pols in slc_frames:
             slc_scene = _dt.strftime(SCENE_DATE_FMT)
+
             for _pol in _pols:
                 if _pol not in self.polarization or _pol.upper() != proc_config.polarisation:
                     continue
 
-                slc_par = slc_dir / slc_scene / f"{slc_scene}_{_pol.upper()}.slc.par"
-                if not slc_par.exists():
-                    raise FileNotFoundError(f"missing {slc_par} file")
+                slc_paths = SlcPaths(proc_config, slc_scene, _pol)
 
-                slc_par_files.append(Path(slc_par))
+                if not slc_paths.slc_par.exists():
+                    raise FileNotFoundError(f"missing {slc_paths.slc_par} file")
+
+                slc_par_files.append(slc_paths.slc_par)
 
         # range and azimuth looks are only computed from VV polarization
         rlks, alks, *_ = calculate_mean_look_values(
@@ -62,21 +66,23 @@ class CreateSlcMosaic(luigi.Task):
         resize_primary_pol = None
         for _dt, status_frame, _pols in slc_frames:
             slc_scene = _dt.strftime(SCENE_DATE_FMT)
+
             for _pol in _pols:
                 if status_frame:
+                    slc_paths = SlcPaths(proc_config, slc_scene, self.polarization)
+
                     resize_task = ProcessSlcMosaic(
                         scene_date=slc_scene,
-                        raw_path=raw_data_path,
+                        raw_path=paths.acquisition_dir,
                         polarization=_pol,
-                        burst_data=self.burst_data_csv,
-                        slc_dir=slc_dir,
-                        outdir=self.outdir,
+                        burst_data=paths.acquisition_csv,
+                        slc_dir=paths.slc_dir,
                         workdir=self.workdir,
                         rlks=rlks,
                         alks=alks
                     )
                     yield resize_task
-                    resize_primary_tab = slc_dir / slc_scene / f"{slc_scene}_{_pol.upper()}_tab"
+                    resize_primary_tab = slc_paths.slc_tab
                     break
             if resize_primary_tab is not None:
                 if resize_primary_tab.exists():
@@ -106,11 +112,10 @@ class CreateSlcMosaic(luigi.Task):
                 slc_tasks.append(
                     ProcessSlcMosaic(
                         scene_date=slc_scene,
-                        raw_path=raw_data_path,
+                        raw_path=paths.acquisition_dir,
                         polarization=_pol,
-                        burst_data=self.burst_data_csv,
+                        burst_data=paths.acquisition_csv,
                         slc_dir=slc_dir,
-                        outdir=self.outdir,
                         workdir=self.workdir,
                         ref_primary_tab=resize_primary_tab,
                         rlks=rlks,
@@ -120,8 +125,8 @@ class CreateSlcMosaic(luigi.Task):
         yield slc_tasks
 
         # clean up raw data directory immediately (as it's tens of GB / the sooner we delete it the better)
-        if self.cleanup and raw_data_path.exists():
-            shutil.rmtree(raw_data_path)
+        if self.cleanup and paths.acquisition_dir.exists():
+            shutil.rmtree(paths.acquisition_dir)
 
         with self.output().open("w") as out_fid:
             out_fid.write("")

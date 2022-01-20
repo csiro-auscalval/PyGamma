@@ -308,10 +308,7 @@ class ARD(luigi.WrapperTask):
             "workdir": self.job_path,
             "orbit": orbit,
             "dem_img": proc_config.primary_dem_image,
-            "poeorb_path": proc_config.poeorb_path,
-            "resorb_path": proc_config.resorb_path,
             "multi_look": int(proc_config.multi_look),
-            "burst_data_csv": self.output_path / f"{stack_id}_burst_data.csv",
             "cleanup": bool(proc_config.cleanup),
         }
 

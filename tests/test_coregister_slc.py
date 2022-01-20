@@ -7,6 +7,7 @@ from tests.test_workflow import do_ard_workflow_validation
 
 from insar.coregister_slc import CoregisterSlc
 from insar.paths.coregistration import CoregisteredSlcPaths
+from insar.paths.dem import DEMPaths
 
 from insar.process_backscatter import generate_normalised_backscatter
 from insar.project import ARDWorkflow
@@ -30,7 +31,7 @@ def coreg(pgp, pgmock, s1_proc, s1_test_data_zips):
         source_data,
         pols,
         s1_proc,
-        #debug=True
+        debug=True
     )
 
     # Load stack info
@@ -54,6 +55,8 @@ def coreg(pgp, pgmock, s1_proc, s1_test_data_zips):
     # Manually re-run coregistration against the SLC data
     pgp.reset_proxy()
 
+    dem_paths = DEMPaths(proc_config)
+
     with logging_directory(job_dir):
         coreg = CoregisterSlc(
             proc_config,
@@ -62,7 +65,7 @@ def coreg(pgp, pgmock, s1_proc, s1_test_data_zips):
             paths.secondary.slc,
             rlks,
             alks,
-            paths.dem_filenames["rdc_dem"]
+            dem_paths.rdc_dem
         )
 
         assert(coreg.out_dir == paths.secondary.dir)
@@ -108,11 +111,11 @@ def test_get_lookup(coreg):
 
     # Create dummy inputs that are expected
     paths.r_dem_primary_mli_par.touch()
-    paths.dem_filenames["rdc_dem"].touch()
+    coreg.rdc_dem.touch()
     paths.secondary.mli_par.touch()
 
     # Run function
-    coreg.get_lookup(paths.secondary_lt, paths.dem_filenames["rdc_dem"])
+    coreg.get_lookup(paths.secondary_lt, coreg.rdc_dem)
 
     # Ensure the output is produced
     assert(paths.secondary_lt.exists())
@@ -123,7 +126,7 @@ def test_resample_full(coreg):
 
     # Pre-work before resample (coarse coreg is enough)
     coreg.set_tab_files(paths)
-    coreg.get_lookup(paths.secondary_lt, paths.dem_filenames["rdc_dem"])
+    coreg.get_lookup(paths.secondary_lt, coreg.rdc_dem)
     coreg.reduce_offset()
     coreg.coarse_registration()
 
@@ -141,7 +144,7 @@ def test_multi_look(coreg):
 
     # Pre-work before multi_look (coarse coreg is enough)
     coreg.set_tab_files(paths)
-    coreg.get_lookup(paths.secondary_lt, paths.dem_filenames["rdc_dem"])
+    coreg.get_lookup(paths.secondary_lt, coreg.rdc_dem)
     coreg.reduce_offset()
     coreg.coarse_registration()
     coreg.resample_full(paths.secondary_lt, paths.secondary_off)
@@ -161,13 +164,16 @@ def test_generate_normalised_backscatter(coreg, temp_out_dir):
 
     test_output = temp_out_dir / "test_output"
 
+    proc_config = load_stack_config(paths.secondary.dir.parent.parent)
+    dem_paths = DEMPaths(proc_config)
+
     generate_normalised_backscatter(
         test_output.parent,
         paths.secondary.slc,
-        paths.dem_filenames["ellip_pix_sigma0"],
-        paths.dem_filenames["dem_pix_gam"],
-        paths.dem_filenames["dem_lt_fine"],
-        paths.dem_filenames["geo_dem_par"],
+        dem_paths.ellip_pix_sigma0,
+        dem_paths.dem_pix_gam,
+        dem_paths.dem_lt_fine,
+        dem_paths.geo_dem_par,
         test_output
     )
 

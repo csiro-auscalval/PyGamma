@@ -8,6 +8,7 @@ from luigi.util import requires
 
 from insar.constant import SCENE_DATE_FMT
 from insar.paths.slc import SlcPaths
+from insar.paths.stack import StackPaths
 from insar.project import ProcConfig
 from insar.logs import STATUS_LOGGER
 from insar.process_alos_slc import process_alos_slc
@@ -91,17 +92,15 @@ class CreateALOSSlcTasks(luigi.Task):
         with open(self.proc_file, "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
-        outdir = Path(self.outdir)
-        slc_dir = outdir / proc_config.slc_dir
-        raw_dir = outdir / proc_config.raw_data_dir
-        os.makedirs(slc_dir, exist_ok=True)
+        paths = StackPaths(proc_config)
+        os.makedirs(paths.slc_dir, exist_ok=True)
 
-        slc_frames = get_scenes(self.burst_data_csv)
+        slc_frames = get_scenes(paths.acquisition_csv)
 
         slc_tasks = []
         for _dt, status_frame, pols in slc_frames:
             slc_scene = _dt.strftime(SCENE_DATE_FMT)
-            raw_scene_dir = raw_dir / slc_scene
+            raw_scene_dir = paths.acquisition_dir / slc_scene
 
             for pol in pols:
                 if pol not in self.polarization:
@@ -129,16 +128,16 @@ class CreateALOSSlcTasks(luigi.Task):
                         raw_path=alos_dir,
                         sensor=sensor,
                         polarization=pol,
-                        burst_data=self.burst_data_csv,
-                        slc_dir=slc_dir,
-                        workdir=self.workdir,
+                        burst_data=paths.acquisition_csv,
+                        slc_dir=paths.slc_dir,
+                        workdir=paths.job_dir,
                     )
                 )
 
         yield slc_tasks
 
         # Remove any failed scenes from upstream processing if SLC files fail processing
-        slc_inputs_df = pd.read_csv(self.burst_data_csv, index_col=0)
+        slc_inputs_df = pd.read_csv(paths.acquisition_csv, index_col=0)
         rewrite = False
 
         for _slc_task in slc_tasks:
@@ -153,12 +152,12 @@ class CreateALOSSlcTasks(luigi.Task):
                     slc_inputs_df.drop(indexes, inplace=True)
                     rewrite = True
 
-        # rewrite the burst_data_csv with removed scenes
+        # rewrite the csv with removed scenes
         if rewrite:
             log.info(
                 f"re-writing the burst data csv files after removing failed slc scenes"
             )
-            slc_inputs_df.to_csv(self.burst_data_csv)
+            slc_inputs_df.to_csv(paths.acquisition_csv)
 
         with self.output().open("w") as out_fid:
             out_fid.write("")

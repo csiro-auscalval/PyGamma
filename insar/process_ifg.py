@@ -4,7 +4,9 @@ import shutil
 from typing import Union, Tuple, Optional
 
 import structlog
-from insar.project import ProcConfig, IfgFileNames, DEMFileNames
+from insar.project import ProcConfig
+from insar.paths.interferogram import InterferogramPaths
+from insar.paths.dem import DEMPaths
 from insar.coreg_utils import latlon_to_px
 import insar.constant as const
 from insar.path_util import append_suffix
@@ -41,7 +43,7 @@ class TempFileConfig:
         "geocode_filt_coherence_file",
     ]
 
-    def __init__(self, ic: IfgFileNames):
+    def __init__(self, ic: InterferogramPaths):
         # set temp file paths for flattening step
         self.ifg_flat10_unw = append_suffix(ic.ifg_flat10, "_int_unw")
         self.ifg_flat1_unw = append_suffix(ic.ifg_flat1, "_int_unw")
@@ -68,8 +70,8 @@ pg = GammaInterface(
 
 def run_workflow(
     pc: ProcConfig,
-    ic: IfgFileNames,
-    dc: DEMFileNames,
+    ic: InterferogramPaths,
+    dc: DEMPaths,
     tc: TempFileConfig,
     ifg_width: int,
     enable_refinement: bool = False,
@@ -126,7 +128,7 @@ def run_workflow(
         structlog.threadlocal.clear_threadlocal()
 
 
-def validate_ifg_input_files(ic: IfgFileNames):
+def validate_ifg_input_files(ic: InterferogramPaths):
     msg = "Cannot locate input files. Run SLC coregistration steps for each acquisition."
     missing_files = []
 
@@ -164,11 +166,11 @@ def get_ifg_width(r_primary_mli_par: io.IOBase):
     raise ProcessIfgException(msg.format(const.MatchStrings.SLC_RANGE_SAMPLES.value))
 
 
-def calc_int(pc: ProcConfig, ic: IfgFileNames):
+def calc_int(pc: ProcConfig, ic: InterferogramPaths):
     """
     Perform InSAR INT processing step.
     :param pc: ProcConfig settings obj
-    :param ic: IfgFileNames settings obj
+    :param ic: InterferogramPaths settings obj
     """
 
     # Calculate and refine offset between interferometric SLC pair
@@ -219,7 +221,7 @@ def calc_int(pc: ProcConfig, ic: IfgFileNames):
 
 
 def initial_flattened_ifg(
-    pc: ProcConfig, ic: IfgFileNames, dc: DEMFileNames
+    pc: ProcConfig, ic: InterferogramPaths, dc: DEMPaths
 ):
     """
     Generate initial flattened interferogram by:
@@ -227,8 +229,8 @@ def initial_flattened_ifg(
         ii) simulate phase due to orbital geometry and topography;
         iii) form the initial flattened interferogram.
     :param pc: ProcConfig obj
-    :param ic: IfgFileNames obj
-    :param dc: DEMFileNames obj
+    :param ic: InterferogramPaths obj
+    :param dc: DEMPaths obj
     :returns: The path to the ifg produced
     """
 
@@ -279,8 +281,8 @@ def initial_flattened_ifg(
 
 def refined_flattened_ifg(
     pc: ProcConfig,
-    ic: IfgFileNames,
-    dc: DEMFileNames,
+    ic: InterferogramPaths,
+    dc: DEMPaths,
     ifg_file: pathlib.Path
 ):
     """
@@ -289,8 +291,8 @@ def refined_flattened_ifg(
         ii) simulate phase due to refined baseline and topography;
         iii) form a refined flattened interferogram.
     :param pc: ProcConfig obj
-    :param ic: IfgFileNames obj
-    :param dc: DEMFileNames obj
+    :param ic: InterferogramPaths obj
+    :param dc: DEMPaths obj
     :returns: The path to the ifg produced
     """
     # Estimate residual baseline from the fringe rate of differential interferogram (using FFT)
@@ -348,8 +350,8 @@ def refined_flattened_ifg(
 # NB: this function is a bit long and ugly due to the volume of chained calls for the workflow
 def precise_flattened_ifg(
     pc: ProcConfig,
-    ic: IfgFileNames,
-    dc: DEMFileNames,
+    ic: InterferogramPaths,
+    dc: DEMPaths,
     tc: TempFileConfig,
     ifg_file: pathlib.Path,
     ifg_width: int,
@@ -363,8 +365,8 @@ def precise_flattened_ifg(
         iv) simulate phase due to precision baseline and topography;
         v) form the precise flattened interferogram.
     :param pc: ProcConfig obj
-    :param ic: IfgFileNames obj
-    :param dc: DEMFileNames obj
+    :param ic: InterferogramPaths obj
+    :param dc: DEMPaths obj
     :param tc: TempFileConfig obj
     :param ifg_width:
     :returns: The path to the ifg produced
@@ -590,7 +592,7 @@ def get_width10(ifg_off10_path: pathlib.Path):
 
 def calc_bperp_coh_filt(
     pc: ProcConfig,
-    ic: IfgFileNames,
+    ic: InterferogramPaths,
     ifg_file: pathlib.Path,
     ifg_baseline: pathlib.Path,
     ifg_width: int):
@@ -600,7 +602,7 @@ def calc_bperp_coh_filt(
         ii) interferometric coherence of the flattened interferogram;
         iii) filtered interferogram.
     :param pc: ProcConfig obj
-    :param ic: IfgFileNames obj
+    :param ic: InterferogramPaths obj
     :param ifg_file: The path to the input ifg to process
     :param ifg_baseline: The path to the input baseline file
     :param ifg_width:
@@ -664,7 +666,7 @@ def calc_bperp_coh_filt(
 
 def calc_unw(
     pc: ProcConfig,
-    ic: IfgFileNames,
+    ic: InterferogramPaths,
     tc: TempFileConfig,
     ifg_width: int,
     land_center: Optional[Tuple[int, int]] = None
@@ -672,7 +674,7 @@ def calc_unw(
     """
     TODO: docs, does unw == unwrapped/unwrapping?
     :param pc: ProcConfig obj
-    :param ic: IfgFileNames obj
+    :param ic: InterferogramPaths obj
     :param tc: TempFileConfig obj
     :param ifg_width:
     """
@@ -732,7 +734,7 @@ def calc_unw(
 
 def calc_unw_thinning(
     pc: ProcConfig,
-    ic: IfgFileNames,
+    ic: InterferogramPaths,
     tc: TempFileConfig,
     ifg_width: int,
     num_sampling_reduction_runs: int = 3,
@@ -741,7 +743,7 @@ def calc_unw_thinning(
     """
     TODO docs
     :param pc: ProcConfig obj
-    :param ic: IfgFileNames obj
+    :param ic: InterferogramPaths obj
     :param tc: TempFileConfig obj
     :param ifg_width:
     :param num_sampling_reduction_runs:
@@ -811,8 +813,8 @@ def calc_unw_thinning(
 
 def do_geocode(
     pc: ProcConfig,
-    ic: IfgFileNames,
-    dc: DEMFileNames,
+    ic: InterferogramPaths,
+    dc: DEMPaths,
     tc: TempFileConfig,
     ifg_width: int,
     dtype_out: int = const.DTYPE_GEOTIFF_FLOAT,
@@ -820,8 +822,8 @@ def do_geocode(
     """
     TODO
     :param pc: ProcConfig obj
-    :param ic: IfgFileNames obj
-    :param dc: DEMFileNames obj
+    :param ic: InterferogramPaths obj
+    :param dc: DEMPaths obj
     :param tc: TempFileConfig obj
     :param ifg_width:
     :param dtype_out:
@@ -942,12 +944,12 @@ def get_width_out(dem_geo_par: io.IOBase):
 
 
 def geocode_unwrapped_ifg(
-    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in: int, width_out: int
+    ic: InterferogramPaths, dc: DEMPaths, tc: TempFileConfig, width_in: int, width_out: int
 ):
     """
     TODO docs
-    :param ic: IfgFileNames obj
-    :param dc: DEMFileNames obj
+    :param ic: InterferogramPaths obj
+    :param dc: DEMPaths obj
     :param tc: TempFileConfig obj
     :param width_in:
     :param width_out:
@@ -968,12 +970,12 @@ def geocode_unwrapped_ifg(
 
 
 def geocode_flattened_ifg(
-    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in: int, width_out: int,
+    ic: InterferogramPaths, dc: DEMPaths, tc: TempFileConfig, width_in: int, width_out: int,
 ):
     """
     TODO docs
-    :param ic: IfgFileNames obj
-    :param dc: DEMFileNames obj
+    :param ic: InterferogramPaths obj
+    :param dc: DEMPaths obj
     :param tc: TempFileConfig obj
     :param width_in:
     :param width_out:
@@ -998,12 +1000,12 @@ def geocode_flattened_ifg(
 
 
 def geocode_filtered_ifg(
-    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in: int, width_out: int
+    ic: InterferogramPaths, dc: DEMPaths, tc: TempFileConfig, width_in: int, width_out: int
 ):
     """
     TODO docs
-    :param ic: IfgFileNames obj
-    :param dc: DEMFileNames obj
+    :param ic: InterferogramPaths obj
+    :param dc: DEMPaths obj
     :param tc: TempFileConfig obj
     :param width_in:
     :param width_out:
@@ -1027,12 +1029,12 @@ def geocode_filtered_ifg(
 
 
 def geocode_flat_coherence_file(
-    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in: int, width_out: int,
+    ic: InterferogramPaths, dc: DEMPaths, tc: TempFileConfig, width_in: int, width_out: int,
 ):
     """
     TODO docs
-    :param ic: IfgFileNames obj
-    :param dc: DEMFileNames obj
+    :param ic: InterferogramPaths obj
+    :param dc: DEMPaths obj
     :param tc: TempFileConfig obj
     :param width_in:
     :param width_out:
@@ -1054,12 +1056,12 @@ def geocode_flat_coherence_file(
 
 
 def geocode_filtered_coherence_file(
-    ic: IfgFileNames, dc: DEMFileNames, tc: TempFileConfig, width_in: int, width_out: int,
+    ic: InterferogramPaths, dc: DEMPaths, tc: TempFileConfig, width_in: int, width_out: int,
 ):
     """
     TODO: docs
-    :param ic: IfgFileNames obj
-    :param dc: DEMFileNames obj
+    :param ic: InterferogramPaths obj
+    :param dc: DEMPaths obj
     :param tc: TempFileConfig obj
     :param width_in:
     :param width_out:

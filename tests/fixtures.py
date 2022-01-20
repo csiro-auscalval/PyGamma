@@ -92,10 +92,13 @@ def copy_test_proc_into_dir(proc_path, out_dir):
 def proc_config_path():
     return TEST_DATA_BASE / "20151127" / "gamma.proc"
 
-@pytest.fixture(scope="session")
-def proc_config(proc_config_path):
+@pytest.fixture
+def proc_config(proc_config_path, temp_out_dir):
     with proc_config_path.open('r') as fileobj:
         result = ProcConfig.from_file(fileobj)
+
+    result.output_path = temp_out_dir
+    result.job_path = temp_out_dir
 
     return result
 

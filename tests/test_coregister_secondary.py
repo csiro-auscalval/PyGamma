@@ -7,6 +7,7 @@ from tests.fixtures import *
 import insar.coregister_secondary
 from insar.coregister_secondary import  coregister_secondary, apply_coregistration
 from insar.path_util import par_file
+from insar.logs import logging_directory
 
 def simple_coreg_outputs(secondary_slc):
     test_out_slc = secondary_slc.parent / "coreg.slc"
@@ -24,20 +25,20 @@ def simple_coreg(proc_config, primary_slc, secondary_slc, out_slc, out_mli):
     # matter as we don't have GAMMA licenses to process the data for real, it's all
     # just running through mocked PyGamma objects that do high-level validation and file
     # exists/touch operations only...
-
-    coregister_secondary(
-        proc_config,
-        primary_slc,
-        primary_slc,
-        primary_slc,
-        secondary_slc,
-        secondary_slc,
-        out_slc,
-        out_mli,
-        # Arbitrary choices for multi-look, shouldn't matter testing wise
-        4,
-        4
-    )
+    with logging_directory(proc_config.job_path):
+        coregister_secondary(
+            proc_config,
+            primary_slc,
+            primary_slc,
+            primary_slc,
+            secondary_slc,
+            secondary_slc,
+            out_slc,
+            out_mli,
+            # Arbitrary choices for multi-look, shouldn't matter testing wise
+            4,
+            4
+        )
 
 
 def cleanup(secondary_slc):

@@ -6,6 +6,77 @@ from insar.stack import load_stack_config
 
 from insar.paths.slc import SlcPaths
 
+class CoregisteredPrimaryPaths:
+    """
+    This class produces pathnames for files relevant to the coregistration of the
+    primary stack scene to the stack's DEM.
+
+    This is similar yet distinct from `CoregisteredSlcPaths` as the primary scene has
+    no other scene SLC it can coregister to (hence it's considered the primary or
+    "reference" scene that secondary scenes coregister to) - instead the primary scene
+    is coregistered to the DEM instead.
+
+    All code should use this class when referring to pathnames relating to coregistered
+    SLC data relating to the primary scene  to avoid duplicating/repeating pathnames to
+    avoid refactoring/renaming related errors.
+    """
+
+    dem_primary_slc_name: Path
+    """A common path prefix shared by most path names in this class"""
+
+    dem_primary_slc: Path
+    """The primary scene's SLC data file path before coregistration"""
+
+    dem_primary_slc_par: Path
+    """The accompanying GAMMA .par file for `self.dem_primary_slc`"""
+
+    dem_primary_mli: Path
+    """The primary scene's multi-looked SLC data file path before coregistration."""
+
+    dem_primary_mli_par: Path
+    """The accompanying GAMMA .par file for `self.dem_primary_mli`"""
+
+    r_dem_primary_slc: Path
+    """The primary scene's coregistered SLC data file path."""
+
+    r_dem_primary_slc_par: Path
+    """The accompanying GAMMA .par file for `self.r_dem_primary_slc`"""
+
+    r_dem_primary_mli: Path
+    """The primary scene's multi-looked coregistered SLC data file path."""
+
+    r_dem_primary_mli_par: Path
+    """The accompanying GAMMA .par file for `self.r_dem_primary_mli`"""
+
+    def __init__(self, proc: ProcConfig):
+        out_dir = proc.output_path
+
+        dem_primary_dir = out_dir / proc.slc_dir / proc.ref_primary_scene
+
+        suffix = proc.ref_primary_scene + "_" + proc.polarisation
+        self.dem_primary_slc_name = dem_primary_dir / suffix
+
+        self.dem_primary_slc = dem_primary_dir / (suffix + ".slc")
+        self.dem_primary_slc_par = dem_primary_dir / (suffix + ".slc.par")
+
+        suffix_lks = f"{proc.ref_primary_scene}_{proc.polarisation}_{proc.range_looks}rlks"
+        dem_primary_mli_name = dem_primary_dir / suffix_lks
+        self.dem_primary_mli = dem_primary_mli_name.with_suffix(".mli")
+        self.dem_primary_mli_par = dem_primary_mli_name.with_suffix(".mli.par")
+
+        suffix_slc = f"r{proc.ref_primary_scene}_{proc.polarisation}"
+        r_dem_primary_slc_name = dem_primary_dir / suffix_slc
+        self.r_dem_primary_slc = r_dem_primary_slc_name.with_suffix(".slc")
+        self.r_dem_primary_slc_par = r_dem_primary_slc_name.with_suffix(".slc.par")
+
+        suffix_mli = "r{}_{}_{}rlks".format(
+            proc.ref_primary_scene, proc.polarisation, proc.range_looks
+        )
+        r_dem_primary_mli_name = dem_primary_dir / suffix_mli
+        self.r_dem_primary_mli = r_dem_primary_mli_name.with_suffix(".mli")
+        self.r_dem_primary_mli_par = r_dem_primary_mli_name.with_suffix(".mli.par")
+
+
 class CoregisteredSlcPaths:
     """
     This class produces pathnames for files relevant to coregistering SLC products.
@@ -25,16 +96,28 @@ class CoregisteredSlcPaths:
     # them back to the stack definition/documentation as well.
     secondary_mli: Path
 
+    # Also as above, some fields are duplicates / need to be cleaned up as part of
+    # another refactor (probably during the upcoming OOP->functional refactor where
+    # most of the related code will be getting touched)
     r_dem_primary_mli: Path
 
     r_dem_primary_slc_par: Path
     r_dem_primary_mli_par: Path
 
     r_secondary_slc: Path
+    """The secondary scene's coregistered SLC data file path"""
+
     r_secondary_slc_par: Path
+    """The accompanying GAMMA .par file for `self.r_secondary_slc`"""
+
     r_secondary_slc_tab: Path
+    """The accompanying GAMMA TAB file for `self.r_secondary_slc`"""
+
     r_secondary_mli: Path
+    """The secondary scene's multi-looked coregistered SLC data file path"""
+
     r_secondary_mli_par: Path
+    """The accompanying GAMMA .par file for `self.r_secondary_mli_par`"""
 
     primary_slc_tab: Path
     secondary_slc_tab: Path
@@ -88,19 +171,16 @@ class CoregisteredSlcPaths:
         primary_slc_rlks_prefix = f"{primary_slc_prefix}_{rlks}rlks"
 
         dem_dir = Path(stack_config.output_path) / stack_config.dem_dir
-        self.dem_filenames = CoregisterDem.dem_filenames(
-            dem_prefix=primary_slc_rlks_prefix,
-            outdir=dem_dir
-        )
 
-        self.primary_dem = CoregisterDem.dem_primary_names(
-            slc_prefix=primary_slc_rlks_prefix,
-            r_slc_prefix=f"r{primary_slc_prefix}",
-            outdir=self.primary.dir,
-        )
+        self.primary_dem = CoregisteredPrimaryPaths(stack_config)
+        #self.primary_dem = CoregisterDem.dem_primary_names(
+        #    slc_prefix=primary_slc_rlks_prefix,
+        #    r_slc_prefix=f"r{primary_slc_prefix}",
+        #    outdir=self.primary.dir,
+        #)
 
         # FIXME: self.primary_dem = CoregisteredDemPaths(...)?
-        self.r_dem_primary_mli = self.primary_dem["r_dem_primary_mli"]
+        self.r_dem_primary_mli = self.primary_dem.r_dem_primary_mli
         self.r_dem_primary_mli_par = self.r_dem_primary_mli.with_suffix(".mli.par")
         # FIXME: self.primary_dem.r_dem_slc_par?
         self.r_dem_primary_slc_par = self.primary.slc_par

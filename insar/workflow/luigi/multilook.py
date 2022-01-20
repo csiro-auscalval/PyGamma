@@ -7,6 +7,8 @@ from insar.calc_multilook_values import multilook, calculate_mean_look_values
 from insar.project import ProcConfig
 from insar.constant import SCENE_DATE_FMT
 from insar.logs import STATUS_LOGGER
+from insar.paths.stack import StackPaths
+from insar.paths.slc import SlcPaths
 
 from insar.workflow.luigi.utils import tdir, get_scenes, PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
@@ -91,29 +93,30 @@ class CreateMultilook(luigi.Task):
         with open(self.proc_file, "r") as proc_fileobj:
             proc = ProcConfig.from_file(proc_fileobj)
 
+        paths = StackPaths(proc)
         primary_pol = proc.polarisation
 
         log = STATUS_LOGGER.bind(multi_look=self.multi_look, primary_pol=primary_pol)
         log.info("Beginning multilook")
 
         # calculate the mean range and azimuth look values
-        slc_dir = outdir / proc.slc_dir
-        slc_frames = get_scenes(self.burst_data_csv)
+        slc_frames = get_scenes(paths.acquisition_csv)
         slc_par_files = []
 
         for _dt, status_frame, _pols in slc_frames:
             slc_scene = _dt.strftime(SCENE_DATE_FMT)
+
             for _pol in _pols:
                 if _pol not in self.polarization:
                     log.info(f"Skipping non-primary polarisation {_pol} in multilook for {slc_scene}")
                     continue
 
-                slc_par = f"{slc_scene}_{_pol.upper()}.slc.par"
-                slc_par = outdir / proc.slc_dir / slc_scene / slc_par
-                if not slc_par.exists():
-                    raise FileNotFoundError(f"missing {slc_par} file")
+                slc_paths = SlcPaths(proc, slc_scene, _pol)
 
-                slc_par_files.append(Path(slc_par))
+                if not slc_paths.slc_par.exists():
+                    raise FileNotFoundError(f"missing {slc_paths.slc_par} file")
+
+                slc_par_files.append(slc_paths.slc_par)
 
         # range and azimuth looks are only computed from primary polarization
         rlks, alks, *_ = calculate_mean_look_values(
