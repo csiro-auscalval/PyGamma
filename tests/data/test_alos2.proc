@@ -1,13 +1,5 @@
 ##### GAMMA CONFIGURATION FILE #####
 
------NCI SOFTWARE CONFIGURATION FILE--------------------------------------------------------------------
-
-GAMMA_CONFIG=/g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_CONFIG
-
-
------NCI FILE PATHS-------------------------------------------------------------------------------------
-
-NCI_PATH=/g/data/dz56/mitch-testing/S1/GAMMA
 ENVISAT_ORBITS=/g/data/dg9/SAR_ORBITS/ENVISAT
 ERS_ORBITS=/g/data/dg9/SAR_ORBITS/ERS_ODR_UPDATED
 S1_ORBITS=/g/data/fj7/Copernicus/Sentinel-1
@@ -29,9 +21,7 @@ LAND_CENTER=-27, 148.3
 SLC_DIR=SLC
 DEM_DIR=DEM
 INT_DIR=INT
-BASE_DIR=baselines
 LIST_DIR=lists
-ERROR_DIR=error_results
 RAW_DATA_DIR=RAW_DATA
 
 
@@ -40,9 +30,6 @@ RAW_DATA_DIR=RAW_DATA
 SCENE_LIST=scenes.list
 SECONDARY_LIST=slaves.list
 IFG_LIST=ifgs.list
-FRAME_LIST=frame.list
-S1_BURST_LIST=subset_burst.list
-S1_DOWNLOAD_LIST=s1_download.list
     # list for removing scene/s from lists (ie. for SLCs that don't work)
 REMOVE_SCENE_LIST=remove_scenes.list
 
@@ -52,23 +39,6 @@ REMOVE_SCENE_LIST=remove_scenes.list
 PROJECT=mitch-testing
 TRACK=NO_TRACK
 ORBIT = Descending
-
------RAW DATA & DEM LOCATION ON MDSS--------------------------------------------------------------------
-
-    # Sentinel-1 - if AOI within Australia, GAMMA DEM will be produced automatically.
-                 - if AOI elsewhere,a  manual GAMMA DEM will need to first be created and MDSS_DEM_tar
-                   details required.
-                 - data downloaded directly from S1_PATH and S1_ORBITS.
-
-    # Options: aust (within Australia) or other (outside Australia)
-DEM_AREA=aust
-    # if using DEM from MDSS, enter file name (exc. tar.gz). If auto generated, enter track name
-DEM_NAME=__dem_name__
-MDSS_DATA_DIR=insar/<sensor>/<project>/<track>
-MDSS_DEM_TAR=insar/DEM/<project>/<tar_name>.tar.gz
-    # Name of external image used for DEM coregistration (if required, eg. very flat terrain)
-EXT_IMAGE=
-
 
 -----SENSOR DETAILS-------------------------------------------------------------------------------------
 
@@ -82,13 +52,6 @@ EXT_IMAGE=
 POLARISATION=HH
     # Options: ASAR, CSK, ERS, JERS1, PALSAR1, PALSAR2, RSAT1, RSAT2, S1, TSX
 SENSOR=PALSAR2
-    # Sensor mode options:
-        # ASAR: I4 or - for other image modes
-        # CSK: HI or SP (HIMAGE or Spotlight)
-        # PALSAR2: WD or SM (Wide-swath/Stripmap)
-        # RSAT2: W or MF (Wide/Multi-look Fine)
-        # S1: IWS or SM (Interferometic Wide Swath/Stripmap)
-SENSOR_MODE=???
     # If ERS, specify which one (ERS1 or ERS2)
 ERS_SENSOR=
     # If PALSAR2, specify which raw data level (raw or slc)
@@ -155,8 +118,8 @@ DEM_RAD_MAX=4
 COREG_CC_THRESH=0.1
     # Number of polynomial model parameters (1, 3, 4 or 6; only 1 required for S1)
 COREG_MODEL_PARAMS=1
-    # Size of window for intensity cross-correlation (default: 128)
-COREG_WINDOW_SIZE=128
+    # Size of search window for intensity cross-correlation (range, azimuth) (default: 256 256)
+COREG_WINDOW_SIZE=256 256
     # Number of search windows in range and azimuth directions (default: 64)
 COREG_NUM_WINDOWS=64
     # SLC oversampling factor (1, 2 or 4) (default: 2)
@@ -167,8 +130,6 @@ COREG_NUM_ITERATIONS=5
     -----FOR create_diff_par-----
     # Enter number of offset measurements in range, azimuth (default: 32 32)
 SECONDARY_OFFSET_MEASURE=32 32
-    # Search window sizes (32, 64, 128...) (range, azimuth) (default: 256 256)
-SECONDARY_WIN=256 256
     # Cross-correlation threshold (default: 0.15)
 SECONDARY_CC_THRESH=0.15
 

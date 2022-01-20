@@ -13,16 +13,9 @@ def test_read_proc_file():
     assert file_obj.closed is False
 
     pv = project.ProcConfig.from_file(file_obj)
-    assert pv.nci_path.as_posix() == "/some/test/data"
     assert pv.slc_dir.as_posix() == "SLC"
     assert pv.ifg_list == "ifgs.list"
     assert pathlib.Path(pv.primary_dem_image).name == "GAMMA_DEM_SRTM_1as_mosaic.img"
-
-    # check secondary variables derived from the proc file
-    assert pv.dem_noff1 == "0"
-    assert pv.dem_noff2 == "0"
-    assert pv.ifg_rpos == pv.dem_rpos
-    assert pv.ifg_azpos == pv.dem_azpos
 
 
 def test_read_incomplete_proc_file_fails():
@@ -60,9 +53,7 @@ def mproc():
     mock_proc.polarisation = "polarisation"
     mock_proc.range_looks = "range-looks"
     mock_proc.gamma_dem_dir = "gamma-dem-dir"
-    mock_proc.dem_name = "dem-name"
     mock_proc.dem_dir = "dem-dir"
-    mock_proc.results_dir = "results-dir"
     mock_proc.track = "track"
     mock_proc.stack_id = "test_stack"
 

@@ -122,7 +122,8 @@ def coregister_secondary(
     lt0_path = r_secondary_slc_path.with_suffix(".lt0")
     off0_path = r_secondary_slc_path.with_suffix(".off0")
     offsets_path = r_secondary_slc_path.with_suffix(".offsets")
-    ovr_path = r_secondary_slc_path.with_suffix(".ovr_results")
+    # Note: Bash wrote a bunch of stats/info to this file... we don't currently.
+    #ovr_path = r_secondary_slc_path.with_suffix(".ovr_results")
     coffs_path = r_secondary_slc_path.with_suffix(".coffs")
     coffsets_path = r_secondary_slc_path.with_suffix(".coffsets")
 
@@ -147,7 +148,7 @@ def coregister_secondary(
 
     # Measure offset and estimate offset polynomials between slave MLI and resampled slave MLI
     num_measurements = proc_config.secondary_offset_measure.split(" ")
-    window_sizes = proc_config.secondary_win.split(" ")
+    window_sizes = proc_config.coreg_window_size.split(" ")
     cc_thresh = proc_config.secondary_cc_thresh
 
     create_diff_par(
@@ -248,10 +249,10 @@ def coregister_secondary(
             ioff,
             offs_path,
             ccp_path,
-            proc_config.secondary_win,
-            proc_config.secondary_win,
+            window_sizes[0],
+            window_sizes[1],
             offsets_path,
-            ovr_path,
+            proc_config.coreg_oversampling,
             proc_config.coreg_num_windows,
             proc_config.coreg_num_windows,
             proc_config.secondary_cc_thresh

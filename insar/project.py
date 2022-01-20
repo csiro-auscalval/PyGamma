@@ -25,8 +25,6 @@ class ProcConfig:
     """Container for Gamma proc files (collection of runtime settings)."""
 
     __path_attribs__ = [
-        "gamma_config",
-        "nci_path",
         "output_path",
         "job_path",
         "envisat_orbits",
@@ -42,21 +40,19 @@ class ProcConfig:
         "dem_dir",
         "gamma_dem_dir",
         "int_dir",
-        "base_dir",
         "list_dir",
-        "error_dir",
         "raw_data_dir",
+        "gamma_dem_dir"
     ]
 
     __filename_attribs__ = [
         "database_path",
         "primary_dem_image",
+        # FIXME: Implement this (GH issue #244)
         "scene_list",
         "secondary_list",
         "ifg_list",
-        "frame_list",
-        "s1_burst_list",
-        "s1_download_list",
+        # FIXME: Implement this (GH issue #244)
         "remove_scene_list",
     ]
 
@@ -70,14 +66,11 @@ class ProcConfig:
         "track",
         "orbit",
         "land_center",
-        "dem_area",
-        "dem_name",
-        "mdss_data_dir",
-        "mdss_dem_tar",
-        "ext_image",
         "polarisation",
         "sensor",
-        "sensor_mode",
+        # TODO: In the future we may want to revise these into a single generic
+        # "sensor_subtype" setting or something along those lines, IF we never
+        # intend to support mixed-sensor stacks (if we do, keeping separate makes sense)
         "ers_sensor",
         "palsar2_type",
         "multi_look",
@@ -89,7 +82,9 @@ class ProcConfig:
         "max_connect",
         "workflow",
         "cleanup",
+        # TODO: This isn't used, but would be if we supported burst subsetting (GH issue #244)
         "s1_resize_ref_slc",
+        # TODO: Implement these (GH issue #244)
         "dem_patch_window",
         "dem_rpos",
         "dem_azpos",
@@ -98,14 +93,17 @@ class ProcConfig:
         "dem_win",
         "dem_snr",
         "dem_rad_max",
+        # FIXME: We have multiple cross-correlation thresholds with similar/ambiguous names
+        # - these need addressing in the future (GH issue #326)
         "coreg_cc_thresh",
         "coreg_model_params",
         "coreg_window_size",
         "coreg_num_windows",
         "coreg_oversampling",
         "coreg_num_iterations",
+        # FIXME: Should these be coreg_ as well?
         "secondary_offset_measure",
-        "secondary_win",
+        # FIXME: do these really need to be identified w/ S1? (cc_thresh is common... other thresholds surely could be too?)
         "secondary_cc_thresh",
         "coreg_s1_cc_thresh",
         "coreg_s1_frac_thresh",
@@ -121,18 +119,15 @@ class ProcConfig:
         "ifg_exponent",
         "ifg_filtering_window",
         "ifg_coherence_window",
+        # FIXME: Should this be implemented? (GH issue #244)
         "ifg_iterative",
+        # FIXME: Should this be implemented? (GH issue #244)
+        # (we use a hard-coded const.CROSS_CORRELATION_THRESHOLD currently)
         "ifg_thres",
         "ifg_init_win",
+        # FIXME: Should this be implemented?  (GH issue #244) (hard-coded currently)
         "ifg_offset_win",
         "ifg_baseline_refinement",
-        # derived member vars
-        "proj_dir",
-        "results_dir",
-        "dem_noff1",
-        "dem_noff2",
-        "ifg_rpos",
-        "ifg_azpos",
         "num_linked_append_dates"
     ]
 
@@ -160,18 +155,8 @@ class ProcConfig:
             assert(isinstance(self.land_center[0], numbers.Number))
             assert(isinstance(self.land_center[1], numbers.Number))
 
-        # prepare derived settings variables
-
-        # FIXME: proj_dir isn't used, nci_path isn't really NCI specific (and also unused), etc...
-        # ^- there's quite a few .proc settings we can remove! A good linter will pick up on
-        # these longer term when CI comes up..?
-        self.proj_dir = pathlib.Path(self.nci_path) / self.project / self.sensor / "GAMMA"
+        # FIXME: Should be a setting
         self.gamma_dem_dir = "GAMMA_DEM"
-        self.results_dir = "results"
-
-        self.dem_noff1, self.dem_noff2 = self.dem_offset.split(" ")
-        self.ifg_rpos = self.dem_rpos
-        self.ifg_azpos = self.dem_azpos
 
 
     @classmethod
