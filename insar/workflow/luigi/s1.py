@@ -36,7 +36,7 @@ class ProcessSlc(luigi.Task):
         )
 
     def run(self):
-        log = STATUS_LOGGER.bind(scene_date=self.scene_date, polarization=self.polarization)
+        log = STATUS_LOGGER.bind(scene_date=self.scene_date, polarisation=self.polarization)
         log.info("Beginning SLC processing")
 
         (Path(self.slc_dir) / str(self.scene_date)).mkdir(parents=True, exist_ok=True)
@@ -189,7 +189,7 @@ class ProcessSlcMosaic(luigi.Task):
         )
 
     def run(self):
-        log = STATUS_LOGGER.bind(scene_date=self.scene_date, polarization=self.polarization)
+        log = STATUS_LOGGER.bind(scene_date=self.scene_date, polarisation=self.polarization)
         log.info("Beginning SLC mosaic")
 
         slc_job = SlcProcess(

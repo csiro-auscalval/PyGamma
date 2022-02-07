@@ -39,7 +39,7 @@ class ProcessBackscatter(luigi.Task):
         slc_date = slc_date.lstrip("r")
 
         log = STATUS_LOGGER.bind(
-            slc=self.src_mli,
+            scene=self.src_mli,
         )
 
         # Load the gamma proc config file
@@ -52,9 +52,9 @@ class ProcessBackscatter(luigi.Task):
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
                 task="Normalised radar backscatter backscatter",
-                slc_dir=self.outdir,
-                slc_date=slc_date,
-                slc_pol=slc_pol
+                scene_dir=self.outdir,
+                scene_date=slc_date,
+                polarisation=slc_pol
             )
 
             log.info("Generating normalised radar backscatter")

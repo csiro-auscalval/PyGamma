@@ -44,7 +44,7 @@ class ProcessIFG(luigi.Task):
 
         log = STATUS_LOGGER.bind(
             outdir=self.outdir,
-            polarization=proc_config.polarisation,
+            polarisation=proc_config.polarisation,
             primary_date=self.primary_date,
             secondary_date=self.secondary_date
         )

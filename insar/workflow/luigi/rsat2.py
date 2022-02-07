@@ -37,7 +37,7 @@ class ProcessRSAT2Slc(luigi.Task):
         )
 
     def run(self):
-        log = STATUS_LOGGER.bind(sensor="RSAT2", scene_date=self.scene_date, polarization=self.polarization)
+        log = STATUS_LOGGER.bind(sensor="RSAT2", scene_date=self.scene_date, polarisation=self.polarization)
         log.info("Beginning SLC processing")
 
         scene_out_dir = Path(self.slc_dir) / str(self.scene_date)

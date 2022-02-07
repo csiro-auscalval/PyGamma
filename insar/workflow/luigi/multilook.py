@@ -96,7 +96,7 @@ class CreateMultilook(luigi.Task):
         paths = StackPaths(proc)
         primary_pol = proc.polarisation
 
-        log = STATUS_LOGGER.bind(multi_look=self.multi_look, primary_pol=primary_pol)
+        log = STATUS_LOGGER.bind(multi_look=self.multi_look, polarisation=primary_pol)
         log.info("Beginning multilook")
 
         # calculate the mean range and azimuth look values

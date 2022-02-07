@@ -134,9 +134,9 @@ class CoregisterDemPrimary(luigi.Task):
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
                 task="DEM primary coregistration",
-                slc_dir=self.outdir,
-                slc_date=primary_scene,
-                slc_pol=primary_pol
+                scene_dir=self.outdir,
+                scene_date=primary_scene,
+                polarisation=primary_pol
             )
 
             log.info("Beginning DEM primary coregistration")
@@ -321,11 +321,11 @@ class CoregisterSecondary(luigi.Task):
 
         log = STATUS_LOGGER.bind(
             outdir=self.outdir,
-            polarization=secondary_pol,
+            polarisation=secondary_pol,
             secondary_date=secondary_date,
-            slc_secondary=self.slc_secondary,
+            secondary_scene=self.slc_secondary,
             primary_date=primary_date,
-            slc_primary=self.slc_primary
+            primary_scene=self.slc_primary
         )
         log.info("Beginning SLC coregistration")
 

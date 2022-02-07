@@ -147,11 +147,11 @@ class CoregisterSlc:
 
         self.log = _LOG.bind(
             task="SLC coregistration",
-            polarization=self.secondary_pol,
+            polarisation=self.secondary_pol,
             secondary_date=self.secondary_date,
-            slc_secondary=slc_secondary,
+            secondary_scene=slc_secondary,
             primary_date=self.primary_date,
-            slc_primary=slc_primary,
+            primary_scene=slc_primary,
             list_idx=self.list_idx
         )
 
@@ -1288,7 +1288,7 @@ class CoregisterSlc:
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
                 task="SLC coregistration and multi-looking",
-                slc_dir=self.out_dir,
+                scene_dir=self.out_dir,
                 primary_date=self.primary_date,
                 secondary_date=self.secondary_date
             )
@@ -1350,7 +1350,7 @@ class CoregisterSlc:
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
                 task="SLC coregistration and resampling",
-                slc_dir=self.out_dir,
+                scene_dir=self.out_dir,
                 primary_date=self.primary_date,
                 secondary_date=self.secondary_date
             )

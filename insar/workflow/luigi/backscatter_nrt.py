@@ -37,7 +37,7 @@ class ProcessNRTBackscatter(luigi.Task):
 
     def run(self):
         log = STATUS_LOGGER.bind(
-            slc=self.src_path,
+            scene=self.src_path,
         )
 
         try:
@@ -49,9 +49,9 @@ class ProcessNRTBackscatter(luigi.Task):
 
             structlog.threadlocal.bind_threadlocal(
                 task="SLC backscatter (NRT)",
-                slc_dir=outdir,
-                slc_date=slc_date,
-                slc_pol=slc_pol
+                scene_dir=outdir,
+                scene_date=slc_date,
+                polarisation=slc_pol
             )
 
             proc_config, metadata = load_settings(Path(self.proc_file))

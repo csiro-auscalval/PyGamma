@@ -43,7 +43,7 @@ class ProcessALOSSlc(luigi.Task):
         log = STATUS_LOGGER.bind(
             scene_date=self.scene_date,
             sensor=self.sensor,
-            polarization=self.polarization
+            polarisation=self.polarization
         )
         log.info("Beginning SLC processing")
 
