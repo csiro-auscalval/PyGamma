@@ -115,18 +115,19 @@ def test_s1_slc_fails_with_missing_polarisation(pgp, pgmock, temp_out_dir, s1_te
     assert(not paths.slc_par.exists())
 
 
-def test_s1_slc_fails_with_incomplete_data(pgp, pgmock, temp_out_dir, s1_temp_job_proc, s1_test_data, s1_test_data_csv):
+def test_s1_slc_fails_with_incomplete_data(pgp, pgmock, temp_out_dir, s1_temp_job_proc, s1_mutable_test_data, s1_test_data_csv):
     paths = SlcPaths(s1_temp_job_proc, S1_TEST_DATA_DATE, "VV")
 
     assert(not paths.slc.exists())
 
     # Delete important source data files to make it incomplete
-    for xml in s1_test_data[0].glob("*annotation/*.xml"):
-        xml.unlink()
+    for test_data in s1_mutable_test_data:
+        for xml in test_data.glob("*annotation/*.xml"):
+            xml.unlink()
 
-    with pytest.raises(Exception):
+    with pytest.raises(FileNotFoundError):
         process_s1_slc(
-            s1_test_data,
+            s1_mutable_test_data,
             temp_out_dir,
             s1_test_data_csv,
             "VV"

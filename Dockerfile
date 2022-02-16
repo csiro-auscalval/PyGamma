@@ -2,8 +2,8 @@
 # Usage: docker run -v $(pwd):/usr/src/gamma_insar:ro -t -i pygamma_workflow pytest
 #        docker run -v $(pwd):/usr/src/gamma_insar -t -i pygamma_workflow pytest --cov-report=html --cov=insar tests
 
-#FROM osgeo/gdal:ubuntu-small-latest
-FROM osgeo/gdal:ubuntu-small-3.3.1
+FROM osgeo/gdal:ubuntu-small-latest
+#FROM osgeo/gdal:ubuntu-small-3.3.1
 
 VOLUME ["/usr/src/gamma_insar"]
 

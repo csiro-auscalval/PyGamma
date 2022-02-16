@@ -254,8 +254,7 @@ def s1_proc_without_poeorb(test_data_dir):
 def s1_test_data_zips():
     return [TEST_DATA_BASE / f"{i}.zip" for i in S1_TEST_DATA_IDS]
 
-@pytest.fixture(scope="session")
-def s1_test_data(test_data_dir: Path, s1_test_data_zips):
+def create_s1_test_data(test_data_dir: Path, s1_test_data_zips):
     safe_dirs = []
 
     # Extract test data
@@ -286,6 +285,14 @@ def s1_test_data(test_data_dir: Path, s1_test_data_zips):
         (safe_dirs[-1] / fake_orbit_name).touch()
 
     return safe_dirs
+
+@pytest.fixture(scope="session")
+def s1_test_data(test_data_dir: Path, s1_test_data_zips):
+    return create_s1_test_data(test_data_dir, s1_test_data_zips)
+
+@pytest.fixture
+def s1_mutable_test_data(temp_out_dir: Path, s1_test_data_zips):
+    return create_s1_test_data(temp_out_dir, s1_test_data_zips)
 
 @pytest.fixture
 def s1_test_data_csv(pgp, pgmock, test_data_dir, s1_test_data_zips):

@@ -33,7 +33,7 @@ pandas
 geopandas
 luigi>=3.0
 matplotlib
-numpy>=1.17
+numpy>=1.22
 Pillow>=8.0.1
 PyYAML
 six

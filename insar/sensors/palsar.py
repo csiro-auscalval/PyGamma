@@ -53,7 +53,9 @@ def get_data_swath_info(
     if not raw_data_path or not raw_data_path.is_dir():
         raise RuntimeError("Cannot get swath info from ALOS archive, only from directory")
 
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir_name:
+        temp_dir = Path(temp_dir_name)
+
         # Inentify ALOS 1 or 2... (this function supports both as they share logic)
         alos1_acquisitions = list(raw_data_path.glob("*/IMG-*-ALP*"))
         alos2_acquisitions = list(raw_data_path.glob("*/IMG-*-ALOS*"))
@@ -79,8 +81,8 @@ def get_data_swath_info(
         # Parse CEOS headers to get scene center and pixel spacing
         # and use this to get a VERY crude estimate of scene extent
         if alos1_acquisitions:
-            sar_par_path = "sar.par"
-            proc_par_path = "proc.par"
+            sar_par_path = temp_dir / "sar.par"
+            proc_par_path = temp_dir / "proc.par"
 
             pg.PALSAR_proc(
                 led_file,
@@ -99,7 +101,7 @@ def get_data_swath_info(
             scene_lon = proc_par.get_value("scene_center_longitude", dtype=float, index=0)
 
         else:
-            slc_par_path = "slc.par"
+            slc_par_path = temp_dir / "slc.par"
 
             pg.par_EORC_PALSAR(
                 led_file,
