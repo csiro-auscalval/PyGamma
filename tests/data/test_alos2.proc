@@ -36,7 +36,6 @@ REMOVE_SCENE_LIST=remove_scenes.list
 
 -----PROJECT DIRECTORY & TRACK--------------------------------------------------------------------------
 
-PROJECT=mitch-testing
 TRACK=NO_TRACK
 ORBIT = Descending
 
@@ -54,8 +53,6 @@ POLARISATION=HH
 SENSOR=PALSAR2
     # If ERS, specify which one (ERS1 or ERS2)
 ERS_SENSOR=
-    # If PALSAR2, specify which raw data level (raw or slc)
-PALSAR2_TYPE=
 
 
 -----MULTI-LOOK VALUES----------------------------------------------------------------------------------

@@ -43,7 +43,6 @@ REMOVE_SCENE_LIST=remove_scenes.list
 
 -----PROJECT DIRECTORY & TRACK--------------------------------------------------------------------------
 
-PROJECT=test_project
 TRACK=T147D
 
 -----SENSOR DETAILS-------------------------------------------------------------------------------------
@@ -60,8 +59,6 @@ POLARISATION=VV
 SENSOR=S1
     # If ERS, specify which one (ERS1 or ERS2)
 ERS_SENSOR=
-    # If PALSAR2, specify which raw data level (raw or slc)
-PALSAR2_TYPE=
 
 
 -----MULTI-LOOK VALUES----------------------------------------------------------------------------------

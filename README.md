@@ -196,7 +196,7 @@ gamma_insar ARD \
     --local-scheduler
 ```
 
-An example proc file is available in `tests/data/20151127/gamma.proc`
+An example proc file (`template.proc`) is available which describes what each setting is used for, and has values which are an example of a .proc that can be used to process a stack.
 
 #### Data processing of source data directly
 

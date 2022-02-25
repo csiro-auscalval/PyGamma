@@ -1,0 +1,424 @@
+##### GAMMA CONFIGURATION FILE #####
+
+#
+# The paths to the directories which hold orbit files for various sensors
+#
+ENVISAT_ORBITS=/g/data/dg9/SAR_ORBITS/ENVISAT
+ERS_ORBITS=/g/data/dg9/SAR_ORBITS/ERS_ODR_UPDATED
+S1_ORBITS=/g/data/fj7/Copernicus/Sentinel-1
+
+#
+# The path to the directory which holds Sentinel-1 POE (Precise Orbit Ephemerides) orbit files
+#
+POEORB_PATH=/g/data/fj7/Copernicus/Sentinel-1/POEORB
+
+#
+# The path to the directory which holds Sentinel-1 RES (Restituted Orbit) orbit files
+#
+RESORB_PATH=/g/data/fj7/Copernicus/Sentinel-1/RESORB
+
+#
+# The path to the directory which holds Sentinel-1 SLC .SAFE data
+#
+S1_PATH=/g/data/fj7/Copernicus/Sentinel-1/C-SAR/SLC
+
+#
+# The path to the geospatial database used for querying/searching scenes
+#
+DATABASE_PATH = /g/data/up71/projects/InSAR-ARD/generate_yaml_db/AUS_201601_to_202104.db
+
+#
+# The path to the DEM image used for coregistration of the primary stack scene.
+# This image can be any format supported by GDAL.
+#
+PRIMARY_DEM_IMAGE=/g/data/dg9/MASTER_DEM/GAMMA_DEM_SRTM_1as_mosaic.img
+
+#
+# The human identifier to give to the stack / how the stack is named.
+#
+STACK_ID=
+
+#
+# The path to the directory in which the stack processing will occur,
+# this directory will ultimately contain all of the job scripts, logs,
+# and Luigi task files.
+#
+JOB_PATH=
+
+#
+# The path to the base directory where the stack's output products will be stored.
+# The specific paths of different types of products are documented in the stack
+# file structure specification document.
+#
+OUTPUT_PATH=
+
+#
+# The directory name to house SLC data products.
+# As an example, products will be written to $OUTPUT_PATH/$SLC_DIR/scene_date/...
+#
+SLC_DIR=SLC
+
+#
+# The directory name to house the DEM coregistration products, such as geocoding
+# LUTs that correlate the primary stack scene to the DEM.
+#
+DEM_DIR=DEM
+
+#
+# The directory name to house interferogram data products.
+#
+INT_DIR=INT
+
+#
+# The directory name to house the raw satellite data products to be processed.
+# This directory is typically temporary, and will be deleted once processing has succeeded.
+#
+RAW_DATA_DIR=raw_data
+
+#
+# The directory name to house stack structural list files, such as the manifest
+# of scene dates, interferogram date pairs, coregistration date pairs, etc.
+#
+LIST_DIR=lists
+
+SCENE_LIST=scenes.list
+SECONDARY_LIST=slaves.list
+IFG_LIST=ifgs.list
+REMOVE_SCENE_LIST=remove_scenes.list
+
+#
+# The (optional) land center (lat, lon) in which interferograms will begin phase unwrapping.
+# Example: -27, 148.3
+#
+LAND_CENTER=
+
+#
+# The Sentinel-1 track that scenes must be acquired on to be considered for inclusion into the stack.
+#
+TRACK=__track__
+
+#
+# The orbital direction that scenes must be heading in to be considered for inclusion into the stack.
+#
+ORBIT = Descending
+
+#
+# The primary polarisation to be considered as the authoritative 'reference' that's used
+# over the other polarisations (if any) for certain aspects of stack processing.
+#
+# This determines which products are used for coregistration (all other polarised products
+# simply re-use the primary polarised coregistration LUTs) and also determines what products
+# are used to produce interferograms (secondary polarisations aren't used by interferograms at all)
+#
+# Examples of available polarisations by sensor:
+# ASAR: VV
+# CSK: HH, VV
+# ERS: VV
+# PALSAR1/2: HH, VV, HV, VH (generally HH)
+# RSAT2: HH, VV
+# S1: HH, VV, HV, VH (generally VV)
+#
+POLARISATION=VV
+
+#
+# The satellite/sensor this stack uses to process it's products.
+#
+# Supported options:
+# S1 (Sentinel-1)
+# PALSAR1 (ALOS1)
+# PALSAR2 (ALOS2)
+# RSAT2 (Radarsat 2)
+#
+SENSOR=S1
+
+#
+# If the stack sensor is ERS, specify which one (ERS1 or ERS2)
+#
+ERS_SENSOR=
+
+
+-----MULTI-LOOK VALUES----------------------------------------------------------------------------------
+
+#
+# The multi-look (downsampling) factor to apply to the DEM products during processing.
+# This setting is applied to both range and azimuth.
+#
+# For full resolution (with square pixels), set to 1
+#
+MULTI_LOOK=2
+
+#
+# The multi-look (downsampling) factor to apply to the SLC products during processing.
+#
+# Leave as 'auto' if not pre-selecting, it will then be auto calculated and updated
+#
+RANGE_LOOKS=8
+AZIMUTH_LOOKS=2
+
+
+-----INTERFEROGRAM PROCESSING METHOD--------------------------------------------------------------------
+
+#
+# The baseline method to use when processing interferograms.
+#
+# Options:
+#  - sbas (use reference master)
+#
+PROCESS_METHOD=sbas
+
+#
+# The primary reference scene to use in stack coregistration and temporal baseline calculations.
+#
+# This is the scene that will be coregistered with the DEM, and then all other secondary scenes
+# will then coregister to this primary scene.
+#
+# Leave as 'auto' if not pre-selecting a scene, the median will then be chosen.
+#
+REF_PRIMARY_SCENE=auto
+
+#
+# The minimum/maximum number of baseline connections to aim for when possible.
+# (a.k.a. how many interferograms should attempt to use each scene)
+#
+# It's recommended to use up to 7 for S1, and 10 for other sensors (e.g. RSAT2)
+#
+MIN_CONNECT=4
+MAX_CONNECT=7
+
+#
+# How many of the latest dates in a stack to include in the baseline of appended stacks
+# (eg: how many existing dates to link with, when new dates are being appended)
+#
+NUM_LINKED_APPEND_DATES=5
+
+-----PROCESSING STEPS-----------------------------------------------------------------------------------
+
+#
+# The stack processing workflow to be run (a.k.a. what products to produce)
+#
+# Supported options:
+# - Backscatter (Produce all products up to (and including) SLC backscatter)
+# - Interferogram (Product all products up to (and including) interferograms)
+# - BackscatterNRT (Produce SLC and their backscatter, without coregistration)
+#
+WORKFLOW=INTERFEROGRAM
+
+#
+# A flag indicating if the stack output directory should be cleaned up to remove all intermediate products.
+# If enabled this just leaves manifests, metadata, NRB, DEM/coregistration, and interferogram products intact.
+#
+CLEANUP=yes
+
+#
+# The scene whose extent should be used as the reference for geospatial extent, in the case the satellite has inconsistent
+# geospatial data coverage over it's scenes (scenes with smaller coverage will be expanded with no-data around the edges
+# and larger scenes will have extra data outside the extent cropped out).
+#
+# If this field is set to 'auto' (the default if none is specified) then the primary reference scene will be used.
+#
+S1_RESIZE_REF_SLC=auto
+
+
+-----DEM COREGISTRATION PARAMETERS----------------------------------------------------------------------
+
+-----FOR init_offsetm-----
+
+#
+# Correlation patch size (128, 256, 512, 1024) (default: 1024)
+# Use larger window for large scenes and use scene centre (e.g. S1)
+# Use smaller window for windows towards edge of scene and smaller scenes (e.g. FB PALSAR)
+#
+DEM_PATCH_WINDOW=1024
+
+#
+# Selects a custom centre pixel for the initial offset estimation window
+# (default: "-" this gives stack land centre)
+#
+DEM_RPOS=-
+DEM_AZPOS=-
+
+-----FOR create_diff_par-----
+
+#
+# Range, azimuth offsets of the primary reference scene relative to the DEM (samples) (default: 0 0)
+# - for full DEM only, auto calculated for mli
+#
+# There aren't many use cases this should be anything but the default (0, 0) - as stack processing
+# crops the region of interest for the primary scene from the primary DEM image, thus the subset
+# of the DEM being processed by the stack is already largely overlapping the primary scene.
+#
+# I think this was primarily for use in coregisteration to an external image (not the primary scene)
+#
+DEM_OFFSET=0 0
+
+#
+# The number of offset measurements to make in range, azimuth (default: 32 32)
+#
+DEM_OFFSET_MEASURE=32 32
+
+#
+# The search window size in range, azimuth (default: 256 256) off the offset
+# measurements being made.
+#
+DEM_WIN=256 256
+
+#
+# The correlation SNR threshold (default: 0.15) that must be met for an offset measurements
+# to be included/accepted.
+#
+DEM_SNR=0.15
+
+#
+# The maximum interpolation search radius (in pixels) when geocoding the DEM.
+#
+# If full resolution processing, may need to change 'geocode' rad_max value to 8 to avoid holes in interpolation (default: 4)
+#
+DEM_RAD_MAX=4
+
+
+-----SECONDARY COREGISTRATION PARAMETERS--------------------------------------------------------------------
+
+#
+# The cross-correlation threshold for offset rejection (default: 0.1)
+#
+COREG_CC_THRESH=0.1
+
+#
+# The number of polynomial model parameters (1, 3, 4 or 6; only 1 required for S1) to be
+# used by the offset model used in secondary coregistration.
+#
+COREG_MODEL_PARAMS=1
+
+#
+# The size (pixels) of the search windows for intensity cross-correlation (range, azimuth)
+# (default: 256 256)
+#
+COREG_WINDOW_SIZE=256 256
+
+#
+# The number of search windows in range and azimuth directions (default: 64)
+#
+COREG_NUM_WINDOWS=64
+
+#
+# The SLC oversampling factor (1, 2 or 4) (default: 2)
+#
+COREG_OVERSAMPLING=2
+
+#
+# The maximum number of offset estimation iterations (default: 5)
+#
+COREG_NUM_ITERATIONS=5
+
+-----FOR create_diff_par-----
+
+#
+# The number of offset measurements in range, azimuth (default: 32 32)
+#
+SECONDARY_OFFSET_MEASURE=32 32
+
+#
+# The cross-correlation threshold that offset measurements need to meet to be
+# included in coregistration (default: 0.15)
+#
+SECONDARY_CC_THRESH=0.15
+
+-----SENTINEL-1 ONLY-----
+
+#
+# The coherence threshold used during S1 coregisration (default: 0.8)
+#
+COREG_S1_CC_THRESH=0.7
+
+#
+# The minimum valid fraction of unwrapped phase values used (default: 0.01)
+#
+COREG_S1_FRAC_THRESH=0.01
+
+#
+# The phase standard deviation threshold (default: 0.8)
+#
+COREG_S1_STDEV_THRESH=0.8
+
+
+-----INTERFEROGRAM PARAMETERS---------------------------------------------------------------------------
+
+#
+# A flag for enabling geotiff output of inteferogram products
+#
+IFG_GEOTIFF=yes
+
+#
+# The coherence threshold for masking out bad pixels
+#
+IFG_COHERENCE_THRESHOLD=0.3
+
+#
+# A flag to mask unwrapped pixels below coherence threshold
+#
+IFG_UNW_MASK=no
+
+#
+# Number of unwrapping patches (default: 1, for high res data may need to be 2 or more)
+#
+IFG_PATCHES_RANGE=1
+IFG_PATCHES_AZIMUTH=1
+
+#
+# How many pixels the unwrapping patches should overlap
+#
+IFG_PATCHES_OVERLAP_PX=512
+
+#
+# The pixel location of reference/seed pixel from which phase unwrapping will begin from
+#
+IFG_REF_POINT_RANGE=-
+IFG_REF_POINT_AZIMUTH=-
+
+#
+# A flag to enable iterative baseline estimation to get the pre-refinement residual
+# a bit more accurate before any precise refinement is applied.
+#
+# Note: This is NOT YET IMPLEMENTED
+#
+IFG_ITERATIVE=no
+
+#
+# A flag to enable precise baseline refinement using regions around the GCPs
+#
+IFG_BASELINE_REFINEMENT=OFF
+
+#
+# Cross-correlation threshold (default: 0.15) used by IFG offset estimation
+#
+IFG_THRES=0.15
+
+#
+# The window size (in pixels) for cross-correlation (larger better, default: 512)
+# used by IFG offset estimation
+#
+IFG_INIT_WIN=512 512
+
+#
+# The offset (in pixels) windows will be spread apart from each other in IFG offset estimation
+# along range and azimuth (recommended to use at least 64)
+#
+IFG_OFFSET_WIN=128 128
+
+
+-- Adaptive spectral filtering (adf) parameters ---
+
+#
+# The exponent for non-linear adf (adaptive spectral filtering)
+#
+IFG_EXPONENT=0.5
+
+#
+# The adf FFT window size (8 - 512, default: 32)
+#
+IFG_FILTERING_WINDOW=32
+
+#
+# Coherence estimation window value (must be odd numbers, default: 3)
+#
+IFG_COHERENCE_WINDOW=3
