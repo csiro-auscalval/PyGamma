@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import List
 import luigi
 import luigi.configuration
 from luigi.util import requires
@@ -7,15 +7,16 @@ import structlog
 
 from insar.constant import SCENE_DATE_FMT
 from insar.coreg_utils import read_land_center_coords, create_secondary_coreg_tree
-from insar.coregister_dem import CoregisterDem
+from insar.coregister_dem import coregister_primary
 # FIXME: insar.coregister_slc is mostly S1 specific, should be renamed as such
-from insar.coregister_slc import CoregisterSlc
+from insar.coregister_slc import coregister_s1_secondary, apply_s1_coregistration
 from insar.coregister_secondary import coregister_secondary, apply_coregistration
+from insar.stack import load_stack_config
 from insar.project import ProcConfig
 from insar.paths.slc import SlcPaths
 from insar.paths.stack import StackPaths
 from insar.paths.dem import DEMPaths
-from insar.paths.coregistration import CoregisteredPrimaryPaths
+from insar.paths.coregistration import CoregisteredPrimaryPaths, CoregisteredSlcPaths
 
 from insar.logs import STATUS_LOGGER
 
@@ -74,7 +75,7 @@ def get_coreg_kwargs(proc_file: Path, scene_date=None, scene_pol=None):
 
     primary_paths = SlcPaths(proc_config, primary_scene, primary_pol, rlks)
     dem_paths = DEMPaths(proc_config)
-    coreg_paths = CoregisteredPrimaryPaths(proc_config)
+    coreg_paths = CoregisteredPrimaryPaths(primary_paths)
 
     kwargs = {
         "proc_file": proc_file,
@@ -125,8 +126,7 @@ class CoregisterDemPrimary(luigi.Task):
 
         try:
             # Load the gamma proc config file
-            with open(self.proc_file, "r") as proc_fileobj:
-                proc_config = ProcConfig.from_file(proc_fileobj)
+            proc_config = load_stack_config(self.proc_file)
 
             primary_scene = read_primary_date(outdir).strftime(SCENE_DATE_FMT)
             primary_pol = proc_config.polarisation
@@ -145,9 +145,6 @@ class CoregisterDemPrimary(luigi.Task):
             ml_file = f"{self.stack_id}_createmultilook_status_logs.out"
             rlks, alks = read_rlks_alks(tdir(self.workdir) / ml_file)
 
-            slc_paths = SlcPaths(proc_config, primary_scene, primary_pol, rlks)
-            dem_paths = DEMPaths(proc_config)
-
             dem_outdir = outdir / proc_config.dem_dir
             mk_clean_dir(dem_outdir)
 
@@ -160,18 +157,16 @@ class CoregisterDemPrimary(luigi.Task):
                 land_center = read_land_center_coords(Path(self.shape_file))
                 log.info("Read land center from shapefile", land_center=land_center)
 
-            coreg = CoregisterDem(
-                rlks=rlks,
-                alks=alks,
-                dem=dem_paths.dem,
-                slc=slc_paths.slc,
-                dem_par=dem_paths.dem_par,
-                slc_par=slc_paths.slc_par,
-                multi_look=self.multi_look,
+            coregister_primary(
+                log,
+                proc_config,
+                rlks,
+                alks,
+                self.multi_look,
                 land_center=land_center
+                # TODO: Lots of settings we're not using here
+                # - GH issue #244
             )
-
-            coreg.main()
 
             log.info("DEM primary coregistration complete")
         except Exception as e:
@@ -182,62 +177,6 @@ class CoregisterDemPrimary(luigi.Task):
                 f.write("FAILED" if failed else "")
 
             structlog.threadlocal.clear_threadlocal()
-
-
-# This is just a wrapper class so coregister_secondary can act like
-# coregister_slc / minimise code changes for review.  This should be
-# temporary code, until coregister_slc is also refactored to functional
-# style & we can unify the functional coreg API then.
-#
-# TODO: This will need revision when coregister_slc.py is refactored into
-# process_ifg.py style functional code.
-class CoregisterSecondaryProcessor:
-    kwargs: Dict[str, Any]
-
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-        slc_secondary = self.kwargs["slc_secondary"]
-        secondary_mli = self.kwargs["secondary_mli"]
-
-        self.r_secondary_slc_path = slc_secondary.parent / f"r{slc_secondary.name}"
-        self.r_secondary_mli_path = secondary_mli.parent / f"r{secondary_mli.name}"
-
-    @property
-    def secondary_off(self):
-        return self.r_secondary_slc_path.with_suffix(".off")
-
-    @property
-    def secondary_lt(self):
-        return self.r_secondary_slc_path.with_suffix(".lt")
-
-    def main(self):
-        coregister_secondary(
-            self.kwargs["proc"],
-            self.kwargs["slc_primary"],
-            self.kwargs["r_dem_primary_mli"],
-            self.kwargs["rdc_dem"],
-            self.kwargs["slc_secondary"],
-            self.kwargs["secondary_mli"],
-            self.r_secondary_slc_path,
-            self.r_secondary_mli_path,
-            self.kwargs["range_looks"],
-            self.kwargs["azimuth_looks"],
-        )
-
-    def apply_coregistration(self, secondary_off: Path, secondary_lt: Path):
-        apply_coregistration(
-            self.kwargs["slc_primary"],
-            self.kwargs["r_dem_primary_mli"],
-            self.kwargs["slc_secondary"],
-            self.kwargs["secondary_mli"],
-            self.r_secondary_slc_path,
-            self.r_secondary_mli_path,
-            secondary_lt,
-            secondary_off,
-            self.kwargs["range_looks"],
-            self.kwargs["azimuth_looks"],
-        )
 
 
 class CoregisterSecondary(luigi.Task):
@@ -269,53 +208,23 @@ class CoregisterSecondary(luigi.Task):
             tdir(self.workdir) / f"{Path(str(self.slc_primary)).stem}_{Path(str(self.slc_secondary)).stem}_coreg_logs.out"
         )
 
-    def get_processor(self):
-        proc_path = Path(self.proc_file)
-        with proc_path.open("r") as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj)
-
-        secondary_date, secondary_pol = Path(self.slc_secondary).stem.split('_')
-        kwargs = get_coreg_kwargs(proc_path, secondary_date, secondary_pol)
-
-        # kwargs takes ProcConfig, not a path
-        kwargs["proc"] = proc_config
-        del kwargs["proc_file"]
-
-        # Remove unused args
-        del kwargs["outdir"]
-        del kwargs["workdir"]
-
-        # Sentinel-1 uses a special coregistration module
-        if proc_config.sensor == "S1":
-            # Note: This mess is temporary (will dissapear when we drop OOP / move to functional
-            # - it'll take a primary/secondary date, pol, and multilooks and that's it...)
-            return CoregisterSlc(
-                proc_config,
-                "-",
-                kwargs["slc_primary"],
-                kwargs["slc_secondary"],
-                kwargs["range_looks"],
-                kwargs["azimuth_looks"],
-                kwargs["rdc_dem"],
-            )
-
-        return CoregisterSecondaryProcessor(**kwargs)
-
     def requires(self):
-        proc_path = Path(self.proc_file)
-        with proc_path.open("r") as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj)
+        proc_config = load_stack_config(self.proc_file)
 
         primary_pol = proc_config.polarisation
         secondary_date, secondary_pol = Path(self.slc_secondary).stem.split('_')
 
         # Non-primary polarised products depend on polarised coregistration
         if secondary_pol != primary_pol:
-            yield CoregisterSecondary(**get_coreg_kwargs(proc_path, secondary_date, primary_pol))
+            yield CoregisterSecondary(**get_coreg_kwargs(self.proc_file, secondary_date, primary_pol))
 
     def run(self):
+        proc_config, metadata = load_settings(self.proc_file)
         secondary_date, secondary_pol = Path(self.slc_secondary).stem.split('_')
         primary_date, primary_pol = Path(self.slc_primary).stem.split('_')
+        stack_id = metadata["stack_id"]
+        primary_pol = primary_pol.upper()
+        secondary_pol = secondary_pol.upper()
 
         is_secondary_pol = secondary_pol != primary_pol
 
@@ -329,24 +238,81 @@ class CoregisterSecondary(luigi.Task):
         )
         log.info("Beginning SLC coregistration")
 
+        kwargs = get_coreg_kwargs(self.proc_file, secondary_date, secondary_pol)
+
+        # get range and azimuth looked values
+        ml_file = tdir(proc_config.job_path) / f"{stack_id}_createmultilook_status_logs.out"
+        rlks, alks = read_rlks_alks(ml_file)
+
+        dem_paths = DEMPaths(proc_config)
+        coreg_slc_paths = CoregisteredSlcPaths(proc_config, primary_date, secondary_date, secondary_pol, rlks)
+        coreg_paths = CoregisteredPrimaryPaths(coreg_slc_paths.primary)
+
         failed = False
 
         # Run SLC coreg in an exception handler that doesn't propagate exception into Luigi
         # This is to allow processing to fail without stopping the Luigi pipeline, and thus
         # allows as many scenes as possible to fully process even if some scenes fail.
         try:
-            coreg_secondary = self.get_processor()
-
             # Full coregistration for primary pol
             if not is_secondary_pol:
-                coreg_secondary.main()
+                if proc_config.sensor.upper() == "S1":
+                    coregister_s1_secondary(
+                        proc_config,
+                        self.list_idx,
+                        coreg_slc_paths.primary.slc,
+                        coreg_slc_paths.secondary.slc,
+                        rlks,
+                        alks,
+                        dem_paths.rdc_dem
+                    )
+                else:
+                    coregister_secondary(
+                        proc_config,
+                        coreg_slc_paths.primary.slc,
+                        # Note: we explicitly use the reference primary for the MLI (used for geocoding)
+                        coreg_paths.r_dem_primary_mli,
+                        dem_paths.rdc_dem,
+                        coreg_slc_paths.secondary.slc,
+                        coreg_slc_paths.secondary.mli,
+                        coreg_slc_paths.r_secondary_slc,
+                        coreg_slc_paths.r_secondary_mli,
+                        rlks,
+                        alks,
+                    )
+
             # But just application (of primary pol's coregistration LUTs) for secondary pol
             else:
-                primary_task = get_coreg_kwargs(Path(self.proc_file), secondary_date, primary_pol)
-                primary_task = CoregisterSecondary(**primary_task)
-                processor = primary_task.get_processor()
+                primary_coreg_slc_paths = CoregisteredSlcPaths(
+                    proc_config,
+                    primary_date,
+                    secondary_date,
+                    primary_pol,
+                    rlks
+                )
 
-                coreg_secondary.apply_coregistration(processor.ctx.paths.secondary_off, processor.ctx.paths.secondary_lt)
+                if proc_config.sensor.upper() == "S1":
+                    apply_s1_coregistration(
+                        coreg_slc_paths,
+                        rlks,
+                        alks,
+                        primary_coreg_slc_paths.secondary_off,
+                        primary_coreg_slc_paths.secondary_lt
+                    )
+                else:
+                    # FIXME: Before PR, re-factor this to take same args as S1 (all the details are in coreg_slc_paths)
+                    apply_coregistration(
+                        coreg_slc_paths.primary.slc,
+                        coreg_slc_paths.r_dem_primary_mli,
+                        coreg_slc_paths.secondary.slc,
+                        coreg_slc_paths.secondary.mli,
+                        coreg_slc_paths.r_secondary_slc,
+                        coreg_slc_paths.r_secondary_mli,
+                        primary_coreg_slc_paths.secondary_lt,
+                        primary_coreg_slc_paths.secondary_off,
+                        rlks,
+                        alks,
+                    )
 
             log.info("SLC coregistration complete")
         except Exception as e:
@@ -424,9 +390,7 @@ class CreateCoregisterSecondaries(luigi.Task):
         outdir = Path(self.outdir)
 
         # Load the gamma proc config file
-        proc_path = Path(self.proc_file)
-        with proc_path.open("r") as proc_fileobj:
-            proc_config = ProcConfig.from_file(proc_fileobj)
+        proc_config = load_stack_config(self.proc_file)
 
         paths = StackPaths(proc_config)
 
@@ -455,7 +419,7 @@ class CreateCoregisterSecondaries(luigi.Task):
 
         primary_scene = primary_scene.strftime(SCENE_DATE_FMT)
 
-        kwargs = get_coreg_kwargs(proc_path)
+        kwargs = get_coreg_kwargs(self.proc_file)
 
         secondary_coreg_jobs = []
 

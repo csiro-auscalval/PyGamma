@@ -9,7 +9,7 @@ from insar.constant import SCENE_DATE_FMT
 from insar.paths.stack import StackPaths
 from insar.paths.slc import SlcPaths
 from insar.paths.interferogram import InterferogramPaths
-from insar.coregister_slc import CoregisterSlc
+from insar.coregister_slc import get_tertiary_coreg_scene
 from insar.process_ifg import validate_ifg_input_files, ProcessIfgException
 from insar.project import ProcConfig, ARDWorkflow
 from insar.logs import STATUS_LOGGER
@@ -18,7 +18,7 @@ from insar.workflow.luigi.utils import DateListParameter, PathParameter, read_pr
 from insar.workflow.luigi.stack_setup import DataDownload
 from insar.workflow.luigi.mosaic import ProcessSlcMosaic
 from insar.workflow.luigi.multilook import Multilook
-from insar.workflow.luigi.coregistration import CreateGammaDem, CoregisterDemPrimary, get_coreg_kwargs
+from insar.workflow.luigi.coregistration import CreateGammaDem, CoregisterDemPrimary
 from insar.workflow.luigi.backscatter import CreateCoregisteredBackscatter
 from insar.workflow.luigi.backscatter_nrt import CreateNRTBackscatter
 from insar.workflow.luigi.interferogram import CreateProcessIFGs
@@ -428,8 +428,6 @@ class TriggerResume(luigi.Task):
 
                         # Add tertiary scene (if any)
                         for slc_scene in [primary_date, secondary_date]:
-                            # Re-use slc coreg task for parameter acquisition
-                            coreg_kwargs = get_coreg_kwargs(proc_path, slc_scene, pol)
                             list_idx = "-"
 
                             for list_file_path in (outdir / proc_config.list_dir).glob("secondaries*.list"):
@@ -444,17 +442,7 @@ class TriggerResume(luigi.Task):
 
                                     break
 
-                            tertiary_task = CoregisterSlc(
-                                proc_config,
-                                list_idx,
-                                coreg_kwargs["slc_primary"],
-                                coreg_kwargs["slc_secondary"],
-                                coreg_kwargs["range_looks"],
-                                coreg_kwargs["azimuth_looks"],
-                                coreg_kwargs["rdc_dem"]
-                            )
-                            tertiary_date = tertiary_task.get_tertiary_coreg_scene()
-
+                            tertiary_date = get_tertiary_coreg_scene(proc_config, slc_scene, list_idx)
                             if tertiary_date:
                                 reprocessed_single_slcs.append(tertiary_date)
 

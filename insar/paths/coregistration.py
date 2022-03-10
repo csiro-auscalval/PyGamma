@@ -21,9 +21,6 @@ class CoregisteredPrimaryPaths:
     avoid refactoring/renaming related errors.
     """
 
-    dem_primary_slc_name: Path
-    """A common path prefix shared by most path names in this class"""
-
     dem_primary_slc: Path
     """The primary scene's SLC data file path before coregistration"""
 
@@ -48,33 +45,23 @@ class CoregisteredPrimaryPaths:
     r_dem_primary_mli_par: Path
     """The accompanying GAMMA .par file for `self.r_dem_primary_mli`"""
 
-    def __init__(self, proc: ProcConfig):
-        out_dir = proc.output_path
+    primary: SlcPaths
+    """The original SlcPaths that the paths in this class are based upon."""
 
-        dem_primary_dir = out_dir / proc.slc_dir / proc.ref_primary_scene
+    def __init__(self, slc_paths: SlcPaths):
+        self.primary = slc_paths
 
-        suffix = proc.ref_primary_scene + "_" + proc.polarisation
-        self.dem_primary_slc_name = dem_primary_dir / suffix
+        self.dem_primary_slc = slc_paths.slc
+        self.dem_primary_slc_par = slc_paths.slc_par
 
-        self.dem_primary_slc = dem_primary_dir / (suffix + ".slc")
-        self.dem_primary_slc_par = dem_primary_dir / (suffix + ".slc.par")
+        self.dem_primary_mli = slc_paths.mli
+        self.dem_primary_mli_par = slc_paths.mli_par
 
-        suffix_lks = f"{proc.ref_primary_scene}_{proc.polarisation}_{proc.range_looks}rlks"
-        dem_primary_mli_name = dem_primary_dir / suffix_lks
-        self.dem_primary_mli = dem_primary_mli_name.with_suffix(".mli")
-        self.dem_primary_mli_par = dem_primary_mli_name.with_suffix(".mli.par")
+        self.r_dem_primary_slc = slc_paths.slc.parent / f"r{slc_paths.slc.name}"
+        self.r_dem_primary_slc_par = self.r_dem_primary_slc.with_suffix(".slc.par")
 
-        suffix_slc = f"r{proc.ref_primary_scene}_{proc.polarisation}"
-        r_dem_primary_slc_name = dem_primary_dir / suffix_slc
-        self.r_dem_primary_slc = r_dem_primary_slc_name.with_suffix(".slc")
-        self.r_dem_primary_slc_par = r_dem_primary_slc_name.with_suffix(".slc.par")
-
-        suffix_mli = "r{}_{}_{}rlks".format(
-            proc.ref_primary_scene, proc.polarisation, proc.range_looks
-        )
-        r_dem_primary_mli_name = dem_primary_dir / suffix_mli
-        self.r_dem_primary_mli = r_dem_primary_mli_name.with_suffix(".mli")
-        self.r_dem_primary_mli_par = r_dem_primary_mli_name.with_suffix(".mli.par")
+        self.r_dem_primary_mli = slc_paths.mli.parent / f"r{slc_paths.mli.name}"
+        self.r_dem_primary_mli_par = self.r_dem_primary_mli.with_suffix(".mli.par")
 
 
 class CoregisteredSlcPaths:
@@ -86,8 +73,11 @@ class CoregisteredSlcPaths:
     related errors.
     """
 
-    slc_primary: SlcPaths
-    slc_secondary: SlcPaths
+    primary: SlcPaths
+    """The original SlcPaths for the primary scene, that the paths are based upon."""
+
+    secondary: SlcPaths
+    """The original SlcPaths for the secondary scene, that the paths are based upon."""
 
     # Note for PR: These fields are intentionally not commented yet...
     # the plan is to: once the code refactoring is complete, finish the file structure
@@ -164,27 +154,16 @@ class CoregisteredSlcPaths:
         self.primary = SlcPaths(stack_config, primary_date, stack_config.polarisation, rlks)
         self.secondary = SlcPaths(stack_config, secondary_date, polarisation, rlks)
 
-        # Also get the DEM coregistered primary scene paths
-        # FIXME: Should be part of this file... not a random static function in CoregisterDem?
-        from insar.coregister_dem import CoregisterDem
-        primary_slc_prefix = f"{primary_date}_{stack_config.polarisation}"
-        primary_slc_rlks_prefix = f"{primary_slc_prefix}_{rlks}rlks"
+        # Duplicate the resampled primary reference scene paths
+        # - this is just sugar / it's redundant / but means other code doesn't have to
+        # - make 3-4 different path classes, just the one of interest (which has all
+        # related info - even if that info exists in another path class)
+        primary_dem = CoregisteredPrimaryPaths(self.primary)
 
-        dem_dir = Path(stack_config.output_path) / stack_config.dem_dir
-
-        self.primary_dem = CoregisteredPrimaryPaths(stack_config)
-        #self.primary_dem = CoregisterDem.dem_primary_names(
-        #    slc_prefix=primary_slc_rlks_prefix,
-        #    r_slc_prefix=f"r{primary_slc_prefix}",
-        #    outdir=self.primary.dir,
-        #)
-
-        # FIXME: self.primary_dem = CoregisteredDemPaths(...)?
-        self.r_dem_primary_mli = self.primary_dem.r_dem_primary_mli
-        self.r_dem_primary_mli_par = self.r_dem_primary_mli.with_suffix(".mli.par")
-        # FIXME: self.primary_dem.r_dem_slc_par?
-        self.r_dem_primary_slc_par = self.primary.slc_par
-        self.r_dem_primary_slc_par = self.r_dem_primary_slc_par.parent / ("r" + self.r_dem_primary_slc_par.name)
+        self.r_dem_primary_mli = primary_dem.r_dem_primary_mli
+        self.r_dem_primary_mli_par = primary_dem.r_dem_primary_mli_par
+        self.r_dem_primary_slc = primary_dem.r_dem_primary_slc
+        self.r_dem_primary_slc_par = primary_dem.r_dem_primary_slc_par
 
         # Finally produce our coregistered secondary paths (eg: resampled products & offset models)
         out_dir = self.secondary.dir

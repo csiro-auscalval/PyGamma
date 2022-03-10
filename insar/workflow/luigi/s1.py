@@ -9,12 +9,13 @@ from luigi.util import requires
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.logs import STATUS_LOGGER
-from insar.process_s1_slc import SlcProcess
 
 from insar.workflow.luigi.utils import tdir, get_scenes, PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
 from insar.paths.stack import StackPaths
 from insar.paths.slc import SlcPaths
+from insar.process_s1_slc import process_s1_slc, process_s1_slc_mosaic
+from insar.stack import load_stack_config
 
 class ProcessSlc(luigi.Task):
     """
@@ -39,18 +40,17 @@ class ProcessSlc(luigi.Task):
         log = STATUS_LOGGER.bind(scene_date=self.scene_date, polarisation=self.polarization)
         log.info("Beginning SLC processing")
 
-        (Path(self.slc_dir) / str(self.scene_date)).mkdir(parents=True, exist_ok=True)
+        proc_config = load_stack_config(self.proc_file)
 
-        slc_job = SlcProcess(
-            str(self.raw_path),
-            str(self.slc_dir),
+        slc_paths = SlcPaths(proc_config, str(self.scene_date), str(self.polarization))
+
+        process_s1_slc(
+            slc_paths,
             str(self.polarization),
-            str(self.scene_date),
-            str(self.burst_data),
-            self.ref_primary_tab,
+            self.raw_path,
+            self.burst_data,
+            self.ref_primary_tab
         )
-
-        slc_job.main()
 
         log.info("SLC processing complete")
 
@@ -192,16 +192,9 @@ class ProcessSlcMosaic(luigi.Task):
         log = STATUS_LOGGER.bind(scene_date=self.scene_date, polarisation=self.polarization)
         log.info("Beginning SLC mosaic")
 
-        slc_job = SlcProcess(
-            str(self.raw_path),
-            str(self.slc_dir),
-            str(self.polarization),
-            str(self.scene_date),
-            str(self.burst_data),
-            self.ref_primary_tab,
-        )
+        slc_paths = SlcPaths(self.workdir, str(self.scene_date), str(self.polarization))
 
-        slc_job.main_mosaic(int(self.rlks), int(self.alks))
+        process_s1_slc_mosaic(slc_paths, int(self.rlks), int(self.alks))
 
         log.info("SLC mosaic complete")
 

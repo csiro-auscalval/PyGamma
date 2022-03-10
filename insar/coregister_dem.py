@@ -14,9 +14,10 @@ from insar.coreg_utils import latlon_to_px, create_diff_par
 from insar import constant as const
 from insar.paths.dem import DEMPaths
 from insar.paths.coregistration import CoregisteredPrimaryPaths
-from insar.stack import load_stack_config
-
-_LOG = structlog.get_logger("insar")
+from insar.paths.backscatter import BackscatterPaths
+from insar.paths.slc import SlcPaths
+from insar.project import ProcConfig
+from insar.process_utils import convert
 
 
 class CoregisterDemException(Exception):
@@ -25,7 +26,7 @@ class CoregisterDemException(Exception):
 
 pg = GammaInterface(
     subprocess_func=auto_logging_decorator(
-        subprocess_wrapper, CoregisterDemException, _LOG
+        subprocess_wrapper, CoregisterDemException, structlog.get_logger("insar")
     )
 )
 
@@ -43,354 +44,310 @@ def append_suffix(path: Path, suffix: str) -> Path:
     return path.parent / (path.name.replace(".", "_") + suffix)
 
 
-class CoregisterDem:
-    """TODO: DEM Coregistration docs"""
+def gen_dem_rdc(
+    dem_paths: DEMPaths,
+    coreg_paths: CoregisteredPrimaryPaths,
+    dem_ovr: int = 1
+) -> None:
+    """
+    Generate DEM coregistered to slc in rdc geometry.
 
-    def __init__(
-        self,
-        rlks: int,
-        alks: int,
-        dem: Union[Path, str],
-        slc: Union[Path, str],
-        dem_par: Union[Path, str],
-        slc_par: Union[Path, str],
-        dem_patch_window: Optional[int] = 1024,
-        dem_rpos: Optional[int] = None,
-        dem_azpos: Optional[int] = None,
-        dem_offset: Optional[Tuple[int, int]] = (0, 0),
-        dem_offset_measure: Optional[Tuple[int, int]] = (32, 32),
-        dem_window: Optional[Tuple[int, int]] = (256, 256),
-        dem_snr: Optional[float] = 0.15,
-        dem_rad_max: Optional[int] = 4,
-        dem_ovr: int = 1,
-        multi_look: int = None,
-        land_center: Optional[Tuple[float, float]] = None,
-        ext_image_flt: Optional[Union[Path, str]] = None,
-    ) -> None:
-        """
-        Generates DEM coregistered to SLC image in radar geometry.
-        :param rlks:
-            A range look value.
-        :param alks:
-            An azimuth look value.
-        :param dem:
-            A full path to a DEM image file.
-        :param slc:
-            A full path to a SLC image file.
-        :param dem_par:
-            A full path to a DEM parameter file.
-        :param slc_par:
-            A full path to a SLC parameter file.
-        :param dem_patch_window:
-            An Optional DEM patch window size.
-        :param dem_rpos:
-            An Optional range 'rpos' value.
-        :param dem_azpos:
-            An Optional azimuth 'azpos' value.
-        :param dem_offset:
-            An Optional dem offset value.
-        :param dem_offset_measure:
-            An Optional dem offset measure value.
-        :param dem_window:
-            An Optional dem window value.
-        :param dem_snr:
-            An Optional dem signal-to-noise ratio value.
-        :param dem_rad_max:
-            An Optional dem rad max value.
-        :param dem_ovr:
-            DEM oversampling factor. Default is 1.
-        :param multi_look:
-            TODO: docs
-        :param ext_image_flt:
-            DISABLED: Optional full path to an external image filter to use for
-            co-registration in very flat scenes with no features (rarely used).
-        :param land_center:
-            A user defined scene center of (latitude, longitude) to use for initial offset.
-        """
-        # TODO: refactor out these last few paths when we do the OOP->functional refactor
-        # - they're kept for now as they're taken as parameters / changing it now would be
-        # - starting the OOP->functional refactor...
-        self.alks = alks
-        self.rlks = rlks
-        self.land_center = land_center
-        self.dem = dem
-        self.slc = slc
-        self.dem_par = Path(dem_par)
-        self.slc_par = Path(slc_par)
+    :param dem_paths:
+        The DEM paths we're geocoding to.
+    :param coreg_paths:
+        The primary reference scene coreg paths being geocoded.
+    :param dem_ovr:
+        DEM oversampling factor. Default is 1.
+    """
 
-        self.dem_patch_window = dem_patch_window
-        self.dem_rpos = dem_rpos
-        self.dem_azpos = dem_azpos
-        self.dem_offset = list(dem_offset)
-        self.dem_offset_measure = list(dem_offset_measure)
-        self.dem_window = list(dem_window)
-        self.dem_snr = dem_snr
-        self.dem_rad_max = dem_rad_max
-        self.dem_ovr = dem_ovr
+    # generate initial geocoding look-up-table and simulated SAR image
+    mli_par_pathname = str(coreg_paths.r_dem_primary_mli_par)
+    off_par_pathname = const.NOT_PROVIDED
+    dem_par_pathname = str(dem_paths.dem_par)
+    dem_pathname = str(dem_paths.dem)
+    dem_seg_par_pathname = str(dem_paths.geo_dem_par)
+    dem_seg_pathname = str(dem_paths.geo_dem)
+    lookup_table_pathname = str(dem_paths.dem_lt_rough)
+    lat_ovr = dem_ovr
+    lon_ovr = dem_ovr
+    sim_sar_pathname = str(dem_paths.dem_geo_sim_sar)
+    u_zenith_angle = const.NOT_PROVIDED
+    v_orientation_angle = const.NOT_PROVIDED
+    inc_angle_pathname = str(dem_paths.dem_loc_inc)
+    psi_projection_angle = const.NOT_PROVIDED
+    pix = const.NOT_PROVIDED  # pixel area normalization factor
+    ls_map_pathname = str(dem_paths.dem_lsmap)
+    frame = 8
+    ls_mode = 2
 
-        if multi_look is None:
-            msg = "multi_look parameter needs to be >= 1"
-            _LOG.error(msg)
-            raise ValueError(msg)
+    # Simple trigger for us to move over to gc_map2 when
+    # InSAR team confirm they're ready for the switch.
+    use_gc_map2 = False
 
-        self.multi_look = multi_look
-        self.adjust_dem_parameters()
-
-        self.dem_width = None
-        self.dem_height = None
-
-        self.r_dem_primary_mli_width = None
-        self.r_dem_primary_mli_length = None
-
-        slc_outdir = Path(self.slc).parent
-
-        # FIXME: .parent.parent is hacky... will be fixed during the OOP -> functional refactor
-        stack_outdir = slc_outdir.parent.parent
-        self.proc_config = load_stack_config(stack_outdir)
-
-        # FIXME: get this from one of the *Paths classes...
-        slc_prefix = f"{self.slc.stem}_{self.rlks}rlks"
-
-        self.dem_paths = DEMPaths(self.proc_config)
-        self.coreg_paths = CoregisteredPrimaryPaths(self.proc_config)
-
-        self.dem_primary_sigma0 = slc_outdir / f"{slc_prefix}.sigma0"
-        self.dem_primary_sigma0_geo = slc_outdir / f"{slc_prefix}_geo.sigma0"
-        self.dem_primary_sigma0_geo_tif = append_suffix(self.dem_primary_sigma0_geo, ".tif")
-
-        self.dem_primary_gamma0 = slc_outdir / f"{slc_prefix}.gamma0"
-        self.dem_primary_gamma0_bmp = append_suffix(self.dem_primary_gamma0, ".bmp")
-        self.dem_primary_gamma0_geo = slc_outdir / f"{slc_prefix}_geo.gamma0"
-        self.dem_primary_gamma0_geo_bmp = append_suffix(self.dem_primary_gamma0_geo, ".bmp")
-        self.dem_primary_gamma0_geo_tif = append_suffix(self.dem_primary_gamma0_geo, ".tif")
-
-        if ext_image_flt is not None:
-            # From Matt Garth in MS Teams on 17/8/2021: This feature was
-            # developed when we had the case of processing a scene of very flat
-            # terrain. In that case, the synthetic amplitude image has no
-            # variation and therefore there is no features to use to align the
-            # image during co-registration. I am happy for it to be left out of
-            # pygamma. We haven't used the feature for many years. If we need it
-            # later we can implement it at that time.
-
-            msg = "Feature is rarely used & disabled until required"
-            raise NotImplementedError(msg)
-
-    def _set_attrs(self) -> None:
-        """
-        Internal class dem primary attributes setter.
-        """
-
-        if self.r_dem_primary_mli_width is None:
-            mli_par = pg.ParFile(str(self.coreg_paths.r_dem_primary_mli_par))
-            self.r_dem_primary_mli_width = mli_par.get_value("range_samples", dtype=int, index=0)
-            self.r_dem_primary_mli_length = mli_par.get_value("azimuth_lines", dtype=int, index=0)
-
-        if self.dem_width is None:
-            geo_dem_par = pg.ParFile(str(self.dem_paths.geo_dem_par))
-            self.dem_width = geo_dem_par.get_value("width", dtype=int, index=0)
-            self.dem_height = geo_dem_par.get_value("nlines", dtype=int, index=0)
-
-    def adjust_dem_parameters(self) -> None:
-        """
-        Adjusts DEM parameters to valid, usable values.
-
-        Ensures DEM window meets minimum size limits. Updates patch size for DEM co-registration to
-        handle resolution changes based on multi-look values, and to confirm valid patch window size
-        for offset estimation.
-        """
-        self.dem_window[0] = int(self.dem_window[0] / self.multi_look)
-
-        msg = "increase DEM_WIN to fix window size (needs to be DEM_WIN/multi_look >=8)"
-        if self.dem_window[0] < const.MIN_DEM_WIN_AXIS:
-            _LOG.info(msg, old_dem_window0=self.dem_window[0])
-            raise ValueError(msg)  # fail fast to force bad settings to be fixed
-
-        if self.dem_window[0] % 2:
-            # must be an even number for Gamma's 'offset_pwrm' to work
-            self.dem_window[0] += 1
-
-        self.dem_window[1] = int(self.dem_window[1] / self.multi_look)
-
-        if self.dem_window[1] < const.MIN_DEM_WIN_AXIS:
-            _LOG.info(msg, old_dem_window1=self.dem_window[1])
-            raise ValueError(msg)  # fail fast to force bad settings to be fixed
-
-        if self.dem_window[1] % 2:
-            # must be an even number for Gamma's 'offset_pwrm' to work
-            self.dem_window[1] += 1
-
-        # adjust patch size
-        self.dem_patch_window = int(self.dem_patch_window / self.multi_look)
-        min_patch_size = min(const.INIT_OFFSETM_CORRELATION_PATCH_SIZES)
-
-        if self.dem_patch_window < min_patch_size:
-            self.dem_patch_window = min_patch_size
-
-            _LOG.info(
-                "increasing DEM patch window",
-                old_patch_window=self.dem_patch_window,
-                new_patch_window=min_patch_size,
-            )
-
-        # adjust offsets
-        self.dem_offset[0] = int(self.dem_offset[0] / self.multi_look)
-        self.dem_offset[1] = int(self.dem_offset[1] / self.multi_look)
-
-        if self.dem_rpos is not None:
-            self.dem_rpos = int(self.dem_rpos / self.multi_look)
-
-        if self.dem_azpos is not None:
-            self.dem_azpos = int(self.dem_azpos / self.multi_look)
-
-    def copy_slc(self) -> None:
-        """
-        Copy SLC with options for data format conversion.
-        """
-
-        coreg_paths = self.coreg_paths
-
-        if not coreg_paths.dem_primary_slc.exists():
-            raise CoregisterDemException("Primary scene SLC is missing")
-
-        if not coreg_paths.dem_primary_slc_par.exists():
-            raise CoregisterDemException("Primary scene SLC .par is missing")
-
-        # copy SLC image file to new file r_dem_primary_slc.
-        # TODO: this step seems redundant if we can directly use SLC image file
-        #       to multi-look. (Confirm with InSAR geodesy Team)
-
-        slc_in_pathname = str(coreg_paths.dem_primary_slc)
-        slc_par_in_pathname = str(coreg_paths.dem_primary_slc_par)
-        slc_out_pathname = str(coreg_paths.r_dem_primary_slc)
-        slc_par_out_pathname = str(coreg_paths.r_dem_primary_slc_par)
-        fcase = 1  # FCOMPLEX
-        sc = const.NOT_PROVIDED  # scale factor
-
-        pg.SLC_copy(
-            slc_in_pathname,
-            slc_par_in_pathname,
-            slc_out_pathname,
-            slc_par_out_pathname,
-            fcase,
-            sc,
-        )
-
-        # multi-look SLC image file
-        slc_pathname = str(coreg_paths.r_dem_primary_slc)
-        slc_par_pathname = str(coreg_paths.r_dem_primary_slc_par)
-        mli_pathname = str(coreg_paths.r_dem_primary_mli)
-        mli_par_pathname = str(coreg_paths.r_dem_primary_mli_par)
-        rlks = self.rlks
-        azlks = self.alks
-        loff = 0  # offset to starting line
-
-        pg.multi_look(
-            slc_pathname,
-            slc_par_pathname,
-            mli_pathname,
+    if not use_gc_map2:
+        pg.gc_map1(
             mli_par_pathname,
-            rlks,
-            azlks,
-            loff,
+            off_par_pathname,
+            dem_par_pathname,
+            dem_pathname,
+            dem_seg_par_pathname,
+            dem_seg_pathname,
+            lookup_table_pathname,
+            lat_ovr,
+            lon_ovr,
+            sim_sar_pathname,
+            u_zenith_angle,
+            v_orientation_angle,
+            inc_angle_pathname,
+            psi_projection_angle,
+            pix,
+            ls_map_pathname,
+            frame,
+            ls_mode,
+        )
+    else:
+        # TODO: Consider replacing gc_map1 with gc_map2. The former was deprecated by GAMMA.
+        # See https://github.com/GeoscienceAustralia/gamma_insar/issues/232
+        pg.gc_map2(
+            mli_par_pathname,
+            dem_par_pathname,
+            dem_pathname,
+            dem_seg_par_pathname,
+            dem_seg_pathname,
+            lookup_table_pathname,
+            lat_ovr,
+            lon_ovr,
+            ls_map_pathname,
+            const.NOT_PROVIDED,
+            inc_angle_pathname,
+            const.NOT_PROVIDED,  # local resolution map
+            const.NOT_PROVIDED,  # local offnadir (or look) angle map
+            sim_sar_pathname,
+            u_zenith_angle,
+            v_orientation_angle,
+            psi_projection_angle,
+            pix,
+            const.NOT_PROVIDED,
+            const.NOT_PROVIDED,
+            const.NOT_PROVIDED,
+            frame,
+            const.NOT_PROVIDED,
+            str(dem_paths.dem_diff),
+            const.NOT_PROVIDED  # reference image flag (simulated SAR is the default)
         )
 
+    # generate initial gamma0 pixel normalisation area image in radar geometry
+    mli_par_pathname = str(coreg_paths.r_dem_primary_mli_par)
+    dem_par_pathname = str(dem_paths.geo_dem_par)
+    dem_pathname = str(dem_paths.geo_dem)
+    lookup_table_pathname = str(dem_paths.dem_lt_rough)
+    ls_map_pathname = str(dem_paths.dem_lsmap)
+    inc_map_pathname = str(dem_paths.dem_loc_inc)
+    pix_sigma0_pathname = const.NOT_PROVIDED  # no output
+    pix_gamma0_pathname = str(dem_paths.dem_pix_gam)
 
-    def gen_dem_rdc(self, use_external_image: Optional[bool] = False,) -> None:
-        """
-        Generate DEM coregistered to slc in rdc geometry.
-        :param use_external_image:
-            An Optional parameter to set use of external image for co-registration.
-        """
+    pg.pixel_area(
+        mli_par_pathname,
+        dem_par_pathname,
+        dem_pathname,
+        lookup_table_pathname,
+        ls_map_pathname,
+        inc_map_pathname,
+        pix_sigma0_pathname,
+        pix_gamma0_pathname,
+    )
 
-        dem_paths = self.dem_paths
-        coreg_paths = self.coreg_paths
+def offset_calc(
+    log: structlog.BoundLogger,
+    dem_paths: DEMPaths,
+    coreg_paths: CoregisteredPrimaryPaths,
+    land_center: Tuple[int, int],
+    dem_width: int,
+    r_dem_primary_mli_width: int,
+    r_dem_primary_mli_length: int,
+    dem_patch_window: int = 1024,
+    dem_rpos: Optional[int] = None,
+    dem_azpos: Optional[int] = None,
+    dem_snr: float = 0.15,
+    npoly: int = 1,
+    use_external_image: bool = False,
+) -> None:
+    """Offset computation. (Need more information from InSAR team).
+    :param npoly:
+        An Optional nth order polynomial term. Otherwise set to default for
+        Sentinel-1 acquisitions.
+    :param use_external_image:
+        An Optional parameter to set use of external image for co-registration.
+    """
 
-        # generate initial geocoding look-up-table and simulated SAR image
-        mli_par_pathname = str(coreg_paths.r_dem_primary_mli_par)
-        off_par_pathname = const.NOT_PROVIDED
-        dem_par_pathname = str(dem_paths.dem_par)
-        dem_pathname = str(self.dem)
-        dem_seg_par_pathname = str(dem_paths.geo_dem_par)
-        dem_seg_pathname = str(dem_paths.geo_dem)
-        lookup_table_pathname = str(dem_paths.dem_lt_rough)
-        lat_ovr = self.dem_ovr
-        lon_ovr = self.dem_ovr
-        sim_sar_pathname = str(dem_paths.dem_geo_sim_sar)
-        u_zenith_angle = const.NOT_PROVIDED
-        v_orientation_angle = const.NOT_PROVIDED
-        inc_angle_pathname = str(dem_paths.dem_loc_inc)
-        psi_projection_angle = const.NOT_PROVIDED
-        pix = const.NOT_PROVIDED  # pixel area normalization factor
-        ls_map_pathname = str(dem_paths.dem_lsmap)
-        frame = 8
-        ls_mode = 2
+    nrb_paths = BackscatterPaths(coreg_paths.primary)
 
-        # Simple trigger for us to move over to gc_map2 when
-        # InSAR team confirm they're ready for the switch.
-        use_gc_map2 = False
+    # Get land center from user provided value if possible
+    if land_center is not None:
+        rpos, azpos = latlon_to_px(pg, coreg_paths.r_dem_primary_mli_par, *land_center)
 
-        if not use_gc_map2:
-            pg.gc_map1(
-                mli_par_pathname,
-                off_par_pathname,
-                dem_par_pathname,
-                dem_pathname,
-                dem_seg_par_pathname,
-                dem_seg_pathname,
-                lookup_table_pathname,
-                lat_ovr,
-                lon_ovr,
-                sim_sar_pathname,
-                u_zenith_angle,
-                v_orientation_angle,
-                inc_angle_pathname,
-                psi_projection_angle,
-                pix,
-                ls_map_pathname,
-                frame,
-                ls_mode,
+        log.info(
+            "Land center for DEM coregistration",
+            mli=coreg_paths.r_dem_primary_mli,
+            land_center=land_center,
+            land_center_px=(rpos, azpos)
+        )
+
+    # Worst case we fall back to center of image (same as GAMMA default)
+    else:
+        rpos = r_dem_primary_mli_width // 2
+        azpos = r_dem_primary_mli_length // 2
+
+    # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than
+    # simulated SAR image in offset calculation
+    mli_1_pathname = str(dem_paths.dem_pix_gam)
+    mli_2_pathname = str(coreg_paths.r_dem_primary_mli)
+    diff_par_pathname = str(dem_paths.dem_diff)
+    rlks = 1
+    azlks = 1
+    rpos = dem_rpos or rpos
+    azpos = dem_azpos or azpos
+    offr = const.NOT_PROVIDED
+    offaz = const.NOT_PROVIDED
+    thres = dem_snr
+    patch = dem_patch_window
+    cflag = 1  # copy constant range and azimuth offsets
+
+    # Note: these are in no particular order
+    grid = np.array([
+        # top, right, bottom, left
+        [0, patch], [patch, 0], [0, -patch], [-patch, 0],
+        # top left, top right, bottom right, bottom left
+        [-patch, patch], [patch, patch], [patch, -patch], [-patch, -patch]
+    ])
+
+    # Note: These start at land center, and progressively move further out
+    grid_attempts = [[0, 0], *(grid * 0.25), *(grid * 0.5), *(grid * 0.75), *grid]
+
+    # Attempt w/ land center pixel, and spiral out if we fail to find a match
+    succeeded_land_center = None
+
+    for attempt_offset in grid_attempts:
+        # Note: We rely on GAMMA to error-out if these are out-of-bounds
+        # - just like it errors out if the center doesn't find a good enough correlation.
+        attempt_rpos = int(rpos + attempt_offset[0])
+        attempt_azpos = int(azpos + attempt_offset[1])
+
+        try:
+            pg.init_offsetm(
+                mli_1_pathname,
+                mli_2_pathname,
+                diff_par_pathname,
+                rlks,
+                azlks,
+                attempt_rpos,
+                attempt_azpos,
+                offr,
+                offaz,
+                thres,
+                patch,
+                cflag,
             )
-        else:
-            # TODO: Consider replacing gc_map1 with gc_map2. The former was deprecated by GAMMA.
-            # See https://github.com/GeoscienceAustralia/gamma_insar/issues/232
-            pg.gc_map2(
-                mli_par_pathname,
-                dem_par_pathname,
-                dem_pathname,
-                dem_seg_par_pathname,
-                dem_seg_pathname,
-                lookup_table_pathname,
-                lat_ovr,
-                lon_ovr,
-                ls_map_pathname,
-                const.NOT_PROVIDED,
-                inc_angle_pathname,
-                const.NOT_PROVIDED,  # local resolution map
-                const.NOT_PROVIDED,  # local offnadir (or look) angle map
-                sim_sar_pathname,
-                u_zenith_angle,
-                v_orientation_angle,
-                psi_projection_angle,
-                pix,
-                const.NOT_PROVIDED,
-                const.NOT_PROVIDED,
-                const.NOT_PROVIDED,
-                frame,
-                const.NOT_PROVIDED,
-                str(dem_paths.dem_diff),
-                const.NOT_PROVIDED  # reference image flag (simulated SAR is the default)
+
+            succeeded_land_center = (attempt_rpos, attempt_azpos)
+            log.info(
+                "DEM coregistration succeeded for land center",
+                range_px_coord=attempt_rpos,
+                azimuth_px_coord=attempt_azpos
             )
 
-        # generate initial gamma0 pixel normalisation area image in radar geometry
+            break
+
+        except CoregisterDemException:
+            log.info(
+                "DEM coregistration failed for land center",
+                range_px_coord=attempt_rpos,
+                azimuth_px_coord=attempt_azpos
+            )
+
+            # Do NOT raise this exception, we loop through attempting other
+            # land centers instead (and finally raise our own exception if all fail)
+            pass
+
+    # If no land center succeeded, raise an exception for the failure
+    if succeeded_land_center is None:
+        raise CoregisterDemException("Failed to coregister primary scene to DEM!")
+
+    mli_1_pathname = str(dem_paths.dem_pix_gam)
+    mli_2_pathname = str(coreg_paths.r_dem_primary_mli)
+    diff_par_pathname = str(dem_paths.dem_diff)
+    offs_pathname = str(dem_paths.dem_offs)
+    ccp_pathname = str(dem_paths.dem_ccp)
+    rwin = const.NOT_PROVIDED  # range patch size
+    azwin = const.NOT_PROVIDED  # azimuth patch size
+    offsets_pathname = str(dem_paths.dem_offsets)
+    n_ovr = 2
+    nr = const.NOT_PROVIDED  # number of offset estimates in range direction
+    naz = const.NOT_PROVIDED  # number of offset estimates in azimuth direction
+    thres = const.NOT_PROVIDED  # Lanczos interpolator order
+
+    pg.offset_pwrm(
+        mli_1_pathname,
+        mli_2_pathname,
+        diff_par_pathname,
+        offs_pathname,
+        ccp_pathname,
+        rwin,
+        azwin,
+        offsets_pathname,
+        n_ovr,
+        nr,
+        naz,
+        thres,
+    )
+
+    offs_pathname = str(dem_paths.dem_offs)
+    ccp_pathname = str(dem_paths.dem_ccp)
+    diff_par_pathname = str(dem_paths.dem_diff)
+    coffs_pathname = str(dem_paths.dem_coffs)
+    coffsets_pathname = str(dem_paths.dem_coffsets)
+    thres = const.NOT_PROVIDED
+
+    pg.offset_fitm(
+        offs_pathname,
+        ccp_pathname,
+        diff_par_pathname,
+        coffs_pathname,
+        coffsets_pathname,
+        thres,
+        npoly,
+    )
+
+    # refinement of initial geo-coding look-up-table
+    ref_flg = 1
+    if use_external_image:
+        ref_flg = 0
+
+    gc_in_pathname = str(dem_paths.dem_lt_rough)
+    width = dem_width
+    diff_par_pathname = str(dem_paths.dem_diff)
+    gc_out_pathname = str(dem_paths.dem_lt_fine)
+
+    pg.gc_map_fine(
+        gc_in_pathname,  # geocoding lookup table
+        width,
+        diff_par_pathname,
+        gc_out_pathname,
+        ref_flg,
+    )
+
+    # generate refined gamma0 pixel normalization area image in radar geometry
+    with tempfile.TemporaryDirectory() as temp_dir:
+        pix = Path(temp_dir).joinpath("pix")
+
         mli_par_pathname = str(coreg_paths.r_dem_primary_mli_par)
         dem_par_pathname = str(dem_paths.geo_dem_par)
         dem_pathname = str(dem_paths.geo_dem)
-        lookup_table_pathname = str(dem_paths.dem_lt_rough)
+        lookup_table_pathname = str(dem_paths.dem_lt_fine)
         ls_map_pathname = str(dem_paths.dem_lsmap)
         inc_map_pathname = str(dem_paths.dem_loc_inc)
-        pix_sigma0_pathname = const.NOT_PROVIDED  # no output
-        pix_gamma0_pathname = str(dem_paths.dem_pix_gam)
+        pix_sigma0 = const.NOT_PROVIDED
+        pix_gamma0 = str(pix)
 
         pg.pixel_area(
             mli_par_pathname,
@@ -399,629 +356,97 @@ class CoregisterDem:
             lookup_table_pathname,
             ls_map_pathname,
             inc_map_pathname,
-            pix_sigma0_pathname,
-            pix_gamma0_pathname,
+            pix_sigma0,
+            pix_gamma0,
         )
 
-        # any of the dem primary mli size is not set. Set the dem size attributes.
-        if any(
-            item is None
-            for item in [
-                self.r_dem_primary_mli_width,
-                self.r_dem_primary_mli_length,
-                self.dem_width,
-            ]
-        ):
-            self._set_attrs()
+        # interpolate holes
+        data_in_pathname = str(pix)
+        data_out_pathname = str(dem_paths.dem_pix_gam)
+        width = r_dem_primary_mli_width
+        r_max = const.NOT_PROVIDED  # maximum interpolation window radius
+        np_min = const.NOT_PROVIDED  # minimum number of points used for the interpolation
+        np_max = const.NOT_PROVIDED  # maximum number of points used for the interpolation
+        w_mode = 2  # data weighting mode
+        dtype = 2  # FLOAT
+        cp_data = 1  # copy input data values to output
 
-        if use_external_image:
-            msg = "Feature is rarely used & disabled until required"
-            raise NotImplementedError(msg)
-
-    def create_diff_par(self) -> None:
-        """Fine coregistration of primary MLI and simulated SAR image."""
-
-        dem_paths = self.dem_paths
-        coreg_paths = self.coreg_paths
-
-        create_diff_par(
-            coreg_paths.r_dem_primary_mli_par,
-            None,
-            dem_paths.dem_diff,
-            self.dem_offset,
-            self.dem_offset_measure,
-            self.dem_window,
-            self.dem_snr
-        )
-
-    def offset_calc(
-        self, npoly: Optional[int] = 1, use_external_image: Optional[bool] = False,
-    ) -> None:
-        """Offset computation. (Need more information from InSAR team).
-        :param npoly:
-            An Optional nth order polynomial term. Otherwise set to default for
-            Sentinel-1 acquisitions.
-        :param use_external_image:
-            An Optional parameter to set use of external image for co-registration.
-        """
-
-        dem_paths = self.dem_paths
-        coreg_paths = self.coreg_paths
-
-        # set parameters
-        if any(
-            item is None
-            for item in [
-                self.r_dem_primary_mli_width,
-                self.r_dem_primary_mli_length,
-                self.dem_width,
-            ]
-        ):
-            self._set_attrs()
-
-        # Get land center from user provided value if possible
-        if self.land_center is not None:
-            rpos, azpos = latlon_to_px(pg, coreg_paths.r_dem_primary_mli_par, *self.land_center)
-
-            _LOG.info(
-                "Land center for DEM coregistration",
-                mli=coreg_paths.r_dem_primary_mli,
-                land_center=self.land_center,
-                land_center_px=(rpos, azpos)
-            )
-
-        # Worst case we fall back to center of image (same as GAMMA default)
-        else:
-            rpos = self.r_dem_primary_mli_width // 2
-            azpos = self.r_dem_primary_mli_length // 2
-
-        # MCG: Urs Wegmuller recommended using pixel_area_gamma0 rather than
-        # simulated SAR image in offset calculation
-        mli_1_pathname = str(dem_paths.dem_pix_gam)
-        mli_2_pathname = str(coreg_paths.r_dem_primary_mli)
-        diff_par_pathname = str(dem_paths.dem_diff)
-        rlks = 1
-        azlks = 1
-        rpos = self.dem_rpos or rpos
-        azpos = self.dem_azpos or azpos
-        offr = const.NOT_PROVIDED
-        offaz = const.NOT_PROVIDED
-        thres = self.dem_snr
-        patch = self.dem_patch_window
-        cflag = 1  # copy constant range and azimuth offsets
-
-        # Note: these are in no particular order
-        grid = np.array([
-            # top, right, bottom, left
-            [0, patch], [patch, 0], [0, -patch], [-patch, 0],
-            # top left, top right, bottom right, bottom left
-            [-patch, patch], [patch, patch], [patch, -patch], [-patch, -patch]
-        ])
-
-        # Note: These start at land center, and progressively move further out
-        grid_attempts = [[0, 0], *(grid * 0.25), *(grid * 0.5), *(grid * 0.75), *grid]
-
-        # Attempt w/ land center pixel, and spiral out if we fail to find a match
-        succeeded_land_center = None
-
-        for attempt_offset in grid_attempts:
-            try:
-                # Note: We rely on GAMMA to error-out if these are out-of-bounds
-                # - just like it errors out if the center doesn't find a good enough correlation.
-                attempt_rpos = int(rpos + attempt_offset[0])
-                attempt_azpos = int(azpos + attempt_offset[1])
-
-                pg.init_offsetm(
-                    mli_1_pathname,
-                    mli_2_pathname,
-                    diff_par_pathname,
-                    rlks,
-                    azlks,
-                    attempt_rpos,
-                    attempt_azpos,
-                    offr,
-                    offaz,
-                    thres,
-                    patch,
-                    cflag,
-                )
-
-                succeeded_land_center = (attempt_rpos, attempt_azpos)
-                _LOG.info(
-                    "DEM coregistration succeeded for land center",
-                    range_px_coord=attempt_rpos,
-                    azimuth_px_coord=attempt_azpos
-                )
-
-                break
-
-            except CoregisterDemException:
-                _LOG.info(
-                    "DEM coregistration failed for land center",
-                    range_px_coord=attempt_rpos,
-                    azimuth_px_coord=attempt_azpos
-                )
-
-                # Do NOT raise this exception, we loop through attempting other
-                # land centers instead (and finally raise our own exception if all fail)
-                pass
-
-        # If no land center succeeded, raise an exception for the failure
-        if succeeded_land_center is None:
-            raise CoregisterDemException("Failed to coregister primary scene to DEM!")
-
-        mli_1_pathname = str(dem_paths.dem_pix_gam)
-        mli_2_pathname = str(coreg_paths.r_dem_primary_mli)
-        diff_par_pathname = str(dem_paths.dem_diff)
-        offs_pathname = str(dem_paths.dem_offs)
-        ccp_pathname = str(dem_paths.dem_ccp)
-        rwin = const.NOT_PROVIDED  # range patch size
-        azwin = const.NOT_PROVIDED  # azimuth patch size
-        offsets_pathname = str(dem_paths.dem_offsets)
-        n_ovr = 2
-        nr = const.NOT_PROVIDED  # number of offset estimates in range direction
-        naz = const.NOT_PROVIDED  # number of offset estimates in azimuth direction
-        thres = const.NOT_PROVIDED  # Lanczos interpolator order
-
-        pg.offset_pwrm(
-            mli_1_pathname,
-            mli_2_pathname,
-            diff_par_pathname,
-            offs_pathname,
-            ccp_pathname,
-            rwin,
-            azwin,
-            offsets_pathname,
-            n_ovr,
-            nr,
-            naz,
-            thres,
-        )
-
-        offs_pathname = str(dem_paths.dem_offs)
-        ccp_pathname = str(dem_paths.dem_ccp)
-        diff_par_pathname = str(dem_paths.dem_diff)
-        coffs_pathname = str(dem_paths.dem_coffs)
-        coffsets_pathname = str(dem_paths.dem_coffsets)
-        thres = const.NOT_PROVIDED
-
-        pg.offset_fitm(
-            offs_pathname,
-            ccp_pathname,
-            diff_par_pathname,
-            coffs_pathname,
-            coffsets_pathname,
-            thres,
-            npoly,
-        )
-
-        # refinement of initial geo-coding look-up-table
-        ref_flg = 1
-        if use_external_image:
-            ref_flg = 0
-
-        gc_in_pathname = str(dem_paths.dem_lt_rough)
-        width = self.dem_width
-        diff_par_pathname = str(dem_paths.dem_diff)
-        gc_out_pathname = str(dem_paths.dem_lt_fine)
-
-        pg.gc_map_fine(
-            gc_in_pathname,  # geocoding lookup table
+        pg.interp_ad(
+            data_in_pathname,
+            data_out_pathname,
             width,
-            diff_par_pathname,
-            gc_out_pathname,
-            ref_flg,
-        )
-
-        # generate refined gamma0 pixel normalization area image in radar geometry
-        with tempfile.TemporaryDirectory() as temp_dir:
-            pix = Path(temp_dir).joinpath("pix")
-
-            mli_par_pathname = str(coreg_paths.r_dem_primary_mli_par)
-            dem_par_pathname = str(dem_paths.geo_dem_par)
-            dem_pathname = str(dem_paths.geo_dem)
-            lookup_table_pathname = str(dem_paths.dem_lt_fine)
-            ls_map_pathname = str(dem_paths.dem_lsmap)
-            inc_map_pathname = str(dem_paths.dem_loc_inc)
-            pix_sigma0 = const.NOT_PROVIDED
-            pix_gamma0 = str(pix)
-
-            pg.pixel_area(
-                mli_par_pathname,
-                dem_par_pathname,
-                dem_pathname,
-                lookup_table_pathname,
-                ls_map_pathname,
-                inc_map_pathname,
-                pix_sigma0,
-                pix_gamma0,
-            )
-
-            # interpolate holes
-            data_in_pathname = str(pix)
-            data_out_pathname = str(dem_paths.dem_pix_gam)
-            width = self.r_dem_primary_mli_width
-            r_max = const.NOT_PROVIDED  # maximum interpolation window radius
-            np_min = const.NOT_PROVIDED  # minimum number of points used for the interpolation
-            np_max = const.NOT_PROVIDED  # maximum number of points used for the interpolation
-            w_mode = 2  # data weighting mode
-            dtype = 2  # FLOAT
-            cp_data = 1  # copy input data values to output
-
-            pg.interp_ad(
-                data_in_pathname,
-                data_out_pathname,
-                width,
-                r_max,
-                np_min,
-                np_max,
-                w_mode,
-                dtype,
-                cp_data,
-            )
-
-            # obtain ellipsoid-based ground range sigma0 pixel reference area
-            sigma0 = Path(temp_dir).joinpath("sigma0")
-
-            mli_pathname = str(coreg_paths.r_dem_primary_mli)
-            mli_par_pathname = str(coreg_paths.r_dem_primary_mli_par)
-            off_par = const.NOT_PROVIDED  # ISP offset/interferogram parameter file
-            cmli = str(sigma0)  # radiometrically calibrated output MLI
-            antenna = const.NOT_PROVIDED  # 1-way antenna gain pattern file
-            rloss_flag = 0  # range spreading loss correction
-            ant_flag = 0  # antenna pattern correction
-            refarea_flag = 1  # reference pixel area correction
-            sc_db = const.NOT_PROVIDED  # scale factor in dB
-            k_db = const.NOT_PROVIDED  # calibration factor in dB
-            pix_area_pathname = str(dem_paths.ellip_pix_sigma0)
-
-            pg.radcal_MLI(
-                mli_pathname,
-                mli_par_pathname,
-                off_par,
-                cmli,
-                antenna,
-                rloss_flag,
-                ant_flag,
-                refarea_flag,
-                sc_db,
-                k_db,
-                pix_area_pathname,
-            )
-
-            # Generate Gamma0 backscatter image for primary scene according to equation
-            # in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
-            temp1 = Path(temp_dir).joinpath("temp1")
-
-            d1_pathname = str(coreg_paths.r_dem_primary_mli)
-            d2_pathname = str(dem_paths.ellip_pix_sigma0)
-            d_out_pathname = str(temp1)
-            width = self.r_dem_primary_mli_width
-            mode = 2  # multiplication
-
-            pg.float_math(
-                d1_pathname, d2_pathname, d_out_pathname, width, mode,
-            )
-
-            d1_pathname = str(temp1)
-            d2_pathname = str(dem_paths.dem_pix_gam)
-            d_out_pathname = str(self.dem_primary_gamma0)
-            width = self.r_dem_primary_mli_width
-            mode = 3  # division
-
-            pg.float_math(
-                d1_pathname, d2_pathname, d_out_pathname, width, mode,
-            )
-
-            # create raster for comparison with primary mli raster
-            pwr_pathname = str(self.dem_primary_gamma0)
-            width = self.r_dem_primary_mli_width
-            start = 1
-            nlines = 0  # 0 is to end of file
-            pixavr = 20
-            pixavaz = 20
-            scale = 1.0
-            exp = 0.35
-            lr = 1  # left/right mirror image flag
-            rasf_pathname = str(self.dem_primary_gamma0_bmp)
-
-            pg.raspwr(
-                pwr_pathname,
-                width,
-                start,
-                nlines,
-                pixavr,
-                pixavaz,
-                scale,
-                exp,
-                lr,
-                rasf_pathname,
-            )
-
-            # make sea-mask based on DEM zero values
-            temp = Path(temp_dir).joinpath("temp")
-
-            f_in_pathname = str(dem_paths.geo_dem)
-            value = 0.0001
-            new_value = 0
-            f_out_pathname = str(temp)
-            width = self.dem_width
-            rpl_flg = 0  # replacement option flag; replace all points
-            dtype = 2  # FLOAT
-            zflg = 1  # zero is a valid data value
-
-            pg.replace_values(
-                f_in_pathname,
-                value,
-                new_value,
-                f_out_pathname,
-                width,
-                rpl_flg,
-                dtype,
-                zflg,
-            )
-
-            hgt_pathname = str(temp)
-            pwr_pathname = const.NOT_PROVIDED
-            width = self.dem_width
-            start_hgt = 1
-            start_pwr = 1
-            nlines = 0
-            pixavr = 1
-            pixavaz = 1
-            m_per_cycle = 100.0  # metres per color cycle
-            scale = const.NOT_PROVIDED  # display scale factor
-            exp = const.NOT_PROVIDED  # display exponent
-            lr = const.NOT_PROVIDED  # left/right mirror image flag
-            rasf_pathname = str(dem_paths.seamask)
-
-            pg.rashgt(
-                hgt_pathname,
-                pwr_pathname,
-                width,
-                start_hgt,
-                start_pwr,
-                nlines,
-                pixavr,
-                pixavaz,
-                m_per_cycle,
-                scale,
-                exp,
-                lr,
-                rasf_pathname,
-            )
-
-    def geocode(
-        self, use_external_image: Optional[bool] = False,
-    ):
-        """
-        Method to geocode image files to radar geometry.
-        :param use_external_image:
-            An Optional external image is to be used for co-registration.
-        """
-
-        dem_paths = self.dem_paths
-        coreg_paths = self.coreg_paths
-
-        # set parameters
-        if any(
-            item is None
-            for item in [
-                self.r_dem_primary_mli_width,
-                self.r_dem_primary_mli_length,
-                self.dem_width,
-            ]
-        ):
-            self._set_attrs()
-
-        # geocode map geometry DEM to radar geometry
-        lookup_table_pathname = str(dem_paths.dem_lt_fine)
-        data_in_pathname = str(dem_paths.geo_dem)
-        width_in = self.dem_width
-        data_out_pathname = str(dem_paths.rdc_dem)
-        width_out = self.r_dem_primary_mli_width
-        nlines_out = self.r_dem_primary_mli_length
-        interp_mode = 1
-        dtype = const.DTYPE_FLOAT
-        lr_in = const.NOT_PROVIDED
-        lr_out = const.NOT_PROVIDED
-        n_ovr = 2
-        rad_max = self.dem_rad_max
-        nintr = const.NOT_PROVIDED  # number of points required for interpolation
-
-        pg.geocode(
-            lookup_table_pathname,
-            data_in_pathname,
-            width_in,
-            data_out_pathname,
-            width_out,
-            nlines_out,
-            interp_mode,
+            r_max,
+            np_min,
+            np_max,
+            w_mode,
             dtype,
-            lr_in,
-            lr_out,
-            n_ovr,
-            rad_max,
-            nintr,
+            cp_data,
         )
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            rdc_dem_bmp = Path(temp_dir).joinpath("rdc_dem.bmp")
+        # obtain ellipsoid-based ground range sigma0 pixel reference area
+        sigma0 = Path(temp_dir).joinpath("sigma0")
 
-            hgt_pathname = str(dem_paths.rdc_dem)
-            pwr_pathname = str(coreg_paths.r_dem_primary_mli)
-            width = self.r_dem_primary_mli_width
-            start_hgt = 1
-            start_pwr = 1
-            nlines = 0
-            pixavr = 20
-            pixavaz = 20
-            m_per_cycle = 500.0  # metres per color cycle
-            scale = 1.0  # display scale factor
-            exp = 0.35  # display exponent
-            lr = 1  # left/right mirror image flag
-            rasf_pathname = str(rdc_dem_bmp)
+        mli_pathname = str(coreg_paths.r_dem_primary_mli)
+        mli_par_pathname = str(coreg_paths.r_dem_primary_mli_par)
+        off_par = const.NOT_PROVIDED  # ISP offset/interferogram parameter file
+        cmli = str(sigma0)  # radiometrically calibrated output MLI
+        antenna = const.NOT_PROVIDED  # 1-way antenna gain pattern file
+        rloss_flag = 0  # range spreading loss correction
+        ant_flag = 0  # antenna pattern correction
+        refarea_flag = 1  # reference pixel area correction
+        sc_db = const.NOT_PROVIDED  # scale factor in dB
+        k_db = const.NOT_PROVIDED  # calibration factor in dB
+        pix_area_pathname = str(dem_paths.ellip_pix_sigma0)
 
-            pg.rashgt(
-                hgt_pathname,
-                pwr_pathname,
-                width,
-                start_hgt,
-                start_pwr,
-                nlines,
-                pixavr,
-                pixavaz,
-                m_per_cycle,
-                scale,
-                exp,
-                lr,
-                rasf_pathname,
-            )
-
-            Image.open(rdc_dem_bmp).save(
-                dem_paths.rdc_dem.with_suffix(".png")
-            )
-
-        # Geocode simulated SAR intensity image to radar geometry
-        lookup_table_pathname = str(dem_paths.dem_lt_fine)
-        data_in_pathname = str(dem_paths.dem_geo_sim_sar)
-        width_in = self.dem_width
-        data_out_pathname = str(dem_paths.dem_rdc_sim_sar)
-        width_out = self.r_dem_primary_mli_width
-        nlines_out = self.r_dem_primary_mli_length
-        interp_mode = 0  # resampling interpolation; 1/dist
-        dtype = const.DTYPE_FLOAT
-        lr_in = const.NOT_PROVIDED
-        lr_out = const.NOT_PROVIDED
-        n_ovr = 2
-        rad_max = self.dem_rad_max  # maximum interpolation search radius
-        nintr = const.NOT_PROVIDED  # number of points required for interpolation
-
-        pg.geocode(
-            lookup_table_pathname,
-            data_in_pathname,
-            width_in,
-            data_out_pathname,
-            width_out,
-            nlines_out,
-            interp_mode,
-            dtype,
-            lr_in,
-            lr_out,
-            n_ovr,
-            rad_max,
-            nintr,
+        pg.radcal_MLI(
+            mli_pathname,
+            mli_par_pathname,
+            off_par,
+            cmli,
+            antenna,
+            rloss_flag,
+            ant_flag,
+            refarea_flag,
+            sc_db,
+            k_db,
+            pix_area_pathname,
         )
 
-        # Geocode local incidence angle image to radar geometry
-        lookup_table_pathname = str(dem_paths.dem_lt_fine)
-        data_in_pathname = str(dem_paths.dem_loc_inc)
-        width_in = self.dem_width
-        data_out_pathname = str(dem_paths.dem_rdc_inc)
-        width_out = self.r_dem_primary_mli_width
-        nlines_out = self.r_dem_primary_mli_length
-        interp_mode = 0  # resampling interpolation; 1/dist
-        dtype = const.DTYPE_FLOAT
-        lr_in = const.NOT_PROVIDED
-        lr_out = const.NOT_PROVIDED
-        n_ovr = 2
-        rad_max = self.dem_rad_max  # maximum interpolation search radius
-        nintr = const.NOT_PROVIDED  # number of points required for interpolation
+        # Generate Gamma0 backscatter image for primary scene according to equation
+        # in Section 10.6 of Gamma Geocoding and Image Registration Users Guide
+        temp1 = Path(temp_dir).joinpath("temp1")
 
-        pg.geocode(
-            lookup_table_pathname,
-            data_in_pathname,
-            width_in,
-            data_out_pathname,
-            width_out,
-            nlines_out,
-            interp_mode,
-            dtype,
-            lr_in,
-            lr_out,
-            n_ovr,
-            rad_max,
-            nintr,
+        d1_pathname = str(coreg_paths.r_dem_primary_mli)
+        d2_pathname = str(dem_paths.ellip_pix_sigma0)
+        d_out_pathname = str(temp1)
+        width = r_dem_primary_mli_width
+        mode = 2  # multiplication
+
+        pg.float_math(
+            d1_pathname, d2_pathname, d_out_pathname, width, mode,
         )
 
-        # Geocode external image to radar geometry
-        if use_external_image:
-            msg = "Feature is rarely used & disabled until required"
-            raise NotImplementedError(msg)
+        d1_pathname = str(temp1)
+        d2_pathname = str(dem_paths.dem_pix_gam)
+        d_out_pathname = str(nrb_paths.gamma0)
+        width = r_dem_primary_mli_width
+        mode = 3  # division
 
-        # Convert lsmap to geotiff
-        pg.data2geotiff(
-            dem_paths.geo_dem_par,
-            dem_paths.dem_lsmap,
-            5,  # data type (BYTE)
-            dem_paths.dem_lsmap_tif,  # output oath
-            0.0,  # No data
+        pg.float_math(
+            d1_pathname, d2_pathname, d_out_pathname, width, mode,
         )
 
-        # Create CARD4L mask (1 = good pixel, 0 = bad)
-        ls_map_file = gdal.Open(str(dem_paths.dem_lsmap_tif))
-        ls_map_img = ls_map_file.ReadAsArray()
-
-        # Sanity check
-        assert(ls_map_img.shape[0] == self.dem_height)
-        assert(ls_map_img.shape[1] == self.dem_width)
-
-        # Simply turn non-good pixels to 0 (all that remains then is the good pixels which are already 1)
-        ls_map_img[ls_map_img != 1] = 0
-
-        # Save this back out as a geotiff w/ identical projection as the lsmap
-        ls_mask_file = gdal.GetDriverByName("GTiff").Create(
-            dem_paths.dem_lsmap_mask_tif.as_posix(),
-            ls_map_img.shape[1], ls_map_img.shape[0], 1,
-            gdal.GDT_Byte,
-            options=["COMPRESS=PACKBITS"]
-        )
-
-        ls_mask_file.SetGeoTransform(ls_map_file.GetGeoTransform())
-        ls_mask_file.SetProjection(ls_map_file.GetProjection())
-        ls_mask_file.GetRasterBand(1).WriteArray(ls_map_img)
-        ls_mask_file.GetRasterBand(1).SetNoDataValue(0)
-        ls_mask_file.FlushCache()
-        ls_mask_file = None  # noqa
-
-        # Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
-        data_in_pathname = str(self.dem_primary_gamma0)
-        width_in = self.r_dem_primary_mli_width
-        lookup_table_pathname = str(dem_paths.dem_lt_fine)
-        data_out_pathname = str(self.dem_primary_gamma0_geo)
-        width_out = self.dem_width
-        nlines_out = const.NOT_PROVIDED
-        interp_mode = 5  # B-spline interpolation sqrt(x)
-        dtype = const.DTYPE_FLOAT
-        lr_in = const.NOT_PROVIDED
-        lr_out = const.NOT_PROVIDED
-        order = 5  # Lanczos function order or B-spline degree
-
-        pg.geocode_back(
-            data_in_pathname,
-            width_in,
-            lookup_table_pathname,
-            data_out_pathname,
-            width_out,
-            nlines_out,
-            interp_mode,
-            dtype,
-            lr_in,
-            lr_out,
-            order,
-        )
-
-        # make quick-look png image
-        pwr_pathname = str(self.dem_primary_gamma0_geo)
-        width = self.dem_width
+        # create raster for comparison with primary mli raster
+        pwr_pathname = str(nrb_paths.gamma0)
+        width = r_dem_primary_mli_width
         start = 1
-        nlines = 0  # to end of file
+        nlines = 0  # 0 is to end of file
         pixavr = 20
         pixavaz = 20
-        scale = const.NOT_PROVIDED
-        exp = const.NOT_PROVIDED
-        lr = const.NOT_PROVIDED
-        rasf_pathname = str(self.dem_primary_gamma0_geo_bmp)
+        scale = 1.0
+        exp = 0.35
+        lr = 1  # left/right mirror image flag
+        rasf_pathname = str(nrb_paths.gamma0.with_suffix(".bmp"))
 
         pg.raspwr(
             pwr_pathname,
@@ -1036,148 +461,656 @@ class CoregisterDem:
             rasf_pathname,
         )
 
-        # Convert the bitmap to a PNG w/ black pixels made transparent
-        img = Image.open(self.dem_primary_gamma0_geo_bmp.as_posix())
-        img = np.array(img.convert("RGBA"))
-        img[(img[:, :, :3] == (0, 0, 0)).all(axis=-1)] = (0, 0, 0, 0)
-        Image.fromarray(img).save(
-            self.dem_primary_gamma0_geo_bmp.with_suffix(".png").as_posix()
-        )
+        # make sea-mask based on DEM zero values
+        temp = Path(temp_dir).joinpath("temp")
 
-        # geotiff gamma0 file
-        dem_par_pathname = str(dem_paths.geo_dem_par)
-        data_pathname = str(self.dem_primary_gamma0_geo)
-        dtype = const.DTYPE_GEOTIFF_FLOAT
-        geotiff_pathname = self.dem_primary_gamma0_geo_tif
-        nodata = 0.0
+        f_in_pathname = str(dem_paths.geo_dem)
+        value = 0.0001
+        new_value = 0
+        f_out_pathname = str(temp)
+        width = dem_width
+        rpl_flg = 0  # replacement option flag; replace all points
+        dtype = 2  # FLOAT
+        zflg = 1  # zero is a valid data value
 
-        pg.data2geotiff(
-            dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
-        )
-
-        # geocode sigma0 mli
-        shutil.copyfile(coreg_paths.r_dem_primary_mli, self.dem_primary_sigma0)
-
-        data_in_pathname = str(self.dem_primary_sigma0)
-        width_in = self.r_dem_primary_mli_width
-        lookup_table_pathname = str(dem_paths.dem_lt_fine)
-        data_out_pathname = str(self.dem_primary_sigma0_geo)
-        width_out = self.dem_width
-        nlines_out = const.NOT_PROVIDED
-        interp_mode = 0
-        dtype = const.DTYPE_FLOAT
-        lr_in = const.NOT_PROVIDED
-        lr_out = const.NOT_PROVIDED
-
-        pg.geocode_back(
-            data_in_pathname,
-            width_in,
-            lookup_table_pathname,
-            data_out_pathname,
-            width_out,
-            nlines_out,
-            interp_mode,
+        pg.replace_values(
+            f_in_pathname,
+            value,
+            new_value,
+            f_out_pathname,
+            width,
+            rpl_flg,
             dtype,
-            lr_in,
-            lr_out,
+            zflg,
         )
 
-        # geotiff sigma0 file
-        dem_par_pathname = str(dem_paths.geo_dem_par)
-        data_pathname = str(self.dem_primary_sigma0_geo)
-        dtype = const.DTYPE_GEOTIFF_FLOAT
-        geotiff_pathname = str(self.dem_primary_sigma0_geo_tif)
-        nodata = 0.0
+        hgt_pathname = str(temp)
+        pwr_pathname = const.NOT_PROVIDED
+        width = dem_width
+        start_hgt = 1
+        start_pwr = 1
+        nlines = 0
+        pixavr = 1
+        pixavaz = 1
+        m_per_cycle = 100.0  # metres per color cycle
+        scale = const.NOT_PROVIDED  # display scale factor
+        exp = const.NOT_PROVIDED  # display exponent
+        lr = const.NOT_PROVIDED  # left/right mirror image flag
+        rasf_pathname = str(dem_paths.seamask)
 
-        pg.data2geotiff(
-            dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
+        pg.rashgt(
+            hgt_pathname,
+            pwr_pathname,
+            width,
+            start_hgt,
+            start_pwr,
+            nlines,
+            pixavr,
+            pixavaz,
+            m_per_cycle,
+            scale,
+            exp,
+            lr,
+            rasf_pathname,
         )
 
-        # geotiff DEM
-        dem_par_pathname = str(dem_paths.geo_dem_par)
-        data_pathname = str(dem_paths.geo_dem)
-        dtype = const.DTYPE_GEOTIFF_FLOAT
-        geotiff_pathname = append_suffix(dem_paths.geo_dem, ".tif")
-        nodata = 0.0
+def geocode(
+    dem_paths: DEMPaths,
+    coreg_paths: CoregisteredPrimaryPaths,
+    dem_width: int,
+    dem_height: int,
+    r_dem_primary_mli_width: int,
+    r_dem_primary_mli_length: int,
+    dem_rad_max: int = 4,
+    use_external_image: bool = False,
+):
+    """
+    Method to geocode image files to radar geometry.
+    :param use_external_image:
+        An Optional external image is to be used for co-registration.
+    """
 
-        pg.data2geotiff(
-            dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
+    nrb_paths = BackscatterPaths(coreg_paths.primary)
+
+    # geocode map geometry DEM to radar geometry
+    lookup_table_pathname = str(dem_paths.dem_lt_fine)
+    data_in_pathname = str(dem_paths.geo_dem)
+    width_in = dem_width
+    data_out_pathname = str(dem_paths.rdc_dem)
+    width_out = r_dem_primary_mli_width
+    nlines_out = r_dem_primary_mli_length
+    interp_mode = 1
+    dtype = const.DTYPE_FLOAT
+    lr_in = const.NOT_PROVIDED
+    lr_out = const.NOT_PROVIDED
+    n_ovr = 2
+    rad_max = dem_rad_max
+    nintr = const.NOT_PROVIDED  # number of points required for interpolation
+
+    pg.geocode(
+        lookup_table_pathname,
+        data_in_pathname,
+        width_in,
+        data_out_pathname,
+        width_out,
+        nlines_out,
+        interp_mode,
+        dtype,
+        lr_in,
+        lr_out,
+        n_ovr,
+        rad_max,
+        nintr,
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        rdc_dem_bmp = Path(temp_dir).joinpath("rdc_dem.bmp")
+
+        hgt_pathname = str(dem_paths.rdc_dem)
+        pwr_pathname = str(coreg_paths.r_dem_primary_mli)
+        width = r_dem_primary_mli_width
+        start_hgt = 1
+        start_pwr = 1
+        nlines = 0
+        pixavr = 20
+        pixavaz = 20
+        m_per_cycle = 500.0  # metres per color cycle
+        scale = 1.0  # display scale factor
+        exp = 0.35  # display exponent
+        lr = 1  # left/right mirror image flag
+        rasf_pathname = str(rdc_dem_bmp)
+
+        pg.rashgt(
+            hgt_pathname,
+            pwr_pathname,
+            width,
+            start_hgt,
+            start_pwr,
+            nlines,
+            pixavr,
+            pixavaz,
+            m_per_cycle,
+            scale,
+            exp,
+            lr,
+            rasf_pathname,
         )
 
-        # create kml
-        image_pathname = str(self.dem_primary_gamma0_geo_bmp.with_suffix(".png"))
-        dem_par_pathname = str(dem_paths.geo_dem_par)
-        kml_pathname = str(self.dem_primary_gamma0_geo_bmp.with_suffix(".kml"))
-
-        pg.kml_map(
-            image_pathname, dem_par_pathname, kml_pathname,
+        Image.open(rdc_dem_bmp).save(
+            dem_paths.rdc_dem.with_suffix(".png")
         )
 
-        # clean up now intermittent redundant files.
-        for item in [
-            dem_paths.dem_offs,
-            dem_paths.dem_offsets,
-            dem_paths.dem_coffs,
-            dem_paths.dem_coffsets,
-            dem_paths.dem_lt_rough,
-            self.dem_primary_gamma0_geo_bmp,
-        ]:
-            # TODO uncomment remove comment in production phase.
-            if item.exists():
-                # os.remove(item)
-                pass
+    # Geocode simulated SAR intensity image to radar geometry
+    lookup_table_pathname = str(dem_paths.dem_lt_fine)
+    data_in_pathname = str(dem_paths.dem_geo_sim_sar)
+    width_in = dem_width
+    data_out_pathname = str(dem_paths.dem_rdc_sim_sar)
+    width_out = r_dem_primary_mli_width
+    nlines_out = r_dem_primary_mli_length
+    interp_mode = 0  # resampling interpolation; 1/dist
+    dtype = const.DTYPE_FLOAT
+    lr_in = const.NOT_PROVIDED
+    lr_out = const.NOT_PROVIDED
+    n_ovr = 2
+    rad_max = dem_rad_max  # maximum interpolation search radius
+    nintr = const.NOT_PROVIDED  # number of points required for interpolation
 
-    def look_vector(self):
-        """Create look vector files."""
+    pg.geocode(
+        lookup_table_pathname,
+        data_in_pathname,
+        width_in,
+        data_out_pathname,
+        width_out,
+        nlines_out,
+        interp_mode,
+        dtype,
+        lr_in,
+        lr_out,
+        n_ovr,
+        rad_max,
+        nintr,
+    )
 
-        dem_paths = self.dem_paths
-        coreg_paths = self.coreg_paths
+    # Geocode local incidence angle image to radar geometry
+    lookup_table_pathname = str(dem_paths.dem_lt_fine)
+    data_in_pathname = str(dem_paths.dem_loc_inc)
+    width_in = dem_width
+    data_out_pathname = str(dem_paths.dem_rdc_inc)
+    width_out = r_dem_primary_mli_width
+    nlines_out = r_dem_primary_mli_length
+    interp_mode = 0  # resampling interpolation; 1/dist
+    dtype = const.DTYPE_FLOAT
+    lr_in = const.NOT_PROVIDED
+    lr_out = const.NOT_PROVIDED
+    n_ovr = 2
+    rad_max = dem_rad_max  # maximum interpolation search radius
+    nintr = const.NOT_PROVIDED  # number of points required for interpolation
 
-        # create angles look vector image
-        slc_par_pathname = str(coreg_paths.r_dem_primary_slc_par)
-        off_par_pathname = const.NOT_PROVIDED
-        dem_par_pathname = str(dem_paths.geo_dem_par)
-        dem_pathname = str(dem_paths.geo_dem)
-        lv_theta_pathname = str(dem_paths.dem_lv_theta)
-        lv_phi_pathname = str(dem_paths.dem_lv_phi)
+    pg.geocode(
+        lookup_table_pathname,
+        data_in_pathname,
+        width_in,
+        data_out_pathname,
+        width_out,
+        nlines_out,
+        interp_mode,
+        dtype,
+        lr_in,
+        lr_out,
+        n_ovr,
+        rad_max,
+        nintr,
+    )
 
-        pg.look_vector(
-            slc_par_pathname,
-            off_par_pathname,
-            dem_par_pathname,
-            dem_pathname,
-            lv_theta_pathname,
-            lv_phi_pathname,
+    # Geocode external image to radar geometry
+    if use_external_image:
+        msg = "Feature is rarely used & disabled until required"
+        raise NotImplementedError(msg)
+
+    # Convert lsmap to geotiff
+    pg.data2geotiff(
+        dem_paths.geo_dem_par,
+        dem_paths.dem_lsmap,
+        5,  # data type (BYTE)
+        dem_paths.dem_lsmap_tif,  # output path
+        0.0,  # No data
+    )
+
+    # Create CARD4L mask (1 = good pixel, 0 = bad)
+    ls_map_file = gdal.Open(str(dem_paths.dem_lsmap_tif))
+    ls_map_img = ls_map_file.ReadAsArray()
+
+    # Sanity check
+    assert(ls_map_img.shape[0] == dem_height)
+    assert(ls_map_img.shape[1] == dem_width)
+
+    # Simply turn non-good pixels to 0 (all that remains then is the good pixels which are already 1)
+    ls_map_img[ls_map_img != 1] = 0
+
+    # Save this back out as a geotiff w/ identical projection as the lsmap
+    ls_mask_file = gdal.GetDriverByName("GTiff").Create(
+        dem_paths.dem_lsmap_mask_tif.as_posix(),
+        ls_map_img.shape[1], ls_map_img.shape[0], 1,
+        gdal.GDT_Byte,
+        options=["COMPRESS=PACKBITS"]
+    )
+
+    ls_mask_file.SetGeoTransform(ls_map_file.GetGeoTransform())
+    ls_mask_file.SetProjection(ls_map_file.GetProjection())
+    ls_mask_file.GetRasterBand(1).WriteArray(ls_map_img)
+    ls_mask_file.GetRasterBand(1).SetNoDataValue(0)
+    ls_mask_file.FlushCache()
+    ls_mask_file = None  # noqa
+
+    # Back-geocode Gamma0 backscatter product to map geometry using B-spline interpolation on sqrt of data
+    data_in_pathname = str(nrb_paths.gamma0)
+    width_in = r_dem_primary_mli_width
+    lookup_table_pathname = str(dem_paths.dem_lt_fine)
+    data_out_pathname = str(nrb_paths.gamma0_geo)
+    width_out = dem_width
+    nlines_out = const.NOT_PROVIDED
+    interp_mode = 5  # B-spline interpolation sqrt(x)
+    dtype = const.DTYPE_FLOAT
+    lr_in = const.NOT_PROVIDED
+    lr_out = const.NOT_PROVIDED
+    order = 5  # Lanczos function order or B-spline degree
+
+    pg.geocode_back(
+        data_in_pathname,
+        width_in,
+        lookup_table_pathname,
+        data_out_pathname,
+        width_out,
+        nlines_out,
+        interp_mode,
+        dtype,
+        lr_in,
+        lr_out,
+        order,
+    )
+
+    # make quick-look png image
+    pwr_pathname = str(nrb_paths.gamma0_geo)
+    width = dem_width
+    start = 1
+    nlines = 0  # to end of file
+    pixavr = 20
+    pixavaz = 20
+    scale = const.NOT_PROVIDED
+    exp = const.NOT_PROVIDED
+    lr = const.NOT_PROVIDED
+    rasf_pathname = nrb_paths.gamma0_geo_tif.with_suffix(".bmp").as_posix()
+
+    pg.raspwr(
+        pwr_pathname,
+        width,
+        start,
+        nlines,
+        pixavr,
+        pixavaz,
+        scale,
+        exp,
+        lr,
+        rasf_pathname,
+    )
+
+    # Convert the bitmap to a PNG w/ black pixels made transparent
+    convert(
+        rasf_pathname,
+        nrb_paths.gamma0_geo_tif.with_suffix(".png")
+    )
+
+    # geotiff gamma0 file
+    dem_par_pathname = str(dem_paths.geo_dem_par)
+    data_pathname = str(nrb_paths.gamma0_geo)
+    dtype = const.DTYPE_GEOTIFF_FLOAT
+    geotiff_pathname = nrb_paths.gamma0_geo_tif
+    nodata = 0.0
+
+    pg.data2geotiff(
+        dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
+    )
+
+    # geocode sigma0 mli
+    shutil.copyfile(coreg_paths.r_dem_primary_mli, nrb_paths.sigma0)
+
+    data_in_pathname = str(nrb_paths.sigma0)
+    width_in = r_dem_primary_mli_width
+    lookup_table_pathname = str(dem_paths.dem_lt_fine)
+    data_out_pathname = str(nrb_paths.sigma0_geo)
+    width_out = dem_width
+    nlines_out = const.NOT_PROVIDED
+    interp_mode = 0
+    dtype = const.DTYPE_FLOAT
+    lr_in = const.NOT_PROVIDED
+    lr_out = const.NOT_PROVIDED
+
+    pg.geocode_back(
+        data_in_pathname,
+        width_in,
+        lookup_table_pathname,
+        data_out_pathname,
+        width_out,
+        nlines_out,
+        interp_mode,
+        dtype,
+        lr_in,
+        lr_out,
+    )
+
+    # geotiff sigma0 file
+    dem_par_pathname = str(dem_paths.geo_dem_par)
+    data_pathname = str(nrb_paths.sigma0_geo)
+    dtype = const.DTYPE_GEOTIFF_FLOAT
+    geotiff_pathname = str(nrb_paths.sigma0_geo_tif)
+    nodata = 0.0
+
+    pg.data2geotiff(
+        dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
+    )
+
+    # geotiff DEM
+    dem_par_pathname = str(dem_paths.geo_dem_par)
+    data_pathname = str(dem_paths.geo_dem)
+    dtype = const.DTYPE_GEOTIFF_FLOAT
+    geotiff_pathname = append_suffix(dem_paths.geo_dem, ".tif")
+    nodata = 0.0
+
+    pg.data2geotiff(
+        dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
+    )
+
+    # create kml
+    image_pathname = str(nrb_paths.gamma0_geo_tif.with_suffix(".png"))
+    dem_par_pathname = str(dem_paths.geo_dem_par)
+    kml_pathname = str(nrb_paths.gamma0_geo_tif.with_suffix(".kml"))
+
+    pg.kml_map(
+        image_pathname, dem_par_pathname, kml_pathname,
+    )
+
+    # clean up now intermittent redundant files.
+    for item in [
+        dem_paths.dem_offs,
+        dem_paths.dem_offsets,
+        dem_paths.dem_coffs,
+        dem_paths.dem_coffsets,
+        dem_paths.dem_lt_rough,
+        nrb_paths.gamma0_geo_tif.with_suffix(".bmp"),
+    ]:
+        # TODO uncomment remove comment in production phase.
+        if item.exists():
+            # os.remove(item)
+            pass
+
+def look_vector(dem_paths: DEMPaths, coreg_paths: CoregisteredPrimaryPaths):
+    """Create look vector files."""
+
+    # create angles look vector image
+    slc_par_pathname = str(coreg_paths.r_dem_primary_slc_par)
+    off_par_pathname = const.NOT_PROVIDED
+    dem_par_pathname = str(dem_paths.geo_dem_par)
+    dem_pathname = str(dem_paths.geo_dem)
+    lv_theta_pathname = str(dem_paths.dem_lv_theta)
+    lv_phi_pathname = str(dem_paths.dem_lv_phi)
+
+    pg.look_vector(
+        slc_par_pathname,
+        off_par_pathname,
+        dem_par_pathname,
+        dem_pathname,
+        lv_theta_pathname,
+        lv_phi_pathname,
+    )
+
+    # convert look vector files to geotiff file
+    dem_par_pathname = str(dem_paths.geo_dem_par)
+    data_pathname = str(dem_paths.dem_lv_theta)
+    dtype = const.DTYPE_GEOTIFF_FLOAT
+    geotiff_pathname = append_suffix(dem_paths.dem_lv_theta, ".tif")
+    nodata = 0.0
+
+    pg.data2geotiff(
+        dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
+    )
+
+    dem_par_pathname = str(dem_paths.geo_dem_par)
+    data_pathname = str(dem_paths.dem_lv_phi)
+    dtype = const.DTYPE_GEOTIFF_FLOAT
+    geotiff_pathname = append_suffix(dem_paths.dem_lv_phi, ".tif")
+    nodata = 0.0
+
+    pg.data2geotiff(
+        dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
+    )
+
+
+def coregister_primary(
+    log: structlog.BoundLogger,
+    proc_config: ProcConfig,
+    rlks: int,
+    alks: int,
+    multi_look: int,
+    dem_patch_window: int = 1024,
+    dem_rpos: Optional[int] = None,
+    dem_azpos: Optional[int] = None,
+    dem_offset: Tuple[int, int] = (0, 0),
+    dem_offset_measure: Tuple[int, int] = (32, 32),
+    dem_window: Tuple[int, int] = (256, 256),
+    dem_snr: float = 0.15,
+    dem_rad_max: int = 4,
+    dem_ovr: int = 1,
+    land_center: Optional[Tuple[float, float]] = None,
+    ext_image_flt: Optional[Union[Path, str]] = None,
+):
+    """
+    Generates SLC coregistered to DEM image in radar geometry.
+
+    :param rlks:
+        A range look value used on SLCs
+    :param alks:
+        An azimuth look value used on SLCs
+    :param multi_look:
+        The multi-look value (for both width and height) to use on the DEM.
+    :param dem:
+        A full path to a DEM image file.
+    :param slc:
+        A full path to a SLC image file.
+    :param dem_par:
+        A full path to a DEM parameter file.
+    :param slc_par:
+        A full path to a SLC parameter file.
+    :param dem_patch_window:
+        An Optional DEM patch window size.
+    :param dem_rpos:
+        An Optional range 'rpos' value.
+    :param dem_azpos:
+        An Optional azimuth 'azpos' value.
+    :param dem_offset:
+        An Optional dem offset value.
+    :param dem_offset_measure:
+        An Optional dem offset measure value.
+    :param dem_window:
+        An Optional dem window value.
+    :param dem_snr:
+        An Optional dem signal-to-noise ratio value.
+    :param dem_rad_max:
+        An Optional dem rad max value.
+    :param dem_ovr:
+        DEM oversampling factor. Default is 1.
+    :param ext_image_flt:
+        DISABLED: Optional full path to an external image filter to use for
+        co-registration in very flat scenes with no features (rarely used).
+    :param land_center:
+        A user defined scene center of (latitude, longitude) to use for initial offset.
+    """
+
+    dem_paths = DEMPaths(proc_config)
+    primary_slc_paths = SlcPaths(
+        proc_config,
+        proc_config.ref_primary_scene,
+        proc_config.polarisation,
+        rlks
+    )
+    coreg_paths = CoregisteredPrimaryPaths(primary_slc_paths)
+
+    if not coreg_paths.dem_primary_slc.exists():
+        raise CoregisterDemException("Primary scene SLC is missing")
+
+    if not coreg_paths.dem_primary_slc_par.exists():
+        raise CoregisterDemException("Primary scene SLC .par is missing")
+
+    if multi_look < 1:
+        msg = "multi_look parameter needs to be >= 1"
+        log.error(msg)
+        raise ValueError(msg)
+
+    """
+    Adjusts DEM parameters to valid, usable values.
+
+    Ensures DEM window meets minimum size limits. Updates patch size for DEM co-registration to
+    handle resolution changes based on multi-look values, and to confirm valid patch window size
+    for offset estimation.
+    """
+    dem_window = list(dem_window)
+    dem_offset = list(dem_offset)
+
+    dem_window[0] = dem_window[0] // multi_look
+
+    msg = "increase DEM_WIN to fix window size (needs to be DEM_WIN/multi_look >=8)"
+    if dem_window[0] < const.MIN_DEM_WIN_AXIS:
+        log.info(msg, old_dem_window0=dem_window[0])
+        raise ValueError(msg)  # fail fast to force bad settings to be fixed
+
+    if dem_window[0] % 2:
+        # must be an even number for Gamma's 'offset_pwrm' to work
+        dem_window[0] += 1
+
+    dem_window[1] = dem_window[1] // multi_look
+
+    if dem_window[1] < const.MIN_DEM_WIN_AXIS:
+        log.info(msg, old_dem_window1=dem_window[1])
+        raise ValueError(msg)  # fail fast to force bad settings to be fixed
+
+    if dem_window[1] % 2:
+        # must be an even number for Gamma's 'offset_pwrm' to work
+        dem_window[1] += 1
+
+    # adjust patch size
+    dem_patch_window = dem_patch_window // multi_look
+    min_patch_size = min(const.INIT_OFFSETM_CORRELATION_PATCH_SIZES)
+
+    if dem_patch_window < min_patch_size:
+        log.info(
+            "increasing DEM patch window",
+            old_patch_window=dem_patch_window,
+            new_patch_window=min_patch_size,
         )
 
-        # convert look vector files to geotiff file
-        dem_par_pathname = str(dem_paths.geo_dem_par)
-        data_pathname = str(dem_paths.dem_lv_theta)
-        dtype = const.DTYPE_GEOTIFF_FLOAT
-        geotiff_pathname = append_suffix(dem_paths.dem_lv_theta, ".tif")
-        nodata = 0.0
+        dem_patch_window = min_patch_size
 
-        pg.data2geotiff(
-            dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
+    # adjust offsets
+    dem_offset[0] = dem_offset[0] // multi_look
+    dem_offset[1] = dem_offset[1] // multi_look
+
+    if dem_rpos is not None:
+        dem_rpos = dem_rpos // multi_look
+
+    if dem_azpos is not None:
+        dem_azpos = dem_azpos // multi_look
+
+    if ext_image_flt is not None:
+        # From Matt Garth in MS Teams on 17/8/2021: This feature was
+        # developed when we had the case of processing a scene of very flat
+        # terrain. In that case, the synthetic amplitude image has no
+        # variation and therefore there is no features to use to align the
+        # image during co-registration. I am happy for it to be left out of
+        # pygamma. We haven't used the feature for many years. If we need it
+        # later we can implement it at that time.
+
+        msg = "Feature is rarely used & disabled until required"
+        raise NotImplementedError(msg)
+
+    with working_directory(dem_paths.dem_primary_name.parent):
+        # copy SLC image file to new file r_dem_primary_slc.
+        #
+        # Note: This may seem redundant but all future processing modules expect
+        # there to be "resampled" SLC/MLI data, despite the primary reference
+        # scene never getting "resampled" (because it is the source of coregistration
+        # other scenes are resampling TO!).
+        #
+        # Thus we just copy our data to these paths, to avoid the alternative: a
+        # code path in every single future processing module that would use the raw
+        # data for primary reference scene, and resampled for all others.
+        pg.SLC_copy(
+            coreg_paths.dem_primary_slc,
+            coreg_paths.dem_primary_slc_par,
+            coreg_paths.r_dem_primary_slc,
+            coreg_paths.r_dem_primary_slc_par,
+            1,  # SLC is FCOMPLEX
+            const.NOT_PROVIDED,  # We aren't scaling, just a plain copy
         )
 
-        dem_par_pathname = str(dem_paths.geo_dem_par)
-        data_pathname = str(dem_paths.dem_lv_phi)
-        dtype = const.DTYPE_GEOTIFF_FLOAT
-        geotiff_pathname = append_suffix(dem_paths.dem_lv_phi, ".tif")
-        nodata = 0.0
-
-        pg.data2geotiff(
-            dem_par_pathname, data_pathname, dtype, geotiff_pathname, nodata,
+        # multi-look SLC image file
+        pg.multi_look(
+            coreg_paths.r_dem_primary_slc,
+            coreg_paths.r_dem_primary_slc_par,
+            coreg_paths.r_dem_primary_mli,
+            coreg_paths.r_dem_primary_mli_par,
+            rlks,
+            alks,
+            0  # No line offset
         )
 
-    def main(self):
-        """Main method to execute SLC-DEM coregistration task in sequence."""
+        # Create initial .par for geocoding
+        create_diff_par(
+            coreg_paths.r_dem_primary_mli_par,
+            None,
+            dem_paths.dem_diff,
+            dem_offset,
+            dem_offset_measure,
+            dem_window,
+            dem_snr
+        )
 
-        with working_directory(self.dem_paths.dem_primary_name.parent):
-            self.copy_slc()
-            self.create_diff_par()
-            self.gen_dem_rdc()
-            self.offset_calc()
-            self.geocode()
-            self.look_vector()
+        # Produce initial DEM<->RDC geocoding LUT (and various DEM measurements in RDC)
+        gen_dem_rdc(dem_paths, coreg_paths, dem_ovr=dem_ovr)
+
+        # Read image sizes
+        mli_par = pg.ParFile(str(coreg_paths.r_dem_primary_mli_par))
+        r_dem_primary_mli_width = mli_par.get_value("range_samples", dtype=int, index=0)
+        r_dem_primary_mli_length = mli_par.get_value("azimuth_lines", dtype=int, index=0)
+
+        geo_dem_par = pg.ParFile(str(dem_paths.geo_dem_par))
+        dem_width = geo_dem_par.get_value("width", dtype=int, index=0)
+        dem_height = geo_dem_par.get_value("nlines", dtype=int, index=0)
+
+        # Refine offset model for coregistration
+        offset_calc(
+            log,
+            dem_paths,
+            coreg_paths,
+            land_center,
+            dem_width,
+            r_dem_primary_mli_width,
+            r_dem_primary_mli_length,
+            dem_patch_window,
+            dem_rpos,
+            dem_azpos,
+            dem_snr
+        )
+
+        # Geocode products w/ coregistration LUT
+        geocode(
+            dem_paths,
+            coreg_paths,
+            dem_width,
+            dem_height,
+            r_dem_primary_mli_width,
+            r_dem_primary_mli_length,
+            dem_rad_max
+        )
+
+        # Create "look" vectors for the coregistered GEO products
+        # for use by other processing modules.
+        look_vector(dem_paths, coreg_paths)

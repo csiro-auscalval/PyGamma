@@ -59,6 +59,16 @@ class SlcPaths:
     Note: This may be None if no range looks had been provided to the constructor.
     """
 
+    @property
+    def date(self) -> str:
+        """
+        Gets the YYYYMMDD date string for the scene of this object's SLC paths.
+        """
+
+        # We store this already, the directory name is always this string
+        # - this getter is just sugar that's more succinct and intetional
+        return self.dir.name
+
     def __init__(
         self,
         stack_config: Union[ProcConfig, Path],

@@ -1,7 +1,7 @@
 from tests.fixtures import *
 
 from insar.paths.slc import SlcPaths
-from insar.process_s1_slc import SlcProcess
+from insar.process_s1_slc import process_s1_slc
 
 S1_TEST_DATA_DATE = S1_TEST_DATA_DATES[0]
 
@@ -19,31 +19,26 @@ def count_post_query_gamma_calls(gamma_calls):
 
 # Note: This is not a fixture, as it's just a wrapper around what S1 SLC processing
 # may eventually look like (a function, not a class)
-def process_s1_slc(s1_test_data, temp_out_dir, s1_test_data_csv, pol):
+def do_processing(s1_test_data, temp_out_dir, s1_test_data_csv, pol):
     test_date = s1_test_data[0].parent.name
     test_data_dir = s1_test_data[0].parent.parent
 
-    paths = SlcPaths(temp_out_dir, test_date, pol)
-    paths.dir.mkdir(exist_ok=True, parents=True)
+    slc_paths = SlcPaths(temp_out_dir, test_date, pol)
+    slc_paths.dir.mkdir(exist_ok=True, parents=True)
 
-    processor = SlcProcess(
-        test_data_dir,
-        paths.dir.parent,
+    process_s1_slc(
+        slc_paths,
         pol,
-        test_date,
+        test_data_dir,
         s1_test_data_csv
     )
-
-    processor.main()
-
-    return processor
 
 def test_s1_slc_processing(pgp, pgmock, temp_out_dir, s1_temp_job_proc, s1_test_data, s1_test_data_csv):
     paths = SlcPaths(s1_temp_job_proc, S1_TEST_DATA_DATE, "VV")
 
     assert(not paths.slc.exists())
 
-    process_s1_slc(
+    do_processing(
         s1_test_data,
         temp_out_dir,
         s1_test_data_csv,
@@ -64,7 +59,7 @@ def test_s1_slc_fails_with_missing_input(pgp, pgmock, temp_out_dir, s1_temp_job_
 
     # Run w/ intentional typo
     with pytest.raises(Exception):
-        process_s1_slc(
+        do_processing(
             missing_data_dir,
             temp_out_dir,
             s1_test_data_csv,
@@ -82,7 +77,7 @@ def test_s1_slc_fails_with_bad_polarisation(pgp, pgmock, temp_out_dir, s1_temp_j
 
     # Run w/ intentional typo
     with pytest.raises(Exception):
-        process_s1_slc(
+        do_processing(
             s1_test_data,
             temp_out_dir,
             s1_test_data_csv,
@@ -102,7 +97,7 @@ def test_s1_slc_fails_with_missing_polarisation(pgp, pgmock, temp_out_dir, s1_te
 
     # Run w/ valid pol that doesn't exist
     with pytest.raises(Exception):
-        process_s1_slc(
+        do_processing(
             s1_test_data,
             temp_out_dir,
             s1_test_data_csv,

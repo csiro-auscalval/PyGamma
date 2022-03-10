@@ -29,8 +29,8 @@ def create_gamma_dem(
     dem_img: Union[Path, str],
     stack_id: str,
     stack_extent: Tuple[float],
-    buffer_width: Optional[float] = 0.3,
-    create_png: Optional[bool] = False,
+    buffer_width: float = 0.3,
+    create_png: bool = False,
 ) -> None:
     """
     Automatically creates a DEM and par file for use with GAMMA.

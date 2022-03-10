@@ -10,6 +10,7 @@ import insar.constant as const
 from insar.project import ProcConfig
 from insar.subprocess_utils import run_command
 
+from insar.logs import INSAR_LOG
 
 def rm_file(path):
     """
@@ -296,13 +297,13 @@ def find_scenes_in_range(
     # Use closest scene if none are in threshold window
     if include_closest:
         if len(tree_lhs) == 0 and closest_lhs is not None:
-            _LOG.info(
+            INSAR_LOG.info(
                 f"Date difference to closest secondary greater than {thres_days} days, using closest secondary only: {closest_lhs}"
             )
             tree_lhs = [closest_lhs]
 
         if len(tree_rhs) == 0 and closest_rhs is not None:
-            _LOG.info(
+            INSAR_LOG.info(
                 f"Date difference to closest secondary greater than {thres_days} days, using closest secondary only: {closest_rhs}"
             )
             tree_rhs = [closest_rhs]
