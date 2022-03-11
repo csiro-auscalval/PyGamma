@@ -143,7 +143,6 @@ def test_generate_normalised_backscatter(coreg, temp_out_dir):
         test_output
     )
 
-    print("????", nrb_paths.gamma0)
     assert(nrb_paths.gamma0.exists())
 
     assert(nrb_paths.gamma0_geo.exists())
