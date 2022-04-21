@@ -48,7 +48,7 @@ class ProcessNRTBackscatter(luigi.Task):
             slc_date = slc_date.lstrip("r")
 
             structlog.threadlocal.bind_threadlocal(
-                task="SLC backscatter (NRT)",
+                task="Normalised radar backscatter (NRT)",
                 scene_dir=outdir,
                 scene_date=slc_date,
                 polarisation=slc_pol
@@ -59,7 +59,7 @@ class ProcessNRTBackscatter(luigi.Task):
 
             failed = False
             dem = outdir / proc_config.gamma_dem_dir / f"{stack_id}.dem"
-            log.info("Beginning SLC backscatter (NRT)", dem=dem)
+            log.info("Beginning normalised radar backscatter (NRT)", dem=dem)
 
             generate_nrt_backscatter(
                 Path(self.outdir),
@@ -68,9 +68,9 @@ class ProcessNRTBackscatter(luigi.Task):
                 Path(self.dst_stem),
             )
 
-            log.info("SLC backscatter (NRT) complete")
+            log.info("Normalised radar backscatter (NRT) complete")
         except Exception as e:
-            log.error("SLC backscatter (NRT) failed with exception", exc_info=True)
+            log.error("Normalised radar backscatter (NRT) failed with exception", exc_info=True)
             failed = True
         finally:
             # We flag a task as complete no matter if the scene failed or not!

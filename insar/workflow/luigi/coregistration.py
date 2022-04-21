@@ -444,6 +444,8 @@ class CreateCoregisterSecondaries(luigi.Task):
 
             for _dt, _, _pols in list_frames:
                 slc_scene = _dt.strftime(SCENE_DATE_FMT)
+
+                # primary scene has it's own special coregistration task
                 if slc_scene == primary_scene:
                     continue
 

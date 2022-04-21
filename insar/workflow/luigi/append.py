@@ -74,7 +74,7 @@ class AppendDatesToStack(luigi.Task):
         append_dates_list = paths.list_dir / f"scenes{append_idx}.list"
         metadata = json.loads(paths.metadata.read_text())
         shape_file = None
-        pols = metadata["polarizations"]
+        pols = metadata["polarisations"]
         append_scenes = self.append_scenes
         primary_scene = read_primary_date(paths.output_dir)
         primary_pol = proc_config.polarisation

@@ -51,13 +51,13 @@ class ProcessBackscatter(luigi.Task):
         try:
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
-                task="Normalised radar backscatter backscatter",
+                task="Normalised radar backscatter",
                 scene_dir=self.outdir,
                 scene_date=slc_date,
                 polarisation=slc_pol
             )
 
-            log.info("Generating normalised radar backscatter")
+            log.info("Beginning normalised radar backscatter")
 
             generate_normalised_backscatter(
                 Path(self.outdir),

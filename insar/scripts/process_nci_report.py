@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 
+"""
+Generates a simple summary report on the outputs/progress of a processing job.
+
+Refer to --help for details on parameters/usage and output options.
+"""
+
 import datetime
-import os
 from pathlib import Path
 import pandas as pd
 import json
 import platform
-from typing import Optional
-from datetime import datetime, time, timedelta
+from typing import Optional, Sequence
+from datetime import datetime, timedelta
 from statistics import mean
 
 # Note: While working with dates, we primarily keep things in the original DT_FMT_SHORT string
@@ -41,7 +46,7 @@ def query_out_dir(dir: Path):
     with (dir / "metadata.json").open("r") as metadata_file:
         metadata = json.load(metadata_file)
 
-    pols = metadata["polarizations"]
+    pols = metadata["polarisations"]
 
     # Sanity check
     assert len(all_scene_dates) == int(metadata["num_scene_dates"])
@@ -113,16 +118,16 @@ def query_out_dir(dir: Path):
     missing_ifgs = all_ifg_date_pairs - completed_ifgs
 
     return {
-        "all_scene_dates": all_scene_dates,
-        "all_ifg_date_pairs": all_ifg_date_pairs,
-        "completed_slcs": completed_coreg_slcs,
-        "missing_slcs": missing_slc_dates,
-        "completed_coregs": completed_coreg_slcs,
-        "missing_coregs": missing_backscatter_dates,
-        "completed_backscatter": completed_coreg_slcs,
-        "missing_backscatter": missing_backscatter_dates,
-        "completed_ifgs": completed_ifgs,
-        "missing_ifgs": missing_ifgs,
+        "all_scene_dates": list(all_scene_dates),
+        "all_ifg_date_pairs": list(all_ifg_date_pairs),
+        "completed_slcs": list(completed_coreg_slcs),
+        "missing_slcs": list(missing_slc_dates),
+        "completed_coregs": list(completed_coreg_slcs),
+        "missing_coregs": list(missing_backscatter_dates),
+        "completed_backscatter": list(completed_backscatter),
+        "missing_backscatter": list(missing_backscatter_dates),
+        "completed_ifgs": list(completed_ifgs),
+        "missing_ifgs": list(missing_ifgs),
         "coreg_quality_warn": coreg_quality_warn,
         "metadata": metadata,
     }
@@ -136,17 +141,19 @@ def query_job_dir(dir: Path):
     print("Scanning job directory for information...")
     print("Job dir:", dir)
 
-    status_log_path = dir / "status.log"
+    status_log_path = dir / "status-log.jsonl"
     insar_log_path = dir / "insar-log.jsonl"
 
     # Load metadata
     with (dir / "metadata.json").open("r") as metadata_file:
         metadata = json.load(metadata_file)
 
+    stack_id = metadata["stack_id"]
+
     # Parse all job stdouts
     job_runs = []
 
-    for stdout_path in dir.glob("job*.bash.o*"):
+    for stdout_path in dir.glob(f"{stack_id}.o*"):
         with stdout_path.open("r") as stdout_file:
             parsing_enabled = False
 
@@ -221,15 +228,22 @@ def query_job_dir(dir: Path):
         total_service_units += run["service_units"]
 
     # Check Luigi structure to detect completed products
-    stack_id = metadata["stack_id"]
-    num_completed_backscatter = len(list((dir / stack_id).glob("*_coreg_logs.out")))
-    num_completed_ifgs = len(list((dir / stack_id).glob("*_ifg_*_status_logs.out")))
+    # FIXME: Currently this script is completely independent of any insar dependencies,
+    # but we probably want to use insar.paths to check the ACTUAL data product paths
+    # instead of making assumptions about the luigi output files
+    num_completed_coreg = len(list((dir / "tasks").glob("*_coreg_logs.out")))
+    num_completed_coreg += len(list((dir / "tasks").glob("*coregisterdemprimary*.out")))
+    num_completed_backscatter = len(list((dir / "tasks").glob("*nbr_logs.out")))
+    num_completed_ifgs = len(list((dir / "tasks").glob("*_ifg_*_status_logs.out")))
 
     # Parse status.log to detect run/fail/completed products
+    started_coreg = {}
     started_backscatter = {}
     started_ifgs = {}
+    failed_coreg = {}
     failed_backscatter = {}
     failed_ifgs = {}
+    completed_coreg = {}
     completed_backscatter = {}
     completed_ifgs = {}
 
@@ -238,7 +252,7 @@ def query_job_dir(dir: Path):
     walltime_backscatter = {}
     walltime_ifgs = {}
 
-    with (dir / "status.log").open("r") as status_file:
+    with (dir / "status-log.jsonl").open("r") as status_file:
         for line in status_file:
             log = json.loads(line[line.index("{") :])
             event = log["event"]
@@ -248,21 +262,82 @@ def query_job_dir(dir: Path):
             except ValueError:
                 timestamp = datetime.strptime(log["timestamp"], DT_FMT_NO_NS_JSON)
 
-            # TODO: Eventually coreg/backscatter will be separated
-            if "SLC coregistration" in event:
+            if "DEM primary coregistration" in event:
+                if "scene_date" not in log:
+                    continue
+
+                index = f"{log['scene_date']}-{log['polarisation']}"
+                entry = (
+                    timestamp,
+                    log["polarisation"],
+                    "DEM",
+                    log["scene_date"],
+                )
+
+                if "Beginning DEM primary coregistration" in event:
+                    if index in completed_coreg:
+                        del completed_coreg[index]
+
+                    if index in failed_coreg:
+                        del failed_coreg[index]
+
+                    started_coreg[index] = entry
+                elif "DEM primary coregistration complete" in event:
+                    completed_coreg[index] = entry
+
+                    walltime = entry[0] - started_coreg[index][0]
+                    walltime_coregistration[index] = walltime
+                elif "DEM primary coregistration failed with exception" in event:
+                    failed_coreg[index] = (
+                        *entry,
+                        log["exception"],
+                    )
+
+            elif "SLC coregistration" in event:
                 # Skip higher level non-processing task logs
                 if "secondary_date" not in log:
                     continue
 
-                index = f"{log['secondary_date']}-{log['polarization']}"
+                index = f"{log['secondary_date']}-{log['polarisation']}"
                 entry = (
                     timestamp,
-                    log["polarization"],
+                    log["polarisation"],
                     log["primary_date"],
                     log["secondary_date"],
                 )
 
                 if "Beginning SLC coregistration" in event:
+                    if index in completed_coreg:
+                        del completed_coreg[index]
+
+                    if index in failed_coreg:
+                        del failed_coreg[index]
+
+                    started_coreg[index] = entry
+                elif "SLC coregistration complete" in event:
+                    completed_coreg[index] = entry
+
+                    walltime = entry[0] - started_coreg[index][0]
+                    walltime_coregistration[index] = walltime
+                elif "SLC coregistration failed with exception" in event:
+                    failed_coreg[index] = (
+                        *entry,
+                        log["exception"],
+                    )
+
+            elif "normalised radar backscatter" in event.lower():
+                # Skip higher level non-processing task logs
+                if "scene_date" not in log:
+                    continue
+
+                index = f"{log['scene_date']}-{log['polarisation']}"
+                entry = (
+                    timestamp,
+                    log["polarisation"],
+                    log["scene_date"]
+                )
+
+                if "Beginning" in event:
                     if index in completed_backscatter:
                         del completed_backscatter[index]
 
@@ -270,13 +345,12 @@ def query_job_dir(dir: Path):
                         del failed_backscatter[index]
 
                     started_backscatter[index] = entry
-                elif "SLC coregistration complete" in event:
+                elif "complete" in event:
                     completed_backscatter[index] = entry
 
                     walltime = entry[0] - started_backscatter[index][0]
-                    walltime_coregistration[index] = walltime
-                elif "SLC coregistration failed with exception" in event:
-                    # TODO: This really means coreg 'or' backscatter failed (unsure which until we separate them)
+                    walltime_backscatter[index] = walltime
+                elif "failed with exception" in event:
                     failed_backscatter[index] = (
                         *entry,
                         log["exception"],
@@ -310,6 +384,7 @@ def query_job_dir(dir: Path):
                         log["exception"],
                     )
 
+    assert num_completed_coreg == len(completed_coreg) + len(failed_coreg)
     assert num_completed_backscatter == len(completed_backscatter) + len(
         failed_backscatter
     )
@@ -338,7 +413,7 @@ def generate_summary(job_dir: Optional[Path], out_dir: Optional[Path]):
     with ((job_dir or out_dir) / "metadata.json").open("r") as metadata_file:
         metadata = json.load(metadata_file)
 
-    pols = metadata["polarizations"]
+    pols = metadata["polarisations"]
 
     summary = {
         "timestamp": datetime.now(),
@@ -374,7 +449,7 @@ def generate_summary(job_dir: Optional[Path], out_dir: Optional[Path]):
                 out_query["missing_ifgs"].remove(key)
 
         # Get totals
-        num_total_slc_scenes = len(out_query["all_scene_dates"]) * len(pols)
+        num_total_slc_scenes = len(out_query["all_scene_dates"])
         num_total_ifg_scenes = len(out_query["all_ifg_date_pairs"])
 
         num_completed_backscatter = len(job_query["completed_backscatter"])
@@ -391,11 +466,10 @@ def generate_summary(job_dir: Optional[Path], out_dir: Optional[Path]):
         num_missing_backscatter = len(out_query["missing_backscatter"])
         num_missing_ifgs = len(out_query["missing_ifgs"])
 
-        #print(f"{num_completed_backscatter} + {num_failed_backscatter} + {num_missing_backscatter} == {num_total_slc_scenes}")
-        #assert (
-        #    num_completed_backscatter + num_failed_backscatter + num_missing_backscatter
-        #    == num_total_slc_scenes
-        #)
+        assert (
+            num_completed_backscatter + num_failed_backscatter + num_missing_backscatter
+            == num_total_slc_scenes * len(pols)
+        )
 
         assert (
             num_completed_ifgs + num_failed_ifgs + num_missing_ifgs
@@ -406,7 +480,7 @@ def generate_summary(job_dir: Optional[Path], out_dir: Optional[Path]):
     # the files that alredy exist (Note: we 'could' run the DB query again...)
     elif job_query:
         # Crude estimate if we don't have an out dir to read scene lists from...
-        num_total_slc_scenes = len(job_query["started_backscatter"])
+        num_total_slc_scenes = len(job_query["started_backscatter"]) // len(pols)
         num_total_ifg_scenes = len(job_query["started_ifgs"])
 
         num_completed_backscatter = len(job_query["completed_backscatter"])
@@ -429,7 +503,7 @@ def generate_summary(job_dir: Optional[Path], out_dir: Optional[Path]):
         num_failed_backscatter = "?"
         num_failed_ifgs = "?"
 
-        num_missing_backscatter = len(out_query["missing_ifgs"])
+        num_missing_backscatter = len(out_query["missing_backscatter"])
         num_missing_ifgs = len(out_query["missing_ifgs"])
 
     summary["num_total_slc_scenes"] = num_total_slc_scenes
@@ -520,10 +594,22 @@ def generate_summary(job_dir: Optional[Path], out_dir: Optional[Path]):
     # Generate compute remaining estimates
     num_incomplete_slcs = 0  # TODO
     num_incomplete_coregs = 0  # TODO
-    num_incomplete_backscatter = num_missing_backscatter + num_failed_backscatter
-    num_incomplete_ifgs = num_missing_ifgs + num_failed_ifgs
 
-    if num_incomplete_slcs or num_incomplete_coregs or num_incomplete_backscatter or num_incomplete_ifgs:
+    if num_missing_backscatter == "?":
+        num_incomplete_backscatter = num_failed_backscatter
+    elif num_failed_backscatter == "?":
+        num_incomplete_backscatter = num_missing_backscatter
+    else:
+        num_incomplete_backscatter = num_missing_backscatter + num_failed_backscatter
+
+    if num_missing_ifgs == "?":
+        num_incomplete_ifgs = num_failed_ifgs
+    elif num_failed_ifgs == "?":
+        num_incomplete_ifgs = num_missing_ifgs
+    else:
+        num_incomplete_ifgs = num_missing_ifgs + num_failed_ifgs
+
+    if job_query and (num_incomplete_slcs or num_incomplete_coregs or num_incomplete_backscatter or num_incomplete_ifgs):
         walltime_slc = job_query["walltime_slc"]
         walltime_coregistration = job_query["walltime_coregistration"]
         walltime_backscatter = job_query["walltime_backscatter"]
@@ -593,17 +679,19 @@ def print_report(summary: dict):
     stack_id = metadata["stack_id"]
     job_query = summary["job_query"]
     out_query = summary["out_query"]
+    pols = metadata["polarisations"]
 
     print_header_line()
     print_header_line("gamma_insar processing summary report")
     print_header_line(f"generated at {summary['timestamp']} on {summary['node']}")
     print_header_line()
     print("Stack ID:",stack_id)
-    print("Temporal range:", metadata["temporal_range"][0], "-", metadata["temporal_range"][1])
-    print("Shape file:", metadata["shapefile"])
+    # FIXME: This doesn't always exist anymore (could be no-DB alos/rs2, or even no-DB S1 w/ source_data provided directly)
+    #print("Temporal range:", min(metadata["include_dates"]), "-", max(metadata["include_dates"]))
+    print("Shape file:", metadata["shape_file"])
     print("Database:", metadata["database"])
     # TBD: most coding standards enforce american spelling, but I figured for our printed outputs we want AU?
-    print("Polarisations:", metadata["polarizations"])
+    print("Polarisations:", metadata["polarisations"])
     print("Total scenes:", metadata["num_scene_dates"])
 
     num_total_slc_scenes = summary["num_total_slc_scenes"]
@@ -631,7 +719,7 @@ def print_report(summary: dict):
         print("Total SU used:", job_query["total_service_units"], "\n")
 
     # Report coregistration quality warnings
-    if out_query["coreg_quality_warn"]:
+    if out_query and out_query["coreg_quality_warn"]:
         print("")
         print_header_line("SLC coregistration warnings")
         minor_warnings = 0
@@ -678,7 +766,7 @@ def print_report(summary: dict):
     print("")
     print_header_line("Product Summary")
     if num_total_slc_scenes and not isinstance(num_total_slc_scenes, str):
-        completed_backscatter_pct = (num_completed_backscatter / num_total_slc_scenes) * 100.0
+        completed_backscatter_pct = (num_completed_backscatter // (num_total_slc_scenes * len(pols))) * 100.0
     else:
         completed_backscatter_pct = num_total_slc_scenes  # copy the str value
 
@@ -688,7 +776,7 @@ def print_report(summary: dict):
         completed_ifg_pct = num_total_ifg_scenes  # copy the str value
 
     print(
-        f"Completed {num_completed_backscatter}/{num_total_slc_scenes} ({completed_backscatter_pct:.3f}%) backscatter products!"
+        f"Completed {num_completed_backscatter}/{num_total_slc_scenes * len(pols)} ({completed_backscatter_pct:.3f}%) backscatter products!"
     )
     print(
         f"Completed {num_completed_ifgs}/{num_total_ifg_scenes} ({completed_ifg_pct:.3f}%) IFG products!"
@@ -711,7 +799,7 @@ def print_report(summary: dict):
         print(f"Estimated SU to complete: {eta_hours * 48 * 2:.3f}")
 
 
-if __name__ == "__main__":
+def main(args: Optional[Sequence[str]] = None):
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -732,7 +820,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--print",
-        action='store_false',
+        action='store_true',
         help="Prints the summary report data to the terminal output",
     )
 
@@ -746,7 +834,7 @@ if __name__ == "__main__":
         help="Creates a very brief summary spreadsheet in csv format.",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     # Validate inputs
     if args.json:
@@ -776,6 +864,11 @@ if __name__ == "__main__":
         target_dir = Path(path)
         if not target_dir.exists():
             print("Provided path does not exist:", target_dir)
+            exit(1)
+
+        metadata_path = target_dir / "metadata.json"
+        if not metadata_path.exists():
+            print("Provided path does not look like a stack path, missing metadata.json")
             exit(1)
 
         job_dir = None
@@ -843,3 +936,7 @@ if __name__ == "__main__":
                     eta = 0
 
                 csv_file.write(f"{stack_id},{num_completed},{num_total},{num_failed},{num_missing},{eta},\n")
+
+
+if __name__ == "__main__":
+    main()

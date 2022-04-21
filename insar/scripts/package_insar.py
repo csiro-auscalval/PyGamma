@@ -234,7 +234,7 @@ class SLC:
                     package_status = False
                     _LOG.info("burst does not exist", burst_data=burst_data)
 
-                # try to find any slc parameter for any polarizations to extract the metadata
+                # try to find any slc parameter for any polarisations to extract the metadata
                 par_files = [
                     item
                     for _pol in _pols
@@ -379,7 +379,7 @@ def get_prod_metadata(workflow_metadata: Dict, slc: SLC) -> Dict:
         { "STAC_extension_or_user": { "metadata_name": "metadata_value" } }
     """
 
-    pols = workflow_metadata["polarizations"]
+    pols = workflow_metadata["polarisations"]
 
     # Extract the first ES A"properties" metadata field (common across all SLCs)
     for _, _meta in slc.esa_slc_metadata.items():
@@ -526,7 +526,7 @@ def package(
     out_directory: Union[Path, str],
     yaml_base_dir: Union[Path, str, None],
     product: Optional[str] = PRODUCTS[0],
-    polarizations: Optional[Iterable[str]] = ("VV", "VH"),
+    polarisations: Optional[Iterable[str]] = ("VV", "VH"),
     common_attrs: Optional[Dict] = None,
     # By default we don't error or over-write
     # (eg: if it exists, we skip it / assume it's already been packaged)
@@ -547,10 +547,10 @@ def package(
     with (track_frame_base / "metadata.json").open("r") as file:
         workflow_metadata = json.load(file)
 
-    # Both the VV and VH polarizations has have identical SLC and burst informations.
-    # Only properties from one polarization is gathered for packaging.
+    # Both the VV and VH polarisations has have identical SLC and burst informations.
+    # Only properties from one polarisation is gathered for packaging.
     for slc in SLC.for_path(
-        track, frame, polarizations, track_frame_base, product, yaml_base_dir
+        track, frame, polarisations, track_frame_base, product, yaml_base_dir
     ):
         try:
             # skip packaging for missing parameters files needed to extract metadata
@@ -730,10 +730,10 @@ def package(
     help="The product to be packaged: sar|insar",
 )
 @click.option(
-    "--polarization",
+    "--polarisation",
     default=["VV", "VH"],
     multiple=True,
-    help="Polarizations to be processed VV or VH, arg can be specified multiple times",
+    help="Polarisations to be processed VV or VH, arg can be specified multiple times",
 )
 @click.option(
     "--log-pathname",
@@ -758,7 +758,7 @@ def main(
     pkgdir: str,
     yaml_dir: str,
     product: str,
-    polarization: Tuple[str],
+    polarisation: Tuple[str],
     log_pathname: str,
     overwrite_existing: bool,
     error_on_existing: bool
@@ -774,7 +774,7 @@ def main(
             out_directory=pkgdir,
             yaml_base_dir=yaml_dir,
             product=product,
-            polarizations=polarization,
+            polarisations=polarisation,
             overwrite_existing=bool(overwrite_existing),
             error_on_existing=bool(error_on_existing)
         )
@@ -787,7 +787,7 @@ def main(
                 out_directory=pkgdir,
                 yaml_base_dir=yaml_dir,
                 product=product,
-                polarizations=polarization,
+                polarisations=polarisation,
                 error_on_existing=error_on_existing,
                 overwrite_existing=overwrite_existing
             )

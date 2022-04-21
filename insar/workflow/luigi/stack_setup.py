@@ -377,7 +377,7 @@ class InitialSetup(luigi.Task):
             "exclude_dates": [(d1.strftime(SCENE_DATE_FMT), d2.strftime(SCENE_DATE_FMT)) for d1,d2 in init_exclude_dates],
             "burst_data": str(paths.acquisition_csv),
             "num_scene_dates": len(formatted_scene_dates),
-            "polarizations": pols,
+            "polarisations": pols,
 
             # Software versions used for processing
             "gamma_version": gamma_version,
