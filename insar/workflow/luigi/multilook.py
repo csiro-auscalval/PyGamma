@@ -13,6 +13,7 @@ from insar.paths.slc import SlcPaths
 from insar.workflow.luigi.utils import tdir, get_scenes, PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
 
+
 class Multilook(luigi.Task):
     """
     Produces multilooked SLC given a specified rlks/alks for multilooking
@@ -45,7 +46,7 @@ class Multilook(luigi.Task):
 @inherits(InitialSetup)
 class CreateMultilook(luigi.Task):
     """
-    Runs creation of multi-look image task for all scenes, for all polariastions.
+    Runs creation of multi-look image task for all scenes, for all polarisations.
     """
 
     multi_look = luigi.IntParameter()
@@ -83,6 +84,14 @@ class CreateMultilook(luigi.Task):
             deps.append(CreateALOSSlcTasks(
                 # We share identical params, so just forward them
                 **common_params(self, CreateALOSSlcTasks)
+            ))
+
+        # require TDX/TSX data for that sensor
+        if proc.sensor.startswith("TSX"):
+            from insar.workflow.luigi.tsx import CreateTSXSlcTasks
+            deps.append(CreateTSXSlcTasks(
+                # We share identical params, so just forward them
+                **common_params(self, CreateTSXSlcTasks)
             ))
 
         return deps

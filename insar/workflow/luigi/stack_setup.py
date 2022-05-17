@@ -14,7 +14,7 @@ import structlog
 
 import insar
 from insar.constant import SCENE_DATE_FMT
-from insar.sensors import identify_data_source, acquire_source_data, S1_ID, RSAT2_ID, PALSAR_ID
+from insar.sensors import identify_data_source, acquire_source_data, S1_ID, RSAT2_ID, PALSAR_ID, TSX_ID
 from insar.project import ProcConfig
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
 from insar.logs import STATUS_LOGGER
@@ -22,6 +22,7 @@ from insar.stack import resolve_stack_scene_additional_files
 from insar.paths.stack import StackPaths
 
 from insar.workflow.luigi.utils import DateListParameter, PathParameter, tdir, simplify_dates, calculate_primary, one_day
+
 
 class DataDownload(luigi.Task):
     """
@@ -67,6 +68,9 @@ class DataDownload(luigi.Task):
                 pass
             elif constellation == PALSAR_ID:
                 # ALOS PALSAR has no extra info
+                pass
+            elif constellation == TSX_ID:
+                # NB: assumption: TSX/TDX has no extra info
                 pass
             else:
                 raise RuntimeError(f"Unsupported constellation: {constellation}")

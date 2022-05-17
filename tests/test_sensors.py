@@ -4,16 +4,20 @@ from tests.fixtures import *
 from insar.sensors import identify_data_source, get_data_swath_info, acquire_source_data
 from insar.sensors.s1 import METADATA as S1_METADATA
 from insar.sensors.rsat2 import METADATA as RS2_METADATA
+from insar.sensors.tsx import METADATA as TSX_METADATA
 
 import insar.sensors.s1 as s1
 import insar.sensors.rsat2 as rs2
+import insar.sensors.tsx as tsx
 
 
 S1_DATA_PATH_EXAMPLE = "tests/data/S1A_IW_SLC__1SDV_20190918T200909_20190918T200936_029080_034CEE_C1F9.zip"
 RS2_DATA_PATH_EXAMPLE = "tests/data/RS2_OK127568_PK1123201_DK1078370_F0W2_20170430_084253_HH_SLC.zip"
+TSX_DATA_PATH_EXAMPLE = "tests/data/TSX/20170411_TSX_T041D.tar.gz"
 
 S1_DATA_PATH_BAD_EXAMPLE = "tests/data/S3Z_IW_SLC__1SDV_20190918T200909_20190918T200936_029080_034CEE_C1F9.zip"
 RS2_DATA_PATH_BAD_EXAMPLE = "tests/data/RS2_OK127568_PK1123201_DK1078370_F0W2_20170430_084253_OK_SLC.zip"
+TSX_DATA_PATH_BAD_EXAMPLE = "tests/data/TSX/20170411_TSX_T041D_broken.tar.gz"
 
 
 def test_s1_source_data_identification():
@@ -30,6 +34,14 @@ def test_rs2_source_data_identification():
     assert(constellation == RS2_METADATA.constellation_name)
     assert(sensor == "RS2")
     assert(scene_date == "20170430")
+
+
+def test_tsx_source_data_identification():
+    constellation, sensor, scene_date = identify_data_source(TSX_DATA_PATH_EXAMPLE)
+
+    assert (constellation == TSX_METADATA.constellation_name)
+    assert (sensor == "TSX")
+    assert (scene_date == "20170411")
 
 
 def test_invalid_source_data_identification():
@@ -167,6 +179,35 @@ def test_rs2_swath_data_fails_for_invalid_input(temp_out_dir, pgp, pgmock, loggi
         get_data_swath_info(safe_copy)
 
 
+def test_tsx_swath_data_for_known_input(tsx_test_tar_gzips):
+    info = get_data_swath_info(tsx_test_tar_gzips[0])
+
+    # TODO: does valid TSX data have only 1 swath/no subswaths?
+    assert len(info) == 1
+
+    validate_subswath_info(info[0],
+                           expected_source=tsx_test_tar_gzips[0],
+                           expected_sensor="TSX",
+                           expected_date=TSX_TEST_DATA_DATES[0],
+                           expected_pols=["HH"])  # TODO: verify
+
+
+def test_tsx_swath_data_fails_for_missing_input():
+    with pytest.raises(Exception):
+        tsx.get_data_swath_info("tsx_does/not/exist")
+
+
+def test_tsx_swath_data_fails_for_invalid_input(temp_out_dir, tsx_test_tar_gzips):
+    # Duplicate PRE-broken test data (easier than modifying tar.gz files on the fly)
+    safe_name = tsx_test_tar_gzips[0].name
+    safe_copy = temp_out_dir / safe_name
+    shutil.copy(TEST_DATA_BASE / "TSX/20170411_TSX_T041D_broken.tar.gz", safe_copy)
+
+    # Assert we fail to get swath info from invalid data products
+    with pytest.raises(Exception):
+        get_data_swath_info(safe_copy)
+
+
 def test_s1_acquisition_for_good_input(temp_out_dir, pgp, pgmock, logging_ctx, s1_test_data_zips, s1_proc):
     with s1_proc.open('r') as fileobj:
         proc_config = ProcConfig.from_file(fileobj)
@@ -240,7 +281,7 @@ def test_s1_acquisition_missing_input(temp_out_dir, pgp, pgmock, logging_ctx, s1
     with s1_proc.open('r') as fileobj:
         proc_config = ProcConfig.from_file(fileobj)
 
-    # Assert we fail to get swath info from a non-existant product
+    # Assert we fail to get swath info from a non-existent product
     with pytest.raises(Exception):
         acquire_source_data(
             temp_out_dir / "this_does_not_exist",
@@ -280,7 +321,7 @@ def test_rs2_acquisition_for_corrupt_xml_in_zip(temp_out_dir, pgp, pgmock, loggi
 
     # Assert we fail to get swath info from a corrupt product
     with pytest.raises(Exception):
-        acquire_source_data(zip_file,temp_out_dir)
+        acquire_source_data(zip_file, temp_out_dir)
 
 
 def test_rs2_acquisition_for_incomplete_data(temp_out_dir, pgp, pgmock, logging_ctx, rs2_test_data):
@@ -294,9 +335,57 @@ def test_rs2_acquisition_for_incomplete_data(temp_out_dir, pgp, pgmock, logging_
 
 
 def test_rs2_acquisition_missing_input(temp_out_dir, pgp, pgmock, logging_ctx):
-    # Assert we fail to get swath info from a non-existant product
+    # Assert we fail to get swath info from a non-existent product
     with pytest.raises(Exception):
         acquire_source_data(
             temp_out_dir / "this_is_not_the_data_you_are_looking_for",
+            temp_out_dir
+        )
+
+
+def test_tsx_acquisition_for_good_input(temp_out_dir, pgp, pgmock, logging_ctx, tsx_test_tar_gzips):
+    acquire_source_data(tsx_test_tar_gzips[0], temp_out_dir)
+
+    # ensure a core dir tree & data files exist
+    date_dir = temp_out_dir / "20170411"
+    assert date_dir.exists()
+
+    tdx_dir = date_dir / "TDX1_SAR__SSC______SM_S_SRA_20170411T192821_20170411T192829"
+    assert tdx_dir.exists()
+
+    tdx_xml = tdx_dir / "TDX1_SAR__SSC______SM_S_SRA_20170411T192821_20170411T192829.xml"
+    assert tdx_xml.exists()
+
+    data_cos = tdx_dir / "IMAGEDATA" / "IMAGE_HH_SRA_strip_009.cos"
+    assert data_cos.exists()
+
+
+def test_tsx_acquisition_for_corrupt_tar_gz(temp_out_dir, pgp, pgmock, logging_ctx, tsx_test_tar_gzips):
+    # this file is pre-broken as the XML metadata files do not contain XML
+    source = TEST_DATA_BASE / "TSX" / "20170411_TSX_T041D_broken_xml_meta.tar.gz"
+
+    dst = temp_out_dir / tsx_test_tar_gzips[0].name
+    shutil.copyfile(source, dst)
+
+    # NB: this test is fairly lame, it breaks the entire tarfile, unlike the corrupted XML in the RS2 tests
+    # acquire_source_data() decompresses the data but doesn't check if the XML is invalid
+    # leaving it in for what it's worth..
+    with open(dst, "w") as df:
+        df.seek(512)  # file is only 1.7kb
+        df.write('\0' * 64)  # jam in some nulls to break the data file
+
+    with pytest.raises(Exception):
+        acquire_source_data(dst, temp_out_dir)
+
+
+# def test_tsx_acquisition_for_incomplete_data(temp_out_dir, pgp, pgmock, logging_ctx, tsx_test_tar_gzips):
+#      # test skipped for now as there's no polarisation filtering at present
+
+
+def test_tsx_acquisition_missing_input(temp_out_dir, pgp, pgmock, logging_ctx):
+    # Assert we fail to get swath info from a non-existent product
+    with pytest.raises(Exception):
+        acquire_source_data(
+            temp_out_dir / "not_the_TSX_data_you_are_looking_for",
             temp_out_dir
         )

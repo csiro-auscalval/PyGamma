@@ -26,13 +26,14 @@ from insar.workflow.luigi.interferogram import CreateProcessIFGs
 from insar.workflow.luigi.s1 import ProcessSlc
 from insar.workflow.luigi.rsat2 import ProcessRSAT2Slc
 from insar.workflow.luigi.process_alos import ProcessALOSSlc
+from insar.workflow.luigi.tsx import ProcessTSXSlc
 
 
 class ReprocessSingleSLC(luigi.Task):
     """
     This task reprocesses a single SLC scene (including multilook) from scratch.
 
-    This task is completely self-sufficient, it will download it's own raw data.
+    This task is completely self-sufficient, it will download its own raw data.
 
     This task assumes it is re-processing a partially completed job, and as such
     assumes this task would only be used if SLC processing had succeeded earlier,
@@ -203,6 +204,28 @@ class ReprocessSingleSLC(luigi.Task):
                 proc_file=self.proc_file,
                 scene_date=self.scene_date,
                 raw_path=alos_dir,
+                sensor=sensor,
+                polarization=self.polarization,
+                burst_data=paths.acquisition_csv,
+                slc_dir=slc_paths.dir,
+                workdir=self.workdir,
+            )
+
+        if proc_config.sensor == "TSX":
+            # this needs to provide a raw_path/product_path from a partial descent into the .tar.gz file contents
+            # process_tsx_slc.py's process_tsx_slc() is expecting this.
+            base_dir = paths.acquisition_dir / self.scene_date / self.scene_date
+            tsx_dirs = base_dir.glob("T[SD]X*")
+
+            if len(tsx_dirs) > 1:
+                raise RuntimeError(f"Found 2+ TSX dirs in {base_dir}")
+
+            tsx_dir = tsx_dirs[0]
+
+            slc_task = ProcessTSXSlc(
+                proc_file=self.proc_file,
+                scene_date=self.scene_date,
+                raw_path=tsx_dir,
                 sensor=sensor,
                 polarization=self.polarization,
                 burst_data=paths.acquisition_csv,

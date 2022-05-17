@@ -12,6 +12,8 @@ from typing import Union
 import insar.sensors.s1 as s1
 import insar.sensors.rsat2 as rsat2
 import insar.sensors.palsar as palsar
+import insar.sensors.tsx as tsx
+
 
 class ARDWorkflow(enum.Enum):
     """Defines all the supported workflows of the processing script"""
@@ -210,6 +212,7 @@ class ProcConfig:
             "RSAT2": rsat2,
             "PALSAR1": palsar,
             "PALSAR2": palsar,
+            "TSX": tsx  # NB: assumed to cover TDX as well
         }
 
         if hasattr(self, "sensor"):

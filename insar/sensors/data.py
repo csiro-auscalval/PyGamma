@@ -6,6 +6,7 @@ from typing import List, Optional
 from . import s1
 from . import rsat2
 from . import palsar
+from . import tsx
 
 from insar.constant import SCENE_DATE_FMT
 
@@ -13,7 +14,9 @@ _sensors = {
     s1.METADATA.constellation_name: s1,
     rsat2.METADATA.constellation_name: rsat2,
     palsar.METADATA.constellation_name: palsar,
+    tsx.METADATA.constellation_name: tsx,
 }
+
 
 def identify_data_source(name: str):
     """
@@ -50,7 +53,14 @@ def identify_data_source(name: str):
         scene_date = palsar_match.group("product_date")
         return palsar.METADATA.constellation_name, palsar_match.group("sensor_id"), scene_date
 
+    # Check TSX
+    tsx_match = re.match(tsx.SOURCE_DATA_PATTERN, name)
+    if tsx_match:
+        scene_date = tsx_match.group("product_date")
+        return tsx.METADATA.constellation_name, tsx_match.group("sensor_id"), scene_date
+
     raise Exception(f"Unrecognised data source file: {name}")
+
 
 def _dispatch(constellation_or_pathname: str):
     if constellation_or_pathname in _sensors:

@@ -21,16 +21,17 @@ As a warning, the current state of the code base is not yet perfectly structured
 
 Each stage of the data processing workflow is separated into it's own processing module in the `gamma_insar/insar/` folder, these are broken down as follows:
 
-| Product | Module | Description|
-| ------- | -------------------------------| --- |
-| SLC | `gamma_insar/insar/process_s1_slc.py` | This module processes Sentinel-1 satellite acquisitions into `gamma_insar` SLC "scenes" |
-| SLC | `gamma_insar/insar/process_rsat2_slc.py` | This module processes RADARSAT-2 satellite acquisitions into `gamma_insar` SLC "scenes" |
-| SLC | `gamma_insar/insar/process_alos_slc.py` | This module processes ALOS PALSAR (1 & 2) satellite acquisitions into `gamma_insar` SLC "scenes" |
-| SLC | `gamma_insar/insar/coregister_dem.py` | This module coregisters the primary scene to the DEM |
-| SLC | `gamma_insar/insar/coregister_slc.py` | This module coregisters Sentinel-1 secondary scenes to the primary scene |
+| Product | Module                                      | Description                                                                                         |
+| ------- |---------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| SLC | `gamma_insar/insar/process_s1_slc.py`       | This module processes Sentinel-1 satellite acquisitions into `gamma_insar` SLC "scenes"             |
+| SLC | `gamma_insar/insar/process_rsat2_slc.py`    | This module processes RADARSAT-2 satellite acquisitions into `gamma_insar` SLC "scenes"             |
+| SLC | `gamma_insar/insar/process_alos_slc.py`     | This module processes ALOS PALSAR (1 & 2) satellite acquisitions into `gamma_insar` SLC "scenes"    |
+| SLC | `gamma_insar/insar/process_tsx_slc.py`      | This module processes TSX / TDX satellite acquisitions into `gamma_insar` SLC "scenes"              |
+| SLC | `gamma_insar/insar/coregister_dem.py`       | This module coregisters the primary scene to the DEM                                                |
+| SLC | `gamma_insar/insar/coregister_slc.py`       | This module coregisters Sentinel-1 secondary scenes to the primary scene                            |
 | SLC | `gamma_insar/insar/coregister_secondary.py` | This module coregisters secondary scenes to the primary scene (for other sensors except Sentinel-1) |
-| NRB | `gamma_insar/insar/process_backscatter.py` | This module processes the NRB (normalised radar backscatter) from SLC scenes. |
-| IFG | `gamma_insar/insar/process_ifg.py` | This module processes interferometry from two SLC scenes. |
+| NRB | `gamma_insar/insar/process_backscatter.py`  | This module processes the NRB (normalised radar backscatter) from SLC scenes.                       |
+| IFG | `gamma_insar/insar/process_ifg.py`          | This module processes interferometry from two SLC scenes.                                           |
 
 ## File path classes ##
 

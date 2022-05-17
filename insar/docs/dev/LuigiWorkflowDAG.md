@@ -30,30 +30,32 @@ An important aspect to the design of the Luigi workflow is the fact we have some
 
 Below is a manifest of all the Luigi tasks in the workflow, with information on where data flows from, flows to, and a short description.  These are very roughly in the order they execute, but for a better understanding of the data flow refer to the data flow diagram in the next section.
 
-| Task Name | Flows To | Description |
-| --------- | -------- | --- |
-| `ARD` | `InitialSetup` | Starts off the stack setup process & directs the DAG toward the right workflow pipeline depending on parameters given (eg: normal  vs. resume vs. append) |
-| `InitialSetup`| `DataDownload`, `CreateFullSlc` / `CreateRSAT2SlcTasks` / `CreateALOSSlcTasks`, `CalcInitialBaseline` | Finalises the stack setup process ensuring the stack is in a valid and complete state ready to begin processing. |
-| `DataDownload` | | Downloads/copies satellite data acquisitions for a specified date and extract the data from them ready for processing (if they're bundled as an archive) |
-| `CreateFullSlc` | `ProcessSlc`, `CreateSlcMosaic` | Creates the SLC processing tasks for the stack's scene list with S1 data |
-| `ProcessSlc` | | Processes Sentinel-1 acquisition data into SLC scenes |
-| `CreateSlcMosaic` | `CreateMultilook`, `ProcessSlcMosaic` | Creates the SLC mosaicing tasks for the SLC scenes |
-| `ProcessSlcMosaic` | | Mosaics bursts and subswaths together into a single SLC scene for the acquisition's date |
-| `CreateRSAT2SlcTasks` | `ProcessRSAT2Slc`, `CreateMultilook` | Creates the SLC processing tasks for the stack's scene list with RS2 data |
-| `ProcessRSAT2Slc` | | Processes RADARSAT-2 acquisition data into SLC scenes |
-| `CreateALOSSlcTasks` | `ProcessALOSSlc`, `CreateMultilook` | Creates the SLC processing tasks for the stack's scene list with ALOS data |
-| `ProcessALOSSlc` | | Processes ALOS PALSAR acquisition data into SLC scenes |
-| `CreateMultilook` | `Multilook`, `CoregisterDemPrimary` & `CreateCoregisterSecondaries` | Creates the multi-looking DAG for the stack's scene list |
-| `Multilook` | | Downsamples SLC scenes by the specified multi-look factors. |
-| `CreateGammaDem` | `CoregisterDemPrimary` | Extracts the stack's spatial extent out of the provided reference DEM file for the stack to use. |
-| `CalcInitialBaseline` | `CoregisterDemPrimary` | Calculates the interferogram baselines (scene pairs used to produce interferometry for) |
-| `CoregisterDemPrimary` | | Coregister's the scene's primary scene to the DEM |
-| `CreateCoregisterSecondaries` | `CoregisterSecondary`, `CreateCoregisteredBackscatter`, `CreateProcessIFGs` | Creates coregistration tasks for the stack's secondary scenes |
-| `CoregisterSecondary` | | Coregisters one scene in the stack to another scene |
-| `CreateCoregisteredBackscatter` | `ProcessBackscatter` | Creates the backscatter processing tasks for the stack's scene list |
-| `ProcessBackscatter` | | Processes the normalised radar backscatter (NRB) for a specified stack scene |
-| `CreateProcessIFGs` | `ProcessIFG` | Creates the interferogram processing tasks for the stack's baseline set. |
-| `ProcessIFG` | | Processes the interferometry for a specified scene date (between that date and it's allocated baseline pair) |
+| Task Name                       | Flows To                                                                                              | Description |
+|---------------------------------|-------------------------------------------------------------------------------------------------------| --- |
+| `ARD`                           | `InitialSetup`                                                                                        | Starts off the stack setup process & directs the DAG toward the right workflow pipeline depending on parameters given (eg: normal  vs. resume vs. append) |
+| `InitialSetup`                  | `DataDownload`, `CreateFullSlc` / `CreateRSAT2SlcTasks` / `CreateALOSSlcTasks`, `CalcInitialBaseline` | Finalises the stack setup process ensuring the stack is in a valid and complete state ready to begin processing. |
+| `DataDownload`                  |                                                                                                       | Downloads/copies satellite data acquisitions for a specified date and extract the data from them ready for processing (if they're bundled as an archive) |
+| `CreateFullSlc`                 | `ProcessSlc`, `CreateSlcMosaic`                                                                       | Creates the SLC processing tasks for the stack's scene list with S1 data |
+| `ProcessSlc`                    |                                                                                                       | Processes Sentinel-1 acquisition data into SLC scenes |
+| `CreateSlcMosaic`               | `CreateMultilook`, `ProcessSlcMosaic`                                                                 | Creates the SLC mosaicing tasks for the SLC scenes |
+| `ProcessSlcMosaic`              |                                                                                                       | Mosaics bursts and subswaths together into a single SLC scene for the acquisition's date |
+| `CreateRSAT2SlcTasks`           | `ProcessRSAT2Slc`, `CreateMultilook`                                                                  | Creates the SLC processing tasks for the stack's scene list with RS2 data |
+| `ProcessRSAT2Slc`               |                                                                                                       | Processes RADARSAT-2 acquisition data into SLC scenes |
+| `CreateALOSSlcTasks`            | `ProcessALOSSlc`, `CreateMultilook`                                                                   | Creates the SLC processing tasks for the stack's scene list with ALOS data |
+| `ProcessALOSSlc`                |                                                                                                       | Processes ALOS PALSAR acquisition data into SLC scenes |
+| `CreateTSXSlcTasks`             | `ProcessTSXSlc`, `CreateMultilook`                                                                    | Creates the SLC processing tasks for the stack's scene list with TSX data |
+| `ProcessTSXSlc`                 |                                                                                                       | Processes TSX acquisition data into SLC scenes |
+| `CreateMultilook`               | `Multilook`, `CoregisterDemPrimary` & `CreateCoregisterSecondaries`                                   | Creates the multi-looking DAG for the stack's scene list |
+| `Multilook`                     |                                                                                                       | Downsamples SLC scenes by the specified multi-look factors. |
+| `CreateGammaDem`                | `CoregisterDemPrimary`                                                                                | Extracts the stack's spatial extent out of the provided reference DEM file for the stack to use. |
+| `CalcInitialBaseline`           | `CoregisterDemPrimary`                                                                                | Calculates the interferogram baselines (scene pairs used to produce interferometry for) |
+| `CoregisterDemPrimary`          |                                                                                                       | Coregister's the scene's primary scene to the DEM |
+| `CreateCoregisterSecondaries`   | `CoregisterSecondary`, `CreateCoregisteredBackscatter`, `CreateProcessIFGs`                           | Creates coregistration tasks for the stack's secondary scenes |
+| `CoregisterSecondary`           |                                                                                                       | Coregisters one scene in the stack to another scene |
+| `CreateCoregisteredBackscatter` | `ProcessBackscatter`                                                                                  | Creates the backscatter processing tasks for the stack's scene list |
+| `ProcessBackscatter`            |                                                                                                       | Processes the normalised radar backscatter (NRB) for a specified stack scene |
+| `CreateProcessIFGs`             | `ProcessIFG`                                                                                          | Creates the interferogram processing tasks for the stack's baseline set. |
+| `ProcessIFG`                    |                                                                                                       | Processes the interferometry for a specified scene date (between that date and it's allocated baseline pair) |
 
 Note: All of the `Create*` tasks are conceptually similar, due to the fact our DAG isn't final until after `InitialSetup` has completed (as data for a date could be invalid/corrupt/gone-missing/etc) we have to dynamically define parts of the DAG for each scene in the stack, which is what these tasks do.
 
@@ -105,9 +107,11 @@ The key difference between Sentinel-1 and the other satellites is the fact S1 ac
 Because of this, Sentinel-1 has the additional `CreateSlcMosaic` task which runs the mosaicing process, and has it's own dedicated coregistration processing modules used by the `CoregisterSecondary` task (which will dispatch to the S1-specific code when given S1 data).
 
 Additionally all satellites currently have their own SLC scene processing tasks, which for completeness are listed:
- * Sentinel-1 uses `CreateFullSlc` -> `ProcessSlc` (they will eventually be renamed to be consistent to other task names)
- * ALOS PALSAR uses `CreateALOSSlcTasks` -> `ProcessALOSSlc`
- * RADARSAT-2 uses `CreateRSAT2SlcTasks` -> `ProcessRSAT2Slc`
+
+* Sentinel-1 uses `CreateFullSlc` -> `ProcessSlc` (they will eventually be renamed to be consistent to other task names)
+* ALOS PALSAR uses `CreateALOSSlcTasks` -> `ProcessALOSSlc`
+* RADARSAT-2 uses `CreateRSAT2SlcTasks` -> `ProcessRSAT2Slc`
+* TSX/TDX uses `CreateTSXSlcTasks` -> `ProcessTSXSlc`
 
 The satellite specific `Create*` tasks are a known code smell, they're largely identical code that shouldn't be repeated - these will eventually be condensed down into a single task.
 

@@ -19,6 +19,7 @@ releases any other way than via github.
 * Sentinel-1 A & B
 * ALOS PALSAR 1 & 2
 * RADARSAT-2
+* TerraSAR-X/TanDEM-X
 
 ### Documentation
 
