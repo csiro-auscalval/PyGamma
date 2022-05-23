@@ -2,27 +2,20 @@
 
 from os.path import join as pjoin
 from pathlib import Path
-from typing import Optional, Union, Tuple
+from typing import Union, Tuple
 import tempfile
 
 import rasterio
-import structlog
 
 from insar import constant as const
 from insar.subprocess_utils import run_command
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
-
-_LOG = structlog.get_logger("insar")
-
+from insar.gamma.proxy import create_gamma_proxy
 
 class GammaDemException(Exception):
     pass
 
 
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(subprocess_wrapper, GammaDemException, _LOG)
-)
-
+pg = create_gamma_proxy(GammaDemException)
 
 def create_gamma_dem(
     gamma_dem_dir: Union[Path, str],

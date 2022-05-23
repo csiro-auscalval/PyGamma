@@ -254,7 +254,7 @@ def test_error_handling_decorator(monkeypatch, logging_ctx):
     pgi = py_gamma_ga.GammaInterface(
         install_dir="./fake-install",
         gamma_exes={"create_offset": "fake-EXE-name"},
-        subprocess_func=process_ifg.auto_logging_decorator(
+        subprocess_func=py_gamma_ga.auto_logging_decorator(
             m_subprocess_wrapper, ProcessIfgException, log_mock
         ),
     )

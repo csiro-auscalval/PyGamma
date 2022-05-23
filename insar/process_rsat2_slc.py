@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 from pathlib import Path
-import structlog
 
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
+from insar.gamma.proxy import create_gamma_proxy
 from insar.sensors.rsat2 import METADATA as rsat2
 import json
 
@@ -10,10 +9,7 @@ import json
 class ProcessSlcException(Exception):
     pass
 
-_LOG = structlog.get_logger("insar")
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(subprocess_wrapper, ProcessSlcException, _LOG)
-)
+pg = create_gamma_proxy(ProcessSlcException)
 
 def process_rsat2_slc(
     product_path: Path,

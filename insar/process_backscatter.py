@@ -1,28 +1,19 @@
 #!/usr/bin/env python
-from typing import Optional, Union, Dict, List
+from typing import Optional
 import tempfile
 from pathlib import Path
-import structlog
 from PIL import Image
 import numpy as np
 
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
+from insar.gamma.proxy import create_gamma_proxy
 from insar.subprocess_utils import working_directory
 import insar.constant as const
 from insar.path_util import append_suffix
 
-_LOG = structlog.get_logger("insar")
-
-
 class SlcBackscatterException(Exception):
     pass
 
-
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(
-        subprocess_wrapper, SlcBackscatterException, _LOG
-    )
-)
+pg = create_gamma_proxy(SlcBackscatterException)
 
 
 def generate_normalised_backscatter(

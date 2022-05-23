@@ -3,25 +3,20 @@
 import math
 from typing import List, Tuple, Union
 from pathlib import Path
-import structlog
 
 from insar.project import ProcConfig
 from insar.stack import load_stack_config
 from insar.paths.slc import SlcPaths
 from insar.subprocess_utils import working_directory
 
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
-
-_LOG = structlog.get_logger("insar")
+from insar.gamma.proxy import create_gamma_proxy
 
 
 class MultilookException(Exception):
     pass
 
 
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(subprocess_wrapper, MultilookException, _LOG)
-)
+pg = create_gamma_proxy(MultilookException)
 
 
 def calculate_slc_look_values(slc_par_file: Union[Path, str],) -> Tuple:

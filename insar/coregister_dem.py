@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import tempfile
-from typing import Optional, Tuple, Union, Dict
+from typing import Optional, Tuple, Union
 import shutil
 from pathlib import Path
 import structlog
@@ -8,7 +8,7 @@ from PIL import Image
 import numpy as np
 from osgeo import gdal
 
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
+from insar.gamma.proxy import create_gamma_proxy
 from insar.subprocess_utils import working_directory
 from insar.coreg_utils import latlon_to_px, create_diff_par
 from insar import constant as const
@@ -23,12 +23,7 @@ from insar.process_utils import convert
 class CoregisterDemException(Exception):
     pass
 
-
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(
-        subprocess_wrapper, CoregisterDemException, structlog.get_logger("insar")
-    )
-)
+pg = create_gamma_proxy(CoregisterDemException)
 
 
 def append_suffix(path: Path, suffix: str) -> Path:

@@ -1,12 +1,12 @@
 from dataclasses import dataclass
+from multiprocessing.dummy import Process
 from pathlib import Path
 from attr.setters import convert
-import structlog
 import os
 import json
 import tempfile
 
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
+from insar.gamma.proxy import create_gamma_proxy
 from insar.subprocess_utils import working_directory
 from insar.sensors.palsar import METADATA as alos
 from insar.project import ProcConfig
@@ -18,10 +18,7 @@ from insar.path_util import append_suffix
 class ProcessSlcException(Exception):
     pass
 
-_LOG = structlog.get_logger("insar")
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(subprocess_wrapper, ProcessSlcException, _LOG)
-)
+pg = create_gamma_proxy(ProcessSlcException)
 
 @dataclass
 class ALOSPaths:

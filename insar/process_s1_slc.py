@@ -15,8 +15,8 @@ from insar import constant as const
 from insar.paths.slc import SlcPaths
 from insar.subprocess_utils import working_directory
 from insar.process_utils import convert
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
 from insar.constant import SCENE_DATE_FMT
+from insar.gamma.proxy import create_gamma_proxy
 
 _LOG = structlog.get_logger("insar")
 
@@ -26,9 +26,7 @@ class ProcessSlcException(Exception):
 
 
 # Customise Gamma shim to automatically handle basic error checking and logging
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(subprocess_wrapper, ProcessSlcException, _LOG)
-)
+pg = create_gamma_proxy(ProcessSlcException)
 
 # GA's InSAR team found S1 data before Nov 2015 is of poorer quality for SAR interferometry & more
 # likely to create interferogram discontinuities. GAMMA's SLC_phase_shift uses March 2015 though.

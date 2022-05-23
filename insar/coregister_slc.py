@@ -14,9 +14,8 @@ import re
 import shutil
 import structlog
 import math
-from dataclasses import dataclass
 
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
+from insar.gamma.proxy import create_gamma_proxy
 from insar.subprocess_utils import working_directory
 from insar.project import ProcConfig
 from insar.coreg_utils import rm_file, grep_stdout
@@ -26,16 +25,10 @@ from insar.paths.coregistration import CoregisteredSlcPaths
 
 _LOG = structlog.get_logger("insar")
 
-
 class CoregisterSlcException(Exception):
     pass
 
-
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(
-        subprocess_wrapper, CoregisterSlcException, _LOG
-    )
-)
+pg = create_gamma_proxy(CoregisterSlcException)
 
 
 # FIXME: This could ba generic write_tabs_file that takes a pattern which we write
@@ -1067,14 +1060,15 @@ def S1_COREG_OVERLAP(
     azpol = [float(x) for x in azpol]
 
     azpol[0] = azpol[0] + azimuth_pixel_offset
-    log.info(f"azpol_1_out {' '.join([str(i) for i in azpol])}")
+    azpol_str = ' '.join([str(i) for i in azpol])
+    log.info(f"azpol_1_out {azpol_str}")
 
-    # set_value $secondary_off_start $secondary_off azimuth_offset_polynomial $azpol_1_out $azpol_2 $azpol_3 $azpol_4 $azpol_5 $azpol_6 0
+    # set_value $secondary_off_start $secondary_off azimuth_offset_polynomial "$azpol_1_out $azpol_2 $azpol_3 $azpol_4 $azpol_5 $azpol_6" 0
     pg.set_value(
         str(secondary_off_start),
         str(secondary_off),
         "azimuth_offset_polynomial",
-        *azpol,
+        azpol_str,
         0
     )
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 import structlog
 
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
+from insar.gamma.proxy import create_gamma_proxy
 from insar.path_util import append_suffix
 import insar.constant as const
 from insar.project import ProcConfig
@@ -13,11 +13,8 @@ class CoregisterSlcException(Exception):
 
 
 _LOG = structlog.get_logger("insar")
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(
-        subprocess_wrapper, CoregisterSlcException, _LOG
-    )
-)
+
+pg = create_gamma_proxy(CoregisterSlcException)
 
 def coregister_secondary(
     proc_config: ProcConfig,

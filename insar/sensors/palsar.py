@@ -5,10 +5,9 @@ import re
 import tarfile
 import shutil
 import tempfile
-import structlog
 import os.path
 
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
+from insar.gamma.proxy import create_gamma_proxy
 
 from insar.sensors.types import SensorMetadata
 import insar.constant as const
@@ -37,10 +36,7 @@ METADATA = SensorMetadata(
     POLARISATIONS
 )
 
-_LOG = structlog.get_logger("insar")
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(subprocess_wrapper, Exception, _LOG)
-)
+pg = create_gamma_proxy(Exception)
 
 def get_data_swath_info(
     data_path: Path,

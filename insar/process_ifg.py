@@ -11,7 +11,7 @@ from insar.coreg_utils import latlon_to_px
 import insar.constant as const
 from insar.path_util import append_suffix
 
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
+from insar.gamma.proxy import create_gamma_proxy
 from insar.subprocess_utils import working_directory
 from insar.process_utils import convert
 
@@ -21,6 +21,8 @@ _LOG = structlog.get_logger("insar")
 class ProcessIfgException(Exception):
     pass
 
+
+pg = create_gamma_proxy(ProcessIfgException)
 
 class TempFileConfig:
     """
@@ -60,12 +62,6 @@ class TempFileConfig:
         self.geocode_filt_ifg_cpx = pathlib.Path("geocode_filt_ifg_cpx.tmp")
         self.geocode_flat_coherence_file = pathlib.Path("geocode_flat_coherence_file.tmp.bmp")
         self.geocode_filt_coherence_file = pathlib.Path("geocode_filt_coherence_file.tmp.bmp")
-
-
-# Customise Gamma shim to automatically handle basic error checking and logging
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(subprocess_wrapper, ProcessIfgException, _LOG)
-)
 
 
 def run_workflow(

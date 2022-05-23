@@ -26,18 +26,14 @@ from shapely.geometry import MultiPolygon, Polygon, box
 from spatialist import Vector, sqlite3, sqlite_setup
 
 from insar.xml_util import getNamespaces
-from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
+from insar.gamma.proxy import create_gamma_proxy
 
 _LOG = structlog.get_logger("insar")
-
 
 class SlcException(Exception):
     pass
 
-
-pg = GammaInterface(
-    subprocess_func=auto_logging_decorator(subprocess_wrapper, SlcException, _LOG)
-)
+pg = create_gamma_proxy(SlcException)
 
 
 class SlcMetadata:
