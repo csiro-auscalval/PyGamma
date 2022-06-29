@@ -21,6 +21,9 @@ RUN pip3 install --no-cache-dir GDAL~=3.3
 # Install our general requirements after pinned-versions have been installed
 RUN pip3 install --no-cache-dir -r requirements.txt
 
+# Pretend we're running GAMMA 20191203
+ENV GAMMA_VER 20191203
+
 # Run pytest by default (if not given any other command)
 ENV PYTHONPATH=${PYTHONPATH}:/usr/src/gamma_insar
 WORKDIR /usr/src/gamma_insar

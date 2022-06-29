@@ -44,6 +44,7 @@ setup(
             "pbs-insar=insar.scripts.insar_pbs:ard_insar",
             "pbs-package=insar.scripts.insar_pbs:ard_package",
             "package=insar.scripts.package_insar:main",
+            "slc-archive=insar.scripts.grid_processing:slc_archive_cli",
         ],
     },
     install_requires=requirements,
