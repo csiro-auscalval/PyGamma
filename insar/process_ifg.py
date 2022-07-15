@@ -93,7 +93,7 @@ def run_workflow(
             validate_ifg_input_files(ic)
 
             # Get land center pixel coordinates
-            if land_center is not None:
+            if land_center:
                 land_center_latlon = land_center
                 land_center = latlon_to_px(pg, ic.r_secondary_mli_par, *land_center_latlon)
 

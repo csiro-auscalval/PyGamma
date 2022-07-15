@@ -107,8 +107,8 @@ class CreateALOSSlcTasks(luigi.Task):
                     log.info(f"Skipping {pol} scene, only {pols} are enabled")
                     continue
 
-                alos1_acquisitions = list(raw_scene_dir.glob("*/IMG-*-ALP*"))
-                alos2_acquisitions = list(raw_scene_dir.glob("*/IMG-*-ALOS*"))
+                alos1_acquisitions = list(raw_scene_dir.glob(f"*/IMG-{pol}-ALP*"))
+                alos2_acquisitions = list(raw_scene_dir.glob(f"*/IMG-{pol}-ALOS*"))
 
                 if not alos1_acquisitions and not alos2_acquisitions:
                     log.error(f"Missing raw {pol} data for {slc_scene}!")

@@ -31,8 +31,6 @@ def query_out_dir(dir: Path):
     print("Scanning output directory for information...")
     print("Out dir:", dir)
 
-    workflow_achieved = None
-
     # Load top level data
     all_scene_dates = []
     all_ifg_date_pairs = []

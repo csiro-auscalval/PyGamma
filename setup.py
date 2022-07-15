@@ -45,6 +45,7 @@ setup(
             "pbs-package=insar.scripts.insar_pbs:ard_package",
             "package=insar.scripts.package_insar:main",
             "slc-archive=insar.scripts.grid_processing:slc_archive_cli",
+            "process-nci-report=insar.scripts.process_nci_report:main",
         ],
     },
     install_requires=requirements,

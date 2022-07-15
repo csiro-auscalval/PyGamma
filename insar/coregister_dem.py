@@ -178,7 +178,7 @@ def offset_calc(
     nrb_paths = BackscatterPaths(coreg_paths.primary)
 
     # Get land center from user provided value if possible
-    if land_center is not None:
+    if land_center:
         rpos, azpos = latlon_to_px(pg, coreg_paths.r_dem_primary_mli_par, *land_center)
 
         log.info(
@@ -892,7 +892,7 @@ def coregister_primary(
     dem_offset: Tuple[int, int] = (0, 0),
     dem_offset_measure: Tuple[int, int] = (32, 32),
     dem_window: Tuple[int, int] = (256, 256),
-    dem_snr: float = 0.15,
+    dem_snr: Optional[float] = None,
     dem_rad_max: int = 4,
     dem_ovr: int = 1,
     land_center: Optional[Tuple[float, float]] = None,
@@ -939,6 +939,9 @@ def coregister_primary(
     :param land_center:
         A user defined scene center of (latitude, longitude) to use for initial offset.
     """
+
+    if not dem_snr:
+        dem_snr = float(proc_config.dem_snr)
 
     dem_paths = DEMPaths(proc_config)
     primary_slc_paths = SlcPaths(

@@ -5,14 +5,17 @@ from attr.setters import convert
 import os
 import json
 import tempfile
+import shutil
 
 from insar.gamma.proxy import create_gamma_proxy
 from insar.subprocess_utils import working_directory
-from insar.sensors.palsar import METADATA as alos
+from insar.sensors.palsar import METADATA as alos, parse_product_summary
 from insar.project import ProcConfig
 import insar.constant as const
 from insar.process_utils import convert
 from insar.path_util import append_suffix
+
+from insar.logs import STATUS_LOGGER
 
 # Customise Gamma shim to automatically handle basic error checking and logging
 class ProcessSlcException(Exception):
@@ -238,8 +241,8 @@ def level1_slc(
     pol: str,
     output_slc_path: Path
 ) -> ALOSPaths:
-    leader_path = list(product_path.glob("LED-ALOS*"))
-    img_path = list(product_path.glob(f"IMG-{pol}-ALOS*"))
+    leader_path = list(product_path.glob("LED-*"))
+    img_path = list(product_path.glob(f"IMG-{pol}-*"))
 
     if len(leader_path) == 0 or len(img_path) == 0:
         raise ProcessSlcException("Invalid product path, could not find LED and/or IMG data!")
@@ -315,6 +318,25 @@ def process_alos_slc(
     pol: str,
     output_slc_path: Path
 ):
+    log = STATUS_LOGGER.bind(stack_id=proc_config.stack_id)
+
+    summary = list(product_path.glob("summary.txt"))
+
+    if len(summary) == 0:
+        raise ProcessSlcException("Invalid product path, no summary.txt found!")
+    elif len(summary) > 1:
+        raise ProcessSlcException("Invalid product path, more than one summary.txt found!")
+
+    summary = parse_product_summary(summary[0].read_text())
+    processing_level = summary["Lbi_ProcessLevel"]
+
+    if "1.0" in processing_level:
+        processing_level = 0
+    elif "1.1" in processing_level:
+        processing_level = 1
+    else:
+        raise RuntimeError(f"Unsupported ALOS 'Lbi_ProcessLevel': {processing_level}")
+
     # Inentify ALOS 1 or 2... (this function supports both as they share logic)
     alos1_acquisitions = list(product_path.glob("IMG-*-ALP*"))
     alos2_acquisitions = list(product_path.glob("IMG-*-ALOS*"))
@@ -336,18 +358,12 @@ def process_alos_slc(
     if sensor != product_sensor:
         raise ProcessSlcException(f"Mismatch between requested {sensor} sensor and provided {product_sensor} product")
 
-    # Determine mode
-    alos1_hv_acquisitions = list(product_path.glob("IMG-HV-ALP*"))
-    alos2_hv_acquisitions = list(product_path.glob("IMG-HV-ALOS*"))
-    num_hv = len(alos1_hv_acquisitions) + len(alos2_hv_acquisitions)
-
-    # Generate SLC
+    num_hv = len(list(product_path.glob("IMG-HV-A*")))
     mode = None
 
-    if len(alos1_acquisitions) > 0:
-        # Note: If we want to support 'raw' PALSAR2 data as well, it should
-        # go through this level0 path
-
+    # Determine mode
+    # Note: BASH impl only did this in L0, or L1 when ALOS1 (not ALOS2)
+    if product_sensor == "PALSAR1" or processing_level == 0:
         if num_hv == 0 and pol == "HH":
             mode = "FBS"
         elif num_hv > 0 and pol == "HH":
@@ -355,6 +371,10 @@ def process_alos_slc(
         elif pol == "HV":
             mode = "FBD"
 
+        log.info("ALOS product status", product_sensor=product_sensor, mode=mode, num_hv=num_hv)
+
+    # Generate SLC
+    if processing_level == 0:
         paths = level0_lslc(
             proc_config,
             product_path,
@@ -364,7 +384,7 @@ def process_alos_slc(
             output_slc_path
         )
 
-    else:
+    elif processing_level == 1:
         paths = level1_slc(
             proc_config,
             product_path,
@@ -372,6 +392,9 @@ def process_alos_slc(
             pol,
             output_slc_path
         )
+
+    else:
+        raise RuntimeError(f"Unsupported ALOS processing level: {processing_level}")
 
     # FBD -> FBS conversion
     if pol == "HH" and mode == "FBD":
@@ -392,8 +415,8 @@ def process_alos_slc(
             paths.slc.unlink()
             paths.slc_par.unlink()
 
-            temp_slc.rename(paths.slc)
-            temp_slc_par.rename(paths.slc_par)
+            shutil.move(temp_slc, paths.slc)
+            shutil.move(temp_slc_par, paths.slc_par)
 
     # Generate quicklook
     slc_par = pg.ParFile(paths.slc_par)

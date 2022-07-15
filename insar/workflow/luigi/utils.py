@@ -104,14 +104,14 @@ class ListParameter(luigi.Parameter):
     """A parameter whose value is in fact a list of comma separated values."""
 
     def parse(self, arguments):
-        return None if arguments is None else arguments.split(",")
+        return None if (arguments is None or arguments == "None") else arguments.split(",")
 
 
 class PathParameter(luigi.Parameter):
     """A parameter whose value is a file path."""
 
     def parse(self, arguments):
-        return None if not arguments else Path(arguments)
+        return None if (not arguments or arguments == "None") else Path(arguments)
 
 
 class DateListParameter(luigi.Parameter):
@@ -121,7 +121,7 @@ class DateListParameter(luigi.Parameter):
     See: https://luigi.readthedocs.io/en/stable/api/luigi.parameter.html#luigi.parameter.DateIntervalParameter
     """
     def parse(self, s):
-        if not s:
+        if not s or s == "None":
             return []
 
         from luigi import date_interval as d
