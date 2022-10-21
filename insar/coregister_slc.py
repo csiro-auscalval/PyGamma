@@ -1109,11 +1109,11 @@ def coregister_s1_secondary(
 
     log = _LOG.bind(
         task="SLC coregistration",
-        polarization=secondary_pol,
+        polarisation=secondary_pol,
         secondary_date=secondary_date,
-        slc_secondary=slc_secondary,
+        secondary_scene=slc_secondary,
         primary_date=primary_date,
-        slc_primary=slc_primary,
+        primary_scene=slc_primary,
         list_idx=list_idx
     )
 

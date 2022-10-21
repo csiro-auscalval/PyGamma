@@ -306,10 +306,12 @@ def fatal_error(msg: str, exit_code: int = 1):
     help="Project storage you wish to use in PBS jobs",
 )
 @click.option(
-    "--project", type=click.STRING, help="Project to compute under",
+    "--project", type=click.STRING, required=True,
+    help="Project to compute under",
 )
 @click.option(
-    "--env", type=click.Path(exists=True), help="Environment script to source.",
+    "--env", type=click.Path(exists=True), required=True,
+    help="Environment script to source.",
 )
 @click.option(
     "--test",
@@ -734,7 +736,7 @@ def ard_package(
         track, frame, sensor = shp_task.stem.split("_")
 
         jobid = uuid.uuid4().hex[0:6]
-        in_dir = Path(workdir).joinpath(f"{track}_{frame}")
+        in_dir = Path(workdir).joinpath(f"{track}_{frame}_{sensor}")
         job_dir = Path(workdir).joinpath(f"{track}_{frame}-pkg-{jobid}")
 
         # In the old code, indir=task, where task is the shapefile.

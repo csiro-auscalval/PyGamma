@@ -244,6 +244,51 @@ def offset_calc(
                 cflag,
             )
 
+            mli_1_pathname = str(dem_paths.dem_pix_gam)
+            mli_2_pathname = str(coreg_paths.r_dem_primary_mli)
+            diff_par_pathname = str(dem_paths.dem_diff)
+            offs_pathname = str(dem_paths.dem_offs)
+            ccp_pathname = str(dem_paths.dem_ccp)
+            rwin = const.NOT_PROVIDED  # range patch size
+            azwin = const.NOT_PROVIDED  # azimuth patch size
+            offsets_pathname = str(dem_paths.dem_offsets)
+            n_ovr = 2
+            nr = const.NOT_PROVIDED  # number of offset estimates in range direction
+            naz = const.NOT_PROVIDED  # number of offset estimates in azimuth direction
+            thres = const.NOT_PROVIDED  # Lanczos interpolator order
+
+            pg.offset_pwrm(
+                mli_1_pathname,
+                mli_2_pathname,
+                diff_par_pathname,
+                offs_pathname,
+                ccp_pathname,
+                rwin,
+                azwin,
+                offsets_pathname,
+                n_ovr,
+                nr,
+                naz,
+                thres,
+            )
+
+            offs_pathname = str(dem_paths.dem_offs)
+            ccp_pathname = str(dem_paths.dem_ccp)
+            diff_par_pathname = str(dem_paths.dem_diff)
+            coffs_pathname = str(dem_paths.dem_coffs)
+            coffsets_pathname = str(dem_paths.dem_coffsets)
+            thres = const.NOT_PROVIDED
+
+            pg.offset_fitm(
+                offs_pathname,
+                ccp_pathname,
+                diff_par_pathname,
+                coffs_pathname,
+                coffsets_pathname,
+                thres,
+                npoly,
+            )
+
             succeeded_land_center = (attempt_rpos, attempt_azpos)
             log.info(
                 "DEM coregistration succeeded for land center",
@@ -267,51 +312,6 @@ def offset_calc(
     # If no land center succeeded, raise an exception for the failure
     if succeeded_land_center is None:
         raise CoregisterDemException("Failed to coregister primary scene to DEM!")
-
-    mli_1_pathname = str(dem_paths.dem_pix_gam)
-    mli_2_pathname = str(coreg_paths.r_dem_primary_mli)
-    diff_par_pathname = str(dem_paths.dem_diff)
-    offs_pathname = str(dem_paths.dem_offs)
-    ccp_pathname = str(dem_paths.dem_ccp)
-    rwin = const.NOT_PROVIDED  # range patch size
-    azwin = const.NOT_PROVIDED  # azimuth patch size
-    offsets_pathname = str(dem_paths.dem_offsets)
-    n_ovr = 2
-    nr = const.NOT_PROVIDED  # number of offset estimates in range direction
-    naz = const.NOT_PROVIDED  # number of offset estimates in azimuth direction
-    thres = const.NOT_PROVIDED  # Lanczos interpolator order
-
-    pg.offset_pwrm(
-        mli_1_pathname,
-        mli_2_pathname,
-        diff_par_pathname,
-        offs_pathname,
-        ccp_pathname,
-        rwin,
-        azwin,
-        offsets_pathname,
-        n_ovr,
-        nr,
-        naz,
-        thres,
-    )
-
-    offs_pathname = str(dem_paths.dem_offs)
-    ccp_pathname = str(dem_paths.dem_ccp)
-    diff_par_pathname = str(dem_paths.dem_diff)
-    coffs_pathname = str(dem_paths.dem_coffs)
-    coffsets_pathname = str(dem_paths.dem_coffsets)
-    thres = const.NOT_PROVIDED
-
-    pg.offset_fitm(
-        offs_pathname,
-        ccp_pathname,
-        diff_par_pathname,
-        coffs_pathname,
-        coffsets_pathname,
-        thres,
-        npoly,
-    )
 
     # refinement of initial geo-coding look-up-table
     ref_flg = 1

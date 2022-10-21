@@ -157,14 +157,27 @@ class CoregisterDemPrimary(luigi.Task):
                 land_center = read_land_center_coords(Path(self.shape_file))
                 log.info("Read land center from shapefile", land_center=land_center)
 
+            dem_patch_window = int(proc_config.dem_patch_window)
+            dem_offset = [int(i) for i in proc_config.dem_offset.split()]
+            dem_offset_measure = [int(i) for i in proc_config.dem_offset_measure.split()]
+            dem_window = [int(i) for i in proc_config.dem_win.split()]
+            dem_snr = float(proc_config.dem_snr)
+            dem_rad_max = int(proc_config.dem_rad_max)
+
             coregister_primary(
                 log,
                 proc_config,
                 rlks,
                 alks,
                 self.multi_look,
-                land_center=land_center
-                # TODO: Lots of settings we're not using here
+                land_center=land_center,
+                dem_patch_window=dem_patch_window,
+                dem_offset=dem_offset,
+                dem_offset_measure=dem_offset_measure,
+                dem_window=dem_window,
+                dem_snr=dem_snr,
+                dem_rad_max=dem_rad_max
+                # TODO: More settings we're not using here
                 # - GH issue #244
             )
 
