@@ -12,7 +12,7 @@ import fnmatch
 
 import structlog
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid import make_axes_locatable
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import dates as mdates
 import numpy as np
 
