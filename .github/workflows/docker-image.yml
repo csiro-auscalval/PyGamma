@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: pytest (Docker env)
 
 on:
   push:
