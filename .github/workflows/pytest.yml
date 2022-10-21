@@ -36,4 +36,5 @@ jobs:
       env:
         GAMMA_VER: 20191203
       run: |
+        export PYTHONPATH=${PYTHONPATH}:$(pwd)
         pytest
