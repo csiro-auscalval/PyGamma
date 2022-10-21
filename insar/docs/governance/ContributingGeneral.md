@@ -1,6 +1,6 @@
 # Contributing #
 
-Contributions to `gamma_insar` of all kinds are greatly appreciated!
+Contributions to `PyGamma` of all kinds are greatly appreciated!
 Below we describe many different ways people with skills all kinds can help contribute to the project.
 
 ## User Feedback ##
@@ -12,7 +12,7 @@ For bug reports and issues, refer to the next section.
 
 ## Bug Reports ##
 
-All bug reports can be raised as a [Github issue here](https://github.com/GeoscienceAustralia/gamma_insar/issues)
+All bug reports can be raised as a [Github issue here](https://github.com/GeoscienceAustralia/PyGamma/issues)
 
 If you are reporting a bug, please include:
  * Your runtime environment (operating system + version, what version of python you're using, etc)
@@ -36,15 +36,15 @@ We also greatly appreciate anyone who wants to write blog posts or articles abou
 
 Not all bugs reports get the priority we would like, as such it's possible there are open bug reports sitting there waiting to be fixed!
 
-Take a look at the [Github issues here](https://github.com/GeoscienceAustralia/gamma_insar/issues) to get started, bug reports should have the `bug` label.
+Take a look at the [Github issues here](https://github.com/GeoscienceAustralia/PyGamma/issues) to get started, bug reports should have the `bug` label.
 
 Please refer to the [code contribution guide](ContributingCode.md) for details on making code contributions for your bug fixes.
 
 ## Contribute Features ##
 
-If `gamma_insar` lacks a feature you're willing to implement, code contributions are welcome!  Before getting started, we recommend opening a github issue with the `enhancement` label to get some feedback and advice to save you time duplicating code or putting in effort for no reason!
+If `PyGamma` lacks a feature you're willing to implement, code contributions are welcome!  Before getting started, we recommend opening a github issue with the `enhancement` label to get some feedback and advice to save you time duplicating code or putting in effort for no reason!
 
-Additionally we may already have existing [Github issues](https://github.com/GeoscienceAustralia/gamma_insar/issues) with the `enhancement` label just waiting for someone's time and attention!
+Additionally we may already have existing [Github issues](https://github.com/GeoscienceAustralia/PyGamma/issues) with the `enhancement` label just waiting for someone's time and attention!
 
 Please refer to the [code contribution guide](ContributingCode.md) for details on getting started on this process.
 

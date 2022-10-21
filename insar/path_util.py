@@ -20,7 +20,7 @@ def par_file(slc_path: Path) -> Path:
     """
     Returns the .par file of an .slc/.mli file.
 
-    A very common operation in gamma_insar is to get the .par file of an
+    A very common operation in PyGamma is to get the .par file of an
     .slc or .mli file, this is a helper function to do that a little cleaner.
 
     >>> par_file(Path('test_geo.slc')).as_posix()

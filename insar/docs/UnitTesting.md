@@ -1,13 +1,13 @@
-## GAMMA-INSAR Unit Testing
+## PyGamma Unit Testing
 
-Running unit tests for `gamma_insar` is as simple as running `pytest` from the project directory on a supported platform (docker options below).  The test suite was written with the assumption that GAMMA is *unavailable*, but all other dependencies are required - this is suitable for testing on a wider range of systems (such as developers machines & CI testing environments which likely won't have GAMMA licenses).
+Running unit tests for `PyGamma` is as simple as running `pytest` from the project directory on a supported platform (docker options below).  The test suite was written with the assumption that GAMMA is *unavailable*, but all other dependencies are required - this is suitable for testing on a wider range of systems (such as developers machines & CI testing environments which likely won't have GAMMA licenses).
 
 As a result of this design decision, the *unit* tests only test the logic of the workflow - not the correctness of the processed data.
 
 To run unit tests:
 ```BASH
-cd ~/gamma_insar
-source configs/activateNCI.env ~/gamma_insar_install
+cd ~/PyGamma
+source configs/activateNCI.env ~/pygamma_install
 pytest --disable-warnings -q  # should be error free
 ```
 

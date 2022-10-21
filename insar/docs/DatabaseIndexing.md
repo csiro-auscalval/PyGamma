@@ -1,6 +1,6 @@
 ## InSAR geospatial database
 
-For large scale datasets, it's not feasible to individually pass in data acquisitions and have their data parsed every time the stack needs to start/resume/append processing data.  To this end, `gamma_insar` supports indexing data acquisitions into a geospatial temporal database which keeps a record of all the data acquisitions available, their geospatial metadata, and indexes them in a way that's optimal for the workflow to query and use.
+For large scale datasets, it's not feasible to individually pass in data acquisitions and have their data parsed every time the stack needs to start/resume/append processing data.  To this end, `PyGamma` supports indexing data acquisitions into a geospatial temporal database which keeps a record of all the data acquisitions available, their geospatial metadata, and indexes them in a way that's optimal for the workflow to query and use.
 
 This guide explains how to generate and maintain such a database.
 

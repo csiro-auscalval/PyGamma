@@ -102,7 +102,7 @@ def gen_dem_rdc(
         )
     else:
         # TODO: Consider replacing gc_map1 with gc_map2. The former was deprecated by GAMMA.
-        # See https://github.com/GeoscienceAustralia/gamma_insar/issues/232
+        # See https://github.com/GeoscienceAustralia/PyGamma/issues/232
         pg.gc_map2(
             mli_par_pathname,
             dem_par_pathname,

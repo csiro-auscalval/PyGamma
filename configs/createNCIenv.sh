@@ -26,14 +26,14 @@ pushd $ENV_PATH > /dev/null
 export PATH=$ENV_PATH/bin:$PATH
 export LD_LIBRARY_PATH=$ENV_PATH/lib:$LD_LIBRARY_PATH
 
-# Add stand-alone env script for gamma_insar
+# Add stand-alone env script for PyGamma
 sed -e 's|VENV_PATH=$1'"|VENV_PATH=$ENV_PATH|" $REPO_ROOT/configs/activateNCI.env > $ENV_PATH/NCI.env
 
 # Upgrade pip (very important, wrong package version resolution with older PIP versions)
 python -m pip install --upgrade pip wheel
 
 # TODO: zlib and libtiff
-# See: https://github.com/GeoscienceAustralia/gamma_insar/issues/368
+# See: https://github.com/GeoscienceAustralia/PyGamma/issues/368
 
 # Download and extract sources
 mkdir -p $ENV_PATH/build
@@ -112,7 +112,7 @@ python -m pip install --upgrade --force-reinstall "GDAL~=$GDAL_VERSION" --global
 
 popd > /dev/null
 
-# Install dependencies and gamma_insar into venv
+# Install dependencies and PyGamma into venv
 python3 -m pip install -r requirements.txt
 python setup.py install
 

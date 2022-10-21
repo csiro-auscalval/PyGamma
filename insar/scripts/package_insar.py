@@ -657,7 +657,7 @@ def package(
                     # note the software versions used
                     p.note_software_version("gamma", "http://www/gamma-rs.ch", workflow_metadata["gamma_version"])
                     p.note_software_version("GDAL", "https://gdal.org/", workflow_metadata["gdal_version"])
-                    p.note_software_version("gamma_insar", "https://github.com/GeoscienceAustralia/gamma_insar", workflow_metadata["gamma_insar_version"])
+                    p.note_software_version("PyGamma", "https://github.com/GeoscienceAustralia/PyGamma", workflow_metadata["pygamma_version"])
 
                     # Write all metadata
                     for _ext, _meta in ard_metadata.items():

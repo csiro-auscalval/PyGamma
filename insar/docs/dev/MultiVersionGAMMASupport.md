@@ -1,15 +1,15 @@
-This document describes the approach taken by `gamma_insar` to support multiple versions of GAMMA in a single code base.
+This document describes the approach taken by `PyGamma` to support multiple versions of GAMMA in a single code base.
 
 
 ## Problem Statement ##
 
-GAMMA provides a set of programs for users to process SAR data acquisitions into higher level products such as backscatter and accurate interferometry, these programs are meant for manual use by humans using the command line (or a GUI wrapper), however `gamma_insar` uses GAMMA like an API.
+GAMMA provides a set of programs for users to process SAR data acquisitions into higher level products such as backscatter and accurate interferometry, these programs are meant for manual use by humans using the command line (or a GUI wrapper), however `PyGamma` uses GAMMA like an API.
 
 Due to the nature of GAMMA's usage patterns they don't maintain anything quite like "API" stability, so programs can have their names changed and/or arguments re-ordered and re-named.  Additionally, like all software as new versions are produced some parts of the software become deprecated and are removed over time as well.
 
-`gamma_insar` itself is currently written against a specific version of GAMMA (20191203) however there is desire to use newer versions of GAMMA which provide various quality improvements / bug fixes / etc.
+`PyGamma` itself is currently written against a specific version of GAMMA (20191203) however there is desire to use newer versions of GAMMA which provide various quality improvements / bug fixes / etc.
 
-The problem is "how" do we update `gamma_insar` in such a way that we can easily support running the workflow with support for multiple versions of GAMMA without having to re-write the code base every time we want to try a new version, eg: some kind of abstraction layer.
+The problem is "how" do we update `PyGamma` in such a way that we can easily support running the workflow with support for multiple versions of GAMMA without having to re-write the code base every time we want to try a new version, eg: some kind of abstraction layer.
 
 ## Proposed Solution ##
 
@@ -19,7 +19,7 @@ This additional layer of abstraction would let us translate the old GAMMA API ou
 
 This would require the least amount of code changes to existing processing modules as they can continue working like they currently do, and we just swap in different implementations of this proxy/translation layer if we run the workflow with a different version of GAMMA which translates our GAMMA-old intent into GAMMA-new logic.
 
-In essence we would essentially be saying "GAMMA 20191203 is the minimum version we support", and then as new versions of GAMMA become available we evaluate the breaking changes and implement a proxy/translation layer for those areas of the API that have changed every time we need to support a new version without having to touch the greater `gamma_insar` code base **at all**.
+In essence we would essentially be saying "GAMMA 20191203 is the minimum version we support", and then as new versions of GAMMA become available we evaluate the breaking changes and implement a proxy/translation layer for those areas of the API that have changed every time we need to support a new version without having to touch the greater `PyGamma` code base **at all**.
 
 ## Alternative Solutions & why they weren't chosen ##
 
@@ -38,7 +38,7 @@ The only potential future scenario I can see where the proposed solution will fa
 
 Regardless of any potential future where Method 2 might be required, the proposed solution is an interim stepping stone 'toward' Method 2 which would have been required anyhow, and definitely doesn't preclude us from adopting the approach of Method 2 in the future if the worst case scenario does eventuate.
 
-Note: Method 2 would also be required if `gamma_insar` ever decided to support processing backends beyond GAMMA (but this seems way out of scope at this point in time / not worth considering in this proposal).
+Note: Method 2 would also be required if `PyGamma` ever decided to support processing backends beyond GAMMA (but this seems way out of scope at this point in time / not worth considering in this proposal).
 
 ## Handling missing/removed programs ##
 

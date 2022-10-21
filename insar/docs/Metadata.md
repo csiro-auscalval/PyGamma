@@ -1,4 +1,4 @@
-`gamma_insar` stacks have a few metadata files which contain information on the stack itself, as well as some of it's products.  These files ultimately provide enough information (when combined with the stack's .proc settings) to reproduce the whole stack from scratch.
+`PyGamma` stacks have a few metadata files which contain information on the stack itself, as well as some of it's products.  These files ultimately provide enough information (when combined with the stack's .proc settings) to reproduce the whole stack from scratch.
 
 At a high level, the two sets of metadata files in the stack are:
  * The stack metadata, named `metadata.json` in the output directory of the stack itself.
@@ -30,7 +30,7 @@ At the top level of the stack's output directory exists `metadata.json` - this f
 |`"num_scene_dates"`|The number of scene dates the stack contains|
 |`"polarisations"`|The polarisations included in stack processing|
 |`"gamma_version"`|The version of GAMMA that was used to process the stack|
-|`"gamma_insar_version"`|The version of `gamma_insar` that was used to process the stack|
+|`"pygamma_version"`|The version of `PyGamma` that was used to process the stack|
 |`"gdal_version"`|The version of GDAL that was used on the system for processing|
 
 ## SLC Metadata ##

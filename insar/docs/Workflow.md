@@ -1,4 +1,4 @@
-While processing, a `gamma_insar` stack ultimately takes in satellite acquisition data, and pushes it through a sequence of processing steps that produce two main output products: the NRB (normalised radar backscatter) and interferograms.
+While processing, a `PyGamma` stack ultimately takes in satellite acquisition data, and pushes it through a sequence of processing steps that produce two main output products: the NRB (normalised radar backscatter) and interferograms.
 
 This document covers the stack processing workflow, detailing how data is passed through various processing steps and what those steps involve.
 
@@ -26,7 +26,7 @@ This metadata is immutable (except for the appending of new dates), thus once th
 
 ## SLC processing ##
 
-Due to the fact `gamma_insar` supports multiple sensors, and different sensors provide different data products capable of producing SLC - we need to normalise the satellite data products into a common product for our workflow, we call this the SLC processing step.
+Due to the fact `PyGamma` supports multiple sensors, and different sensors provide different data products capable of producing SLC - we need to normalise the satellite data products into a common product for our workflow, we call this the SLC processing step.
 
 During this step, all the satellite specific products for each scene date are processed by GAMMA into a single SLC product for each date that covers the whole scene (this means satellites which have multiple swaths or subswaths/bursts, which cover the scene extent, are mosaiced together).
 
@@ -36,7 +36,7 @@ If any SLC product in this stage fails to process, that scene date will be remov
 
 ## Primary SLC <-> DEM coregistration ##
 
-The first step in the `gamma_insar` geocoding process is to coregister a single scene (the stack's primary/reference scene) to the stack's DEM.
+The first step in the `PyGamma` geocoding process is to coregister a single scene (the stack's primary/reference scene) to the stack's DEM.
 
 The primary date is aligned to the DEM by cross-correlating the radar intensity values of the primary scene to that of simulated SAR generated from the DEM.  This alignment process will attempt to start from the scene land center location, however if this fails a search pattern around that land center may be used to avoid failures due to scene specific details (eg: maybe the scene center is a flat dessert with no significant features to align).
 
@@ -66,7 +66,7 @@ If this task fails for any scene, the workflow will continue processing even wit
 
 Before we can produce interferograms, the workflow needs to identify the best pairs of scenes to produce interferograms between (called the baselines).
 
-`gamma_insar` uses the SBAS (shortest baseline subset) algorithm for producing interferogram baselines to reduce the geospatial+temporal differences between scenes used in interferograms.  These baselines are chosen to give us the best chance of achieving good quality coherence.
+`PyGamma` uses the SBAS (shortest baseline subset) algorithm for producing interferogram baselines to reduce the geospatial+temporal differences between scenes used in interferograms.  These baselines are chosen to give us the best chance of achieving good quality coherence.
 
 In the case where new dates are being appended to an existing stack, a new baseline set is produced using `N` of the latest dates from the previous stack baseline and all of the new dates - this ensures there are links from the new dates to the already processed dates in the stack.
 

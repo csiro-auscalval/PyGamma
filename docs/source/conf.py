@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath("."))
 
 is_on_readthedocs = os.environ.get("READTHEDOCS", None) == "TRUE"
 
-project = "gamma_insar"
+project = "PyGamma"
 copyright = "2020, Geoscience Australia"
 author = "Geoscience Australia"
 

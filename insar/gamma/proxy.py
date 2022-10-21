@@ -5,7 +5,7 @@ import structlog
 
 def get_gamma_version():
     """
-    Get the version of GAMMA being used by the `gamma_insar` workflow.
+    Get the version of GAMMA being used by the `PyGamma` workflow.
 
     This is simply a wrapper around getting the `GAMMA_VER` env var currently, which is how
     `gammar_insar` is designed to work with it's virtual environment / configuration setup scripts.
@@ -24,7 +24,7 @@ def create_versioned_gamma_proxy(gamma_ver: str, base_wrapper: object, exception
     Creates a GAMMMA proxy object for a specific version of GAMMA, which translates from the API for
     GAMMA version 20191203 into the user specified GAMMA version.
 
-    This is used so `gamma_insar` can be written for one specific GAMMA version without having to
+    This is used so `PyGamma` can be written for one specific GAMMA version without having to
     be re-written or constantly re-ported to newer versions, by instead using these translation
     layers / proxy objects.
     """

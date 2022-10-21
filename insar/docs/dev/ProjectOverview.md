@@ -1,4 +1,4 @@
-This document attempts to introduce the `gamma_insar` project to developers who are completely new to it.  It covers the general code structure, concepts, and common foundational classes that they may need to understand before diving into specific parts of the project.
+This document attempts to introduce the `PyGamma` project to developers who are completely new to it.  It covers the general code structure, concepts, and common foundational classes that they may need to understand before diving into specific parts of the project.
 
 As a warning, the current state of the code base is not yet perfectly structured or final & as such some classes aren't necessarily in the most obvious files and some attributes aren't documented perfectly with docstrings as of yet - this document points these inconsistencies out and will be updated as the project matures.
 
@@ -6,36 +6,36 @@ As a warning, the current state of the code base is not yet perfectly structured
 
 | Location | Description |
 | ------------------------------- | --- |
-| gamma_insar/config/...          | This folder contains scripts used to create and setup `gamma_insar` environments for Linux-like operating systems, these are used at the NCI and by our Dockerfile |
-| gamma_insar/docs/...            | This folder contains an older attempt to create Sphinx docs for the project (this is not maintained/used/up-to-date). |
-| gamma_insar/insar/docs/...      | This folder contains the user and technical documentation for the project. |
-| gamma_insar/insar/scripts/...   | This folder contains the user level scripts that are used to run the `gamma_insar` processing/packaging/etc. |
-| gamma_insar/insar/paths/...     | This folder contains classes that are used to define the filesystem structure of the stack in a definitive way which can then be re-used by the rest of the code base, this is described in further detail in a later section of this document. |
-| gamma_insar/insar/meta_data/... | This folder holds all of the Sentinel-1 metadata handling and nosql database/spatialite logic for creating the geospatial/temporal database files. |
-| gamma_insar/insar/sensors/...   | This folder contains modules for each supported satellite sensor which abstracts querying of acquisition metadata, and loading of acquisitions. |
-| gamma_insar/insar/workflow/...  | This folder contains all the modules for the data processing workflow. |
-| gamma_insar/insar/...           | This folder is the top-level module directory, it holds all the other dirs, but also holds all the data processing .py files. |
-| gamma_insar/tests/...           | This folder holds all of the python unit tests for the whole code base, `fixtures.py` contains a lot of test fixtures used by the tests & the `data` directory contains all of the test data used by those tests (such as example .proc files, fake satellite data, etc). |
+| config/...          | This folder contains scripts used to create and setup `PyGamma` environments for Linux-like operating systems, these are used at the NCI and by our Dockerfile |
+| docs/...            | This folder contains an older attempt to create Sphinx docs for the project (this is not maintained/used/up-to-date). |
+| insar/docs/...      | This folder contains the user and technical documentation for the project. |
+| insar/scripts/...   | This folder contains the user level scripts that are used to run the `PyGamma` processing/packaging/etc. |
+| insar/paths/...     | This folder contains classes that are used to define the filesystem structure of the stack in a definitive way which can then be re-used by the rest of the code base, this is described in further detail in a later section of this document. |
+| insar/meta_data/... | This folder holds all of the Sentinel-1 metadata handling and nosql database/spatialite logic for creating the geospatial/temporal database files. |
+| insar/sensors/...   | This folder contains modules for each supported satellite sensor which abstracts querying of acquisition metadata, and loading of acquisitions. |
+| insar/workflow/...  | This folder contains all the modules for the data processing workflow. |
+| insar/...           | This folder is the top-level module directory, it holds all the other dirs, but also holds all the data processing .py files. |
+| tests/...           | This folder holds all of the python unit tests for the whole code base, `fixtures.py` contains a lot of test fixtures used by the tests & the `data` directory contains all of the test data used by those tests (such as example .proc files, fake satellite data, etc). |
 
 ## Processing modules ##
 
-Each stage of the data processing workflow is separated into it's own processing module in the `gamma_insar/insar/` folder, these are broken down as follows:
+Each stage of the data processing workflow is separated into it's own processing module in the `insar/` folder, these are broken down as follows:
 
 | Product | Module                                      | Description                                                                                         |
 | ------- |---------------------------------------------|-----------------------------------------------------------------------------------------------------|
-| SLC | `gamma_insar/insar/process_s1_slc.py`       | This module processes Sentinel-1 satellite acquisitions into `gamma_insar` SLC "scenes"             |
-| SLC | `gamma_insar/insar/process_rsat2_slc.py`    | This module processes RADARSAT-2 satellite acquisitions into `gamma_insar` SLC "scenes"             |
-| SLC | `gamma_insar/insar/process_alos_slc.py`     | This module processes ALOS PALSAR (1 & 2) satellite acquisitions into `gamma_insar` SLC "scenes"    |
-| SLC | `gamma_insar/insar/process_tsx_slc.py`      | This module processes TSX / TDX satellite acquisitions into `gamma_insar` SLC "scenes"              |
-| SLC | `gamma_insar/insar/coregister_dem.py`       | This module coregisters the primary scene to the DEM                                                |
-| SLC | `gamma_insar/insar/coregister_slc.py`       | This module coregisters Sentinel-1 secondary scenes to the primary scene                            |
-| SLC | `gamma_insar/insar/coregister_secondary.py` | This module coregisters secondary scenes to the primary scene (for other sensors except Sentinel-1) |
-| NRB | `gamma_insar/insar/process_backscatter.py`  | This module processes the NRB (normalised radar backscatter) from SLC scenes.                       |
-| IFG | `gamma_insar/insar/process_ifg.py`          | This module processes interferometry from two SLC scenes.                                           |
+| SLC | `insar/process_s1_slc.py`       | This module processes Sentinel-1 satellite acquisitions into `PyGamma` SLC "scenes"             |
+| SLC | `insar/process_rsat2_slc.py`    | This module processes RADARSAT-2 satellite acquisitions into `PyGamma` SLC "scenes"             |
+| SLC | `insar/process_alos_slc.py`     | This module processes ALOS PALSAR (1 & 2) satellite acquisitions into `PyGamma` SLC "scenes"    |
+| SLC | `insar/process_tsx_slc.py`      | This module processes TSX / TDX satellite acquisitions into `PyGamma` SLC "scenes"              |
+| SLC | `insar/coregister_dem.py`       | This module coregisters the primary scene to the DEM                                                |
+| SLC | `insar/coregister_slc.py`       | This module coregisters Sentinel-1 secondary scenes to the primary scene                            |
+| SLC | `insar/coregister_secondary.py` | This module coregisters secondary scenes to the primary scene (for other sensors except Sentinel-1) |
+| NRB | `insar/process_backscatter.py`  | This module processes the NRB (normalised radar backscatter) from SLC scenes.                       |
+| IFG | `insar/process_ifg.py`          | This module processes interferometry from two SLC scenes.                                           |
 
 ## File path classes ##
 
-The `gamma_insar/insar/paths` module contains all of the classes that manage the file structure of the products being produced.
+The `insar/paths` module contains all of the classes that manage the file structure of the products being produced.
 Classes exist for each product type, and one for the general stack structure.
 
 For the DEM and related products (used for primary scene <-> DEM coreg) are contained within the `DEMPaths` class.  It's very rare these get used in day-to-day development and there's quite a few so this guide won't go over them in detail so refer to the docstrings for related information if you're modifying the primary scene coregistration code.
@@ -76,11 +76,12 @@ The `ProcConfig` class currently lives in `insar/project.py` and has functions f
 
 ## User facing CLI scripts ##
 
-The `insar/scripts/` directory holds all the CLI scripts used by users to run the `gamma_insar` processing pipeline, however 3 specifically are the most important:
-1. `insar/scripts/insar_pbs.py` - this script is the PBS job launcher, for users on the NCI or any other system using PBS for scheduling/running jobs.  It's the main script our current users are using to process their data.
+The `insar/scripts/` directory holds all the CLI scripts used by users to run the `PyGamma` processing pipeline, however the most important:
+2. `insar/scripts/process_gamma.py` - this script is the main entrypoint to running the Luigi DAG for the SAR and InSAR processing workflows, and as such all processing scripts build upon this (and users run this directly with the `pygamma` command).
+2. `insar/scripts/insar_pbs.py` - this script is the PBS job launcher, for users on the NCI or any other system using PBS for scheduling/running jobs.  It's the main script our current users are using to process their data.
 It essentially takes in the user's stack properties & PBS details, validates them, sets up a PBS bash script for the processing, and then `qsub`'s it for them.
-2. `insar/scripts/package_insar.py` - this script uses the `eodatasets3` module to package a `gamma_insar` stack ready for use by ODC (open data cube).
-3. `insar/scripts/process_nci_report.py` - this script will analyse an existing stack (complete or not) and give a summary of the state of the stack, any missing or failed products, etc.
+3. `insar/scripts/package_insar.py` - this script uses the `eodatasets3` module to package a `PyGamma` stack ready for use by ODC (open data cube).
+4. `insar/scripts/process_nci_report.py` - this script will analyse an existing stack (complete or not) and give a summary of the state of the stack, any missing or failed products, etc.
 
 ## Logging Infrastructure ##
 
@@ -101,7 +102,7 @@ As work is done on the project it's ideal if we can identify and move any magic/
 
 ## GAMMA python interface ##
 
-Most of the processing done by `gamma_insar` is done by thirdparty software called GAMMA, which is primarily a suite of command line tools intended to be used directly by humans in a console.
+Most of the processing done by `PyGamma` is done by thirdparty software called GAMMA, which is primarily a suite of command line tools intended to be used directly by humans in a console.
 
 We use these programs programmatically through a simple command line wrapper called `GammaInterface` in `insar/py_gamma_ga.py` which identifies the GAMMA executables available at runtime which:
 * exposes them as attribute functions which automatically forward the function's parameters as command line arguments
@@ -109,7 +110,7 @@ We use these programs programmatically through a simple command line wrapper cal
 * automatically logs the GAMMA call (success or fail) to the appropriate log
 * automatically detects failures and converts that into a runtime exception.
 
-`insar/py_gamma_ga.py` is a drop in replacement for the GAMMA supplied `py_gamma.py` module. GAMMA's module is intended to handle interactive use and contains asynchronous/non-blocking code. In practice, this is more complex and not required for `gamma_insar`. GA uses `insar/py_gamma_ga.py` as its single-threaded design results in shorter processing runtimes.
+`insar/py_gamma_ga.py` is a drop in replacement for the GAMMA supplied `py_gamma.py` module. GAMMA's module is intended to handle interactive use and contains asynchronous/non-blocking code. In practice, this is more complex and not required for `PyGamma`. GA uses `insar/py_gamma_ga.py` as its single-threaded design results in shorter processing runtimes.
 
 This interface is often given the `pg` variable name in processing modules, instantiated at the module level as `pg = GammaInterface(...)` thus all `pg.abc()` calls are calls into GAMMA.
 

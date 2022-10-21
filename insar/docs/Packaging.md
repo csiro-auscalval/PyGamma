@@ -1,7 +1,7 @@
 ## Product packaging
 
 Once the user has processed a stack, it's often desirable they can distribute that data to others in a standard format.
-`gamma_insar` provides a packaging script which will export a stack's data as an (ODC)[https://github.com/opendatacube/datacube-core] dataset via (eodatasets)[https://github.com/opendatacube/eo-datasets] which allows users to distribute the stack as an Open Data Cube for users to easily analyse and produce higher level products upon.
+`PyGamma` provides a packaging script which will export a stack's data as an (ODC)[https://github.com/opendatacube/datacube-core] dataset via (eodatasets)[https://github.com/opendatacube/eo-datasets] which allows users to distribute the stack as an Open Data Cube for users to easily analyse and produce higher level products upon.
 
 The process is incredibly simple, as this example shows, the packaging of a backscatter for a specific Sentinel-1 track/frame:
 

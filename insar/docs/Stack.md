@@ -1,12 +1,12 @@
 ## Introduction ##
 
-This document provides an overview of what a "stack" is in the `gamma_insar` project.
+This document provides an overview of what a "stack" is in the `PyGamma` project.
 
 At a high level a "stack" is simple a collection of "scenes" whose spatial extents match up exactly, with each scene having data that was aquired on a different date. A stack there for has a geospatial extent as well as a temporal extent associated with it, and is made up from a series of data acquisitions across it's temporal extent.
 
 A stack may be appended to, however once data is added to the stack it may not be removed.  As data is appended to the stack, the structure which associates the scenes with one another is also updated/appended-to in such a way that there are consistent coregistration properties as well as consistent interferogram pairing properties across the temporal extent of scenes.
 
-A major property of scenes processed in `gamma_insar` stacks is the fact they're coregistered, meaning every pixel in every scene is as closely aligned to the same geocoded coordinate as possible (and thus all scenes should be directly comparable at the pixel level).  This is critically important as interferometry is sensitive to differences much smaller than the area of a pixel (which is typically meters), and poorly aligned pixel data will result in poor interferometric coherence.
+A major property of scenes processed in `PyGamma` stacks is the fact they're coregistered, meaning every pixel in every scene is as closely aligned to the same geocoded coordinate as possible (and thus all scenes should be directly comparable at the pixel level).  This is critically important as interferometry is sensitive to differences much smaller than the area of a pixel (which is typically meters), and poorly aligned pixel data will result in poor interferometric coherence.
 
 ## Stack Properties ##
 
@@ -26,7 +26,7 @@ All timestamps are in UTC.
 | DEM | The digital elevation model used for terrain correction and used to assist in coregistration |
 | Primary scene date | The scene date which is considered the primary reference for all other scenes, this scene is the starting/reference point of all coregistration. |
 | Primary polarisation | The polarisation which is considered authoritative within the stack (other polarised products may defer to primary pol data in some circumstances like coregistration).  Interferograms are only produced for the primary polarisation. |
-| Processing settings | A processing configuration file with a set of properties which define 'how' the gamma_insar project processes the stack's scenes. |
+| Processing settings | A processing configuration file with a set of properties which define 'how' the PyGamma project processes the stack's scenes. |
 
 ## Stack Scenes ##
 
@@ -111,7 +111,7 @@ The coregistered SLC mosaic product paths for the date `<scene_date>`, the range
 
 ### Interferograms ###
 
-Lastly the main output product of `gamma_insar` is the interferometry itself, which is produced for the baseline determined by the stack - most scenes will take part in multiple baseline (this can be controlled by the `MIN_CONNECT` and `MAX_CONNECT` .proc settings).
+Lastly the main output product of `PyGamma` is the interferometry itself, which is produced for the baseline determined by the stack - most scenes will take part in multiple baseline (this can be controlled by the `MIN_CONNECT` and `MAX_CONNECT` .proc settings).
 Note: Interferometry is ONLY produced for the primary stack polarisation.
 
 These products are written to the stack's INT directory for each scene date, eg: `INT/<primary_date>-<secondary_date>/...`.
@@ -125,6 +125,6 @@ The interferogram product paths for the baseline `<primary_date>-<secondary_date
 
 ## Developer Notes ##
 
-For `gamma_insar` developers, the paths specified in this document are defined in the `insar.paths` modules - and must match the specifications in this document.  If either changes, the other should be updated to reflect the changes where appropriate.
+For `PyGamma` developers, the paths specified in this document are defined in the `insar.paths` modules - and must match the specifications in this document.  If either changes, the other should be updated to reflect the changes where appropriate.
 
 Further details on intermediate file paths and their descriptions may also be found in the `insar.paths` class docstrings.

@@ -181,7 +181,7 @@ def get_scenes(burst_data_csv):
                 if missing_bursts:
                     complete_frame = False
 
-        # HACK: Until we implement https://github.com/GeoscienceAustralia/gamma_insar/issues/200
+        # HACK: Until we implement https://github.com/GeoscienceAustralia/PyGamma/issues/200
         # - this simply refuses to present any scene with missing bursts to the luigi workflow
         assert(complete_frame)
 

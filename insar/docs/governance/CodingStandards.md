@@ -1,6 +1,6 @@
 # Coding Standards #
 
-The `gamma_insar` project tries to keep coding standards pretty simple:
+The `PyGamma` project tries to keep coding standards pretty simple:
 1. We stick to PEP-8 coding style
 2. Use type annotations (PEP-484) for all classes and functions.
 3. Require docstrings for all classes & functions, large and small.

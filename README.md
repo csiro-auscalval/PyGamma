@@ -48,9 +48,9 @@ Developer guides:
 
 ### Notes on shapefile creation
 
-Usage of `gamma_insar` typically needs a shapefile to process larger datasets (to keep the area of interest small enough to fit into memory), however no standard approach exists to creation of these shapefiles as yet.  This will eventually be addressed, but for now examples exist in `tests/data/...` and it's currently up to the user to create their own.
+Usage of `PyGamma` typically needs a shapefile to process larger datasets (to keep the area of interest small enough to fit into memory), however no standard approach exists to creation of these shapefiles as yet.  This will eventually be addressed, but for now examples exist in `tests/data/...` and it's currently up to the user to create their own.
 
-Shapefiles should typically match data acquisition patterns for the sensor data being processed, this is because mismatches in available data across acquisitions can cause complex problems in `gamma_insar` due to requirements imposed by the coregistration & the interferogram tree linking algorithm.
+Shapefiles should typically match data acquisition patterns for the sensor data being processed, this is because mismatches in available data across acquisitions can cause complex problems in `PyGamma` due to requirements imposed by the coregistration & the interferogram tree linking algorithm.
 
 Due to how coregistration & interferogram trees work - only dates that share identical "sets geographic regions" in the source data (eg: bursts in Sentinel-1) may be correlated, and thus any acquisition that does **not** share the most expansive set of data will be excluded (in other words, any scene which is missing data that exists in even just one other acquisition will be excluded).  This is especially critical in scenarios where you have 1 scene which has a burst no other scene has, and that scene is missing a burst that others do - in this highlighted case, not a single scene will contain the most expensive set of data and the stack will be considered empty as not a single scene will be considered complete.
 

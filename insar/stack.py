@@ -351,7 +351,7 @@ def resolve_stack_scene_query(
         for sensor, sensor_filter in zip(sensors, sensor_filters):
             # If we have a shape file, query the DB for scenes in that extent
             # TBD: The database geospatial/temporal query is currently Sentinel-1 only
-            # GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/261
+            # GH issue: https://github.com/GeoscienceAustralia/PyGamma/issues/261
             if sensor == "S1":
                 # get the relative orbit number, which is int value of the numeric part of the track name
                 # Note: This is S1 specific...

@@ -11,4 +11,4 @@
 *.hdr binary
 *.bin binary
 *.tif binary
-gamma_insar/insar/_version.py export-subst
+insar/_version.py export-subst

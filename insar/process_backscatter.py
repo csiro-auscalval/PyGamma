@@ -221,7 +221,7 @@ def generate_nrt_backscatter(
 
     # This code branch is disabled as there's some gc_map2 related quirks we need to handle
     # - the end goal is to use gc_map2 though...
-    # GH issue: https://github.com/GeoscienceAustralia/gamma_insar/issues/232
+    # GH issue: https://github.com/GeoscienceAustralia/PyGamma/issues/232
     if False:
         pg.gc_map2(
             # Inputs

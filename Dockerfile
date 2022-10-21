@@ -1,11 +1,11 @@
 # Build: docker build -t pygamma_workflow .
-# Usage: docker run -v $(pwd):/usr/src/gamma_insar:ro -t -i pygamma_workflow pytest
-#        docker run -v $(pwd):/usr/src/gamma_insar -t -i pygamma_workflow pytest --cov-report=html --cov=insar tests
+# Usage: docker run -v $(pwd):/usr/src/pygamma:ro -t -i pygamma_workflow pytest
+#        docker run -v $(pwd):/usr/src/pygamma -t -i pygamma_workflow pytest --cov-report=html --cov=insar tests
 
 FROM osgeo/gdal:ubuntu-small-latest
 #FROM osgeo/gdal:ubuntu-small-3.3.1
 
-VOLUME ["/usr/src/gamma_insar"]
+VOLUME ["/usr/src/pygamma"]
 
 # Setup container environment
 WORKDIR /usr/src/install
@@ -25,6 +25,6 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 ENV GAMMA_VER 20191203
 
 # Run pytest by default (if not given any other command)
-ENV PYTHONPATH=${PYTHONPATH}:/usr/src/gamma_insar
-WORKDIR /usr/src/gamma_insar
+ENV PYTHONPATH=${PYTHONPATH}:/usr/src/pygamma
+WORKDIR /usr/src/pygamma
 CMD [ "pytest" ]

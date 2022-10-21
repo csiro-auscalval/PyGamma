@@ -1,10 +1,10 @@
-# Adding new sensors to GAMMA InSAR
+# Adding new sensors to PyGamma
 
 The following guide explains the process to constructing the code required to incorporate a new sensor into the processing framework.
 
-As of mid-2022, `GAMMA InSAR` supports several sensors in addition to `Sentinel-1`. Geoscience Australia's software is designed to handle data from multiple sensors, as long as they are supported by the `GAMMA` software package. A list of supported sensors is included in [this PDF from GAMMA](https://gamma-rs.ch/uploads/media/GAMMA_Software_information.pdf). `GAMMA InSAR` only supports a small subset of these, the PDF list is intended as an example of sensors which _could_ be supported.
+As of mid-2022, `PyGamma` supports several sensors in addition to `Sentinel-1`. Geoscience Australia's software is designed to handle data from multiple sensors, as long as they are supported by the `GAMMA` software package. A list of supported sensors is included in [this PDF from GAMMA](https://gamma-rs.ch/uploads/media/GAMMA_Software_information.pdf). `PyGamma` only supports a small subset of these, the PDF list is intended as an example of sensors which _could_ be supported.
 
-Please see the `insar/sensors` directory for a list of currently supported sensors. If a sensor is not supported by `GAMMA InSAR`, user contributions are welcomed.
+Please see the `insar/sensors` directory for a list of currently supported sensors. If a sensor is not supported by `PyGamma`, user contributions are welcomed.
 
 ## Development Process
 
@@ -14,7 +14,7 @@ If you are unfamiliar with the Git/project workflow, see [the contributing guide
 
 ### Test data setup
 
-The `GAMMA InSAR` project relies on real, but small datasets for testing.
+The `PyGamma` project relies on real, but small datasets for testing.
 
 1. Obtain test data files/data archives (e.g. `.zip`, `.tar.gz`) for 2-3 scenes. Small areas are good as for testing and storing as unit test data. For instance, see `tests/data/TSX` for an example data structure.
 2. To reduce test data cruft, manually strip out any unnecessary files in the archive such as documents, HTML, preview images (e.g. see `tests/data/TSX/20170411_TSX_T041D.tar.gz`). As a general guide, the InSAR team aims to keep to individual data files to 1 megabyte or less. You may need to decompress the data, edit and then recompress in the same format to mimic a normal data file.
@@ -50,8 +50,8 @@ Some modifications are required so the data processing mechanism recognises new 
 New code modules are required to encapsulate sets of `GAMMA` commands.
 
 1. Create a new module for the GAMMA processing commands, e.g. `insar/process_xyz_slc.py`.
-2. Implement a `process_xyz_slc()` function in this module. This provides the `product_path` (mentioned above), which specifies the dir containing a path from `acquire_source_data()`. The processing function needs to use this dir to locate relevant data files, providing these as args to `GAMMA` command(s) to convert and process to GAMMA SLCs. Limited sensors are included the retired `BASH` version of `GAMMA InSAR`, from which example processing workflows may be available. See the master branch for details (usually `process_SENSOR_NAME_SLC.bash`).
-3. Incorporate metadata processing. A copy of [this code block](https://github.com/GeoscienceAustralia/gamma_insar/blob/pygamma_workflow/insar/process_rsat2_slc.py#L61-L80) needs to be included at the end of the `process_xyz_slc()` function. This is not ideal, but is a workaround until the processing mechanism is refactored.
+2. Implement a `process_xyz_slc()` function in this module. This provides the `product_path` (mentioned above), which specifies the dir containing a path from `acquire_source_data()`. The processing function needs to use this dir to locate relevant data files, providing these as args to `GAMMA` command(s) to convert and process to GAMMA SLCs. Limited sensors are included the retired `BASH` version of `PyGamma`, from which example processing workflows may be available. See the master branch for details (usually `process_SENSOR_NAME_SLC.bash`).
+3. Incorporate metadata processing. A copy of [this code block](https://github.com/GeoscienceAustralia/PyGamma/blob/pygamma_workflow/insar/process_rsat2_slc.py#L61-L80) needs to be included at the end of the `process_xyz_slc()` function. This is not ideal, but is a workaround until the processing mechanism is refactored.
 4. It is recommended that the GAMMA commands are run to generate real outputs from the test data.
 
 ### Processing unit tests
@@ -84,7 +84,7 @@ This section explains how to write unittests for the sensor processing code.
 ### Project configuration
 
 1. Locate `insar/project.py`.
-2. Update the `sensor_caps` variable to list the new sensor in `ProcConfig.validate()`. This provides `GAMMA InSAR` recognition of the new sensor.
+2. Update the `sensor_caps` variable to list the new sensor in `ProcConfig.validate()`. This provides `PyGamma` recognition of the new sensor.
 
 ### Luigi workflow configuration
 
@@ -130,6 +130,6 @@ The resume after crash/failure feature also needs to be made aware of the new se
 
 Testing and debugging the workflow can be a tricky process (especially on HPC systems accessed with PBS systems). The following is an incomplete list of problems that can occur:
 
-* If the file path search regexes or mechanics are wrong in `get_data_swath_info()`, `GAMMA InSAR` will not be able to find the data. This should be logged as an error in the sensor code (see `RSAT` for an example).
+* If the file path search regexes or mechanics are wrong in `get_data_swath_info()`, `PyGamma` will not be able to find the data. This should be logged as an error in the sensor code (see `RSAT` for an example).
 * If your sensor's `acquire_source_data()` file handling/regex code doesn't correctly handle path args, this can also cause failures due to data not being found.
 * In the event of missing errors, unclear debugging data etc, please raise an issue.

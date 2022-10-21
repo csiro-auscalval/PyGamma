@@ -25,7 +25,7 @@ DT_FMT_NO_NS_JSON="%Y-%m-%dT%H:%M:%SZ"
 
 def query_out_dir(dir: Path):
     """
-    Scans a gamma insar output directory for information about the job that was processed.
+    Scans a PyGamma output directory for information about the job that was processed.
     """
 
     print("Scanning output directory for information...")
@@ -133,7 +133,7 @@ def query_out_dir(dir: Path):
 
 def query_job_dir(dir: Path):
     """
-    Scans a gamma insar job directory for information about the job that was processed.
+    Scans a PyGamma job directory for information about the job that was processed.
     """
 
     print("Scanning job directory for information...")
@@ -680,7 +680,7 @@ def print_report(summary: dict):
     pols = metadata["polarisations"]
 
     print_header_line()
-    print_header_line("gamma_insar processing summary report")
+    print_header_line("PyGamma processing summary report")
     print_header_line(f"generated at {summary['timestamp']} on {summary['node']}")
     print_header_line()
     print("Stack ID:",stack_id)

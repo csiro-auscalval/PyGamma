@@ -1,21 +1,21 @@
-This document covers how to run the `gamma_insar` workflow to produce ARD (analysis ready data) products for NRB (normalised radar backscatter) and interferometry.
+This document covers how to run the `PyGamma` workflow to produce ARD (analysis ready data) products for NRB (normalised radar backscatter) and interferometry.
 
 The style of this guide is a step-by-step tutorial like approach, and should leave the reader having actually run the workflow and having produced products for them to use.
 
-This guide will inform the user on how to use the "Luigi ARD workflow runner" (using the `gamma_insar ARD` command), however it largely applies to the "PBS ARD workflow runner" (which is the `pbs-insar` command) that's often used on the NCI as well which shares an identical workflow (it uses the Luigi ARD runner under the hood) but has some differences in the parameters it takes.
+This guide will inform the user on how to use the "Luigi ARD workflow runner" (using the `pygamma ARD` command), however it largely applies to the "PBS ARD workflow runner" (which is the `pbs-insar` command) that's often used on the NCI as well which shares an identical workflow (it uses the Luigi ARD runner under the hood) but has some differences in the parameters it takes.
 
-When running `gamma_insar ARD` the workflow is being run on the local machine, and when running `pbs-insar` the workflow will be scheduled as a PBS job to run on a different machine via PBS.
+When running `pygamma ARD` the workflow is being run on the local machine, and when running `pbs-insar` the workflow will be scheduled as a PBS job to run on a different machine via PBS.
 
 If at any point in this guide the user is needing more details on stack processing properties or settings, they should refer to the source of help which is:
-1. `gamma_insar ARD --help` for the main Luigi workflow
+1. `pygamma ARD --help` for the main Luigi workflow
 2. `pbs-insar --help` for the PBS workflow runner (often used on NCI)
 3. `template.proc` in this repo for details on the .proc settings
 
-This guide assumes the user has a working `gamma_insar` installation to use (see: `Installation.md`), and optionally has a geospatial/temporal database of acquisitions available (see: `DatabaseIndexing.md`).
+This guide assumes the user has a working `PyGamma` installation to use (see: `Installation.md`), and optionally has a geospatial/temporal database of acquisitions available (see: `DatabaseIndexing.md`).
 
 ## Data Acquisition ##
 
-Before we can get started we are going to need access to some supported SAR data for us to process.  `gamma_insar` supports many sensors but the most commonly used will be Sentinel-1 thus we will proceed using that.
+Before we can get started we are going to need access to some supported SAR data for us to process.  `PyGamma` supports many sensors but the most commonly used will be Sentinel-1 thus we will proceed using that.
 
 For this tutorial we will be taking 4x SLC Sentinel-1 acquisitions from ESA Copernicus, the relative paths for these acquisitions are:
 ```
@@ -48,7 +48,7 @@ All of these properties will be assigned respectively to the following runner ar
     --outdir {outdir} \
 ```
 
-Note: There are currently a few minor inconsistencies between the Luigi ARD runner `gamma_insar ARD` and the PBS runner used on NCI `pbs-insar`, specifically in the above example `--include-dates` would be `--date-range` for `pbs-insar`.  This may be addressed in future releases.
+Note: There are currently a few minor inconsistencies between the Luigi ARD runner `pygamma ARD` and the PBS runner used on NCI `pbs-insar`, specifically in the above example `--include-dates` would be `--date-range` for `pbs-insar`.  This may be addressed in future releases.
 
 ## Processing settings ##
 
@@ -64,11 +64,11 @@ The .proc file is specified to the workflow runner via the `--proc-file` paramet
 
 ## Running the workflow ##
 
-Taking the properties we settled on from the previous sections and applying them to `gamma_insar ARD` runner, our arguments can look like two possible configurations depending on if we want to use a geospatial/temporal database, or if we want to provide the raw source acquisitions explicitly...
+Taking the properties we settled on from the previous sections and applying them to `pygamma ARD` runner, our arguments can look like two possible configurations depending on if we want to use a geospatial/temporal database, or if we want to provide the raw source acquisitions explicitly...
 
 Passing source acquisitions via `--src-file` explicitly, the command will look like:
 ```
-gamma_insar ARD \
+pygamma ARD \
     --stack-id tutorial_stack \
     --sensor S1 \
     --polarization VV --polarization VH \
@@ -87,7 +87,7 @@ Note: In the above example we don't need to provide a `--include-dates` - it's i
 
 Using the geospatial/temporal database, the command will look like:
 ```
-gamma_insar ARD \
+pygamma ARD \
     --stack-id tutorial_stack \
     --sensor S1 \
     --polarization VV --polarization VH \
@@ -99,7 +99,7 @@ gamma_insar ARD \
     --local-scheduler
 ```
 
-Note: If using `pbs-insar` to launch a PBS job, an additional parameter is required for providing an environment script that the job uses to setup the gamma environment for the job, eg: `--env /path/to/gamma_insar_install/NCI.env` - and the `--local-scheduler` parameter is not required.
+Note: If using `pbs-insar` to launch a PBS job, an additional parameter is required for providing an environment script that the job uses to setup the gamma environment for the job, eg: `--env /path/to/pygamma_install/NCI.env` - and the `--local-scheduler` parameter is not required.
 
 ## High performance computing ##
 
@@ -109,7 +109,7 @@ The workflow supports spreading tasks across multiple cores by specifying how ma
 
 As an example, to process up to 4 products at a time on a 32 core machine a user may want to use: `--workers 4 --num-threads 8`
 
-For users running on the NCI (or any other cluster using PBS for job scheduling), the above applies equally however the command is `pbs-insar` - this command is a helper that will generate a PBS job script that calls a similar `gamma_insar ARD` command on the scheduled node for the user, submitting that job to the queue specified with the resources requested.
+For users running on the NCI (or any other cluster using PBS for job scheduling), the above applies equally however the command is `pbs-insar` - this command is a helper that will generate a PBS job script that calls a similar `pygamma ARD` command on the scheduled node for the user, submitting that job to the queue specified with the resources requested.
 
 Additional arguments for `pbs-insar` are required to specify the project/user/resources of the job:
 ```
@@ -131,9 +131,9 @@ The script can produce detailed JSON reporting information, a CSV summary, and p
 
 The following is an example of the output you should see after running this tutorial (using the geospatial/temporal database in this scenario):
 ```
-python ~/gamma_insar/insar/scripts/process_nci_report.py work_dir/job-T118D_F32S_S1A
+python ~/pygamma/insar/scripts/process_nci_report.py work_dir/job-T118D_F32S_S1A
 ================================================================================
-===================== gamma_insar processing summary report =====================
+===================== PyGamma processing summary report =====================
 === generated at 2022-02-21 15:59:42.004631 on gadi-login-06.gadi.nci.org.au ===
 ================================================================================
 Stack ID: T118D_F32S_S1A
@@ -168,7 +168,7 @@ The reporting script from the previous can also report on product errors to achi
 
 ```
 ================================================================================
-===================== gamma_insar processing summary report =====================
+===================== PyGamma processing summary report =====================
 === generated at 2022-02-22 13:47:34.435212 on gadi-login-01.gadi.nci.org.au ===
 ================================================================================
 Stack ID: T118D_F32S_S1A
@@ -218,7 +218,7 @@ This process is as simple as running the **exact** same command as you did to pr
 
 To copy the geospatial-DB example from the start of this guide, the equivalent resume command would be:
 ```
-gamma_insar ARD \
+pygamma ARD \
     --stack-id tutorial_stack \
     --sensor S1 \
     --polarization VV --polarization VH \
@@ -235,7 +235,7 @@ The status log will have events indicating what products were detected as missin
 
 ## Recovering from products with errors ##
 
-In some circumstances errors will occur in products as a result of complexity issues in the scene that GAMMA can not handle, or environmental issues in the thirdparty libraries being used, or possibly a `gamma_insar` bug.  These errors can be identified using the reporting scripts already described in prior sections of this guide.
+In some circumstances errors will occur in products as a result of complexity issues in the scene that GAMMA can not handle, or environmental issues in the thirdparty libraries being used, or possibly a `PyGamma` bug.  These errors can be identified using the reporting scripts already described in prior sections of this guide.
 
 Alternatively if there is **any* other reason at all the user needs to re-process a specific product it can be deleted and re-processed with this method.
 
@@ -243,6 +243,6 @@ Once scenes have been identified, simply deleting their respective product date 
 
 ## Appending new data to a stack ##
 
-If users have a need to extend the temporal period of their stack, `gamma_insar` does support adding dates **after** the current end date of a stack (a.k.a. extending the end date of a stack).  Like much of the post-initial-stack processing, this is largely supported by simply adding a single extra flag to a standard stack processing command - namely `--append`.
+If users have a need to extend the temporal period of their stack, `PyGamma` does support adding dates **after** the current end date of a stack (a.k.a. extending the end date of a stack).  Like much of the post-initial-stack processing, this is largely supported by simply adding a single extra flag to a standard stack processing command - namely `--append`.
 
 Unlike `--resume` which requires that the stack properties for the command match the existing stack **exactly**, `--append` allows that the end-date of the stack to change as well as for extra source files to be provided past the original end date.

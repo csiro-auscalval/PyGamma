@@ -1,6 +1,6 @@
 # Pull Request Process #
 
-The `gamma_insar` project (requires all contributions)[ContributingCode.md] to go through a pull request process.  This is very similar to most pull requests developers would be familiar with working with other projects hosted in git repositories.
+The `PyGamma` project (requires all contributions)[ContributingCode.md] to go through a pull request process.  This is very similar to most pull requests developers would be familiar with working with other projects hosted in git repositories.
 
 For completeness, we detail some specific recommendations and requirements in our PR process below.
 

@@ -3,15 +3,15 @@ This document explains the technical structure of the Luigi workflow/DAG to intr
 
 ## Products and Dependencies ##
 
-The main outputs of the `gamma_insar` workflow are the NRB and IFG products, however producing these requires a lot of intermediate processing steps and products before they can be produced, which are explained briefly below (to help with the reader's understanding of some of the Luigi tasks used in the workflow in later sections).
+The main outputs of the `PyGamma` workflow are the NRB and IFG products, however producing these requires a lot of intermediate processing steps and products before they can be produced, which are explained briefly below (to help with the reader's understanding of some of the Luigi tasks used in the workflow in later sections).
 
 | Product | Description |
 | --- | --- |
 | Satellite data acquisitions | To create a stack, we need satellite data to process - these data acquisitions are the input to our data processing. |
 | Stack directory and/or .proc file | While not strictly a "product", it's a key input into the dependency chain upon which everything depends.  There is no stack processing without a well defined stack. |
-| Mosaiced SLC scenes | `gamma_insar` normalizes all input SLC data into the concept of a "scene" which covers the whole region of the stack's extent... for many satellites which won't exactly match acquisition patterns to the user's stack frame extents, this involves mosaicing multiple acquistions together into a single product. |
-| Multi-looked SLC scenes | `gamma_insar` usage typically doesn't involve producing products at full resolution, instead they're downsampled by a factor of 2 which is referred to as the "multi-look" factor - multi-looked products are differentiated from full-resolution SLC data with the `.mli` extension instead of `.slc` |
-| DEM | In addition to SLC data from a SAR satellite, `gamma_insar` also requires a digital elevation model (DEM) to coregister to the stack's primary scene.  The provided DEM can be of any size (even the size of a whole continent or even a planet), `gamma_insar` will extract an appropriate region of interest out of it to keep memory usage low. |
+| Mosaiced SLC scenes | `PyGamma` normalizes all input SLC data into the concept of a "scene" which covers the whole region of the stack's extent... for many satellites which won't exactly match acquisition patterns to the user's stack frame extents, this involves mosaicing multiple acquistions together into a single product. |
+| Multi-looked SLC scenes | `PyGamma` usage typically doesn't involve producing products at full resolution, instead they're downsampled by a factor of 2 which is referred to as the "multi-look" factor - multi-looked products are differentiated from full-resolution SLC data with the `.mli` extension instead of `.slc` |
+| DEM | In addition to SLC data from a SAR satellite, `PyGamma` also requires a digital elevation model (DEM) to coregister to the stack's primary scene.  The provided DEM can be of any size (even the size of a whole continent or even a planet), `PyGamma` will extract an appropriate region of interest out of it to keep memory usage low. |
 | Coregistration tree | To decide what secondary scenes are coregistered to one another, we build a kind of hierarchial "tree" structure that ensures scenes are all coregistered to scenes within 2 months of each other - this tree structure is serialised to the disk as a set of files in the `lists` dir along with other scene manifests. |
 | IFG baselines | In addition to a coregistration tree that determines how SLC data is correlated, we also produce "baselines" (pairs of scenes) for which we produce interferograms - these are distinct from the coregistration pairs in that the IFG baselines use the "Small BAseline Subset" (SBAS) algorithm  |
 | Coregistered SLC scenes | Once the coregistration tree has been finalised, all of the scenes are coregistered to once another allowing them to be resampled accurately to one another - these products are stored as their own distinct files with the `r` prefix to denote they have been re-sampled from the original source data. |
@@ -100,9 +100,9 @@ This is achieved with the `AppendDatesToStack` task, starts off similar to the `
 
 ## Satellite Specific Tasks ##
 
-While most of the `gamma_insar` code base and workflow is satellite-agnostic, there are differences in how Sentinel-1 scenes are coregistered vs. other sensors, and inevitably each sensor has it's own satellite-specific SLC scene processing code.  This means at the workflow level there are also satellite-specific code paths and tasks.
+While most of the `PyGamma` code base and workflow is satellite-agnostic, there are differences in how Sentinel-1 scenes are coregistered vs. other sensors, and inevitably each sensor has it's own satellite-specific SLC scene processing code.  This means at the workflow level there are also satellite-specific code paths and tasks.
 
-The key difference between Sentinel-1 and the other satellites is the fact S1 acquisitions come in smaller bursts which need to be mosaiced together and coregistered together using additional/extra processes, where as other satellites typically provide a single consistent acquisition frame that's already processed to the level we need in `gamma_insar`.
+The key difference between Sentinel-1 and the other satellites is the fact S1 acquisitions come in smaller bursts which need to be mosaiced together and coregistered together using additional/extra processes, where as other satellites typically provide a single consistent acquisition frame that's already processed to the level we need in `PyGamma`.
 
 Because of this, Sentinel-1 has the additional `CreateSlcMosaic` task which runs the mosaicing process, and has it's own dedicated coregistration processing modules used by the `CoregisterSecondary` task (which will dispatch to the S1-specific code when given S1 data).
 
