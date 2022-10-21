@@ -1,0 +1,20 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: docker build -t pygamma_workflow .
+    - name: Run pytest in docker env
+      run: docker run -v $(pwd):/usr/src/pygamma:ro -e GAMMA_VER=20191203 -t -i pygamma_workflow pytest
