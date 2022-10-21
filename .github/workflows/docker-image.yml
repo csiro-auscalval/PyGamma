@@ -17,4 +17,4 @@ jobs:
     - name: Build the Docker image
       run: docker build -t pygamma_workflow .
     - name: Run pytest in docker env
-      run: docker run -v $(pwd):/usr/src/pygamma:ro -e GAMMA_VER=20191203 -t -i pygamma_workflow pytest
+      run: docker run -v $(pwd):/usr/src/pygamma:ro -e GAMMA_VER=20191203 -t pygamma_workflow pytest
