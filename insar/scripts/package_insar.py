@@ -583,38 +583,6 @@ def package(
             padded_track = f"{track[0]}{int(track[1:-1]):03}{track[-1]}"
             padded_frame = f"{frame[0]}{int(frame[1:-1]):03}{frame[-1]}"
 
-            # Example w/ out_directory="T118D_F22S_S1A":
-            # T118D_F22S_S1A/ga_s1ac_nrb/T118D/F022S/2017/04/24_interim/
-            scene_pkg_YYYYMMdir = out_directory / f"ga_{common_attrs['sensor'].lower()}c_nrb"
-            scene_pkg_YYYYMMdir = scene_pkg_YYYYMMdir / padded_track / padded_frame / scene_year / scene_month
-
-            # Check if the scene has already been packaged
-            yaml_pattern = f"{scene_day}*/*{padded_track}{padded_frame}_{scene_year}-{scene_month}-{scene_day}*.odc-metadata.yaml"
-            odc_yamls = list(scene_pkg_YYYYMMdir.glob(yaml_pattern))
-            assert(len(odc_yamls) == 0 or len(odc_yamls) == 1)
-            already_packaged = len(odc_yamls) == 1
-
-            if already_packaged:
-                # Raise error if desired
-                if error_on_existing:
-                    _LOG.error("scene is already packaged!", slc_scene=str(slc.slc_path))
-                    exit(1)
-
-                # Or skip if we're not going to over-write it
-                elif overwrite_existing:
-                    _LOG.info("re-packaging existing scene", slc_scene=str(slc.slc_path))
-                    for dir in scene_pkg_YYYYMMdir.glob(f"{scene_day}*"):
-                        _LOG.info("Deleting existing packaged scene", dir=str(dir))
-                        shutil.rmtree(dir)
-
-                # Otherwise, skip packaging this product
-                # - assume it's already been packaged / it's fine.
-                else:
-                    _LOG.info("Skipping already packaged scene", slc_scene=str(slc.slc_path))
-                    continue
-            else:
-                _LOG.info("packaging scene", slc_scene=str(slc.slc_path))
-
             with DatasetAssembler(out_directory, naming_conventions="dea") as p:
                 try:
                     p.instrument = common_attrs["instrument"]
@@ -658,6 +626,32 @@ def package(
                     p.note_software_version("gamma", "http://www/gamma-rs.ch", workflow_metadata["gamma_version"])
                     p.note_software_version("GDAL", "https://gdal.org/", workflow_metadata["gdal_version"])
                     p.note_software_version("PyGamma", "https://github.com/GeoscienceAustralia/PyGamma", workflow_metadata["pygamma_version"])
+
+                    # Check if the scene has already been packaged
+                    scene_pkg_dir = out_directory / p.names.dataset_folder
+                    odc_yaml = scene_pkg_dir / p.names.metadata_file
+                    already_packaged = odc_yaml.exists()
+
+                    if already_packaged:
+                        # Raise error if desired
+                        if error_on_existing:
+                            _LOG.error("scene is already packaged!", slc_scene=str(slc.slc_path))
+                            exit(1)
+
+                        # Or skip if we're not going to over-write it
+                        elif overwrite_existing:
+                            _LOG.info("re-packaging existing scene", slc_scene=str(slc.slc_path))
+                            for dir in scene_pkg_dir.parent.glob(f"{scene_day}*"):
+                                _LOG.info("Deleting existing packaged scene", dir=str(dir))
+                                shutil.rmtree(dir)
+
+                        # Otherwise, skip packaging this product
+                        # - assume it's already been packaged / it's fine.
+                        else:
+                            _LOG.info("Skipping already packaged scene", slc_scene=str(slc.slc_path))
+                            continue
+                    else:
+                        _LOG.info("packaging scene", slc_scene=str(slc.slc_path))
 
                     # Write all metadata
                     for _ext, _meta in ard_metadata.items():

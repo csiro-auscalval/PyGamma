@@ -5,7 +5,6 @@ import click
 from datetime import datetime, timezone
 
 from tests.fixtures import *
-from tests.test_workflow import count_dir_tree
 
 from insar.scripts.package_insar import main as package_insar
 
@@ -94,8 +93,7 @@ def test_package_new_stack(fake_stack):
     assert(error_msg not in package_log.read_text())
 
     # Assert we have a packaged product!
-    assert((package_dir / "ga_s1ac_nrb").exists())
-    assert(len(list((package_dir / "ga_s1ac_nrb").glob("**/*.odc-metadata.yaml"))) == len(S1_TEST_DATA_DATES))
+    assert(len(list(package_dir.glob("**/*.odc-metadata.yaml"))) == len(S1_TEST_DATA_DATES))
 
 
 def test_package_empty_stack_produces_error():
@@ -109,7 +107,8 @@ def test_package_empty_stack_produces_error():
     assert(error_msg in package_log.read_text())
 
     # Assert we have no packaged files!
-    assert(count_dir_tree(package_dir / "ga_s1ac_nrb", False) == 0)
+    assert(len(list(package_dir.glob("**/*.tif"))) == 0)
+    assert(len(list(package_dir.glob("**/*.yaml"))) == 0)
 
 
 def test_package_invalid_stack_produces_error(fake_stack):
@@ -135,7 +134,8 @@ def test_package_invalid_stack_produces_error(fake_stack):
     assert(error_msg in package_log.read_text())
 
     # Assert we have no packaged files!
-    assert(count_dir_tree(package_dir / "ga_s1ac_nrb", False) == 0)
+    assert(len(list(package_dir.glob("**/*.tif"))) == 0)
+    assert(len(list(package_dir.glob("**/*.yaml"))) == 0)
 
 
 def test_continue_package_partially_packaged_stack(fake_stack):
@@ -153,7 +153,7 @@ def test_continue_package_partially_packaged_stack(fake_stack):
     package_dir, package_log = package_stack(*fake_stack)
 
     # Record the timestamp of a packaged stack date
-    packaged_date_dir = package_dir / "ga_s1ac_nrb" / track / frame / year / month / f"{date}_interim"
+    packaged_date_dir = package_dir / "ga_s1ac_nrb_0" / track / frame / year / month / f"{date}_interim"
     first_packaged_date_timestamp = datetime.fromtimestamp(packaged_date_dir.stat().st_mtime, tz=timezone.utc)
 
     # Then delete that packaged date dir, run it again...
