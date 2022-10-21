@@ -23,11 +23,17 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: "3.10"
-    - name: Install dependencies
+    - name: Install native dependencies
+      run: |
+        sudo apt-get install -y gdal-bin libfreetype-dev libpq-dev sqlite3 libsqlite3-mod-spatialite
+    - name: Install python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pytest
-        pip3 install --no-cache-dir GDAL~=3.3
+        pip install pytest
+
+        # NOTE: We install GDAL's python bindings using apt to ensure we get the verion matching the native install
+        sudo apt-get install -y gdal-bin python3-gdal
+
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Test with pytest
       env:
