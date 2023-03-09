@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ENV_PATH=$1
+ENV_PATH=$(cd $(dirname "$1"); pwd)
 SCRIPT_PATH=$(basename "$0")
 REPO_ROOT=$(dirname $(dirname "$0"))
 
