@@ -151,7 +151,7 @@ popd
 
 # spatialite
 pushd $ENV_PATH/build/libspatialite-$SPATIALITE_VERSION
-CFLAGS="-I$ENV_PATH/include -L$ENV_PATH/lib64 -lgeos_c -lgeos" ./configure --prefix=$ENV_PATH --disable-freexl --enable-module-only --with-geosconfig=$ENV_PATH/bin/geos-config --disable-rttopo --disable-minizip --disable-libxml2 --disable-geopackage --disable-examples
+CFLAGS="-I$ENV_PATH/include -L$ENV_PATH/lib" ./configure --prefix=$ENV_PATH --with-sysroot=$ENV_PATH --with-geosconfig=$ENV_PATH/bin/geos-config --disable-rttopo --disable-freexl --disable-minizip --disable-libxml2 --disable-geopackage --disable-examples --disable-gcp
 make -j$NPROC || exit
 make install || exit
 popd
@@ -168,16 +168,9 @@ else
   echo "Building GDAL using CMake"
   mkdir -p build
   pushd build
-  cmake .. \
-    -DCMAKE_INSTALL_RPATH=$ENV_PATH/lib
-    -DCMAKE_INSTALL_PREFIX=$ENV_PATH
-    -DGEOS_LIBRARY=$ENV_PATH/lib
-    #-DCMAKE_PREFIX_PATH=$ENV_PATH \
-    #-DPython_FIND_VIRTUALENV=ONLY \
-    #-DGDAL_PYTHON_INSTALL_PREFIX=$ENV_PATH \
-    #-DPROJ_LIBRARY=$ENV_PATH
-  cmake --build . || exit
-  cmake --build . --target install || exit
+  cmake .. -DCMAKE_INSTALL_RPATH=$ENV_PATH/lib -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DGEOS_LIBRARY=$ENV_PATH/lib -DCMAKE_PREFIX_PATH=$ENV_PATH -DPython_FIND_VIRTUALENV=ONLY -DGDAL_PYTHON_INSTALL_PREFIX=$ENV_PATH -DPROJ_LIBRARY=$ENV_PATH
+  make -j$NPROC || exit
+  make install || exit
   popd
 fi
 popd
