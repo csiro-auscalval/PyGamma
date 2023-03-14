@@ -10,8 +10,9 @@ if [[ -z "$ENV_PATH" ]]; then
 fi
 
 if [[ -e "$ENV_PATH" ]]; then
-  echo "Error: env path already exists!"
-#  exit 1
+  echo ""
+  echo "Error: Environment path ($ENV_PATH) already exists!"
+  read -p "Hit Ctrl-C to cancel, otherwise press any key to continue... " -n1 -s
 fi
 
 # Create the directory and convert to absolute path
@@ -30,7 +31,6 @@ function cancelled {
 }
 
 trap cancelled SIGINT
-
 
 function fail {
   echo ""
@@ -187,7 +187,7 @@ popd > /dev/null
 python3 -m pip install -r requirements.txt || exit
 python setup.py install || exit
 
-function fail {}
+trap EXIT
 
 echo "Environment successfully created!"
 popd > /dev/null
