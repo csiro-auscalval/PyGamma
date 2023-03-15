@@ -16,6 +16,7 @@ if [[ -e "$ENV_PATH" ]]; then
 fi
 
 # Create the directory and convert to absolute path
+
 mkdir -p $ENV_PATH
 ENV_PATH=$(cd "$ENV_PATH"; pwd)
 echo ""
@@ -50,15 +51,18 @@ echo "Using $NPROC cores for compilation."
 echo ""
 
 # Activate NCI base env
+
 pushd $REPO_ROOT > /dev/null
 source configs/activateNCI.env
 
 # Create new venv
+
 python3 -m venv $ENV_PATH
 source $ENV_PATH/bin/activate
 pushd $ENV_PATH > /dev/null
 
-# Setup environment
+# Setup and print environment
+
 export PATH=$ENV_PATH/bin:$PATH
 export LD_LIBRARY_PATH=${ENV_PATH}/lib:$LD_LIBRARY_PATH
 export PKG_CONFIG_PATH=${ENV_PATH}/lib/pkgconfig
@@ -73,20 +77,26 @@ echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"
 echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
 
 # Add stand-alone env script for PyGamma
+
 sed -e 's|VENV_PATH=$1'"|VENV_PATH=$ENV_PATH|" $REPO_ROOT/configs/activateNCI.env > $ENV_PATH/NCI.env
 
 # Upgrade pip (very important, wrong package version resolution with older PIP versions)
+
 python -m pip install --upgrade pip wheel
 
-# TODO: zlib and libtiff
-# See: https://github.com/GeoscienceAustralia/PyGamma/issues/368
-
 # Download and extract sources
+
 mkdir -p $ENV_PATH/build
 pushd $ENV_PATH/build
 
 wget -nc https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz || exit 1
 tar -xf zlib-${ZLIB_VERSION}.tar.gz
+
+wget -nc https://www.ijg.org/files/jpegsrc.v${JPEG_VERSION}.tar.gz || exit 1
+tar -xf jpegsrc.v${JPEG_VERSION}.tar.gz
+
+wget -nc https://downloads.sourceforge.net/project/libjpeg-turbo/2.1.5/libjpeg-turbo-${JPEGTURBO_VERSION}.tar.gz || exit 1
+tar -xf libjpeg-turbo-${JPEGTURBO_VERSION}.tar.gz
 
 wget -nc https://download.osgeo.org/libtiff/tiff-${TIFF_VERSION}.tar.gz || exit 1
 tar -xf tiff-${TIFF_VERSION}.tar.gz
@@ -114,14 +124,33 @@ tar -xf fftw-${FFTW_VERSION}.tar.gz
 
 popd
 
-# zlib
+# zlib. Depedencies: None.
+
 pushd $ENV_PATH/build/zlib-$ZLIB_VERSION
 ./configure --prefix=$ENV_PATH
 make -j$NPROC || exit
 make install || exit
 popd
 
-# libtiff
+#libjpeg.
+
+pushd $ENV_PATH/build/jpeg-$JPEG_VERSION
+./configure --prefix=$ENV_PATH
+make -j$NPROC || exit
+make install || exit
+popd
+
+# libjpeg-turbo. Dependencies: none.
+
+mkdir -p $ENV_PATH/build/libjpeg-turbo-$JPEGTURBO_VERSION/build
+pushd $ENV_PATH/build/libjpeg-turbo-$JPEGTURBO_VERSION/build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH ..
+make -j$NPROC || exit
+make install || exit
+popd
+
+# libtiff. Dependencies: libjpeg-turbo.
+
 mkdir -p $ENV_PATH/build/tiff-$TIFF_VERSION/build
 pushd $ENV_PATH/build/tiff-$TIFF_VERSION/build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH ..
@@ -129,7 +158,8 @@ make -j$NPROC || exit
 make install || exit
 popd
 
-# sqlite
+# sqlite. Dependencies: None.
+
 pushd $ENV_PATH/build/sqlite-$SQLITE_VERSION
 #CFLAGS="-DSQLITE_ENABLE_COLUMN_METADATA=1" ./configure --prefix=$ENV_PATH --enable-rtree
 ./configure --prefix=$ENV_PATH --enable-rtree
@@ -137,13 +167,16 @@ make -j$NPROC || exit
 make install || exit
 popd
 
-# PROJ4
+# PROJ. Dependencies: sqlite, libtiff.
+
 mkdir -p $ENV_PATH/build/proj-$PROJ_VERSION/build
 pushd $ENV_PATH/build/proj-$PROJ_VERSION/build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH ..
 make -j$NPROC || exit
 make install || exit
 popd
+
+# Fix that cmake is not creating a pkgconfig file for PROJ
 
 cat << EOF | envsubst \$ENV_PATH > $ENV_PATH/lib/pkgconfig/proj.pc
 prefix=$ENV_PATH
@@ -161,7 +194,8 @@ Libs.Private: -lsqlite3 -lstdc++
 Cflags: -I${ENV_PATH}/include
 EOF
 
-# libgeotiff
+# libgeotiff. Dependencies: libtiff, PROJ, sqlite.
+
 mkdir -p $ENV_PATH/build/libgeotiff-$GEOTIFF_VERSION/build
 pushd $ENV_PATH/build/libgeotiff-$GEOTIFF_VERSION/build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH ..
@@ -169,7 +203,8 @@ make -j$NPROC || exit
 make install || exit
 popd
 
-# GEOS
+# GEOS. Dependencies: none.
+
 mkdir -p $ENV_PATH/build/geos-$GEOS_VERSION/build
 pushd $ENV_PATH/build/geos-$GEOS_VERSION/build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH ..
@@ -177,21 +212,28 @@ make -j$NPROC || exit
 make install || exit
 popd
 
-# FFTW single precision (fftwf)
+# fftw. Dependencies: none.
+
 pushd $ENV_PATH/build/fftw-$FFTW_VERSION
 ./configure --prefix=$ENV_PATH --enable-single --disable-static --enable-shared --disable-dependency-tracking
 make -j$NPROC || exit
 make install || exit
 popd
 
-# spatialite
+# spatialite. Dependencies: sqlite, PROJ, GEOS.
+
 pushd $ENV_PATH/build/libspatialite-$SPATIALITE_VERSION
 ./configure --prefix=$ENV_PATH --with-sysroot=$ENV_PATH --with-geosconfig=$ENV_PATH/bin/geos-config --disable-rttopo --disable-freexl --disable-minizip --disable-libxml2 --disable-geopackage --disable-examples --disable-gcp --disable-dependency-tracking
 make -j$NPROC || exit
 make install || exit
 popd
 
-# GDAL
+# numpy.
+
+python -m pip install --upgrade --force-reinstall numpy || exit
+
+# GDAL. Dependencies: GEOS, libgeotiff, spatialite, sqlite, numpy.
+
 function version { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
 pushd $ENV_PATH/build/gdal-$GDAL_VERSION
 if [ $(version $GDAL_VERSION) -lt $(version "3.5.0") ]; then
@@ -204,22 +246,21 @@ else
   mkdir -p build
   pushd build
   #cmake .. -DCMAKE_INSTALL_RPATH=$ENV_PATH/lib -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DGEOS_LIBRARY=$ENV_PATH/lib -DCMAKE_PREFIX_PATH=$ENV_PATH -DPython_ROOT=$ENV_PATH -DPython_FIND_VIRTUALENV=ONLY -DGDAL_PYTHON_INSTALL_PREFIX=$ENV_PATH -DPROJ_LIBRARY=$ENV_PATH -DZLIB_INCLUDE_DIR=$ENV_PATH/include -DZLIB_LIBRARY_RELEASE=$ENV_PATH/lib -DSQLite3_INCLUDE_DIR=$ENV_PATH/include
-  cmake .. -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DCMAKE_PREFIX_PATH=$ENV_PATH 
+  cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DCMAKE_PREFIX_PATH=$ENV_PATH 
   make -j$NPROC || exit
   make install || exit
   popd
 fi
 popd
 
-# Install GDAL python dependencies
-python -m pip install --upgrade --force-reinstall numpy || exit
-
 # Install pinned GDAL dependency for our environment ensuring that numpy extensions get installed
+
 python -m pip install --upgrade --force-reinstall "GDAL~=$GDAL_VERSION" --global-option=build_ext --global-option="$(gdal-config --cflags)"
 
 popd > /dev/null
 
 # Install dependencies and PyGamma into venv
+
 python3 -m pip install -r requirements.txt || exit
 python setup.py install || exit
 
