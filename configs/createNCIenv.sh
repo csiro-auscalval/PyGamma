@@ -58,8 +58,19 @@ python3 -m venv $ENV_PATH
 source $ENV_PATH/bin/activate
 pushd $ENV_PATH > /dev/null
 
+# Setup environment
 export PATH=$ENV_PATH/bin:$PATH
-export LD_LIBRARY_PATH=$ENV_PATH/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=${ENV_PATH}/lib:$LD_LIBRARY_PATH
+export PKG_CONFIG_PATH=${ENV_PATH}/lib/pkgconfig
+export CPPFLAGS="-I$ENV_PATH/include"
+export CFLAGS="-I${ENV_PATH}/include"
+export LDFLAGS="-L${ENV_PATH}/lib"
+
+echo "PATH=${PATH}"
+echo "CFLAGS=${CFLAGS}"
+echo "LDFLAGS=${LDFLAGS}"
+echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"
+echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
 
 # Add stand-alone env script for PyGamma
 sed -e 's|VENV_PATH=$1'"|VENV_PATH=$ENV_PATH|" $REPO_ROOT/configs/activateNCI.env > $ENV_PATH/NCI.env
@@ -118,8 +129,15 @@ make -j$NPROC || exit
 make install || exit
 popd
 
-# Install GDAL native dependencies
-# PROJ4 native
+# sqlite
+pushd $ENV_PATH/build/sqlite-$SQLITE_VERSION
+#CFLAGS="-DSQLITE_ENABLE_COLUMN_METADATA=1" ./configure --prefix=$ENV_PATH --enable-rtree
+./configure --prefix=$ENV_PATH --enable-rtree
+make -j$NPROC || exit
+make install || exit
+popd
+
+# PROJ4
 mkdir -p $ENV_PATH/build/proj-$PROJ_VERSION/build
 pushd $ENV_PATH/build/proj-$PROJ_VERSION/build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH ..
@@ -127,7 +145,31 @@ make -j$NPROC || exit
 make install || exit
 popd
 
-# GEOS native
+cat << EOF | envsubst \$ENV_PATH > $ENV_PATH/lib/pkgconfig/proj.pc
+prefix=$ENV_PATH
+exec_prefix=$ENV_PATH
+libdir=$ENV_PATH/lib
+includedir=$ENV_PATH/include
+datadir=$ENV_PATH/share/proj
+
+Name: proj
+Description: Cartographic Projections Library.
+Requires:
+Version: $PROJ_VERSION
+Libs: -L$ENV_PATH/lib -lproj
+Libs.Private: -lsqlite3 -lstdc++
+Cflags: -I${ENV_PATH}/include
+EOF
+
+# libgeotiff
+mkdir -p $ENV_PATH/build/libgeotiff-$GEOTIFF_VERSION/build
+pushd $ENV_PATH/build/libgeotiff-$GEOTIFF_VERSION/build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH ..
+make -j$NPROC || exit
+make install || exit
+popd
+
+# GEOS
 mkdir -p $ENV_PATH/build/geos-$GEOS_VERSION/build
 pushd $ENV_PATH/build/geos-$GEOS_VERSION/build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH ..
@@ -137,38 +179,32 @@ popd
 
 # FFTW single precision (fftwf)
 pushd $ENV_PATH/build/fftw-$FFTW_VERSION
-./configure --prefix=$ENV_PATH --enable-single --disable-static --enable-shared
-make -j$NPROC || exit
-make install || exit
-popd
-
-# sqlite
-pushd $ENV_PATH/build/sqlite-$SQLITE_VERSION
-CFLAGS="-DSQLITE_ENABLE_COLUMN_METADATA=1" ./configure --prefix=$ENV_PATH
+./configure --prefix=$ENV_PATH --enable-single --disable-static --enable-shared --disable-dependency-tracking
 make -j$NPROC || exit
 make install || exit
 popd
 
 # spatialite
 pushd $ENV_PATH/build/libspatialite-$SPATIALITE_VERSION
-CFLAGS="-I$ENV_PATH/include -L$ENV_PATH/lib" ./configure --prefix=$ENV_PATH --with-sysroot=$ENV_PATH --with-geosconfig=$ENV_PATH/bin/geos-config --disable-rttopo --disable-freexl --disable-minizip --disable-libxml2 --disable-geopackage --disable-examples --disable-gcp
+./configure --prefix=$ENV_PATH --with-sysroot=$ENV_PATH --with-geosconfig=$ENV_PATH/bin/geos-config --disable-rttopo --disable-freexl --disable-minizip --disable-libxml2 --disable-geopackage --disable-examples --disable-gcp --disable-dependency-tracking
 make -j$NPROC || exit
 make install || exit
 popd
 
-# GDAL native
+# GDAL
 function version { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
 pushd $ENV_PATH/build/gdal-$GDAL_VERSION
 if [ $(version $GDAL_VERSION) -lt $(version "3.5.0") ]; then
-  echo "Building GDAL using old style"
-  ./configure --prefix=$ENV_PATH --with-proj=$ENV_PATH --with-geos=geos-config
+  echo "Building GDAL using autoconf"
+  ./configure --prefix=$ENV_PATH --with-geos=$ENV_PATH/bin/geos-config
   make -j$NPROC || exit
   make install || exit
 else
   echo "Building GDAL using CMake"
   mkdir -p build
   pushd build
-  cmake .. -DCMAKE_INSTALL_RPATH=$ENV_PATH/lib -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DGEOS_LIBRARY=$ENV_PATH/lib -DCMAKE_PREFIX_PATH=$ENV_PATH -DPython_FIND_VIRTUALENV=ONLY -DGDAL_PYTHON_INSTALL_PREFIX=$ENV_PATH -DPROJ_LIBRARY=$ENV_PATH
+  #cmake .. -DCMAKE_INSTALL_RPATH=$ENV_PATH/lib -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DGEOS_LIBRARY=$ENV_PATH/lib -DCMAKE_PREFIX_PATH=$ENV_PATH -DPython_ROOT=$ENV_PATH -DPython_FIND_VIRTUALENV=ONLY -DGDAL_PYTHON_INSTALL_PREFIX=$ENV_PATH -DPROJ_LIBRARY=$ENV_PATH -DZLIB_INCLUDE_DIR=$ENV_PATH/include -DZLIB_LIBRARY_RELEASE=$ENV_PATH/lib -DSQLite3_INCLUDE_DIR=$ENV_PATH/include
+  cmake .. -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DCMAKE_PREFIX_PATH=$ENV_PATH 
   make -j$NPROC || exit
   make install || exit
   popd
@@ -189,5 +225,7 @@ python setup.py install || exit
 
 trap EXIT
 
+echo ""
 echo "Environment successfully created!"
+
 popd > /dev/null
