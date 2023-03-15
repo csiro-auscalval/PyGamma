@@ -41,7 +41,11 @@ function fail {
 
 trap fail EXIT
 
-NPROC=$((`nproc` > 4? `nproc` : 4))
+if [[ $OSTYPE == 'darwin'* ]]; then
+  NPROC=$(sysctl -n hw.physicalcpu)
+else
+  NPROC=$((`nproc` > 4? `nproc` : 4))
+fi
 
 echo "Compilers being used to generate environment:"
 echo "  - $(python3 --version) [$(which python3)]"
@@ -63,12 +67,14 @@ pushd $ENV_PATH > /dev/null
 
 # Setup and print environment
 
-export PATH=$ENV_PATH/bin:$PATH
-export LD_LIBRARY_PATH=${ENV_PATH}/lib:$LD_LIBRARY_PATH
-export PKG_CONFIG_PATH=${ENV_PATH}/lib/pkgconfig
 export CPPFLAGS="-I$ENV_PATH/include"
 export CFLAGS="-I${ENV_PATH}/include"
 export LDFLAGS="-L${ENV_PATH}/lib"
+
+export PATH=$ENV_PATH/bin:$PATH
+export LD_LIBRARY_PATH=${ENV_PATH}/lib:$LD_LIBRARY_PATH
+export PKG_CONFIG_PATH=${ENV_PATH}/lib/pkgconfig
+export CMAKE_MODULE_PATH=$CMAKE_MODULE_PATH:${ENV_PATH}/lib/cmake
 
 echo "PATH=${PATH}"
 echo "CFLAGS=${CFLAGS}"
@@ -101,7 +107,7 @@ tar -xf libjpeg-turbo-${JPEGTURBO_VERSION}.tar.gz
 wget -nc https://download.osgeo.org/libtiff/tiff-${TIFF_VERSION}.tar.gz || exit 1
 tar -xf tiff-${TIFF_VERSION}.tar.gz
 
-wget -nc https://github.com/OSGeo/libgeotiff/releases/download/1.7.1/libgeotiff-${GEOTIFF_VERSION}.tar.gz || exit 1
+wget -nc http://download.osgeo.org/geotiff/libgeotiff/libgeotiff-${GEOTIFF_VERSION}.tar.gz || exit 1
 tar -xf libgeotiff-${GEOTIFF_VERSION}.tar.gz
 
 wget -nc https://github.com/OSGeo/gdal/releases/download/v${GDAL_VERSION}/gdal-${GDAL_VERSION}.tar.gz || exit 1
@@ -132,13 +138,13 @@ make -j$NPROC || exit
 make install || exit
 popd
 
-#libjpeg.
-
-pushd $ENV_PATH/build/jpeg-$JPEG_VERSION
-./configure --prefix=$ENV_PATH
-make -j$NPROC || exit
-make install || exit
-popd
+##libjpeg.
+#
+#pushd $ENV_PATH/build/jpeg-$JPEG_VERSION
+#./configure --prefix=$ENV_PATH
+#make -j$NPROC || exit
+#make install || exit
+#popd
 
 # libjpeg-turbo. Dependencies: none.
 
@@ -149,14 +155,21 @@ make -j$NPROC || exit
 make install || exit
 popd
 
-# libtiff. Dependencies: libjpeg-turbo.
+# libtiff. Dependencies: libjpeg.
 
-mkdir -p $ENV_PATH/build/tiff-$TIFF_VERSION/build
-pushd $ENV_PATH/build/tiff-$TIFF_VERSION/build
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH ..
+#mkdir -p $ENV_PATH/build/tiff-$TIFF_VERSION/build
+#pushd $ENV_PATH/build/tiff-$TIFF_VERSION/build
+#cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DJPEG_INCLUDE_DIR=$ENV_PATH/include -DJPEG_LIBRARY=$ENV_PATH/lib ..
+#make -j$NPROC || exit
+#make install || exit
+#popd
+
+pushd $ENV_PATH/build/tiff-$TIFF_VERSION
+./configure --prefix=$ENV_PATH --disable-webp --with-jpeg-include-dir=$ENV_PATH/include --with-jpeg-lib-dir=$ENV_PATH/lib --with-zlib-include-dir=$ENV_PATH/include --with-zlib-lib-dir=$ENV_PATH/lib --without-x
 make -j$NPROC || exit
 make install || exit
 popd
+
 
 # sqlite. Dependencies: None.
 
