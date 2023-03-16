@@ -1,37 +1,44 @@
 ## Installation
 
-`PyGamma` assumes some pre-existing native dependencies are installed on the system prior to installation:
- * [Python](https://www.python.org/) (3.6+)
- * [sqlite3](https://www.sqlite.org/index.html) with [spatialite](https://www.gaia-gis.it/fossil/libspatialite/index) extension
- * [GAMMA](http://www/gamma-rs.ch)
+`PyGamma` wraps the commercial software [GAMMA](https://www.gamma-rs.ch). As such, installation typically assumes existence of various software dependencies are installed on the system prior to installation. Apart from Gamma, many of these are easily installed through your operating system package manager as they are open-source and commonly available. Overall, at a high-level, the dependencies are:
+
+ * [GAMMA](https://www.gamma-rs.ch)
  * [GDAL](https://gdal.org/) (2.4+ and 3.0+ have been tested)
-   * Note: version required is dictated by GAMMA release
+ * [sqlite3](https://www.sqlite.org/index.html) with [spatialite](https://www.gaia-gis.it/fossil/libspatialite/index) extension
  * [PROJ](https://proj.org/) (for GAMMA/GDAL)
  * [FFTW](https://www.fftw.org/) (for GAMMA)
+ * [Python](https://www.python.org/) (3.6+)
+   * Plus all the python dependencies in `requirements.txt`. The exact python package versions required is tied to the GAMMA version being used (and `requirements.txt` is as loosely as possible frozen to the versions supported by the GAMMA version used in GA's production NCI environment).
 
-In addition to the above native dependencies, PyGamma has various python dependencies listed in `requirements.txt` - the exact python package versions required is tied to the GAMMA version being used (and `requirements.txt` is as loosely as possible frozen to the versions supported by the GAMMA version used in GA's production NCI environment).
+Most of those software packages above have their own dependencies but in most situations this is not an issue as your package manager will take care of those. 
 
-## Installation on arbitrary platforms
+## Various ways to install PyGamma
 
-In platform agnostic terms, PyGamma should work in any environment in which it's dependencies (both native + python) are installed and found in the `PATH`/`PYTHONPATH`/`LD_LIBRARY_PATH` (or relevant platform specific analgoues).
+In platform agnostic terms, PyGamma should work in any environment in which its dependencies (both native + python) are installed and found in the `PATH`/`PYTHONPATH`/`LD_LIBRARY_PATH` (or relevant platform specific analogues). That said, for operational environments, two spproaches to setup all the dependencies have been developed:
 
-`PyGamma` provides a Dockerfile (based on OSGEO/DAL ubuntu images) a a simple method for bringing up a compatible environment on any platform which supports Docker.
+1. *Virtual environment:* Two scripts have been developed (found under `configs/`) to build and initialise a virtual environment that contains all the dependencies. These dependencies are compiled from source (except GAMMA). This script has been tested on Linux and Mac. This allows a user to freeze the version of GAMMA and all its dependencies without relying on system versions of those pieces of software. This also allows testing various versions of GAMMA with various versions of dependencies in an automated way. 
 
-`PyGamma` also has various scripts (found under `configs/`) in which Python virtual environments are used to setup compatible environments on platforms where native dependencies already exist (such as the NCI environment), which may be used as a reference for those wanting to create similar venvs on other platforms.
+2. *Docker:* `PyGamma` provides a Dockerfile (based on OSGEO/DAL ubuntu images) as a simple method for bringing up a compatible environment on any platform which supports Docker.
 
-## Installation on NCI
+## Installation on the [NCI](https://www.nci.org.au)
 
-Using `PyGamma` on NCI of course requires a user account (to access the NCI) & membership of several NCI groups. Use [Mancini](https://my.nci.org.au/) to request membership access to the following groups:
+At [Geoscience Australia](https://www.ga.gov.au) we use the *virtual environment* approach for running PyGamma on the NCI. This allows us to freeze requirements and load various versions easily. 
 
+For an introduction into NCI, their [wiki covers quite a lot](https://opus.nci.org.au/display/Help/0.+Welcome+to+Gadi). Before starting to operate PyGamma at the NCI, you will need an NCI user account and membership of to several NCI projects. Once you have a user account, login to [this page](https://my.nci.org.au/) to request membership access to the following groups:
+```
+fj7: Copernicus Australia Regional Data Hub
+dg9: InSAR research
+```
+and optionally, the following groups:
 ```
 v10: DEA Operations and code repositories
-up71: Storage resources for GA ARD development
-dg9: InSAR research
 u46: DEA Development and Science (GA internal)
-fj7: Sentinel Data
+up71: Storage resources for GA ARD development
 ```
 
-For an introduction into NCI, their [wiki covers quite a lot](https://opus.nci.org.au/display/Help/0.+Welcome+to+Gadi).
+The `fj7` project gives you access to the directory `/g/data/fj7` where all the [ESA](https://www.esa.int) data for our local region is stored. This path has folders containing the raw observational data for the various satellite missions such as Sentinel-1, Sentinel-2, Sentinel-3, etc. The managers of the Copernicus Hub run automated scripts to update this directory with any new observations that are acquired from any of these ESA satellite missions. For PyGamma, the particular mission we are concerned with is [Sentinel-1](https://en.wikipedia.org/wiki/Sentinel-1) which captures Synthetic Aperture Radar (SAR) data.
+
+The aim of PyGamma is to take a SAR raw data (at a date / time / location) and generate various end products such as land displacement map.
 
 After getting NCI access, you will need a release of the `PyGamma` code somewhere on NCI to install, such as by cloning this github repo as follows:
 
