@@ -1,5 +1,6 @@
 #!/bin/bash
 
+CWD=$(pwd)
 ENV_PATH=$1
 SCRIPT_PATH=$(basename "$0")
 REPO_ROOT=$(cd $(dirname $(dirname "$0")); pwd)
@@ -9,9 +10,16 @@ if [[ -z "$ENV_PATH" ]]; then
   exit 1
 fi
 
+echo "$CWD $REPO_ROOT"
+
+if [[ $CWD == "$REPO_ROOT"* ]]; then
+  echo "Error: You should not run this from the PyGamma repository directory."
+  exit 1
+fi
+
 if [[ -e "$ENV_PATH" ]]; then
   echo ""
-  echo "Error: Environment path ($ENV_PATH) already exists!"
+  echo "Warning: Environment path ($ENV_PATH) already exists!"
   read -p "Hit Ctrl-C to cancel, otherwise press any key to continue... " -n1 -s
 fi
 
@@ -41,10 +49,23 @@ function fail {
 
 trap fail EXIT
 
-if [[ $OSTYPE == 'darwin'* ]]; then
+if [[ $OSTYPE == 'darwin'* ]]; then # Mac
+
   NPROC=$(sysctl -n hw.physicalcpu)
-else
+
+  # make a clean environment in case homebrew installed
+
+  ln -s $(which wget) $ENV_PATH/bin/wget
+  ln -s $(which cmake) $ENV_PATH/bin/cmake
+  ln -s $(which pkg-config) $ENV_PATH/bin/pkg-config
+  ln -s $(which pg_config) $ENV_PATH/bin/pg_conf
+
+  export PATH=$ENV_PATH/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin
+
+else # Linux
+
   NPROC=$((`nproc` > 4? `nproc` : 4))
+
 fi
 
 echo "Compilers being used to generate environment:"
