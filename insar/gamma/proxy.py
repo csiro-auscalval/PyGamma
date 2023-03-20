@@ -15,13 +15,13 @@ def get_gamma_version():
 
     version = os.environ.get("GAMMA_VER")
     if not version:
-        raise RuntimeError("Failed to detect GAMMMA version (expected 'GAMMA_VER' env var)")
+        raise RuntimeError("Failed to detect GAMMA version (expected 'GAMMA_VER' env var)")
 
     return version
 
 def create_versioned_gamma_proxy(gamma_ver: str, base_wrapper: object, exception_type: BaseException):
     """
-    Creates a GAMMMA proxy object for a specific version of GAMMA, which translates from the API for
+    Creates a GAMMA proxy object for a specific version of GAMMA, which translates from the API for
     GAMMA version 20191203 into the user specified GAMMA version.
 
     This is used so `PyGamma` can be written for one specific GAMMA version without having to
