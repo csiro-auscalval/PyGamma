@@ -92,13 +92,17 @@ CERR = "cerr"
 
 def find_gamma_installed_packages(install_dir):
     """Search install_dir for Gamma pkgs. Return list of packages."""
-    res = tuple(n for n in _GAMMA_PACKAGES if n in os.listdir(install_dir))
+    try:
+        res = tuple(n for n in _GAMMA_PACKAGES if n in os.listdir(install_dir))
 
-    if res is None or len(res) == 0:
-        msg = "No Gamma packages found in {}"
-        raise GammaInterfaceException(msg.format(install_dir))
+        if res is not None and len(res) > 0: # success
+            return res
 
-    return res
+    except FileNotFoundError:
+        pass
+
+    msg = "No Gamma packages found in {}"
+    raise GammaInterfaceException(msg.format(install_dir))
 
 
 def find_gamma_installed_exes(install_dir, packages):
@@ -240,6 +244,11 @@ class GammaInterface:
 
 try:
     GAMMA_INSTALL_DIR = os.environ["GAMMA_INSTALL_DIR"]
+
+    if not os.path.exists(GAMMA_INSTALL_DIR):
+        warnings.warn(f"Problem with GAMMA_INSTALL_DIR={GAMMA_INSTALL_DIR} as this path does not exist. This means that GAMMA will not be able to run and only a proxy object will be used.")
+        GAMMA_INSTALL_DIR=None
+
 except KeyError:
     # skip this under the assumption users will manually configure the shim
     pass
