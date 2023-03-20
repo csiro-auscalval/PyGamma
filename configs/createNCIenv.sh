@@ -49,25 +49,6 @@ function fail {
 
 trap fail EXIT
 
-if [[ $OSTYPE == 'darwin'* ]]; then # Mac
-
-  NPROC=$(sysctl -n hw.physicalcpu)
-
-  # make a clean environment in case homebrew installed
-
-  ln -s $(which wget) $ENV_PATH/bin/wget
-  ln -s $(which cmake) $ENV_PATH/bin/cmake
-  ln -s $(which pkg-config) $ENV_PATH/bin/pkg-config
-  ln -s $(which pg_config) $ENV_PATH/bin/pg_conf
-
-  export PATH=$ENV_PATH/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin
-
-else # Linux
-
-  NPROC=$((`nproc` > 4? `nproc` : 4))
-
-fi
-
 echo "Compilers being used to generate environment:"
 echo "  - $(python3 --version) [$(which python3)]"
 echo "  - $(gcc --version | head -1) [$(which gcc)]"
@@ -86,15 +67,38 @@ python3 -m venv $ENV_PATH
 source $ENV_PATH/bin/activate
 pushd $ENV_PATH > /dev/null
 
+# Create clean environment
+
+if [[ $OSTYPE == 'darwin'* ]]; then # Mac
+
+  NPROC=$(sysctl -n hw.physicalcpu)
+
+  # make a clean environment in case homebrew installed
+
+  ln -s $(which wget) $ENV_PATH/bin/wget
+  ln -s $(which cmake) $ENV_PATH/bin/cmake
+  ln -s $(which pkg-config) $ENV_PATH/bin/pkg-config
+  ln -s $(which pg_config) $ENV_PATH/bin/pg_conf
+
+  export PATH=$ENV_PATH/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin
+
+else # Linux
+
+  NPROC=$((`nproc` > 4? `nproc` : 4))
+
+  export PATH=$ENV_PATH/bin:$PATH
+
+fi
+
 # Setup and print environment
 
 export CPPFLAGS="-I$ENV_PATH/include"
 export CFLAGS="-I${ENV_PATH}/include"
 export LDFLAGS="-L${ENV_PATH}/lib"
 
-export PATH=$ENV_PATH/bin:$PATH
-export LD_LIBRARY_PATH=${ENV_PATH}/lib:$LD_LIBRARY_PATH
-export PKG_CONFIG_PATH=${ENV_PATH}/lib/pkgconfig
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$ENV_PATH/lib"
+export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:$ENV_PATH/lib"
+export PKG_CONFIG_PATH=${ENV_PATH}/lib/pkgconfig/
 export CMAKE_MODULE_PATH=$CMAKE_MODULE_PATH:${ENV_PATH}/lib/cmake
 
 echo "PATH=${PATH}"
@@ -109,7 +113,7 @@ sed -e 's|VENV_PATH=$1'"|VENV_PATH=$ENV_PATH|" $REPO_ROOT/configs/activateNCI.en
 
 # Upgrade pip (very important, wrong package version resolution with older PIP versions)
 
-python -m pip install --upgrade pip wheel
+python3 -m pip install --upgrade pip wheel
 
 # Download and extract sources
 
@@ -195,8 +199,8 @@ popd
 # sqlite. Dependencies: None.
 
 pushd $ENV_PATH/build/sqlite-$SQLITE_VERSION
-#CFLAGS="-DSQLITE_ENABLE_COLUMN_METADATA=1" ./configure --prefix=$ENV_PATH --enable-rtree
-./configure --prefix=$ENV_PATH --enable-rtree
+CFLAGS="-DSQLITE_ENABLE_COLUMN_METADATA=1" ./configure --prefix=$ENV_PATH --enable-rtree
+#./configure --prefix=$ENV_PATH --enable-rtree
 make -j$NPROC || exit
 make install || exit
 popd
@@ -264,7 +268,7 @@ popd
 
 # numpy.
 
-python -m pip install --upgrade --force-reinstall numpy || exit
+python3 -m pip install --upgrade --force-reinstall numpy || exit
 
 # GDAL. Dependencies: GEOS, libgeotiff, spatialite, sqlite, numpy.
 
@@ -280,7 +284,7 @@ else
   mkdir -p build
   pushd build
   #cmake .. -DCMAKE_INSTALL_RPATH=$ENV_PATH/lib -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DGEOS_LIBRARY=$ENV_PATH/lib -DCMAKE_PREFIX_PATH=$ENV_PATH -DPython_ROOT=$ENV_PATH -DPython_FIND_VIRTUALENV=ONLY -DGDAL_PYTHON_INSTALL_PREFIX=$ENV_PATH -DPROJ_LIBRARY=$ENV_PATH -DZLIB_INCLUDE_DIR=$ENV_PATH/include -DZLIB_LIBRARY_RELEASE=$ENV_PATH/lib -DSQLite3_INCLUDE_DIR=$ENV_PATH/include
-  cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DCMAKE_PREFIX_PATH=$ENV_PATH 
+  cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ENV_PATH -DCMAKE_PREFIX_PATH=$ENV_PATH  -DPython_ROOT=$ENV_PATH -DPython_FIND_VIRTUALENV=ONLY -DGDAL_PYTHON_INSTALL_PREFIX=$ENV_PATH
   make -j$NPROC || exit
   make install || exit
   popd
@@ -289,14 +293,14 @@ popd
 
 # Install pinned GDAL dependency for our environment ensuring that numpy extensions get installed
 
-python -m pip install --upgrade --force-reinstall "GDAL~=$GDAL_VERSION" --global-option=build_ext --global-option="$(gdal-config --cflags)"
+python3 -m pip install --no-binary :all: --upgrade --force-reinstall "GDAL~=$GDAL_VERSION" --global-option=build_ext --global-option="--gdal-config=$ENV_PATH/bin/gdal-config"
 
 popd > /dev/null
 
 # Install dependencies and PyGamma into venv
 
 python3 -m pip install -r requirements.txt || exit
-python setup.py install || exit
+python3 setup.py install || exit
 
 trap EXIT
 
