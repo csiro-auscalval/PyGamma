@@ -57,6 +57,9 @@ def auto_logging_decorator(func, exception_type, logger):
     """
 
     def error_handler(cmd, *args, **kwargs):
+        cmd_list = [cmd]
+        cmd_list.extend("-" if a is None else str(a) for a in args)
+
         if const.COUT not in kwargs:
             kwargs[const.COUT] = []
         if const.CERR not in kwargs:
@@ -67,11 +70,11 @@ def auto_logging_decorator(func, exception_type, logger):
         cerr = kwargs[const.CERR]
 
         if stat:
-            msg = f"Failed to execute gamma command: {cmd}"
+            msg = f"Failed to execute gamma command: {' '.join(cmd_list)}"
             logger.error(msg, args=args, **kwargs)  # NB: cout/cerr already in kwargs
             raise exception_type(msg)
         else:
-            msg = f"Successfully execute gamma command: {cmd}"
+            msg = f"Successfully execute gamma command: {' '.join(cmd_list)}"
             logger.info(msg, args=args, **kwargs)
 
         return stat, cout, cerr
