@@ -278,8 +278,8 @@ def fatal_error(msg: str, exit_code: int = 1):
 )
 @click.option(
     "--queue",
-    type=click.Choice(["normal", "express"], case_sensitive=False),
-    help="Queue {express, normal} to submit the job",
+    type=click.STRING,
+    help="Queue to submit the job (e.g. normal, express, ...)",
     default="normal",
 )
 @click.option("--hours", type=click.INT, help="Job walltime in hours.", default=24)
