@@ -267,14 +267,14 @@ def fatal_error(msg: str, exit_code: int = 1):
 )
 @click.option(
     "--ncpus",
-    type=click.IntRange(min=1, max=48),
+    type=click.IntRange(min=1),
     help="The total number of cpus per job" "required if known",
-    default=48,
+    default=os.getenv('PBS_NCI_NCPUS_PER_NODE', 48),
 )
 @click.option(
     "--memory",
-    type=click.IntRange(min=4, max=192),
-    help="Total memory required if per node", default=48 * 4,
+    type=click.IntRange(min=4),
+    help="Total memory required if per node", default=188,
 )
 @click.option(
     "--queue",
