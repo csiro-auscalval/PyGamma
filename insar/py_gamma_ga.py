@@ -60,6 +60,9 @@ def auto_logging_decorator(func, exception_type, logger):
         cmd_list = [cmd]
         cmd_list.extend("-" if a is None else str(a) for a in args)
 
+        msg = f"Executing gamma command: {' '.join(cmd_list)}"
+        logger.debug(msg)
+
         if const.COUT not in kwargs:
             kwargs[const.COUT] = []
         if const.CERR not in kwargs:

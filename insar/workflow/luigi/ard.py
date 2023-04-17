@@ -279,7 +279,7 @@ class ARD(luigi.WrapperTask):
                     conflicts.append((name, new_val, old_val))
 
             if conflicts:
-                msg = f"New .proc settings do not match existing {proc_file}"
+                msg = f"New .proc settings do not match existing {proc_file}. Conflicts are: {conflicts}"
                 error = Exception(msg)
                 error.state = { "conflicts": conflicts }
                 log.info(msg, **error.state)

@@ -20,6 +20,9 @@ from insar.gamma.proxy import create_gamma_proxy
 
 _LOG = structlog.get_logger("insar")
 
+def debug(msg):
+    _LOG.debug(f"DEBUG: {msg}")
+
 
 class ProcessSlcException(Exception):
     pass
@@ -718,6 +721,8 @@ def process_s1_slc(
         An Optional full path to a reference primary slc tab file.
     """
 
+    debug(f"process_s1_slc: {paths} {polarisation} {raw_data_dir} {burst_data} {ref_primary_tab}")
+
     log = _LOG.bind(task="S1 SLC processing", scene_date=paths.date, ref_primary_tab=ref_primary_tab)
 
     paths.dir.mkdir(parents=True, exist_ok=True)
@@ -767,6 +772,7 @@ def process_s1_slc(
 
         # clean up the temporary slc files after clean up
         for fp in temps:
+            debug(f"Removing temporary file: {fp}")
             os.remove(fp)
 
 
