@@ -2,11 +2,10 @@
 requires = ["setuptools>=42", "wheel"]
 
 [tool.black]
-line-length = 90
+line-length = 120
 target-version = ['py36', 'py37', 'py38']
 include = '\.pyi?$'
 exclude = '''
-
 (
   /(
       \.eggs         # exclude a few common directories in the
@@ -23,3 +22,56 @@ exclude = '''
   | versioneer.py
 )
 '''
+
+[tool.isort]
+length_sort = true
+force_sort_within_sections = true
+
+[tool.mypy]
+python_version = "3.9"
+disallow_untyped_defs = true
+show_error_codes = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
+exclude = ["docs", "configs", "utils", "tests", "integration"]
+
+[[tool.mypy.overrides]]
+module = "simplekml.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "shapely.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "spatialist.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "geopandas.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "luigi.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "osgeo.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "rasterio.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "eodatasets3.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mpl_toolkits.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "py_gamma.*"
+ignore_missing_imports = true
