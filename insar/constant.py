@@ -310,3 +310,6 @@ class ErrorMessages(Enum):
 
     # error log content
     ERROR_CONTENT_MSGS = "{f}: contains following errors: {s}"
+
+
+DISCARD_TEMP_FILES = False

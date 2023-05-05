@@ -1,15 +1,15 @@
 #! /usr/bin/env python
 
 import math
-from typing import List, Tuple, Union
 from pathlib import Path
-
-from insar.project import ProcConfig
-from insar.stack import load_stack_config
-from insar.paths.slc import SlcPaths
-from insar.subprocess_utils import working_directory
+from typing import List, Tuple, Union
 
 from insar.gamma.proxy import create_gamma_proxy
+from insar.parfile import GammaParFile as ParFile
+from insar.paths.slc import SlcPaths
+from insar.project import ProcConfig
+from insar.stack import load_stack_config
+from insar.subprocess_utils import working_directory
 
 
 class MultilookException(Exception):
@@ -22,7 +22,7 @@ pg = create_gamma_proxy(MultilookException)
 def calculate_slc_look_values(slc_par_file: Union[Path, str],) -> Tuple:
     """Calculates the range and azimuth look values."""
 
-    _par_vals = pg.ParFile(Path(slc_par_file).as_posix())
+    _par_vals = ParFile(Path(slc_par_file).as_posix())
 
     azsp = _par_vals.get_value("azimuth_pixel_spacing", dtype=float, index=0)
     rgsp = _par_vals.get_value("range_pixel_spacing", dtype=float, index=0)

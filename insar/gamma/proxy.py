@@ -1,7 +1,10 @@
-import os
+import insar.logs as logs
 import importlib
+import os
+
+from insar.logs import GAMMA_LOGGER as LOG
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
-import structlog
+
 
 def get_gamma_version():
     """
@@ -19,6 +22,7 @@ def get_gamma_version():
 
     return version
 
+
 def create_versioned_gamma_proxy(gamma_ver: str, base_wrapper: object, exception_type: BaseException):
     """
     Creates a GAMMA proxy object for a specific version of GAMMA, which translates from the API for
@@ -32,13 +36,14 @@ def create_versioned_gamma_proxy(gamma_ver: str, base_wrapper: object, exception
 
     return wrapper_module.PyGammaProxy(exception_type, base_wrapper)
 
+
 def create_gamma_proxy(exception_type: BaseException):
     """
     A convenience function for `create_versioned_gamma_proxy` that creates a proxy object for the
     currently installed version of GAMMA that wraps the `insar.py_gamma_ga` GAMMA call dispatch interface.
     """
     pg = GammaInterface(
-        subprocess_func=auto_logging_decorator(subprocess_wrapper, exception_type, structlog.get_logger("insar"))
+        subprocess_func=auto_logging_decorator(subprocess_wrapper, exception_type, LOG)
     )
 
     return create_versioned_gamma_proxy(get_gamma_version(), pg, exception_type)

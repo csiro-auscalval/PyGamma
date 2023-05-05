@@ -1,37 +1,39 @@
 #!/usr/bin/env python
 
-import simplekml
 import os
 import re
-import yaml
 import uuid
 import shutil
 import fnmatch
-import tempfile
 import datetime
-import structlog
-import shapely.wkt
-import xml.etree.ElementTree as etree
 import zipfile as zf
-import geopandas as gpd
-import pandas as pd
+import yaml
+import simplekml
+import structlog
 import numpy as np
+import shapely.wkt
+import pandas as pd
+import geopandas as gpd
+import xml.etree.ElementTree as etree
+
+import insar.constant as const
 
 from io import BytesIO
-from os.path import join as pjoin
 from pathlib import Path
-from typing import Dict, List, Optional, Type, Union
-from shapely.ops import cascaded_union  # required for select_bursts_in_vector()
-from shapely.geometry import MultiPolygon, Polygon, box
+from os.path import join as pjoin
+from typing import Dict, List, Type, Union, Optional
 from spatialist import Vector, sqlite3, sqlite_setup
+from shapely.geometry import Polygon, MultiPolygon, box
+from shapely.ops import unary_union  # required for select_bursts_in_vector()
 
 from insar.xml_util import getNamespaces
 from insar.gamma.proxy import create_gamma_proxy
-
-_LOG = structlog.get_logger("insar")
+from insar.logs import STATUS_LOGGER as LOG
+from insar.utils import TemporaryDirectory
 
 class SlcException(Exception):
     pass
+
 
 pg = create_gamma_proxy(SlcException)
 
@@ -41,7 +43,10 @@ class SlcMetadata:
     Metadata extraction class to scrap slc metadata from a sentinel-1 slc scene.
     """
 
-    def __init__(self, scene: Path,) -> None:
+    def __init__(
+        self,
+        scene: Path,
+    ) -> None:
         """
         Extracts metadata from a sentinel-1 SLC.
 
@@ -84,11 +89,9 @@ class SlcMetadata:
         match = re.match(self.pattern, os.path.basename(self.scene))
 
         if not match:
-            _LOG.warning(
-                "filename pattern mismatch", pattern=self.pattern, scene=self.scene
-            )
+            LOG.warning(f"Filename pattern mismatch on {scene}", pattern=self.pattern, scene=self.scene)
         else:
-            _LOG.info("filename pattern match", **match.groupdict())
+            LOG.debug(f"Filename pattern match {match.groupdict()}")
 
         # taken from /insar/s1_slc_metadata.py, which are used in S1DataDownload
         self.date_fmt = "%Y%m%d"
@@ -144,7 +147,10 @@ class SlcMetadata:
         return metadata
 
     def format_datetime_string(
-        self, input_dt: str, in_format: str, out_format: str,
+        self,
+        input_dt: str,
+        in_format: str,
+        out_format: str,
     ) -> str:
         """
         converts a date and time string from an input to an output format
@@ -179,7 +185,10 @@ class SlcMetadata:
         """
         return datetime.datetime.strptime(input_dt, in_format).strftime(out_format)
 
-    def get_metadata_essentials(self, manifest_file: Path,) -> Dict:
+    def get_metadata_essentials(
+        self,
+        manifest_file: Path,
+    ) -> Dict:
         """
         Extracts essential metadata required for S1DataDownload from a
         manifest safe file. Without this function, one would need to
@@ -227,7 +236,10 @@ class SlcMetadata:
 
         return req_meta
 
-    def metadata_manifest_safe(self, manifest_file: Path,) -> Dict:
+    def metadata_manifest_safe(
+        self,
+        manifest_file: Path,
+    ) -> Dict:
         """
         Extracts metadata from a manifest safe file.
 
@@ -291,17 +303,13 @@ class SlcMetadata:
                 tree.find('.//safe:relativeOrbitNumber[@type="start"]', namespaces).text
             )
             meta["cycleNumber"] = int(tree.find(".//safe:cycleNumber", namespaces).text)
-            meta["frameNumber"] = int(
-                tree.find(".//s1sarl1:missionDataTakeID", namespaces).text
-            )
+            meta["frameNumber"] = int(tree.find(".//s1sarl1:missionDataTakeID", namespaces).text)
             meta["orbitNumbers_abs"] = dict(
                 [
                     (
                         x,
                         int(
-                            tree.find(
-                                './/safe:orbitNumber[@type="{0}"]'.format(x), namespaces
-                            ).text
+                            tree.find('.//safe:orbitNumber[@type="{0}"]'.format(x), namespaces).text
                         ),
                     )
                     for x in ["start", "stop"]
@@ -323,9 +331,7 @@ class SlcMetadata:
             )
             meta["polarizations"] = [
                 x.text
-                for x in tree.findall(
-                    ".//s1sarl1:transmitterReceiverPolarisation", namespaces
-                )
+                for x in tree.findall(".//s1sarl1:transmitterReceiverPolarisation", namespaces)
             ]
             meta["product"] = tree.find(".//s1sarl1:productType", namespaces).text
             meta["category"] = tree.find(".//s1sarl1:productClass", namespaces).text
@@ -333,19 +339,16 @@ class SlcMetadata:
                 tree.find(".//safe:familyName", namespaces).text.replace("ENTINEL-", "")
                 + tree.find(".//safe:number", namespaces).text
             )
-            meta["IPF_version"] = float(
-                tree.find(".//safe:software", namespaces).attrib["version"]
-            )
-            meta["sliceNumber"] = int(
-                tree.find(".//s1sarl1:sliceNumber", namespaces).text
-            )
-            meta["totalSlices"] = int(
-                tree.find(".//s1sarl1:totalSlices", namespaces).text
-            )
+            meta["IPF_version"] = float(tree.find(".//safe:software", namespaces).attrib["version"])
+            meta["sliceNumber"] = int(tree.find(".//s1sarl1:sliceNumber", namespaces).text)
+            meta["totalSlices"] = int(tree.find(".//s1sarl1:totalSlices", namespaces).text)
 
         return meta
 
-    def metadata_swath(self, xml_file: Path,) -> Dict:
+    def metadata_swath(
+        self,
+        xml_file: Path,
+    ) -> Dict:
         """
         Extracts swath and bursts information from a xml file.
 
@@ -391,7 +394,7 @@ class SlcMetadata:
                         burst_info["burst {}".format(temp_dict["burst_num"])] = temp_dict
                 return burst_info
 
-            with tempfile.TemporaryDirectory() as tmp_dir:
+            with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as tmp_dir:
                 self.extract_archive_tofile(target_file=xml_path, outdir=tmp_dir, retry=3)
 
                 tmp_path = os.path.join(tmp_dir, os.path.basename(xml_path))
@@ -417,9 +420,7 @@ class SlcMetadata:
 
             heading = float(ann_tree.find(".//platformHeading").text)
             swath_meta["heading"] = heading if heading > 0 else heading + 360
-            swath_meta["incidence"] = float(
-                ann_tree.find(".//incidenceAngleMidSwath").text
-            )
+            swath_meta["incidence"] = float(ann_tree.find(".//incidenceAngleMidSwath").text)
             swath_meta["image_geometry"] = (
                 ann_tree.find(".//projection").text.replace(" ", "_").upper()
             )
@@ -429,13 +430,14 @@ class SlcMetadata:
         return {**swath_meta, **burst_meta}
 
     def archive_name_list(self):
-        """Sets archive_files with names in a slc zip archive. """
+        """Sets archive_files with names in a slc zip archive."""
 
         with zf.ZipFile(self.scene, "r") as archive:
             self.archive_files = archive.namelist()
 
     def find_archive_files(
-        self, pattern: str,
+        self,
+        pattern: str,
     ):
         """
         Returns a matching name from a archive_file for given pattern
@@ -443,13 +445,14 @@ class SlcMetadata:
 
         self.archive_name_list()
         match_names = [
-            name
-            for name in self.archive_files
-            if re.search(pattern, os.path.basename(name))
+            name for name in self.archive_files if re.search(pattern, os.path.basename(name))
         ]
         return match_names
 
-    def extract_archive_BytesIO(self, target_file: Path,) -> BytesIO:
+    def extract_archive_BytesIO(
+        self,
+        target_file: Path,
+    ) -> BytesIO:
         """
         Extracts content from a target file within the slc zip archive
         as a _io.BytesIO object
@@ -489,7 +492,10 @@ class SlcMetadata:
             return file_obj
 
     def extract_archive_tofile(
-        self, target_file: Path, outdir: Path, retry: Optional[int] = 0,
+        self,
+        target_file: Path,
+        outdir: Path,
+        retry: Optional[int] = 0,
     ) -> None:
         """
         Extracts content from a target file within the slc zip archive
@@ -526,7 +532,8 @@ class SlcMetadata:
         #          FUNCTIONS           #
         # ---------------------------- #
         def _copy_target_contents(
-            o_file, archive_contents,
+            o_file,
+            archive_contents,
         ):
             # o_file: str
             # archive_contents: bytes
@@ -535,7 +542,8 @@ class SlcMetadata:
             return None
 
         def _check_byte_size(
-            o_file, expected_size,
+            o_file,
+            expected_size,
         ):
             # check the size (in Bytes) of o_file
             # against size of source file
@@ -547,7 +555,7 @@ class SlcMetadata:
                 if os.path.getsize(o_file) == expected_size:
                     size_ok = True
             else:
-                _LOG.info("_check_byte_size(): {} does not exist".format(o_file))
+                LOG.debug("_check_byte_size(): {} does not exist".format(o_file))
 
             return size_ok
 
@@ -574,18 +582,18 @@ class SlcMetadata:
         _copy_target_contents(outfile, archive_dump)
 
         if retry <= 0:
-            _LOG.info("extract_archive_tofile(): no retries specified", retry=retry)
+            LOG.debug("extract_archive_tofile(): no retries specified", retry=retry)
             return None
 
         else:
             if _check_byte_size(outfile, source_size):
-                _LOG.info(
+                LOG.debug(
                     "extract_archive_tofile(): _check_byte_size() returned True (no retries performed)"
                 )
                 return None
 
-            _LOG.info(
-                "retrying extraction",
+            LOG.info(
+                f"Retrying extraction on file {target_file} (scene {self.scene}) to {outfile}",
                 max_retries=retry,
                 target_file=target_file,
                 slc_scene=self.scene,
@@ -605,8 +613,8 @@ class SlcMetadata:
                     break
 
             if retry_count == retry:
-                _LOG.error(
-                    "failed to extract data",
+                LOG.error(
+                    "Failed to extract data from {target_file} (scene {self.scene}) to {outfile}",
                     target_file=target_file,
                     slc_scene=self.scene,
                     outfile=outfile,
@@ -641,15 +649,11 @@ class S1DataDownload(SlcMetadata):
 
         _poeorb_path = pjoin(self.s1_orbits_poeorb_path, self.sensor)
         orbit_files = [p_file for p_file in os.listdir(_poeorb_path)]
-        start_datetime = datetime.datetime.strptime(
-            self.acquisition_start_time, self.dt_fmt_1
-        )
+        start_datetime = datetime.datetime.strptime(self.acquisition_start_time, self.dt_fmt_1)
         start_date = (start_datetime - datetime.timedelta(days=1)).strftime(self.date_fmt)
         end_date = (start_datetime + datetime.timedelta(days=1)).strftime(self.date_fmt)
 
-        acq_orbit_file = fnmatch.filter(
-            orbit_files, "*V{}*_{}*.EOF".format(start_date, end_date)
-        )
+        acq_orbit_file = fnmatch.filter(orbit_files, "*V{}*_{}*.EOF".format(start_date, end_date))
 
         if not acq_orbit_file:
             return
@@ -672,12 +676,8 @@ class S1DataDownload(SlcMetadata):
 
         _resorb_path = pjoin(self.s1_orbits_resorb_path, self.sensor)
         orbit_files = [orbit_file for orbit_file in os.listdir(_resorb_path)]
-        start_datetime = datetime.datetime.strptime(
-            self.acquisition_start_time, self.dt_fmt_1
-        )
-        end_datetime = datetime.datetime.strptime(
-            self.acquisition_stop_time, self.dt_fmt_1
-        )
+        start_datetime = datetime.datetime.strptime(self.acquisition_start_time, self.dt_fmt_1)
+        end_datetime = datetime.datetime.strptime(self.acquisition_stop_time, self.dt_fmt_1)
         acq_date = start_datetime.strftime(self.date_fmt)
 
         acq_orbit_file = fnmatch.filter(orbit_files, "*V{d}*_{d}*.EOF".format(d=acq_date))
@@ -724,10 +724,7 @@ class S1DataDownload(SlcMetadata):
 
         # extract files from slc archive (zip) file
         files_download = sum(
-            [
-                fnmatch.filter(self.archive_files, pattern)
-                for pattern in download_files_patterns
-            ],
+            [fnmatch.filter(self.archive_files, pattern) for pattern in download_files_patterns],
             [],
         )
 
@@ -755,11 +752,10 @@ class S1DataDownload(SlcMetadata):
         # and clean up the base directory so there's no partial/incomplete raw data for
         # the S1 SLC processing to misinterpret.
         except Exception as e:
-            _LOG.error(
-                "SLC download failed extraction due to exception, cleaning up...",
+            LOG.error(
+                f"Unpacking {target_file} failed due to exception, removing {base_dir}",
                 exc_info=True,
                 base_dir=base_dir)
-
             shutil.rmtree(base_dir)
             raise e
 
@@ -778,19 +774,19 @@ class S1DataDownload(SlcMetadata):
             msg = f"Missing precise orbit file for {self.raw_data_path}\n"
             msg += f"Searched directory: {self.s1_orbits_poeorb_path}/{self.sensor}\n"
             msg += f"with pattern: *V{start_date}*_{end_date}*.EOF"
-            _LOG.warning(msg)
+            LOG.warning(msg)
 
             orbit_source_file = self.get_resorb_orbit_file()
 
             if not orbit_source_file:
                 msg = f"No orbit files found for {start_datetime}"
-                _LOG.warning(msg, slc_scene=self.scene)
+                LOG.warning(msg, slc_scene=self.scene)
                 return base_dir
 
             orbit_destination_file = pjoin(base_dir, os.path.basename(orbit_source_file))
 
-        _LOG.info(
-            "Downloading orbit file",
+        LOG.info(
+            f"Unpacking orbit file {orbit_source_file} to {orbit_destination_file}",
             scene=self.raw_data_path,
             src_file=orbit_source_file,
             dst_file=orbit_destination_file,
@@ -808,7 +804,10 @@ class Archive:
     and facilitate an automated query into a database.
     """
 
-    def __init__(self, dbfile: Path,) -> None:
+    def __init__(
+        self,
+        dbfile: Path,
+    ) -> None:
         """
         Injest Sentinel-1 SLC metadata into a sqlite database.
 
@@ -824,25 +823,29 @@ class Archive:
         """
 
         def _create_table_command(
-            db_table_name, db_column_dict,
+            db_table_name,
+            db_column_dict,
         ):
             """
             Return the sqlite command (type <string>) that when
             executed, will create a table with the column names
             """
             return """CREATE TABLE if not exists {} ({})""".format(
-                db_table_name, ", ".join([" ".join(x) for x in db_column_dict.items()]),
+                db_table_name,
+                ", ".join([" ".join(x) for x in db_column_dict.items()]),
             )
 
         def _add_geom_column_command(
-            db_table_name, db_geom_col_name,
+            db_table_name,
+            db_geom_col_name,
         ):
             """
             Return the sqlite command (type <string>) that when executed,
             will create a geometry (polygon) column to a specified table
             """
             return """SELECT AddGeometryColumn("{}", "{}", 4326, "POLYGON", "XY", 0)""".format(
-                db_table_name, db_geom_col_name,
+                db_table_name,
+                db_geom_col_name,
             )
 
         self.dbfile = Path(dbfile).as_posix()
@@ -928,49 +931,71 @@ class Archive:
 
         # ------------------------------- #
         # - create "slc_metadata" table - #
-        cursor.execute(_create_table_command(self.slc_table_name, self.slc_fields_dict),)
+        cursor.execute(
+            _create_table_command(self.slc_table_name, self.slc_fields_dict),
+        )
 
         # add "slc_extent" column, which will contain
         # polygons of each slc acquisition footprint
         if "slc_extent" not in self.get_colnames(self.slc_table_name):
-            cursor.execute(_add_geom_column_command(self.slc_table_name, "slc_extent"),)
+            cursor.execute(
+                _add_geom_column_command(self.slc_table_name, "slc_extent"),
+            )
 
         # --------------------------------- #
         # - create "swath_metadata" table - #
         cursor.execute(
-            _create_table_command(self.swath_table_name, self.swath_fields_dict,),
+            _create_table_command(
+                self.swath_table_name,
+                self.swath_fields_dict,
+            ),
         )
 
         # ---------------------------------- #
         # - create "bursts_metadata" table - #
         cursor.execute(
-            _create_table_command(self.bursts_table_name, self.burst_fields_dict,),
+            _create_table_command(
+                self.bursts_table_name,
+                self.burst_fields_dict,
+            ),
         )
 
         # add "bursts_extent" column, which will contain
         # polygons for all bursts in a given slc acquisition
         if "burst_extent" not in self.get_colnames(self.bursts_table_name):
             cursor.execute(
-                _add_geom_column_command(self.bursts_table_name, "burst_extent",),
+                _add_geom_column_command(
+                    self.bursts_table_name,
+                    "burst_extent",
+                ),
             )
 
         # ------------------------------------ #
         # - create "slc_rows_metadata" table - #
         cursor.execute(
-            _create_table_command(self.slc_rows_table_name, self.rows_fields_dict,),
+            _create_table_command(
+                self.slc_rows_table_name,
+                self.rows_fields_dict,
+            ),
         )
 
         # add "row_extent" column, which will contain
         # polygons for all rows in a given slc acquisition
         if "row_extent" not in self.get_colnames(self.slc_rows_table_name):
             cursor.execute(
-                _add_geom_column_command(self.slc_rows_table_name, "row_extent",),
+                _add_geom_column_command(
+                    self.slc_rows_table_name,
+                    "row_extent",
+                ),
             )
 
         # --------------------------------- #
         # - create "slc_duplicates" table - #
         cursor.execute(
-            _create_table_command(self.duplicate_table_name, self.duplicate_fields_dict,),
+            _create_table_command(
+                self.duplicate_table_name,
+                self.duplicate_fields_dict,
+            ),
         )
 
         self.conn.commit()
@@ -995,7 +1020,7 @@ class Archive:
 
     @property
     def measurements(self):
-        """ sets measurement fieldnames if slc metadata exists. """
+        """sets measurement fieldnames if slc metadata exists."""
         if self.primary_fieldnames:
             return self.primary_fieldnames["measurements"]
 
@@ -1004,10 +1029,7 @@ class Archive:
         """Sets burst fieldnames if slc metadata exists."""
         if self.measurements:
             return {
-                k
-                for k, v in self.metadata["measurements"][self.measurements[0]][
-                    "burst 1"
-                ].items()
+                k for k, v in self.metadata["measurements"][self.measurements[0]]["burst 1"].items()
             }
 
     @property
@@ -1024,7 +1046,8 @@ class Archive:
 
     @staticmethod
     def get_corners(
-        lats: List[float], lons: List[float],
+        lats: List[float],
+        lons: List[float],
     ):
         """Returns corner from given latitudes and longitudes."""
 
@@ -1036,14 +1059,16 @@ class Archive:
         }
 
     def get_measurement_fieldnames(
-        self, measurement_key: str,
+        self,
+        measurement_key: str,
     ):
         """Returns all the measurement fieldnames for a slc scene."""
 
         return {k for k in self.metadata["measurements"][measurement_key].keys()}
 
     def get_measurement_metadata(
-        self, measurement_key: str,
+        self,
+        measurement_key: str,
     ):
         """
         Returns a copy of the metadata associated with all slc
@@ -1058,22 +1083,19 @@ class Archive:
         """
         Returns data from the "properties" key contained in slc metadata.
         """
-        slc_metadata = {
-            key: self.metadata["properties"][key] for key in self.properties_fieldnames
-        }
+        slc_metadata = {key: self.metadata["properties"][key] for key in self.properties_fieldnames}
 
         # slc_extent has Polygons with format of
         # [lat1 lon1, ..., latN lonN, lat1 lon1]
         # we need the lat/lons to be switched
         # such that:
         # [lon1 lat1, ..., lonN latN, lon1 lat1]
-        slc_metadata["slc_extent"] = Polygon(
-            [coord for coord in slc_metadata["coordinates"]]
-        ).wkt
+        slc_metadata["slc_extent"] = Polygon([coord for coord in slc_metadata["coordinates"]]).wkt
         return slc_metadata
 
     def get_burst_names(
-        self, measurement_key: str,
+        self,
+        measurement_key: str,
     ):
         """
         Returns all the bursts contained
@@ -1088,7 +1110,8 @@ class Archive:
 
     @staticmethod
     def encode_string(
-        string: str, encoding: Optional[str] = "utf-8",
+        string: str,
+        encoding: Optional[str] = "utf-8",
     ):
         """Encodes binary values into a string."""
         if not isinstance(string, str):
@@ -1096,7 +1119,9 @@ class Archive:
         return string
 
     def get_swath_bursts_metadata(
-        self, measurement_key, burst_key=None,
+        self,
+        measurement_key,
+        burst_key=None,
     ):
         """Returns measurement or burst metadata."""
         measurement_metadata = self.get_measurement_metadata(measurement_key)
@@ -1121,7 +1146,8 @@ class Archive:
         return measurement_metadata
 
     def get_slc_row_extent(
-        self, subswaths_dict,
+        self,
+        subswaths_dict,
     ):
         """
 
@@ -1197,7 +1223,9 @@ class Archive:
                 if _i <= min_burst_tot - 1:
                     # this is a complete row
                     row_id = "{0}-{1}-row{2:02}".format(
-                        self.product_id, _pol, max_burst_nums[_i],
+                        self.product_id,
+                        _pol,
+                        max_burst_nums[_i],
                     )
 
                     for _iw in subswaths_dict[_pol]:
@@ -1205,9 +1233,7 @@ class Archive:
                         iw_str += "{0}.{1}-".format(_iw, max_burst_nums[_i])
                         xml_list.append(m_xml)
                         poly_wkt_list.append(
-                            Polygon(
-                                self.metadata["measurements"][m_xml][mb_key]["coordinate"]
-                            ),
+                            Polygon(self.metadata["measurements"][m_xml][mb_key]["coordinate"]),
                         )
                     slc_row_dict[_pol][mb_key] = {
                         "convex_hull": MultiPolygon(poly_wkt_list).convex_hull.wkt,
@@ -1234,7 +1260,9 @@ class Archive:
                     xml_list = slc_row_dict[_pol][mb_key_pre]["xml_list"]
 
                     poly_wkt_list.append(
-                        shapely.wkt.loads(slc_row_dict[_pol][mb_key_pre]["convex_hull"],),
+                        shapely.wkt.loads(
+                            slc_row_dict[_pol][mb_key_pre]["convex_hull"],
+                        ),
                     )  # convex hull of previous complete row
 
                     append_info = []
@@ -1243,11 +1271,12 @@ class Archive:
 
                     for _iw in iw_append_key:
                         m_xml = subswaths_dict[_pol][_iw]["xml"]
-                        iw_str += "{0}.{1}-".format(_iw, max_burst_nums[_i],)
+                        iw_str += "{0}.{1}-".format(
+                            _iw,
+                            max_burst_nums[_i],
+                        )
                         poly_wkt_list.append(
-                            Polygon(
-                                self.metadata["measurements"][m_xml][mb_key]["coordinate"]
-                            ),
+                            Polygon(self.metadata["measurements"][m_xml][mb_key]["coordinate"]),
                         )
                         append_info.append([m_xml, max_burst_keys[_i]])
 
@@ -1268,13 +1297,14 @@ class Archive:
         return slc_row_dict
 
     def get_tablenames(self):
-        """ returns all tables names from sqlite_master schema. """
+        """returns all tables names from sqlite_master schema."""
         cursor = self.conn.cursor()
         cursor.execute('SELECT * FROM sqlite_master WHERE type="table"')
         return sorted([self.encode_string(x[1]) for x in cursor.fetchall()])
 
     def get_colnames(
-        self, table_name: str,
+        self,
+        table_name: str,
     ):
         """
         Extracts the column names for a specified table name
@@ -1293,7 +1323,10 @@ class Archive:
         return sorted([self.encode_string(x[1]) for x in cursor.fetchall()])
 
     def get_rel_orbit_nums(
-        self, orbit_node=None, sensor_type=None, rel_orb_num=None,
+        self,
+        orbit_node=None,
+        sensor_type=None,
+        rel_orb_num=None,
     ):
         """
         Get the unique listings of the relative orbit numbers. A
@@ -1331,14 +1364,15 @@ class Archive:
 
         # check that there are tables in the db
         if not table_list:
-            _LOG.error(
-                "Database does not contain any tables", database=self.dbfile,
+            LOG.error(
+                "Database does not contain any tables",
+                database=self.dbfile,
             )
             return None  # return None for error checks
 
         # ensure the "slc_metadata" table exists
         if not "slc_metadata" in table_list:
-            _LOG.error(
+            LOG.error(
                 "Database does not contain the slc_metadata table",
                 database=self.dbfile,
                 table_list=table_list,
@@ -1354,7 +1388,7 @@ class Archive:
 
         except sqlite3.OperationalError as err:
             if str(err).lower().find("no such column") != -1:
-                _LOG.error(
+                LOG.error(
                     "Database query of slc_metadata table failed",
                     pathname=self.dbfile,
                     error_message=err,
@@ -1420,15 +1454,13 @@ class Archive:
         insert_cmd = """INSERT INTO {0}({1}) VALUES({2})""".format(
             self.slc_table_name,
             ", ".join(col_names),
-            ", ".join(
-                ["GeomFromText(?, 4326)" if x == "slc_extent" else "?" for x in col_names]
-            ),
+            ", ".join(["GeomFromText(?, 4326)" if x == "slc_extent" else "?" for x in col_names]),
         )
 
         return insert_cmd, tuple(insertion_values)
 
     def prepare_swath_metadata_insertion(self, measurement_key: str):
-        """ prepares swath metadata to be inserted into a database. """
+        """prepares swath metadata to be inserted into a database."""
         measurement_metadata = self.get_swath_bursts_metadata(measurement_key)
         col_names = self.get_colnames(self.swath_table_name)
         insertion_values = []
@@ -1455,7 +1487,10 @@ class Archive:
         return insert_cmd, tuple(insertion_values)
 
     def prepare_burst_metadata_insertion(
-        self, measurement_key: str, burst_key: str, row_id: str,
+        self,
+        measurement_key: str,
+        burst_key: str,
+        row_id: str,
     ):
         """
         Prepares metadata from a single burst to be inserted into a database.
@@ -1485,7 +1520,10 @@ class Archive:
         insertion_values: tuple
             values used in the insert command
         """
-        burst_metadata = self.get_swath_bursts_metadata(measurement_key, burst_key,)
+        burst_metadata = self.get_swath_bursts_metadata(
+            measurement_key,
+            burst_key,
+        )
         # burst_metadata -> dict with the following items:
         # azimuth_time, angle, delta_angle, coordinate, burst_num
         # rel_orbit, swath, polarization, burst_extent
@@ -1516,18 +1554,16 @@ class Archive:
         insert_cmd = """INSERT INTO {0}({1}) VALUES({2})""".format(
             self.bursts_table_name,
             ", ".join(col_names),
-            ", ".join(
-                [
-                    "GeomFromText(?, 4326)" if x == "burst_extent" else "?"
-                    for x in col_names
-                ]
-            ),
+            ", ".join(["GeomFromText(?, 4326)" if x == "burst_extent" else "?" for x in col_names]),
         )
 
         return insert_cmd, tuple(insertion_values)
 
     def prepare_slc_row_insertion(
-        self, polarization, burst_key, row_extent_dict,
+        self,
+        polarization,
+        burst_key,
+        row_extent_dict,
     ):
         """
         Prepares metadata from a single burst to be inserted into a database.
@@ -1570,15 +1606,14 @@ class Archive:
         insert_cmd = """INSERT INTO {0}({1}) VALUES({2})""".format(
             self.slc_rows_table_name,
             ", ".join(col_names),
-            ", ".join(
-                ["GeomFromText(?, 4326)" if x == "row_extent" else "?" for x in col_names]
-            ),
+            ", ".join(["GeomFromText(?, 4326)" if x == "row_extent" else "?" for x in col_names]),
         )
 
         return insert_cmd, tuple(insertion_values)
 
     def archive_scene(
-        self, metadata: Union[dict, str],
+        self,
+        metadata: Union[dict, str],
     ):
         """
         archives a slc scene and its associated metadata
@@ -1599,7 +1634,7 @@ class Archive:
             cursor.execute(slc_str, slc_values)
         except sqlite3.IntegrityError as err:
             if str(err) == "UNIQUE constraint failed: {}.id".format(self.slc_table_name):
-                _LOG.info(
+                LOG.info(
                     "record already exists in slc_duplicate table",
                     pathname=self.file_location,
                     slc_id=self.metadata["id"],
@@ -1617,7 +1652,9 @@ class Archive:
             # Here, self.measurements are actually basenames of xml
             # files inside a S1 zip. Recall that there is a single
             # xml file for each sub-swath at a given polarisation.
-            swath_cmd, swath_vals = self.prepare_swath_metadata_insertion(m_xml,)
+            swath_cmd, swath_vals = self.prepare_swath_metadata_insertion(
+                m_xml,
+            )
 
             try:
                 cursor.execute(swath_cmd, swath_vals)
@@ -1625,7 +1662,7 @@ class Archive:
                 if str(err) == "UNIQUE constraint failed: {}.swath_name".format(
                     self.swath_table_name,
                 ):
-                    _LOG.info(
+                    LOG.info(
                         "duplicate detected",
                         pathname=self.file_location,
                         slc_id=self.product_id,
@@ -1642,9 +1679,7 @@ class Archive:
             # IW1 for VH = ['burst 1', ..., 'burst 8']
             # IW2 for VH = ['burst 1', ..., 'burst 8', 'burst 9']
             # IW3 for VH = ['burst 1', ..., 'burst 8', 'burst 9']
-            burst_nums = sorted(
-                [int(x.strip().split()[-1]) for x in self.get_burst_names(m_xml)]
-            )
+            burst_nums = sorted([int(x.strip().split()[-1]) for x in self.get_burst_names(m_xml)])
             # burst_keys = ['burst 1',  ..., 'burst N'] (sorted)
             burst_keys = ["burst {}".format(x) for x in burst_nums]
 
@@ -1669,14 +1704,18 @@ class Archive:
 
                 # add data to slc_row_metadata table
                 slc_row_str, slc_row_values = self.prepare_slc_row_insertion(
-                    _pol, burst_key, slc_row_dict[_pol][burst_key],
+                    _pol,
+                    burst_key,
+                    slc_row_dict[_pol][burst_key],
                 )
                 cursor.execute(slc_row_str, slc_row_values)
 
                 # iterate through xmls & add to bursts_metadata table
                 for m_xml in slc_row_dict[_pol][burst_key]["xml_list"]:
                     burst_str, burst_values = self.prepare_burst_metadata_insertion(
-                        m_xml, burst_key, row_id,
+                        m_xml,
+                        burst_key,
+                        row_id,
                     )
                     cursor.execute(burst_str, burst_values)
 
@@ -1686,14 +1725,16 @@ class Archive:
                 for append_info in slc_row_dict[_pol][burst_key]["appended_bursts"]:
                     # xml, burst_key = append_info[0], append_info[1]
                     burst_str, burst_values = self.prepare_burst_metadata_insertion(
-                        append_info[0], append_info[1], row_id,
+                        append_info[0],
+                        append_info[1],
+                        row_id,
                     )
                     cursor.execute(burst_str, burst_values)
 
         self.conn.commit()
 
     def archive_duplicate(self):
-        """ archive duplicate slc scenes. """
+        """archive duplicate slc scenes."""
         cursor = self.conn.cursor()
         try:
             cursor.execute(
@@ -1701,10 +1742,8 @@ class Archive:
                 (os.path.basename(self.file_location), self.file_location),
             )
         except sqlite3.IntegrityError as err:
-            if str(err) == "UNIQUE constraint failed: {}.id".format(
-                self.duplicate_table_name
-            ):
-                _LOG.info(
+            if str(err) == "UNIQUE constraint failed: {}.id".format(self.duplicate_table_name):
+                LOG.info(
                     "record already detected in slc_duplicate table",
                     pathname=self.file_location,
                     slc_id=self.metadata["id"],
@@ -1722,7 +1761,10 @@ class Archive:
         self.conn.close()
 
     def __exit__(
-        self, exc_type, exc_val, exc_tb,
+        self,
+        exc_type,
+        exc_val,
+        exc_tb,
     ):
         self.close()
 
@@ -1777,7 +1819,7 @@ class Archive:
             # inside the extent defined by the spatial vector. Note that spatial
             # subset must be an instance of a spatialist Vector
             if isinstance(spatial_subset, Vector):
-                wkt_string = cascaded_union(
+                wkt_string = unary_union(
                     [
                         shapely.wkt.loads(extent)
                         for extent in spatial_subset.convert2wkt(set3D=False)
@@ -1790,9 +1832,7 @@ class Archive:
                 )
 
         query = """SELECT {0} from {1} WHERE {2}""".format(
-            ", ".join(
-                ["AsText({})".format(col) if "extent" in col else col for col in columns]
-            ),
+            ", ".join(["AsText({})".format(col) if "extent" in col else col for col in columns]),
             tables_join_string,
             " AND ".join(arg_format),
         )
@@ -1892,7 +1932,7 @@ class Archive:
             # frame.get_frame_extent(frame_num) calls SlcFrame.generate_frame_polygon()
             gpd_frame = frame.get_frame_extent(frame_num)
             if gpd_frame.empty:
-                _LOG.warning(
+                LOG.warning(
                     "get frame extent warning, empty geo-pandas data frame",
                     frame_num=frame_num,
                     slc_metadata=args,
@@ -1911,7 +1951,9 @@ class Archive:
         )
 
         base_query = """SELECT {0} FROM {1} WHERE {2}""".format(
-            table_select, tables_join_string, " AND ".join(arg_format),
+            table_select,
+            tables_join_string,
+            " AND ".join(arg_format),
         )
         # base_query is reused in the refinement stage below
         burst_query = base_query + frame_intersect_query
@@ -1951,7 +1993,7 @@ class Archive:
 
         initial_query_list = cursor.fetchall()  # initial query
         if not initial_query_list:
-            _LOG.error(
+            LOG.error(
                 "Database query failed, no SLC bursts in this track intersect with frame",
                 frame_num=frame_num,
                 slc_metadata=args,
@@ -1992,7 +2034,7 @@ class Archive:
             # convex_hull  coordinates. This is  a simple approach
             # at obtaining the boundary  of the bursts selected by
             # the initial query
-            _LOG.info(
+            LOG.info(
                 "< 3 subswaths intersect frame, refining the database query",
                 IW_set=subswath_set,
                 frame_num=frame_num,
@@ -2024,7 +2066,7 @@ class Archive:
                 # overlapping bursts
                 initial_query_list = refined_query_list
             else:
-                _LOG.info(
+                LOG.info(
                     "refined query did not find additional overlapping bursts",
                     frame_num=frame_num,
                     slc_metdata=args,
@@ -2037,7 +2079,7 @@ class Archive:
         )
 
         if slc_df.empty:
-            _LOG.error(
+            LOG.error(
                 "geopandas data frame (slc_df) fail from db query",
                 frame_num=frame_num,
                 slc_metdata=args,
@@ -2047,9 +2089,7 @@ class Archive:
         geopandas_df = gpd.GeoDataFrame(
             slc_df,
             crs={"init": "epsg:4326"},
-            geometry=slc_df["AsText(bursts_metadata.burst_extent)"].map(
-                shapely.wkt.loads
-            ),
+            geometry=slc_df["AsText(bursts_metadata.burst_extent)"].map(shapely.wkt.loads),
         )
         if shapefile_name:
             geopandas_df.to_file(shapefile_name, driver="ESRI Shapefile")
@@ -2057,7 +2097,7 @@ class Archive:
         return geopandas_df
 
     def select_duplicates(self):
-        """ returns pandas data frame of duplicate SLC in archive"""
+        """returns pandas data frame of duplicate SLC in archive"""
         cursor = self.conn.cursor()
         cursor.execute("""SELECT * from slc_duplicates""")
         duplicates_df = pd.DataFrame(
@@ -2160,13 +2200,19 @@ class SlcFrame:
         df_bbox = []
         for i in range(nth_lat_frame.shape[0]):
             df_bbox.append(
-                box(self.west_lon, nth_lat_frame[i], self.east_lon, sth_lat_frame[i],).wkt
+                box(
+                    self.west_lon,
+                    nth_lat_frame[i],
+                    self.east_lon,
+                    sth_lat_frame[i],
+                ).wkt
             )
 
         return df_bbox
 
     def generate_frame_polygon(
-        self, shapefile_name: Optional[Path] = None,
+        self,
+        shapefile_name: Optional[Path] = None,
     ):
         """
         generates a frame with associated extent for the
@@ -2179,11 +2225,13 @@ class SlcFrame:
         df["frame_num"] = list(self.frame_numbers)
         df["extent"] = self.get_bbox_wkt()
         geopandas_df = gpd.GeoDataFrame(
-            df, crs={"init": "epsg:4326"}, geometry=df["extent"].map(shapely.wkt.loads),
+            df,
+            crs={"init": "epsg:4326"},
+            geometry=df["extent"].map(shapely.wkt.loads),
         )
 
         if geopandas_df.empty:
-            _LOG.error("failed to generate frame polygon as geopandas dataframe")
+            LOG.error("failed to generate frame polygon as geopandas dataframe")
 
         if shapefile_name:
             geopandas_df.to_file(shapefile_name, driver="ESRI Shapefile")
@@ -2191,15 +2239,17 @@ class SlcFrame:
         return geopandas_df
 
     def get_frame_extent(
-        self, frame_num: int,
+        self,
+        frame_num: int,
     ):
-        """ returns a geo-pandas data frame for a frame_name. """
+        """returns a geo-pandas data frame for a frame_name."""
         gpd_df = self.generate_frame_polygon()
         return gpd_df.loc[gpd_df["frame_num"] == frame_num]
 
     def get_frame_coords_list(
-        self, frame_num: int,
+        self,
+        frame_num: int,
     ):
-        """ returns a lon,lat coordinate list for the frame number. """
+        """returns a lon,lat coordinate list for the frame number."""
         poly_shapely = self.get_bbox_wkt()[frame_num - 1]  # frame num ranges from 1 to N
         return list(shapely.wkt.loads(poly_shapely).exterior.coords)

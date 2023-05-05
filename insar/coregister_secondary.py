@@ -1,5 +1,5 @@
 from pathlib import Path
-import structlog
+import insar.logs as logs
 
 from insar.gamma.proxy import create_gamma_proxy
 from insar.path_util import append_suffix
@@ -7,12 +7,13 @@ import insar.constant as const
 from insar.project import ProcConfig
 from insar.coreg_utils import create_diff_par, grep_stdout
 from insar.path_util import par_file
+from insar.parfile import GammaParFile as ParFile
 
 class CoregisterSlcException(Exception):
     pass
 
 
-_LOG = structlog.get_logger("insar")
+_LOG = logs.getLogger("gamma")
 
 pg = create_gamma_proxy(CoregisterSlcException)
 
@@ -104,11 +105,11 @@ def coregister_secondary(
             raise FileExistsError(f"Output path already has data at it's location: {p}")
 
     # Read input sizes
-    primary_mli_par = pg.ParFile(str(primary_mli_par_path))
+    primary_mli_par = ParFile(str(primary_mli_par_path))
     primary_mli_width = primary_mli_par.get_value("range_samples", dtype=int, index=0)
     priamry_mli_height = primary_mli_par.get_value("azimuth_lines", dtype=int, index=0)
 
-    secondary_mli_par = pg.ParFile(str(secondary_mli_par_path))
+    secondary_mli_par = ParFile(str(secondary_mli_par_path))
     secondary_mli_width = secondary_mli_par.get_value("range_samples", dtype=int, index=0)
     secondary_mli_height = secondary_mli_par.get_value("azimuth_lines", dtype=int, index=0)
 

@@ -3,7 +3,7 @@ import pathlib
 import shutil
 from typing import Union, Tuple, Optional
 
-import structlog
+import insar.logs as logs
 from insar.project import ProcConfig
 from insar.paths.interferogram import InterferogramPaths
 from insar.paths.dem import DEMPaths
@@ -15,8 +15,7 @@ from insar.gamma.proxy import create_gamma_proxy
 from insar.subprocess_utils import working_directory
 from insar.process_utils import convert
 
-_LOG = structlog.get_logger("insar")
-
+from insar.logs import STATUS_LOGGER as LOG
 
 class ProcessIfgException(Exception):
     pass
@@ -74,54 +73,41 @@ def run_workflow(
     land_center: Optional[Tuple[float, float]] = None,
 ):
     # Re-bind thread local context to IFG processing state
-    try:
-        structlog.threadlocal.clear_threadlocal()
-        primary_date, secondary_date = ic.ifg_dir.name.split('-')
-        structlog.threadlocal.bind_threadlocal(
-            task="IFG processing",
-            ifg_dir=ic.ifg_dir,
-            primary_date=primary_date,
-            secondary_date=secondary_date
-        )
+    LOG.info("Running IFG workflow", ifg_width=int(ifg_width))
 
-        _LOG.info("Running IFG workflow", ifg_width=int(ifg_width))
+    if not ic.ifg_dir.exists():
+        ic.ifg_dir.mkdir(parents=True)
 
-        if not ic.ifg_dir.exists():
-            ic.ifg_dir.mkdir(parents=True)
+    with working_directory(ic.ifg_dir):
+        validate_ifg_input_files(ic)
 
-        with working_directory(ic.ifg_dir):
-            validate_ifg_input_files(ic)
+        # Get land center pixel coordinates
+        if land_center:
+            land_center_latlon = land_center
+            land_center = latlon_to_px(pg, ic.r_secondary_mli_par, *land_center_latlon)
 
-            # Get land center pixel coordinates
-            if land_center:
-                land_center_latlon = land_center
-                land_center = latlon_to_px(pg, ic.r_secondary_mli_par, *land_center_latlon)
+            LOG.info(
+                "Land center for IFG secondary",
+                mli=ic.r_secondary_mli,
+                land_center_latlon=land_center_latlon,
+                land_center_px=land_center
+            )
 
-                _LOG.info(
-                    "Land center for IFG secondary",
-                    mli=ic.r_secondary_mli,
-                    land_center_latlon=land_center_latlon,
-                    land_center_px=land_center
-                )
+        # future version might want to allow selection of steps (skipped for simplicity Oct 2020)
+        calc_int(pc, ic)
+        ifg_file = initial_flattened_ifg(pc, ic, dc)
 
-            # future version might want to allow selection of steps (skipped for simplicity Oct 2020)
-            calc_int(pc, ic)
-            ifg_file = initial_flattened_ifg(pc, ic, dc)
+        # Note: These are not needed for Sentinel-1 processing
+        if enable_refinement:
+            ifg_file = refined_flattened_ifg(pc, ic, dc, ifg_file)
+            ifg_file = precise_flattened_ifg(pc, ic, dc, tc, ifg_file, ifg_width, land_center)
+        else:
+            shutil.copy(ic.ifg_base_init, ic.ifg_base)
+            shutil.copy(ifg_file, ic.ifg_flat)
 
-            # Note: These are not needed for Sentinel-1 processing
-            if enable_refinement:
-                ifg_file = refined_flattened_ifg(pc, ic, dc, ifg_file)
-                ifg_file = precise_flattened_ifg(pc, ic, dc, tc, ifg_file, ifg_width, land_center)
-            else:
-                shutil.copy(ic.ifg_base_init, ic.ifg_base)
-                shutil.copy(ifg_file, ic.ifg_flat)
-
-            calc_bperp_coh_filt(pc, ic, ifg_file, ic.ifg_base, ifg_width)
-            calc_unw(pc, ic, tc, ifg_width, land_center)  # this calls unw thinning
-            do_geocode(pc, ic, dc, tc, ifg_width)
-
-    finally:
-        structlog.threadlocal.clear_threadlocal()
+        calc_bperp_coh_filt(pc, ic, ifg_file, ic.ifg_base, ifg_width)
+        calc_unw(pc, ic, tc, ifg_width, land_center)  # this calls unw thinning
+        do_geocode(pc, ic, dc, tc, ifg_width)
 
 
 def validate_ifg_input_files(ic: InterferogramPaths):
@@ -616,7 +602,7 @@ def calc_bperp_coh_filt(
     # ifg_file should point to the appropriate output depending on what combination was run
     if not ifg_file.exists():
         msg = f"cannot locate interferogram: {ifg_file}"
-        _LOG.error(msg, missing_file=ifg_file)
+        LOG.error(msg, missing_file=ifg_file)
         raise ProcessIfgException(msg)
 
     # Calculate perpendicular baselines
@@ -628,7 +614,7 @@ def calc_bperp_coh_filt(
             f.writelines(cout)
     except IOError as ex:
         msg = "Failed to write ifg_bperp"
-        _LOG.error(msg, exception=str(ex))
+        LOG.error(msg, exception=str(ex))
         raise ex
 
     # calculate coherence of flattened interferogram
@@ -679,7 +665,7 @@ def calc_unw(
         msg = "cannot locate (*.filt) filtered interferogram: {}. Was FILT executed?".format(
             ic.ifg_filt
         )
-        _LOG.error(msg, missing_file=ic.ifg_filt)
+        LOG.error(msg, missing_file=ic.ifg_filt)
         raise ProcessIfgException(msg)
 
     pg.rascc_mask(
@@ -1220,6 +1206,6 @@ def remove_files(*args):
             if path:
                 path.unlink()
         except FileNotFoundError:
-            _LOG.error("Could not delete {}".format(path))
+            LOG.error("Could not delete {}".format(path))
 
         # TODO: add more exception handlers?

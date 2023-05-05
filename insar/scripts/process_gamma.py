@@ -1,54 +1,35 @@
-#!/usr/bin/env python
-import os
-import traceback
-from pathlib import Path
-from typing import Dict, Any
+#!/usr/bin/env python3
 
 import luigi
-import luigi.configuration
+import traceback
+import os
 
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+import warnings
+warnings.simplefilter(action='error', category=UserWarning)
+#warnings.simplefilter(action='error', category=FutureWarning)
+
+#import luigi.configuration
+
+#from insar.logs import logging_directory, TASK_LOGGER, STATUS_LOGGER
+from insar.logs import STATUS_LOGGER as LOG
 from insar.workflow.luigi.ard import ARD
-from insar.logs import logging_directory
-
-@luigi.Task.event_handler(luigi.Event.FAILURE)
-def on_failure(task, exception):
-    """Capture any Task Failure here."""
-    TASK_LOGGER.exception(
-        "Task failed",
-        task=task.get_task_family(),
-        params=task.to_str_params(),
-        stack_id=getattr(task, "stack_id", ""),
-        stack_info=True,
-        status="failure",
-        exception=exception.__str__(),
-        traceback=traceback.format_exc().splitlines(),
-    )
-
-
-@luigi.Task.event_handler(luigi.Event.SUCCESS)
-def on_success(task):
-    """Capture any Task Succes here."""
-    TASK_LOGGER.info(
-        "Task succeeded",
-        task=task.get_task_family(),
-        params=task.to_str_params(),
-        stack_id=getattr(task, "stack_id", ""),
-        status="success",
-    )
+from typing import Dict, Any
+from pathlib import Path
 
 
 def run():
-    with logging_directory(os.getcwd()):
-        try:
-            luigi.run()
-        except Exception as e:
-            # Log all exceptions to the status log
-            state = e.state if hasattr(e, "state") else {}
-            STATUS_LOGGER.error("Unhandled exception running ARD workflow", exc_info=True, **state)
+    print("PyGamma")
+    #with logging_directory(os.getcwd()):
+    luigi.run()
+    #try:
+    #    luigi.run()
+    #except Exception as e:
+    #    # Log all exceptions to the status log
+    #    state = e.state if hasattr(e, "state") else {}
+    #    STATUS_LOGGER.error("Unhandled exception running ARD workflow", exc_info=True, **state)
 
-            # But don't catch them, release them back to Luigi
-            raise e
+    #    # But don't catch them, release them back to Luigi
+    #    raise e
 
 
 def run_ard_inline(args: Dict[str, Any]):

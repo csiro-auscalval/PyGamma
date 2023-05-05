@@ -6,19 +6,35 @@ when calling executables. This module replaces the py_gamma's threaded approach
 with a serial interface to avoid race conditions & ensure the data is returned.
 """
 
-import os
-import socket
-import functools
-import subprocess
-import warnings
 from pathlib import Path
+import subprocess
+import functools
+import warnings
+import inspect
+import socket
+import os
 
-import structlog
 import insar.constant as const
+
+from insar.logs import STATUS_LOGGER as STATUS_LOG, GAMMA_LOGGER as GAMMA_LOG
+from insar.decls import DECLS
+
+GAMMA_PACKAGES = ("DISP", "DIFF", "IPTA", "ISP", "LAT", "MSP", "GEO")
+GAMMA_INSTALL_DIR = None
+GAMMA_INSTALLED_PACKAGES = None
+GAMMA_INSTALLED_EXES = {}
+
+COUT = "cout"
+CERR = "cerr"
+
 
 # use guard block to distinguish between platforms with(out) Gamma
 try:
+    STATUS_LOG.debug("Loading py_gamma interface")
     import py_gamma as py_gamma_broken
+
+    STATUS_LOG.debug("Successfully loaded py_gamma interface")
+
 except ImportError as iex:
     hostname = socket.gethostname()
 
@@ -31,9 +47,6 @@ except ImportError as iex:
         ParFile = None
 
     py_gamma_broken = DummyPyGamma()
-
-
-_LOG = structlog.get_logger("insar")
 
 
 class GammaInterfaceException(Exception):
@@ -60,55 +73,78 @@ def auto_logging_decorator(func, exception_type, logger):
         cmd_list = [cmd]
         cmd_list.extend("-" if a is None else str(a) for a in args)
 
-        msg = f"Executing gamma command: {' '.join(cmd_list)}"
-        logger.debug(msg)
+        calling = inspect.getframeinfo(inspect.stack()[3][0])
+
+        GAMMA_LOG.debug(f"\n{' '.join(cmd_list)}\n")
+
+        try:
+            decl = DECLS[cmd.split("/")[-1]]
+            GAMMA_LOG.debug(f"## PARAMETERS GIVEN ##")
+            GAMMA_LOG.debug("#")
+            for i, (param, info) in enumerate(decl["params"].items()):
+                if info["optional"]:
+                    p = f"[{param}]"
+                else:
+                    p = f"<{param}>"
+                c = ''
+                try:
+                    c = cmd_list[i+1]
+                except IndexError:
+                    pass
+                GAMMA_LOG.debug(f"#  {p:<20s} = `{c}`")
+                desc = info['desc'].split('\n')[0]
+                GAMMA_LOG.debug(f"# {10*' ':20s}    {desc}")
+            GAMMA_LOG.debug("#")
+        except KeyError:
+            GAMMA_LOG.debug("# Parameter information unknown for `{cmd_list[0]}`")
 
         if const.COUT not in kwargs:
             kwargs[const.COUT] = []
         if const.CERR not in kwargs:
             kwargs[const.CERR] = []
 
-        stat = func(cmd, *args, **kwargs)
+        rc = func(cmd, *args, **kwargs)
+
+        if rc > 0:
+            GAMMA_LOG.debug(f"# GAMMA return code: {rc} (FAIL)         (GAMMA called from {calling.filename}:{calling.lineno})")
+        else:
+            GAMMA_LOG.debug(f"# GAMMA return code: {rc}                (GAMMA called from {calling.filename}:{calling.lineno})")
+
+        GAMMA_LOG.debug(f"#")
+
         cout = kwargs[const.COUT]
         cerr = kwargs[const.CERR]
 
-        if stat:
-            msg = f"Failed to execute gamma command: {' '.join(cmd_list)}"
-            logger.error(msg, args=args, **kwargs)  # NB: cout/cerr already in kwargs
+        GAMMA_LOG.debug("## GAMMA OUTPUT ##")
+        for line in cout:
+            GAMMA_LOG.debug(f"# {line}")
+
+        if rc > 0:
+            msg = f"Failed to execute GAMMA command: {' '.join(cmd_list)}"
+            STATUS_LOG.error(msg, args=args, **kwargs)  # NB: cout/cerr already in kwargs
             raise exception_type(msg)
         else:
-            msg = f"Successfully execute gamma command: {' '.join(cmd_list)}"
-            logger.info(msg, args=args, **kwargs)
+            msg = f"Successfully executed GAMMA command: {' '.join(cmd_list)}"
+            STATUS_LOG.info(msg, args=args, **kwargs)
 
-        return stat, cout, cerr
+        return rc, cout, cerr
 
     return error_handler
-
-
-# potentially installed gamma packages
-_GAMMA_PACKAGES = ("DISP", "DIFF", "IPTA", "ISP", "LAT", "MSP", "GEO")
-
-GAMMA_INSTALL_DIR = None
-GAMMA_INSTALLED_PACKAGES = None
-GAMMA_INSTALLED_EXES = {}
-
-COUT = "cout"
-CERR = "cerr"
 
 
 def find_gamma_installed_packages(install_dir):
     """Search install_dir for Gamma pkgs. Return list of packages."""
     try:
-        res = tuple(n for n in _GAMMA_PACKAGES if n in os.listdir(install_dir))
+        res = tuple(n for n in GAMMA_PACKAGES if n in os.listdir(install_dir))
 
-        if res is not None and len(res) > 0: # success
+        if res is not None and len(res) > 0:  # success
             return res
 
     except FileNotFoundError:
         pass
 
-    msg = "No Gamma packages found in {}"
-    raise GammaInterfaceException(msg.format(install_dir))
+    msg = f"No Gamma packages found in {install_dir}"
+    raise GammaInterfaceException(msg)
 
 
 def find_gamma_installed_exes(install_dir, packages):
@@ -130,13 +166,18 @@ def find_gamma_installed_exes(install_dir, packages):
     exes = {}
     for d in dirs:
         for dirpath, _, filenames in os.walk(d):
+
+            if dirpath.endswith("__pycache__"):
+                continue
+
             for f in filenames:
                 fullpath = os.path.join(dirpath, f)
 
                 if os.access(fullpath, os.R_OK):  # only add executables
                     if f in exes and f not in ignored_exes:
-                        msg = "{} duplicate in Gamma exe lookup under {}. Skipped!"
-                        warnings.warn(msg.format(f, exes[f]))
+                        STATUS_LOG.debug(
+                            f"GAMMA binary {fullpath} already found as {exes[f]}. Skipped!"
+                        )
                     else:
                         exes[f] = fullpath
 
@@ -152,7 +193,7 @@ def subprocess_wrapper(cmd, *args, **kwargs):
         cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
     )
 
-    _LOG.info("calling Gamma", cmd=cmd, cmd_list=cmd_list)
+    STATUS_LOG.info(f"Calling GAMMA command `{cmd}` (subprocess_wrapper)", cmd=cmd, cmd_list=cmd_list)
 
     if COUT in kwargs:
         kwargs[COUT].extend(p.stdout.split("\n"))
@@ -186,11 +227,12 @@ class GammaInterface:
         # k=program, v=exe path relative to install dir
         self._gamma_exes = gamma_exes if gamma_exes else GAMMA_INSTALLED_EXES
         self.install_dir = install_dir if install_dir else GAMMA_INSTALL_DIR
-        self.subprocess_func = (
-            subprocess_wrapper if subprocess_func is None else subprocess_func
-        )
+        self.subprocess_func = subprocess_wrapper if subprocess_func is None else subprocess_func
 
-        _LOG.info("GAMMA install location", install_dir=install_dir)
+        STATUS_LOG.debug(
+            f"New Gamma Interface using GAMMA at location: {self.install_dir}",
+            install_dir=self.install_dir,
+        )
 
     def __getattr__(self, name):
         """
@@ -237,6 +279,8 @@ class GammaInterface:
         if proxy:
             return proxy.ParFile(filepath)
 
+        STATUS_LOG.info("Calling py_gamma.Parfile(str({filepath}))")
+
         return py_gamma_broken.ParFile(str(filepath))
 
     @classmethod
@@ -248,12 +292,15 @@ class GammaInterface:
         """
         GammaInterface._gamma_proxy = proxy_object
 
+
 try:
     GAMMA_INSTALL_DIR = os.environ["GAMMA_INSTALL_DIR"]
 
     if not os.path.exists(GAMMA_INSTALL_DIR):
-        warnings.warn(f"Problem with GAMMA_INSTALL_DIR={GAMMA_INSTALL_DIR} as this path does not exist. This means that GAMMA will not be able to run and only a proxy object will be used.")
-        GAMMA_INSTALL_DIR=None
+        warnings.warn(
+            f"Problem with GAMMA_INSTALL_DIR={GAMMA_INSTALL_DIR} as this path does not exist. This means that GAMMA will not be able to run and only a proxy object will be used."
+        )
+        GAMMA_INSTALL_DIR = None
 
 except KeyError:
     # skip this under the assumption users will manually configure the shim
@@ -261,9 +308,7 @@ except KeyError:
 
 if GAMMA_INSTALL_DIR:
     GAMMA_INSTALLED_PACKAGES = find_gamma_installed_packages(GAMMA_INSTALL_DIR)
-    GAMMA_INSTALLED_EXES = find_gamma_installed_exes(
-        GAMMA_INSTALL_DIR, GAMMA_INSTALLED_PACKAGES
-    )
+    GAMMA_INSTALLED_EXES = find_gamma_installed_exes(GAMMA_INSTALL_DIR, GAMMA_INSTALLED_PACKAGES)
     pg = GammaInterface(GAMMA_INSTALL_DIR, GAMMA_INSTALLED_EXES)
 
     # HACK: InSAR packaging workflow requires pg.__file__, fake it so the GammaInterface shim looks

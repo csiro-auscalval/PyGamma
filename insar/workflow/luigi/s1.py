@@ -71,7 +71,7 @@ class CreateFullSlc(luigi.Task):
 
     def run(self):
         log = STATUS_LOGGER.bind(stack_id=self.stack_id)
-        log.info("create full slc task")
+        log.info("Create full SLC task")
 
         with open(self.proc_file, "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)

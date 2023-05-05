@@ -4,7 +4,7 @@ import tarfile
 from pathlib import Path
 from datetime import datetime
 
-import structlog
+import insar.logs as logs
 import xml.etree.ElementTree as etree
 from insar.sensors.types import SensorMetadata
 
@@ -22,7 +22,7 @@ POLARISATIONS = ["HH", "VV", "HV", "VH"]  # TODO: anything else?
 SUPPORTS_GEOSPATIAL_DB = False
 
 
-_LOG = structlog.get_logger("insar")
+_LOG = logs.getLogger("gamma")
 
 # name: str
 # constellation_name: str

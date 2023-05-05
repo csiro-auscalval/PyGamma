@@ -8,7 +8,7 @@ import os.path
 from pathlib import Path
 
 from insar.project import ProcConfig, ARDWorkflow
-from insar.logs import STATUS_LOGGER
+from insar.logs import STATUS_LOGGER as LOG
 
 from insar.stack import load_stack_config, load_stack_scenes, resolve_stack_scene_query, load_stack_scene_dates
 
@@ -82,7 +82,7 @@ class ARD(luigi.WrapperTask):
     reprocess_failed = luigi.BoolParameter()
 
     def requires(self):
-        log = STATUS_LOGGER.bind(shape_file=self.shape_file)
+        LOG.info(f"Using shapefile {self.shape_file}")
 
         pols = self.polarization
 
@@ -123,11 +123,9 @@ class ARD(luigi.WrapperTask):
         for name in override_params:
             if hasattr(self, name) and getattr(self, name) is not None:
                 override_value = getattr(self, name)
-                log.info("Overriding .proc setting",
-                    setting=name,
-                    old_value=getattr(proc_config, name),
-                    value=override_value
-                )
+                LOG.info(f"Overriding .proc setting "
+                                   f"`{name.upper()}={getattr(proc_config,name)}` with "
+                                   f"`{name.upper()}={override_value}`")
                 setattr(proc_config, name, override_value)
 
         # Explicitly handle workflow enum
@@ -198,7 +196,7 @@ class ARD(luigi.WrapperTask):
             urls_differ = bool(added_urls or removed_urls)
 
             if removed_urls:
-                log.info("URLs being removed", new_urls=new_urls, existing_urls=existing_urls,
+                LOG.info(f"URLs being removed: {removed_urls}", new_urls=new_urls, existing_urls=existing_urls,
                          removed_urls=removed_urls, urls_differ=urls_differ)
 
                 # This is not currently a use case we require (thus do not support)
@@ -213,7 +211,7 @@ class ARD(luigi.WrapperTask):
                 # If we were supposed to be appending data, but there's in fact no new
                 # data to append (eg: the stack already had it all) - early exit... no-op
                 if not append:
-                    log.info("No new data to append to stack, processing already completed.")
+                    LOG.info("No new data to append to stack, processing already completed.")
                     return
 
                 if not hasattr(self, 'append_idx'):
@@ -239,7 +237,7 @@ class ARD(luigi.WrapperTask):
             elif urls_differ:
                 raise RuntimeError("Provided source data does not match existing stack's data with no --append specified")
 
-            log.info(
+            LOG.info(
                 "Updating existing stack",
                 new_query=new_scenes_query,
                 new_source_data=self.source_data,
@@ -282,7 +280,7 @@ class ARD(luigi.WrapperTask):
                 msg = f"New .proc settings do not match existing {proc_file}. Conflicts are: {conflicts}"
                 error = Exception(msg)
                 error.state = { "conflicts": conflicts }
-                log.info(msg, **error.state)
+                LOG.info(msg, **error.state)
                 raise error
 
         # Create dirs
@@ -330,7 +328,7 @@ class ARD(luigi.WrapperTask):
         # Check if any input even exists (and skip yielding workflow if not)
         scenes_list = self.output_path / proc_config.list_dir / "scenes.list"
         if not scenes_list.exists() or not scenes_list.read_text().strip():
-            log.info("Stack processing aborted, no scenes provided or match query.")
+            LOG.info("Stack processing aborted, no scenes provided or match query.")
             return
 
         # Yield appropriate workflow
@@ -355,8 +353,6 @@ class ARD(luigi.WrapperTask):
         yield ard_tasks
 
     def run(self):
-        log = STATUS_LOGGER
-
         # Load final .proc config
         proc_file = self.output_path / "config.proc"
         with open(proc_file, "r") as proc_fileobj:
@@ -365,10 +361,10 @@ class ARD(luigi.WrapperTask):
         # Finally once all ARD pipeline dependencies are complete (eg: data processing is complete)
         # - we cleanup files that are no longer required as outputs.
         if not proc_config.cleanup:
-            log.info("Cleanup of unused files skipped, all files being kept")
+            LOG.info("Cleanup of unused files skipped, all files being kept")
             return
 
-        log.info("Cleaning up unused files")
+        LOG.info("Cleaning up unused files")
 
         required_files = [
             # IFG files
@@ -425,7 +421,9 @@ class ARD(luigi.WrapperTask):
                 is_required = any([file.samefile(i) for i in keep_files])
 
                 if not is_required:
-                    log.info("Cleaning up file", file=file)
-                    file.unlink()
+                    pass
+                    #DR
+                    #LOG.info(f"Removing temporary file: {file}", file=file)
+                    #file.unlink()
                 else:
-                    log.info("Keeping required file", file=file)
+                    LOG.info(f"Keeping required file: {file}", file=file)

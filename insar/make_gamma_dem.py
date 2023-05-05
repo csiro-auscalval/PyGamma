@@ -3,13 +3,14 @@
 from os.path import join as pjoin
 from pathlib import Path
 from typing import Union, Tuple
-import tempfile
 
 import rasterio
 
-from insar import constant as const
+import insar.constant as const
+
 from insar.subprocess_utils import run_command
 from insar.gamma.proxy import create_gamma_proxy
+from insar.utils import TemporaryDirectory
 
 class GammaDemException(Exception):
     pass
@@ -41,7 +42,7 @@ def create_gamma_dem(
         A flag to create preview of dem
     """
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as tmpdir:
         (min_lon, min_lat), (max_lon, max_lat) = stack_extent
         min_lon -= buffer_width
         min_lat -= buffer_width

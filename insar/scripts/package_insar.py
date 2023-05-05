@@ -15,6 +15,7 @@ import json
 from insar.py_gamma_ga import pg
 from eodatasets3 import DatasetAssembler
 from insar.meta_data.s1_gridding_utils import generate_slc_metadata
+from insar.parfile import GammaParFile as ParFile
 
 from insar.project import ProcConfig
 from insar.workflow.luigi.utils import load_settings
@@ -324,7 +325,7 @@ def get_slc_attrs(doc: Dict) -> Dict:
 
 
 def get_src_metadata() -> Dict:
-    params = pg.ParFile("TODO")
+    params = ParFile("TODO")
 
     # Note: this is just a stub, w/ some logic from the _prod_ version that incorrectly had src metadata
     # moved into here (we will flesh this out fully once we actually index/link the source data)
@@ -391,7 +392,7 @@ def get_prod_metadata(workflow_metadata: Dict, slc: SLC) -> Dict:
     if not par_file.exists():
         raise FileNotFoundError(f"{par_file} does not exists")
 
-    params = pg.ParFile(par_file.as_posix())
+    params = ParFile(par_file.as_posix())
     year, month, day = params.get_value("date")
 
     usr = {}

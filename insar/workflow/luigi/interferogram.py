@@ -12,7 +12,7 @@ from insar.paths.stack import StackPaths
 from insar.paths.dem import DEMPaths
 from insar.coreg_utils import read_land_center_coords
 from insar.stack import load_stack_ifg_pairs
-from insar.logs import STATUS_LOGGER
+from insar.logs import STATUS_LOGGER as LOG
 
 from insar.workflow.luigi.utils import tdir, mk_clean_dir, PathParameter
 from insar.workflow.luigi.backscatter import CreateCoregisteredBackscatter
@@ -42,19 +42,20 @@ class ProcessIFG(luigi.Task):
         with open(str(self.proc_file), 'r') as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
-        log = STATUS_LOGGER.bind(
+        log = LOG.bind(
             outdir=self.outdir,
             polarisation=proc_config.polarisation,
             primary_date=self.primary_date,
             secondary_date=self.secondary_date
         )
-        log.info("Beginning interferogram processing")
+        log.info(f"Beginning interferogram processing for {self.primary_date} - {self.secondary_date}")
 
         # Run IFG processing in an exception handler that doesn't propagate exception into Luigi
         # This is to allow processing to fail without stopping the Luigi pipeline, and thus
         # allows as many scenes as possible to fully process even if some scenes fail.
         failed = False
-        try:
+        #try:
+        if True:
             ic = InterferogramPaths(proc_config, self.primary_date, self.secondary_date)
             dc = DEMPaths(proc_config)
             tc = TempFileConfig(ic)
@@ -135,10 +136,10 @@ class ProcessIFG(luigi.Task):
             )
 
             log.info("Interferogram complete")
-        except Exception as e:
-            log.error("Interferogram failed with exception", exc_info=True)
-            failed = True
-        finally:
+        #except Exception as e:
+        #    log.error("Interferogram failed with exception", exc_info=True)
+        #    failed = True
+        #finally:
             # We flag a task as complete no matter if the scene failed or not!
             with self.output().open("w") as f:
                 f.write("FAILED" if failed else "")
@@ -162,7 +163,7 @@ class CreateProcessIFGs(luigi.Task):
         )
 
     def trigger_resume(self, reprocess_failed_scenes=True):
-        log = STATUS_LOGGER.bind(stack_id=self.stack_id)
+        log = LOG.bind(stack_id=self.stack_id)
 
         # Load the gamma proc config file
         with open(str(self.proc_file), 'r') as proc_fileobj:
@@ -228,7 +229,7 @@ class CreateProcessIFGs(luigi.Task):
         return reprocess_pairs
 
     def run(self):
-        log = STATUS_LOGGER.bind(stack_id=self.stack_id)
+        log = LOG.bind(stack_id=self.stack_id)
         log.info("Process interferograms task")
 
         # Load the gamma proc config file

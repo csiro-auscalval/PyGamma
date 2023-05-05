@@ -1,16 +1,17 @@
 import datetime
-from insar.constant import SCENE_DATE_FMT
-from pathlib import Path
 import geopandas
-import tempfile
 import os
+
 from typing import Tuple, Optional, List
+from pathlib import Path
 
 import insar.constant as const
+
+from insar.constant import SCENE_DATE_FMT
+from insar.logs import STATUS_LOGGER as LOG
 from insar.project import ProcConfig
 from insar.subprocess_utils import run_command
-
-from insar.logs import INSAR_LOG
+from insar.utils import TemporaryDirectory
 
 def rm_file(path):
     """
@@ -65,7 +66,7 @@ def read_land_center_coords(shapefile: Path):
     return north_lat, east_lon
 
 
-def latlon_to_px(pg, mli_par: Path, lat, lon):
+def latlon_to_px(pg, mli_par: Path, lat, lon, hgt=0):
     """
     Reads land center coordinates from a shapefile and converts into pixel coordinates for a multilook image
 
@@ -79,11 +80,11 @@ def latlon_to_px(pg, mli_par: Path, lat, lon):
     # Convert lat/long to pixel coords
     _, cout, _ = pg.coord_to_sarpix(
         mli_par,
-        const.NOT_PROVIDED,
-        const.NOT_PROVIDED,
+        None,
+        None,
         lat,
         lon,
-        const.NOT_PROVIDED,  # hgt
+        hgt,
     )
 
     # Extract pixel coordinates from stdout
@@ -142,7 +143,7 @@ def create_diff_par(
         to be included in the resulting diff.
     """
 
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as temp_dir:
         return_file = Path(temp_dir) / "returns"
 
         with return_file.open("w") as fid:
@@ -297,13 +298,13 @@ def find_scenes_in_range(
     # Use closest scene if none are in threshold window
     if include_closest:
         if len(tree_lhs) == 0 and closest_lhs is not None:
-            INSAR_LOG.info(
+            LOG.info(
                 f"Date difference to closest secondary greater than {thres_days} days, using closest secondary only: {closest_lhs}"
             )
             tree_lhs = [closest_lhs]
 
         if len(tree_rhs) == 0 and closest_rhs is not None:
-            INSAR_LOG.info(
+            LOG.info(
                 f"Date difference to closest secondary greater than {thres_days} days, using closest secondary only: {closest_rhs}"
             )
             tree_rhs = [closest_rhs]

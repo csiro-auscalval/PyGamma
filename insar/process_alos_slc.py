@@ -4,16 +4,18 @@ from pathlib import Path
 from attr.setters import convert
 import os
 import json
-import tempfile
 import shutil
+
+import insar.constant as const
 
 from insar.gamma.proxy import create_gamma_proxy
 from insar.subprocess_utils import working_directory
 from insar.sensors.palsar import METADATA as alos, parse_product_summary
+from insar.parfile import GammaParFile as ParFile
 from insar.project import ProcConfig
-import insar.constant as const
 from insar.process_utils import convert
 from insar.path_util import append_suffix
+from insar.utils import TemporaryDirectory
 
 from insar.logs import STATUS_LOGGER
 
@@ -301,7 +303,7 @@ def level1_slc(
             raise ProcessSlcException("Failed to determine new doppler estimate")
 
         # update ISP file with new estimated doppler centroid frequency (must be done manually)
-        doppler_polynomial = pg.ParFile(paths.slc_par).get_value("doppler_polynomial", index=0)
+        doppler_polynomial = ParFile(paths.slc_par).get_value("doppler_polynomial", index=0)
 
         slc_par_text = paths.slc_par.read_text().replace(doppler_polynomial, new_doppler_estimate)
         with paths.slc_par.open("w") as file:
@@ -398,7 +400,7 @@ def process_alos_slc(
 
     # FBD -> FBS conversion
     if pol == "HH" and mode == "FBD":
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as tmpdir:
             tmpdir = Path(tmpdir)
 
             temp_slc = tmpdir / "temp.slc"
@@ -419,12 +421,12 @@ def process_alos_slc(
             shutil.move(temp_slc_par, paths.slc_par)
 
     # Generate quicklook
-    slc_par = pg.ParFile(paths.slc_par)
+    slc_par = ParFile(paths.slc_par)
     width = slc_par.get_value("range_samples", dtype=int, index=0)
     lines = slc_par.get_value("azimuth_lines", dtype=int, index=0)
 
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as tmpdir:
         tmpdir = Path(tmpdir)
         temp_bmp = tmpdir / "temp.bmp"
 

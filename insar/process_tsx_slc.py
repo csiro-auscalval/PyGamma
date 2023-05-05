@@ -1,12 +1,15 @@
 import json
-import tempfile
 from pathlib import Path
+
+import insar.constant as const
 
 from insar import constant
 from insar.process_utils import convert
 from insar.py_gamma_ga import GammaInterface, auto_logging_decorator, subprocess_wrapper
+from insar.parfile import GammaParFile as ParFile
+from insar.utils import TemporaryDirectory
 
-import structlog
+import insar.logs as logs
 
 
 # Customise GAMMA shim to automatically handle basic error checking and logging
@@ -14,7 +17,7 @@ class ProcessSlcException(Exception):
     pass
 
 
-_LOG = structlog.get_logger("insar")
+_LOG = logs.getLogger("gamma")
 pg = GammaInterface(
     subprocess_func=auto_logging_decorator(subprocess_wrapper, ProcessSlcException, _LOG)
 )
@@ -79,7 +82,7 @@ def process_tsx_slc(
     _verify_cosar_path(cos_files, image_dir)
     cosar = cos_files[0]
 
-    with tempfile.TemporaryDirectory() as td:
+    with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as td:
         tdir = Path(td)
         base_name = output_slc_path.name
         gamma_slc = tdir / f"gamma_{str(base_name)}"
@@ -109,7 +112,7 @@ def process_tsx_slc(
         )
 
         # Make quick-look png image of SLC
-        par = pg.ParFile(output_slc_par_path.as_posix())
+        par = ParFile(output_slc_par_path.as_posix())
         width = par.get_value("range_samples", dtype=int, index=0)
         lines = par.get_value("azimuth_lines", dtype=int, index=0)
         bmp_path = output_slc_path.with_suffix(".slc.bmp")
