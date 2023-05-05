@@ -128,6 +128,7 @@ def validate_ifg_input_files(ic: InterferogramPaths):
 
     # Raise exception with additional info on missing_files
     if missing_files:
+        LOG.error(f"Missing files: {missing_files}")
         ex = ProcessIfgException(msg)
         ex.missing_files = missing_files
         raise ex
