@@ -587,18 +587,9 @@ class SlcMetadata:
 
         else:
             if _check_byte_size(outfile, source_size):
-                LOG.debug(
-                    "extract_archive_tofile(): _check_byte_size() returned True (no retries performed)"
-                )
                 return None
 
-            LOG.info(
-                f"Retrying extraction on file {target_file} (scene {self.scene}) to {outfile}",
-                max_retries=retry,
-                target_file=target_file,
-                slc_scene=self.scene,
-                outfile=outfile,
-            )
+            LOG.info(f"Retrying extraction on file {target_file} (scene {self.scene}) to {outfile}")
 
             retry_count = 0
             while retry_count < retry:
@@ -613,12 +604,7 @@ class SlcMetadata:
                     break
 
             if retry_count == retry:
-                LOG.error(
-                    "Failed to extract data from {target_file} (scene {self.scene}) to {outfile}",
-                    target_file=target_file,
-                    slc_scene=self.scene,
-                    outfile=outfile,
-                )
+                LOG.error("Failed to extract data from {target_file} (scene {self.scene}) to {outfile}")
 
             return None
 
