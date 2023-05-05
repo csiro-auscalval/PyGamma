@@ -1,11 +1,8 @@
 """
-Logging configuration for InSAR logs
-
-Defines structured logging for:
-    * Task messages     -- qualname task
-    * Status messages   -- qualname status
-    * Luigi interface   -- qualname luigi-interface
+Logging configuration
 """
+
+# mypy: disable-error-code="attr-defined"
 
 import pkg_resources
 import contextlib
@@ -19,23 +16,34 @@ from pathlib import Path
 from typing import Union
 from osgeo import gdal
 
-print("Starting logging")
 
 class FormatJSONL(logging.Formatter):
-    """ Prevents printing of the stack trace to enable JSON lines output """
+    """Prevents printing of the stack trace to enable JSON lines output"""
 
     def formatException(self, ei):
-        """ Disables printing separate stack traces """
+        """Disables printing separate stack traces"""
         return
 
 
 class ValueRenderer:
-
-    def __init__(self, keys=['event']):
+    def __init__(self, keys=["event"]):
         self.keys = keys
 
     def __call__(self, logger, method_name, log) -> str:
         return f"{log['event']}    [{log['filename']}:{log['lineno']}]"
+
+
+COMMON_PROCESSORS = (
+    structlog.threadlocal.merge_threadlocal,
+    structlog.processors.CallsiteParameterAdder(
+        [
+            structlog.processors.CallsiteParameter.FILENAME,
+            structlog.processors.CallsiteParameter.FUNC_NAME,
+            structlog.processors.CallsiteParameter.LINENO,
+        ],
+    ),
+    ValueRenderer(["event", "filename", "lineno"]),
+)
 
 
 @contextlib.contextmanager
@@ -71,29 +79,10 @@ def logging_directory(path: Union[str, Path]):
     with working_directory(path):
         # Configure logging from built-in script logging config file
         with (path / "insar-log.jsonl").open("a") as fobj:
-            structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj),
-                                processors=COMMON_PROCESSORS)
+            structlog.configure(logger_factory=structlog.PrintLoggerFactory(fobj), processors=COMMON_PROCESSORS)
 
             yield
 
-
-
-COMMON_PROCESSORS = [
-    structlog.threadlocal.merge_threadlocal,
-    #structlog.stdlib.add_log_level,
-    #structlog.processors.TimeStamper(fmt="ISO"),
-    #structlog.processors.StackInfoRenderer(),
-    #structlog.processors.format_exc_info,
-    structlog.processors.CallsiteParameterAdder(
-        [structlog.processors.CallsiteParameter.FILENAME,
-         structlog.processors.CallsiteParameter.FUNC_NAME,
-         structlog.processors.CallsiteParameter.LINENO],
-    ),
-    #structlog.dev.ConsoleRenderer()
-    #structlog.processors.JSONRenderer(sort_keys=True),
-    #structlog.processors.KeyValueRenderer(key_order=["event"]),
-    ValueRenderer(['event', 'filename', 'lineno'])
-]
 
 def getLogger(logger_name: str = "root", **kwargs):
     if logger_name in ["status", "task"]:
@@ -124,32 +113,4 @@ TASK_LOGGER = getLogger("task", stack_info=True)
 STATUS_LOGGER = getLogger("status")
 GAMMA_LOGGER = getLogger("gamma")
 
-GAMMA_LOGGER.info("Starting GAMMA logger")
-
-#@luigi.Task.event_handler(luigi.Event.FAILURE)
-#def on_failure(task, exception):
-#    """Capture any Task Failure here."""
-#    TASK_LOGGER.exception(
-#        "Task failed",
-#        task=task.get_task_family(),
-#        params=task.to_str_params(),
-#        stack_id=getattr(task, "stack_id", ""),
-#        stack_info=True,
-#        status="failure",
-#        exception=exception.__str__(),
-#        traceback=traceback.format_exc().splitlines(),
-#    )
-#
-#
-#@luigi.Task.event_handler(luigi.Event.SUCCESS)
-#def on_success(task):
-#    """Capture any Task Success here."""
-#    TASK_LOGGER.info(
-#        "Task succeeded",
-#        task=task.get_task_family(),
-#        params=task.to_str_params(),
-#        stack_id=getattr(task, "stack_id", ""),
-#        status="success",
-#    )
-
-print("Logging setup complete")
+GAMMA_LOGGER.info("#!/usr/bin/env bash")
