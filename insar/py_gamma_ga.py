@@ -16,6 +16,8 @@ import os
 
 import insar.constant as const
 
+
+from insar.parfile import GammaParFile
 from insar.logs import STATUS_LOGGER as STATUS_LOG, GAMMA_LOGGER as GAMMA_LOG
 from insar.decls import DECLS
 
@@ -28,25 +30,25 @@ COUT = "cout"
 CERR = "cerr"
 
 
-# use guard block to distinguish between platforms with(out) Gamma
-try:
-    STATUS_LOG.debug("Loading py_gamma interface")
-    import py_gamma as py_gamma_broken
-
-    STATUS_LOG.debug("Successfully loaded py_gamma interface")
-
-except ImportError as iex:
-    hostname = socket.gethostname()
-
-    if hostname.startswith("gadi"):
-        # something odd here if can't find py_gamma path on NCI
-        raise iex
-
-    # ugly hack
-    class DummyPyGamma:
-        ParFile = None
-
-    py_gamma_broken = DummyPyGamma()
+## use guard block to distinguish between platforms with(out) Gamma
+#try:
+#    STATUS_LOG.debug("Loading py_gamma interface")
+#    import py_gamma as py_gamma_broken
+#
+#    STATUS_LOG.debug("Successfully loaded py_gamma interface")
+#
+#except ImportError as iex:
+#    hostname = socket.gethostname()
+#
+#    if hostname.startswith("gadi"):
+#        # something odd here if can't find py_gamma path on NCI
+#        raise iex
+#
+#    # ugly hack
+#    class DummyPyGamma:
+#        ParFile = None
+#
+#    py_gamma_broken = DummyPyGamma()
 
 
 class GammaInterfaceException(Exception):
@@ -105,13 +107,6 @@ def auto_logging_decorator(func, exception_type, logger):
 
         rc = func(cmd, *args, **kwargs)
 
-        if rc > 0:
-            GAMMA_LOG.debug(f"# GAMMA return code: {rc} (FAIL)         (GAMMA called from {calling.filename}:{calling.lineno})")
-        else:
-            GAMMA_LOG.debug(f"# GAMMA return code: {rc}                (GAMMA called from {calling.filename}:{calling.lineno})")
-
-        GAMMA_LOG.debug(f"#")
-
         cout = kwargs[const.COUT]
         cerr = kwargs[const.CERR]
 
@@ -126,6 +121,13 @@ def auto_logging_decorator(func, exception_type, logger):
         else:
             msg = f"Successfully executed GAMMA command: {' '.join(cmd_list)}"
             STATUS_LOG.info(msg, args=args, **kwargs)
+
+        if rc > 0:
+            GAMMA_LOG.debug(f"# GAMMA return code: {rc} (FAIL / ERROR) (GAMMA called from {calling.filename}:{calling.lineno})")
+        else:
+            GAMMA_LOG.debug(f"# GAMMA return code: {rc}                (GAMMA called from {calling.filename}:{calling.lineno})")
+
+        GAMMA_LOG.debug(f"#")
 
         return rc, cout, cerr
 
@@ -279,9 +281,7 @@ class GammaInterface:
         if proxy:
             return proxy.ParFile(filepath)
 
-        STATUS_LOG.info("Calling py_gamma.Parfile(str({filepath}))")
-
-        return py_gamma_broken.ParFile(str(filepath))
+        return GammaParFile(str(filepath))
 
     @classmethod
     def set_proxy(cls, proxy_object):
