@@ -5,6 +5,8 @@ import luigi.configuration
 from luigi.util import requires
 import structlog
 
+import insar.constant as const
+
 from insar.constant import SCENE_DATE_FMT
 from insar.coreg_utils import read_land_center_coords, create_secondary_coreg_tree
 from insar.coregister_dem import coregister_primary
@@ -119,7 +121,7 @@ class CoregisterDemPrimary(luigi.Task):
         )
 
     def run(self):
-        LOG.info("Starting co-registration of DEM and primary scene ({self.stack_id})")
+        LOG.info(f"Starting co-registration of DEM and primary scene ({self.stack_id})")
 
         log = LOG.bind(stack_id=self.stack_id)
         outdir = Path(self.outdir)
@@ -177,7 +179,8 @@ class CoregisterDemPrimary(luigi.Task):
                 dem_offset_measure=dem_offset_measure,
                 dem_window=dem_window,
                 dem_snr=dem_snr,
-                dem_rad_max=dem_rad_max
+                dem_rad_max=dem_rad_max,
+                dem_ovr=const.DEM_OVERSAMPLE_RATE,
                 # TODO: More settings we're not using here
                 # - GH issue #244
             )
