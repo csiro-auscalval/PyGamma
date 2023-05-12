@@ -620,7 +620,7 @@ def frame_resize(
 
 
 def burst_images(paths: SlcPaths):
-    """Make a quick look of .png files for each swath and mosiac slc."""
+    """Make a quick look of .png files for each swath and mosaic slc."""
 
     def _make_png(tab_slc, tab_par, tab_tops):
         _par_vals = ParFile(tab_par)
@@ -633,6 +633,8 @@ def burst_images(paths: SlcPaths):
 
             slc_pathname = tab_slc
             rasf_pathname = bmp_file
+
+            LOG.debug(f"Making a BMP file of {slc_pathname}")
 
             pg.rasSLC(
                 slc_pathname,
@@ -649,6 +651,7 @@ def burst_images(paths: SlcPaths):
                 rasf_pathname,
             )
 
+            LOG.debug(f"Converting BMP file {bmp_file} to PNG ")
             # convert bmp file to png quick look image file
             convert(bmp_file, Path(tab_slc).with_suffix(".png"))
 
@@ -704,7 +707,15 @@ def process_s1_slc(
         #
         # This could be an issue if we wanted higher resolution products in the
         # future though... (8,2 basically limits our upper bound)
-        pg.SLC_mosaic_S1_TOPS(paths.slc_tab, paths.slc, paths.slc_par, 8, 2)  # range looks  # aximuth looks
+        pg.SLC_mosaic_S1_TOPS(paths.slc_tab,
+                              paths.slc,
+                              paths.slc_par,
+                              const.SLC_MOSAIC_RANGE_LOOKS,
+                              const.SLC_MOSAIC_AZIMUTH_LOOKS,
+                              None,
+                              None)
+
+        # DR FIX: Changed the range and azimuth looks to be taken from const
 
         # If an orbit file exists, extract orbital state vectors into the
         # date's SLC .par (overriding embedded orbital state vectors)
@@ -743,7 +754,11 @@ def process_s1_slc_mosaic(
     """
 
     with working_directory(paths.dir):
+        LOG.debug(f"SLC mosaicing using rlks={range_looks} and " \
+                  f"alks={azimuth_looks} and paths: {paths.slc_tab} " \
+                  f"{paths.slc} {paths.slc_par}")
         pg.SLC_mosaic_S1_TOPS(paths.slc_tab, paths.slc, paths.slc_par, range_looks, azimuth_looks)
 
         if write_png:
+            LOG.debug("Writing burst images to PNG")
             burst_images(paths)
