@@ -76,8 +76,6 @@ def gen_dem_rdc(dem_paths: DEMPaths, coreg_paths: CoregisteredPrimaryPaths, dem_
     frame = 8
     ls_mode = 2
 
-    # DR FIX
-
     # Simple trigger for us to move over to gc_map2 when
     # InSAR team confirm they're ready for the switch.
     use_gc_map2 = True
@@ -305,24 +303,15 @@ def offset_calc(
 
             succeeded_land_center = (attempt_rpos, attempt_azpos)
 
-            LOG.info(
-                "DEM coregistration succeeded for land_center",
-                range_px_coord=attempt_rpos,
-                azimuth_px_coord=attempt_azpos,
-            )
-
+            LOG.info(f"DEM coregistration succeeded range_px_coord={attempt_rpos} azimuth_px_coord={attempt_azpos}")
             break
 
         except CoregisterDemException:
             LOG.error(
-                "DEM coregistration failed for land center",
-                range_px_coord=attempt_rpos,
-                azimuth_px_coord=attempt_azpos,
+                f"DEM coregistration failed range_px_coord={attempt_rpos} azimuth_px_coord={attempt_azpos}, retrying... "
             )
-
             # Do NOT raise this exception, we loop through attempting other
             # land centers instead (and finally raise our own exception if all fail)
-            pass
 
     # If no land center succeeded, raise an exception for the failure
     if succeeded_land_center is None:
@@ -965,14 +954,6 @@ def coregister_primary(
         An azimuth look value used on SLCs
     :param multi_look:
         The multi-look value (for both width and height) to use on the DEM.
-    :param dem:
-        A full path to a DEM image file.
-    :param slc:
-        A full path to a SLC image file.
-    :param dem_par:
-        A full path to a DEM parameter file.
-    :param slc_par:
-        A full path to a SLC parameter file.
     :param dem_patch_window:
         An Optional DEM patch window size.
     :param dem_rpos:
@@ -991,14 +972,17 @@ def coregister_primary(
         An Optional dem rad max value.
     :param dem_ovr:
         DEM oversampling factor. Default is 1.
-    :param ext_image_flt:
-        DISABLED: Optional full path to an external image filter to use for
-        co-registration in very flat scenes with no features (rarely used).
     :param land_center:
         A user defined scene center of (latitude, longitude) to use for initial offset.
-    """
+    :param ext_image_flt:
+        DISABLED: Optional full path to an external image filter to use for
+        co-registration in very flat scenes with no features (rarely used)."""
 
-    LOG.info("Generating SLC coregistered to DEM image in radar geometry.")
+    LOG.info(
+        f"Generating SLC coregistered to DEM image "
+        f"in radar geometry using rlks={rlks} alks={alks} "
+        f"multi_look={multi_look}"
+    )
 
     if not dem_snr:
         dem_snr = float(proc_config.dem_snr)
@@ -1015,7 +999,7 @@ def coregister_primary(
 
     if multi_look < 1:
         msg = "multi_look parameter needs to be >= 1"
-        log.error(msg)
+        LOG.error(msg)
         raise ValueError(msg)
 
     # Adjusts DEM parameters to valid, usable values.
@@ -1102,7 +1086,8 @@ def coregister_primary(
             const.NOT_PROVIDED,  # We aren't scaling, just a plain copy
         )
 
-        # multi-look SLC image file
+        LOG.debug(f"Multi-look SLC file {coreg_paths.r_dem_primary_slc} " f"with params rlks={rlks} alks={alks}")
+
         pg.multi_look(
             coreg_paths.r_dem_primary_slc,
             coreg_paths.r_dem_primary_slc_par,
