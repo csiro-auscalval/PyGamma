@@ -13,6 +13,7 @@ import insar.sensors.s1 as s1
 import insar.sensors.rsat2 as rsat2
 import insar.sensors.palsar as palsar
 import insar.sensors.tsx as tsx
+import insar.constant as const
 
 
 class ARDWorkflow(enum.Enum):
@@ -156,7 +157,7 @@ class ProcConfig:
             assert(isinstance(self.land_center[1], numbers.Number))
 
         # FIXME: Should be a setting
-        self.gamma_dem_dir = "GAMMA_DEM"
+        self.gamma_dem_dir = const.GAMMA_DEM_DIR
 
 
     @classmethod
