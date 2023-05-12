@@ -1,38 +1,23 @@
 #!/usr/bin/env python3
 
+import warnings
 import luigi
-import traceback
 import os
 
-import warnings
-warnings.simplefilter(action='error', category=UserWarning)
-#warnings.simplefilter(action='error', category=FutureWarning)
-
-#import luigi.configuration
-
-#from insar.logs import logging_directory, TASK_LOGGER, STATUS_LOGGER
-from insar.logs import STATUS_LOGGER as LOG
+from insar.logs import STATUS_LOGGER as LOG, logging_directory
 from insar.workflow.luigi.ard import ARD
 from typing import Dict, Any
 from pathlib import Path
 
+warnings.simplefilter(action='error', category=UserWarning)
 
-def run():
+def run() -> None:
     print("PyGamma")
-    #with logging_directory(os.getcwd()):
     luigi.run()
-    #try:
-    #    luigi.run()
-    #except Exception as e:
-    #    # Log all exceptions to the status log
-    #    state = e.state if hasattr(e, "state") else {}
-    #    STATUS_LOGGER.error("Unhandled exception running ARD workflow", exc_info=True, **state)
-
-    #    # But don't catch them, release them back to Luigi
-    #    raise e
+    print("Finished.")
 
 
-def run_ard_inline(args: Dict[str, Any]):
+def run_ard_inline(args: Dict[str, Any]) -> None:
     """
     This function simply runs the ARD workflow directly in the same thread of the caller.
 
@@ -101,4 +86,7 @@ def run_ard_inline(args: Dict[str, Any]):
 
 
 if __name__ == "__name__":
+    run()
+
+if __name__ == "__main__":
     run()
