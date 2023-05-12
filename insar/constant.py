@@ -63,9 +63,9 @@ RASCC_THRESHOLD_INCREMENT = 0.2
 RASCC_MIN_CORRELATION = 0
 RASCC_MAX_CORRELATION = 1
 
-RAS_PIXEL_AVERAGE_RANGE = 20
-RAS_PIXEL_AVERAGE_AZIMUTH = 20
-
+# Parameters for `rasSLC` when generating quicklook bmp/png's
+RAS_PIXEL_AVERAGE_RANGE = 20 # resampling
+RAS_PIXEL_AVERAGE_AZIMUTH = 20 # resampling
 RAS_PH_SCALE = 1
 RAS_SCALE = 1
 RAS_EXP = 0.35
@@ -313,3 +313,24 @@ class ErrorMessages(Enum):
 
 
 DISCARD_TEMP_FILES = False
+
+# These used to be hardcoded to 8 and 2 in process_s1_slc.py for
+# SLC_mosaic_S1_TOPS call. This is a test to see if those can be
+# changed to obtain higher-resolution products
+# These parameters are used to determine burst data window in SLC_mosaic_ScanSAR
+
+SLC_MOSAIC_RANGE_LOOKS = 1
+SLC_MOSAIC_AZIMUTH_LOOKS = 1
+
+# This used to be hardcoded in proc config reader, it specifies where the DEM
+# files will be created.
+
+GAMMA_DEM_DIR="DEM"
+
+# The DEM oversampling rate that is used in `gc_map2`.
+
+DEM_OVERSAMPLE_RATE=1
+
+# The DEM oversampling performed on GeoTiff
+
+DEM_GEOTIFF_OVERSAMPLE_RATE=1
