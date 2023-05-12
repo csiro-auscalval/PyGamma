@@ -113,4 +113,4 @@ TASK_LOGGER = getLogger("task", stack_info=True)
 STATUS_LOGGER = getLogger("status")
 GAMMA_LOGGER = getLogger("gamma")
 
-GAMMA_LOGGER.info("#!/usr/bin/env bash")
+GAMMA_LOGGER.debug("#!/usr/bin/env bash")
