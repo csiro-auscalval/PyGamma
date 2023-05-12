@@ -115,19 +115,16 @@ def auto_logging_decorator(func, exception_type, logger):
             GAMMA_LOG.debug(f"# {line}")
 
         if rc > 0:
+            GAMMA_LOG.debug(f"# GAMMA return code: {rc} (FAIL / ERROR) (GAMMA called from {calling.filename}:{calling.lineno})")
+            GAMMA_LOG.debug(f"#")
             msg = f"Failed to execute GAMMA command: {' '.join(cmd_list)}"
             STATUS_LOG.error(msg, args=args, **kwargs)  # NB: cout/cerr already in kwargs
             raise exception_type(msg)
         else:
-            msg = f"Successfully executed GAMMA command: {' '.join(cmd_list)}"
-            STATUS_LOG.info(msg, args=args, **kwargs)
-
-        if rc > 0:
-            GAMMA_LOG.debug(f"# GAMMA return code: {rc} (FAIL / ERROR) (GAMMA called from {calling.filename}:{calling.lineno})")
-        else:
             GAMMA_LOG.debug(f"# GAMMA return code: {rc}                (GAMMA called from {calling.filename}:{calling.lineno})")
-
-        GAMMA_LOG.debug(f"#")
+            GAMMA_LOG.debug(f"#")
+            #msg = f"Successfully executed GAMMA command: {' '.join(cmd_list)}"
+            #STATUS_LOG.info(msg, args=args, **kwargs)
 
         return rc, cout, cerr
 
@@ -194,8 +191,6 @@ def subprocess_wrapper(cmd, *args, **kwargs):
     p = subprocess.run(
         cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
     )
-
-    STATUS_LOG.info(f"Calling GAMMA command `{cmd}` (subprocess_wrapper)", cmd=cmd, cmd_list=cmd_list)
 
     if COUT in kwargs:
         kwargs[COUT].extend(p.stdout.split("\n"))
