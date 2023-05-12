@@ -12,7 +12,7 @@ from insar.project import ProcConfig
 from insar.constant import SCENE_DATE_FMT
 from insar.sensors import identify_data_source, get_data_swath_info
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
-from insar.logs import STATUS_LOGGER
+from insar.logs import STATUS_LOGGER as LOG
 
 # TODO: We may need to split this up:
 # * query utils should be their own file for sure
@@ -199,12 +199,9 @@ def resolve_stack_scene_additional_files(
 
         for swath_data in get_data_swath_info(data_path, download_dir / scene_date):
             if swath_data["polarization"] not in polarisations:
-                STATUS_LOGGER.info(
-                    "Skipping source data which does not match stack polarisations",
-                    source_file=data_path,
-                    source_pol=swath_data["polarization"],
-                    stack_pols=polarisations
-                )
+                LOG.info(f"Skipping source data {data_path} " \
+                         f"with polarisation {swath_data['polarization']} "
+                         f"which does not match stack polarisations {polarisations}")
                 continue
 
             swath_info_by_date[scene_date].append(swath_data)
