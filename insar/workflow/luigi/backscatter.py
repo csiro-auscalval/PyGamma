@@ -169,9 +169,12 @@ class CreateCoregisteredBackscatter(luigi.Task):
 
         # Create backscatter for primary reference scene
         # we do this even though it's not coregistered
+
         primary_scene = read_primary_date(outdir).strftime(SCENE_DATE_FMT)
         primary_dir = outdir / proc_config.slc_dir / primary_scene
         primary_pol = proc_config.polarisation.upper()
+
+        LOG.info(f"Creating Backscatter task for primary reference scene {primary_scene}")
 
         for pol in list(self.polarization):
             prefix = f"{primary_scene}_{pol.upper()}_{rlks}rlks"
@@ -188,11 +191,13 @@ class CreateCoregisteredBackscatter(luigi.Task):
             task = ProcessBackscatter(**kwargs)
             jobs.append(task)
 
-        # Create backscatter tasks for all coregistered scenes
+
         coreg_date_pairs = get_coreg_date_pairs(outdir, proc_config)
 
         for _, secondary_date in coreg_date_pairs:
             secondary_dir = outdir / proc_config.slc_dir / secondary_date
+
+            LOG.info(f"Creating Backscatter task for secondary coregistered scene {secondary_date}")
 
             for pol in list(self.polarization):
                 prefix = f"{secondary_date}_{pol.upper()}_{rlks}rlks"
@@ -205,7 +210,6 @@ class CreateCoregisteredBackscatter(luigi.Task):
                 # backscatters in the future will 'not' be coregistered...
                 kwargs["dst_stem"] = secondary_dir / f"{prefix}"
 
-                LOG.info(f"Creating Backscatter processing task ({kwargs})")
 
                 task = ProcessBackscatter(**kwargs)
                 jobs.append(task)

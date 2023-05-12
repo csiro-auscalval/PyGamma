@@ -329,7 +329,8 @@ class InitialSetup(luigi.Task):
         # Write reference scene before we start processing
         formatted_scene_dates = set([str(dt).replace("-", "") for dt in slc_inputs_df["date"]])
         ref_scene_date = calculate_primary(formatted_scene_dates)
-        LOG.info("Automatically computed primary reference scene date as {ref_scene_date}", ref_scene_date=ref_scene_date)
+
+        LOG.info(f"Automatically computed primary reference scene date as {ref_scene_date}")
 
         with open(paths.list_dir / 'primary_ref_scene', 'w') as ref_scene_file:
             ref_scene_file.write(ref_scene_date.strftime(SCENE_DATE_FMT))

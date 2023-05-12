@@ -192,9 +192,6 @@ def get_scenes(burst_data_csv):
 
 def mk_clean_dir(path: Path):
     # Clear directory in case it has incomplete data from an interrupted run we've resumed
-    if path.exists():
-        shutil.rmtree(path)
-
     path.mkdir(parents=True, exist_ok=True)
 
 def read_rlks_alks(ml_file: Path):

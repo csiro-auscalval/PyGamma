@@ -190,7 +190,7 @@ class ProcessSlcMosaic(luigi.Task):
 
     def run(self):
         log = STATUS_LOGGER.bind(scene_date=self.scene_date, polarisation=self.polarization)
-        log.info("Beginning SLC mosaic")
+        log.info(f"Beginning SLC mosaic with rlks={self.rlks} and alks={self.alks}")
 
         slc_paths = SlcPaths(self.workdir, str(self.scene_date), str(self.polarization))
 

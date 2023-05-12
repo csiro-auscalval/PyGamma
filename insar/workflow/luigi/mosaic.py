@@ -1,15 +1,17 @@
-from pathlib import Path
-import luigi
 import luigi.configuration
 import pandas as pd
-from luigi.util import requires
 import shutil
+import luigi
+
+from luigi.util import requires
+from pathlib import Path
 
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.calc_multilook_values import calculate_mean_look_values
 from insar.paths.stack import StackPaths
 from insar.paths.slc import SlcPaths
+from insar.logs import STATUS_LOGGER as LOG
 
 from insar.workflow.luigi.utils import tdir, get_scenes
 from insar.workflow.luigi.s1 import CreateFullSlc, ProcessSlcMosaic
@@ -58,6 +60,8 @@ class CreateSlcMosaic(luigi.Task):
             slc_par_files,
             int(str(self.multi_look)),
         )
+        LOG.debug(f"Parameter multi_look={self.multi_look}")
+        LOG.debug(f"Mean looks from VV polarisation are rlks={rlks} and alks={alks}")
 
         # first create slc for one complete frame which will be a reference frame
         # to resize the incomplete frames.
@@ -124,9 +128,12 @@ class CreateSlcMosaic(luigi.Task):
                 )
         yield slc_tasks
 
+
         # clean up raw data directory immediately (as it's tens of GB / the sooner we delete it the better)
         if self.cleanup and paths.acquisition_dir.exists():
-            shutil.rmtree(paths.acquisition_dir)
+            LOG.debug(f"Deleting path {paths.acquisition_dir}")
+            #shutil.rmtree(paths.acquisition_dir)
+            #DR FIX
 
         with self.output().open("w") as out_fid:
             out_fid.write("")
