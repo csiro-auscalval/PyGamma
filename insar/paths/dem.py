@@ -5,6 +5,7 @@ from pathlib import Path
 from insar.project import ProcConfig
 from insar.stack import load_stack_config
 
+
 class DEMPaths:
     """
     This class produces pathnames for files relevant to the DEM and it's coregistration
@@ -126,7 +127,7 @@ class DEMPaths:
         self.dem = (proc.output_path / proc.gamma_dem_dir / proc.stack_id).with_suffix(".dem")
         self.dem_par = self.dem.with_suffix(".dem.par")
         self.dem_primary_name = "{}_{}_{}rlks".format(
-            proc.ref_primary_scene, proc.polarisation, proc.range_looks
+            str(proc.ref_primary_scene), str(proc.polarisation), str(proc.range_looks)
         )
         self.dem_primary_name = proc.output_path / proc.dem_dir / self.dem_primary_name
         dmn = self.dem_primary_name
