@@ -5,6 +5,7 @@ import datetime
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.stack import load_stack_config
+from insar.logs import STATUS_LOGGER as LOG
 
 class SlcPaths:
     """
@@ -120,5 +121,6 @@ class SlcPaths:
         self.iw_slc_tops_par = [slc_dir / f"{date}_{pol}_IW{i}.slc.TOPS_par" for i in swaths]
 
         if rlks is not None:
+            LOG.debug(f"Setting rlks={rlks} for scene {date} in SlcPaths object")
             self.mli = slc_dir / f"{date}_{pol}_{rlks}rlks.mli"
             self.mli_par = slc_dir / f"{date}_{pol}_{rlks}rlks.mli.par"
