@@ -5,7 +5,7 @@ import luigi.configuration
 from luigi.util import requires
 import json
 
-from insar.process_ifg import run_workflow, get_ifg_width, TempFileConfig
+from insar.process_ifg import run_workflow, get_ifg_width, TempFilePaths
 from insar.project import ProcConfig, is_flag_value_enabled
 from insar.paths.interferogram import InterferogramPaths
 from insar.paths.stack import StackPaths
@@ -58,7 +58,7 @@ class ProcessIFG(luigi.Task):
         if True:
             ic = InterferogramPaths(proc_config, self.primary_date, self.secondary_date)
             dc = DEMPaths(proc_config)
-            tc = TempFileConfig(ic)
+            tc = TempFilePaths(ic)
 
             # Run interferogram processing workflow w/ ifg width specified in r_primary_mli par file
             with ic.r_primary_mli_par.open('r') as fileobj:
