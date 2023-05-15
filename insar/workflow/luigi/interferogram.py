@@ -1,9 +1,12 @@
-import re
-from pathlib import Path
-import luigi
 import luigi.configuration
-from luigi.util import requires
+import luigi
 import json
+import re
+
+from pathlib import Path
+from typing import Tuple, List, Generator
+
+from luigi.util import requires
 
 from insar.process_ifg import run_workflow, get_ifg_width, TempFilePaths
 from insar.project import ProcConfig, is_flag_value_enabled
@@ -13,7 +16,6 @@ from insar.paths.dem import DEMPaths
 from insar.coreg_utils import read_land_center_coords
 from insar.stack import load_stack_ifg_pairs
 from insar.logs import STATUS_LOGGER as LOG
-
 from insar.workflow.luigi.utils import tdir, mk_clean_dir, PathParameter
 from insar.workflow.luigi.backscatter import CreateCoregisteredBackscatter
 
@@ -32,21 +34,21 @@ class ProcessIFG(luigi.Task):
     primary_date = luigi.Parameter()
     secondary_date = luigi.Parameter()
 
-    def output(self):
+    def output(self) -> luigi.LocalTarget:
         return luigi.LocalTarget(
             tdir(self.workdir) / f"{self.stack_id}_ifg_{self.primary_date}-{self.secondary_date}_status_logs.out"
         )
 
-    def run(self):
+    def run(self) -> None:
         # Load the gamma proc config file
-        with open(str(self.proc_file), 'r') as proc_fileobj:
+        with open(str(self.proc_file), "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
         log = LOG.bind(
             outdir=self.outdir,
             polarisation=proc_config.polarisation,
             primary_date=self.primary_date,
-            secondary_date=self.secondary_date
+            secondary_date=self.secondary_date,
         )
         log.info(f"Beginning interferogram processing for {self.primary_date} - {self.secondary_date}")
 
@@ -54,22 +56,22 @@ class ProcessIFG(luigi.Task):
         # This is to allow processing to fail without stopping the Luigi pipeline, and thus
         # allows as many scenes as possible to fully process even if some scenes fail.
         failed = False
-        #try:
+        # try:
         if True:
             ic = InterferogramPaths(proc_config, self.primary_date, self.secondary_date)
             dc = DEMPaths(proc_config)
             tc = TempFilePaths(ic)
 
             # Run interferogram processing workflow w/ ifg width specified in r_primary_mli par file
-            with ic.r_primary_mli_par.open('r') as fileobj:
+            with ic.r_primary_mli_par.open("r") as fileobj:
                 ifg_width = get_ifg_width(fileobj)
 
             # Read land center coordinates from shape file (if it exists)
-            land_center = None
+            land_center_latlon = None
             if proc_config.land_center:
-                land_center = proc_config.land_center
+                land_center_latlon = proc_config.land_center
             elif self.shape_file:
-                land_center = read_land_center_coords(Path(self.shape_file))
+                land_center_latlon = read_land_center_coords(Path(self.shape_file))
 
             # Determine date pair orbit attributes
             # Note: This only works for S1 (but also... S1 is the only sensor we support whose data comes w/ orbit files)
@@ -84,17 +86,17 @@ class ProcessIFG(luigi.Task):
             # As noted above, only sensors which have orbit files will have this metadata
             # (which is just S1 for now)
             if first_slc_meta.exists():
-                first_slc_meta = json.loads(first_slc_meta.read_text())
+                first_slc_meta_json = json.loads(first_slc_meta.read_text())
 
                 # And some sensors may have metadata, but simply no orbit files
-                if "slc" in first_slc_meta and "orbit_url" in first_slc_meta["slc"]:
-                    first_orbit_precise = "POEORB" in (first_slc_meta["slc"]["orbit_url"] or "")
+                if "slc" in str(first_slc_meta) and ("orbit_url" in str(first_slc_meta_json["slc"])):
+                    first_orbit_precise = "POEORB" in str(first_slc_meta_json["slc"]["orbit_url"] or "")
 
             if second_slc_meta.exists():
-                second_slc_meta = json.loads(second_slc_meta.read_text())
+                second_slc_meta_json = json.loads(second_slc_meta.read_text())
 
-                if "slc" in second_slc_meta and "orbit_url" in second_slc_meta["slc"]:
-                    second_orbit_precise = "POEORB" in (second_slc_meta["slc"]["orbit_url"] or "")
+                if "slc" in str(second_slc_meta) and "orbit_url" in str(second_slc_meta_json["slc"]):
+                    second_orbit_precise = "POEORB" in str(second_slc_meta_json["slc"]["orbit_url"] or "")
 
             # Determine if baseline refinement should be enabled based on a .proc
             # setting (this exists as InSAR team aren't sure on their exact requirements
@@ -131,15 +133,15 @@ class ProcessIFG(luigi.Task):
                 dc,
                 tc,
                 ifg_width,
-                land_center=land_center,
-                enable_refinement=enable_refinement
+                enable_refinement=enable_refinement,
+                land_center_latlon=land_center_latlon,
             )
 
             log.info("Interferogram complete")
-        #except Exception as e:
-        #    log.error("Interferogram failed with exception", exc_info=True)
-        #    failed = True
-        #finally:
+            # except Exception as e:
+            #    log.error("Interferogram failed with exception", exc_info=True)
+            #    failed = True
+            # finally:
             # We flag a task as complete no matter if the scene failed or not!
             with self.output().open("w") as f:
                 f.write("FAILED" if failed else "")
@@ -157,16 +159,14 @@ class CreateProcessIFGs(luigi.Task):
     outdir = PathParameter()
     workdir = PathParameter()
 
-    def output(self):
-        return luigi.LocalTarget(
-            tdir(self.workdir) / f"{self.stack_id}_create_ifgs_status_logs.out"
-        )
+    def output(self) -> luigi.LocalTarget:
+        return luigi.LocalTarget(tdir(self.workdir) / f"{self.stack_id}_create_ifgs_status_logs.out")
 
-    def trigger_resume(self, reprocess_failed_scenes=True):
+    def trigger_resume(self, reprocess_failed_scenes: bool = True) -> List[Tuple[Path, Path]]:
         log = LOG.bind(stack_id=self.stack_id)
 
         # Load the gamma proc config file
-        with open(str(self.proc_file), 'r') as proc_fileobj:
+        with open(str(self.proc_file), "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
         stack_paths = StackPaths(proc_config)
@@ -185,12 +185,13 @@ class CreateProcessIFGs(luigi.Task):
         reprocess_pairs = []
 
         load_stack_ifg_pairs(proc_config)
-        ifgs_list = stack_paths.ifg_pair_lists[0]
-        if ifgs_list.exists():
-            with open(ifgs_list) as ifg_list_file:
-                ifgs_list = [dates.split(",") for dates in ifg_list_file.read().splitlines()]
+        ifgs_list_file = stack_paths.ifg_pair_lists[0]
+        if ifgs_list_file.exists():
+            with open(ifgs_list_file) as fd:
+                date_pairs = [dates.split(",") for dates in fd.read().splitlines()]
+                ifgs_pairs = [(Path(d1), Path(d2)) for d1, d2 in date_pairs]
 
-            for primary_date, secondary_date in ifgs_list:
+            for primary_date, secondary_date in ifgs_pairs:
                 ic = InterferogramPaths(proc_config, primary_date, secondary_date)
 
                 # Check for existence of filtered coh geocode files, if neither exist we need to re-run.
@@ -211,12 +212,12 @@ class CreateProcessIFGs(luigi.Task):
                     contents = file.read().splitlines()
 
                 if len(contents) > 0 and "FAILED" in contents[0]:
-                    primary_date, secondary_date = re.split("[-_]", status_out.stem)[-4:-2]
+                    primary_date, secondary_date = (Path(d) for d in re.split("[-_]", status_out.stem)[-4:-2])
 
                     log.info(f"Resuming IFG ({primary_date},{secondary_date}) because of FAILED processing")
                     reprocess_pairs.append((primary_date, secondary_date))
 
-        reprocess_pairs = set(reprocess_pairs)
+        reprocess_pairs = list(set(reprocess_pairs))
 
         # Any pairs that need reprocessing, we remove the status file of + clean the tree
         for primary_date, secondary_date in reprocess_pairs:
@@ -228,12 +229,13 @@ class CreateProcessIFGs(luigi.Task):
 
         return reprocess_pairs
 
-    def run(self):
+    def run(self) -> Generator[List[ProcessIFG], None, None]:
+
         log = LOG.bind(stack_id=self.stack_id)
         log.info("Process interferograms task")
 
         # Load the gamma proc config file
-        with open(str(self.proc_file), 'r') as proc_fileobj:
+        with open(str(self.proc_file), "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 
         # Parse ifg_list to schedule jobs for each interferogram
@@ -250,7 +252,7 @@ class CreateProcessIFGs(luigi.Task):
                     outdir=self.outdir,
                     workdir=self.workdir,
                     primary_date=primary_date,
-                    secondary_date=secondary_date
+                    secondary_date=secondary_date,
                 )
             )
 
