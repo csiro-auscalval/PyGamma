@@ -29,37 +29,37 @@ class ARDWorkflow(enum.Enum):
 class ProcConfig:
     """Container for Gamma proc files (collection of runtime settings)."""
 
-    output_path: Path = Path()
-    job_path: Path = Path()
-    database_path: Path = Path()
-    s1_path: Path = Path()
-    poeorb_path: Path = Path()
-    resorb_path: Path = Path()
+    output_path: Path
+    job_path: Path
+    database_path: Path
+    s1_path: Path
+    poeorb_path: Path
+    resorb_path: Path
 
-    envisat_orbits: Path = Path()
-    ers_orbits: Path = Path()
-    s1_orbits: Path = Path()
+    envisat_orbits: Path
+    ers_orbits: Path
+    s1_orbits: Path
 
     #FIXME: rename 'dir' to 'path' for consistency?
-    slc_dir: Path = Path()
-    dem_dir: Path = Path()
-    gamma_dem_dir: Path = Path()
-    int_dir: Path = Path()
-    list_dir: Path = Path()
-    raw_data_dir: Path = Path()
+    slc_dir: Path
+    dem_dir: Path
+    gamma_dem_dir: Path
+    int_dir: Path
+    list_dir: Path
+    raw_data_dir: Path
 
-    primary_dem_image: Path = Path('dem.tif')
+    primary_dem_image: Path
 
-    stack_id : Optional[str] = None
-    track : Optional[str] = None
-    orbit : Optional[str] = None
-    land_center : Optional[str] = None
-    polarisation : Optional[str] = None
-    sensor : Optional[str] = None
+    stack_id : Optional[str]
+    track : Optional[str]
+    orbit : Optional[str]
+    land_center : Optional[str]
+    polarisation : Optional[str]
+    sensor : Optional[str]
 
-    multi_look : int = 1
-    range_looks: int = 1
-    azimuth_looks: int = 1
+    multi_look : int
+    range_looks: int
+    azimuth_looks: int
 
     __path_attribs__ = [
         "output_path",
