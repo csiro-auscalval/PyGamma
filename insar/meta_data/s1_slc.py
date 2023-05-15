@@ -90,8 +90,6 @@ class SlcMetadata:
 
         if not match:
             LOG.warning(f"Filename pattern mismatch on {scene}", pattern=self.pattern, scene=self.scene)
-        else:
-            LOG.debug(f"Filename pattern match {match.groupdict()}")
 
         # taken from /insar/s1_slc_metadata.py, which are used in S1DataDownload
         self.date_fmt = "%Y%m%d"
