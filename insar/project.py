@@ -7,7 +7,9 @@ import pathlib
 import itertools
 import enum
 import numbers
-from typing import Union
+
+from typing import Union, Optional
+from pathlib import Path
 
 import insar.sensors.s1 as s1
 import insar.sensors.rsat2 as rsat2
@@ -26,6 +28,38 @@ class ARDWorkflow(enum.Enum):
 
 class ProcConfig:
     """Container for Gamma proc files (collection of runtime settings)."""
+
+    output_path: Path = Path()
+    job_path: Path = Path()
+    database_path: Path = Path()
+    s1_path: Path = Path()
+    poeorb_path: Path = Path()
+    resorb_path: Path = Path()
+
+    envisat_orbits: Path = Path()
+    ers_orbits: Path = Path()
+    s1_orbits: Path = Path()
+
+    #FIXME: rename 'dir' to 'path' for consistency?
+    slc_dir: Path = Path()
+    dem_dir: Path = Path()
+    gamma_dem_dir: Path = Path()
+    int_dir: Path = Path()
+    list_dir: Path = Path()
+    raw_data_dir: Path = Path()
+
+    primary_dem_image: Path = Path('dem.tif')
+
+    stack_id : Optional[str] = None
+    track : Optional[str] = None
+    orbit : Optional[str] = None
+    land_center : Optional[str] = None
+    polarisation : Optional[str] = None
+    sensor : Optional[str] = None
+
+    multi_look : int = 1
+    range_looks: int = 1
+    azimuth_looks: int = 1
 
     __path_attribs__ = [
         "output_path",
@@ -173,6 +207,7 @@ class ProcConfig:
         ]
         kv_pairs = [line.split("=") for line in raw_lines]
 
+        # FIXME: this causes bugs, fix it
         # rename any keys with hyphens
         for pair in kv_pairs:
             pair[0] = pair[0].replace("-", "_")
