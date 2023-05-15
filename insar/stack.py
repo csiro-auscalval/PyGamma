@@ -257,7 +257,7 @@ def resolve_stack_scene_additional_files(
 
                     swath_data["missing_primary_bursts"] = missing_bursts
 
-        slc_inputs_df = slc_inputs_df.append(swath_data_list, ignore_index=True)
+        slc_inputs_df = pd.concat([slc_inputs_df, pd.DataFrame(swath_data_list)], ignore_index=True)
 
     return slc_inputs_df
 
