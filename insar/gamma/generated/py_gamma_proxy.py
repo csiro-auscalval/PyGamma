@@ -1469,8 +1469,6 @@ class PyGammaProxy(object):
     def coord_to_sarpix(self, SLC_par: str, OFF_par: str, DEM_par: str, north_lat, east_lon, hgt, DIFF_par = None):
         supplied_args = self._clean_call_args(locals(), inspect.signature(self.coord_to_sarpix))
 
-        LOG.debug(f"coord_to_sarpix: {supplied_args}")
-
         if self.validate_inputs:
             self._validate_coord_to_sarpix(*supplied_args)
 
