@@ -58,7 +58,7 @@ class ARD(luigi.WrapperTask):
     # Overridable query params (can come from .proc, or task)
     stack_id = luigi.OptionalParameter(default=None)
     sensor = luigi.OptionalParameter(default=None)
-    polarization = luigi.ListParameter(default=None)
+    polarization = luigi.ListParameter(default=['VV'])
     orbit = luigi.OptionalParameter(default=None)
     require_precise_orbit = luigi.BoolParameter(default=False)
 
@@ -328,7 +328,7 @@ class ARD(luigi.WrapperTask):
         # Check if any input even exists (and skip yielding workflow if not)
         scenes_list = self.output_path / proc_config.list_dir / "scenes.list"
         if not scenes_list.exists() or not scenes_list.read_text().strip():
-            LOG.info("Stack processing aborted, no scenes provided or match query.")
+            LOG.info(f"Stack processing aborted, no scenes provided in {scenes_list}")
             return
 
         # Yield appropriate workflow
