@@ -56,9 +56,10 @@ def run_command(command, work_dir, timeout=None, command_name=None, return_stdou
 
     cmd = str(command)
 
-    if proc.returncode != 0:
-        GAMMA_LOG.error(f"# {cmd} has non-zero return code {proc.returncode}")
+    stdout_decode = stdout.decode("utf-8")
+    stderr_decode = stderr.decode("utf-8")
 
+    if proc.returncode != 0:
         STATUS_LOG.error(
             f"GAMMA command {cmd} has non-zero return code {proc.returncode}",
             command=cmd,
@@ -72,8 +73,5 @@ def run_command(command, work_dir, timeout=None, command_name=None, return_stdou
             raise CommandError(f'GAMMA command `{command_name}` timed out')
         else:
             raise CommandError(f'GAMMA command `{command_name}` has return code: {proc.returncode}')
-
-    stdout_decode = stdout.decode("utf-8")
-    #stderr_decode = stderr.decode("utf-8")
 
     return stdout_decode
