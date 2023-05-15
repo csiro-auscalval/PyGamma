@@ -151,7 +151,6 @@ class CoregisterDemPrimary(luigi.Task):
             dem_outdir = outdir / proc_config.dem_dir
             mk_clean_dir(dem_outdir)
 
-            LOG.debug("Read landing center coordinates from shape file (if it exists)")
             land_center = None
             if proc_config.land_center:
                 land_center = proc_config.land_center
