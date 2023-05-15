@@ -303,12 +303,12 @@ def offset_calc(
 
             succeeded_land_center = (attempt_rpos, attempt_azpos)
 
-            LOG.info(f"DEM coregistration succeeded range_px_coord={attempt_rpos} azimuth_px_coord={attempt_azpos}")
+            LOG.info(f"DEM coregistration succeeded (range_px_coord={attempt_rpos},azimuth_px_coord={attempt_azpos})")
             break
 
         except CoregisterDemException:
             LOG.error(
-                f"Attempt at DEM coregistration failed range_px_coord={attempt_rpos} azimuth_px_coord={attempt_azpos}, retrying... "
+                f"Attempt at DEM coregistration failed (range_px_coord={attempt_rpos}, zimuth_px_coord={attempt_azpos}), retrying... "
             )
             # Do NOT raise this exception, we loop through attempting other
             # land centers instead (and finally raise our own exception if all fail)
