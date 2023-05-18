@@ -2,18 +2,20 @@ import datetime
 import geopandas
 import os
 
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Union
 from pathlib import Path
 
 import insar.constant as const
 
+from insar.gamma.generated import PyGammaProxy
 from insar.constant import SCENE_DATE_FMT
 from insar.logs import STATUS_LOGGER as LOG
 from insar.project import ProcConfig
 from insar.subprocess_utils import run_command
 from insar.utils import TemporaryDirectory
 
-def rm_file(path):
+
+def rm_file(path: Path) -> None:
     """
     A hacky unlink/delete file function for Python <3.8.
 
@@ -25,12 +27,12 @@ def rm_file(path):
         path.unlink()
 
 
-def parse_date(scene_name):
-    """ Parse str scene_name into datetime object. """
+def parse_date(scene_name: str) -> datetime.datetime:
+    """Parse str scene_name into datetime object."""
     return datetime.datetime.strptime(scene_name, SCENE_DATE_FMT)
 
 
-def read_land_center_coords(shapefile: Path):
+def read_land_center_coords(shapefile: Path) -> Optional[Tuple[int, int]]:
     """
     Reads the land center coordinates from a shapefile, if any exists.
 
@@ -63,10 +65,10 @@ def read_land_center_coords(shapefile: Path):
     if north_lat is None or east_lon is None:
         return None
 
-    return north_lat, east_lon
+    return (north_lat, east_lon)
 
 
-def latlon_to_px(pg, mli_par: Path, lat, lon, hgt=0):
+def latlon_to_px(pg: PyGammaProxy, mli_par: Path, lat: float, lon: float, hgt: float = 0) -> Tuple[int, int]:
     """
     Reads land center coordinates from a shapefile and converts into pixel coordinates for a multilook image
 
@@ -77,7 +79,8 @@ def latlon_to_px(pg, mli_par: Path, lat, lon, hgt=0):
     :return (range/altitude, line/azimuth) pixel coordinates
     """
 
-    # Convert lat/long to pixel coords
+    LOG.debug(f"Converting lat/lon to pixel coords using {mli_par}")
+
     _, cout, _ = pg.coord_to_sarpix(
         mli_par,
         None,
@@ -89,13 +92,14 @@ def latlon_to_px(pg, mli_par: Path, lat, lon, hgt=0):
 
     # Extract pixel coordinates from stdout
     # Example: SLC/MLI range, azimuth pixel (int):         7340        17060
+
     matched = [i for i in cout if i.startswith("SLC/MLI range, azimuth pixel (int):")]
     if len(matched) != 1:
         error_msg = "Failed to convert scene land center from lat/lon into pixel coordinates!"
         raise Exception(error_msg)
 
     rpos, azpos = matched[0].split()[-2:]
-    return int(rpos), int(azpos)
+    return (int(rpos), int(azpos))
 
 
 def create_diff_par(
@@ -105,7 +109,7 @@ def create_diff_par(
     offset: Optional[Tuple[int, int]],
     num_measurements: Optional[Tuple[int, int]],
     window_sizes: Optional[Tuple[int, int]],
-    cc_thresh: Optional[float]
+    cc_thresh: Optional[float],
 ) -> None:
     """
     This is a wrapper around the GAMMA `create_diff_par` program.
@@ -172,7 +176,7 @@ def create_diff_par(
         run_command(command, os.getcwd())
 
 
-def grep_stdout(std_output: List[str], match_start_string: str) -> str:
+def grep_stdout(std_output: List[str], match_start_string: str) -> Optional[str]:
     """
     A helper method to return matched string from std_out.
 
@@ -187,9 +191,10 @@ def grep_stdout(std_output: List[str], match_start_string: str) -> str:
     for line in std_output:
         if line.startswith(match_start_string):
             return line
+    return None
 
 
-def standardise_to_date(dt):
+def standardise_to_date(dt: Union[datetime.datetime, datetime.date, str]) -> datetime.date:
     if isinstance(dt, datetime.datetime):
         return dt.date()
     elif isinstance(dt, str):
@@ -200,7 +205,7 @@ def standardise_to_date(dt):
     raise NotImplementedError("Unsupported date type")
 
 
-def load_coreg_tree(proc_config: ProcConfig) -> List[List[Tuple[str,str]]]:
+def load_coreg_tree(proc_config: ProcConfig) -> List[List[Tuple[str, str]]]:
     list_dir = proc_config.output_path / proc_config.list_dir
     result = []
 
@@ -225,9 +230,7 @@ def load_coreg_tree(proc_config: ProcConfig) -> List[List[Tuple[str,str]]]:
     return result
 
 
-def find_scenes_in_range(
-    primary_dt, date_list, thres_days: int, include_closest: bool = True
-):
+def find_scenes_in_range(primary_dt, date_list, thres_days: int, include_closest: bool = True):
     """
     Creates a list of frame dates that within range of a primary date.
 
@@ -421,7 +424,9 @@ def append_secondary_coreg_tree(primary_dt, old_date_lists, new_date_list, thres
         # each other AND at least one is within thres_days of the latest date
         # already in the stack (eg: there's a chain from latest to all these dates)
         if not any(abs(latest_stack_date - dt) <= thresh_dt for dt in new_dates):
-            raise ValueError("The provided dates do not contain any that are within thres_dt of the latest date in the coreg tree")
+            raise ValueError(
+                "The provided dates do not contain any that are within thres_dt of the latest date in the coreg tree"
+            )
 
         for date in new_dates:
             if not any(abs(date - dt) <= thresh_dt for dt in new_dates if dt != date):
