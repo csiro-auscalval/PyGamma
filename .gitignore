@@ -1,3 +1,6 @@
+utils/gamma_usage*
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codr]
