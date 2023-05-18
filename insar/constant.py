@@ -37,7 +37,7 @@ NUM_OFFSET_ESTIMATES_AZIMUTH : int = 256
 CROSS_CORRELATION_THRESHOLD : float = 0.1
 
 NON_INTERACTIVE : int = 0
-NOT_PROVIDED : str = "-"
+NOT_PROVIDED = None
 
 DIFF_PAR_OFFSET : int = 0  # ISP offset and interferogram parameters
 DIFF_PAR_SLC_MLI : int = 1  # ISP SLC/MLI parameters (default)
@@ -185,6 +185,7 @@ DEFAULT_STARTING_LINE : int = 1
 DISPLAY_TO_EOF : int = 0
 
 DTYPE_GEOTIFF_FLOAT : int = 2
+DTYPE_GEOTIFF_SCOMPLEX : int = 3
 
 # file patterns to delete after geocoding step
 TEMP_FILE_GLOBS : List[str] = [
@@ -283,10 +284,10 @@ class MatchStrings(Enum):
 # Other match strings
 
 # DEM diff file
-RANGE_SAMPLE_1 : Path = Path("range_samp_1:")
+RANGE_SAMPLE_1 : str = "range_samp_1:"
 
 # DEM GEO param file
-DEM_GEO_WIDTH : Path = Path("width:")
+DEM_GEO_WIDTH : str = "width:"
 
 
 class ErrorMessages(Enum):
