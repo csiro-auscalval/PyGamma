@@ -153,8 +153,8 @@ def coarse_registration(
     log.info("Beginning coarse coregistration")
 
     # Read SLC/MLI dimensions
-    par_slc = ParFile(str(paths.r_dem_primary_slc_par))
-    par_mli = ParFile(str(paths.r_dem_primary_mli_par))
+    par_slc = ParFile(paths.r_dem_primary_slc_par)
+    par_mli = ParFile(paths.r_dem_primary_mli_par)
 
     slc_width = par_slc.get_value("range_samples", dtype=int, index=0)
     slc_height = par_slc.get_value("azimuth_lines", dtype=int, index=0)
@@ -172,9 +172,9 @@ def coarse_registration(
 
     # create secondary offset
     pg.create_offset(
-        str(paths.r_dem_primary_slc_par),
-        str(paths.secondary.slc_par),
-        str(paths.secondary_off),
+        paths.r_dem_primary_slc_par,
+        paths.secondary.slc_par,
+        paths.secondary_off,
         1,  # intensity cross-correlation
         rlks,
         alks,
@@ -200,17 +200,17 @@ def coarse_registration(
             # re-sample ScanSAR burst mode SLC using a look-up-table and SLC offset polynomials for refinement
             with working_directory(temp_dir):
                 pg.SLC_interp_lt_ScanSAR(
-                    str(paths.secondary_slc_tab),
-                    str(paths.secondary.slc_par),
-                    str(paths.primary_slc_tab),
-                    str(paths.r_dem_primary_slc_par),
-                    str(paths.secondary_lt),
-                    str(paths.r_dem_primary_mli_par),
-                    str(paths.secondary.mli_par),
-                    str(secondary_off_start),
-                    str(paths.r_secondary_slc_tab),
-                    str(paths.r_secondary_slc),
-                    str(paths.r_secondary_slc_par),
+                    paths.secondary_slc_tab,
+                    paths.secondary.slc_par,
+                    paths.primary_slc_tab,
+                    paths.r_dem_primary_slc_par,
+                    paths.secondary_lt,
+                    paths.r_dem_primary_mli_par,
+                    paths.secondary.mli_par,
+                    secondary_off_start,
+                    paths.r_secondary_slc_tab,
+                    paths.r_secondary_slc,
+                    paths.r_secondary_slc_par,
                 )
 
                 if secondary_doff.exists():
@@ -218,9 +218,9 @@ def coarse_registration(
 
                 # create and update ISP offset parameter file
                 pg.create_offset(
-                    str(paths.r_dem_primary_slc_par),
-                    str(paths.secondary.slc_par),
-                    str(secondary_doff),
+                    paths.r_dem_primary_slc_par,
+                    paths.secondary.slc_par,
+                    secondary_doff,
                     1,  # intensity cross-correlation
                     rlks,
                     alks,
@@ -229,13 +229,13 @@ def coarse_registration(
 
                 # offset tracking between SLC images using intensity cross-correlation
                 pg.offset_pwr_tracking(
-                    str(paths.primary.slc),
-                    str(paths.r_secondary_slc),
-                    str(paths.r_dem_primary_slc_par),
-                    str(paths.r_secondary_slc_par),
-                    str(secondary_doff),
-                    str(secondary_offs),
-                    str(secondary_snr),
+                    paths.primary.slc,
+                    paths.r_secondary_slc,
+                    paths.r_dem_primary_slc_par,
+                    paths.r_secondary_slc_par,
+                    secondary_doff,
+                    secondary_offs,
+                    secondary_snr,
                     128,  # rwin
                     64,  # azwin
                     const.NOT_PROVIDED,  # offsets
@@ -251,9 +251,9 @@ def coarse_registration(
 
                 # range and azimuth offset polynomial estimation
                 _, cout, _ = pg.offset_fit(
-                    str(secondary_offs),
-                    str(secondary_snr),
-                    str(secondary_doff),
+                    secondary_offs,
+                    secondary_snr,
+                    secondary_doff,
                     const.NOT_PROVIDED,  # coffs
                     const.NOT_PROVIDED,  # coffsets
                     0.2,  # thresh
@@ -292,9 +292,9 @@ def coarse_registration(
                     os.remove(secondary_diff_par)
 
                 # create template diff parameter file for geocoding
-                par1_pathname = str(paths.r_dem_primary_mli_par)
-                par2_pathname = str(paths.r_dem_primary_mli_par)
-                diff_par_pathname = str(secondary_diff_par)
+                par1_pathname = paths.r_dem_primary_mli_par
+                par2_pathname = paths.r_dem_primary_mli_par
+                diff_par_pathname = secondary_diff_par
                 par_type = 1  # SLC/MLI_par ISP SLC/MLI parameters
                 iflg = 0  # non-interactive mode
 
@@ -307,8 +307,8 @@ def coarse_registration(
                 )
 
                 # update range_offset_polynomial in diff param file
-                par_in_pathname = str(secondary_diff_par)
-                par_out_pathname = str(secondary_diff_par)
+                par_in_pathname = secondary_diff_par
+                par_out_pathname = secondary_diff_par
                 search_keyword = "range_offset_polynomial"
                 new_value = f"{d_range_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
 
@@ -320,8 +320,8 @@ def coarse_registration(
                 )
 
                 # update azimuth_offset_polynomial in diff param file
-                par_in_pathname = str(secondary_diff_par)
-                par_out_pathname = str(secondary_diff_par)
+                par_in_pathname = secondary_diff_par
+                par_out_pathname = secondary_diff_par
                 search_keyword = "azimuth_offset_polynomial"
                 new_value = f"{d_azimuth_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
 
@@ -338,10 +338,10 @@ def coarse_registration(
 
                 # geocoding look-up table refinement using diff par offset polynomial
                 pg.gc_map_fine(
-                    str(_secondary_lt),
+                    _secondary_lt,
                     mli_width,
-                    str(secondary_diff_par),
-                    str(paths.secondary_lt),
+                    secondary_diff_par,
+                    paths.secondary_lt,
                     1,  # ref_flg
                 )
 
@@ -438,17 +438,17 @@ def fine_coregistration(
 
             # GM SLC_interp_lt_S1_TOPS $secondary_slc_tab $secondary_slc_par $primary_slc_tab $r_dem_primary_slc_par $secondary_lt $r_dem_primary_mli_par $secondary_mli_par $secondary_off_start $r_secondary_slc_tab $r_secondary_slc $r_secondary_slc_par
             pg.SLC_interp_lt_ScanSAR(
-                str(paths.secondary_slc_tab),
-                str(paths.secondary.slc_par),
-                str(paths.primary_slc_tab),
-                str(paths.r_dem_primary_slc_par),
-                str(paths.secondary_lt),
-                str(paths.r_dem_primary_mli_par),
-                str(paths.secondary.mli_par),
-                str(secondary_off_start),
-                str(paths.r_secondary_slc_tab),
-                str(paths.r_secondary_slc),
-                str(paths.r_secondary_slc_par),
+                paths.secondary_slc_tab,
+                paths.secondary.slc_par,
+                paths.primary_slc_tab,
+                paths.r_dem_primary_slc_par,
+                paths.secondary_lt,
+                paths.r_dem_primary_mli_par,
+                paths.secondary.mli_par,
+                secondary_off_start,
+                paths.r_secondary_slc_tab,
+                paths.r_secondary_slc,
+                paths.r_secondary_slc_par,
             )
 
             # Query tertiary coreg scene (based on list_idx)
@@ -475,11 +475,11 @@ def fine_coregistration(
                     accuracy_warning,
                     iteration,
                     secondary_ovr_res,
-                    str(paths.r_primary_secondary_name),
-                    str(paths.primary_slc_tab),
-                    str(paths.r_secondary_slc_tab),
-                    str(secondary_off_start),
-                    str(paths.secondary_off),
+                    paths.r_primary_secondary_name,
+                    paths.primary_slc_tab,
+                    paths.r_secondary_slc_tab,
+                    secondary_off_start,
+                    paths.secondary_off,
                     float(proc.coreg_s1_cc_thresh),
                     float(proc.coreg_s1_frac_thresh),
                     float(proc.coreg_s1_stdev_thresh),
