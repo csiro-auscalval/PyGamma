@@ -1,50 +1,22 @@
 import io
 import copy
 
+from pathlib import Path
+
 from insar.logs import STATUS_LOGGER as LOG
 
 class GammaParFile:
     par_dict = {}  # dict of parameter key and value
     par_keys = []  # ordered list of keys (dict is not keeping sequence)
 
-    def __init__(self, *args):
+    def __init__(self, input_file: Path):
         par_dict = {}
         par_keys = []
 
-        if len(args) > 0:
-            input_file = args[0]
-            if isinstance(input_file, str):
-                pf = io.open(input_file, "r", encoding="utf8", errors="ignore")
-                file_name = True
-            else:
-                try:
-                    if isinstance(input_file, io.TextIOWrapper):
-                        pf = input_file
-                        file_name = False
-                    else:
-                        LOG.error("Invalid input_file")
-                        return -1
-                except:
-                    try:
-                        if sys.version_info[0] < 3:
-                            if isinstance(input_file, file):
-                                pf = input_file
-                                file_name = False
-                            else:
-                                LOG.error("Invalid input_file")
-                                return -1
-                        else:
-                            if isinstance(input_file, io.IOBase):
-                                pf = input_file
-                                file_name = False
-                            else:
-                                LOG.error("Invalid input_file")
-                                return -1
-                    except:
-                        LOG.error("Invalid input_file")
-                        return -1
+        with open(input_file, "r", encoding="utf8", errors="ignore") as pf:
             kv = []
             pv = []
+
             line = pf.readline()  # read line
 
             while line:
@@ -76,13 +48,11 @@ class GammaParFile:
                         pv = ast.literal_eval(p2)  # interpret string as a list and convert to a list
                     except:
                         LOG.error(f"String value cannot be interpreted as a Python list: {p2} {type(p2)}")
-                        return -1
                 elif p2[0] == "{":  # test if data are in dictionary notation
                     try:
                         pv = ast.literal_eval(p2)
                     except:
                         LOG.error(f"String value cannot be interpreted as a Python list: {p2} {type(p2)}")
-                        return -1
                 elif (
                     len(p2.split('"')) == 3
                 ):  # test if value is in quotes, create a list and add the value
@@ -104,8 +74,7 @@ class GammaParFile:
             self.par_dict = par_dict  # store dict
             self.par_keys = par_keys  # store keyword list
 
-            if file_name:
-                pf.close()
+            pf.close()
 
     def dump(self):
         for key in self.par_keys:
