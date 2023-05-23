@@ -117,7 +117,7 @@ def auto_logging_decorator(func, exception_type, logger):
         if rc > 0:
             GAMMA_LOG.debug(f"# GAMMA return code: {rc} (FAIL / ERROR) (GAMMA called from {calling.filename}:{calling.lineno})")
             GAMMA_LOG.debug(f"#")
-            msg = f"Failed to execute GAMMA command: {' '.join(cmd_list)}"
+            msg = f"Failed to execute GAMMA command: `{' '.join(cmd_list)}`, Error text: `{''.join(cerr)}`"
             STATUS_LOG.error(msg, args=args, **kwargs)  # NB: cout/cerr already in kwargs
             raise exception_type(msg)
         else:
