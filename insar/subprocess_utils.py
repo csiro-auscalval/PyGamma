@@ -67,7 +67,7 @@ def run_command(command, work_dir, timeout=None, command_name=None, return_stdou
         )
 
         if command_name is None:
-            command_name = cmd
+            command_name = ' '.join([str(x) for x in command])
 
         if timed_out:
             raise CommandError(f'GAMMA command `{command_name}` timed out')
