@@ -95,21 +95,19 @@ def create_gamma_dem(
 
         # dem_import function is a call to GAMMA software which creates a gamma compatible DEM
         dem_pathname = output_path / f"{stack_id}.dem"
-        par_pathname = f"{dem_pathname}.par"
-        input_type = 0  # GeoTIFF
-        priority = 1  # input DEM parameters have priority
+        par_pathname = Path(f"{dem_pathname}.par")
 
         pg.dem_import(
             outfn,
             dem_pathname,
             par_pathname,
-            input_type,
-            priority,
-            const.NOT_PROVIDED,  # geoid or constant geoid height value
-            const.NOT_PROVIDED,  # geoid_par, geoid DEM_par file
-            const.NOT_PROVIDED,  # geoid_type, global geoid in EQA coordinates
-            const.NOT_PROVIDED,  # lat_n_shift, latitude or Northing constant shift to apply
-            const.NOT_PROVIDED,  # lon_e_shift, longitude or Easting constant shift
-            const.NOT_PROVIDED,  # zflg, no_data values in input file are kept in output file
-            const.NOT_PROVIDED,  # no_data, value defined in input metadata
+            0,
+            1,
+            const.NOT_PROVIDED,
+            const.NOT_PROVIDED,
+            const.NOT_PROVIDED,
+            const.NOT_PROVIDED,
+            const.NOT_PROVIDED,
+            const.NOT_PROVIDED,
+            const.NOT_PROVIDED,
         )
