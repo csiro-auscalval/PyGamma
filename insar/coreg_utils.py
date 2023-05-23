@@ -164,15 +164,21 @@ def create_diff_par(
             else:
                 fid.write("\n")
 
+        if second_par_path is None:
+            second_par_path_ = '-'
+        else:
+            second_par_path_ = str(second_par_path)
+
         command = [
             "create_diff_par",
             str(first_par_path),
-            str(second_par_path or const.NOT_PROVIDED),
+            second_par_path_,
             str(diff_par_path),
             "1",  # SLC/MLI_par input types
             "<",
-            return_file.as_posix(),
+            return_file.absolute(),
         ]
+
         run_command(command, os.getcwd())
 
 
