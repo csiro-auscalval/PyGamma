@@ -64,8 +64,8 @@ RASCC_MIN_CORRELATION : int = 0
 RASCC_MAX_CORRELATION : int = 1
 
 # Parameters for `rasSLC` when generating quicklook bmp/png's
-RAS_PIXEL_AVERAGE_RANGE : int = 20 # resampling
-RAS_PIXEL_AVERAGE_AZIMUTH : int = 20 # resampling
+RAS_PIXEL_AVERAGE_RANGE : int = 50 # resampling
+RAS_PIXEL_AVERAGE_AZIMUTH : int = 50 # resampling
 RAS_PH_SCALE : int = 1
 RAS_SCALE : int = 1
 RAS_EXP : float = 0.35
