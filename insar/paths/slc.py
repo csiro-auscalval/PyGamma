@@ -53,7 +53,7 @@ class SlcPaths:
     Note: This may be None if no range looks had been provided to the constructor.
     """
 
-    mli_par: Optional[Path]
+    mli_par: Path
     """
     The path to the GAMMA par file for `self.mli`.
 
