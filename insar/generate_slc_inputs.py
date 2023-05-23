@@ -150,7 +150,7 @@ def _check_slc_input_data(
 
                     slc_gpd = gpd.GeoDataFrame(
                         slc_df,
-                        crs={"init": "epsg:4326"},
+                        crs="epsg:4326",
                         geometry=slc_df["AsText(bursts_metadata.burst_extent)"].map(
                             shapely.wkt.loads
                         ),
