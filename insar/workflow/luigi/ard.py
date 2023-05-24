@@ -86,20 +86,24 @@ class ARD(luigi.WrapperTask):
 
         pols = self.polarization
 
+        LOG.info(f"Loading config from {self.proc_file}")
+
         with open(str(self.proc_file), "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
+
+        LOG.info(f"Done loading config from {self.proc_file}")
 
         orbit = str(self.orbit or proc_config.orbit)[:1].upper()
         stack_id = str(self.stack_id or proc_config.stack_id)
 
         if not stack_id:
+            LOG.error("Missing stack_id!")
             raise Exception("Missing attribute: stack_id!")
 
-        # Override input proc settings as required...
-        # - map luigi params to compatible names
+        LOG.debug(f"Override input proc settings as required...")
 
-        self.output_path = Path(self.outdir).as_posix() if self.outdir else None
-        self.job_path = Path(self.workdir).as_posix() if self.workdir else None
+        self.output_path = Path(self.outdir) if self.outdir else None
+        self.job_path = Path(self.workdir) if self.workdir else None
 
         override_params = [
             # Note: "sensor" is NOT over-written...
@@ -128,14 +132,15 @@ class ARD(luigi.WrapperTask):
                                    f"`{name.upper()}={override_value}`")
                 setattr(proc_config, name, override_value)
 
-        # Explicitly handle workflow enum
+        LOG.debug(f"Explicitly handle workflow enumeration")
+
         workflow = self.workflow
         if workflow:
             proc_config.workflow = str(workflow)
-
         else:
             matching_workflow = [name for name in ARDWorkflow if name.lower() == proc_config.workflow.lower()]
             if not matching_workflow:
+                LOG.error(f"Failed to match .proc workflow {proc_config.workflow} to ARDWorkflow enum!")
                 raise Exception(f"Failed to match .proc workflow {proc_config.workflow} to ARDWorkflow enum!")
 
             workflow = matching_workflow[0]
@@ -149,7 +154,7 @@ class ARD(luigi.WrapperTask):
         else:
             pols = [proc_config.polarisation or "VV"]
 
-        # Infer key variables from the config
+        LOG.debug(f"Infer key variables from the config")
         self.output_path = Path(proc_config.output_path)
         self.job_path = Path(proc_config.job_path)
         orbit = proc_config.orbit[:1].upper()
@@ -157,18 +162,21 @@ class ARD(luigi.WrapperTask):
         existing_stack = False
         append = bool(self.append)
 
-        # Check if this stack already exists (eg: has a config.proc and scenes.list)
+        LOG.debug(f"Check if this stack already exists (eg: has a config.proc and scenes.list)")
         if proc_file.exists():
             existing_config = load_stack_config(proc_file)
 
-            # Determine what scenes have already been added to the stack
+            LOG.debug(f"Determine what scenes have already been added to the stack")
             # - this is from prior include date queries + explicit source data
+
             existing_scenes = load_stack_scenes(existing_config)
+
             existing_stack = bool(existing_scenes)
 
-        # If the stack DOES already exist...
+        LOG.debug(f"Checking if the stack DOES already exist...")
         if existing_stack:
-            # Determine what scenes we're now asking to be in the stack...
+            LOG.info("Outputs already exist, determining what additional scenes to process")
+
             include_date_spec = [(d.date_a, d.date_b + one_day) for d in self.include_dates or []]
             exclude_date_spec = [(d.date_a, d.date_b + one_day) for d in self.exclude_dates or []]
 
@@ -255,7 +263,10 @@ class ARD(luigi.WrapperTask):
         # Note: This is only required due to the less than ideal design we
         # have where we have had to put a fair bit of logic into requires()
         # which is in fact called multiple times (even after InitialSetup!)
+
         if proc_file.exists():
+            LOG.error(f"Warning: configuration {proc_file} already exists!")
+
             assert(existing_config.__slots__ == proc_config.__slots__)
 
             conflicts = []
@@ -277,26 +288,22 @@ class ARD(luigi.WrapperTask):
                     conflicts.append((name, new_val, old_val))
 
             if conflicts:
-                msg = f"New .proc settings do not match existing {proc_file}. Conflicts are: {conflicts}"
-                error = Exception(msg)
-                error.state = { "conflicts": conflicts }
-                LOG.info(msg, **error.state)
-                raise error
+                LOG.error(f"Warning: New .proc settings do not match existing {proc_file}. Conflicts are: {conflicts}")
 
-        # Create dirs
+        LOG.debug(f"Create output dirs")
         os.makedirs(self.output_path / proc_config.list_dir, exist_ok=True)
         os.makedirs(self.job_path, exist_ok=True)
 
-        # Save final config w/ any newly supplied or inferred settings.
+        LOG.debug(f"Save final config w/ any newly supplied or inferred settings.")
         with open(proc_file, "w") as proc_fileobj:
             proc_config.save(proc_fileobj)
 
-        # generate (just once) a unique token for tasks that need to re-run
+        LOG.debug(f"generate (just once) a unique token for tasks that need to re-run")
         if self.resume:
             if not hasattr(self, 'resume_token'):
                 self.resume_token = datetime.datetime.now().strftime("%Y%m%d-%H%M")
 
-        # Coregistration processing
+        LOG.debug(f"Coregistration processing")
         ard_tasks = []
         self.output_dirs = [self.output_path]
 
@@ -318,20 +325,18 @@ class ARD(luigi.WrapperTask):
             "require_precise_orbit": self.require_precise_orbit,
         }
 
-        # Need to make an instance of anything that can hold all of kwargs, for common param
-        # calculations via luigi's util function
         temp = CreateProcessIFGs(**kwargs)
 
-        # Yield stack setup first (so we can determine if there is any data to process at all)
+        LOG.debug(f"Yield stack setup first (so we can determine if there is any data to process at all)")
         yield InitialSetup(**common_params(temp, InitialSetup))
 
-        # Check if any input even exists (and skip yielding workflow if not)
+        LOG.debug(f"Check if any input even exists (and skip yielding workflow if not)")
         scenes_list = self.output_path / proc_config.list_dir / "scenes.list"
         if not scenes_list.exists() or not scenes_list.read_text().strip():
             LOG.info(f"Stack processing aborted, no scenes provided in {scenes_list}")
             return
 
-        # Yield appropriate workflow
+        LOG.debug(f"Yield appropriate workflow")
         if self.resume:
             ard_tasks.append(TriggerResume(resume_token=self.resume_token, reprocess_failed=self.reprocess_failed, workflow=workflow, **kwargs))
         elif append:
@@ -350,11 +355,17 @@ class ARD(luigi.WrapperTask):
         else:
             raise Exception(f'Unsupported workflow provided: {workflow}')
 
+        LOG.info(f"Returning {len(ard_tasks)} ARD tasks that need to be processed")
+
         yield ard_tasks
 
-    def run(self):
-        # Load final .proc config
+
+
+    def run(self) -> None:
+
         proc_file = self.output_path / "config.proc"
+        LOG.debug(f"Loading final .proc config {proc_file}")
+
         with open(proc_file, "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
 

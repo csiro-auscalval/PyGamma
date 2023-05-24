@@ -44,6 +44,8 @@ class ProcessSlc(luigi.Task):
 
         slc_paths = SlcPaths(proc_config, str(self.scene_date), str(self.polarization))
 
+        log.info(" * Starting SLC processing")
+
         process_s1_slc(
             slc_paths,
             str(self.polarization),

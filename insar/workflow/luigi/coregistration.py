@@ -172,7 +172,7 @@ class CoregisterDemPrimary(luigi.Task):
                 rlks,
                 alks,
                 self.multi_look,
-                land_center=land_center,
+                land_center_latlon=land_center,
                 dem_patch_window=dem_patch_window,
                 dem_offset=dem_offset,
                 dem_offset_measure=dem_offset_measure,
@@ -277,7 +277,7 @@ class CoregisterSecondary(luigi.Task):
                 if proc_config.sensor.upper() == "S1":
                     coregister_s1_secondary(
                         proc_config,
-                        self.list_idx,
+                        int(self.list_idx),
                         coreg_slc_paths.primary.slc,
                         coreg_slc_paths.secondary.slc,
                         rlks,

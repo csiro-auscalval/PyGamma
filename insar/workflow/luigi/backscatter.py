@@ -65,7 +65,7 @@ class ProcessBackscatter(luigi.Task):
             LOG.info(f"Normalised radar backscatter complete for {self.src_mli} and date {slc_date}")
 
         except Exception as e:
-            log.error("Normalised radar backscatter for {self.src_mli} and date {slc_date} failed with exception", exc_info=True)
+            LOG.error("Normalised radar backscatter for {self.src_mli} and date {slc_date} failed with exception", exc_info=True)
             failed = True
         finally:
             # We flag a task as complete no matter if the scene failed or not!
