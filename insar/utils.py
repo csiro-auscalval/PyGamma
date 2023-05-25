@@ -5,6 +5,8 @@ import shutil
 import types
 import os
 
+from pathlib import Path
+
 
 # Backport new TemporaryDirectory object
 
@@ -27,7 +29,7 @@ class TemporaryDirectory:
 
     def __init__(self, suffix=None, prefix=None, dir=None,
                  ignore_cleanup_errors=False, *, delete=True):
-        self.name = tempfile.mkdtemp(suffix, prefix, dir)
+        self.name = Path(tempfile.mkdtemp(suffix, prefix, dir))
         self._ignore_cleanup_errors = ignore_cleanup_errors
         self._delete = delete
         self._finalizer = weakref.finalize(
