@@ -343,8 +343,8 @@ class InitialSetup(luigi.Task):
             out_fid.write("")
 
         # Update .proc file "auto" reference scene
-        if proc_config.ref_primary_scene.lower() == "auto":
-            proc_config.ref_primary_scene = ref_scene_date.strftime(SCENE_DATE_FMT)
+        if str(proc_config.ref_primary_scene) == "auto":
+            proc_config.ref_primary_scene = Path(ref_scene_date.strftime(SCENE_DATE_FMT))
 
             with open(self.proc_file, "w") as proc_file_obj:
                 proc_config.save(proc_file_obj)

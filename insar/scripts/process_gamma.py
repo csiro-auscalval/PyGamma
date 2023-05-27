@@ -10,6 +10,7 @@ from typing import Dict, Any
 from pathlib import Path
 
 warnings.simplefilter(action='error', category=UserWarning)
+warnings.simplefilter(action='once', category=FutureWarning)
 
 def run() -> None:
     print("PyGamma")

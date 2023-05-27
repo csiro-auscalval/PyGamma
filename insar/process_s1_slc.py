@@ -1,26 +1,25 @@
 #!/usr/bin/env python
 
-import pandas as pd
+from typing import Optional, Union, Tuple, List, Dict
+from pathlib import Path
 import datetime
 import shutil
 import json
-import os
 import re
+import os
 
-from typing import Optional, Union, Dict, List, Tuple
-from pathlib import Path
+import pandas as pd
 
-import insar.constant as const
-
-from insar import constant as const
-from insar.paths.slc import SlcPaths
 from insar.subprocess_utils import working_directory
-from insar.process_utils import convert
-from insar.constant import SCENE_DATE_FMT
-from insar.gamma.proxy import create_gamma_proxy
 from insar.parfile import GammaParFile as ParFile
+from insar.gamma.proxy import create_gamma_proxy
 from insar.logs import STATUS_LOGGER as LOG
 from insar.utils import TemporaryDirectory
+from insar.constant import SCENE_DATE_FMT
+from insar.process_utils import convert
+from insar.paths.slc import SlcPaths
+from insar import constant as const
+import insar.constant as const
 
 
 class ProcessSlcException(Exception):
@@ -33,6 +32,7 @@ pg = create_gamma_proxy(ProcessSlcException)
 # likely to create interferogram discontinuities. GAMMA's SLC_phase_shift uses March 2015 though.
 # The InSAR team has decided not to use interferometric products before this. See:
 # https://github.com/GeoscienceAustralia/PyGamma/pull/157
+
 PHASE_SHIFT_DATE = datetime.date(2015, 3, 10)
 
 
@@ -42,7 +42,7 @@ def get_slc_safe_files(raw_data_dir: Path, scene_date: str) -> List[Path]:
     return [item for item in (raw_data_dir / scene_date).iterdir() if item.name.endswith(".SAFE")]
 
 
-def swath_tab_names(paths: SlcPaths, swath: int, pre_fix: Optional[str] = None) -> Tuple[str, str, str]:
+def swath_tab_names(paths: SlcPaths, swath: int, pre_fix: Optional[str] = None) -> Tuple[Path, Path, Path]:
     """Formats slc swath tab file names using swath and pre_fix."""
 
     # Note: swath - 1 is to convert base-1 indices into base 0 for array indexing
@@ -55,7 +55,7 @@ def swath_tab_names(paths: SlcPaths, swath: int, pre_fix: Optional[str] = None) 
         slc_par = slc_par.parent / f"{pre_fix}_{slc_par.name}"
         slc_tops_par = slc_tops_par.parent / f"{pre_fix}_{slc_tops_par.name}"
 
-    return (slc.name, slc_par.name, slc_tops_par.name)
+    return (Path(slc), Path(slc_par), Path(slc_tops_par))
 
 
 def write_tabs(
@@ -79,36 +79,31 @@ def write_tabs(
         An Optional parameter to prepend (slc, par, tops_par) file names to
         form full path.
     """
-    files_in_slc_tabs : List[Tuple[Path, Path, Path]] = []
+    files_in_slc_tabs: List[Tuple[Path, Path, Path]] = []
 
     if slc_tab_file.exists():
         LOG.info(f"SLC tab file {slc_tab_file} exists; skipping writing of parameters")
         return files_in_slc_tabs
 
+    LOG.debug(f"Generating {slc_tab_file}")
+
     with open(slc_tab_file, "w") as fid:
         for swath in [1, 2, 3]:
             if tab_params is None:
-                # using swath_tab_names, create file names for:
-                # *_iw{swath}.slc
-                # *_iw{swath}.slc.par
-                # *_iw{swath}.slc.TOPS_par
-                #
-                # using _id. swath_tab_names should create
-                # {_id}_*_{polarisation}_iw{swath}.slc
-                # {_id}_*_{polarisation}_iw{swath}.slc.par
-                # {_id}_*_{polarisation}_iw{swath}.slc.TOPS_par
-
+                LOG.debug(f"tab_params=None using swath_tab_names(...) for swath={swath}")
                 (slc, par, tops_par) = swath_tab_names(paths, swath, ident)
-
             else:
-                slc = tab_params[swath]["slc"]
-                par = tab_params[swath]["par"]
-                tops_par = tab_params[swath]["tops_par"]
+                slc = Path(tab_params[swath]["slc"])
+                par = Path(tab_params[swath]["par"])
+                tops_par = Path(tab_params[swath]["tops_par"])
 
             if slc_data_dir is not None:
-                slc = Path(slc_data_dir).joinpath(slc).as_posix()
-                par = Path(slc_data_dir).joinpath(par).as_posix()
-                tops_par = Path(slc_data_dir).joinpath(tops_par).as_posix()
+                LOG.debug(f"When writing tab file using slc_data_dir={slc_data_dir} as output path")
+                slc = Path(slc_data_dir) / slc.name
+                par = Path(slc_data_dir) / par.name
+                tops_par = Path(slc_data_dir) / tops_par.name
+
+            LOG.debug(f"tops_par={tops_par} for swath={swath}")
 
             fid.write(f"{slc} {par} {tops_par}\n")
 
@@ -117,10 +112,19 @@ def write_tabs(
     return files_in_slc_tabs
 
 
-def read_raw_data(paths: SlcPaths, raw_data_dir: Path, polarisation: str):
-    """Reads Sentinel-1 SLC data and generate SLC parameter file."""
+def read_raw_data(
+    paths: SlcPaths, raw_data_dir: Path, polarisation: str
+) -> Tuple[
+    Dict[str, Dict[str, str]],  # metadata
+    Dict[str, Dict[int, Dict[str, Union[datetime.datetime, Path]]]],  # concat_tabs
+    Dict[str, Dict[int, int]],  # acquisition_bursts
+    List[Path], # temp_slc
+]:
+    """
+    Reads Sentinel-1 SLC data and generate SLC parameter file.
+    """
 
-    raw_files_patterns = {
+    raw_files_patterns: Dict[str, str] = {
         "data": "*measurement/s1*-iw{swath}-slc-{polarisation}*.tiff",
         "annotation": "*annotation/s1*-iw{swath}-slc-{polarisation}*.xml",
         "calibration": "*annotation/calibration/calibration-s1*-iw{swath}-slc-{polarisation}*.xml",
@@ -128,74 +132,83 @@ def read_raw_data(paths: SlcPaths, raw_data_dir: Path, polarisation: str):
         "orbit_file": "*.EOF",
     }
 
-    acquisition_bursts = {}
-    metadata : Dict[str, Dict] = {"slc": {}}
-    temp_slc = []
+    acquisition_bursts: Dict[str, Dict[int, int]] = {}
+    concat_tabs: Dict[str, Dict[int, Dict[str, Union[datetime.datetime, Path]]]] = {}
+    metadata: Dict[str, Dict[str, str]] = {"slc": {}}
 
-    concat_tabs : Dict[str, Dict] = {}
+    temp_slc: List[Path] = []
+
     for save_file in get_slc_safe_files(raw_data_dir, paths.date):
+
         ident = save_file.stem
-        concat_tabs[ident] = dict()
+        concat_tabs[ident] = {}
+
         # _id = basename of .SAFE folder, e.g.
         # S1A_IW_SLC__1SDV_20180103T191741_20180103T191808_019994_0220EE_1A2D
 
         # Identify source data URL
-        src_url = save_file / "src_url"
+        src_url_fn = Path(save_file) / "src_url"
+
         # - if this is raw_data we've extracted from a source archive, a src_url file will exist
-        if src_url.exists():
-            src_url = src_url.read_text()
+        if src_url_fn.exists():
+            src_url = Path(src_url_fn.read_text())
+
         # - otherwise it's a source data directory that's been provided by the user
         else:
-            src_url = save_file.as_posix()
+            src_url = Path(save_file).absolute()
 
         acquisition_bursts[ident] = {}
-        metadata[ident] = {"src_url": src_url}
+
+        metadata[ident] = {"src_url": str(src_url)}
 
         # add start time to dict
         dt_start = re.findall("[0-9]{8}T[0-9]{6}", ident)[0]
         start_datetime = datetime.datetime.strptime(dt_start, "%Y%m%dT%H%M%S")
-        concat_tabs[ident]["datetime"] = start_datetime
 
         for swath in [1, 2, 3]:
-            concat_tabs[ident][swath] = dict()
-            (tab_slc, tab_par, tab_tops) = swath_tab_names(paths, swath, ident)
-            raw_files = []
 
-            # Find this swath's raw data files
+            (tab_slc, tab_par, tab_tops) = swath_tab_names(paths, swath, ident)
+
+            raw_files: List[Optional[Path]] = []
+
             for key, val in raw_files_patterns.items():
                 pattern = val.format(swath=swath, polarisation=polarisation.lower())
                 matched_files = list(save_file.glob(pattern))
 
-                # Sanity check SAFE file structure
                 if not matched_files:
-                    # We allow orbit files to be missing (also they're not part of SAFE file contents)
                     if key == "orbit_file":
                         raw_files.append(None)
                         continue
-                    else:
-                        raise FileNotFoundError(f"Failed to find required S1 {key} files")
-
+                    raise FileNotFoundError(f"Failed to find required S1 {key} files")
                 elif len(matched_files) != 1:
                     raise ProcessSlcException(
                         f"Invalid ESA SAFE structure, more than one {key} file found for IW{swath}"
                     )
 
-                raw_files.append(matched_files[0].as_posix())
+                raw_files.append(Path(matched_files[0]).absolute())
 
-            # collect the variables needed to perform slc processing
+            concat_tabs[ident][swath] = {}
+            concat_tabs[ident][swath]["datetime"] = start_datetime
             concat_tabs[ident][swath]["slc"] = tab_slc
             concat_tabs[ident][swath]["par"] = tab_par
             concat_tabs[ident][swath]["tops_par"] = tab_tops
 
             geotiff_pathname = raw_files[0]
-            annotation_xml_pathname = raw_files[1]
             calibration_xml_pathname = raw_files[2]
             noise_xml_pathname = raw_files[3]
+
+            if raw_files[1] is not None:
+                annotation_xml_pathname = raw_files[1]
+            else:
+                raise FileNotFoundError(f"Failed to find annotation XML file in {save_file}")
 
             # par_S1_SLC creates the following three output files:
             # 1. tab_par (*.slc.par)
             # 2. slc_pathname (*.slc), and;
             # 3. tops_par_pathname (*slc.TOPS_par).
+
+            LOG.debug(f"Generating {tab_par}, {tab_slc}, and {tab_tops}")
+
             pg.par_S1_SLC(
                 geotiff_pathname,
                 annotation_xml_pathname,
@@ -205,33 +218,43 @@ def read_raw_data(paths: SlcPaths, raw_data_dir: Path, polarisation: str):
                 tab_slc,
                 tab_tops,
                 const.SLC_DTYPE_FCOMPLEX,
-                const.NOT_PROVIDED,  # sc_db, scale factor for FCOMPLEX -> SCOMPLEX
-                const.NOT_PROVIDED,  # noise_pwr, noise intensity for each SLC sample in slant range
+                const.NOT_PROVIDED,
+                const.NOT_PROVIDED,
             )
 
             # assign orbit file name.  Note: repeating the assignment is harmless
             # (all acquisitions from same date have same orbit file)
+
             orbit_file = raw_files[4]
 
             # store the file names of *slc, *.slc.par and
             # *.slc.TOPS_par so that they can to be removed later
+
             for item in [tab_slc, tab_par, tab_tops]:
                 temp_slc.append(item)
 
             # Use acquisition metadata for this swath to count how many bursts it contains
+
             num_subswath_burst = 0
 
             xml_pattern = raw_files_patterns["annotation"]
             xml_pattern = xml_pattern.format(swath=swath, polarisation=polarisation.lower())
+
             for xml_file in save_file.glob(xml_pattern):
                 _, cout, _ = pg.S1_burstloc(xml_file)
                 num_bursts = sum([line.startswith("Burst") for line in cout])
+                LOG.debug(f"nbursts: {num_bursts} from: {xml_file}")
                 num_subswath_burst += num_bursts
 
             acquisition_bursts[ident][swath] = num_subswath_burst
-            metadata[ident][f"IW{swath}_bursts"] = num_subswath_burst
+            metadata[ident][f"IW{swath}_bursts"] = str(num_subswath_burst)
 
-    metadata["slc"]["orbit_url"] = orbit_file
+    metadata["slc"]["orbit_url"] = str(orbit_file)
+
+    for k in metadata["slc"].keys():
+        v = metadata["slc"][k]
+        if isinstance(v, Path):
+            metadata["slc"][k] = str(v)
 
     # Write metadata used to produce this SLC
     metadata_path = paths.dir / f"metadata_{polarisation}.json"
@@ -258,28 +281,36 @@ def concatenate(paths: SlcPaths, slc_tabs_params) -> None:
         # as first_tabs, the remaining dicts will be stored in
         # remaining_tabs. Note that first_tabs is a tuple,
         # while remaining_tabs is a list of dictionaries
-        first_tabs, *remaining_tabs = sorted(slc_tabs_params.items(), key=lambda x: x[1]["datetime"])
-        _, _initial_dict = first_tabs
-        _dt = _initial_dict["datetime"]
+
+        first_tabs, *remaining_tabs = sorted(slc_tabs_params.items(), key=lambda x: x[1][1]["datetime"])
+        _, initial_dict = first_tabs
+        dt = initial_dict[1]["datetime"]
 
         if not remaining_tabs:
+
             # There is only one acquisition for this day, hence
             # remaining_tabs is None, and there is no need to
             # concatenate files using pg.SLC_cat_ScanSAR.
             # Instead, renaming the *.slc, *.slc.par and
             # *.slc.TOPS_par files created from pg.par_S1_SLC.
+
+            LOG.debug(f"Only one acquisition for {dt}, just renaming slc, slc.par, slc.TOPS_par files")
+
             for swath in [1, 2, 3]:
                 (tab_slc, tab_par, tab_tops) = swath_tab_names(paths, swath)
-                os.rename(_initial_dict[swath]["slc"], tab_slc)
-                os.rename(_initial_dict[swath]["par"], tab_par)
-                os.rename(_initial_dict[swath]["tops_par"], tab_tops)
 
-            write_tabs(paths, paths.slc_tab, slc_data_dir=os.getcwd())
+                (initial_dict[swath]["slc"]).rename(tab_slc)
+                (initial_dict[swath]["par"]).rename(tab_par)
+                (initial_dict[swath]["tops_par"]).rename(tab_tops)
+
+            write_tabs(paths, paths.slc_tab, slc_data_dir=Path(os.getcwd()))
 
         else:
             # multiple SLC acquisitions for this day. Use
             # pg.SLC_cat_ScanSAR to concatenate these
             # acquisitions into single files
+
+            LOG.debug(f"Multiple acquisitions for {dt}, concatenating into a single file")
 
             slc_tab_ifile1 = None
             slc_merged_tabs_list = []
@@ -325,24 +356,24 @@ def concatenate(paths: SlcPaths, slc_tabs_params) -> None:
                     # files which cause SLC_cat_ScanSAR to
                     # raise errors and then exit.
                     tab_slc_prefix = "{0:04}{1:02}{2:02}{3:02}{4:02}{5:02}_ix{6}".format(
-                        _dt.year,
-                        _dt.month,
-                        _dt.day,
-                        _dt.hour,
-                        _dt.minute,
-                        _dt.second,
+                        dt.year,
+                        dt.month,
+                        dt.day,
+                        dt.hour,
+                        dt.minute,
+                        dt.second,
                         idx,
                     )
 
                 # create slc_tab_ifile1 only at the beginning
                 if slc_tab_ifile1 is None:
-                    slc_tab_ifile1 = tmpdir.joinpath(f"slc_tab_input1_{idx}.txt")
+                    slc_tab_ifile1 = tmpdir / f"slc_tab_input1_{idx}.txt"
                     files_in_slc_tab1.append(
                         write_tabs(
                             paths,
                             slc_tab_ifile1,
-                            tab_params=_initial_dict,
-                            slc_data_dir=os.getcwd(),
+                            tab_params=initial_dict,
+                            slc_data_dir=Path(os.getcwd()),
                         )
                     )
 
@@ -353,21 +384,22 @@ def concatenate(paths: SlcPaths, slc_tabs_params) -> None:
                         paths,
                         slc_tab_ifile2,
                         tab_params=_remaining_dict_idx,
-                        slc_data_dir=os.getcwd(),
+                        slc_data_dir=Path(os.getcwd()),
                     )
                 )
 
                 # create slc_merge_tab_ofile (merge tab)
-                slc_merge_tab_ofile = tmpdir.joinpath(f"slc_merged_tab_{idx}.txt")
+                slc_merge_tab_ofile = tmpdir / f"slc_merged_tab_{idx}.txt"
+
                 files_in_slc_tab3.append(
-                    write_tabs(paths, slc_merge_tab_ofile, ident=tab_slc_prefix, slc_data_dir=os.getcwd())
+                    write_tabs(paths, slc_merge_tab_ofile, ident=tab_slc_prefix, slc_data_dir=Path(os.getcwd()))
                 )
 
                 # concat sequential ScanSAR burst SLC images
-                tab_input1_path = str(slc_tab_ifile1)
-                tab_input2_path = str(slc_tab_ifile2)
-                tab_output_path = str(slc_merge_tab_ofile)
-                slc_merged_tabs_list.append(tab_output_path)
+                tab_input1_path = slc_tab_ifile1
+                tab_input2_path = slc_tab_ifile2
+
+                slc_merged_tabs_list.append(slc_merge_tab_ofile)
 
                 # SLC_cat_ScanSAR will perform concatenation. Here,
                 # data from slc_tab_ifile2 are appended into
@@ -376,27 +408,32 @@ def concatenate(paths: SlcPaths, slc_tabs_params) -> None:
                 #
                 # At the end of the first iteration,
                 #   tab_input1_path = tab_output_path
+
+                LOG.debug(f"Concatenating bursts into {slc_merge_tab_ofile}")
+
                 pg.SLC_cat_ScanSAR(
                     tab_input1_path,
                     tab_input2_path,
-                    tab_output_path,
+                    slc_merge_tab_ofile,
                 )
 
                 # assign slc_merge_tab_ofile to slc_tab_ifile1
                 # to perform series of concatenation
-                slc_tab_ifile1 = slc_merge_tab_ofile
 
-                # to conserve memory, delete temporary concatenated
-                # files from the previous iteration. This code will
-                # keep concatenated files from the last iteration.
-                if idx > 0:
-                    # get temp. files of previus iterations
-                    for _swath_mfile_list in files_in_slc_tab3[idx - 1]:
-                        for _mfile in _swath_mfile_list:
-                            os.remove(_mfile)
+                ## to conserve memory, delete temporary concatenated
+                ## files from the previous iteration. This code will
+                ## keep concatenated files from the last iteration.
+                #if idx > 0:
+                #    # get temp. files of previus iterations
+                #    for _swath_mfile_list in files_in_slc_tab3[idx - 1]:
+                #        for _mfile in _swath_mfile_list:
+                #            os.remove(_mfile)
 
             # set the slc_tab file name
-            shutil.move(slc_merge_tab_ofile, paths.slc_tab)
+            #shutil.move(slc_merge_tab_ofile, paths.slc_tab)
+
+                LOG.debug(f"Moving {slc_merge_tab_ofile} to {paths.slc_tab}")
+                slc_merge_tab_ofile.rename(paths.slc_tab)
         # end-else
     # end-with
 
@@ -421,8 +458,8 @@ def phase_shift(paths: SlcPaths, swath: int = 1) -> None:
         (tab_slc, tab_par, tab_tops) = swath_tab_names(paths, swath)
 
         with working_directory(tmpdir):
-            slc_1_pathname = str(slc_dir.joinpath(tab_slc))
-            slc_1_par_pathname = str(slc_dir.joinpath(tab_par))
+            slc_1_pathname = Path(slc_dir.joinpath(tab_slc))
+            slc_1_par_pathname = Path(slc_dir.joinpath(tab_par))
             slc_2_pathname = tab_slc
             slc_2_par_pathname = tab_par
 
@@ -456,14 +493,19 @@ def frame_subset(
 
     scene_date = datetime.datetime.strptime(paths.date, SCENE_DATE_FMT).date()
 
+    LOG.info(f"Subset frames to form full SLC frame of a vector file for {scene_date}")
+
     df = pd.read_csv(burst_data, index_col=0)
+
     df[acq_datetime_key] = pd.to_datetime(df[acq_datetime_key])
     df["date"] = df[acq_datetime_key].apply(lambda x: pd.Timestamp(x).date())
     df_subset = df[(df["date"] == scene_date) & (df["polarization"] == polarisation)]
+
     tabs_param = dict()
     complete_frame = True
 
-    # Get the burst offset of each acquisition
+    LOG.debug("Get the burst offset of each acquisition")
+
     df_subset = df_subset.sort_values(by=acq_datetime_key, ascending=True)
     burst_idx_offs = {}
 
@@ -483,6 +525,8 @@ def frame_subset(
     with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as tmpdir:
         tmpdir = Path(tmpdir)
         burst_tab = tmpdir.joinpath("burst_tab")
+
+        LOG.debug(f"Creating burst_tab file {burst_tab}")
 
         with open(burst_tab, "w") as fid:
             for swath in [1, 2, 3]:
@@ -511,23 +555,29 @@ def frame_subset(
                     end_burst = burst_offs + max(burst_nums)
 
                 fid.write(str(start_burst) + " " + str(end_burst) + "\n")
+
                 (tab_slc, tab_par, tab_tops) = swath_tab_names(paths, swath)
+
                 tmp_dict["slc"] = tab_slc
                 tmp_dict["par"] = tab_par
                 tmp_dict["tops_par"] = tab_tops
+
                 tabs_param[swath] = tmp_dict
 
         # write out slc in and out tab files
-        sub_slc_in = tmpdir.joinpath("sub_slc_input_tab")
-        write_tabs(paths, sub_slc_in, tab_params=tabs_param, slc_data_dir=os.getcwd())
 
-        sub_slc_out = tmpdir.joinpath("sub_slc_output_tab")
+        sub_slc_in = tmpdir / "sub_slc_input_tab"
+        write_tabs(paths, sub_slc_in, tab_params=tabs_param, slc_data_dir=Path(os.getcwd()))
+
+        sub_slc_out = tmpdir / "sub_slc_output_tab"
         write_tabs(paths, sub_slc_out, slc_data_dir=tmpdir)
 
         # run the subset
-        slc1_tab_pathname = str(sub_slc_in)
-        slc2_tab_pathname = str(sub_slc_out)
-        burst_tab_pathname = str(burst_tab)
+        slc1_tab_pathname = Path(sub_slc_in)
+        slc2_tab_pathname = Path(sub_slc_out)
+        burst_tab_pathname = Path(burst_tab)
+
+        # BREAKS HERE, out/T45DF39S/SLC/20190208/20190208_VV_IW1.slc.TOPS_par overwritten
 
         pg.SLC_copy_ScanSAR(
             slc1_tab_pathname,
@@ -536,13 +586,17 @@ def frame_subset(
             const.SLC_DTYPE_FCOMPLEX,
         )
 
-        # replace concatenate slc with burst-subset of concatenated slc
         for swath in [1, 2, 3]:
+
+            LOG.debug(f"Replacing concatenate slc with burst-subset of concatenated slc for swath={swath}")
+
             tab_files = swath_tab_names(paths, swath)
             for item in tab_files:
-                shutil.move(tmpdir.joinpath(item), item)
+                LOG.debug(f"Moving {tmpdir/item.name} to {item}")
+                (tmpdir / item.name).rename(item)
 
         if not complete_frame:
+
             LOG.info("Frame incomplete, resizing", slc_tab=paths.slc_tab, ref_primary_tab=ref_primary_tab)
 
             if ref_primary_tab is None:
@@ -571,17 +625,16 @@ def frame_resize(
     :param full_slc_tab:
         A full path to a slc_tab file to be resized.
     """
-    full_slc_tab = Path(full_slc_tab)
-    ref_slc_tab = Path(ref_slc_tab)
+    LOG.info("Resizing the full SLC to the reference SLC")
 
     # determine the resize burst tab
+
     with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as tmpdir:
         tmpdir = Path(tmpdir)
-        burst_tab = tmpdir.joinpath("burst_tab").as_posix()
 
-        slc1_tab_pathname = str(ref_slc_tab)
-        slc2_tab_pathname = str(full_slc_tab)
-        burst_tab_pathname = burst_tab
+        slc1_tab_pathname = Path(ref_slc_tab)
+        slc2_tab_pathname = Path(full_slc_tab)
+        burst_tab_pathname = (tmpdir / "burst_tab").absolute()
 
         pg.S1_BURST_tab(
             slc1_tab_pathname,
@@ -590,24 +643,27 @@ def frame_resize(
         )
 
         # write output in a temp directory
-        resize_slc_tab = tmpdir.joinpath("sub_slc_output_tab")
+
+        resize_slc_tab = tmpdir / "sub_slc_output_tab"
         write_tabs(paths, resize_slc_tab, slc_data_dir=tmpdir)
 
-        slc1_tab_pathname = str(full_slc_tab)
-        slc2_tab_pathname = str(resize_slc_tab)
-        burst_tab_pathname = str(burst_tab_pathname)
+        slc1_tab_pathname = Path(full_slc_tab)
+        slc2_tab_pathname = Path(resize_slc_tab)
+        burst_tab_pathname = Path(burst_tab_pathname)
 
         pg.SLC_copy_ScanSAR(
             slc1_tab_pathname,
             slc2_tab_pathname,
             burst_tab_pathname,
-            const.NOT_PROVIDED,  # output data type; default (same as input)
+            const.NOT_PROVIDED,
         )
 
         # replace full slc with re-sized slc
+
         for swath in [1, 2, 3]:
             tab_files = swath_tab_names(paths, swath)
             for item in tab_files:
+                LOG.debug(f"Replacing full SLC with re-sized SLC: {item}")
                 shutil.move(tmpdir.joinpath(item), item)
 
 
@@ -621,41 +677,38 @@ def burst_images(paths: SlcPaths):
 
         with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as temp_dir:
             temp_dir = Path(temp_dir)
-            bmp_file = temp_dir.joinpath("{}".format(tab_slc)).with_suffix(".bmp").as_posix()
+            bmp_file = temp_dir / tab_slc.with_suffix(".bmp")
 
             slc_pathname = tab_slc
-            rasf_pathname = bmp_file
 
-            LOG.debug(f"Making a BMP file of {slc_pathname}")
+            LOG.debug(f"Making a BMP file of {slc_pathname} as {bmp_file}")
 
             pg.rasSLC(
                 slc_pathname,
-                range_samples,  # width
+                range_samples,
                 const.DEFAULT_STARTING_LINE,
-                azimuth_lines,  # nlines
-                50,  # pixavr
+                azimuth_lines,
+                const.RAS_PIXEL_AVERAGE_RANGE,
                 const.RAS_PIXEL_AVERAGE_AZIMUTH,
-                const.NOT_PROVIDED,  # scale
-                const.NOT_PROVIDED,  # exp
-                const.LEFT_RIGHT_FLIPPING_NORMAL,
-                const.SLC_DTYPE_FCOMPLEX,  # dtype
-                0,  # hdrsz/line header size in bytes, 0 = default
-                rasf_pathname,
+                const.RAS_PH_SCALE,
+                const.RAS_EXP,
+                bmp_file,
+                const.SLC_DTYPE_FCOMPLEX,
             )
 
             LOG.debug(f"Converting BMP file {bmp_file} to PNG ")
-            # convert bmp file to png quick look image file
-            convert(bmp_file, Path(tab_slc).with_suffix(".png"))
+            convert(bmp_file, bmp_file.with_suffix(".png"))
 
     tab_names_list = [swath_tab_names(paths, swath) for swath in [1, 2, 3]]
-    tab_names_list.append((paths.slc.name, paths.slc_par.name, paths.slc_tops_par.name))
+    tab_names_list.append((Path(paths.slc), Path(paths.slc_par), Path(paths.slc_tops_par)))
+
     for tab in tab_names_list:
         _make_png(*tab)
 
 
 def process_s1_slc(
     paths: SlcPaths, polarisation: str, raw_data_dir: Path, burst_data: Path, ref_primary_tab: Optional[Path] = None
-):
+) -> None:
     """
     Process raw S1 .SAFE IW swath data to produce a singular mosaiced SLC for a scene date.
 
@@ -681,34 +734,37 @@ def process_s1_slc(
     paths.dir.mkdir(parents=True, exist_ok=True)
 
     with working_directory(paths.dir):
-        # Read the raw .SAFE data for each acquisition
+        LOG.debug(f"Read the raw .SAFE data for each acquisition")
+
+        slc_tab_params: Dict[str, Dict[int, Dict[str, Union[datetime.datetime, Path]]]]
+
         metadata, slc_tabs_params, acquisition_bursts, temps = read_raw_data(paths, raw_data_dir, polarisation)
 
-        # Concatenate bursts into one whole-of-date SLC for each subswath
+        LOG.debug(f"Concatenate bursts into one whole-of-date SLC for each subswath")
+
         concatenate(paths, slc_tabs_params)
 
-        # Phase shift correction for earlier datasets
+        LOG.debug(f"Phase shift correction for earlier datasets")
+
         phase_shift(paths)
 
-        # Mosaic the subswaths into a single SLC for the whole date
-        # Note: multilook is hard-coded to 8,2 to match bash - this isn't
-        # ideal, but matches the bash - and works fine for all S1 data to date.
-        #
-        # This could be an issue if we wanted higher resolution products in the
-        # future though... (8,2 basically limits our upper bound)
-        pg.SLC_mosaic_S1_TOPS(paths.slc_tab,
-                              paths.slc,
-                              paths.slc_par,
-                              const.SLC_MOSAIC_RANGE_LOOKS,
-                              const.SLC_MOSAIC_AZIMUTH_LOOKS,
-                              None,
-                              None)
+        LOG.debug(f"Mosaic the subswaths into a single SLC for the whole date {paths.slc_par}")
 
-        # DR FIX: Changed the range and azimuth looks to be taken from const
+        pg.SLC_mosaic_ScanSAR(
+            paths.slc_tab,
+            paths.slc,
+            paths.slc_par,
+            const.SLC_MOSAIC_RANGE_LOOKS,
+            const.SLC_MOSAIC_AZIMUTH_LOOKS,
+            None,
+            None,
+        )
 
         # If an orbit file exists, extract orbital state vectors into the
         # date's SLC .par (overriding embedded orbital state vectors)
-        orbit_file = metadata["slc"]["orbit_url"]
+
+        orbit_file = Path(metadata["slc"]["orbit_url"])
+
         if not orbit_file:
             LOG.warning("No orbit file for this scene exists")
         else:
@@ -717,12 +773,15 @@ def process_s1_slc(
                 orbit_file,
             )
 
-        # Subset the bursts in the final SLC to only include acquisition bursts
-        # which intersect our scene (throwing away those that fall outside)
+        LOG.debug(
+            f"Subset the bursts in the final SLC to only include acquisition bursts "
+            f"which intersect our scene (throwing away those that fall outside"
+        )
+
         frame_subset(paths, polarisation, acquisition_bursts, burst_data, ref_primary_tab)
 
         # clean up the temporary slc files after clean up
-        #for fp in temps:
+        # for fp in temps:
         #    LOG.debug(f"Removing temporary file: {fp}")
         #    os.remove(fp)
 
@@ -732,7 +791,7 @@ def process_s1_slc_mosaic(
     range_looks: int = 12,
     azimuth_looks: int = 2,
     write_png: bool = True,
-):
+) -> None:
     """
     Produces the mosaic of Sentinel-1 TOPS burst SLC data for a specified scene date.
 
@@ -743,10 +802,19 @@ def process_s1_slc_mosaic(
     """
 
     with working_directory(paths.dir):
-        LOG.debug(f"SLC mosaicing using rlks={range_looks} and " \
-                  f"alks={azimuth_looks} and paths: {paths.slc_tab} " \
-                  f"{paths.slc} {paths.slc_par}")
-        pg.SLC_mosaic_S1_TOPS(paths.slc_tab, paths.slc, paths.slc_par, range_looks, azimuth_looks)
+
+        LOG.debug(
+            f"SLC mosaicing using rlks={range_looks} and "
+            f"alks={azimuth_looks} and paths: {paths.slc_tab} "
+            f"{paths.slc} {paths.slc_par}"
+        )
+
+        # These files already exist, removing before overwritting them
+
+        paths.slc.unlink()
+        paths.slc_par.unlink()
+
+        pg.SLC_mosaic_ScanSAR(paths.slc_tab, paths.slc, paths.slc_par, range_looks, azimuth_looks)
 
         if write_png:
             LOG.debug("Writing burst images to PNG")

@@ -1,33 +1,31 @@
-#!/usr/bin/env python
-"""
-For all py_gamma calls, attempts have been made to best match the Gamma
-parameter names and the variable names defined in this module.
-"""
-import structlog
+from typing import Optional, Union, List, Dict, NamedTuple
+from collections import namedtuple
+from pathlib import Path
 import shutil
 import math
-import os
 import re
+import os
 
-import insar.constant as const
+import structlog
 
-from pathlib import Path
-from typing import Optional, Union, Dict, List
-from collections import namedtuple
-
-from insar.logs import STATUS_LOGGER as LOG
-from insar.gamma.proxy import create_gamma_proxy
-from insar.parfile import GammaParFile as ParFile
-from insar.subprocess_utils import working_directory
-from insar.project import ProcConfig
-from insar.coreg_utils import rm_file, grep_stdout
-from insar.utils import TemporaryDirectory
 from insar.paths.coregistration import CoregisteredSlcPaths
+from insar.subprocess_utils import working_directory
+from insar.coreg_utils import grep_stdout, rm_file
+from insar.parfile import GammaParFile as ParFile
+from insar.gamma.proxy import create_gamma_proxy
+from insar.logs import STATUS_LOGGER as LOG
+from insar.utils import TemporaryDirectory
+from insar.project import ProcConfig
+import insar.constant as const
 
 
 class CoregisterSlcException(Exception):
     pass
 
+class TabRecord(NamedTuple):
+    slc: Path
+    par: Path
+    TOPS_par: Path
 
 pg = create_gamma_proxy(CoregisterSlcException)
 
@@ -35,6 +33,7 @@ pg = create_gamma_proxy(CoregisterSlcException)
 # FIXME: This could ba generic write_tabs_file that takes a pattern which we write
 # per-swath parts into - to be re-used by this + slc + any others
 # - when we fix this, move it to use the SlcPaths class.
+
 def write_tabs_file(tab_file: Union[Path, str], _id: str, data_dir: Optional[Path] = None):
     """Writes a tab file input as required by GAMMA."""
     with open(tab_file, "w") as fid:
@@ -52,13 +51,11 @@ def write_tabs_file(tab_file: Union[Path, str], _id: str, data_dir: Optional[Pat
             fid.write(swath_slc + " " + swath_par + " " + swath_tops_par + "\n")
 
 
-def READ_TAB(tab_file: Union[str, Path]):
+def read_tab(tab_file: Union[str, Path]):
     """
     Read a tab file, returning the (slc, par, TOPS_par) for each
     available sub-swath in the tab file.
     """
-
-    tab_record = namedtuple("tab_record", ["slc", "par", "TOPS_par"])
 
     with open(tab_file, "r") as file:
         lines = file.read().splitlines()
@@ -71,17 +68,17 @@ def READ_TAB(tab_file: Union[str, Path]):
         ncols = len(lines[0].split())
 
         # first line
-        IW1_result = tab_record(*lines[0].split())
+        IW1_result = TabRecord(*[Path(s) for s in lines[0].split()])
 
         # second line
         IW2_result = None
         if nrows > 1:
-            IW2_result = tab_record(*lines[1].split())
+            IW2_result = TabRecord(*[Path(s) for s in lines[1].split()])
 
         # third line
         IW3_result = None
         if nrows > 2:
-            IW3_result = tab_record(*lines[2].split())
+            IW3_result = TabRecord(*[Path(s) for s in lines[2].split()])
 
         return (IW1_result, IW2_result, IW3_result)
 
@@ -261,14 +258,19 @@ def coarse_registration(
                     0,  # non-interactive
                 )
 
-                range_stdev, azimuth_stdev = re.findall(
-                    r"[-+]?[0-9]*\.?[0-9]+",
-                    grep_stdout(cout, "final model fit std. dev. (samples) range:"),
-                )
+                matched = grep_stdout(cout, "final model fit std. dev. (samples) range:")
+                if matched:
+                    range_stdev, azimuth_stdev = re.findall(
+                        r"[-+]?[0-9]*\.?[0-9]+",
+                        matched,
+                    )
+                else:
+                    range_stdev = None
+                    azimuth_stdev = None
 
                 # look-up table refinement
                 # determine range and azimuth corrections for look-up table (in mli pixels)
-                doff_vals = ParFile(secondary_doff.as_posix())
+                doff_vals = ParFile(secondary_doff.absolute())
                 d_azimuth = doff_vals.get_value("azimuth_offset_polynomial", dtype=float, index=0)
                 d_range = doff_vals.get_value("range_offset_polynomial", dtype=float, index=0)
                 d_azimuth_mli = d_azimuth / alks
@@ -310,7 +312,7 @@ def coarse_registration(
                 par_in_pathname = secondary_diff_par
                 par_out_pathname = secondary_diff_par
                 search_keyword = "range_offset_polynomial"
-                new_value = f"{d_range_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"
+                new_value = f'"{d_range_mli}   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00   0.0000e+00"'
 
                 pg.set_value(
                     par_in_pathname,
@@ -336,6 +338,8 @@ def coarse_registration(
                 _secondary_lt = temp_dir.joinpath(f"{paths.secondary_lt.name}.{iteration}")
                 shutil.copy(paths.secondary_lt, _secondary_lt)
 
+                paths.secondary_lt.unlink()
+
                 # geocoding look-up table refinement using diff par offset polynomial
                 pg.gc_map_fine(
                     _secondary_lt,
@@ -348,16 +352,17 @@ def coarse_registration(
                 iteration += 1
 
 
-def get_tertiary_coreg_scene(proc: ProcConfig, secondary, list_idx):
+def get_tertiary_coreg_scene(proc: ProcConfig, secondary: str, list_idx: Optional[int]):
     list_dir = Path(proc.output_path) / proc.list_dir
 
-    coreg_secondary = None
+    coreg_secondary: Optional[str] = None
 
     # coregister to nearest secondary if list_idx is given
-    if list_idx == const.NOT_PROVIDED:  # coregister to primary
-        coreg_secondary = None
 
-    elif list_idx == "0":  # coregister to adjacent secondary
+    if not list_idx:
+        return coreg_secondary
+
+    if list_idx == 0:  # coregister to adjacent secondary
         # get secondary position in secondaries.list
         # secondary_pos=`grep -n $secondary $secondary_list | cut -f1 -d:`
         list_lines = Path(proc.secondary_list).read_text().splitlines()
@@ -372,7 +377,7 @@ def get_tertiary_coreg_scene(proc: ProcConfig, secondary, list_idx):
         # coreg_secondary=`head -n $coreg_pos $secondary_list | tail -1`
         coreg_secondary = list_lines[coreg_pos]
 
-    elif int(list_idx) > 20140000:  # coregister to particular secondary
+    elif list_idx > 20140000:  # coregister to particular secondary
         coreg_secondary = list_idx
 
     else:  # coregister to secondary image with short temporal baseline
@@ -398,11 +403,11 @@ def fine_coregistration(
     paths: CoregisteredSlcPaths,
     rlks: int,
     alks: int,
-    list_idx: Union[str, int],
+    list_idx: Optional[int],
     max_iteration: int = 5,
     max_azimuth_threshold: float = 0.01,
     azimuth_px_offset_target: float = 0.0001,
-):
+) -> None:
     """Performs a fine co-registration"""
 
     coarse_registration(log, paths, rlks, alks, max_iteration, max_azimuth_threshold)
@@ -432,9 +437,19 @@ def fine_coregistration(
         )
 
         for iteration in range(1, max_iteration + 1):
+            LOG.debug(f"Iteration {iteration} of fine coregistration")
+
             # cp -rf $secondary_off $secondary_off_start
             secondary_off_start = temp_dir.joinpath(f"{paths.secondary_off.name}.start")
             shutil.copy(paths.secondary_off, secondary_off_start)
+
+            # DR these outputs already exist
+
+            if paths.r_secondary_slc.exists():
+                paths.r_secondary_slc.unlink()
+
+            if paths.r_secondary_slc_par.exists():
+                paths.r_secondary_slc_par.unlink()
 
             # GM SLC_interp_lt_S1_TOPS $secondary_slc_tab $secondary_slc_par $primary_slc_tab $r_dem_primary_slc_par $secondary_lt $r_dem_primary_mli_par $secondary_mli_par $secondary_off_start $r_secondary_slc_tab $r_secondary_slc $r_secondary_slc_par
             pg.SLC_interp_lt_ScanSAR(
@@ -558,14 +573,14 @@ def S1_COREG_OVERLAP(
     )
 
     # determine number of rows and columns of tab file and read burst SLC filenames from tab files
-    primary_IWs = READ_TAB(primary_slc_tab)
-    r_secondary_IWs = READ_TAB(r_secondary_slc_tab)
+    primary_IWs = read_tab(primary_slc_tab)
+    r_secondary_IWs = read_tab(r_secondary_slc_tab)
 
     # option to coregister to another secondary
     if r_secondary2_slc_tab is not None:
-        r_secondary2_IWs = READ_TAB(r_secondary2_slc_tab)
+        r_secondary2_IWs = read_tab(r_secondary2_slc_tab)
 
-    def calc_line_offset(IW):
+    def calc_line_offset(IW) -> int:
         IW_par = ParFile(IW.par)
         IW_TOPS = ParFile(IW.TOPS_par)
         azimuth_line_time = IW_par.get_value("azimuth_line_time", dtype=float, index=0)
@@ -621,9 +636,11 @@ def S1_COREG_OVERLAP(
     log.info(f"dpix_factor {dpix_factor} azimuth pixel")
     log.info(f"azimuth pixel offset = {dpix_factor} * average_phase_offset")
 
-    ###################
-    # determine phase offsets for sub-swath overlap regions
     def calc_phase_offsets(subswath_id, temp_dir):
+        """
+        Determine phase offsets for sub-swath overlap regions
+        """
+
         nonlocal sum_all
         nonlocal samples_all
         nonlocal sum_weight_all
@@ -728,7 +745,7 @@ def S1_COREG_OVERLAP(
             pg.create_offset(
                 temp_dir / f"{mas_IWi_par}.{i}.1",
                 temp_dir / f"{mas_IWi_par}.{i}.1",
-                str(off1),
+                off1,
                 1,  # intensity cross-correlation
                 1,
                 1,
@@ -741,8 +758,8 @@ def S1_COREG_OVERLAP(
                 temp_dir / f"{r_secondary_IWi_slc_name}.{i}.1",
                 temp_dir / f"{mas_IWi_par}.{i}.1",
                 temp_dir / f"{mas_IWi_par}.{i}.1",
-                str(off1),
-                str(int1),
+                off1,
+                int1,
                 1,
                 1,
                 0,
@@ -760,7 +777,7 @@ def S1_COREG_OVERLAP(
             pg.create_offset(
                 temp_dir / f"{mas_IWi_par}.{i}.2",
                 temp_dir / f"{mas_IWi_par}.{i}.2",
-                str(off2),
+                off2,
                 1,  # intensity cross-correlation
                 1,
                 1,
@@ -773,8 +790,8 @@ def S1_COREG_OVERLAP(
                 temp_dir / f"{r_secondary_IWi_slc_name}.{i}.2",
                 temp_dir / f"{mas_IWi_par}.{i}.2",
                 temp_dir / f"{mas_IWi_par}.{i}.2",
-                str(off2),
-                str(int2),
+                off2,
+                int2,
                 1,
                 1,
                 0,
@@ -790,28 +807,32 @@ def S1_COREG_OVERLAP(
             rm_file(diff_par1)
 
             # create_diff_par $off1 $off2 $diff_par1 0 0
-            pg.create_diff_par(str(off1), str(off2), str(diff_par1), 0, 0)
+            pg.create_diff_par(off1, off2, diff_par1, 0, 0)
+
+            tmpfile = temp_dir / "tmp"
+            if tmpfile.exists():
+                tmpfile.unlink()
 
             # cpx_to_real $int1 tmp $range_samples 4
-            pg.cpx_to_real(str(int1), temp_dir / "tmp", range_samples, 4)
+            pg.cpx_to_real(int1, tmpfile, range_samples, 4)
 
             # sub_phase $int2 tmp $diff_par1 $diff1 1 0
-            pg.sub_phase(str(int2), temp_dir / "tmp", str(diff_par1), str(diff1), 1, 0)
+            pg.sub_phase(int2, tmpfile, diff_par1, diff1, 1, 0)
 
             # multi-look the double difference interferogram (200 range x 4 azimuth looks)
             diff20 = temp_dir / Path(f"{r_primary_secondary_name}.{IWid}.{i}.diff20")
             off20 = temp_dir / Path(f"{r_primary_secondary_name}.{IWid}.{i}.off20")
 
             # multi_cpx $diff1 $off1 $diff20 $off20 200 4
-            pg.multi_cpx(str(diff1), str(off1), str(diff20), str(off20), 200, 4)
+            pg.multi_cpx(diff1, off1, diff20, off20, 200, 4)
 
-            off20_par = ParFile(off20.as_posix())
+            off20_par = ParFile(off20)
             range_samples20 = off20_par.get_value("interferogram_width", dtype=int, index=0)
             azimuth_lines20 = off20_par.get_value("interferogram_azimuth_lines", dtype=int, index=0)
 
             # TBD: awk does /2, and everything in awk is a float... but was this actually intended? (odd / 2 would result in a fraction)
-            range_samples20_half = range_samples20 / 2
-            azimuth_lines20_half = azimuth_lines20 / 2
+            range_samples20_half = range_samples20 // 2
+            azimuth_lines20_half = azimuth_lines20 // 2
             log.info(f"range_samples20_half: {range_samples20_half}")
             log.info(f"azimuth_lines20_half: {azimuth_lines20_half}")
 
@@ -820,11 +841,11 @@ def S1_COREG_OVERLAP(
             diff20cc_ras = temp_dir / Path(f"{r_primary_secondary_name}.{IWid}.{i}.diff20.cc.ras")
 
             # cc_wave $diff20  - - $diff20cc $range_samples20 5 5 0
-            pg.cc_wave(str(diff20), const.NOT_PROVIDED, const.NOT_PROVIDED, str(diff20cc), range_samples20, 5, 5, 0)
+            pg.cc_wave(diff20, const.NOT_PROVIDED, const.NOT_PROVIDED, diff20cc, range_samples20, 5, 5, 0)
 
             # rascc_mask $diff20cc - $range_samples20 1 1 0 1 1 $secondary_s1_cct - 0.0 1.0 1. .35 1 $diff20cc_ras
             pg.rascc_mask(
-                str(diff20cc),
+                diff20cc,
                 const.NOT_PROVIDED,
                 range_samples20,
                 1,
@@ -847,7 +868,7 @@ def S1_COREG_OVERLAP(
             diff20adfcc = temp_dir / Path(f"{r_primary_secondary_name}.{IWid}.{i}.diff20.adf.coh")
 
             # adf $diff20 $diff20adf $diff20adfcc $range_samples20 0.4 16 7 2
-            pg.adf(str(diff20), str(diff20adf), str(diff20adfcc), range_samples20, 0.4, 16, 7, 2)
+            pg.adf(diff20, diff20adf, diff20adfcc, range_samples20, 0.4, 16, 7, 2)
 
             rm_file(diff20adfcc)
 
@@ -859,10 +880,10 @@ def S1_COREG_OVERLAP(
             # mcf $diff20adf $diff20cc $diff20cc_ras $diff20phase $range_samples20 1 0 0 - - 1 1 512 $range_samples20_half $azimuth_lines20_half
             try:
                 pg.mcf(
-                    str(diff20adf),
-                    str(diff20cc),
-                    str(diff20cc_ras),
-                    str(diff20phase),
+                    diff20adf,
+                    diff20cc,
+                    diff20cc_ras,
+                    diff20phase,
                     range_samples20,
                     1,
                     0,
@@ -900,13 +921,13 @@ def S1_COREG_OVERLAP(
 
                 # image_stat $diff20cc $range_samples20 - - - - $diff20ccstat
                 pg.image_stat(
-                    str(diff20cc),
+                    diff20cc,
                     range_samples20,
                     const.NOT_PROVIDED,
                     const.NOT_PROVIDED,
                     const.NOT_PROVIDED,
                     const.NOT_PROVIDED,
-                    str(diff20ccstat),
+                    diff20ccstat,
                 )
 
                 diff20ccstat = _grep_offset_parameter(diff20ccstat)
@@ -922,13 +943,13 @@ def S1_COREG_OVERLAP(
 
                 # image_stat $diff20phase $range_samples20 - - - - $diff20phasestat
                 pg.image_stat(
-                    str(diff20phase),
+                    diff20phase,
                     range_samples20,
                     const.NOT_PROVIDED,
                     const.NOT_PROVIDED,
                     const.NOT_PROVIDED,
                     const.NOT_PROVIDED,
-                    str(diff20phasestat),
+                    diff20phasestat,
                 )
 
                 diff20phasestat = _grep_offset_parameter(diff20phasestat)
@@ -992,11 +1013,13 @@ def S1_COREG_OVERLAP(
 
         return average
 
-    with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as temp_dir:
-        temp_path = Path(temp_dir)
-
+    with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as temp_path:
         iw1_mean = calc_phase_offsets(1, temp_path)  # IW1
+
+    with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as temp_path:
         iw2_mean = calc_phase_offsets(2, temp_path)  # IW2
+
+    with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as temp_path:
         iw3_mean = calc_phase_offsets(3, temp_path)  # IW3
 
     ###################################################################################################################
@@ -1042,14 +1065,15 @@ def S1_COREG_OVERLAP(
     log.info(f"azpol_1_out {azpol_str}")
 
     # set_value $secondary_off_start $secondary_off azimuth_offset_polynomial "$azpol_1_out $azpol_2 $azpol_3 $azpol_4 $azpol_5 $azpol_6" 0
-    pg.set_value(str(secondary_off_start), str(secondary_off), "azimuth_offset_polynomial", azpol_str, 0)
+
+    pg.set_value(secondary_off_start, secondary_off, "azimuth_offset_polynomial", azpol_str, 0)
 
     return azimuth_pixel_offset, azpol
 
 
 def coregister_s1_secondary(
     proc: ProcConfig,
-    list_idx: Union[str, Path],
+    list_idx: Optional[int],
     slc_primary: Path,
     slc_secondary: Path,
     range_looks: int,
@@ -1154,49 +1178,58 @@ def apply_s1_coregistration(
     alks: int,
     secondary_off: Optional[Path] = None,
     lookup_table: Optional[Path] = None,
-):
+) -> None:
     """Applies a coregistration LUT and offset refinements to SLC products."""
 
     slc_dir = paths.r_secondary_slc.parent
 
-    # Re-bind thread local context
-    try:
-        structlog.threadlocal.clear_threadlocal()
-        structlog.threadlocal.bind_threadlocal(
-            task="SLC coregistration and resampling",
-            scene_dir=slc_dir,
-            primary_date=paths.primary.date,
-            secondary_date=paths.secondary.date,
+    with working_directory(slc_dir):
+
+        set_tab_files(paths)
+
+        # DR why do these exist? Removing them to be explicit
+
+        if paths.r_secondary_slc_tab.exists():
+            paths.r_secondary_slc_tab.unlink()
+
+        if paths.r_secondary_slc.exists():
+            paths.r_secondary_slc.unlink()
+
+        if paths.r_secondary_slc_par.exists():
+            paths.r_secondary_slc_par.unlink()
+
+        LOG.debug(f"Resample the full-resolution SLC using the coregistered LUT")
+
+        pg.SLC_interp_lt_ScanSAR(
+            paths.secondary_slc_tab,
+            paths.secondary.slc_par,
+            paths.primary_slc_tab,
+            paths.r_dem_primary_slc_par,
+            lookup_table or paths.secondary_lt,
+            paths.r_dem_primary_mli_par,
+            paths.secondary.mli_par,
+            # Using our refined offset model from fine coregistration
+            secondary_off or paths.secondary_off,
+            paths.r_secondary_slc_tab,
+            paths.r_secondary_slc,
+            paths.r_secondary_slc_par,
         )
 
-        with working_directory(slc_dir):
-            set_tab_files(paths)
+        LOG.debug(f"Downsample the resampled SLC into our final multi-look values rlks={rlks} alks={alks}")
 
-            # Resample the full-resolution SLC using the coregistered LUT
-            pg.SLC_interp_lt_ScanSAR(
-                paths.secondary_slc_tab,
-                paths.secondary.slc_par,
-                paths.primary_slc_tab,
-                paths.r_dem_primary_slc_par,
-                lookup_table or paths.secondary_lt,
-                paths.r_dem_primary_mli_par,
-                paths.secondary.mli_par,
-                # Using our refined offset model from fine coregistration
-                secondary_off or paths.secondary_off,
-                paths.r_secondary_slc_tab,
-                paths.r_secondary_slc,
-                paths.r_secondary_slc_par,
-            )
+        # DR why do these exist? Removing them to be explicit
 
-            # Downsample the resampled SLC into our final multi-look values
-            pg.multi_look(
-                paths.r_secondary_slc,
-                paths.r_secondary_slc_par,
-                paths.r_secondary_mli,
-                paths.r_secondary_mli_par,
-                rlks,
-                alks,
-            )
+        if paths.r_secondary_mli.exists():
+            paths.r_secondary_mli.unlink()
 
-    finally:
-        structlog.threadlocal.clear_threadlocal()
+        if paths.r_secondary_mli_par.exists():
+            paths.r_secondary_mli_par.unlink()
+
+        pg.multi_look(
+            paths.r_secondary_slc,
+            paths.r_secondary_slc_par,
+            paths.r_secondary_mli,
+            paths.r_secondary_mli_par,
+            rlks,
+            alks,
+        )

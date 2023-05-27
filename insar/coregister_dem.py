@@ -278,7 +278,7 @@ def offset_calc(
 
         except CoregisterDemException:
             LOG.error(
-                f"Attempt at DEM coregistration failed (range_px_coord={attempt_rpos}, zimuth_px_coord={attempt_azpos}), retrying... "
+                f"Attempt at DEM coregistration failed, retrying... (range_px_coord={attempt_rpos}, zimuth_px_coord={attempt_azpos})"
             )
             # Do NOT raise this exception, we loop through attempting other
             # land centers instead (and finally raise our own exception if all fail)
@@ -449,15 +449,14 @@ def offset_calc(
             rasf_pathname,
         )
 
-        LOG.debug("Making sea-mask based on DEM zero values")
+        LOG.debug(f"Making seamask based on DEM zero values, dem_width={dem_width}")
 
-        temp = Path(temp_dir).joinpath("temp")
+        temp = Path(temp_dir) / "tmp"
 
         f_in_pathname = dem_paths.geo_dem
         value = 0.0001
         new_value = 0
         f_out_pathname = temp
-        width = dem_width
         rpl_flg = 0  # replacement option flag; replace all points
         dtype = 2  # FLOAT
         zflg = 1  # zero is a valid data value
@@ -467,7 +466,7 @@ def offset_calc(
             value,
             new_value,
             f_out_pathname,
-            width,
+            dem_width,
             rpl_flg,
             dtype,
             zflg,
@@ -478,21 +477,19 @@ def offset_calc(
 
         # DR: replaced rashgt which was deprecated
 
-        rasf_pathname.unlink() # to be explicit
-
         pg.rasdt_pwr(
             hgt_pathname,
             const.NOT_PROVIDED,
-            width,
+            dem_width,
             const.NOT_PROVIDED,
             const.NOT_PROVIDED,
-            pixavr,
-            pixavaz,
+            1,
+            1,
             0,
             m_per_cycle,
             1,
             const.NOT_PROVIDED,
-            rasf_pathname,
+            dem_paths.seamask,
             const.NOT_PROVIDED,
             const.NOT_PROVIDED,
             8,
@@ -1087,6 +1084,8 @@ def coregister_primary(
         geo_dem_par = ParFile(dem_paths.geo_dem_par)
         dem_width = geo_dem_par.get_value("width", dtype=int, index=0)
         dem_height = geo_dem_par.get_value("nlines", dtype=int, index=0)
+
+        LOG.debug(f"Obtained dem_width={dem_width} dem_height={dem_height} from {dem_paths.geo_dem_par}")
 
         # Refine offset model for coregistration
         offset_calc(

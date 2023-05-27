@@ -268,6 +268,11 @@ class CoregisterSecondary(luigi.Task):
 
         failed = False
 
+        try:
+            list_idx = int(self.list_idx)
+        except ValueError:
+            list_idx = None
+
         # Run SLC coreg in an exception handler that doesn't propagate exception into Luigi
         # This is to allow processing to fail without stopping the Luigi pipeline, and thus
         # allows as many scenes as possible to fully process even if some scenes fail.
@@ -277,7 +282,7 @@ class CoregisterSecondary(luigi.Task):
                 if proc_config.sensor.upper() == "S1":
                     coregister_s1_secondary(
                         proc_config,
-                        int(self.list_idx),
+                        list_idx,
                         coreg_slc_paths.primary.slc,
                         coreg_slc_paths.secondary.slc,
                         rlks,

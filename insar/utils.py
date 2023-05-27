@@ -66,7 +66,7 @@ class TemporaryDirectory:
                 if not ignore_errors:
                     raise
 
-        shutil.rmtree(name, onexc=onexc)
+        shutil.rmtree(name, onerror=onexc)
 
     @classmethod
     def _cleanup(cls, name, warn_message, ignore_errors=False, delete=True):

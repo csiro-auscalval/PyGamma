@@ -79,12 +79,12 @@ class PyGammaProxy(object):
         if self.exception_type is None:
             return
 
-        raise self.exception_type(f"failed to execute pg.{cmd} ({self.fail_reason})")
+        raise self.exception_type(f"Failed to execute pg.{cmd} ({self.fail_reason})")
 
     def _gamma_call(
         self, gamma_module: str, gamma_program: str, program_args: List[str]
-    ) -> Tuple[int, str, str]:
-        result = (0, "", "")
+    ) -> Tuple[int, List[str], List[str]]:
+        result = (0, [""], [""])
 
         if self.wraps is not None:
             result = getattr(self.wraps, gamma_program)(*program_args)
@@ -97,9 +97,7 @@ class PyGammaProxy(object):
 
         return result
 
-    def _clean_call_args(
-        self, values: Dict[str, Any], sig: inspect.Signature
-    ) -> List[str]:
+    def _clean_args(self, values: Dict[str, Any], sig: inspect.Signature) -> List[str]:
         cleaned = []
         for arg in sig.parameters.keys():
             value = copy(values[arg])
@@ -170,7 +168,7 @@ class PyGammaProxy(object):
         DIFF_par: Path,
         gc_out: Path,
         ref_flg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Geocoding lookup table refinement using DIFF_par offset polynomials
@@ -193,8 +191,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_gc_map_fine_outputs(gc_in, width, DIFF_par, gc_out, ref_flg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gc_map_fine))
-        result = self._gamma_call("DIFF", "gc_map_fine", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gc_map_fine))
+        result = self._gamma_call("DIFF", "gc_map_fine", ca)
 
         assert gc_out.exists(), f"{gc_out} does not exist"
         assert gc_out.stat().st_size > 0, f"{gc_out} has zero file size"
@@ -257,7 +255,7 @@ class PyGammaProxy(object):
         naz: Optional[int] = None,
         mask: Optional[Path] = None,
         plot_data: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Three-pass differential interferometry SVD to solve for the the L.S.offset
@@ -283,8 +281,8 @@ class PyGammaProxy(object):
                 unw_1, unw_2, DIFF_par, nr, naz, mask, plot_data
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.diff_ls_fit))
-        result = self._gamma_call("DIFF", "diff_ls_fit", args)
+        ca = self._clean_args(locals(), inspect.signature(self.diff_ls_fit))
+        result = self._gamma_call("DIFF", "diff_ls_fit", ca)
 
         if plot_data is not None:
             assert plot_data.exists(), f"{plot_data} does not exist"
@@ -327,7 +325,7 @@ class PyGammaProxy(object):
 
     def WSS_mosaic(
         self, WSS_tab: Path, MLI_par: Path, WSS_data: Path, type: int
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Mosaic ASAR WSS interferograms and MLI data
@@ -351,8 +349,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_WSS_mosaic_outputs(WSS_tab, MLI_par, WSS_data, type)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.WSS_mosaic))
-        result = self._gamma_call("DIFF", "WSS_mosaic", args)
+        ca = self._clean_args(locals(), inspect.signature(self.WSS_mosaic))
+        result = self._gamma_call("DIFF", "WSS_mosaic", ca)
 
         assert MLI_par.exists(), f"{MLI_par} does not exist"
         assert MLI_par.stat().st_size > 0, f"{MLI_par} has zero file size"
@@ -483,7 +481,7 @@ class PyGammaProxy(object):
         mode: Optional[int] = None,
         ax_north: Optional[int] = None,
         ax_east: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculation of displacement vector field from slant-range/azimuth offsets (slant-range/azimuth)
@@ -554,8 +552,8 @@ class PyGammaProxy(object):
                 ax_east,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dispmap_vec_offset))
-        result = self._gamma_call("DIFF", "dispmap_vec_offset", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dispmap_vec_offset))
+        result = self._gamma_call("DIFF", "dispmap_vec_offset", ca)
 
         assert dv_norm.exists(), f"{dv_norm} does not exist"
         assert dv_norm.stat().st_size > 0, f"{dv_norm} has zero file size"
@@ -627,7 +625,7 @@ class PyGammaProxy(object):
         DIFF_par: Path,
         PAR_type: Optional[int] = None,
         iflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Create DIFF/GEO parameter file for geocoding and differential interferometry
@@ -654,8 +652,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_create_diff_par_outputs(PAR_1, PAR_2, DIFF_par, PAR_type, iflg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.create_diff_par))
-        result = self._gamma_call("DIFF", "create_diff_par", args)
+        ca = self._clean_args(locals(), inspect.signature(self.create_diff_par))
+        result = self._gamma_call("DIFF", "create_diff_par", ca)
 
         assert DIFF_par.exists(), f"{DIFF_par} does not exist"
         assert DIFF_par.stat().st_size > 0, f"{DIFF_par} has zero file size"
@@ -794,7 +792,7 @@ class PyGammaProxy(object):
         frame: Optional[int] = None,
         ls_mode: Optional[int] = None,
         r_ovr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate lookup table and DEM related products for terrain-corrected geocoding of ground range images
@@ -882,8 +880,8 @@ class PyGammaProxy(object):
                 r_ovr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gc_map_grd))
-        result = self._gamma_call("DIFF", "gc_map_grd", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gc_map_grd))
+        result = self._gamma_call("DIFF", "gc_map_grd", ca)
 
         assert DEM_seg_par.exists(), f"{DEM_seg_par} does not exist"
         assert DEM_seg_par.stat().st_size > 0, f"{DEM_seg_par} has zero file size"
@@ -1013,7 +1011,7 @@ class PyGammaProxy(object):
         geoid2_par: Optional[Path] = None,
         geoid2_type: Optional[int] = None,
         c_xyz_list: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Coordinate transformation between map projections for list of points
@@ -1076,8 +1074,8 @@ class PyGammaProxy(object):
                 c_xyz_list,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.coord_trans_list))
-        result = self._gamma_call("DIFF", "coord_trans_list", args)
+        ca = self._clean_args(locals(), inspect.signature(self.coord_trans_list))
+        result = self._gamma_call("DIFF", "coord_trans_list", ca)
 
         assert c_out_list.exists(), f"{c_out_list} does not exist"
         assert c_out_list.stat().st_size > 0, f"{c_out_list} has zero file size"
@@ -1138,7 +1136,7 @@ class PyGammaProxy(object):
         DEM_par_out: Path,
         mode: int,
         format_flag: int,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Mosaic geocoded images or DEM data with same format, map projection, and pixel spacing parameters
@@ -1176,8 +1174,8 @@ class PyGammaProxy(object):
                 data_tab, data_out, DEM_par_out, mode, format_flag
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_mosaic))
-        result = self._gamma_call("DIFF", "multi_mosaic", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_mosaic))
+        result = self._gamma_call("DIFF", "multi_mosaic", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -1332,7 +1330,7 @@ class PyGammaProxy(object):
         frame: Optional[int] = None,
         ls_mode: Optional[int] = None,
         r_ovr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate terrain-geocoding lookup table and DEM derived data products
@@ -1419,8 +1417,8 @@ class PyGammaProxy(object):
                 r_ovr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gc_map1))
-        result = self._gamma_call("DIFF", "gc_map1", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gc_map1))
+        result = self._gamma_call("DIFF", "gc_map1", ca)
 
         assert DEM_seg_par.exists(), f"{DEM_seg_par} does not exist"
         assert DEM_seg_par.stat().st_size > 0, f"{DEM_seg_par} has zero file size"
@@ -1474,7 +1472,7 @@ class PyGammaProxy(object):
         azlks: int,
         sps_flg: Optional[int] = None,
         azf_flg: Optional[int] = None,
-        rbw_min: Optional[int] = None,
+        rbw_min: Optional[float] = None,
         rp1_flg: Optional[int] = None,
         rp2_flg: Optional[int] = None,
     ) -> None:
@@ -1517,7 +1515,7 @@ class PyGammaProxy(object):
         azlks: int,
         sps_flg: Optional[int] = None,
         azf_flg: Optional[int] = None,
-        rbw_min: Optional[int] = None,
+        rbw_min: Optional[float] = None,
         rp1_flg: Optional[int] = None,
         rp2_flg: Optional[int] = None,
     ) -> None:
@@ -1543,10 +1541,10 @@ class PyGammaProxy(object):
         azlks: int,
         sps_flg: Optional[int] = None,
         azf_flg: Optional[int] = None,
-        rbw_min: Optional[int] = None,
+        rbw_min: Optional[float] = None,
         rp1_flg: Optional[int] = None,
         rp2_flg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Differential interferogram generation from co-registered SLCs and a simulated interferogram
@@ -1615,8 +1613,8 @@ class PyGammaProxy(object):
                 rp2_flg,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_diff_intf))
-        result = self._gamma_call("DIFF", "SLC_diff_intf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_diff_intf))
+        result = self._gamma_call("DIFF", "SLC_diff_intf", ca)
 
         assert diff_int.exists(), f"{diff_int} does not exist"
         assert diff_int.stat().st_size > 0, f"{diff_int} has zero file size"
@@ -1740,7 +1738,7 @@ class PyGammaProxy(object):
         gamma0_ratio: Optional[Path] = None,
         sig2gam_ratio: Optional[Path] = None,
         hgt: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate terrain-based sigma0 and gammma0 normalization area in slant-range geometry
@@ -1803,8 +1801,8 @@ class PyGammaProxy(object):
                 hgt,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.pixel_area))
-        result = self._gamma_call("DIFF", "pixel_area", args)
+        ca = self._clean_args(locals(), inspect.signature(self.pixel_area))
+        result = self._gamma_call("DIFF", "pixel_area", ca)
 
         if pix_sigma0 is not None:
             assert pix_sigma0.exists(), f"{pix_sigma0} does not exist"
@@ -1885,7 +1883,7 @@ class PyGammaProxy(object):
         nr: int,
         naz: int,
         mask: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract GCPs from a DEM in range-Doppler coordinates
@@ -1909,8 +1907,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_extract_gcp_outputs(DEM_rdc, OFF_par, GCP, nr, naz, mask)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.extract_gcp))
-        result = self._gamma_call("DIFF", "extract_gcp", args)
+        ca = self._clean_args(locals(), inspect.signature(self.extract_gcp))
+        result = self._gamma_call("DIFF", "extract_gcp", ca)
 
         assert GCP.exists(), f"{GCP} does not exist"
         assert GCP.stat().st_size > 0, f"{GCP} has zero file size"
@@ -2106,7 +2104,7 @@ class PyGammaProxy(object):
         DIFF_par: Optional[Path] = None,
         ref_flg: Optional[int] = None,
         inc_flg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate lookup table and DEM related products (layover and shadow, incidence angle, local resolution, offnadir angle)
@@ -2214,8 +2212,8 @@ class PyGammaProxy(object):
                 inc_flg,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gc_map2))
-        result = self._gamma_call("DIFF", "gc_map2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gc_map2))
+        result = self._gamma_call("DIFF", "gc_map2", ca)
 
         if DEM_seg_par is not None:
             assert DEM_seg_par.exists(), f"{DEM_seg_par} does not exist"
@@ -2344,7 +2342,7 @@ class PyGammaProxy(object):
         lookup_table: Optional[Path] = None,
         interp_mode: Optional[int] = None,
         order: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DEM resampling from one map projection to another map projection
@@ -2405,8 +2403,8 @@ class PyGammaProxy(object):
                 order,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dem_trans))
-        result = self._gamma_call("DIFF", "dem_trans", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dem_trans))
+        result = self._gamma_call("DIFF", "dem_trans", ca)
 
         assert DEM2_par.exists(), f"{DEM2_par} does not exist"
         assert DEM2_par.stat().st_size > 0, f"{DEM2_par} has zero file size"
@@ -2465,7 +2463,7 @@ class PyGammaProxy(object):
         int_2: Path,
         int_type: int,
         mode: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Add or subtract quadratic polynomial phase model from a differential interferogram
@@ -2490,8 +2488,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_quad_sub_outputs(int_1, DIFF_par, int_2, int_type, mode)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.quad_sub))
-        result = self._gamma_call("DIFF", "quad_sub", args)
+        ca = self._clean_args(locals(), inspect.signature(self.quad_sub))
+        result = self._gamma_call("DIFF", "quad_sub", ca)
         return result
 
     def _validate_phase_sum(
@@ -2546,7 +2544,7 @@ class PyGammaProxy(object):
         pixav_x: Optional[int] = None,
         pixav_y: Optional[int] = None,
         zflag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate sum of a stack of images (FLOAT format)
@@ -2578,8 +2576,8 @@ class PyGammaProxy(object):
                 im_list, width, sum, start, nlines, pixav_x, pixav_y, zflag
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.phase_sum))
-        result = self._gamma_call("DIFF", "phase_sum", args)
+        ca = self._clean_args(locals(), inspect.signature(self.phase_sum))
+        result = self._gamma_call("DIFF", "phase_sum", ca)
 
         assert sum.exists(), f"{sum} does not exist"
         assert sum.stat().st_size > 0, f"{sum} has zero file size"
@@ -2617,7 +2615,7 @@ class PyGammaProxy(object):
 
     def base_add(
         self, base_1: Path, base_2: Path, base_out: Path, mode: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Addition/subtraction of 2 baseline files
@@ -2638,8 +2636,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_base_add_outputs(base_1, base_2, base_out, mode)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.base_add))
-        result = self._gamma_call("DIFF", "base_add", args)
+        ca = self._clean_args(locals(), inspect.signature(self.base_add))
+        result = self._gamma_call("DIFF", "base_add", ca)
 
         assert base_out.exists(), f"{base_out} does not exist"
         assert base_out.stat().st_size > 0, f"{base_out} has zero file size"
@@ -2704,7 +2702,7 @@ class PyGammaProxy(object):
         lookup_table: Path,
         lat_ovr: Optional[int] = None,
         lon_ovr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate geocoding lookup table for ellipsoid correction of ground-range images
@@ -2735,8 +2733,8 @@ class PyGammaProxy(object):
                 GRD_par, DEM_par, href, DEM_seg_par, lookup_table, lat_ovr, lon_ovr
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gec_map_grd))
-        result = self._gamma_call("DIFF", "gec_map_grd", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gec_map_grd))
+        result = self._gamma_call("DIFF", "gec_map_grd", ca)
 
         assert DEM_seg_par.exists(), f"{DEM_seg_par} does not exist"
         assert DEM_seg_par.stat().st_size > 0, f"{DEM_seg_par} has zero file size"
@@ -2798,7 +2796,7 @@ class PyGammaProxy(object):
         DEM_par: Path,
         SAR_coord: Path,
         MAP_coord: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Transform SAR image coordinates to map projection and geographic (lat/lon) coordinates for a list of points
@@ -2826,8 +2824,8 @@ class PyGammaProxy(object):
                 SLC_par, OFF_par, DEM_par, SAR_coord, MAP_coord
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.sarpix_coord_list))
-        result = self._gamma_call("DIFF", "sarpix_coord_list", args)
+        ca = self._clean_args(locals(), inspect.signature(self.sarpix_coord_list))
+        result = self._gamma_call("DIFF", "sarpix_coord_list", ca)
 
         assert MAP_coord.exists(), f"{MAP_coord} does not exist"
         assert MAP_coord.stat().st_size > 0, f"{MAP_coord} has zero file size"
@@ -2946,7 +2944,7 @@ class PyGammaProxy(object):
         dv_y: Optional[Path] = None,
         dv_z: Optional[Path] = None,
         mask_angle: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculation of displacement vector field from displacement direction and measured component
@@ -3007,8 +3005,8 @@ class PyGammaProxy(object):
                 mask_angle,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dispmap_vec))
-        result = self._gamma_call("DIFF", "dispmap_vec", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dispmap_vec))
+        result = self._gamma_call("DIFF", "dispmap_vec", ca)
 
         assert dv_norm.exists(), f"{dv_norm} does not exist"
         assert dv_norm.stat().st_size > 0, f"{dv_norm} has zero file size"
@@ -3102,7 +3100,7 @@ class PyGammaProxy(object):
         baseline_2: Path,
         OFF_par_2: Path,
         int_type: int,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Scale unwrapped phase according to baseline ratio
@@ -3146,8 +3144,8 @@ class PyGammaProxy(object):
                 int_type,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.scale_base))
-        result = self._gamma_call("DIFF", "scale_base", args)
+        ca = self._clean_args(locals(), inspect.signature(self.scale_base))
+        result = self._gamma_call("DIFF", "scale_base", ca)
 
         assert scaled_unw_2.exists(), f"{scaled_unw_2} does not exist"
         assert scaled_unw_2.stat().st_size > 0, f"{scaled_unw_2} has zero file size"
@@ -3214,7 +3212,7 @@ class PyGammaProxy(object):
         CEOS_data: Path,
         MLI: Optional[Path] = None,
         cal: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Process EORC PALSAR + PALSAR2 Level 1.5 CEOS Ellipsoid Geocoded (GEC) data
@@ -3241,10 +3239,8 @@ class PyGammaProxy(object):
                 CEOS_leader, MLI_par, DEM_par, CEOS_data, MLI, cal
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.par_EORC_PALSAR_geo)
-        )
-        result = self._gamma_call("DIFF", "par_EORC_PALSAR_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_EORC_PALSAR_geo))
+        result = self._gamma_call("DIFF", "par_EORC_PALSAR_geo", ca)
 
         assert MLI_par.exists(), f"{MLI_par} does not exist"
         assert MLI_par.stat().st_size > 0, f"{MLI_par} has zero file size"
@@ -3336,7 +3332,7 @@ class PyGammaProxy(object):
         n_lks: int,
         MLI_1: Optional[Path] = None,
         MLI_2: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate a multi-look interferogram from geocoded and co-registered SLC images
@@ -3366,8 +3362,8 @@ class PyGammaProxy(object):
                 SLC_1, SLC_2, DEM_par, interf, DEM_par2, e_lks, n_lks, MLI_1, MLI_2
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_intf_geo))
-        result = self._gamma_call("DIFF", "SLC_intf_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_intf_geo))
+        result = self._gamma_call("DIFF", "SLC_intf_geo", ca)
 
         assert interf.exists(), f"{interf} does not exist"
         assert interf.stat().st_size > 0, f"{interf} has zero file size"
@@ -3458,7 +3454,7 @@ class PyGammaProxy(object):
         bflg: Optional[int] = None,
         lookup_table: Optional[Path] = None,
         order: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Data resampling from one map projection to another map projection
@@ -3529,8 +3525,8 @@ class PyGammaProxy(object):
                 order,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.map_trans))
-        result = self._gamma_call("DIFF", "map_trans", args)
+        ca = self._clean_args(locals(), inspect.signature(self.map_trans))
+        result = self._gamma_call("DIFF", "map_trans", ca)
 
         assert DEM2_par.exists(), f"{DEM2_par} does not exist"
         assert DEM2_par.stat().st_size > 0, f"{DEM2_par} has zero file size"
@@ -3599,7 +3595,7 @@ class PyGammaProxy(object):
         n_ovr: Optional[int] = None,
         rad_max: Optional[int] = None,
         nintr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Invert geocoding lookup table
@@ -3650,8 +3646,8 @@ class PyGammaProxy(object):
                 nintr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gc_map_inversion))
-        result = self._gamma_call("DIFF", "gc_map_inversion", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gc_map_inversion))
+        result = self._gamma_call("DIFF", "gc_map_inversion", ca)
 
         assert gc_map_out.exists(), f"{gc_map_out} does not exist"
         assert gc_map_out.stat().st_size > 0, f"{gc_map_out} has zero file size"
@@ -3715,7 +3711,7 @@ class PyGammaProxy(object):
         MLI_par: Path,
         DEM_par: Path,
         GEO: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Import JERS-1 L2.1 CEOS data (geocoded)
@@ -3737,8 +3733,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_JERS_geo_outputs(CEOS_leader, CEOS_data, MLI_par, DEM_par, GEO)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_JERS_geo))
-        result = self._gamma_call("DIFF", "par_JERS_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_JERS_geo))
+        result = self._gamma_call("DIFF", "par_JERS_geo", ca)
 
         assert MLI_par.exists(), f"{MLI_par} does not exist"
         assert MLI_par.stat().st_size > 0, f"{MLI_par} has zero file size"
@@ -3801,7 +3797,7 @@ class PyGammaProxy(object):
         interp_mode: Optional[int] = None,
         dtype: Optional[int] = None,
         order: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Resample 2D data using DIFF_par polynomials
@@ -3846,8 +3842,8 @@ class PyGammaProxy(object):
                 data2, DIFF_par, data2_out, interp_mode, dtype, order
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.interp_data))
-        result = self._gamma_call("DIFF", "interp_data", args)
+        ca = self._clean_args(locals(), inspect.signature(self.interp_data))
+        result = self._gamma_call("DIFF", "interp_data", ca)
 
         assert data2_out.exists(), f"{data2_out} does not exist"
         assert data2_out.stat().st_size > 0, f"{data2_out} has zero file size"
@@ -3888,7 +3884,7 @@ class PyGammaProxy(object):
 
     def rdc_trans(
         self, MLI1_par: Path, DEM_RDC: Path, MLI2_par: Path, lt: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Derive lookup table for SLC/MLI coregistration (considering terrain heights)
@@ -3910,8 +3906,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_rdc_trans_outputs(MLI1_par, DEM_RDC, MLI2_par, lt)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rdc_trans))
-        result = self._gamma_call("DIFF", "rdc_trans", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rdc_trans))
+        result = self._gamma_call("DIFF", "rdc_trans", ca)
 
         assert lt.exists(), f"{lt} does not exist"
         assert lt.stat().st_size > 0, f"{lt} has zero file size"
@@ -4024,7 +4020,7 @@ class PyGammaProxy(object):
         mode: Optional[int] = None,
         order: Optional[int] = None,
         SLC2R_dir: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Resample ScanSAR burst mode SLC using a lookup table and SLC offset polynomials for refinement
@@ -4090,10 +4086,8 @@ class PyGammaProxy(object):
                 SLC2R_dir,
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.SLC_interp_lt_ScanSAR)
-        )
-        result = self._gamma_call("DIFF", "SLC_interp_lt_ScanSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_interp_lt_ScanSAR))
+        result = self._gamma_call("DIFF", "SLC_interp_lt_ScanSAR", ca)
 
         assert SLC2R_tab.exists(), f"{SLC2R_tab} does not exist"
         assert SLC2R_tab.stat().st_size > 0, f"{SLC2R_tab} has zero file size"
@@ -4131,7 +4125,7 @@ class PyGammaProxy(object):
 
     def par_CS_geo(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         dyld[70492]: Library not loaded: '/opt/local/lib/libhdf5.200.dylib'
@@ -4146,8 +4140,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_CS_geo_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_CS_geo))
-        result = self._gamma_call("DIFF", "par_CS_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_CS_geo))
+        result = self._gamma_call("DIFF", "par_CS_geo", ca)
         return result
 
     def _validate_offset_pwr_trackingm2(
@@ -4278,7 +4272,7 @@ class PyGammaProxy(object):
         pltflg: Optional[int] = None,
         ccs: Optional[Path] = None,
         std_mean: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offset tracking between MLI images using intensity cross-correlation with the initial offset for each patch determined from an input offset map
@@ -4372,10 +4366,8 @@ class PyGammaProxy(object):
                 std_mean,
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.offset_pwr_trackingm2)
-        )
-        result = self._gamma_call("DIFF", "offset_pwr_trackingm2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_pwr_trackingm2))
+        result = self._gamma_call("DIFF", "offset_pwr_trackingm2", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -4440,7 +4432,7 @@ class PyGammaProxy(object):
         rpos: Optional[int] = None,
         azpos: Optional[int] = None,
         cflag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Initial image offset estimation using orbit state-vectors and image parameters
@@ -4469,8 +4461,8 @@ class PyGammaProxy(object):
                 MLI1_par, MLI2_par, DIFF_par, rpos, azpos, cflag
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.init_offset_orbitm))
-        result = self._gamma_call("DIFF", "init_offset_orbitm", args)
+        ca = self._clean_args(locals(), inspect.signature(self.init_offset_orbitm))
+        result = self._gamma_call("DIFF", "init_offset_orbitm", ca)
 
         assert DIFF_par.exists(), f"{DIFF_par} does not exist"
         assert DIFF_par.stat().st_size > 0, f"{DIFF_par} has zero file size"
@@ -4539,7 +4531,7 @@ class PyGammaProxy(object):
         plot_data: Optional[Path] = None,
         model: Optional[int] = None,
         pmodel: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Estimate L.S quadratic polynomial model from unwrapped phase
@@ -4576,8 +4568,8 @@ class PyGammaProxy(object):
                 unw, DIFF_par, dr, daz, mask, plot_data, model, pmodel
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.quad_fit))
-        result = self._gamma_call("DIFF", "quad_fit", args)
+        ca = self._clean_args(locals(), inspect.signature(self.quad_fit))
+        result = self._gamma_call("DIFF", "quad_fit", ca)
 
         if plot_data is not None:
             assert plot_data.exists(), f"{plot_data} does not exist"
@@ -4663,7 +4655,7 @@ class PyGammaProxy(object):
         ny: Optional[int] = None,
         np_min: Optional[int] = None,
         tscale: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DIFF: Program stacking.c
@@ -4718,8 +4710,8 @@ class PyGammaProxy(object):
                 tscale,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.stacking))
-        result = self._gamma_call("DIFF", "stacking", args)
+        ca = self._clean_args(locals(), inspect.signature(self.stacking))
+        result = self._gamma_call("DIFF", "stacking", ca)
 
         assert ph_rate.exists(), f"{ph_rate} does not exist"
         assert ph_rate.stat().st_size > 0, f"{ph_rate} has zero file size"
@@ -4802,7 +4794,7 @@ class PyGammaProxy(object):
         model: Optional[int] = None,
         roff: Optional[int] = None,
         loff: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Estimate atmospheric phase trend with respect to height, slant-range, and incidence angle
@@ -4840,8 +4832,8 @@ class PyGammaProxy(object):
                 diff_unw, hgt, MLI_par, atm_phase, dr, daz, mask, model, roff, loff
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.atm_mod2))
-        result = self._gamma_call("DIFF", "atm_mod2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.atm_mod2))
+        result = self._gamma_call("DIFF", "atm_mod2", ca)
 
         assert atm_phase.exists(), f"{atm_phase} does not exist"
         assert atm_phase.stat().st_size > 0, f"{atm_phase} has zero file size"
@@ -4879,7 +4871,7 @@ class PyGammaProxy(object):
 
     def par_UAVSAR_geo(
         self, ann: Path, SLC_par: Path, DEM_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate DEM parameter file for GRD products from UAVSAR annotation file (ann)
@@ -4898,8 +4890,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_UAVSAR_geo_outputs(ann, SLC_par, DEM_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_UAVSAR_geo))
-        result = self._gamma_call("DIFF", "par_UAVSAR_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_UAVSAR_geo))
+        result = self._gamma_call("DIFF", "par_UAVSAR_geo", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -4987,7 +4979,7 @@ class PyGammaProxy(object):
         beta: Optional[int] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate a geocoded MLI image from a geocoded SLC with separate averaging window dimensions and decimation factors
@@ -5051,8 +5043,8 @@ class PyGammaProxy(object):
                 exp,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_look_geo2))
-        result = self._gamma_call("DIFF", "multi_look_geo2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_look_geo2))
+        result = self._gamma_call("DIFF", "multi_look_geo2", ca)
 
         assert MLI.exists(), f"{MLI} does not exist"
         assert MLI.stat().st_size > 0, f"{MLI} has zero file size"
@@ -5140,7 +5132,7 @@ class PyGammaProxy(object):
         zflg: Optional[int] = None,
         no_data: Optional[float] = None,
         GTF_direct: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Convert original DEM file format into Gamma format, transform geoid heights into ellipsoid heights
@@ -5224,8 +5216,8 @@ class PyGammaProxy(object):
                 GTF_direct,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dem_import))
-        result = self._gamma_call("DIFF", "dem_import", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dem_import))
+        result = self._gamma_call("DIFF", "dem_import", ca)
 
         assert DEM.exists(), f"{DEM} does not exist"
         assert DEM.stat().st_size > 0, f"{DEM} has zero file size"
@@ -5308,7 +5300,7 @@ class PyGammaProxy(object):
         OFF_par: Optional[Path],
         SLC_2R: Path,
         SLC2R_par: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Resample SLC image using a lookup table and a refinement offset polynomial if available
@@ -5357,8 +5349,8 @@ class PyGammaProxy(object):
                 SLC2R_par,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_interp_lt))
-        result = self._gamma_call("DIFF", "SLC_interp_lt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_interp_lt))
+        result = self._gamma_call("DIFF", "SLC_interp_lt", ca)
 
         assert SLC_2R.exists(), f"{SLC_2R} does not exist"
         assert SLC_2R.stat().st_size > 0, f"{SLC_2R} has zero file size"
@@ -5428,7 +5420,7 @@ class PyGammaProxy(object):
         disp_map: Path,
         mode: Optional[int] = None,
         sflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Conversion of unwrapped differential phase to displacement (m)
@@ -5461,8 +5453,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_dispmap_outputs(unw, hgt, MLI_par, OFF_par, disp_map, mode, sflg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dispmap))
-        result = self._gamma_call("DIFF", "dispmap", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dispmap))
+        result = self._gamma_call("DIFF", "dispmap", ca)
 
         assert disp_map.exists(), f"{disp_map} does not exist"
         assert disp_map.stat().st_size > 0, f"{disp_map} has zero file size"
@@ -5538,7 +5530,7 @@ class PyGammaProxy(object):
         model: Optional[int] = None,
         roff: Optional[int] = None,
         loff: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Estimate atmospheric phase trend with respect to height, and slant range
@@ -5572,8 +5564,8 @@ class PyGammaProxy(object):
                 diff_unw, hgt, DIFF_par, atm_phase, dr, daz, mask, model, roff, loff
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.atm_mod))
-        result = self._gamma_call("DIFF", "atm_mod", args)
+        ca = self._clean_args(locals(), inspect.signature(self.atm_mod))
+        result = self._gamma_call("DIFF", "atm_mod", ca)
 
         assert atm_phase.exists(), f"{atm_phase} does not exist"
         assert atm_phase.stat().st_size > 0, f"{atm_phase} has zero file size"
@@ -5632,7 +5624,7 @@ class PyGammaProxy(object):
         layover: Optional[int] = None,
         shadow: Optional[int] = None,
         shadow_in_layover: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate a mask file from a layover and shadow map
@@ -5685,8 +5677,8 @@ class PyGammaProxy(object):
                 shadow_in_layover,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ls_map_mask))
-        result = self._gamma_call("DIFF", "ls_map_mask", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ls_map_mask))
+        result = self._gamma_call("DIFF", "ls_map_mask", ca)
 
         assert mask.exists(), f"{mask} does not exist"
         assert mask.stat().st_size > 0, f"{mask} has zero file size"
@@ -5736,7 +5728,7 @@ class PyGammaProxy(object):
         freq: float,
         disp_map: Path,
         sflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Conversion of unwrapped differential phase to displacement along the LOS (m)
@@ -5761,8 +5753,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_dispmap_LOS_outputs(unw, width, freq, disp_map, sflg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dispmap_LOS))
-        result = self._gamma_call("DIFF", "dispmap_LOS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dispmap_LOS))
+        result = self._gamma_call("DIFF", "dispmap_LOS", ca)
 
         assert disp_map.exists(), f"{disp_map} does not exist"
         assert disp_map.stat().st_size > 0, f"{disp_map} has zero file size"
@@ -5824,7 +5816,7 @@ class PyGammaProxy(object):
         dtype1: int,
         mode: Optional[int] = None,
         dtype2: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Subtract or add phase from an SLC or interferogram
@@ -5859,8 +5851,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_sub_phase_outputs(d1, d2, DIFF_par, diff, dtype1, mode, dtype2)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.sub_phase))
-        result = self._gamma_call("DIFF", "sub_phase", args)
+        ca = self._clean_args(locals(), inspect.signature(self.sub_phase))
+        result = self._gamma_call("DIFF", "sub_phase", ca)
 
         assert diff.exists(), f"{diff} does not exist"
         assert diff.stat().st_size > 0, f"{diff} has zero file size"
@@ -5949,7 +5941,7 @@ class PyGammaProxy(object):
         int_mode: Optional[Path] = None,
         SLC2R_par: Optional[Path] = None,
         ph_mode: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Simulate unwrapped interferometric phase using DEM height and deformation rate
@@ -6010,8 +6002,8 @@ class PyGammaProxy(object):
                 ph_mode,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.phase_sim))
-        result = self._gamma_call("DIFF", "phase_sim", args)
+        ca = self._clean_args(locals(), inspect.signature(self.phase_sim))
+        result = self._gamma_call("DIFF", "phase_sim", ca)
         return result
 
     def _validate_offset_pwr_geo(
@@ -6122,7 +6114,7 @@ class PyGammaProxy(object):
         pflag: Optional[int] = None,
         pltflg: Optional[int] = None,
         ccs: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offset estimation between geocoded SLC images using intensity cross-correlation
@@ -6208,8 +6200,8 @@ class PyGammaProxy(object):
                 ccs,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_pwr_geo))
-        result = self._gamma_call("DIFF", "offset_pwr_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_pwr_geo))
+        result = self._gamma_call("DIFF", "offset_pwr_geo", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -6289,7 +6281,7 @@ class PyGammaProxy(object):
         DEM_par: Path,
         MLI_par: Path,
         MLI: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate DEM parameter file, MLI image, and MLI parameter file for RISAT-1 GeoTIFF products
@@ -6315,8 +6307,8 @@ class PyGammaProxy(object):
                 annotation_XML, GeoTIFF, polarization, DEM_par, MLI_par, MLI
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RISAT_geo))
-        result = self._gamma_call("DIFF", "par_RISAT_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RISAT_geo))
+        result = self._gamma_call("DIFF", "par_RISAT_geo", ca)
 
         assert DEM_par.exists(), f"{DEM_par} does not exist"
         assert DEM_par.stat().st_size > 0, f"{DEM_par} has zero file size"
@@ -6411,7 +6403,7 @@ class PyGammaProxy(object):
         MLI_2R: Path,
         MLI2R_par: Path,
         order: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         MLI image resampling via a lookup table and B-spline interpolation
@@ -6460,8 +6452,8 @@ class PyGammaProxy(object):
                 order,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.MLI_interp_lt))
-        result = self._gamma_call("DIFF", "MLI_interp_lt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.MLI_interp_lt))
+        result = self._gamma_call("DIFF", "MLI_interp_lt", ca)
 
         assert MLI_2R.exists(), f"{MLI_2R} does not exist"
         assert MLI_2R.stat().st_size > 0, f"{MLI_2R} has zero file size"
@@ -6551,7 +6543,7 @@ class PyGammaProxy(object):
         lv_phi: Optional[Path] = None,
         lv_ENU: Optional[Path] = None,
         azv_ENU: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate look-vector elevation and orientation angles using the geocoding lookup-table
@@ -6584,8 +6576,8 @@ class PyGammaProxy(object):
                 MLI_par, DEM_par, DEM, lt, lv_theta, lv_phi, lv_ENU, azv_ENU
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.lk_vec_lt))
-        result = self._gamma_call("DIFF", "lk_vec_lt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.lk_vec_lt))
+        result = self._gamma_call("DIFF", "lk_vec_lt", ca)
 
         if lv_theta is not None:
             assert lv_theta.exists(), f"{lv_theta} does not exist"
@@ -6725,7 +6717,7 @@ class PyGammaProxy(object):
         pflag: Optional[int] = None,
         pltflg: Optional[int] = None,
         ccs: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offset estimation between geocoded SLC images using intensity cross-correlation***
@@ -6823,10 +6815,8 @@ class PyGammaProxy(object):
                 ccs,
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.offset_pwr_tracking_geo)
-        )
-        result = self._gamma_call("DIFF", "offset_pwr_tracking_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_pwr_tracking_geo))
+        result = self._gamma_call("DIFF", "offset_pwr_tracking_geo", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -6901,7 +6891,7 @@ class PyGammaProxy(object):
         lon: float,
         hgt: float,
         DIFF_par: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate the SAR image pixel coordinates of a point specified in map coordinates
@@ -6934,8 +6924,8 @@ class PyGammaProxy(object):
                 SLC_par, OFF_par, DEM_par, lat, lon, hgt, DIFF_par
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.coord_to_sarpix))
-        result = self._gamma_call("DIFF", "coord_to_sarpix", args)
+        ca = self._clean_args(locals(), inspect.signature(self.coord_to_sarpix))
+        result = self._gamma_call("DIFF", "coord_to_sarpix", ca)
         return result
 
     def _validate_WSS_intf(
@@ -7019,7 +7009,7 @@ class PyGammaProxy(object):
         boff: Optional[int] = None,
         bstep: Optional[int] = None,
         bmax: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate multi-look interferogram from ASAR Wide-Swath SLC images
@@ -7083,8 +7073,8 @@ class PyGammaProxy(object):
                 bmax,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.WSS_intf))
-        result = self._gamma_call("DIFF", "WSS_intf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.WSS_intf))
+        result = self._gamma_call("DIFF", "WSS_intf", ca)
 
         assert OFF_par.exists(), f"{OFF_par} does not exist"
         assert OFF_par.stat().st_size > 0, f"{OFF_par} has zero file size"
@@ -7173,7 +7163,7 @@ class PyGammaProxy(object):
         lt2: Optional[Path] = None,
         width: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate the DEM parameter file of a specfied region and extract this region from a geocoding lookup table
@@ -7241,8 +7231,8 @@ class PyGammaProxy(object):
                 nlines,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.map_section))
-        result = self._gamma_call("DIFF", "map_section", args)
+        ca = self._clean_args(locals(), inspect.signature(self.map_section))
+        result = self._gamma_call("DIFF", "map_section", ca)
 
         assert DEM_par2.exists(), f"{DEM_par2} does not exist"
         assert DEM_par2.stat().st_size > 0, f"{DEM_par2} has zero file size"
@@ -7326,7 +7316,7 @@ class PyGammaProxy(object):
         poly_order: Optional[int] = None,
         interact_flag: Optional[int] = None,
         trans_list: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate fine registration polynomial for geocoding from control point list
@@ -7387,8 +7377,8 @@ class PyGammaProxy(object):
                 trans_list,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_list_fitm))
-        result = self._gamma_call("DIFF", "offset_list_fitm", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_list_fitm))
+        result = self._gamma_call("DIFF", "offset_list_fitm", ca)
 
         assert DIFF_par.exists(), f"{DIFF_par} does not exist"
         assert DIFF_par.stat().st_size > 0, f"{DIFF_par} has zero file size"
@@ -7474,7 +7464,7 @@ class PyGammaProxy(object):
         DEM_par2: Path,
         s_north: int,
         s_east: int,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate coordinate lists in Range-Doppler Coordinates (RDC) and DEM coordinates using a lookup table
@@ -7520,8 +7510,8 @@ class PyGammaProxy(object):
                 s_east,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dem_RDC_list))
-        result = self._gamma_call("DIFF", "dem_RDC_list", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dem_RDC_list))
+        result = self._gamma_call("DIFF", "dem_RDC_list", ca)
 
         assert clist_RDC.exists(), f"{clist_RDC} does not exist"
         assert clist_RDC.stat().st_size > 0, f"{clist_RDC} has zero file size"
@@ -7591,7 +7581,7 @@ class PyGammaProxy(object):
         dtype: Optional[int] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate a multi-look geocoded MLI image from a geocoded SLC or MLI image
@@ -7624,8 +7614,8 @@ class PyGammaProxy(object):
                 DEM_par1, MLI, DEM_par2, e_lks, n_lks, dtype, scale, exp
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_look_geo))
-        result = self._gamma_call("DIFF", "multi_look_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_look_geo))
+        result = self._gamma_call("DIFF", "multi_look_geo", ca)
 
         assert MLI.exists(), f"{MLI} does not exist"
         assert MLI.stat().st_size > 0, f"{MLI} has zero file size"
@@ -7770,7 +7760,7 @@ class PyGammaProxy(object):
         svd_tol: Optional[int] = None,
         w0: Optional[int] = None,
         w1: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Estimate atmospheric phase model parameters on a 2D grid
@@ -7868,8 +7858,8 @@ class PyGammaProxy(object):
                 w1,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.atm_mod_2d))
-        result = self._gamma_call("DIFF", "atm_mod_2d", args)
+        ca = self._clean_args(locals(), inspect.signature(self.atm_mod_2d))
+        result = self._gamma_call("DIFF", "atm_mod_2d", ca)
 
         assert DIFF_par.exists(), f"{DIFF_par} does not exist"
         assert DIFF_par.stat().st_size > 0, f"{DIFF_par} has zero file size"
@@ -7990,7 +7980,7 @@ class PyGammaProxy(object):
         SLC_2R: Path,
         SLC2R_par: Path,
         DIFF_par2: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ASAR Wide-Swath SLC complex image resampling via a lookup table and  2-D SINC interpolation
@@ -8042,8 +8032,8 @@ class PyGammaProxy(object):
                 DIFF_par2,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.WSS_interp_lt))
-        result = self._gamma_call("DIFF", "WSS_interp_lt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.WSS_interp_lt))
+        result = self._gamma_call("DIFF", "WSS_interp_lt", ca)
 
         assert SLC_2R.exists(), f"{SLC_2R} does not exist"
         assert SLC_2R.stat().st_size > 0, f"{SLC_2R} has zero file size"
@@ -8190,7 +8180,7 @@ class PyGammaProxy(object):
         mode: Optional[int] = None,
         ax_north: Optional[int] = None,
         ax_east: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculation of displacement vector field from 2 measured components (asc./desc.)
@@ -8268,8 +8258,8 @@ class PyGammaProxy(object):
                 ax_east,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dispmap_vec2))
-        result = self._gamma_call("DIFF", "dispmap_vec2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dispmap_vec2))
+        result = self._gamma_call("DIFF", "dispmap_vec2", ca)
 
         assert dv_norm.exists(), f"{dv_norm} does not exist"
         assert dv_norm.stat().st_size > 0, f"{dv_norm} has zero file size"
@@ -8348,7 +8338,7 @@ class PyGammaProxy(object):
         diff_int: Path,
         int_type: Optional[int] = None,
         ph_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Three-pass differential interferometry
@@ -8375,8 +8365,8 @@ class PyGammaProxy(object):
                 int_1, unw_2, DIFF_par, diff_int, int_type, ph_flag
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.diff_ls_unw))
-        result = self._gamma_call("DIFF", "diff_ls_unw", args)
+        ca = self._clean_args(locals(), inspect.signature(self.diff_ls_unw))
+        result = self._gamma_call("DIFF", "diff_ls_unw", ca)
 
         assert diff_int.exists(), f"{diff_int} does not exist"
         assert diff_int.stat().st_size > 0, f"{diff_int} has zero file size"
@@ -8512,7 +8502,7 @@ class PyGammaProxy(object):
         pflag: Optional[int] = None,
         pltflg: Optional[int] = None,
         ccs: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offsets between SLC images at positions specified by a list using intensity cross-correlation
@@ -8607,8 +8597,8 @@ class PyGammaProxy(object):
                 ccs,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_pwr_list))
-        result = self._gamma_call("DIFF", "offset_pwr_list", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_pwr_list))
+        result = self._gamma_call("DIFF", "offset_pwr_list", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -8696,7 +8686,7 @@ class PyGammaProxy(object):
         n_ovr: Optional[int] = None,
         rad_max: Optional[int] = None,
         nintr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Forward geocoding transformation using a lookup table
@@ -8766,8 +8756,8 @@ class PyGammaProxy(object):
                 nintr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.geocode))
-        result = self._gamma_call("DIFF", "geocode", args)
+        ca = self._clean_args(locals(), inspect.signature(self.geocode))
+        result = self._gamma_call("DIFF", "geocode", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -8833,7 +8823,7 @@ class PyGammaProxy(object):
         DEM_par: Path,
         GEO: Path,
         pol: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate DEM parameter and image files for Terrasar-X GEC and EEC data
@@ -8858,8 +8848,8 @@ class PyGammaProxy(object):
                 annotation_XML, GeoTIFF, MLI_par, DEM_par, GEO, pol
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_TX_geo))
-        result = self._gamma_call("DIFF", "par_TX_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_TX_geo))
+        result = self._gamma_call("DIFF", "par_TX_geo", ca)
 
         assert MLI_par.exists(), f"{MLI_par} does not exist"
         assert MLI_par.stat().st_size > 0, f"{MLI_par} has zero file size"
@@ -8903,7 +8893,7 @@ class PyGammaProxy(object):
 
     def data2xyz(
         self, DEM_par: Path, data: Path, data_xyz: Path, dflg: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Convert geocoded float data to triplets of float: (northing, easting, data_value) as binary or text format
@@ -8924,8 +8914,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_data2xyz_outputs(DEM_par, data, data_xyz, dflg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.data2xyz))
-        result = self._gamma_call("DIFF", "data2xyz", args)
+        ca = self._clean_args(locals(), inspect.signature(self.data2xyz))
+        result = self._gamma_call("DIFF", "data2xyz", ca)
 
         assert data_xyz.exists(), f"{data_xyz} does not exist"
         assert data_xyz.stat().st_size > 0, f"{data_xyz} has zero file size"
@@ -8996,7 +8986,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         roff: Optional[int] = None,
         nsamp: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate multi-look averaged or interpolated 2D image (complex data)
@@ -9026,8 +9016,8 @@ class PyGammaProxy(object):
                 data_in, PAR_in, data_out, PAR_out, rlks, azlks, loff, nlines, roff, nsamp
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_cpx))
-        result = self._gamma_call("DIFF", "multi_cpx", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_cpx))
+        result = self._gamma_call("DIFF", "multi_cpx", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -9097,7 +9087,7 @@ class PyGammaProxy(object):
         DIFF_tab: Path,
         SLCR_tab: Optional[Path] = None,
         DIFF_dir: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate Differential Interferogram bursts from SLC ScanSAR data (Sentinel-1, RCM, and TSX)
@@ -9132,10 +9122,8 @@ class PyGammaProxy(object):
                 SLC1_tab, SLC2R_tab, SIM_tab, DIFF_tab, SLCR_tab, DIFF_dir
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.ScanSAR_burst_diff_intf)
-        )
-        result = self._gamma_call("DIFF", "ScanSAR_burst_diff_intf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ScanSAR_burst_diff_intf))
+        result = self._gamma_call("DIFF", "ScanSAR_burst_diff_intf", ca)
 
         assert DIFF_tab.exists(), f"{DIFF_tab} does not exist"
         assert DIFF_tab.stat().st_size > 0, f"{DIFF_tab} has zero file size"
@@ -9167,7 +9155,9 @@ class PyGammaProxy(object):
         if DEM_XYZ is not None and str(DEM_XYZ) != "-":
             DEM_XYZ.touch()
 
-    def dem_xyz(self, DEM_par: Path, DEM: Path, DEM_XYZ: Path) -> Tuple[int, str, str]:
+    def dem_xyz(
+        self, DEM_par: Path, DEM: Path, DEM_XYZ: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DEM transformation to Cartesian XYZ coordinates
@@ -9185,8 +9175,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_dem_xyz_outputs(DEM_par, DEM, DEM_XYZ)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dem_xyz))
-        result = self._gamma_call("DIFF", "dem_xyz", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dem_xyz))
+        result = self._gamma_call("DIFF", "dem_xyz", ca)
 
         assert DEM_XYZ.exists(), f"{DEM_XYZ} does not exist"
         assert DEM_XYZ.stat().st_size > 0, f"{DEM_XYZ} has zero file size"
@@ -9254,7 +9244,7 @@ class PyGammaProxy(object):
         DEM: Path,
         lv_theta: Path,
         lv_phi: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate SAR look-vector orientation and elevation angles in map geometry
@@ -9282,8 +9272,8 @@ class PyGammaProxy(object):
                 SLC_par, OFF_par, DEM_par, DEM, lv_theta, lv_phi
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.look_vector))
-        result = self._gamma_call("DIFF", "look_vector", args)
+        ca = self._clean_args(locals(), inspect.signature(self.look_vector))
+        result = self._gamma_call("DIFF", "look_vector", ca)
 
         assert lv_theta.exists(), f"{lv_theta} does not exist"
         assert lv_theta.stat().st_size > 0, f"{lv_theta} has zero file size"
@@ -9341,7 +9331,7 @@ class PyGammaProxy(object):
         delta_x: Optional[int] = None,
         EPSG: Optional[int] = None,
         iflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DEM/MAP parameter file creation/modification
@@ -9379,8 +9369,8 @@ class PyGammaProxy(object):
                 DEM_par, SLC_par, terra_alt, delta_y, delta_x, EPSG, iflg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.create_dem_par))
-        result = self._gamma_call("DIFF", "create_dem_par", args)
+        ca = self._clean_args(locals(), inspect.signature(self.create_dem_par))
+        result = self._gamma_call("DIFF", "create_dem_par", ca)
 
         assert DEM_par.exists(), f"{DEM_par} does not exist"
         assert DEM_par.stat().st_size > 0, f"{DEM_par} has zero file size"
@@ -9449,7 +9439,7 @@ class PyGammaProxy(object):
         a1: Optional[Path],
         atm_phase: Path,
         mask: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Simulate atmospheric phase based on a 2D grid of model parameters
@@ -9472,8 +9462,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_atm_sim_2d_outputs(DIFF_par, hgt, a0, a1, atm_phase, mask)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.atm_sim_2d))
-        result = self._gamma_call("DIFF", "atm_sim_2d", args)
+        ca = self._clean_args(locals(), inspect.signature(self.atm_sim_2d))
+        result = self._gamma_call("DIFF", "atm_sim_2d", ca)
 
         assert DIFF_par.exists(), f"{DIFF_par} does not exist"
         assert DIFF_par.stat().st_size > 0, f"{DIFF_par} has zero file size"
@@ -9542,7 +9532,7 @@ class PyGammaProxy(object):
         DEM_Y: Path,
         DEM_Z: Path,
         format_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DEM transformation to WGS84 Cartesian X, Y, and Z coordinates (3 files)
@@ -9565,8 +9555,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_dem_x_y_z_outputs(DEM_par, DEM, DEM_X, DEM_Y, DEM_Z, format_flag)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dem_x_y_z))
-        result = self._gamma_call("DIFF", "dem_x_y_z", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dem_x_y_z))
+        result = self._gamma_call("DIFF", "dem_x_y_z", ca)
 
         assert DEM_X.exists(), f"{DEM_X} does not exist"
         assert DEM_X.stat().st_size > 0, f"{DEM_X} has zero file size"
@@ -9692,7 +9682,7 @@ class PyGammaProxy(object):
         sim_phase: Optional[Path] = None,
         lanczos: Optional[int] = None,
         beta: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate a geocoded differential interferogram and MLI images from geocoded SLCs with separate averaging window dimensions and decimation factors
@@ -9765,8 +9755,8 @@ class PyGammaProxy(object):
                 beta,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_intf_geo2))
-        result = self._gamma_call("DIFF", "SLC_intf_geo2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_intf_geo2))
+        result = self._gamma_call("DIFF", "SLC_intf_geo2", ca)
 
         if interf is not None:
             assert interf.exists(), f"{interf} does not exist"
@@ -9850,7 +9840,7 @@ class PyGammaProxy(object):
         b: Optional[int] = None,
         xs: Optional[int] = None,
         zflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DIFF Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DIFF/bin/ras_clist.c
@@ -9879,8 +9869,8 @@ class PyGammaProxy(object):
                 clist, ras_in, ras_out, xsf, ysf, r, g, b, xs, zflg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras_clist))
-        result = self._gamma_call("DIFF", "ras_clist", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras_clist))
+        result = self._gamma_call("DIFF", "ras_clist", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -9945,7 +9935,7 @@ class PyGammaProxy(object):
         disp_north: Path,
         disp_up: Path,
         disp_LOS: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DIFF Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DIFF/bin/dispmap_sim
@@ -9975,8 +9965,8 @@ class PyGammaProxy(object):
                 LV, DEM_par, disp_east, disp_north, disp_up, disp_LOS
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dispmap_sim))
-        result = self._gamma_call("DIFF", "dispmap_sim", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dispmap_sim))
+        result = self._gamma_call("DIFF", "dispmap_sim", ca)
 
         assert disp_LOS.exists(), f"{disp_LOS} does not exist"
         assert disp_LOS.stat().st_size > 0, f"{disp_LOS} has zero file size"
@@ -10042,7 +10032,7 @@ class PyGammaProxy(object):
         phi: Path,
         mag: Path,
         type: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate elevation and orientation angles of the DEM normal or gradient vector magnitude
@@ -10071,8 +10061,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_dem_gradient_outputs(DEM_par, DEM, theta, phi, mag, type)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dem_gradient))
-        result = self._gamma_call("DIFF", "dem_gradient", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dem_gradient))
+        result = self._gamma_call("DIFF", "dem_gradient", ca)
 
         assert theta.exists(), f"{theta} does not exist"
         assert theta.stat().st_size > 0, f"{theta} has zero file size"
@@ -10202,7 +10192,7 @@ class PyGammaProxy(object):
         pltflg: Optional[int] = None,
         ccs: Optional[Path] = None,
         std_mean: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offset tracking between MLI images using intensity cross-correlation
@@ -10293,10 +10283,8 @@ class PyGammaProxy(object):
                 std_mean,
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.offset_pwr_trackingm)
-        )
-        result = self._gamma_call("DIFF", "offset_pwr_trackingm", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_pwr_trackingm))
+        result = self._gamma_call("DIFF", "offset_pwr_trackingm", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -10377,7 +10365,7 @@ class PyGammaProxy(object):
         thres: Optional[float] = None,
         patch: Optional[int] = None,
         cflag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Initial offset estimation for multi-look intensity images
@@ -10434,8 +10422,8 @@ class PyGammaProxy(object):
                 cflag,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.init_offsetm))
-        result = self._gamma_call("DIFF", "init_offsetm", args)
+        ca = self._clean_args(locals(), inspect.signature(self.init_offsetm))
+        result = self._gamma_call("DIFF", "init_offsetm", ca)
         return result
 
     def _validate_gc_map_fd(
@@ -10576,7 +10564,7 @@ class PyGammaProxy(object):
         frame: Optional[int] = None,
         ls_mode: Optional[int] = None,
         r_ovr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate lookup table and DEM related products for terrain-corrected geocoding using a doppler polynomial table
@@ -10660,8 +10648,8 @@ class PyGammaProxy(object):
                 r_ovr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gc_map_fd))
-        result = self._gamma_call("DIFF", "gc_map_fd", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gc_map_fd))
+        result = self._gamma_call("DIFF", "gc_map_fd", ca)
 
         assert DEM_seg_par.exists(), f"{DEM_seg_par} does not exist"
         assert DEM_seg_par.stat().st_size > 0, f"{DEM_seg_par} has zero file size"
@@ -10766,7 +10754,7 @@ class PyGammaProxy(object):
         e_flag: Optional[int] = None,
         off_flag: Optional[int] = None,
         lpf: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Resample 2D data with geometry of the input image parameter file to the geometry of a second image parameter file of the same scene
@@ -10842,8 +10830,8 @@ class PyGammaProxy(object):
                 lpf,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.resamp_image_par))
-        result = self._gamma_call("DIFF", "resamp_image_par", args)
+        ca = self._clean_args(locals(), inspect.signature(self.resamp_image_par))
+        result = self._gamma_call("DIFF", "resamp_image_par", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -10855,7 +10843,7 @@ class PyGammaProxy(object):
         SLC1_par: Path,
         SLC2R_par: Path,
         OFF_par: Path,
-        hgt: Optional[float],
+        hgt: Optional[Path],
         sim_orb: Path,
         SLC_ref_par: Optional[Path] = None,
         def_: Optional[Path] = None,
@@ -10878,6 +10866,10 @@ class PyGammaProxy(object):
         assert OFF_par.exists(), f"{OFF_par} does not exist"
         assert OFF_par.stat().st_size > 0, f"{OFF_par} has zero file size"
 
+        if hgt is not None:
+            assert hgt.exists(), f"{hgt} does not exist"
+            assert hgt.stat().st_size > 0, f"{hgt} has zero file size"
+
         assert not sim_orb.exists(), f"{sim_orb} should _not_ exist!"
 
         if SLC_ref_par is not None:
@@ -10897,7 +10889,7 @@ class PyGammaProxy(object):
         SLC1_par: Path,
         SLC2R_par: Path,
         OFF_par: Path,
-        hgt: Optional[float],
+        hgt: Optional[Path],
         sim_orb: Path,
         SLC_ref_par: Optional[Path] = None,
         def_: Optional[Path] = None,
@@ -10919,14 +10911,14 @@ class PyGammaProxy(object):
         SLC1_par: Path,
         SLC2R_par: Path,
         OFF_par: Path,
-        hgt: Optional[float],
+        hgt: Optional[Path],
         sim_orb: Path,
         SLC_ref_par: Optional[Path] = None,
         def_: Optional[Path] = None,
         delta_t: Optional[Path] = None,
         int_mode: Optional[int] = None,
         ph_mode: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Simulate unwrapped interferometric phase using DEM height and deformation rate using orbit state vectors
@@ -10979,8 +10971,8 @@ class PyGammaProxy(object):
                 ph_mode,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.phase_sim_orb))
-        result = self._gamma_call("DIFF", "phase_sim_orb", args)
+        ca = self._clean_args(locals(), inspect.signature(self.phase_sim_orb))
+        result = self._gamma_call("DIFF", "phase_sim_orb", ca)
 
         assert sim_orb.exists(), f"{sim_orb} does not exist"
         assert sim_orb.stat().st_size > 0, f"{sim_orb} has zero file size"
@@ -11051,7 +11043,7 @@ class PyGammaProxy(object):
         lookup_table: Path,
         lat_ovr: Optional[int] = None,
         lon_ovr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate geocoding lookup table for ellipsoid correction of slant-range images
@@ -11097,8 +11089,8 @@ class PyGammaProxy(object):
                 lon_ovr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gec_map))
-        result = self._gamma_call("DIFF", "gec_map", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gec_map))
+        result = self._gamma_call("DIFF", "gec_map", ca)
 
         assert DEM_seg_par.exists(), f"{DEM_seg_par} does not exist"
         assert DEM_seg_par.stat().st_size > 0, f"{DEM_seg_par} has zero file size"
@@ -11188,7 +11180,7 @@ class PyGammaProxy(object):
         dh: Path,
         SLC_ref_par: Optional[Path] = None,
         int_mode: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate delta height from differential interferometric phase using state vectors for baseline calculation
@@ -11220,8 +11212,8 @@ class PyGammaProxy(object):
                 SLC1_par, SLC2R_par, OFF_par, hgt, dp, dpdh, dh, SLC_ref_par, int_mode
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dh_map_orb))
-        result = self._gamma_call("DIFF", "dh_map_orb", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dh_map_orb))
+        result = self._gamma_call("DIFF", "dh_map_orb", ca)
 
         assert dpdh.exists(), f"{dpdh} does not exist"
         assert dpdh.stat().st_size > 0, f"{dpdh} has zero file size"
@@ -11260,7 +11252,7 @@ class PyGammaProxy(object):
 
     def offset_subm(
         self, offs: Path, DIFF_par: Path, offs_sub: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Subtraction of polynomial from range and azimuth offset estimates
@@ -11279,8 +11271,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_offset_subm_outputs(offs, DIFF_par, offs_sub)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_subm))
-        result = self._gamma_call("DIFF", "offset_subm", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_subm))
+        result = self._gamma_call("DIFF", "offset_subm", ca)
 
         assert offs_sub.exists(), f"{offs_sub} does not exist"
         assert offs_sub.stat().st_size > 0, f"{offs_sub} has zero file size"
@@ -11357,7 +11349,7 @@ class PyGammaProxy(object):
         mode: Optional[int] = None,
         thres: Optional[float] = None,
         poly_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Conversion of range and azimuth offsets files to displacement map for intensity offsets
@@ -11392,8 +11384,8 @@ class PyGammaProxy(object):
                 offs, snr, MLI_par, DIFF_par, coffs_map, coffsets, mode, thres, poly_flag
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_trackingm))
-        result = self._gamma_call("DIFF", "offset_trackingm", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_trackingm))
+        result = self._gamma_call("DIFF", "offset_trackingm", ca)
 
         assert coffs_map.exists(), f"{coffs_map} does not exist"
         assert coffs_map.stat().st_size > 0, f"{coffs_map} has zero file size"
@@ -11468,7 +11460,7 @@ class PyGammaProxy(object):
         width: int,
         combi_base: Path,
         sm: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Complex interferogram combination
@@ -11505,8 +11497,8 @@ class PyGammaProxy(object):
                 int_1, int_2, base_1, base_2, factor_1, factor_2, width, combi_base, sm
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.comb_interfs))
-        result = self._gamma_call("DIFF", "comb_interfs", args)
+        ca = self._clean_args(locals(), inspect.signature(self.comb_interfs))
+        result = self._gamma_call("DIFF", "comb_interfs", ca)
 
         assert combi_base.exists(), f"{combi_base} does not exist"
         assert combi_base.stat().st_size > 0, f"{combi_base} has zero file size"
@@ -11550,7 +11542,7 @@ class PyGammaProxy(object):
 
     def gc_insar(
         self, SLC_par: Path, OFF_par: Path, hgt: Path, DEM_par: Path, lookup_table: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Derive complex valued lookup table for terrain corrected geocoding (based on heights in SAR geometry)
@@ -11572,8 +11564,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_gc_insar_outputs(SLC_par, OFF_par, hgt, DEM_par, lookup_table)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gc_insar))
-        result = self._gamma_call("DIFF", "gc_insar", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gc_insar))
+        result = self._gamma_call("DIFF", "gc_insar", ca)
 
         assert lookup_table.exists(), f"{lookup_table} does not exist"
         assert lookup_table.stat().st_size > 0, f"{lookup_table} has zero file size"
@@ -11603,7 +11595,7 @@ class PyGammaProxy(object):
 
     def par_KS_geo(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         dyld[70498]: Library not loaded: '/opt/local/lib/libhdf5.200.dylib'
@@ -11618,8 +11610,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_KS_geo_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_KS_geo))
-        result = self._gamma_call("DIFF", "par_KS_geo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_KS_geo))
+        result = self._gamma_call("DIFF", "par_KS_geo", ca)
         return result
 
     def _validate_offset_pwrm(
@@ -11727,7 +11719,7 @@ class PyGammaProxy(object):
         pltflg: Optional[int] = None,
         ccs: Optional[Path] = None,
         std_mean: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offset estimation between MLI images using intensity cross-correlation
@@ -11806,8 +11798,8 @@ class PyGammaProxy(object):
                 std_mean,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_pwrm))
-        result = self._gamma_call("DIFF", "offset_pwrm", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_pwrm))
+        result = self._gamma_call("DIFF", "offset_pwrm", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -11885,7 +11877,7 @@ class PyGammaProxy(object):
         MAP_coord: Path,
         SAR_coord: Path,
         DIFF_par: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate SAR pixel coordinates for each set of map coordinates in a list
@@ -11917,10 +11909,8 @@ class PyGammaProxy(object):
                 SLC_par, OFF_par, DEM_par, MAP_coord, SAR_coord, DIFF_par
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.coord_to_sarpix_list)
-        )
-        result = self._gamma_call("DIFF", "coord_to_sarpix_list", args)
+        ca = self._clean_args(locals(), inspect.signature(self.coord_to_sarpix_list))
+        result = self._gamma_call("DIFF", "coord_to_sarpix_list", ca)
 
         assert SAR_coord.exists(), f"{SAR_coord} does not exist"
         assert SAR_coord.stat().st_size > 0, f"{SAR_coord} has zero file size"
@@ -11936,7 +11926,7 @@ class PyGammaProxy(object):
         coffsets: Optional[Path] = None,
         thres: Optional[float] = None,
         npoly: Optional[int] = None,
-        interact_mode: Optional[int] = None,
+        interact_flag: Optional[int] = None,
     ) -> None:
         """
 
@@ -11968,7 +11958,7 @@ class PyGammaProxy(object):
         coffsets: Optional[Path] = None,
         thres: Optional[float] = None,
         npoly: Optional[int] = None,
-        interact_mode: Optional[int] = None,
+        interact_flag: Optional[int] = None,
     ) -> None:
         """
 
@@ -11991,8 +11981,8 @@ class PyGammaProxy(object):
         coffsets: Optional[Path] = None,
         thres: Optional[float] = None,
         npoly: Optional[int] = None,
-        interact_mode: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+        interact_flag: Optional[int] = None,
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Range and azimuth offset polynomial estimation using SVD
@@ -12015,16 +12005,16 @@ class PyGammaProxy(object):
 
         if self.validate_inputs:
             self._validate_offset_fitm(
-                offs, ccp, DIFF_par, coffs, coffsets, thres, npoly, interact_mode
+                offs, ccp, DIFF_par, coffs, coffsets, thres, npoly, interact_flag
             )
 
         if self.mock_outputs:
             self._mock_offset_fitm_outputs(
-                offs, ccp, DIFF_par, coffs, coffsets, thres, npoly, interact_mode
+                offs, ccp, DIFF_par, coffs, coffsets, thres, npoly, interact_flag
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_fitm))
-        result = self._gamma_call("DIFF", "offset_fitm", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_fitm))
+        result = self._gamma_call("DIFF", "offset_fitm", ca)
 
         if coffs is not None:
             assert coffs.exists(), f"{coffs} does not exist"
@@ -12151,7 +12141,7 @@ class PyGammaProxy(object):
         chi2: Optional[Path] = None,
         min_obs: Optional[int] = None,
         tol: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DIFF Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DIFF/bin/dispmap_ENU
@@ -12211,8 +12201,8 @@ class PyGammaProxy(object):
                 tol,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dispmap_ENU))
-        result = self._gamma_call("DIFF", "dispmap_ENU", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dispmap_ENU))
+        result = self._gamma_call("DIFF", "dispmap_ENU", ca)
 
         assert disp_east.exists(), f"{disp_east} does not exist"
         assert disp_east.stat().st_size > 0, f"{disp_east} has zero file size"
@@ -12288,7 +12278,7 @@ class PyGammaProxy(object):
         east: Optional[Path] = None,
         north: Optional[Path] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate a 2D map of the east and north coordinates (FLOAT or DOUBLE format)
@@ -12312,8 +12302,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_dem_coord_outputs(DEM_par, east, north, dtype)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dem_coord))
-        result = self._gamma_call("DIFF", "dem_coord", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dem_coord))
+        result = self._gamma_call("DIFF", "dem_coord", ca)
 
         if east is not None:
             assert east.exists(), f"{east} does not exist"
@@ -12380,7 +12370,7 @@ class PyGammaProxy(object):
         interp_mode: Optional[int] = None,
         dtype: Optional[int] = None,
         order: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Rotate an image about the image center by a specifed angle
@@ -12442,8 +12432,8 @@ class PyGammaProxy(object):
                 order,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rotate_image))
-        result = self._gamma_call("DIFF", "rotate_image", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rotate_image))
+        result = self._gamma_call("DIFF", "rotate_image", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -12517,7 +12507,7 @@ class PyGammaProxy(object):
         lr_out: Optional[Path] = None,
         order: Optional[int] = None,
         e_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Geocoding of image data using a geocoding lookup table
@@ -12591,8 +12581,8 @@ class PyGammaProxy(object):
                 e_flag,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.geocode_back))
-        result = self._gamma_call("DIFF", "geocode_back", args)
+        ca = self._clean_args(locals(), inspect.signature(self.geocode_back))
+        result = self._gamma_call("DIFF", "geocode_back", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -12649,7 +12639,7 @@ class PyGammaProxy(object):
         azlin: Optional[int] = None,
         rpix: Optional[int] = None,
         ref_hgt: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Transform SAR image coordinates to map projection or geographic (lat/lon) coordinates
@@ -12674,8 +12664,8 @@ class PyGammaProxy(object):
                 SLC_par, OFF_par, DEM_par, azlin, rpix, ref_hgt
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.sarpix_coord))
-        result = self._gamma_call("DIFF", "sarpix_coord", args)
+        ca = self._clean_args(locals(), inspect.signature(self.sarpix_coord))
+        result = self._gamma_call("DIFF", "sarpix_coord", ca)
         return result
 
     def _validate_resamp_image(
@@ -12748,7 +12738,7 @@ class PyGammaProxy(object):
         yoff: Optional[int] = None,
         e_flag: Optional[int] = None,
         lpf: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Resample 2D data by linear scale factors and offset in x and y
@@ -12831,8 +12821,8 @@ class PyGammaProxy(object):
                 lpf,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.resamp_image))
-        result = self._gamma_call("DIFF", "resamp_image", args)
+        ca = self._clean_args(locals(), inspect.signature(self.resamp_image))
+        result = self._gamma_call("DIFF", "resamp_image", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -12919,7 +12909,7 @@ class PyGammaProxy(object):
         ny: Optional[int] = None,
         rmax: Optional[int] = None,
         order: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Polar to rectangular coordinate conversion for GPRI SLC, interferogram, coherence, and MLI images
@@ -12989,8 +12979,8 @@ class PyGammaProxy(object):
                 order,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.pol2rec))
-        result = self._gamma_call("DIFF", "pol2rec", args)
+        ca = self._clean_args(locals(), inspect.signature(self.pol2rec))
+        result = self._gamma_call("DIFF", "pol2rec", ca)
 
         assert data2.exists(), f"{data2} does not exist"
         assert data2.stat().st_size > 0, f"{data2} has zero file size"
@@ -13069,7 +13059,7 @@ class PyGammaProxy(object):
         DIFF_par: Path,
         SLC_2R: Path,
         SLC2R_par: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ASAR Wide-Swath complex image resampling using 2-D SINC interpolation
@@ -13097,8 +13087,8 @@ class PyGammaProxy(object):
                 SLC_1, SLC_2, SLC1_par, SLC2_par, DIFF_par, SLC_2R, SLC2R_par
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.WSS_interp))
-        result = self._gamma_call("DIFF", "WSS_interp", args)
+        ca = self._clean_args(locals(), inspect.signature(self.WSS_interp))
+        result = self._gamma_call("DIFF", "WSS_interp", ca)
 
         assert SLC_2R.exists(), f"{SLC_2R} does not exist"
         assert SLC_2R.stat().st_size > 0, f"{SLC_2R} has zero file size"
@@ -13161,7 +13151,7 @@ class PyGammaProxy(object):
         plot_data: Optional[Path] = None,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Doppler ambiguity estimation for IQ SAR data using the MLCC algorithm
@@ -13192,8 +13182,8 @@ class PyGammaProxy(object):
                 SAR_par, PROC_par, signal_data, plot_data, loff, nlines
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dop_mlcc))
-        result = self._gamma_call("MSP", "dop_mlcc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dop_mlcc))
+        result = self._gamma_call("MSP", "dop_mlcc", ca)
 
         if plot_data is not None:
             assert plot_data.exists(), f"{plot_data} does not exist"
@@ -13227,7 +13217,7 @@ class PyGammaProxy(object):
 
     def ERS_proc_ASF_2000(
         self, CEOS_SAR_leader: Path, PROC_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS SAR processing parameters from ASF Level 0 (SKY) CEOS leader after 2000
@@ -13248,8 +13238,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_ASF_2000_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_ASF_2000))
-        result = self._gamma_call("MSP", "ERS_proc_ASF_2000", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_ASF_2000))
+        result = self._gamma_call("MSP", "ERS_proc_ASF_2000", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -13278,7 +13268,9 @@ class PyGammaProxy(object):
         if PROC_par is not None and str(PROC_par) != "-":
             PROC_par.touch()
 
-    def ERS_proc_ASF(self, CEOS_SAR_leader: Path, PROC_par: Path) -> Tuple[int, str, str]:
+    def ERS_proc_ASF(
+        self, CEOS_SAR_leader: Path, PROC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS SAR processing parameters (ASF PAF facility)
@@ -13297,8 +13289,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_ASF_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_ASF))
-        result = self._gamma_call("MSP", "ERS_proc_ASF", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_ASF))
+        result = self._gamma_call("MSP", "ERS_proc_ASF", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -13378,7 +13370,7 @@ class PyGammaProxy(object):
         c0_flg: Optional[int] = None,
         ambig_flag: Optional[int] = None,
         namb: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         2-D Doppler centroid estimation for IQ SAR data
@@ -13438,8 +13430,8 @@ class PyGammaProxy(object):
                 namb,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.doppler_2d))
-        result = self._gamma_call("MSP", "doppler_2d", args)
+        ca = self._clean_args(locals(), inspect.signature(self.doppler_2d))
+        result = self._gamma_call("MSP", "doppler_2d", ca)
 
         assert dop2d.exists(), f"{dop2d} does not exist"
         assert dop2d.stat().st_size > 0, f"{dop2d} has zero file size"
@@ -13468,7 +13460,9 @@ class PyGammaProxy(object):
         if PROC_par is not None and str(PROC_par) != "-":
             PROC_par.touch()
 
-    def ERS_proc_ESA(self, CEOS_SAR_leader: Path, PROC_par: Path) -> Tuple[int, str, str]:
+    def ERS_proc_ESA(
+        self, CEOS_SAR_leader: Path, PROC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS SAR processing parameters from ESA-ESRIN VMP and PGS CEOS format leader files
@@ -13487,8 +13481,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_ESA_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_ESA))
-        result = self._gamma_call("MSP", "ERS_proc_ESA", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_ESA))
+        result = self._gamma_call("MSP", "ERS_proc_ESA", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -13559,7 +13553,7 @@ class PyGammaProxy(object):
         SLC_type: Optional[int] = None,
         kaiser: Optional[int] = None,
         npatch: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SAR Range-Doppler azimuth compression of range-compressed data
@@ -13614,8 +13608,8 @@ class PyGammaProxy(object):
                 npatch,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.az_proc))
-        result = self._gamma_call("MSP", "az_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.az_proc))
+        result = self._gamma_call("MSP", "az_proc", ca)
 
         assert SLC.exists(), f"{SLC} does not exist"
         assert SLC.stat().st_size > 0, f"{SLC} has zero file size"
@@ -13659,7 +13653,7 @@ class PyGammaProxy(object):
 
     def dop_interf(
         self, PROC_par1_out: Path, PROC_par2_out: Path, dop: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Doppler parameter optimization for Repeat Track Interferometry v2.2 26-Nov-2003 clw
@@ -13682,8 +13676,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_dop_interf_outputs(PROC_par1_out, PROC_par2_out, dop)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dop_interf))
-        result = self._gamma_call("MSP", "dop_interf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dop_interf))
+        result = self._gamma_call("MSP", "dop_interf", ca)
 
         assert PROC_par1_out.exists(), f"{PROC_par1_out} does not exist"
         assert PROC_par1_out.stat().st_size > 0, f"{PROC_par1_out} has zero file size"
@@ -13719,7 +13713,7 @@ class PyGammaProxy(object):
 
     def CS_proc(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         dyld[71217]: Library not loaded: '/opt/local/lib/libhdf5.200.dylib'
@@ -13734,8 +13728,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_CS_proc_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.CS_proc))
-        result = self._gamma_call("MSP", "CS_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.CS_proc))
+        result = self._gamma_call("MSP", "CS_proc", ca)
         return result
 
     def _validate_azsp_SLC(
@@ -13795,7 +13789,7 @@ class PyGammaProxy(object):
         nsub: Optional[int] = None,
         data_format: Optional[int] = None,
         pltflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SAR azimuth spectrum from range compressed or SLC data***
@@ -13845,8 +13839,8 @@ class PyGammaProxy(object):
                 pltflg,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.azsp_SLC))
-        result = self._gamma_call("MSP", "azsp_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.azsp_SLC))
+        result = self._gamma_call("MSP", "azsp_SLC", ca)
         return result
 
     def _validate_pre_rc_JERS(
@@ -13910,7 +13904,7 @@ class PyGammaProxy(object):
         prefilt_dec: Optional[int] = None,
         kaiser: Optional[int] = None,
         filt_lm: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Prefilter/SAR range compression for JERS-1/PALSAR complex IQ SAR data (swath extension)
@@ -13956,8 +13950,8 @@ class PyGammaProxy(object):
                 filt_lm,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.pre_rc_JERS))
-        result = self._gamma_call("MSP", "pre_rc_JERS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.pre_rc_JERS))
+        result = self._gamma_call("MSP", "pre_rc_JERS", ca)
 
         assert rc_data.exists(), f"{rc_data} does not exist"
         assert rc_data.stat().st_size > 0, f"{rc_data} has zero file size"
@@ -13988,7 +13982,7 @@ class PyGammaProxy(object):
 
     def ERS_proc_NASDA(
         self, CEOS_SAR_leader: Path, PROC_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SAR processing parameters (Japan NASDA PAF)
@@ -14007,8 +14001,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_NASDA_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_NASDA))
-        result = self._gamma_call("MSP", "ERS_proc_NASDA", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_NASDA))
+        result = self._gamma_call("MSP", "ERS_proc_NASDA", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -14037,7 +14031,9 @@ class PyGammaProxy(object):
         if PROC_par is not None and str(PROC_par) != "-":
             PROC_par.touch()
 
-    def ERS_proc_ARG(self, CEOS_SAR_leader: Path, PROC_par: Path) -> Tuple[int, str, str]:
+    def ERS_proc_ARG(
+        self, CEOS_SAR_leader: Path, PROC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS SAR processing parameters from CEOS leader produced by the Argentina PAF ACS processor
@@ -14056,8 +14052,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_ARG_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_ARG))
-        result = self._gamma_call("MSP", "ERS_proc_ARG", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_ARG))
+        result = self._gamma_call("MSP", "ERS_proc_ARG", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -14127,7 +14123,7 @@ class PyGammaProxy(object):
         raw_out: Optional[Path] = None,
         TX_POL: Optional[int] = None,
         RX_POL: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         PALSAR raw data pre-processing and generation of the MSP processing parameter file
@@ -14165,8 +14161,8 @@ class PyGammaProxy(object):
                 CEOS_SAR_leader, SAR_par, PROC_par, CEOS_raw_data, raw_out, TX_POL, RX_POL
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.PALSAR_proc))
-        result = self._gamma_call("MSP", "PALSAR_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.PALSAR_proc))
+        result = self._gamma_call("MSP", "PALSAR_proc", ca)
 
         assert SAR_par.exists(), f"{SAR_par} does not exist"
         assert SAR_par.stat().st_size > 0, f"{SAR_par} has zero file size"
@@ -14238,7 +14234,7 @@ class PyGammaProxy(object):
         nlspec: Optional[int] = None,
         nrfft: Optional[int] = None,
         pltflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Range spectrum estimation for offset video raw data
@@ -14268,8 +14264,8 @@ class PyGammaProxy(object):
                 SAR_par, PROC_par, signal_data, range_spec, loff, nlspec, nrfft, pltflg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rspec_real))
-        result = self._gamma_call("MSP", "rspec_real", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rspec_real))
+        result = self._gamma_call("MSP", "rspec_real", ca)
 
         assert range_spec.exists(), f"{range_spec} does not exist"
         assert range_spec.stat().st_size > 0, f"{range_spec} has zero file size"
@@ -14337,7 +14333,7 @@ class PyGammaProxy(object):
         nrfft: Optional[int] = None,
         roff: Optional[int] = None,
         pltflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Range spectrum estimation for IQ raw SAR data
@@ -14384,8 +14380,8 @@ class PyGammaProxy(object):
                 pltflg,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rspec_IQ))
-        result = self._gamma_call("MSP", "rspec_IQ", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rspec_IQ))
+        result = self._gamma_call("MSP", "rspec_IQ", ca)
 
         assert range_spec.exists(), f"{range_spec} does not exist"
         assert range_spec.stat().st_size > 0, f"{range_spec} has zero file size"
@@ -14475,7 +14471,7 @@ class PyGammaProxy(object):
         n_ovr: Optional[int] = None,
         roff: Optional[int] = None,
         azoff: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Autofocus estimation of effective velocity for SAR processing
@@ -14549,8 +14545,8 @@ class PyGammaProxy(object):
                 azoff,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.af))
-        result = self._gamma_call("MSP", "af", args)
+        ca = self._clean_args(locals(), inspect.signature(self.af))
+        result = self._gamma_call("MSP", "af", ca)
 
         if offsets is not None:
             assert offsets.exists(), f"{offsets} does not exist"
@@ -14603,7 +14599,7 @@ class PyGammaProxy(object):
         signal_data: Path,
         loff: Optional[int] = None,
         nl: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         IQ histogram estimation of raw SAR data
@@ -14626,8 +14622,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_hist_IQ_outputs(SAR_par, PROC_par, signal_data, loff, nl)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.hist_IQ))
-        result = self._gamma_call("MSP", "hist_IQ", args)
+        ca = self._clean_args(locals(), inspect.signature(self.hist_IQ))
+        result = self._gamma_call("MSP", "hist_IQ", ca)
         return result
 
     def _validate_PALSAR_burst_sync(
@@ -14718,7 +14714,7 @@ class PyGammaProxy(object):
         raw1_out: Path,
         PROC_par2_out: Path,
         raw2_out: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         PALSAR ScanSAR azimuth burst synchronization
@@ -14766,8 +14762,8 @@ class PyGammaProxy(object):
                 raw2_out,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.PALSAR_burst_sync))
-        result = self._gamma_call("MSP", "PALSAR_burst_sync", args)
+        ca = self._clean_args(locals(), inspect.signature(self.PALSAR_burst_sync))
+        result = self._gamma_call("MSP", "PALSAR_burst_sync", ca)
 
         assert PROC_par1_out.exists(), f"{PROC_par1_out} does not exist"
         assert PROC_par1_out.stat().st_size > 0, f"{PROC_par1_out} has zero file size"
@@ -14812,7 +14808,7 @@ class PyGammaProxy(object):
 
     def swap_IQ(
         self, SAR_par: Path, raw_IQ: Path, raw_IQ_swap: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Swap IQ of complex raw SAR data
@@ -14832,8 +14828,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_swap_IQ_outputs(SAR_par, raw_IQ, raw_IQ_swap)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.swap_IQ))
-        result = self._gamma_call("MSP", "swap_IQ", args)
+        ca = self._clean_args(locals(), inspect.signature(self.swap_IQ))
+        result = self._gamma_call("MSP", "swap_IQ", ca)
 
         assert raw_IQ_swap.exists(), f"{raw_IQ_swap} does not exist"
         assert raw_IQ_swap.stat().st_size > 0, f"{raw_IQ_swap} has zero file size"
@@ -14893,7 +14889,7 @@ class PyGammaProxy(object):
         algorithm: Optional[int] = None,
         loff: Optional[int] = None,
         output_plot: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Doppler ambiguity estimation for IQ SAR raw data
@@ -14921,8 +14917,8 @@ class PyGammaProxy(object):
                 SAR_par, PROC_par, signal_data, algorithm, loff, output_plot
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dop_ambig))
-        result = self._gamma_call("MSP", "dop_ambig", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dop_ambig))
+        result = self._gamma_call("MSP", "dop_ambig", ca)
 
         if output_plot is not None:
             assert output_plot.exists(), f"{output_plot} does not exist"
@@ -14954,7 +14950,7 @@ class PyGammaProxy(object):
 
     def PRC_proc(
         self, PROC_par: Path, PRC: int, nstate: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         State vectors  from ERS PRC orbit data for MSP processing
@@ -14974,8 +14970,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_PRC_proc_outputs(PROC_par, PRC, nstate)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.PRC_proc))
-        result = self._gamma_call("MSP", "PRC_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.PRC_proc))
+        result = self._gamma_call("MSP", "PRC_proc", ca)
         return result
 
     def _validate_rc_fmcw(
@@ -15039,7 +15035,7 @@ class PyGammaProxy(object):
         loff: Optional[int] = None,
         nl: Optional[int] = None,
         kaiser: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SAR range compression for offset-video FMCW radar data
@@ -15084,8 +15080,8 @@ class PyGammaProxy(object):
                 kaiser,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rc_fmcw))
-        result = self._gamma_call("MSP", "rc_fmcw", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rc_fmcw))
+        result = self._gamma_call("MSP", "rc_fmcw", ca)
 
         assert rc_data.exists(), f"{rc_data} does not exist"
         assert rc_data.stat().st_size > 0, f"{rc_data} has zero file size"
@@ -15135,7 +15131,7 @@ class PyGammaProxy(object):
         MLI_PROC_par: Path,
         SLC_image: Path,
         kaiser: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         RADARSAT SLC --> RADARSAT multilook image calculation
@@ -15157,8 +15153,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_RSAT_lks_outputs(SLC_PROC_par, MLI_PROC_par, SLC_image, kaiser)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.RSAT_lks))
-        result = self._gamma_call("MSP", "RSAT_lks", args)
+        ca = self._clean_args(locals(), inspect.signature(self.RSAT_lks))
+        result = self._gamma_call("MSP", "RSAT_lks", ca)
 
         assert MLI_PROC_par.exists(), f"{MLI_PROC_par} does not exist"
         assert MLI_PROC_par.stat().st_size > 0, f"{MLI_PROC_par} has zero file size"
@@ -15182,7 +15178,7 @@ class PyGammaProxy(object):
         """
         pass
 
-    def extract_psd(self, num: int) -> Tuple[int, str, str]:
+    def extract_psd(self, num: int) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract single spectrum from binary format range spectra file
@@ -15202,8 +15198,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_extract_psd_outputs(num)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.extract_psd))
-        result = self._gamma_call("MSP", "extract_psd", args)
+        ca = self._clean_args(locals(), inspect.signature(self.extract_psd))
+        result = self._gamma_call("MSP", "extract_psd", ca)
         return result
 
     def _validate_doppler_real(
@@ -15264,7 +15260,7 @@ class PyGammaProxy(object):
         nsub: Optional[int] = None,
         ambig_flag: Optional[int] = None,
         namb: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Doppler centroid estimation (offset_video real valued data)
@@ -15296,8 +15292,8 @@ class PyGammaProxy(object):
                 SAR_par, PROC_par, signal_data, doppler, loff, nsub, ambig_flag, namb
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.doppler_real))
-        result = self._gamma_call("MSP", "doppler_real", args)
+        ca = self._clean_args(locals(), inspect.signature(self.doppler_real))
+        result = self._gamma_call("MSP", "doppler_real", ca)
 
         assert doppler.exists(), f"{doppler} does not exist"
         assert doppler.stat().st_size > 0, f"{doppler} has zero file size"
@@ -15392,7 +15388,7 @@ class PyGammaProxy(object):
         RFI_thres: Optional[int] = None,
         fc_offset: Optional[int] = None,
         win_bw: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SAR data prefilter and range compression for complex IQ data
@@ -15467,8 +15463,8 @@ class PyGammaProxy(object):
                 win_bw,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.pre_rc))
-        result = self._gamma_call("MSP", "pre_rc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.pre_rc))
+        result = self._gamma_call("MSP", "pre_rc", ca)
 
         assert rc_data.exists(), f"{rc_data} does not exist"
         assert rc_data.stat().st_size > 0, f"{rc_data} has zero file size"
@@ -15548,7 +15544,7 @@ class PyGammaProxy(object):
         raw_out: Optional[Path] = None,
         prf: Optional[Path] = None,
         wflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         PALSAR ScanSAR raw data pre-processing and generation of the MSP processing parameters
@@ -15592,8 +15588,8 @@ class PyGammaProxy(object):
                 wflg,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.PALSAR_proc_WB))
-        result = self._gamma_call("MSP", "PALSAR_proc_WB", args)
+        ca = self._clean_args(locals(), inspect.signature(self.PALSAR_proc_WB))
+        result = self._gamma_call("MSP", "PALSAR_proc_WB", ca)
 
         assert SAR_par.exists(), f"{SAR_par} does not exist"
         assert SAR_par.stat().st_size > 0, f"{SAR_par} has zero file size"
@@ -15633,7 +15629,7 @@ class PyGammaProxy(object):
 
     def ORRM_proc(
         self, PROC_par: Path, ORRM: Path, nstate: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract state vectors from ORRM file for processing parameter file
@@ -15653,8 +15649,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ORRM_proc_outputs(PROC_par, ORRM, nstate)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ORRM_proc))
-        result = self._gamma_call("MSP", "ORRM_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ORRM_proc))
+        result = self._gamma_call("MSP", "ORRM_proc", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -15683,7 +15679,9 @@ class PyGammaProxy(object):
         if PROC_par is not None and str(PROC_par) != "-":
             PROC_par.touch()
 
-    def ERS_proc_UK(self, CEOS_SAR_leader: Path, PROC_par: Path) -> Tuple[int, str, str]:
+    def ERS_proc_UK(
+        self, CEOS_SAR_leader: Path, PROC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS SAR processing parameters (UK-PAF, QinetiQ)
@@ -15702,8 +15700,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_UK_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_UK))
-        result = self._gamma_call("MSP", "ERS_proc_UK", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_UK))
+        result = self._gamma_call("MSP", "ERS_proc_UK", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -15748,7 +15746,7 @@ class PyGammaProxy(object):
 
     def RSAT_raw(
         self, SAR_par: Path, PROC_par: Path, raw_data_files: Path, raw_out: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         RADARSAT raw data reformatting + generation of MSP processing parameter files
@@ -15770,8 +15768,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_RSAT_raw_outputs(SAR_par, PROC_par, raw_data_files, raw_out)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.RSAT_raw))
-        result = self._gamma_call("MSP", "RSAT_raw", args)
+        ca = self._clean_args(locals(), inspect.signature(self.RSAT_raw))
+        result = self._gamma_call("MSP", "RSAT_raw", ca)
 
         assert SAR_par.exists(), f"{SAR_par} does not exist"
         assert SAR_par.stat().st_size > 0, f"{SAR_par} has zero file size"
@@ -15841,7 +15839,7 @@ class PyGammaProxy(object):
         loff: Optional[int] = None,
         nl: Optional[int] = None,
         swst_flg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         MSP preprocessing for ERS raw data in ENVISAT format
@@ -15871,8 +15869,8 @@ class PyGammaProxy(object):
                 L0, SAR_par, PROC_par, raw, loff, nl, swst_flg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_ENVISAT_proc))
-        result = self._gamma_call("MSP", "ERS_ENVISAT_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_ENVISAT_proc))
+        result = self._gamma_call("MSP", "ERS_ENVISAT_proc", ca)
 
         assert SAR_par.exists(), f"{SAR_par} does not exist"
         assert SAR_par.stat().st_size > 0, f"{SAR_par} has zero file size"
@@ -15942,7 +15940,7 @@ class PyGammaProxy(object):
         rlks: int,
         azlks: int,
         slc_format: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate a multilook intensity image (MLI) from an SLC
@@ -15972,8 +15970,8 @@ class PyGammaProxy(object):
                 SLC_PROC_par, MLI_PROC_par, SLC, MLI, rlks, azlks, slc_format
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_SLC))
-        result = self._gamma_call("MSP", "multi_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_SLC))
+        result = self._gamma_call("MSP", "multi_SLC", ca)
 
         assert MLI_PROC_par.exists(), f"{MLI_PROC_par} does not exist"
         assert MLI_PROC_par.stat().st_size > 0, f"{MLI_PROC_par} has zero file size"
@@ -16075,7 +16073,7 @@ class PyGammaProxy(object):
         nsx: Optional[int] = None,
         fsx: Optional[int] = None,
         terra_alt: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Read JERS raw data recorded by the ACS ground system
@@ -16133,8 +16131,8 @@ class PyGammaProxy(object):
                 terra_alt,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.JERS_acs))
-        result = self._gamma_call("MSP", "JERS_acs", args)
+        ca = self._clean_args(locals(), inspect.signature(self.JERS_acs))
+        result = self._gamma_call("MSP", "JERS_acs", ca)
 
         if track is not None:
             assert track.exists(), f"{track} does not exist"
@@ -16177,7 +16175,7 @@ class PyGammaProxy(object):
 
     def DORIS_proc(
         self, PROC_par: Path, DOR: Path, nstate: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         extract ENVISAT DORIS state vectors and write to an MSP processing parameter file
@@ -16196,8 +16194,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_DORIS_proc_outputs(PROC_par, DOR, nstate)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.DORIS_proc))
-        result = self._gamma_call("MSP", "DORIS_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.DORIS_proc))
+        result = self._gamma_call("MSP", "DORIS_proc", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -16308,7 +16306,7 @@ class PyGammaProxy(object):
         nl: Optional[int] = None,
         roff: Optional[int] = None,
         nr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         MSP preprocessing for ASAR L0 Alternating Polarization mode data
@@ -16372,8 +16370,8 @@ class PyGammaProxy(object):
                 nr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ASAR_AP_proc))
-        result = self._gamma_call("MSP", "ASAR_AP_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ASAR_AP_proc))
+        result = self._gamma_call("MSP", "ASAR_AP_proc", ca)
 
         assert SAR_par1.exists(), f"{SAR_par1} does not exist"
         assert SAR_par1.stat().st_size > 0, f"{SAR_par1} has zero file size"
@@ -16419,7 +16417,7 @@ class PyGammaProxy(object):
 
     def JERS_proc_ASF(
         self, CEOS_SAR_leader: Path, PROC_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         JERS SAR processing parameters from ASF Level 0 (SKY) CEOS leader (2000)
@@ -16438,8 +16436,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_JERS_proc_ASF_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.JERS_proc_ASF))
-        result = self._gamma_call("MSP", "JERS_proc_ASF", args)
+        ca = self._clean_args(locals(), inspect.signature(self.JERS_proc_ASF))
+        result = self._gamma_call("MSP", "JERS_proc_ASF", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -16520,7 +16518,7 @@ class PyGammaProxy(object):
         r_chirp: Optional[Path] = None,
         rfi_filt: Optional[int] = None,
         rfi_thres: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SAR range compression for offset-video (SIR-C) raw data
@@ -16575,8 +16573,8 @@ class PyGammaProxy(object):
                 rfi_thres,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rc_real))
-        result = self._gamma_call("MSP", "rc_real", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rc_real))
+        result = self._gamma_call("MSP", "rc_real", ca)
 
         assert rc_data.exists(), f"{rc_data} does not exist"
         assert rc_data.stat().st_size > 0, f"{rc_data} has zero file size"
@@ -16607,7 +16605,7 @@ class PyGammaProxy(object):
 
     def ERS_proc_CRISP(
         self, CEOS_SAR_leader: Path, PROC_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS SAR processing  parameters, (CRISP, Singapore PAF)
@@ -16626,8 +16624,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_CRISP_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_CRISP))
-        result = self._gamma_call("MSP", "ERS_proc_CRISP", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_CRISP))
+        result = self._gamma_call("MSP", "ERS_proc_CRISP", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -16686,7 +16684,7 @@ class PyGammaProxy(object):
         prefilt_out: Path,
         prefilt_dec: Optional[int] = None,
         filt_lm: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Prefilter for range-compressed SAR data
@@ -16713,8 +16711,8 @@ class PyGammaProxy(object):
                 SAR_par, PROC_par, rc_data, prefilt_out, prefilt_dec, filt_lm
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.prefilt))
-        result = self._gamma_call("MSP", "prefilt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.prefilt))
+        result = self._gamma_call("MSP", "prefilt", ca)
 
         assert prefilt_out.exists(), f"{prefilt_out} does not exist"
         assert prefilt_out.stat().st_size > 0, f"{prefilt_out} has zero file size"
@@ -16785,7 +16783,7 @@ class PyGammaProxy(object):
         namb: Optional[int] = None,
         order: Optional[int] = None,
         pltflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Doppler centroid estimation across track for IQ SAR data
@@ -16839,8 +16837,8 @@ class PyGammaProxy(object):
                 pltflg,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.doppler))
-        result = self._gamma_call("MSP", "doppler", args)
+        ca = self._clean_args(locals(), inspect.signature(self.doppler))
+        result = self._gamma_call("MSP", "doppler", ca)
 
         assert doppler.exists(), f"{doppler} does not exist"
         assert doppler.stat().st_size > 0, f"{doppler} has zero file size"
@@ -16886,7 +16884,7 @@ class PyGammaProxy(object):
         nstate: Optional[int] = None,
         interval: Optional[int] = None,
         ODR: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract and interpolate Delft ERS-1, ERS-2, and ENVISAT state vectors for the MSP
@@ -16909,8 +16907,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_DELFT_proc2_outputs(PROC_par, DELFT_dir, nstate, interval, ODR)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.DELFT_proc2))
-        result = self._gamma_call("MSP", "DELFT_proc2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.DELFT_proc2))
+        result = self._gamma_call("MSP", "DELFT_proc2", ca)
         return result
 
     def _validate_ERS_proc_ESRIN_ACS(self, CEOS_SAR_leader: Path, PROC_par: Path) -> None:
@@ -16939,7 +16937,7 @@ class PyGammaProxy(object):
 
     def ERS_proc_ESRIN_ACS(
         self, CEOS_SAR_leader: Path, PROC_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SAR processing parameter input (ESRIN ACS processor)
@@ -16958,8 +16956,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_ESRIN_ACS_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_ESRIN_ACS))
-        result = self._gamma_call("MSP", "ERS_proc_ESRIN_ACS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_ESRIN_ACS))
+        result = self._gamma_call("MSP", "ERS_proc_ESRIN_ACS", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -16997,7 +16995,7 @@ class PyGammaProxy(object):
 
     def ERS_proc_ASF_91(
         self, CEOS_SAR_leader: Path, CEOS_trailer: Path, PROC_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS SAR processing parameters from ASF CEOS format leader files (1991-1996)
@@ -17017,8 +17015,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_ASF_91_outputs(CEOS_SAR_leader, CEOS_trailer, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_ASF_91))
-        result = self._gamma_call("MSP", "ERS_proc_ASF_91", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_ASF_91))
+        result = self._gamma_call("MSP", "ERS_proc_ASF_91", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -17061,7 +17059,7 @@ class PyGammaProxy(object):
         nstate: Optional[int] = None,
         interval: Optional[int] = None,
         extra: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate state vectors using orbit propagation and interpolation
@@ -17083,8 +17081,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ORB_prop_outputs(PROC_par, nstate, interval, extra)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ORB_prop))
-        result = self._gamma_call("MSP", "ORB_prop", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ORB_prop))
+        result = self._gamma_call("MSP", "ORB_prop", ca)
         return result
 
     def _validate_ERS_fix(
@@ -17118,7 +17116,7 @@ class PyGammaProxy(object):
 
     def ERS_fix(
         self, ERS_PAF: int, SAR_par: Path, PROC_par: Path, cc_flag: int, output_file: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS raw data missing line detection and range gate alignment
@@ -17145,8 +17143,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_fix_outputs(ERS_PAF, SAR_par, PROC_par, cc_flag, output_file)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_fix))
-        result = self._gamma_call("MSP", "ERS_fix", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_fix))
+        result = self._gamma_call("MSP", "ERS_fix", ca)
 
         assert output_file.exists(), f"{output_file} does not exist"
         assert output_file.stat().st_size > 0, f"{output_file} has zero file size"
@@ -17177,7 +17175,7 @@ class PyGammaProxy(object):
 
     def ERS_proc_CCRS(
         self, CEOS_SAR_leader: Path, PROC_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS SAR processing processing parameters from CCRS PAF format CEOS leader
@@ -17196,8 +17194,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_CCRS_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_CCRS))
-        result = self._gamma_call("MSP", "ERS_proc_CCRS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_CCRS))
+        result = self._gamma_call("MSP", "ERS_proc_CCRS", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -17278,7 +17276,7 @@ class PyGammaProxy(object):
         data_format: int,
         win: Optional[int] = None,
         pltflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Point target response analysis and interpolation
@@ -17332,8 +17330,8 @@ class PyGammaProxy(object):
                 pltflg,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ptarg))
-        result = self._gamma_call("MSP", "ptarg", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ptarg))
+        result = self._gamma_call("MSP", "ptarg", ca)
 
         assert ptr_image.exists(), f"{ptr_image} does not exist"
         assert ptr_image.stat().st_size > 0, f"{ptr_image} has zero file size"
@@ -17415,7 +17413,7 @@ class PyGammaProxy(object):
         gr_start: Optional[int] = None,
         t_start: Optional[int] = None,
         t_end: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Multi-look ground range (GRD) images from MSP SLC data
@@ -17469,8 +17467,8 @@ class PyGammaProxy(object):
                 t_end,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_GRD_SLC))
-        result = self._gamma_call("MSP", "multi_GRD_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_GRD_SLC))
+        result = self._gamma_call("MSP", "multi_GRD_SLC", ca)
 
         assert GRD_PROC_par.exists(), f"{GRD_PROC_par} does not exist"
         assert GRD_PROC_par.stat().st_size > 0, f"{GRD_PROC_par} has zero file size"
@@ -17499,7 +17497,7 @@ class PyGammaProxy(object):
         if not SAR_par.exists():
             SAR_par.touch()
 
-    def create_sar_par(self, SAR_par: Path) -> Tuple[int, str, str]:
+    def create_sar_par(self, SAR_par: Path) -> Tuple[int, List[str], List[str]]:
         """
 
         Create SAR Sensor Parameter File
@@ -17517,8 +17515,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_create_sar_par_outputs(SAR_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.create_sar_par))
-        result = self._gamma_call("MSP", "create_sar_par", args)
+        ca = self._clean_args(locals(), inspect.signature(self.create_sar_par))
+        result = self._gamma_call("MSP", "create_sar_par", ca)
 
         assert SAR_par.exists(), f"{SAR_par} does not exist"
         assert SAR_par.stat().st_size > 0, f"{SAR_par} has zero file size"
@@ -17589,7 +17587,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         nr_ext: Optional[int] = None,
         fr_ext: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         JERS-1/PALSAR range spectrum estimation for RFI suppression
@@ -17638,8 +17636,8 @@ class PyGammaProxy(object):
                 fr_ext,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rspec_JERS))
-        result = self._gamma_call("MSP", "rspec_JERS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rspec_JERS))
+        result = self._gamma_call("MSP", "rspec_JERS", ca)
 
         assert range_spec.exists(), f"{range_spec} does not exist"
         assert range_spec.stat().st_size > 0, f"{range_spec} has zero file size"
@@ -17710,7 +17708,7 @@ class PyGammaProxy(object):
         ambig_flg: Optional[int] = None,
         namb: Optional[int] = None,
         pltflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Azimuth spectrum and Doppler centroid for IQ raw SAR data
@@ -17763,8 +17761,8 @@ class PyGammaProxy(object):
                 pltflg,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.azsp_IQ))
-        result = self._gamma_call("MSP", "azsp_IQ", args)
+        ca = self._clean_args(locals(), inspect.signature(self.azsp_IQ))
+        result = self._gamma_call("MSP", "azsp_IQ", ca)
 
         assert spectrum.exists(), f"{spectrum} does not exist"
         assert spectrum.stat().st_size > 0, f"{spectrum} has zero file size"
@@ -17799,7 +17797,7 @@ class PyGammaProxy(object):
 
     def ERS_proc_ACRES(
         self, CEOS_SAR_leader: Path, PROC_par: Path, type: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS SAR processing parameters (Australian ACRS PAF facility)
@@ -17821,8 +17819,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_ACRES_outputs(CEOS_SAR_leader, PROC_par, type)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_ACRES))
-        result = self._gamma_call("MSP", "ERS_proc_ACRES", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_ACRES))
+        result = self._gamma_call("MSP", "ERS_proc_ACRES", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -17899,7 +17897,7 @@ class PyGammaProxy(object):
         filt_lm: Optional[int] = None,
         nr_ext: Optional[int] = None,
         fr_ext: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Prefilter/SAR range compression for Radarsat-1 raw data
@@ -17954,8 +17952,8 @@ class PyGammaProxy(object):
                 fr_ext,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.pre_rc_RSAT))
-        result = self._gamma_call("MSP", "pre_rc_RSAT", args)
+        ca = self._clean_args(locals(), inspect.signature(self.pre_rc_RSAT))
+        result = self._gamma_call("MSP", "pre_rc_RSAT", ca)
 
         assert rc_data.exists(), f"{rc_data} does not exist"
         assert rc_data.stat().st_size > 0, f"{rc_data} has zero file size"
@@ -18026,7 +18024,7 @@ class PyGammaProxy(object):
         az_offset: Optional[int] = None,
         auto_bins: Optional[int] = None,
         dop_ambig: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Autofocus for range/Doppler processing
@@ -18077,8 +18075,8 @@ class PyGammaProxy(object):
                 dop_ambig,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.autof))
-        result = self._gamma_call("MSP", "autof", args)
+        ca = self._clean_args(locals(), inspect.signature(self.autof))
+        result = self._gamma_call("MSP", "autof", ca)
 
         assert autofocus.exists(), f"{autofocus} does not exist"
         assert autofocus.stat().st_size > 0, f"{autofocus} has zero file size"
@@ -18144,7 +18142,7 @@ class PyGammaProxy(object):
         fill: Optional[int] = None,
         loff: Optional[int] = None,
         nl: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Concatenate a set of raw data files in MSP compatible format
@@ -18176,8 +18174,8 @@ class PyGammaProxy(object):
                 RAW_list, SAR_par, PROC_par, RAW_out, fill, loff, nl
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.cat_raw))
-        result = self._gamma_call("MSP", "cat_raw", args)
+        ca = self._clean_args(locals(), inspect.signature(self.cat_raw))
+        result = self._gamma_call("MSP", "cat_raw", ca)
 
         assert SAR_par.exists(), f"{SAR_par} does not exist"
         assert SAR_par.stat().st_size > 0, f"{SAR_par} has zero file size"
@@ -18212,7 +18210,9 @@ class PyGammaProxy(object):
         if PROC_par is not None and str(PROC_par) != "-":
             PROC_par.touch()
 
-    def ERS_proc_ASI(self, CEOS_SAR_leader: Path, PROC_par: Path) -> Tuple[int, str, str]:
+    def ERS_proc_ASI(
+        self, CEOS_SAR_leader: Path, PROC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ERS SAR processing parameters (ASI PAF)
@@ -18231,8 +18231,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ERS_proc_ASI_outputs(CEOS_SAR_leader, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ERS_proc_ASI))
-        result = self._gamma_call("MSP", "ERS_proc_ASI", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ERS_proc_ASI))
+        result = self._gamma_call("MSP", "ERS_proc_ASI", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -18261,7 +18261,9 @@ class PyGammaProxy(object):
         if PROC_par is not None and str(PROC_par) != "-":
             PROC_par.touch()
 
-    def JERS_proc(self, CEOS_SAR_ldr: Path, PROC_par: Path) -> Tuple[int, str, str]:
+    def JERS_proc(
+        self, CEOS_SAR_ldr: Path, PROC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SAR processing  parameter input for JERS-1 data from NASDA
@@ -18280,8 +18282,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_JERS_proc_outputs(CEOS_SAR_ldr, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.JERS_proc))
-        result = self._gamma_call("MSP", "JERS_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.JERS_proc))
+        result = self._gamma_call("MSP", "JERS_proc", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -18343,7 +18345,7 @@ class PyGammaProxy(object):
         Beam_ID: Optional[Path] = None,
         TX_POL: Optional[int] = None,
         RX_POL: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract specified antenna pattern from a PALSAR JAXA antenna pattern file
@@ -18402,8 +18404,8 @@ class PyGammaProxy(object):
                 SAR_par, PROC_par, ant_file, Beam_ID, TX_POL, RX_POL
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.PALSAR_antpat))
-        result = self._gamma_call("MSP", "PALSAR_antpat", args)
+        ca = self._clean_args(locals(), inspect.signature(self.PALSAR_antpat))
+        result = self._gamma_call("MSP", "PALSAR_antpat", ca)
 
         assert ant_file.exists(), f"{ant_file} does not exist"
         assert ant_file.stat().st_size > 0, f"{ant_file} has zero file size"
@@ -18430,7 +18432,9 @@ class PyGammaProxy(object):
         if not PROC_par.exists():
             PROC_par.touch()
 
-    def create_proc_par(self, SAR_par: Path, PROC_par: Path) -> Tuple[int, str, str]:
+    def create_proc_par(
+        self, SAR_par: Path, PROC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Create MSP processing parameter file
@@ -18449,8 +18453,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_create_proc_par_outputs(SAR_par, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.create_proc_par))
-        result = self._gamma_call("MSP", "create_proc_par", args)
+        ca = self._clean_args(locals(), inspect.signature(self.create_proc_par))
+        result = self._gamma_call("MSP", "create_proc_par", ca)
 
         assert PROC_par.exists(), f"{PROC_par} does not exist"
         assert PROC_par.stat().st_size > 0, f"{PROC_par} has zero file size"
@@ -18490,7 +18494,7 @@ class PyGammaProxy(object):
 
     def SIRC_proc(
         self, CEOS_SAR_leader: Path, SAR_par: Path, PROC_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SIR-C MSP processing parameter extraction from CEOS leader
@@ -18511,8 +18515,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SIRC_proc_outputs(CEOS_SAR_leader, SAR_par, PROC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SIRC_proc))
-        result = self._gamma_call("MSP", "SIRC_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SIRC_proc))
+        result = self._gamma_call("MSP", "SIRC_proc", ca)
 
         assert SAR_par.exists(), f"{SAR_par} does not exist"
         assert SAR_par.stat().st_size > 0, f"{SAR_par} has zero file size"
@@ -18590,7 +18594,7 @@ class PyGammaProxy(object):
         ant_gain: Path,
         loff: Optional[int] = None,
         nl: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         MSP preprocessing for ASAR L0 Image mode data
@@ -18619,8 +18623,8 @@ class PyGammaProxy(object):
                 L0, INS, SAR_par, PROC_par, raw, ant_gain, loff, nl
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ASAR_IM_proc))
-        result = self._gamma_call("MSP", "ASAR_IM_proc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ASAR_IM_proc))
+        result = self._gamma_call("MSP", "ASAR_IM_proc", ca)
 
         assert SAR_par.exists(), f"{SAR_par} does not exist"
         assert SAR_par.stat().st_size > 0, f"{SAR_par} has zero file size"
@@ -18642,8 +18646,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
@@ -18676,8 +18680,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
@@ -18703,15 +18707,15 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
         bits: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/rasdt_pwr
@@ -18785,8 +18789,8 @@ class PyGammaProxy(object):
                 bits,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rasdt_pwr))
-        result = self._gamma_call("DISP", "rasdt_pwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rasdt_pwr))
+        result = self._gamma_call("DISP", "rasdt_pwr", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -18803,8 +18807,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
         scale: Optional[float] = None,
@@ -18833,8 +18837,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
         scale: Optional[float] = None,
@@ -18860,15 +18864,15 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
         dtype: Optional[int] = None,
         sc_ave: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/rascpx
@@ -18946,8 +18950,8 @@ class PyGammaProxy(object):
                 sc_ave,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rascpx))
-        result = self._gamma_call("DISP", "rascpx", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rascpx))
+        result = self._gamma_call("DISP", "rascpx", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -18995,7 +18999,7 @@ class PyGammaProxy(object):
         GCP: Path,
         mag: Optional[int] = None,
         win_sz: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP gcp_ras: select GCPs using a raster format reference image
@@ -19016,8 +19020,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_gcp_ras_outputs(ras, GCP, mag, win_sz)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gcp_ras))
-        result = self._gamma_call("DISP", "gcp_ras", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gcp_ras))
+        result = self._gamma_call("DISP", "gcp_ras", ca)
 
         assert GCP.exists(), f"{GCP} does not exist"
         assert GCP.stat().st_size > 0, f"{GCP} has zero file size"
@@ -19095,7 +19099,7 @@ class PyGammaProxy(object):
         c_im: Optional[int] = None,
         zflg: Optional[int] = None,
         rflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/cpx_math
@@ -19155,8 +19159,8 @@ class PyGammaProxy(object):
                 d1, d2, d_out, width, mode, roff, loff, nr, nl, c_re, c_im, zflg, rflg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.cpx_math))
-        result = self._gamma_call("DISP", "cpx_math", args)
+        ca = self._clean_args(locals(), inspect.signature(self.cpx_math))
+        result = self._gamma_call("DISP", "cpx_math", ca)
 
         assert d_out.exists(), f"{d_out} does not exist"
         assert d_out.stat().st_size > 0, f"{d_out} has zero file size"
@@ -19199,7 +19203,7 @@ class PyGammaProxy(object):
         width: int,
         start: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP disflag: display phase unwrapping flag file
@@ -19220,16 +19224,16 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_disflag_outputs(flag, width, start, nlines)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.disflag))
-        result = self._gamma_call("DISP", "disflag", args)
+        ca = self._clean_args(locals(), inspect.signature(self.disflag))
+        result = self._gamma_call("DISP", "disflag", ca)
         return result
 
     def _validate_set_value(
         self,
         PAR_in: Path,
         PAR_out: Path,
-        keyword: int,
-        value: float,
+        keyword: str,
+        value: str,
         new_key: Optional[int] = None,
     ) -> None:
         """
@@ -19238,17 +19242,14 @@ class PyGammaProxy(object):
 
         """
 
-        assert PAR_in.exists(), f"{PAR_in} does not exist"
-        assert PAR_in.stat().st_size > 0, f"{PAR_in} has zero file size"
-
-        assert not PAR_out.exists(), f"{PAR_out} should _not_ exist!"
+        pass
 
     def _mock_set_value_outputs(
         self,
         PAR_in: Path,
         PAR_out: Path,
-        keyword: int,
-        value: float,
+        keyword: str,
+        value: str,
         new_key: Optional[int] = None,
     ) -> None:
         """
@@ -19264,10 +19265,10 @@ class PyGammaProxy(object):
         self,
         PAR_in: Path,
         PAR_out: Path,
-        keyword: int,
-        value: float,
+        keyword: str,
+        value: str,
         new_key: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Update keyword:value in text parameter files
@@ -19291,8 +19292,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_set_value_outputs(PAR_in, PAR_out, keyword, value, new_key)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.set_value))
-        result = self._gamma_call("DISP", "set_value", args)
+        ca = self._clean_args(locals(), inspect.signature(self.set_value))
+        result = self._gamma_call("DISP", "set_value", ca)
 
         assert PAR_out.exists(), f"{PAR_out} does not exist"
         assert PAR_out.stat().st_size > 0, f"{PAR_out} has zero file size"
@@ -19325,7 +19326,7 @@ class PyGammaProxy(object):
 
     def cpx_to_real(
         self, cpx: Path, real: Path, width: int, mode: int
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Display Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/cpx_to_real.c
@@ -19351,8 +19352,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_cpx_to_real_outputs(cpx, real, width, mode)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.cpx_to_real))
-        result = self._gamma_call("DISP", "cpx_to_real", args)
+        ca = self._clean_args(locals(), inspect.signature(self.cpx_to_real))
+        result = self._gamma_call("DISP", "cpx_to_real", ca)
 
         assert real.exists(), f"{real} does not exist"
         assert real.stat().st_size > 0, f"{real} has zero file size"
@@ -19425,7 +19426,7 @@ class PyGammaProxy(object):
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
         sc_abs: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dis2_dB
@@ -19491,8 +19492,8 @@ class PyGammaProxy(object):
                 sc_abs,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis2_dB))
-        result = self._gamma_call("DISP", "dis2_dB", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis2_dB))
+        result = self._gamma_call("DISP", "dis2_dB", ca)
         return result
 
     def _validate_disgbyte(
@@ -19537,7 +19538,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         scale: Optional[float] = None,
         cmap: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP disgbyte: display data in GBYTE logarithmic scaled format
@@ -19562,8 +19563,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_disgbyte_outputs(image, width, start, nlines, scale, cmap)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.disgbyte))
-        result = self._gamma_call("DISP", "disgbyte", args)
+        ca = self._clean_args(locals(), inspect.signature(self.disgbyte))
+        result = self._gamma_call("DISP", "disgbyte", ca)
         return result
 
     def _validate_dis_dB(
@@ -19617,7 +19618,7 @@ class PyGammaProxy(object):
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
         sc_abs: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dis_dB
@@ -19655,8 +19656,8 @@ class PyGammaProxy(object):
                 data, width, start, nlines, min_dB, max_dB, cmap, dtype, sc_abs
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis_dB))
-        result = self._gamma_call("DISP", "dis_dB", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis_dB))
+        result = self._gamma_call("DISP", "dis_dB", ca)
         return result
 
     def _validate_svg_map(
@@ -19729,7 +19730,7 @@ class PyGammaProxy(object):
         minory: Optional[int] = None,
         thick: Optional[int] = None,
         grid: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP svg_map: SVG map generator
@@ -19789,8 +19790,8 @@ class PyGammaProxy(object):
                 grid,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.svg_map))
-        result = self._gamma_call("DISP", "svg_map", args)
+        ca = self._clean_args(locals(), inspect.signature(self.svg_map))
+        result = self._gamma_call("DISP", "svg_map", ca)
 
         assert svg.exists(), f"{svg} does not exist"
         assert svg.stat().st_size > 0, f"{svg} has zero file size"
@@ -19819,7 +19820,9 @@ class PyGammaProxy(object):
         if outfile is not None and str(outfile) != "-":
             outfile.touch()
 
-    def gbyte2float(self, infile: Path, outfile: Path) -> Tuple[int, str, str]:
+    def gbyte2float(
+        self, infile: Path, outfile: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Convert GBYTE logarithmic scaled format data (1 byte/value) to FLOAT format (4 bytes/value)***
@@ -19837,8 +19840,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_gbyte2float_outputs(infile, outfile)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gbyte2float))
-        result = self._gamma_call("DISP", "gbyte2float", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gbyte2float))
+        result = self._gamma_call("DISP", "gbyte2float", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -19874,7 +19877,7 @@ class PyGammaProxy(object):
 
     def real_to_cpx(
         self, data1: Optional[Path], cpx: Path, width: int, type: int
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISPLAY Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/real_to_cpx
@@ -19900,8 +19903,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_real_to_cpx_outputs(data1, cpx, width, type)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.real_to_cpx))
-        result = self._gamma_call("DISP", "real_to_cpx", args)
+        ca = self._clean_args(locals(), inspect.signature(self.real_to_cpx))
+        result = self._gamma_call("DISP", "real_to_cpx", ca)
 
         assert cpx.exists(), f"{cpx} does not exist"
         assert cpx.stat().st_size > 0, f"{cpx} has zero file size"
@@ -19977,7 +19980,7 @@ class PyGammaProxy(object):
         scale: Optional[float] = None,
         exp: Optional[float] = None,
         bits: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/rasmph_pwr
@@ -20040,8 +20043,8 @@ class PyGammaProxy(object):
                 bits,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rasmph_pwr))
-        result = self._gamma_call("DISP", "rasmph_pwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rasmph_pwr))
+        result = self._gamma_call("DISP", "rasmph_pwr", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -20098,7 +20101,7 @@ class PyGammaProxy(object):
         GeoTIFF: Path,
         no_data: Optional[float] = None,
         COGflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP data2geotiff: convert geocoded data with DEM parameter file to GeoTIFF format
@@ -20130,8 +20133,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_data2geotiff_outputs(DEM_par, data, type, GeoTIFF, no_data, COGflg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.data2geotiff))
-        result = self._gamma_call("DISP", "data2geotiff", args)
+        ca = self._clean_args(locals(), inspect.signature(self.data2geotiff))
+        result = self._gamma_call("DISP", "data2geotiff", ca)
 
         assert GeoTIFF.exists(), f"{GeoTIFF} does not exist"
         assert GeoTIFF.stat().st_size > 0, f"{GeoTIFF} has zero file size"
@@ -20162,7 +20165,7 @@ class PyGammaProxy(object):
 
     def disras(
         self, ras: Path, mag: Optional[int] = None, win_sz: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP disras: Display raster format images, Sun Raster, BMP, or TIFF format
@@ -20184,8 +20187,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_disras_outputs(ras, mag, win_sz)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.disras))
-        result = self._gamma_call("DISP", "disras", args)
+        ca = self._clean_args(locals(), inspect.signature(self.disras))
+        result = self._gamma_call("DISP", "disras", ca)
         return result
 
     def _validate_dis2ras(
@@ -20227,7 +20230,7 @@ class PyGammaProxy(object):
         ras2: Path,
         mag: Optional[int] = None,
         win_sz: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP dis2ras: alternating display of two raster (SUN/BMP/TIFF) format images
@@ -20250,8 +20253,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_dis2ras_outputs(ras1, ras2, mag, win_sz)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis2ras))
-        result = self._gamma_call("DISP", "dis2ras", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis2ras))
+        result = self._gamma_call("DISP", "dis2ras", ca)
         return result
 
     def _validate_kml2poly(self, DEM_par: Path, kml: Path, poly: Path) -> None:
@@ -20279,7 +20282,9 @@ class PyGammaProxy(object):
         if poly is not None and str(poly) != "-":
             poly.touch()
 
-    def kml2poly(self, DEM_par: Path, kml: Path, poly: Path) -> Tuple[int, str, str]:
+    def kml2poly(
+        self, DEM_par: Path, kml: Path, poly: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate a polygon file from a KML file and a DEM/MAP parameter file
@@ -20299,8 +20304,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_kml2poly_outputs(DEM_par, kml, poly)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.kml2poly))
-        result = self._gamma_call("DISP", "kml2poly", args)
+        ca = self._clean_args(locals(), inspect.signature(self.kml2poly))
+        result = self._gamma_call("DISP", "kml2poly", ca)
 
         assert poly.exists(), f"{poly} does not exist"
         assert poly.stat().st_size > 0, f"{poly} has zero file size"
@@ -20362,7 +20367,7 @@ class PyGammaProxy(object):
         scale: Optional[float] = None,
         exp: Optional[float] = None,
         bits: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dismph_pwr
@@ -20397,8 +20402,8 @@ class PyGammaProxy(object):
                 data, pwr, width, start, nlines, cmap, scale, exp, bits
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dismph_pwr))
-        result = self._gamma_call("DISP", "dismph_pwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dismph_pwr))
+        result = self._gamma_call("DISP", "dismph_pwr", ca)
         return result
 
     def _validate_vec_math(
@@ -20462,7 +20467,7 @@ class PyGammaProxy(object):
         c3: Optional[int] = None,
         nflg: Optional[int] = None,
         nl: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/vec_math
@@ -20502,8 +20507,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_vec_math_outputs(d1, d2, d_out, width, mode, c1, c2, c3, nflg, nl)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.vec_math))
-        result = self._gamma_call("DISP", "vec_math", args)
+        ca = self._clean_args(locals(), inspect.signature(self.vec_math))
+        result = self._gamma_call("DISP", "vec_math", ca)
 
         assert d_out.exists(), f"{d_out} does not exist"
         assert d_out.stat().st_size > 0, f"{d_out} has zero file size"
@@ -20561,7 +20566,7 @@ class PyGammaProxy(object):
         nfft: Optional[int] = None,
         mag: Optional[int] = None,
         data_type: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP dismph_fft: Display of magnitude/phase and 2D FFT of complex data
@@ -20593,8 +20598,8 @@ class PyGammaProxy(object):
                 data, width, start, nlines, scale, exp, nfft, mag, data_type
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dismph_fft))
-        result = self._gamma_call("DISP", "dismph_fft", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dismph_fft))
+        result = self._gamma_call("DISP", "dismph_fft", ca)
         return result
 
     def _validate_svg_arrow(
@@ -20661,7 +20666,7 @@ class PyGammaProxy(object):
         color: Optional[int] = None,
         thick: Optional[int] = None,
         head: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP svg_arrow: Draw arrow files on an image and store as SVG
@@ -20693,8 +20698,8 @@ class PyGammaProxy(object):
                 dv_norm, dv_phi, width, svg, image, norm, gridx, gridy, color, thick, head
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.svg_arrow))
-        result = self._gamma_call("DISP", "svg_arrow", args)
+        ca = self._clean_args(locals(), inspect.signature(self.svg_arrow))
+        result = self._gamma_call("DISP", "svg_arrow", ca)
 
         assert svg.exists(), f"{svg} does not exist"
         assert svg.stat().st_size > 0, f"{svg} has zero file size"
@@ -20775,7 +20780,7 @@ class PyGammaProxy(object):
         scale3: Optional[int] = None,
         exp: Optional[float] = None,
         rasf: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/ras3pwr
@@ -20837,8 +20842,8 @@ class PyGammaProxy(object):
                 rasf,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras3pwr))
-        result = self._gamma_call("DISP", "ras3pwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras3pwr))
+        result = self._gamma_call("DISP", "ras3pwr", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -20853,8 +20858,8 @@ class PyGammaProxy(object):
         width: int,
         start: Optional[int] = None,
         nlines: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         scale: Optional[float] = None,
@@ -20881,8 +20886,8 @@ class PyGammaProxy(object):
         width: int,
         start: Optional[int] = None,
         nlines: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         scale: Optional[float] = None,
@@ -20903,14 +20908,14 @@ class PyGammaProxy(object):
         width: int,
         start: Optional[int] = None,
         nlines: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
         bits: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/disdt_pwr
@@ -20950,8 +20955,8 @@ class PyGammaProxy(object):
                 data, pwr, width, start, nlines, min, max, cflg, cmap, scale, exp, bits
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.disdt_pwr))
-        result = self._gamma_call("DISP", "disdt_pwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.disdt_pwr))
+        result = self._gamma_call("DISP", "disdt_pwr", ca)
         return result
 
     def _validate_real_to_vec(
@@ -20988,7 +20993,7 @@ class PyGammaProxy(object):
 
     def real_to_vec(
         self, cmp1: Path, cmp2: Path, cmp3: Path, width: int, vec: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Display Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/real_to_vec.c
@@ -21012,8 +21017,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_real_to_vec_outputs(cmp1, cmp2, cmp3, width, vec)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.real_to_vec))
-        result = self._gamma_call("DISP", "real_to_vec", args)
+        ca = self._clean_args(locals(), inspect.signature(self.real_to_vec))
+        result = self._gamma_call("DISP", "real_to_vec", ca)
 
         assert vec.exists(), f"{vec} does not exist"
         assert vec.stat().st_size > 0, f"{vec} has zero file size"
@@ -21066,7 +21071,7 @@ class PyGammaProxy(object):
         exp: Optional[float] = None,
         neg: Optional[int] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP float2short: Convert floating point data to short integer format
@@ -21095,8 +21100,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_float2short_outputs(infile, outfile, scale, exp, neg, dtype)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.float2short))
-        result = self._gamma_call("DISP", "float2short", args)
+        ca = self._clean_args(locals(), inspect.signature(self.float2short))
+        result = self._gamma_call("DISP", "float2short", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -21167,7 +21172,7 @@ class PyGammaProxy(object):
         cmap: Optional[Path] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dis2mph_pwr
@@ -21203,8 +21208,8 @@ class PyGammaProxy(object):
                 data1, data2, pwr, width2, start, nlines, xoff, yoff, cmap, scale, exp
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis2mph_pwr))
-        result = self._gamma_call("DISP", "dis2mph_pwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis2mph_pwr))
+        result = self._gamma_call("DISP", "dis2mph_pwr", ca)
         return result
 
     def _validate_ras2ras(
@@ -21247,7 +21252,7 @@ class PyGammaProxy(object):
         ras_out: Path,
         cmap: Optional[Path] = None,
         force24: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Format and colormap conversion of raster images
@@ -21271,8 +21276,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ras2ras_outputs(ras_in, ras_out, cmap, force24)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras2ras))
-        result = self._gamma_call("DISP", "ras2ras", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras2ras))
+        result = self._gamma_call("DISP", "ras2ras", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -21385,7 +21390,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavr: Optional[int] = None,
         pixavaz: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/ras24_float
@@ -21495,8 +21500,8 @@ class PyGammaProxy(object):
                 pixavaz,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras24_float))
-        result = self._gamma_call("DISP", "ras24_float", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras24_float))
+        result = self._gamma_call("DISP", "ras24_float", ca)
 
         assert rasf.exists(), f"{rasf} does not exist"
         assert rasf.stat().st_size > 0, f"{rasf} has zero file size"
@@ -21543,7 +21548,7 @@ class PyGammaProxy(object):
         outfile: Path,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/double2float.c
@@ -21567,8 +21572,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_double2float_outputs(infile, outfile, scale, exp)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.double2float))
-        result = self._gamma_call("DISP", "double2float", args)
+        ca = self._clean_args(locals(), inspect.signature(self.double2float))
+        result = self._gamma_call("DISP", "double2float", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -21598,7 +21603,7 @@ class PyGammaProxy(object):
 
     def float2uchar(
         self, infile: int, outfile: int, scale: float, exp: float
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP float2uchar: Format transformation from float (4-byte) to unsigned char (1-byte)
@@ -21620,8 +21625,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_float2uchar_outputs(infile, outfile, scale, exp)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.float2uchar))
-        result = self._gamma_call("DISP", "float2uchar", args)
+        ca = self._clean_args(locals(), inspect.signature(self.float2uchar))
+        result = self._gamma_call("DISP", "float2uchar", ca)
         return result
 
     def _validate_float_math(
@@ -21689,7 +21694,7 @@ class PyGammaProxy(object):
         nl: Optional[int] = None,
         c0: Optional[int] = None,
         zflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/float_math
@@ -21745,8 +21750,8 @@ class PyGammaProxy(object):
                 d1, d2, d_out, width, mode, roff, loff, nr, nl, c0, zflg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.float_math))
-        result = self._gamma_call("DISP", "float_math", args)
+        ca = self._clean_args(locals(), inspect.signature(self.float_math))
+        result = self._gamma_call("DISP", "float_math", ca)
 
         assert d_out.exists(), f"{d_out} does not exist"
         assert d_out.stat().st_size > 0, f"{d_out} has zero file size"
@@ -21805,7 +21810,7 @@ class PyGammaProxy(object):
         nx: Optional[int] = None,
         yoff: Optional[int] = None,
         ny: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP cpd: Copy segments of FLOAT, FCOMPLEX and SCOMPLEX data files
@@ -21832,8 +21837,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_cpd_outputs(din, dout, width, dtype, xoff, nx, yoff, ny)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.cpd))
-        result = self._gamma_call("DISP", "cpd", args)
+        ca = self._clean_args(locals(), inspect.signature(self.cpd))
+        result = self._gamma_call("DISP", "cpd", ca)
 
         assert dout.exists(), f"{dout} does not exist"
         assert dout.stat().st_size > 0, f"{dout} has zero file size"
@@ -21879,7 +21884,7 @@ class PyGammaProxy(object):
         DEM_par: Path,
         mag: Optional[int] = None,
         win_sz: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP disras_dem_par: display raster image with DEM/MAP parameter file
@@ -21900,8 +21905,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_disras_dem_par_outputs(ras, DEM_par, mag, win_sz)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.disras_dem_par))
-        result = self._gamma_call("DISP", "disras_dem_par", args)
+        ca = self._clean_args(locals(), inspect.signature(self.disras_dem_par))
+        result = self._gamma_call("DISP", "disras_dem_par", ca)
         return result
 
     def _validate_ras2float(
@@ -21909,8 +21914,8 @@ class PyGammaProxy(object):
         ras: Path,
         chan: Optional[int],
         mode: Optional[int],
-        min: Optional[Path],
-        max: Optional[Path],
+        min: Optional[float],
+        max: Optional[float],
         dout: Path,
     ) -> None:
         """
@@ -21929,8 +21934,8 @@ class PyGammaProxy(object):
         ras: Path,
         chan: Optional[int],
         mode: Optional[int],
-        min: Optional[Path],
-        max: Optional[Path],
+        min: Optional[float],
+        max: Optional[float],
         dout: Path,
     ) -> None:
         """
@@ -21947,10 +21952,10 @@ class PyGammaProxy(object):
         ras: Path,
         chan: Optional[int],
         mode: Optional[int],
-        min: Optional[Path],
-        max: Optional[Path],
+        min: Optional[float],
+        max: Optional[float],
         dout: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/ras2float
@@ -21991,8 +21996,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ras2float_outputs(ras, chan, mode, min, max, dout)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras2float))
-        result = self._gamma_call("DISP", "ras2float", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras2float))
+        result = self._gamma_call("DISP", "ras2float", ca)
 
         assert dout.exists(), f"{dout} does not exist"
         assert dout.stat().st_size > 0, f"{dout} has zero file size"
@@ -22053,7 +22058,7 @@ class PyGammaProxy(object):
         dtype: Optional[int] = None,
         bits: Optional[int] = None,
         sc_ave: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dismph
@@ -22092,8 +22097,8 @@ class PyGammaProxy(object):
                 data, width, start, nlines, scale, exp, cmap, dtype, bits, sc_ave
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dismph))
-        result = self._gamma_call("DISP", "dismph", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dismph))
+        result = self._gamma_call("DISP", "dismph", ca)
         return result
 
     def _validate_rasshd(
@@ -22188,7 +22193,7 @@ class PyGammaProxy(object):
         sharpness: Optional[int] = None,
         edge: Optional[int] = None,
         shade: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/rasshd
@@ -22277,8 +22282,8 @@ class PyGammaProxy(object):
                 shade,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rasshd))
-        result = self._gamma_call("DISP", "rasshd", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rasshd))
+        result = self._gamma_call("DISP", "rasshd", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -22356,7 +22361,7 @@ class PyGammaProxy(object):
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
         sc_ave: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dis2mph
@@ -22420,8 +22425,8 @@ class PyGammaProxy(object):
                 sc_ave,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis2mph))
-        result = self._gamma_call("DISP", "dis2mph", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis2mph))
+        result = self._gamma_call("DISP", "dis2mph", ca)
         return result
 
     def _validate_poly2kml(
@@ -22480,7 +22485,7 @@ class PyGammaProxy(object):
         poly_in: Optional[Path],
         kml: Path,
         poly_out: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate a KML file from a polygon drawn on a georeferenced image
@@ -22508,8 +22513,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_poly2kml_outputs(DEM_par, ras, poly_in, kml, poly_out)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.poly2kml))
-        result = self._gamma_call("DISP", "poly2kml", args)
+        ca = self._clean_args(locals(), inspect.signature(self.poly2kml))
+        result = self._gamma_call("DISP", "poly2kml", ca)
 
         assert kml.exists(), f"{kml} does not exist"
         assert kml.stat().st_size > 0, f"{kml} has zero file size"
@@ -22580,7 +22585,7 @@ class PyGammaProxy(object):
         scale: Optional[float] = None,
         exp: Optional[float] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dis2SLC
@@ -22615,8 +22620,8 @@ class PyGammaProxy(object):
                 data1, data2, width1, width2, start, nlines, xoff, yoff, scale, exp, dtype
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis2SLC))
-        result = self._gamma_call("DISP", "dis2SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis2SLC))
+        result = self._gamma_call("DISP", "dis2SLC", ca)
         return result
 
     def _validate_raspwr(
@@ -22684,7 +22689,7 @@ class PyGammaProxy(object):
         rasf: Optional[Path] = None,
         dtype: Optional[int] = None,
         sc_ave: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/raspwr
@@ -22748,8 +22753,8 @@ class PyGammaProxy(object):
                 sc_ave,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.raspwr))
-        result = self._gamma_call("DISP", "raspwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.raspwr))
+        result = self._gamma_call("DISP", "raspwr", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -22802,7 +22807,7 @@ class PyGammaProxy(object):
         scale: Optional[float] = None,
         exp: Optional[float] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/disSLC
@@ -22828,8 +22833,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_disSLC_outputs(data, width, start, nlines, scale, exp, dtype)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.disSLC))
-        result = self._gamma_call("DISP", "disSLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.disSLC))
+        result = self._gamma_call("DISP", "disSLC", ca)
         return result
 
     def _validate_ras8_colormap(
@@ -22892,7 +22897,7 @@ class PyGammaProxy(object):
         cm_ras: Optional[Path] = None,
         width: Optional[int] = None,
         nlines: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/ras8_colormap
@@ -22930,8 +22935,8 @@ class PyGammaProxy(object):
                 model, h0, hrange, ival, sat, cm, cm_ras, width, nlines
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras8_colormap))
-        result = self._gamma_call("DISP", "ras8_colormap", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras8_colormap))
+        result = self._gamma_call("DISP", "ras8_colormap", ca)
 
         assert cm.exists(), f"{cm} does not exist"
         assert cm.stat().st_size > 0, f"{cm} has zero file size"
@@ -22997,7 +23002,7 @@ class PyGammaProxy(object):
         file_ldr: Optional[int] = None,
         offb: Optional[int] = None,
         nbyte: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP cp_data: File copy utility
@@ -23027,8 +23032,8 @@ class PyGammaProxy(object):
                 infile, outfile, lbytes, start, nlines, offset, file_ldr, offb, nbyte
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.cp_data))
-        result = self._gamma_call("DISP", "cp_data", args)
+        ca = self._clean_args(locals(), inspect.signature(self.cp_data))
+        result = self._gamma_call("DISP", "cp_data", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -23052,7 +23057,7 @@ class PyGammaProxy(object):
         """
         pass
 
-    def uchar2float(self, scale: float, exp: float) -> Tuple[int, str, str]:
+    def uchar2float(self, scale: float, exp: float) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/uchar2float.c
@@ -23076,8 +23081,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_uchar2float_outputs(scale, exp)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.uchar2float))
-        result = self._gamma_call("DISP", "uchar2float", args)
+        ca = self._clean_args(locals(), inspect.signature(self.uchar2float))
+        result = self._gamma_call("DISP", "uchar2float", ca)
         return result
 
     def _validate_float2gbyte(self, infile: Path, outfile: Path) -> None:
@@ -23102,7 +23107,9 @@ class PyGammaProxy(object):
         if outfile is not None and str(outfile) != "-":
             outfile.touch()
 
-    def float2gbyte(self, infile: Path, outfile: Path) -> Tuple[int, str, str]:
+    def float2gbyte(
+        self, infile: Path, outfile: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Convert FLOAT format data to GBYTE logarithmic scaled format (1 byte/value)
@@ -23120,8 +23127,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_float2gbyte_outputs(infile, outfile)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.float2gbyte))
-        result = self._gamma_call("DISP", "float2gbyte", args)
+        ca = self._clean_args(locals(), inspect.signature(self.float2gbyte))
+        result = self._gamma_call("DISP", "float2gbyte", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -23204,7 +23211,7 @@ class PyGammaProxy(object):
         flight_path: Optional[int] = None,
         t_event: Optional[int] = None,
         pt_list: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate a KML file containing a polygon corresponding to the scene area and a line corresponding to the platform path during the acquisition
@@ -23255,8 +23262,8 @@ class PyGammaProxy(object):
                 pt_list,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.kml_plan))
-        result = self._gamma_call("DISP", "kml_plan", args)
+        ca = self._clean_args(locals(), inspect.signature(self.kml_plan))
+        result = self._gamma_call("DISP", "kml_plan", ca)
 
         assert kml.exists(), f"{kml} does not exist"
         assert kml.stat().st_size > 0, f"{kml} has zero file size"
@@ -23288,7 +23295,9 @@ class PyGammaProxy(object):
         if kml is not None and str(kml) != "-":
             kml.touch()
 
-    def kml_map(self, image: Path, dem_par: Path, kml: Path) -> Tuple[int, str, str]:
+    def kml_map(
+        self, image: Path, dem_par: Path, kml: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP kml_map: Create KML file with link to image
@@ -23309,8 +23318,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_kml_map_outputs(image, dem_par, kml)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.kml_map))
-        result = self._gamma_call("DISP", "kml_map", args)
+        ca = self._clean_args(locals(), inspect.signature(self.kml_map))
+        result = self._gamma_call("DISP", "kml_map", ca)
 
         assert kml.exists(), f"{kml} does not exist"
         assert kml.stat().st_size > 0, f"{kml} has zero file size"
@@ -23325,8 +23334,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
         dtype: Optional[int] = None,
@@ -23352,8 +23361,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
         dtype: Optional[int] = None,
@@ -23376,13 +23385,13 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
         dtype: Optional[int] = None,
         sc_abs: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/ras_dB
@@ -23448,8 +23457,8 @@ class PyGammaProxy(object):
                 sc_abs,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras_dB))
-        result = self._gamma_call("DISP", "ras_dB", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras_dB))
+        result = self._gamma_call("DISP", "ras_dB", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -23509,7 +23518,7 @@ class PyGammaProxy(object):
         t_min: int,
         t_max: int,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Data are set to 0 where t_data < t_min or t_data > t_max  (FLOAT, FCOMPLEX, or SUN/BMP/TIFF raster format)***
@@ -23541,8 +23550,8 @@ class PyGammaProxy(object):
                 data_in, width, data_out, t_data, t_min, t_max, dtype
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.thres_data))
-        result = self._gamma_call("DISP", "thres_data", args)
+        ca = self._clean_args(locals(), inspect.signature(self.thres_data))
+        result = self._gamma_call("DISP", "thres_data", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -23602,7 +23611,7 @@ class PyGammaProxy(object):
         start: Optional[int] = None,
         nlines: Optional[int] = None,
         ph_scale: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP distree: display of unwrapped phase + wrapped phase + flags
@@ -23626,8 +23635,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_distree_outputs(flag, unw, int, width, start, nlines, ph_scale)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.distree))
-        result = self._gamma_call("DISP", "distree", args)
+        ca = self._clean_args(locals(), inspect.signature(self.distree))
+        result = self._gamma_call("DISP", "distree", ca)
         return result
 
     def _validate_dis_linear(
@@ -23636,8 +23645,8 @@ class PyGammaProxy(object):
         width: int,
         start: Optional[int] = None,
         nlines: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
@@ -23657,8 +23666,8 @@ class PyGammaProxy(object):
         width: int,
         start: Optional[int] = None,
         nlines: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
@@ -23676,12 +23685,12 @@ class PyGammaProxy(object):
         width: int,
         start: Optional[int] = None,
         nlines: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dis_linear
@@ -23721,8 +23730,8 @@ class PyGammaProxy(object):
                 data, width, start, nlines, min, max, cflg, cmap, dtype
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis_linear))
-        result = self._gamma_call("DISP", "dis_linear", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis_linear))
+        result = self._gamma_call("DISP", "dis_linear", ca)
         return result
 
     def _validate_disdem_par(
@@ -23782,7 +23791,7 @@ class PyGammaProxy(object):
         illum_mode: Optional[int] = None,
         sharpness: Optional[int] = None,
         edge: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP disdem_par: Display DEM with DEM/MAP parameter file as shaded relief
@@ -23836,8 +23845,8 @@ class PyGammaProxy(object):
                 edge,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.disdem_par))
-        result = self._gamma_call("DISP", "disdem_par", args)
+        ca = self._clean_args(locals(), inspect.signature(self.disdem_par))
+        result = self._gamma_call("DISP", "disdem_par", ca)
         return result
 
     def _validate_gcp_2ras(
@@ -23886,7 +23895,7 @@ class PyGammaProxy(object):
         gcp: Path,
         mag: Optional[int] = None,
         win_sz: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP gcp_2ras: Display 2 SUN raster, BMP, or TIFF format images and select corresponding pairs of points for ground control
@@ -23909,8 +23918,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_gcp_2ras_outputs(ras1, ras2, gcp, mag, win_sz)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gcp_2ras))
-        result = self._gamma_call("DISP", "gcp_2ras", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gcp_2ras))
+        result = self._gamma_call("DISP", "gcp_2ras", ca)
 
         assert gcp.exists(), f"{gcp} does not exist"
         assert gcp.stat().st_size > 0, f"{gcp} has zero file size"
@@ -23925,8 +23934,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
@@ -23952,8 +23961,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
@@ -23976,13 +23985,13 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavx: Optional[int] = None,
         pixavy: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         rasf: Optional[Path] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/ras_linear
@@ -24050,8 +24059,8 @@ class PyGammaProxy(object):
                 dtype,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras_linear))
-        result = self._gamma_call("DISP", "ras_linear", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras_linear))
+        result = self._gamma_call("DISP", "ras_linear", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -24098,7 +24107,7 @@ class PyGammaProxy(object):
         ras: Path,
         mag: Optional[int] = None,
         win_sz: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP tree_edit: edit phase unwrapping flag file
@@ -24119,8 +24128,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_tree_edit_outputs(flag, ras, mag, win_sz)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.tree_edit))
-        result = self._gamma_call("DISP", "tree_edit", args)
+        ca = self._clean_args(locals(), inspect.signature(self.tree_edit))
+        result = self._gamma_call("DISP", "tree_edit", ca)
         return result
 
     def _validate_discpx(
@@ -24130,8 +24139,8 @@ class PyGammaProxy(object):
         mode: Optional[int] = None,
         start: Optional[int] = None,
         nlines: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cmap: Optional[Path] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
@@ -24154,8 +24163,8 @@ class PyGammaProxy(object):
         mode: Optional[int] = None,
         start: Optional[int] = None,
         nlines: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cmap: Optional[Path] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
@@ -24176,14 +24185,14 @@ class PyGammaProxy(object):
         mode: Optional[int] = None,
         start: Optional[int] = None,
         nlines: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cmap: Optional[Path] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
         dtype: Optional[int] = None,
         sc_ave: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/discpx
@@ -24249,8 +24258,8 @@ class PyGammaProxy(object):
                 sc_ave,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.discpx))
-        result = self._gamma_call("DISP", "discpx", args)
+        ca = self._clean_args(locals(), inspect.signature(self.discpx))
+        result = self._gamma_call("DISP", "discpx", ca)
         return result
 
     def _validate_fill(self, d1: Path, d2: Path, dout: Path, width: int) -> None:
@@ -24278,7 +24287,9 @@ class PyGammaProxy(object):
         if dout is not None and str(dout) != "-":
             dout.touch()
 
-    def fill(self, d1: Path, d2: Path, dout: Path, width: int) -> Tuple[int, str, str]:
+    def fill(
+        self, d1: Path, d2: Path, dout: Path, width: int
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/fill
@@ -24300,8 +24311,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_fill_outputs(d1, d2, dout, width)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.fill))
-        result = self._gamma_call("DISP", "fill", args)
+        ca = self._clean_args(locals(), inspect.signature(self.fill))
+        result = self._gamma_call("DISP", "fill", ca)
 
         assert dout.exists(), f"{dout} does not exist"
         assert dout.stat().st_size > 0, f"{dout} has zero file size"
@@ -24374,7 +24385,7 @@ class PyGammaProxy(object):
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
         sc_ave: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dis2pwr
@@ -24437,8 +24448,8 @@ class PyGammaProxy(object):
                 sc_ave,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis2pwr))
-        result = self._gamma_call("DISP", "dis2pwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis2pwr))
+        result = self._gamma_call("DISP", "dis2pwr", ca)
         return result
 
     def _validate_dispwr(
@@ -24492,7 +24503,7 @@ class PyGammaProxy(object):
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
         sc_ave: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dispwr
@@ -24527,8 +24538,8 @@ class PyGammaProxy(object):
                 data, width, start, nlines, scale, exp, cmap, dtype, sc_ave
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dispwr))
-        result = self._gamma_call("DISP", "dispwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dispwr))
+        result = self._gamma_call("DISP", "dispwr", ca)
         return result
 
     def _validate_rasSLC(
@@ -24590,7 +24601,7 @@ class PyGammaProxy(object):
         exp: Optional[float] = None,
         rasf: Optional[Path] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/rasSLC
@@ -24626,8 +24637,8 @@ class PyGammaProxy(object):
                 data, width, start, nlines, pixavx, pixavy, scale, exp, rasf, dtype
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rasSLC))
-        result = self._gamma_call("DISP", "rasSLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rasSLC))
+        result = self._gamma_call("DISP", "rasSLC", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -24678,7 +24689,7 @@ class PyGammaProxy(object):
         scale: Optional[float] = None,
         exp: Optional[float] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP short2float: Convert short 2-byte integers to floating point format
@@ -24704,8 +24715,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_short2float_outputs(infile, outfile, scale, exp, dtype)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.short2float))
-        result = self._gamma_call("DISP", "short2float", args)
+        ca = self._clean_args(locals(), inspect.signature(self.short2float))
+        result = self._gamma_call("DISP", "short2float", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -24769,7 +24780,7 @@ class PyGammaProxy(object):
         gap: Optional[int] = None,
         chip_height: Optional[int] = None,
         nval: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/ras8_color_scale
@@ -24826,8 +24837,8 @@ class PyGammaProxy(object):
                 nval,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras8_color_scale))
-        result = self._gamma_call("DISP", "ras8_color_scale", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras8_color_scale))
+        result = self._gamma_call("DISP", "ras8_color_scale", ca)
 
         assert rasf.exists(), f"{rasf} does not exist"
         assert rasf.stat().st_size > 0, f"{rasf} has zero file size"
@@ -24902,7 +24913,7 @@ class PyGammaProxy(object):
         dtype: Optional[int] = None,
         bits: Optional[int] = None,
         sc_ave: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/rasmph
@@ -24972,8 +24983,8 @@ class PyGammaProxy(object):
                 sc_ave,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rasmph))
-        result = self._gamma_call("DISP", "rasmph", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rasmph))
+        result = self._gamma_call("DISP", "rasmph", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -24998,7 +25009,7 @@ class PyGammaProxy(object):
         """
         pass
 
-    def get_value(self, PAR_in: int, keyword: int) -> Tuple[int, str, str]:
+    def get_value(self, PAR_in: int, keyword: int) -> Tuple[int, List[str], List[str]]:
         """
 
         Search a keyword based parameter using a key and copy the value to stdout
@@ -25017,8 +25028,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_get_value_outputs(PAR_in, keyword)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.get_value))
-        result = self._gamma_call("DISP", "get_value", args)
+        ca = self._clean_args(locals(), inspect.signature(self.get_value))
+        result = self._gamma_call("DISP", "get_value", ca)
         return result
 
     def _validate_polyras(
@@ -25045,7 +25056,7 @@ class PyGammaProxy(object):
 
     def polyras(
         self, ras: Path, mag: Optional[int] = None, win_sz: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP polyras: polygon selection using a raster image as reference
@@ -25070,8 +25081,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_polyras_outputs(ras, mag, win_sz)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.polyras))
-        result = self._gamma_call("DISP", "polyras", args)
+        ca = self._clean_args(locals(), inspect.signature(self.polyras))
+        result = self._gamma_call("DISP", "polyras", ca)
         return result
 
     def _validate_rastree(
@@ -25135,7 +25146,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         ph_scale: Optional[int] = None,
         rasf: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/rastree
@@ -25167,8 +25178,8 @@ class PyGammaProxy(object):
                 flag, unw, int, width, start, nlines, ph_scale, rasf
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rastree))
-        result = self._gamma_call("DISP", "rastree", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rastree))
+        result = self._gamma_call("DISP", "rastree", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -25236,7 +25247,7 @@ class PyGammaProxy(object):
         illum_mode: Optional[int] = None,
         sharpness: Optional[int] = None,
         edge: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP disshd: Display DEM as shaded relief
@@ -25298,8 +25309,8 @@ class PyGammaProxy(object):
                 edge,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.disshd))
-        result = self._gamma_call("DISP", "disshd", args)
+        ca = self._clean_args(locals(), inspect.signature(self.disshd))
+        result = self._gamma_call("DISP", "disshd", ca)
         return result
 
     def _validate_dis2gbyte(
@@ -25359,7 +25370,7 @@ class PyGammaProxy(object):
         yoff: Optional[int] = None,
         scale: Optional[float] = None,
         cmap: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP dis2gbyte: alternating display of two GBYTE format images
@@ -25392,8 +25403,8 @@ class PyGammaProxy(object):
                 image1, image2, width1, width2, start, nlines, xoff, yoff, scale, cmap
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis2gbyte))
-        result = self._gamma_call("DISP", "dis2gbyte", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis2gbyte))
+        result = self._gamma_call("DISP", "dis2gbyte", ca)
         return result
 
     def _validate_ras8_float(
@@ -25493,7 +25504,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         pixavr: Optional[int] = None,
         pixavaz: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/ras8_float
@@ -25593,8 +25604,8 @@ class PyGammaProxy(object):
                 pixavaz,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras8_float))
-        result = self._gamma_call("DISP", "ras8_float", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras8_float))
+        result = self._gamma_call("DISP", "ras8_float", ca)
 
         assert rasf.exists(), f"{rasf} does not exist"
         assert rasf.stat().st_size > 0, f"{rasf} has zero file size"
@@ -25644,7 +25655,7 @@ class PyGammaProxy(object):
         width: int,
         dtype: Optional[int] = None,
         direction: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/flip
@@ -25678,8 +25689,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_flip_outputs(infile, outfile, width, dtype, direction)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.flip))
-        result = self._gamma_call("DISP", "flip", args)
+        ca = self._clean_args(locals(), inspect.signature(self.flip))
+        result = self._gamma_call("DISP", "flip", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -25697,8 +25708,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         xoff: Optional[int] = None,
         yoff: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         scale: Optional[float] = None,
@@ -25731,8 +25742,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         xoff: Optional[int] = None,
         yoff: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         scale: Optional[float] = None,
@@ -25756,13 +25767,13 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         xoff: Optional[int] = None,
         yoff: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dis2dt_pwr
@@ -25832,8 +25843,8 @@ class PyGammaProxy(object):
                 exp,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis2dt_pwr))
-        result = self._gamma_call("DISP", "dis2dt_pwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis2dt_pwr))
+        result = self._gamma_call("DISP", "dis2dt_pwr", ca)
         return result
 
     def _validate_create_array(
@@ -25881,7 +25892,7 @@ class PyGammaProxy(object):
         dtype: Optional[int] = None,
         val: Optional[int] = None,
         val_im: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Create an array and store it as a binary file
@@ -25912,8 +25923,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_create_array_outputs(output, width, nlines, dtype, val, val_im)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.create_array))
-        result = self._gamma_call("DISP", "create_array", args)
+        ca = self._clean_args(locals(), inspect.signature(self.create_array))
+        result = self._gamma_call("DISP", "create_array", ca)
 
         assert output.exists(), f"{output} does not exist"
         assert output.stat().st_size > 0, f"{output} has zero file size"
@@ -25969,7 +25980,7 @@ class PyGammaProxy(object):
         nl: Optional[int] = None,
         coff: Optional[int] = None,
         nv: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP program: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/ascii2float.c
@@ -25993,8 +26004,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ascii2float_outputs(data_in, width, data_out, loff, nl, coff, nv)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ascii2float))
-        result = self._gamma_call("DISP", "ascii2float", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ascii2float))
+        result = self._gamma_call("DISP", "ascii2float", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -26050,7 +26061,7 @@ class PyGammaProxy(object):
         nodata: Optional[int] = None,
         xspacing: Optional[int] = None,
         yspacing: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP data2tiff: convert image data to TIFF format
@@ -26082,8 +26093,8 @@ class PyGammaProxy(object):
                 data, width, type, TIFF, nodata, xspacing, yspacing
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.data2tiff))
-        result = self._gamma_call("DISP", "data2tiff", args)
+        ca = self._clean_args(locals(), inspect.signature(self.data2tiff))
+        result = self._gamma_call("DISP", "data2tiff", ca)
 
         assert TIFF.exists(), f"{TIFF} does not exist"
         assert TIFF.stat().st_size > 0, f"{TIFF} has zero file size"
@@ -26100,8 +26111,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         xoff: Optional[int] = None,
         yoff: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
@@ -26128,8 +26139,8 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         xoff: Optional[int] = None,
         yoff: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
@@ -26151,12 +26162,12 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         xoff: Optional[int] = None,
         yoff: Optional[int] = None,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        min: Optional[float] = None,
+        max: Optional[float] = None,
         cflg: Optional[int] = None,
         cmap: Optional[Path] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/dis2_linear
@@ -26224,8 +26235,8 @@ class PyGammaProxy(object):
                 dtype,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dis2_linear))
-        result = self._gamma_call("DISP", "dis2_linear", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dis2_linear))
+        result = self._gamma_call("DISP", "dis2_linear", ca)
         return result
 
     def _validate_mapshd(
@@ -26292,7 +26303,7 @@ class PyGammaProxy(object):
         illum_mode: Optional[int] = None,
         sharpness: Optional[int] = None,
         edge: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/mapshd
@@ -26357,8 +26368,8 @@ class PyGammaProxy(object):
                 edge,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mapshd))
-        result = self._gamma_call("DISP", "mapshd", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mapshd))
+        result = self._gamma_call("DISP", "mapshd", ca)
 
         assert shade.exists(), f"{shade} does not exist"
         assert shade.stat().st_size > 0, f"{shade} has zero file size"
@@ -26387,7 +26398,7 @@ class PyGammaProxy(object):
         if PAR_2 is not None and str(PAR_2) != "-":
             PAR_2.touch()
 
-    def update_par(self, PAR_1: Path, PAR_2: Path) -> Tuple[int, str, str]:
+    def update_par(self, PAR_1: Path, PAR_2: Path) -> Tuple[int, List[str], List[str]]:
         """
 
         Update parameter file to the format of the latest version
@@ -26408,8 +26419,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_update_par_outputs(PAR_1, PAR_2)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.update_par))
-        result = self._gamma_call("DISP", "update_par", args)
+        ca = self._clean_args(locals(), inspect.signature(self.update_par))
+        result = self._gamma_call("DISP", "update_par", ca)
 
         assert PAR_2.exists(), f"{PAR_2} does not exist"
         assert PAR_2.stat().st_size > 0, f"{PAR_2} has zero file size"
@@ -26534,7 +26545,7 @@ class PyGammaProxy(object):
         B2: Optional[int] = None,
         icon_sz: Optional[int] = None,
         dir_name: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP kml_pt: Create KML file with icons indicating values from ascii table
@@ -26663,8 +26674,8 @@ class PyGammaProxy(object):
                 dir_name,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.kml_pt))
-        result = self._gamma_call("DISP", "kml_pt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.kml_pt))
+        result = self._gamma_call("DISP", "kml_pt", ca)
 
         assert kml.exists(), f"{kml} does not exist"
         assert kml.stat().st_size > 0, f"{kml} has zero file size"
@@ -26697,7 +26708,7 @@ class PyGammaProxy(object):
 
     def vec_to_real(
         self, vec: Path, width: int, index: int, cmp: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Display Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/vec_to_real.c
@@ -26721,8 +26732,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_vec_to_real_outputs(vec, width, index, cmp)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.vec_to_real))
-        result = self._gamma_call("DISP", "vec_to_real", args)
+        ca = self._clean_args(locals(), inspect.signature(self.vec_to_real))
+        result = self._gamma_call("DISP", "vec_to_real", ca)
 
         assert cmp.exists(), f"{cmp} does not exist"
         assert cmp.stat().st_size > 0, f"{cmp} has zero file size"
@@ -26775,7 +26786,7 @@ class PyGammaProxy(object):
         row_looks: Optional[int] = None,
         LR: Optional[int] = None,
         force24: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/ras_ras
@@ -26800,8 +26811,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ras_ras_outputs(ras_in, ras_out, col_looks, row_looks, LR, force24)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras_ras))
-        result = self._gamma_call("DISP", "ras_ras", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras_ras))
+        result = self._gamma_call("DISP", "ras_ras", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -26834,7 +26845,7 @@ class PyGammaProxy(object):
 
     def swap_bytes(
         self, infile: Path, outfile: Path, swap_type: int
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP swap_bytes: swap bytes for binary format data
@@ -26857,8 +26868,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_swap_bytes_outputs(infile, outfile, swap_type)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.swap_bytes))
-        result = self._gamma_call("DISP", "swap_bytes", args)
+        ca = self._clean_args(locals(), inspect.signature(self.swap_bytes))
+        result = self._gamma_call("DISP", "swap_bytes", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -26893,7 +26904,7 @@ class PyGammaProxy(object):
 
     def float2double(
         self, infile: Path, outfile: Path, scale: float, exp: float
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP float2double: Convert single precision floating point data to double precision floating point data
@@ -26915,8 +26926,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_float2double_outputs(infile, outfile, scale, exp)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.float2double))
-        result = self._gamma_call("DISP", "float2double", args)
+        ca = self._clean_args(locals(), inspect.signature(self.float2double))
+        result = self._gamma_call("DISP", "float2double", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -26999,7 +27010,7 @@ class PyGammaProxy(object):
         tcolor: Optional[int] = None,
         font: Optional[int] = None,
         fsize: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP svg_poly: Draw polygon on an image and store as SVG
@@ -27072,8 +27083,8 @@ class PyGammaProxy(object):
                 fsize,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.svg_poly))
-        result = self._gamma_call("DISP", "svg_poly", args)
+        ca = self._clean_args(locals(), inspect.signature(self.svg_poly))
+        result = self._gamma_call("DISP", "svg_poly", ca)
 
         assert svg.exists(), f"{svg} does not exist"
         assert svg.stat().st_size > 0, f"{svg} has zero file size"
@@ -27138,7 +27149,7 @@ class PyGammaProxy(object):
         order: Optional[int] = None,
         zero_flag: Optional[int] = None,
         print_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extraction of data values along profiles, in polygon regions, or from indicated positions
@@ -27211,8 +27222,8 @@ class PyGammaProxy(object):
                 print_flag,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.get_data_values))
-        result = self._gamma_call("DISP", "get_data_values", args)
+        ca = self._clean_args(locals(), inspect.signature(self.get_data_values))
+        result = self._gamma_call("DISP", "get_data_values", ca)
 
         assert report.exists(), f"{report} does not exist"
         assert report.stat().st_size > 0, f"{report} has zero file size"
@@ -27262,7 +27273,7 @@ class PyGammaProxy(object):
         data_out: Path,
         loff: Optional[int] = None,
         nl: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP program: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/float2ascii.c
@@ -27284,8 +27295,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_float2ascii_outputs(din, width, data_out, loff, nl)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.float2ascii))
-        result = self._gamma_call("DISP", "float2ascii", args)
+        ca = self._clean_args(locals(), inspect.signature(self.float2ascii))
+        result = self._gamma_call("DISP", "float2ascii", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -27344,7 +27355,7 @@ class PyGammaProxy(object):
         rpl_flg: Optional[int] = None,
         dtype: Optional[int] = None,
         zflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         DISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/DISP/bin/replace_values
@@ -27383,8 +27394,8 @@ class PyGammaProxy(object):
                 data_in, value, new_value, data_out, width, rpl_flg, dtype, zflg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.replace_values))
-        result = self._gamma_call("DISP", "replace_values", args)
+        ca = self._clean_args(locals(), inspect.signature(self.replace_values))
+        result = self._gamma_call("DISP", "replace_values", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -27454,7 +27465,7 @@ class PyGammaProxy(object):
         order: Optional[int] = None,
         deramp: Optional[int] = None,
         ph_corr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Change geometry from Doppler centroid to zero-Doppler (deskew) or vice-versa
@@ -27492,8 +27503,8 @@ class PyGammaProxy(object):
                 SLC_1, SLC1_par, SLC_2, SLC2_par, mode, interp, order, deramp, ph_corr
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_deskew))
-        result = self._gamma_call("ISP", "SLC_deskew", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_deskew))
+        result = self._gamma_call("ISP", "SLC_deskew", ca)
 
         assert SLC_2.exists(), f"{SLC_2} does not exist"
         assert SLC_2.stat().st_size > 0, f"{SLC_2} has zero file size"
@@ -27555,7 +27566,7 @@ class PyGammaProxy(object):
         SLCb_par: Path,
         OFF_par: Path,
         az_offset: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate azimuth offsets from unwrapped split-beam interferogram
@@ -27576,8 +27587,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_sbi_offset_outputs(sbi_unw, SLCf_par, SLCb_par, OFF_par, az_offset)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.sbi_offset))
-        result = self._gamma_call("ISP", "sbi_offset", args)
+        ca = self._clean_args(locals(), inspect.signature(self.sbi_offset))
+        result = self._gamma_call("ISP", "sbi_offset", ca)
 
         assert az_offset.exists(), f"{az_offset} does not exist"
         assert az_offset.stat().st_size > 0, f"{az_offset} has zero file size"
@@ -27633,7 +27644,7 @@ class PyGammaProxy(object):
         CEOS_data: Path,
         GRD_par: Path,
         GRD: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file for ASF Radarsat-1 SCANSAR images
@@ -27653,8 +27664,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ASF_RSAT_SS_outputs(CEOS_leader, CEOS_data, GRD_par, GRD)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ASF_RSAT_SS))
-        result = self._gamma_call("ISP", "par_ASF_RSAT_SS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ASF_RSAT_SS))
+        result = self._gamma_call("ISP", "par_ASF_RSAT_SS", ca)
 
         assert GRD_par.exists(), f"{GRD_par} does not exist"
         assert GRD_par.stat().st_size > 0, f"{GRD_par} has zero file size"
@@ -27700,7 +27711,7 @@ class PyGammaProxy(object):
 
     def par_ASF_SLC(
         self, SLC_par: Path, CEOS_data: Optional[Path] = None, SLC: Optional[Path] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC image parameter file and reformat data
@@ -27720,8 +27731,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ASF_SLC_outputs(SLC_par, CEOS_data, SLC)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ASF_SLC))
-        result = self._gamma_call("ISP", "par_ASF_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ASF_SLC))
+        result = self._gamma_call("ISP", "par_ASF_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -27767,7 +27778,7 @@ class PyGammaProxy(object):
 
     def S1_BURST_tab(
         self, SLC1_tab: Path, SLC2_tab: Path, BURST_tab: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/scripts/S1_BURST_tab
@@ -27789,8 +27800,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_BURST_tab_outputs(SLC1_tab, SLC2_tab, BURST_tab)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.S1_BURST_tab))
-        result = self._gamma_call("ISP", "S1_BURST_tab", args)
+        ca = self._clean_args(locals(), inspect.signature(self.S1_BURST_tab))
+        result = self._gamma_call("ISP", "S1_BURST_tab", ca)
 
         assert BURST_tab.exists(), f"{BURST_tab} does not exist"
         assert BURST_tab.stat().st_size > 0, f"{BURST_tab} has zero file size"
@@ -27820,7 +27831,7 @@ class PyGammaProxy(object):
 
     def par_KS_SLC(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         dyld[70969]: Library not loaded: '/opt/local/lib/libhdf5.200.dylib'
@@ -27835,8 +27846,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_KS_SLC_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_KS_SLC))
-        result = self._gamma_call("ISP", "par_KS_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_KS_SLC))
+        result = self._gamma_call("ISP", "par_KS_SLC", ca)
         return result
 
     def _validate_ScanSAR_full_aperture_SLC(
@@ -27895,7 +27906,7 @@ class PyGammaProxy(object):
         imode: Optional[int] = None,
         order: Optional[int] = None,
         n_ovr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate continuous SLC data from ScanSAR burst data (Sentinel-1, RCM, and TSX)
@@ -27938,10 +27949,8 @@ class PyGammaProxy(object):
                 SLC1_tab, SLC2_tab, SLCR_tab, vmode, wflg, imode, order, n_ovr
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.ScanSAR_full_aperture_SLC)
-        )
-        result = self._gamma_call("ISP", "ScanSAR_full_aperture_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ScanSAR_full_aperture_SLC))
+        result = self._gamma_call("ISP", "ScanSAR_full_aperture_SLC", ca)
 
         assert SLC2_tab.exists(), f"{SLC2_tab} does not exist"
         assert SLC2_tab.stat().st_size > 0, f"{SLC2_tab} has zero file size"
@@ -28032,7 +28041,7 @@ class PyGammaProxy(object):
         azwin: Optional[int] = None,
         cflag: Optional[int] = None,
         deramp: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Determine initial offset between SLC images using correlation of image intensity
@@ -28102,8 +28111,8 @@ class PyGammaProxy(object):
                 deramp,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.init_offset))
-        result = self._gamma_call("ISP", "init_offset", args)
+        ca = self._clean_args(locals(), inspect.signature(self.init_offset))
+        result = self._gamma_call("ISP", "init_offset", ca)
         return result
 
     def _validate_bridge(
@@ -28165,7 +28174,7 @@ class PyGammaProxy(object):
         xmax: Optional[int] = None,
         ymin: Optional[int] = None,
         ymax: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Phase unwrap new regions with bridges to regions already unwrapped
@@ -28193,8 +28202,8 @@ class PyGammaProxy(object):
                 int, flag, unw, bridge, width, xmin, xmax, ymin, ymax
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.bridge))
-        result = self._gamma_call("ISP", "bridge", args)
+        ca = self._clean_args(locals(), inspect.signature(self.bridge))
+        result = self._gamma_call("ISP", "bridge", ca)
 
         assert unw.exists(), f"{unw} does not exist"
         assert unw.stat().st_size > 0, f"{unw} has zero file size"
@@ -28222,7 +28231,7 @@ class PyGammaProxy(object):
         if SLC_par is not None and str(SLC_par) != "-":
             SLC_par.touch()
 
-    def par_ERSDAC_PALSAR(self, SLC_par: Path) -> Tuple[int, str, str]:
+    def par_ERSDAC_PALSAR(self, SLC_par: Path) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate the ISP image parameter file from ERSDAC PALSAR level 1.1 SLC data
@@ -28240,8 +28249,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ERSDAC_PALSAR_outputs(SLC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ERSDAC_PALSAR))
-        result = self._gamma_call("ISP", "par_ERSDAC_PALSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ERSDAC_PALSAR))
+        result = self._gamma_call("ISP", "par_ERSDAC_PALSAR", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -28319,7 +28328,7 @@ class PyGammaProxy(object):
         grd_rsp: Optional[int] = None,
         grd_azsp: Optional[int] = None,
         degree: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Conversion to ground range for ISP MLI and INSAR data of type FLOAT
@@ -28378,8 +28387,8 @@ class PyGammaProxy(object):
                 degree,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SR_to_GRD))
-        result = self._gamma_call("ISP", "SR_to_GRD", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SR_to_GRD))
+        result = self._gamma_call("ISP", "SR_to_GRD", ca)
 
         assert GRD_par.exists(), f"{GRD_par} does not exist"
         assert GRD_par.stat().st_size > 0, f"{GRD_par} has zero file size"
@@ -28411,7 +28420,9 @@ class PyGammaProxy(object):
         if SLC_par is not None and str(SLC_par) != "-":
             SLC_par.touch()
 
-    def par_ACS_ERS(self, CEOS_SAR_leader: Path, SLC_par: Path) -> Tuple[int, str, str]:
+    def par_ACS_ERS(
+        self, CEOS_SAR_leader: Path, SLC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file generation for ERS SLC data from the ACS processor
@@ -28430,8 +28441,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ACS_ERS_outputs(CEOS_SAR_leader, SLC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ACS_ERS))
-        result = self._gamma_call("ISP", "par_ACS_ERS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ACS_ERS))
+        result = self._gamma_call("ISP", "par_ACS_ERS", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -28461,7 +28472,7 @@ class PyGammaProxy(object):
 
     def mk_tab3(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC_tab, MLI_tab, or RAW_list for processing
@@ -28483,8 +28494,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_mk_tab3_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mk_tab3))
-        result = self._gamma_call("ISP", "mk_tab3", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mk_tab3))
+        result = self._gamma_call("ISP", "mk_tab3", ca)
         return result
 
     def _validate_offset_fit(
@@ -28496,6 +28507,7 @@ class PyGammaProxy(object):
         coffsets: Optional[Path] = None,
         thres: Optional[float] = None,
         npoly: Optional[int] = None,
+        interact_flag: Optional[int] = None,
     ) -> None:
         """
 
@@ -28527,6 +28539,7 @@ class PyGammaProxy(object):
         coffsets: Optional[Path] = None,
         thres: Optional[float] = None,
         npoly: Optional[int] = None,
+        interact_flag: Optional[int] = None,
     ) -> None:
         """
 
@@ -28549,7 +28562,8 @@ class PyGammaProxy(object):
         coffsets: Optional[Path] = None,
         thres: Optional[float] = None,
         npoly: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+        interact_flag: Optional[int] = None,
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Range and azimuth offset polynomial estimation
@@ -28570,15 +28584,17 @@ class PyGammaProxy(object):
         """
 
         if self.validate_inputs:
-            self._validate_offset_fit(offs, ccp, OFF_par, coffs, coffsets, thres, npoly)
+            self._validate_offset_fit(
+                offs, ccp, OFF_par, coffs, coffsets, thres, npoly, interact_flag
+            )
 
         if self.mock_outputs:
             self._mock_offset_fit_outputs(
-                offs, ccp, OFF_par, coffs, coffsets, thres, npoly
+                offs, ccp, OFF_par, coffs, coffsets, thres, npoly, interact_flag
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_fit))
-        result = self._gamma_call("ISP", "offset_fit", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_fit))
+        result = self._gamma_call("ISP", "offset_fit", ca)
 
         if coffs is not None:
             assert coffs.exists(), f"{coffs} does not exist"
@@ -28656,7 +28672,7 @@ class PyGammaProxy(object):
         nr: Optional[int] = None,
         loff: Optional[int] = None,
         nl: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Convert ESA processed short integer format PRI to radiometrically calibrated GRD image (float)
@@ -28691,8 +28707,8 @@ class PyGammaProxy(object):
                 PRI, PRI_par, GRD, GRD_par, K_dB, inc_ref, roff, nr, loff, nl
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.radcal_PRI))
-        result = self._gamma_call("ISP", "radcal_PRI", args)
+        ca = self._clean_args(locals(), inspect.signature(self.radcal_PRI))
+        result = self._gamma_call("ISP", "radcal_PRI", ca)
 
         assert GRD.exists(), f"{GRD} does not exist"
         assert GRD.stat().st_size > 0, f"{GRD} has zero file size"
@@ -28751,7 +28767,7 @@ class PyGammaProxy(object):
         gcp: Path,
         gcp_ph: Path,
         win_sz: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract unwrapped phase at GCP locations
@@ -28773,8 +28789,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_gcp_phase_outputs(unw, OFF_par, gcp, gcp_ph, win_sz)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gcp_phase))
-        result = self._gamma_call("ISP", "gcp_phase", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gcp_phase))
+        result = self._gamma_call("ISP", "gcp_phase", ca)
 
         assert gcp_ph.exists(), f"{gcp_ph} does not exist"
         assert gcp_ph.stat().st_size > 0, f"{gcp_ph} has zero file size"
@@ -28824,7 +28840,7 @@ class PyGammaProxy(object):
         PROC_par: Path,
         SLC_par: Path,
         image_format: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP image parameter file from MSP processing parameter and sensor files
@@ -28847,8 +28863,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_MSP_outputs(SAR_par, PROC_par, SLC_par, image_format)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_MSP))
-        result = self._gamma_call("ISP", "par_MSP", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_MSP))
+        result = self._gamma_call("ISP", "par_MSP", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -28886,7 +28902,7 @@ class PyGammaProxy(object):
 
     def SLC_deramp_ScanSAR(
         self, SLC1_tab: Path, SLC2_tab: Path, mode: int, phflg: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate and subtract ScanSAR or TOPS Doppler phase from burst SLC data
@@ -28912,8 +28928,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_deramp_ScanSAR_outputs(SLC1_tab, SLC2_tab, mode, phflg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_deramp_ScanSAR))
-        result = self._gamma_call("ISP", "SLC_deramp_ScanSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_deramp_ScanSAR))
+        result = self._gamma_call("ISP", "SLC_deramp_ScanSAR", ca)
         return result
 
     def _validate_offset_pwr_tracking2(
@@ -29059,7 +29075,7 @@ class PyGammaProxy(object):
         pflag: Optional[int] = None,
         pltflg: Optional[int] = None,
         ccs: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Intensity cross-correlation offset tracking with the initial offset for each patch determined from input offset map
@@ -29168,10 +29184,8 @@ class PyGammaProxy(object):
                 ccs,
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.offset_pwr_tracking2)
-        )
-        result = self._gamma_call("ISP", "offset_pwr_tracking2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_pwr_tracking2))
+        result = self._gamma_call("ISP", "offset_pwr_tracking2", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -29259,7 +29273,7 @@ class PyGammaProxy(object):
         mode: Optional[int] = None,
         thres: Optional[float] = None,
         poly_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Conversion of range and azimuth offsets files to displacement map
@@ -29294,8 +29308,8 @@ class PyGammaProxy(object):
                 offs, ccp, SLC_par, OFF_par, disp_map, disp_val, mode, thres, poly_flag
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_tracking))
-        result = self._gamma_call("ISP", "offset_tracking", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_tracking))
+        result = self._gamma_call("ISP", "offset_tracking", ca)
 
         assert disp_map.exists(), f"{disp_map} does not exist"
         assert disp_map.stat().st_size > 0, f"{disp_map} has zero file size"
@@ -29393,7 +29407,7 @@ class PyGammaProxy(object):
         mode: Optional[int] = None,
         order: Optional[int] = None,
         SLC2R_dir: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Resample ScanSAR burst mode SLC using global offset polynomial
@@ -29451,8 +29465,8 @@ class PyGammaProxy(object):
                 SLC2R_dir,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_interp_ScanSAR))
-        result = self._gamma_call("ISP", "SLC_interp_ScanSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_interp_ScanSAR))
+        result = self._gamma_call("ISP", "SLC_interp_ScanSAR", ca)
 
         assert SLC2R_tab.exists(), f"{SLC2R_tab} does not exist"
         assert SLC2R_tab.stat().st_size > 0, f"{SLC2R_tab} has zero file size"
@@ -29521,7 +29535,7 @@ class PyGammaProxy(object):
         nr: int,
         nl: Optional[int],
         report: int,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate statistics for two data files and their difference (FLOAT or FCOMPLEX)
@@ -29553,8 +29567,8 @@ class PyGammaProxy(object):
                 d1, d2, width, dtype, roff, loff, nr, nl, report
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.error_stat))
-        result = self._gamma_call("ISP", "error_stat", args)
+        ca = self._clean_args(locals(), inspect.signature(self.error_stat))
+        result = self._gamma_call("ISP", "error_stat", ca)
         return result
 
     def _validate_par_SICD_SLC(
@@ -29606,7 +29620,7 @@ class PyGammaProxy(object):
         noise: Optional[int],
         SLC_par: Path,
         SLC: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for SICD SLC data
@@ -29634,8 +29648,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_SICD_SLC_outputs(NITF, radcal, noise, SLC_par, SLC)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_SICD_SLC))
-        result = self._gamma_call("ISP", "par_SICD_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_SICD_SLC))
+        result = self._gamma_call("ISP", "par_SICD_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -29727,7 +29741,7 @@ class PyGammaProxy(object):
         azps_res: Optional[Path] = None,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Slant range to ground range transformation based on interferometric ground-range
@@ -29782,8 +29796,8 @@ class PyGammaProxy(object):
                 nlines,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.res_map))
-        result = self._gamma_call("ISP", "res_map", args)
+        ca = self._clean_args(locals(), inspect.signature(self.res_map))
+        result = self._gamma_call("ISP", "res_map", ca)
 
         assert res_hgt.exists(), f"{res_hgt} does not exist"
         assert res_hgt.stat().st_size > 0, f"{res_hgt} has zero file size"
@@ -29817,7 +29831,7 @@ class PyGammaProxy(object):
 
     def RSAT2_vec(
         self, SLC_par: Path, RSAT2_orb: int, nstate: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract Radarsat-2 state vectors from a definitive orbit file
@@ -29837,8 +29851,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_RSAT2_vec_outputs(SLC_par, RSAT2_orb, nstate)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.RSAT2_vec))
-        result = self._gamma_call("ISP", "RSAT2_vec", args)
+        ca = self._clean_args(locals(), inspect.signature(self.RSAT2_vec))
+        result = self._gamma_call("ISP", "RSAT2_vec", ca)
         return result
 
     def _validate_par_S1_GRD(
@@ -29942,7 +29956,7 @@ class PyGammaProxy(object):
         edge_flag: Optional[int] = None,
         loff: Optional[int] = None,
         nl: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate MLI and GRD images and parameter files from a Sentinel-1 GRD product
@@ -30013,8 +30027,8 @@ class PyGammaProxy(object):
                 nl,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_S1_GRD))
-        result = self._gamma_call("ISP", "par_S1_GRD", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_S1_GRD))
+        result = self._gamma_call("ISP", "par_S1_GRD", ca)
 
         assert MLI_par.exists(), f"{MLI_par} does not exist"
         assert MLI_par.stat().st_size > 0, f"{MLI_par} has zero file size"
@@ -30055,7 +30069,7 @@ class PyGammaProxy(object):
 
     def offset_plot_az(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         IPTA script: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/scripts/offset_plot_az
@@ -30077,8 +30091,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_offset_plot_az_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_plot_az))
-        result = self._gamma_call("ISP", "offset_plot_az", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_plot_az))
+        result = self._gamma_call("ISP", "offset_plot_az", ca)
         return result
 
     def _validate_SLC_deramp_S1_TOPS(
@@ -30104,7 +30118,7 @@ class PyGammaProxy(object):
 
     def SLC_deramp_S1_TOPS(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ******************************************************************************************
@@ -30123,8 +30137,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_deramp_S1_TOPS_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_deramp_S1_TOPS))
-        result = self._gamma_call("ISP", "SLC_deramp_S1_TOPS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_deramp_S1_TOPS))
+        result = self._gamma_call("ISP", "SLC_deramp_S1_TOPS", ca)
         return result
 
     def _validate_multi_S1_TOPS(
@@ -30150,7 +30164,7 @@ class PyGammaProxy(object):
 
     def multi_S1_TOPS(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ************************************************************************************
@@ -30168,8 +30182,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_multi_S1_TOPS_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_S1_TOPS))
-        result = self._gamma_call("ISP", "multi_S1_TOPS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_S1_TOPS))
+        result = self._gamma_call("ISP", "multi_S1_TOPS", ca)
         return result
 
     def _validate_adf2(
@@ -30239,7 +30253,7 @@ class PyGammaProxy(object):
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
         wfrac: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Adaptive interferogram filter based on the power spectral density and correlation coefficient
@@ -30294,8 +30308,8 @@ class PyGammaProxy(object):
                 wfrac,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.adf2))
-        result = self._gamma_call("ISP", "adf2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.adf2))
+        result = self._gamma_call("ISP", "adf2", ca)
 
         assert cc_filt.exists(), f"{cc_filt} does not exist"
         assert cc_filt.stat().st_size > 0, f"{cc_filt} has zero file size"
@@ -30357,7 +30371,7 @@ class PyGammaProxy(object):
         GRD: Optional[Path] = None,
         sc_dB: Optional[int] = None,
         dt: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file for RSI/Atlantis Radarsat SGF (ground range) and SCANSAR SCW16 data
@@ -30382,8 +30396,8 @@ class PyGammaProxy(object):
                 CEOS_leader, CEOS_data, GRD_par, GRD, sc_dB, dt
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RSAT_SGF))
-        result = self._gamma_call("ISP", "par_RSAT_SGF", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RSAT_SGF))
+        result = self._gamma_call("ISP", "par_RSAT_SGF", ca)
 
         assert GRD_par.exists(), f"{GRD_par} does not exist"
         assert GRD_par.stat().st_size > 0, f"{GRD_par} has zero file size"
@@ -30450,7 +30464,7 @@ class PyGammaProxy(object):
         GRD_par: Optional[Path] = None,
         GRD: Optional[Path] = None,
         rps: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate MLI and GRD image and parameter files for ICEYE GRD data
@@ -30474,8 +30488,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ICEYE_GRD_outputs(GeoTIFF, MLI_par, GRD_par, GRD, rps)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ICEYE_GRD))
-        result = self._gamma_call("ISP", "par_ICEYE_GRD", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ICEYE_GRD))
+        result = self._gamma_call("ISP", "par_ICEYE_GRD", ca)
 
         assert MLI_par.exists(), f"{MLI_par} does not exist"
         assert MLI_par.stat().st_size > 0, f"{MLI_par} has zero file size"
@@ -30517,7 +30531,7 @@ class PyGammaProxy(object):
 
     def par_CS_SLC_TIF(
         self, GeoTIFF: Path, XML: Path, trunk: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate ISP SLC parameter and image files for Cosmo Skymed SCS data in GeoTIFF format
@@ -30538,8 +30552,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_CS_SLC_TIF_outputs(GeoTIFF, XML, trunk)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_CS_SLC_TIF))
-        result = self._gamma_call("ISP", "par_CS_SLC_TIF", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_CS_SLC_TIF))
+        result = self._gamma_call("ISP", "par_CS_SLC_TIF", ca)
 
         assert trunk.exists(), f"{trunk} does not exist"
         assert trunk.stat().st_size > 0, f"{trunk} has zero file size"
@@ -30569,7 +30583,7 @@ class PyGammaProxy(object):
 
     def unw_correction_filt(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         unw_correction_filt: Phase unwrapping ambiguity error correction relative to spatially filtered phase
@@ -30594,10 +30608,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_unw_correction_filt_outputs()
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.unw_correction_filt)
-        )
-        result = self._gamma_call("ISP", "unw_correction_filt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.unw_correction_filt))
+        result = self._gamma_call("ISP", "unw_correction_filt", ca)
         return result
 
     def _validate_DORIS_vec(
@@ -30626,7 +30638,7 @@ class PyGammaProxy(object):
 
     def DORIS_vec(
         self, SLC_par: Path, DOR: Path, nstate: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract ENVISAT DORIS state vectors and write to an ISP image parameter file
@@ -30645,8 +30657,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_DORIS_vec_outputs(SLC_par, DOR, nstate)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.DORIS_vec))
-        result = self._gamma_call("ISP", "DORIS_vec", args)
+        ca = self._clean_args(locals(), inspect.signature(self.DORIS_vec))
+        result = self._gamma_call("ISP", "DORIS_vec", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -30676,7 +30688,7 @@ class PyGammaProxy(object):
 
     def SLC_interp_S1_TOPS(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ******************************************************************************************
@@ -30694,8 +30706,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_interp_S1_TOPS_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_interp_S1_TOPS))
-        result = self._gamma_call("ISP", "SLC_interp_S1_TOPS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_interp_S1_TOPS))
+        result = self._gamma_call("ISP", "SLC_interp_S1_TOPS", ca)
         return result
 
     def _validate_bpf(
@@ -30771,7 +30783,7 @@ class PyGammaProxy(object):
         zflag: Optional[int] = None,
         beta: Optional[int] = None,
         fir_len: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Interferometric SAR Processor (ISP): Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/bin/bpf.c
@@ -30841,8 +30853,8 @@ class PyGammaProxy(object):
                 fir_len,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.bpf))
-        result = self._gamma_call("ISP", "bpf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.bpf))
+        result = self._gamma_call("ISP", "bpf", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -30897,7 +30909,7 @@ class PyGammaProxy(object):
         nl: Optional[int] = None,
         report: Optional[int] = None,
         median_flg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate mean, standard deviation, number of non-zero values, min, max and median for a rectangular image region (FLOAT format)
@@ -30931,8 +30943,8 @@ class PyGammaProxy(object):
                 image, width, roff, loff, nr, nl, report, median_flg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.image_stat))
-        result = self._gamma_call("ISP", "image_stat", args)
+        ca = self._clean_args(locals(), inspect.signature(self.image_stat))
+        result = self._gamma_call("ISP", "image_stat", ca)
         return result
 
     def _validate_clear_flag(
@@ -30980,7 +30992,7 @@ class PyGammaProxy(object):
         xmax: int,
         ymin: int,
         ymax: int,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Clear phase unwrapping flag bits
@@ -31008,8 +31020,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_clear_flag_outputs(flag, width, flag_bits, xmin, xmax, ymin, ymax)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.clear_flag))
-        result = self._gamma_call("ISP", "clear_flag", args)
+        ca = self._clean_args(locals(), inspect.signature(self.clear_flag))
+        result = self._gamma_call("ISP", "clear_flag", ca)
         return result
 
     def _validate_ScanSAR_burst_cc_wave(
@@ -31035,7 +31047,7 @@ class PyGammaProxy(object):
 
     def ScanSAR_burst_cc_wave(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Estimate interferometric coherence for ScanSAR burst data using cc_wave
@@ -31069,10 +31081,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ScanSAR_burst_cc_wave_outputs()
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.ScanSAR_burst_cc_wave)
-        )
-        result = self._gamma_call("ISP", "ScanSAR_burst_cc_wave", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ScanSAR_burst_cc_wave))
+        result = self._gamma_call("ISP", "ScanSAR_burst_cc_wave", ca)
         return result
 
     def _validate_RSAT2_SLC_preproc(
@@ -31098,7 +31108,7 @@ class PyGammaProxy(object):
 
     def RSAT2_SLC_preproc(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Preprocessing of a set of RSAT2 SLC images using par_RSAT2_SLC
@@ -31121,8 +31131,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_RSAT2_SLC_preproc_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.RSAT2_SLC_preproc))
-        result = self._gamma_call("ISP", "RSAT2_SLC_preproc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.RSAT2_SLC_preproc))
+        result = self._gamma_call("ISP", "RSAT2_SLC_preproc", ca)
         return result
 
     def _validate_UNWRAP(
@@ -31148,7 +31158,7 @@ class PyGammaProxy(object):
 
     def UNWRAP(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         UNWRAP: unwrap phase with using parameters from the ISP interferogram parameter file
@@ -31177,8 +31187,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_UNWRAP_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.UNWRAP))
-        result = self._gamma_call("ISP", "UNWRAP", args)
+        ca = self._clean_args(locals(), inspect.signature(self.UNWRAP))
+        result = self._gamma_call("ISP", "UNWRAP", ca)
         return result
 
     def _validate_par_NovaSAR_GRD(
@@ -31261,7 +31271,7 @@ class PyGammaProxy(object):
         rps: Optional[int] = None,
         radcal: Optional[int] = None,
         noise: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate MLI and GRD image and parameter files for NovaSAR GRD and SCD data
@@ -31296,8 +31306,8 @@ class PyGammaProxy(object):
                 GeoTIFF, XML, polarization, MLI_par, MLI, GRD_par, GRD, rps, radcal, noise
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_NovaSAR_GRD))
-        result = self._gamma_call("ISP", "par_NovaSAR_GRD", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_NovaSAR_GRD))
+        result = self._gamma_call("ISP", "par_NovaSAR_GRD", ca)
 
         assert MLI_par.exists(), f"{MLI_par} does not exist"
         assert MLI_par.stat().st_size > 0, f"{MLI_par} has zero file size"
@@ -31339,7 +31349,7 @@ class PyGammaProxy(object):
 
     def bpf_ssi(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         bpf_ssi: Apply band-pass filtering for split-spectrum interferometry
@@ -31363,8 +31373,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_bpf_ssi_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.bpf_ssi))
-        result = self._gamma_call("ISP", "bpf_ssi", args)
+        ca = self._clean_args(locals(), inspect.signature(self.bpf_ssi))
+        result = self._gamma_call("ISP", "bpf_ssi", ca)
         return result
 
     def _validate_slant_range(self, SLC_par: Path, slr: Path) -> None:
@@ -31389,7 +31399,7 @@ class PyGammaProxy(object):
         if slr is not None and str(slr) != "-":
             slr.touch()
 
-    def slant_range(self, SLC_par: Path, slr: Path) -> Tuple[int, str, str]:
+    def slant_range(self, SLC_par: Path, slr: Path) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate slant range for every range sample
@@ -31408,8 +31418,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_slant_range_outputs(SLC_par, slr)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.slant_range))
-        result = self._gamma_call("ISP", "slant_range", args)
+        ca = self._clean_args(locals(), inspect.signature(self.slant_range))
+        result = self._gamma_call("ISP", "slant_range", ca)
 
         assert slr.exists(), f"{slr} does not exist"
         assert slr.stat().st_size > 0, f"{slr} has zero file size"
@@ -31476,7 +31486,7 @@ class PyGammaProxy(object):
         date: Path,
         SLC_par: Path,
         SLC: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for IECAS SLC data
@@ -31498,8 +31508,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_IECAS_SLC_outputs(aux_data, slc_Re, slc_Im, date, SLC_par, SLC)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_IECAS_SLC))
-        result = self._gamma_call("ISP", "par_IECAS_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_IECAS_SLC))
+        result = self._gamma_call("ISP", "par_IECAS_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -31562,7 +31572,7 @@ class PyGammaProxy(object):
         ymin: Optional[int] = None,
         ymax: Optional[int] = None,
         border: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Low correlation region detection for phase unwrapping
@@ -31592,8 +31602,8 @@ class PyGammaProxy(object):
                 corr, flag, width, corr_thr, xmin, xmax, ymin, ymax, border
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.corr_flag))
-        result = self._gamma_call("ISP", "corr_flag", args)
+        ca = self._clean_args(locals(), inspect.signature(self.corr_flag))
+        result = self._gamma_call("ISP", "corr_flag", ca)
 
         assert flag.exists(), f"{flag} does not exist"
         assert flag.stat().st_size > 0, f"{flag} has zero file size"
@@ -31697,7 +31707,7 @@ class PyGammaProxy(object):
         psz: Optional[int] = None,
         csz: Optional[int] = None,
         theta_inc: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Point target analysis and radiometric calibration of slant-range and ground-range (GRD) images
@@ -31770,8 +31780,8 @@ class PyGammaProxy(object):
                 theta_inc,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ptarg_cal_MLI))
-        result = self._gamma_call("ISP", "ptarg_cal_MLI", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ptarg_cal_MLI))
+        result = self._gamma_call("ISP", "ptarg_cal_MLI", ca)
 
         assert ptr_image.exists(), f"{ptr_image} does not exist"
         assert ptr_image.stat().st_size > 0, f"{ptr_image} has zero file size"
@@ -31810,7 +31820,7 @@ class PyGammaProxy(object):
 
     def S1_BURST_tab_from_zipfile(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         S1_BURST_tab_from_zipfile: Script used to generate S1_BURST_tab to support burst selection
@@ -31839,10 +31849,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_BURST_tab_from_zipfile_outputs()
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.S1_BURST_tab_from_zipfile)
-        )
-        result = self._gamma_call("ISP", "S1_BURST_tab_from_zipfile", args)
+        ca = self._clean_args(locals(), inspect.signature(self.S1_BURST_tab_from_zipfile))
+        result = self._gamma_call("ISP", "S1_BURST_tab_from_zipfile", ca)
         return result
 
     def _validate_ORB_filt(
@@ -31885,7 +31893,7 @@ class PyGammaProxy(object):
         SLC_par_out: Path,
         interval: Optional[int] = None,
         extra: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Filter state vectors using a least-squares polynomial model
@@ -31905,8 +31913,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ORB_filt_outputs(SLC_par_in, SLC_par_out, interval, extra)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ORB_filt))
-        result = self._gamma_call("ISP", "ORB_filt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ORB_filt))
+        result = self._gamma_call("ISP", "ORB_filt", ca)
 
         assert SLC_par_out.exists(), f"{SLC_par_out} does not exist"
         assert SLC_par_out.stat().st_size > 0, f"{SLC_par_out} has zero file size"
@@ -31940,7 +31948,7 @@ class PyGammaProxy(object):
 
     def offset_sub(
         self, offs: Path, OFF_par: Path, offs_sub: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Subtraction of polynomial from range and azimuth offset estimates
@@ -31959,8 +31967,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_offset_sub_outputs(offs, OFF_par, offs_sub)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_sub))
-        result = self._gamma_call("ISP", "offset_sub", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_sub))
+        result = self._gamma_call("ISP", "offset_sub", ca)
 
         assert offs_sub.exists(), f"{offs_sub} does not exist"
         assert offs_sub.stat().st_size > 0, f"{offs_sub} has zero file size"
@@ -31984,7 +31992,7 @@ class PyGammaProxy(object):
         """
         pass
 
-    def gamma_doc(self, inputpar: int) -> Tuple[int, str, str]:
+    def gamma_doc(self, inputpar: int) -> Tuple[int, List[str], List[str]]:
         """
 
         The file /Gamma_documentation.html does not exist.
@@ -32016,8 +32024,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_gamma_doc_outputs(inputpar)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gamma_doc))
-        result = self._gamma_call("ISP", "gamma_doc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gamma_doc))
+        result = self._gamma_call("ISP", "gamma_doc", ca)
         return result
 
     def _validate_radcal_MLI(
@@ -32098,7 +32106,7 @@ class PyGammaProxy(object):
         sc_dB: Optional[int] = None,
         K_dB: Optional[int] = None,
         pix_area: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Radiometric calibration for multi-look intensity (MLI) data
@@ -32165,8 +32173,8 @@ class PyGammaProxy(object):
                 pix_area,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.radcal_MLI))
-        result = self._gamma_call("ISP", "radcal_MLI", args)
+        ca = self._clean_args(locals(), inspect.signature(self.radcal_MLI))
+        result = self._gamma_call("ISP", "radcal_MLI", ca)
 
         assert CMLI.exists(), f"{CMLI} does not exist"
         assert CMLI.stat().st_size > 0, f"{CMLI} has zero file size"
@@ -32200,7 +32208,7 @@ class PyGammaProxy(object):
 
     def UNWRAP_PAR(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         UNWRAP_PAR: unwrap phase with using parameters from the ISP interferogram parameter file
@@ -32228,8 +32236,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_UNWRAP_PAR_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.UNWRAP_PAR))
-        result = self._gamma_call("ISP", "UNWRAP_PAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.UNWRAP_PAR))
+        result = self._gamma_call("ISP", "UNWRAP_PAR", ca)
         return result
 
     def _validate_S1_OPOD_vec(
@@ -32258,7 +32266,7 @@ class PyGammaProxy(object):
 
     def S1_OPOD_vec(
         self, SLC_par: Path, OPOD: Path, nstate: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract Sentinel-1 OPOD state vectors and copy into the ISP image parameter file
@@ -32278,8 +32286,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_OPOD_vec_outputs(SLC_par, OPOD, nstate)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.S1_OPOD_vec))
-        result = self._gamma_call("ISP", "S1_OPOD_vec", args)
+        ca = self._clean_args(locals(), inspect.signature(self.S1_OPOD_vec))
+        result = self._gamma_call("ISP", "S1_OPOD_vec", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -32369,7 +32377,7 @@ class PyGammaProxy(object):
         GRD: Optional[Path] = None,
         rps: Optional[int] = None,
         noise_pwr: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate MLI and GRD images and parameter files from a Radarsat Constellation GRD (Ground Range georeferenced Detected) product
@@ -32426,8 +32434,8 @@ class PyGammaProxy(object):
                 noise_pwr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RCM_GRD))
-        result = self._gamma_call("ISP", "par_RCM_GRD", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RCM_GRD))
+        result = self._gamma_call("ISP", "par_RCM_GRD", ca)
 
         if MLI_par is not None:
             assert MLI_par.exists(), f"{MLI_par} does not exist"
@@ -32583,7 +32591,7 @@ class PyGammaProxy(object):
         pflag: Optional[int] = None,
         pltflg: Optional[int] = None,
         ccs: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offset tracking between SLC images using intensity cross-correlation
@@ -32689,10 +32697,8 @@ class PyGammaProxy(object):
                 ccs,
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.offset_pwr_tracking)
-        )
-        result = self._gamma_call("ISP", "offset_pwr_tracking", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_pwr_tracking))
+        result = self._gamma_call("ISP", "offset_pwr_tracking", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -32733,7 +32739,7 @@ class PyGammaProxy(object):
 
     def ionosphere_check(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ionosphere_check: Determine azimuth spectrum sub-band range and azimuth offsets of a single SLC
@@ -32757,8 +32763,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ionosphere_check_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ionosphere_check))
-        result = self._gamma_call("ISP", "ionosphere_check", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ionosphere_check))
+        result = self._gamma_call("ISP", "ionosphere_check", ca)
         return result
 
     def _validate_SLC_phase_shift(
@@ -32797,7 +32803,7 @@ class PyGammaProxy(object):
 
     def SLC_phase_shift(
         self, SLC_1: Path, SLC_par1: Path, SLC_2: Path, SLC_par2: Path, ph_shift: int
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Add a constant phase from an SLC image
@@ -32825,8 +32831,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_phase_shift_outputs(SLC_1, SLC_par1, SLC_2, SLC_par2, ph_shift)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_phase_shift))
-        result = self._gamma_call("ISP", "SLC_phase_shift", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_phase_shift))
+        result = self._gamma_call("ISP", "SLC_phase_shift", ca)
 
         assert SLC_2.exists(), f"{SLC_2} does not exist"
         assert SLC_2.stat().st_size > 0, f"{SLC_2} has zero file size"
@@ -32859,7 +32865,7 @@ class PyGammaProxy(object):
 
     def S1_path_number(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         S1_path_number: Script to determine S1 path (or track) number
@@ -32875,8 +32881,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_path_number_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.S1_path_number))
-        result = self._gamma_call("ISP", "S1_path_number", args)
+        ca = self._clean_args(locals(), inspect.signature(self.S1_path_number))
+        result = self._gamma_call("ISP", "S1_path_number", ca)
         return result
 
     def _validate_unw_model(
@@ -32934,7 +32940,7 @@ class PyGammaProxy(object):
         yinit: Optional[int] = None,
         ref_ph: Optional[int] = None,
         width_model: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Phase unwrapping using a model of the unwrapped phase
@@ -32963,8 +32969,8 @@ class PyGammaProxy(object):
                 interf, unw_model, unw, width, xinit, yinit, ref_ph, width_model
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.unw_model))
-        result = self._gamma_call("ISP", "unw_model", args)
+        ca = self._clean_args(locals(), inspect.signature(self.unw_model))
+        result = self._gamma_call("ISP", "unw_model", ca)
 
         assert unw.exists(), f"{unw} does not exist"
         assert unw.stat().st_size > 0, f"{unw} has zero file size"
@@ -33026,7 +33032,7 @@ class PyGammaProxy(object):
         SLC: Optional[Path] = None,
         pol: Optional[int] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter file and SLC image from a Terrasar-X SSC data set
@@ -33051,8 +33057,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_TX_SLC_outputs(annotation_XML, COSAR, SLC_par, SLC, pol, dtype)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_TX_SLC))
-        result = self._gamma_call("ISP", "par_TX_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_TX_SLC))
+        result = self._gamma_call("ISP", "par_TX_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -33121,7 +33127,7 @@ class PyGammaProxy(object):
         SLCR_tab: Optional[Path] = None,
         MLI_dir: Optional[int] = None,
         scale: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate MLI burst data from ScanSAR burst SLC data (Sentinel-1, RCM, and TSX)
@@ -33156,8 +33162,8 @@ class PyGammaProxy(object):
                 SLC_tab, MLI_tab, rlks, azlks, bflg, SLCR_tab, MLI_dir, scale
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ScanSAR_burst_MLI))
-        result = self._gamma_call("ISP", "ScanSAR_burst_MLI", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ScanSAR_burst_MLI))
+        result = self._gamma_call("ISP", "ScanSAR_burst_MLI", ca)
 
         assert MLI_tab.exists(), f"{MLI_tab} does not exist"
         assert MLI_tab.stat().st_size > 0, f"{MLI_tab} has zero file size"
@@ -33187,7 +33193,7 @@ class PyGammaProxy(object):
 
     def SLC_copy_S1_TOPS(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         **************************************************************************************
@@ -33205,8 +33211,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_copy_S1_TOPS_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_copy_S1_TOPS))
-        result = self._gamma_call("ISP", "SLC_copy_S1_TOPS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_copy_S1_TOPS))
+        result = self._gamma_call("ISP", "SLC_copy_S1_TOPS", ca)
         return result
 
     def _validate_base_copy(
@@ -33258,7 +33264,7 @@ class PyGammaProxy(object):
         SLC2_par: Path,
         baseline_2: Path,
         time_rev: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate baseline file for a subsection of a reference SLC
@@ -33282,8 +33288,8 @@ class PyGammaProxy(object):
                 SLC1_par, baseline_1, SLC2_par, baseline_2, time_rev
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.base_copy))
-        result = self._gamma_call("ISP", "base_copy", args)
+        ca = self._clean_args(locals(), inspect.signature(self.base_copy))
+        result = self._gamma_call("ISP", "base_copy", ca)
 
         assert baseline_2.exists(), f"{baseline_2} does not exist"
         assert baseline_2.stat().st_size > 0, f"{baseline_2} has zero file size"
@@ -33362,7 +33368,7 @@ class PyGammaProxy(object):
         OFF_par2: Path,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SLC image resampling using a 2-D offset map
@@ -33413,8 +33419,8 @@ class PyGammaProxy(object):
                 nlines,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_interp_map))
-        result = self._gamma_call("ISP", "SLC_interp_map", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_interp_map))
+        result = self._gamma_call("ISP", "SLC_interp_map", ca)
 
         assert SLC_2R.exists(), f"{SLC_2R} does not exist"
         assert SLC_2R.stat().st_size > 0, f"{SLC_2R} has zero file size"
@@ -33466,7 +33472,7 @@ class PyGammaProxy(object):
         SLC1_par: Path,
         OFF_par: Path,
         time_rev: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate baseline components perpendicular and parallel to look vector
@@ -33487,8 +33493,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_base_perp_outputs(baseline, SLC1_par, OFF_par, time_rev)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.base_perp))
-        result = self._gamma_call("ISP", "base_perp", args)
+        ca = self._clean_args(locals(), inspect.signature(self.base_perp))
+        result = self._gamma_call("ISP", "base_perp", ca)
         return result
 
     def _validate_SLC_RFI_filt(
@@ -33552,7 +33558,7 @@ class PyGammaProxy(object):
         az_step: Optional[int] = None,
         mwin_r: Optional[int] = None,
         mwin_az: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Adaptive RFI filtering for SLC image using median spectral filtering
@@ -33601,8 +33607,8 @@ class PyGammaProxy(object):
                 mwin_az,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_RFI_filt))
-        result = self._gamma_call("ISP", "SLC_RFI_filt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_RFI_filt))
+        result = self._gamma_call("ISP", "SLC_RFI_filt", ca)
 
         assert SLC_filt.exists(), f"{SLC_filt} does not exist"
         assert SLC_filt.stat().st_size > 0, f"{SLC_filt} has zero file size"
@@ -33679,7 +33685,7 @@ class PyGammaProxy(object):
         az_step: Optional[int] = None,
         mwin_r: Optional[int] = None,
         mwin_az: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Adaptive filtering of SLC data based on the local PSD of a reference SLC image
@@ -33738,8 +33744,8 @@ class PyGammaProxy(object):
                 mwin_az,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_adf))
-        result = self._gamma_call("ISP", "SLC_adf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_adf))
+        result = self._gamma_call("ISP", "SLC_adf", ca)
 
         assert SLC_filt.exists(), f"{SLC_filt} does not exist"
         assert SLC_filt.stat().st_size > 0, f"{SLC_filt} has zero file size"
@@ -33769,7 +33775,7 @@ class PyGammaProxy(object):
 
     def ScanSAR_burst_cc_ad(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Estimate interferometric coherence for ScanSAR burst data using cc_ad
@@ -33803,10 +33809,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ScanSAR_burst_cc_ad_outputs()
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.ScanSAR_burst_cc_ad)
-        )
-        result = self._gamma_call("ISP", "ScanSAR_burst_cc_ad", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ScanSAR_burst_cc_ad))
+        result = self._gamma_call("ISP", "ScanSAR_burst_cc_ad", ca)
         return result
 
     def _validate_offset_SLC(
@@ -33908,7 +33912,7 @@ class PyGammaProxy(object):
         thres: Optional[float] = None,
         ISZ: Optional[int] = None,
         pflag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offsets between SLC images using fringe visibility
@@ -33975,8 +33979,8 @@ class PyGammaProxy(object):
                 pflag,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_SLC))
-        result = self._gamma_call("ISP", "offset_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_SLC))
+        result = self._gamma_call("ISP", "offset_SLC", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -34056,7 +34060,7 @@ class PyGammaProxy(object):
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
         wfrac: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Adaptive interferogram bandpass filter based on the power spectral density
@@ -34088,8 +34092,8 @@ class PyGammaProxy(object):
                 interf, sm, cc, width, alpha, nfft, cc_win, step, loff, nlines, wfrac
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.adf))
-        result = self._gamma_call("ISP", "adf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.adf))
+        result = self._gamma_call("ISP", "adf", ca)
 
         assert sm.exists(), f"{sm} does not exist"
         assert sm.stat().st_size > 0, f"{sm} has zero file size"
@@ -34125,7 +34129,7 @@ class PyGammaProxy(object):
 
     def PRC_vec(
         self, SLC_par: Path, PRC: Path, nstate: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         State vectors from ERS PRC orbit data for ISP processing clw/uw
@@ -34145,8 +34149,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_PRC_vec_outputs(SLC_par, PRC, nstate)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.PRC_vec))
-        result = self._gamma_call("ISP", "PRC_vec", args)
+        ca = self._clean_args(locals(), inspect.signature(self.PRC_vec))
+        result = self._gamma_call("ISP", "PRC_vec", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -34176,7 +34180,7 @@ class PyGammaProxy(object):
 
     def SLC_cat_S1_TOPS(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         *************************************************************************************
@@ -34194,8 +34198,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_cat_S1_TOPS_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_cat_S1_TOPS))
-        result = self._gamma_call("ISP", "SLC_cat_S1_TOPS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_cat_S1_TOPS))
+        result = self._gamma_call("ISP", "SLC_cat_S1_TOPS", ca)
         return result
 
     def _validate_get_GAMMA_RASTER(
@@ -34221,7 +34225,7 @@ class PyGammaProxy(object):
 
     def get_GAMMA_RASTER(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Script to determine the default extension for raster images or the operating system type
@@ -34269,8 +34273,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_get_GAMMA_RASTER_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.get_GAMMA_RASTER))
-        result = self._gamma_call("ISP", "get_GAMMA_RASTER", args)
+        ca = self._clean_args(locals(), inspect.signature(self.get_GAMMA_RASTER))
+        result = self._gamma_call("ISP", "get_GAMMA_RASTER", ca)
         return result
 
     def _validate_par_Capella_SLC(
@@ -34328,7 +34332,7 @@ class PyGammaProxy(object):
         SLC: Optional[Path] = None,
         radcal: Optional[int] = None,
         noise: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for Capella SLC data
@@ -34359,8 +34363,8 @@ class PyGammaProxy(object):
                 GeoTIFF, ext_JSON, SLC_par, SLC, radcal, noise
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_Capella_SLC))
-        result = self._gamma_call("ISP", "par_Capella_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_Capella_SLC))
+        result = self._gamma_call("ISP", "par_Capella_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -34394,7 +34398,7 @@ class PyGammaProxy(object):
 
     def S1_deramp_TOPS_slave(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ******************************************************************************
@@ -34414,10 +34418,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_deramp_TOPS_slave_outputs()
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.S1_deramp_TOPS_slave)
-        )
-        result = self._gamma_call("ISP", "S1_deramp_TOPS_slave", args)
+        ca = self._clean_args(locals(), inspect.signature(self.S1_deramp_TOPS_slave))
+        result = self._gamma_call("ISP", "S1_deramp_TOPS_slave", ca)
         return result
 
     def _validate_make_tab(self, list: Path, tab: Path, template: int) -> None:
@@ -34440,7 +34442,9 @@ class PyGammaProxy(object):
         if tab is not None and str(tab) != "-":
             tab.touch()
 
-    def make_tab(self, list: Path, tab: Path, template: int) -> Tuple[int, str, str]:
+    def make_tab(
+        self, list: Path, tab: Path, template: int
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/scripts/make_tab
@@ -34464,8 +34468,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_make_tab_outputs(list, tab, template)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.make_tab))
-        result = self._gamma_call("ISP", "make_tab", args)
+        ca = self._clean_args(locals(), inspect.signature(self.make_tab))
+        result = self._gamma_call("ISP", "make_tab", ca)
 
         assert tab.exists(), f"{tab} does not exist"
         assert tab.stat().st_size > 0, f"{tab} has zero file size"
@@ -34520,7 +34524,7 @@ class PyGammaProxy(object):
         xmax: Optional[int] = None,
         ymin: Optional[int] = None,
         ymax: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Adaptive bandpass filtering of interferograms
@@ -34548,8 +34552,8 @@ class PyGammaProxy(object):
                 int, sm, width, filt_width, xmin, xmax, ymin, ymax
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.adapt_filt))
-        result = self._gamma_call("ISP", "adapt_filt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.adapt_filt))
+        result = self._gamma_call("ISP", "adapt_filt", ca)
         return result
 
     def _validate_par_RSAT2_SG(
@@ -34635,7 +34639,7 @@ class PyGammaProxy(object):
         GRD_par: Optional[Path] = None,
         GRD: Optional[Path] = None,
         rps: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate MLI and GRD images and parameter files from Radarsat 2 SGF/SGX/SCF data
@@ -34683,8 +34687,8 @@ class PyGammaProxy(object):
                 rps,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RSAT2_SG))
-        result = self._gamma_call("ISP", "par_RSAT2_SG", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RSAT2_SG))
+        result = self._gamma_call("ISP", "par_RSAT2_SG", ca)
 
         if MLI_par is not None:
             assert MLI_par.exists(), f"{MLI_par} does not exist"
@@ -34736,7 +34740,7 @@ class PyGammaProxy(object):
 
     def ScanSAR_burst_corners(
         self, SLC_par: Path, TOPS_par: Path, KML: Optional[Path] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate corner geographic coordinates of ScanSAR burst data and generate a KML with burst rectangles
@@ -34756,10 +34760,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ScanSAR_burst_corners_outputs(SLC_par, TOPS_par, KML)
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.ScanSAR_burst_corners)
-        )
-        result = self._gamma_call("ISP", "ScanSAR_burst_corners", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ScanSAR_burst_corners))
+        result = self._gamma_call("ISP", "ScanSAR_burst_corners", ca)
 
         if KML is not None:
             assert KML.exists(), f"{KML} does not exist"
@@ -34790,7 +34792,7 @@ class PyGammaProxy(object):
 
     def SBI_INT(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SBI_INT: Script to generate azimuth Split-Beam Interferogram from a coregistered interferometric SLC pair
@@ -34825,8 +34827,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SBI_INT_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SBI_INT))
-        result = self._gamma_call("ISP", "SBI_INT", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SBI_INT))
+        result = self._gamma_call("ISP", "SBI_INT", ca)
         return result
 
     def _validate_par_RCM_SLC_ScanSAR(
@@ -34887,7 +34889,7 @@ class PyGammaProxy(object):
         SLC_tab: Optional[Path] = None,
         beam: Optional[int] = None,
         noise_out: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files from Radarsat Constellation ScanSAR SLC data in GeoTIFF or NITF format
@@ -34942,10 +34944,8 @@ class PyGammaProxy(object):
                 noise_out,
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.par_RCM_SLC_ScanSAR)
-        )
-        result = self._gamma_call("ISP", "par_RCM_SLC_ScanSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RCM_SLC_ScanSAR))
+        result = self._gamma_call("ISP", "par_RCM_SLC_ScanSAR", ca)
 
         assert root_name.exists(), f"{root_name} does not exist"
         assert root_name.stat().st_size > 0, f"{root_name} has zero file size"
@@ -34987,7 +34987,7 @@ class PyGammaProxy(object):
 
     def offset_add(
         self, OFF_par1: Path, OFF_par2: Path, OFF_par3: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Add range and azimuth offset polynomial coefficients
@@ -35008,8 +35008,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_offset_add_outputs(OFF_par1, OFF_par2, OFF_par3)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_add))
-        result = self._gamma_call("ISP", "offset_add", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_add))
+        result = self._gamma_call("ISP", "offset_add", ca)
 
         assert OFF_par3.exists(), f"{OFF_par3} does not exist"
         assert OFF_par3.stat().st_size > 0, f"{OFF_par3} has zero file size"
@@ -35052,7 +35052,7 @@ class PyGammaProxy(object):
 
     def multi_SLC_WSS(
         self, SLC: Path, SLC_par: Path, MLI: Path, MLI_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate multi-look intensity image (MLI) from a ASAR Wide-Swath SLC
@@ -35072,8 +35072,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_multi_SLC_WSS_outputs(SLC, SLC_par, MLI, MLI_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_SLC_WSS))
-        result = self._gamma_call("ISP", "multi_SLC_WSS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_SLC_WSS))
+        result = self._gamma_call("ISP", "multi_SLC_WSS", ca)
 
         assert MLI.exists(), f"{MLI} does not exist"
         assert MLI.stat().st_size > 0, f"{MLI} has zero file size"
@@ -35148,7 +35148,7 @@ class PyGammaProxy(object):
         b1_flg: Optional[int] = None,
         c0_flg: Optional[int] = None,
         namb: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         2-D Doppler centroid trend estimation from SLC data
@@ -35188,8 +35188,8 @@ class PyGammaProxy(object):
                 SLC, SLC_par, dop2d, loff, blsz, nbl, a2_flg, b0_flg, b1_flg, c0_flg, namb
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.doppler_2d_SLC))
-        result = self._gamma_call("ISP", "doppler_2d_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.doppler_2d_SLC))
+        result = self._gamma_call("ISP", "doppler_2d_SLC", ca)
 
         if dop2d is not None:
             assert dop2d.exists(), f"{dop2d} does not exist"
@@ -35228,7 +35228,7 @@ class PyGammaProxy(object):
 
     def SLC_cat_ScanSAR(
         self, SLC_tab1: Path, SLC_tab2: Path, SLC_tab3: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Concatenate sequential ScanSAR burst SLC images
@@ -35251,8 +35251,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_cat_ScanSAR_outputs(SLC_tab1, SLC_tab2, SLC_tab3)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_cat_ScanSAR))
-        result = self._gamma_call("ISP", "SLC_cat_ScanSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_cat_ScanSAR))
+        result = self._gamma_call("ISP", "SLC_cat_ScanSAR", ca)
         return result
 
     def _validate_par_RSAT_SLC(
@@ -35310,7 +35310,7 @@ class PyGammaProxy(object):
         SLC: Optional[Path] = None,
         sc_dB: Optional[int] = None,
         dt: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file for RSI/Atlantis/ASF processed Radarsat SLC data
@@ -35335,8 +35335,8 @@ class PyGammaProxy(object):
                 CEOS_leader, SLC_par, CEOS_data, SLC, sc_dB, dt
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RSAT_SLC))
-        result = self._gamma_call("ISP", "par_RSAT_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RSAT_SLC))
+        result = self._gamma_call("ISP", "par_RSAT_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -35405,7 +35405,7 @@ class PyGammaProxy(object):
         r_samp: Optional[int] = None,
         az_line: Optional[int] = None,
         nrfft: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Estimate baseline from interferogram phase spectrum
@@ -35433,8 +35433,8 @@ class PyGammaProxy(object):
                 interf, SLC1_par, OFF_par, baseline, nazfft, r_samp, az_line, nrfft
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.base_est_fft))
-        result = self._gamma_call("ISP", "base_est_fft", args)
+        ca = self._clean_args(locals(), inspect.signature(self.base_est_fft))
+        result = self._gamma_call("ISP", "base_est_fft", ca)
 
         assert baseline.exists(), f"{baseline} does not exist"
         assert baseline.stat().st_size > 0, f"{baseline} has zero file size"
@@ -35524,7 +35524,7 @@ class PyGammaProxy(object):
         GRC: Optional[Path] = None,
         rps: Optional[int] = None,
         noise_pwr: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate slant and ground range complex images and parameter files from a Radarsat Constellation GRC (Ground Range georeferenced Complex) product
@@ -35581,8 +35581,8 @@ class PyGammaProxy(object):
                 noise_pwr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RCM_GRC))
-        result = self._gamma_call("ISP", "par_RCM_GRC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RCM_GRC))
+        result = self._gamma_call("ISP", "par_RCM_GRC", ca)
 
         if SLC_par is not None:
             assert SLC_par.exists(), f"{SLC_par} does not exist"
@@ -35637,7 +35637,7 @@ class PyGammaProxy(object):
 
     def base_orbit(
         self, SLC1_par: Path, SLC2_par: Path, baseline: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Estimate baseline from orbit state vectors
@@ -35657,8 +35657,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_base_orbit_outputs(SLC1_par, SLC2_par, baseline)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.base_orbit))
-        result = self._gamma_call("ISP", "base_orbit", args)
+        ca = self._clean_args(locals(), inspect.signature(self.base_orbit))
+        result = self._gamma_call("ISP", "base_orbit", ca)
 
         assert baseline.exists(), f"{baseline} does not exist"
         assert baseline.stat().st_size > 0, f"{baseline} has zero file size"
@@ -35688,7 +35688,7 @@ class PyGammaProxy(object):
 
     def par_KS_DGM(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         dyld[70967]: Library not loaded: '/opt/local/lib/libhdf5.200.dylib'
@@ -35703,8 +35703,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_KS_DGM_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_KS_DGM))
-        result = self._gamma_call("ISP", "par_KS_DGM", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_KS_DGM))
+        result = self._gamma_call("ISP", "par_KS_DGM", ca)
         return result
 
     def _validate_bpf_ssi_S1(
@@ -35730,7 +35730,7 @@ class PyGammaProxy(object):
 
     def bpf_ssi_S1(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         bpf_ssi_S1: Apply band-pass filtering for split-spectrum interferometry for S1 TOPS data
@@ -35752,8 +35752,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_bpf_ssi_S1_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.bpf_ssi_S1))
-        result = self._gamma_call("ISP", "bpf_ssi_S1", args)
+        ca = self._clean_args(locals(), inspect.signature(self.bpf_ssi_S1))
+        result = self._gamma_call("ISP", "bpf_ssi_S1", ca)
         return result
 
     def _validate_INTF_SLC(
@@ -35779,7 +35779,7 @@ class PyGammaProxy(object):
 
     def INTF_SLC(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         INTF_SLC: calculate interferogram, co-registered SLC, intensity images, and correlation
@@ -35804,8 +35804,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_INTF_SLC_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.INTF_SLC))
-        result = self._gamma_call("ISP", "INTF_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.INTF_SLC))
+        result = self._gamma_call("ISP", "INTF_SLC", ca)
         return result
 
     def _validate_par_RSI_ERS(self, CEOS_SAR_leader: Path, SLC_par: Path) -> None:
@@ -35830,7 +35830,9 @@ class PyGammaProxy(object):
         if SLC_par is not None and str(SLC_par) != "-":
             SLC_par.touch()
 
-    def par_RSI_ERS(self, CEOS_SAR_leader: Path, SLC_par: Path) -> Tuple[int, str, str]:
+    def par_RSI_ERS(
+        self, CEOS_SAR_leader: Path, SLC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file for RSI processed ERS SLC data
@@ -35849,8 +35851,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_RSI_ERS_outputs(CEOS_SAR_leader, SLC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RSI_ERS))
-        result = self._gamma_call("ISP", "par_RSI_ERS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RSI_ERS))
+        result = self._gamma_call("ISP", "par_RSI_ERS", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -35928,7 +35930,7 @@ class PyGammaProxy(object):
         n_ovr: Optional[int] = None,
         roff: Optional[int] = None,
         azoff: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Focus testing for SLC data using autofocus estimation of effective velocity
@@ -35989,8 +35991,8 @@ class PyGammaProxy(object):
                 azoff,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.af_SLC))
-        result = self._gamma_call("ISP", "af_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.af_SLC))
+        result = self._gamma_call("ISP", "af_SLC", ca)
 
         if offsets is not None:
             assert offsets.exists(), f"{offsets} does not exist"
@@ -36030,7 +36032,7 @@ class PyGammaProxy(object):
 
     def par_EORC_JERS_SLC(
         self, CEOS_SAR_leader: Path, SLC_par: Path, CEOS_data: Optional[Path] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Reformat EORC processed JERS-1 SLC and generate the ISP parameter file
@@ -36050,8 +36052,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_EORC_JERS_SLC_outputs(CEOS_SAR_leader, SLC_par, CEOS_data)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_EORC_JERS_SLC))
-        result = self._gamma_call("ISP", "par_EORC_JERS_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_EORC_JERS_SLC))
+        result = self._gamma_call("ISP", "par_EORC_JERS_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -36125,7 +36127,7 @@ class PyGammaProxy(object):
         ds_method: Optional[int] = None,
         ds_size: Optional[int] = None,
         ds_data: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Fill gaps in 2D raster file
@@ -36190,8 +36192,8 @@ class PyGammaProxy(object):
                 ds_data,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.fill_gaps))
-        result = self._gamma_call("ISP", "fill_gaps", args)
+        ca = self._clean_args(locals(), inspect.signature(self.fill_gaps))
+        result = self._gamma_call("ISP", "fill_gaps", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -36225,7 +36227,7 @@ class PyGammaProxy(object):
 
     def S1_GRD_preproc(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Preprocessing of Sentinel-1 TOPS GRD products, extract GRD data and generate MLI prodcuts
@@ -36248,8 +36250,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_GRD_preproc_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.S1_GRD_preproc))
-        result = self._gamma_call("ISP", "S1_GRD_preproc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.S1_GRD_preproc))
+        result = self._gamma_call("ISP", "S1_GRD_preproc", ca)
         return result
 
     def _validate_rascc_mask_thinning(
@@ -36260,7 +36262,7 @@ class PyGammaProxy(object):
         ras_out: Path,
         nmax: Optional[int] = None,
         thresh_1: Optional[int] = None,
-        thresh_nmax: Optional[int] = None,
+        thresh_nmax: Optional[float] = None,
         *args,
     ) -> None:
         """
@@ -36285,7 +36287,7 @@ class PyGammaProxy(object):
         ras_out: Path,
         nmax: Optional[int] = None,
         thresh_1: Optional[int] = None,
-        thresh_nmax: Optional[int] = None,
+        thresh_nmax: Optional[float] = None,
         *args,
     ) -> None:
         """
@@ -36305,9 +36307,9 @@ class PyGammaProxy(object):
         ras_out: Path,
         nmax: Optional[int] = None,
         thresh_1: Optional[int] = None,
-        thresh_nmax: Optional[int] = None,
+        thresh_nmax: Optional[float] = None,
         *args,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Adaptive sampling reduction for phase unwrapping validity mask
@@ -36336,10 +36338,8 @@ class PyGammaProxy(object):
                 ras_in, in_file, width, ras_out, nmax, thresh_1, thresh_nmax, *args
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.rascc_mask_thinning)
-        )
-        result = self._gamma_call("ISP", "rascc_mask_thinning", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rascc_mask_thinning))
+        result = self._gamma_call("ISP", "rascc_mask_thinning", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -36369,7 +36369,7 @@ class PyGammaProxy(object):
 
     def mk_ptarg(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/scripts/mk_ptarg
@@ -36394,8 +36394,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_mk_ptarg_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mk_ptarg))
-        result = self._gamma_call("ISP", "mk_ptarg", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mk_ptarg))
+        result = self._gamma_call("ISP", "mk_ptarg", ca)
         return result
 
     def _validate_GRD_to_SR(
@@ -36463,7 +36463,7 @@ class PyGammaProxy(object):
         sr_rsp: Optional[int] = None,
         sr_azsp: Optional[int] = None,
         degree: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Conversion to slant range for ISP MLI and INSAR ground range data of type FLOAT
@@ -36521,8 +36521,8 @@ class PyGammaProxy(object):
                 degree,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.GRD_to_SR))
-        result = self._gamma_call("ISP", "GRD_to_SR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.GRD_to_SR))
+        result = self._gamma_call("ISP", "GRD_to_SR", ca)
 
         assert out_file.exists(), f"{out_file} does not exist"
         assert out_file.stat().st_size > 0, f"{out_file} has zero file size"
@@ -36607,7 +36607,7 @@ class PyGammaProxy(object):
         beta: Optional[int] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate an MLI image from an SLC with separate averaging window dimensions and decimation factors
@@ -36671,8 +36671,8 @@ class PyGammaProxy(object):
                 exp,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_look2))
-        result = self._gamma_call("ISP", "multi_look2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_look2))
+        result = self._gamma_call("ISP", "multi_look2", ca)
 
         assert MLI.exists(), f"{MLI} does not exist"
         assert MLI.stat().st_size > 0, f"{MLI} has zero file size"
@@ -36725,7 +36725,7 @@ class PyGammaProxy(object):
         samples: int,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract SIR-C SLC compressed single-pol data
@@ -36746,8 +36746,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_dcomp_sirc_outputs(infile, outfile, samples, loff, nlines)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dcomp_sirc))
-        result = self._gamma_call("ISP", "dcomp_sirc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dcomp_sirc))
+        result = self._gamma_call("ISP", "dcomp_sirc", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -36800,7 +36800,7 @@ class PyGammaProxy(object):
         interf_out: Path,
         width: int,
         factor: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/bin/subtract_phase
@@ -36827,8 +36827,8 @@ class PyGammaProxy(object):
                 interf_in, phase_file, interf_out, width, factor
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.subtract_phase))
-        result = self._gamma_call("ISP", "subtract_phase", args)
+        ca = self._clean_args(locals(), inspect.signature(self.subtract_phase))
+        result = self._gamma_call("ISP", "subtract_phase", ca)
 
         assert interf_out.exists(), f"{interf_out} does not exist"
         assert interf_out.stat().st_size > 0, f"{interf_out} has zero file size"
@@ -36881,7 +36881,7 @@ class PyGammaProxy(object):
         parameter: int,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract SIR-C MLC or SLC compressed quad-pol data
@@ -36919,8 +36919,8 @@ class PyGammaProxy(object):
                 infile, outfile, samples, parameter, loff, nlines
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.dcomp_sirc_quad))
-        result = self._gamma_call("ISP", "dcomp_sirc_quad", args)
+        ca = self._clean_args(locals(), inspect.signature(self.dcomp_sirc_quad))
+        result = self._gamma_call("ISP", "dcomp_sirc_quad", ca)
 
         assert outfile.exists(), f"{outfile} does not exist"
         assert outfile.stat().st_size > 0, f"{outfile} has zero file size"
@@ -36975,7 +36975,7 @@ class PyGammaProxy(object):
         BURST_tab: Path,
         dtype: Optional[int] = None,
         SLC2_dir: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Burst selection and copy from ScanSAR burst data (FCOMPLEX, SCOMPLEX)
@@ -37011,8 +37011,8 @@ class PyGammaProxy(object):
                 SLC1_tab, SLC2_tab, BURST_tab, dtype, SLC2_dir
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_copy_ScanSAR))
-        result = self._gamma_call("ISP", "SLC_copy_ScanSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_copy_ScanSAR))
+        result = self._gamma_call("ISP", "SLC_copy_ScanSAR", ca)
 
         assert SLC2_tab.exists(), f"{SLC2_tab} does not exist"
         assert SLC2_tab.stat().st_size > 0, f"{SLC2_tab} has zero file size"
@@ -37086,7 +37086,7 @@ class PyGammaProxy(object):
         pix_dir: Optional[int] = None,
         cal_flg: Optional[int] = None,
         KdB: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Read RISAT-1 CEOS format SLC data and perform radiometric calibration
@@ -37140,8 +37140,8 @@ class PyGammaProxy(object):
                 KdB,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RISAT_SLC))
-        result = self._gamma_call("ISP", "par_RISAT_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RISAT_SLC))
+        result = self._gamma_call("ISP", "par_RISAT_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -37203,7 +37203,7 @@ class PyGammaProxy(object):
         SLC_shift: Path,
         SLC_shift_par: Path,
         freq_shift: int,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/bin/SLC_freq_shift
@@ -37230,8 +37230,8 @@ class PyGammaProxy(object):
                 SLC, SLC_par, SLC_shift, SLC_shift_par, freq_shift
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_freq_shift))
-        result = self._gamma_call("ISP", "SLC_freq_shift", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_freq_shift))
+        result = self._gamma_call("ISP", "SLC_freq_shift", ca)
 
         assert SLC_shift.exists(), f"{SLC_shift} does not exist"
         assert SLC_shift.stat().st_size > 0, f"{SLC_shift} has zero file size"
@@ -37280,7 +37280,7 @@ class PyGammaProxy(object):
         nstate: Optional[int] = None,
         interval: Optional[int] = None,
         ODR: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract and interpolate DELFT ERS-1, ERS-2, and ENVISAT state vectors
@@ -37303,8 +37303,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_DELFT_vec2_outputs(SLC_par, DELFT_dir, nstate, interval, ODR)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.DELFT_vec2))
-        result = self._gamma_call("ISP", "DELFT_vec2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.DELFT_vec2))
+        result = self._gamma_call("ISP", "DELFT_vec2", ca)
         return result
 
     def _validate_SLC_intf(
@@ -37398,7 +37398,7 @@ class PyGammaProxy(object):
         SLC_1s: Optional[int] = None,
         SLC_2Rs: Optional[int] = None,
         az_beta: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate interferogram from co-registered SLC image data
@@ -37478,8 +37478,8 @@ class PyGammaProxy(object):
                 az_beta,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_intf))
-        result = self._gamma_call("ISP", "SLC_intf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_intf))
+        result = self._gamma_call("ISP", "SLC_intf", ca)
 
         assert interf.exists(), f"{interf} does not exist"
         assert interf.stat().st_size > 0, f"{interf} has zero file size"
@@ -37509,7 +37509,7 @@ class PyGammaProxy(object):
 
     def S1_extract_png(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         S1_extract_png: Script used to extract (and rename) quicklook (png file) from a S1 ZIP file
@@ -37525,8 +37525,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_extract_png_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.S1_extract_png))
-        result = self._gamma_call("ISP", "S1_extract_png", args)
+        ca = self._clean_args(locals(), inspect.signature(self.S1_extract_png))
+        result = self._gamma_call("ISP", "S1_extract_png", ca)
         return result
 
     def _validate_ptarg_cal_SLC(
@@ -37632,7 +37632,7 @@ class PyGammaProxy(object):
         psz: Optional[int] = None,
         csz: Optional[int] = None,
         c_image: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Point target analysis and radiometric calibration of SLC images
@@ -37706,8 +37706,8 @@ class PyGammaProxy(object):
                 c_image,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ptarg_cal_SLC))
-        result = self._gamma_call("ISP", "ptarg_cal_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ptarg_cal_SLC))
+        result = self._gamma_call("ISP", "ptarg_cal_SLC", ca)
 
         assert ptr_image.exists(), f"{ptr_image} does not exist"
         assert ptr_image.stat().st_size > 0, f"{ptr_image} has zero file size"
@@ -37803,7 +37803,7 @@ class PyGammaProxy(object):
         SLCb_par: Path,
         norm_sq: int,
         iwflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Azimuth filtering of SLC data to support split-beam interferometry to measure azimuth offsets
@@ -37834,8 +37834,8 @@ class PyGammaProxy(object):
                 SLC_1, SLC1_par, SLC2R_par, SLCf, SLCf_par, SLCb, SLCb_par, norm_sq, iwflg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.sbi_filt))
-        result = self._gamma_call("ISP", "sbi_filt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.sbi_filt))
+        result = self._gamma_call("ISP", "sbi_filt", ca)
 
         assert SLCf.exists(), f"{SLCf} does not exist"
         assert SLCf.stat().st_size > 0, f"{SLCf} has zero file size"
@@ -37910,7 +37910,7 @@ class PyGammaProxy(object):
         MLI: Optional[Path] = None,
         radcal: Optional[int] = None,
         noise: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate MLI image and parameter files for NovaSAR SRD data
@@ -37942,8 +37942,8 @@ class PyGammaProxy(object):
                 GeoTIFF, XML, polarization, MLI_par, MLI, radcal, noise
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_NovaSAR_SRD))
-        result = self._gamma_call("ISP", "par_NovaSAR_SRD", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_NovaSAR_SRD))
+        result = self._gamma_call("ISP", "par_NovaSAR_SRD", ca)
 
         assert MLI_par.exists(), f"{MLI_par} does not exist"
         assert MLI_par.stat().st_size > 0, f"{MLI_par} has zero file size"
@@ -37959,7 +37959,6 @@ class PyGammaProxy(object):
         int_in: Path,
         SLC_par: Path,
         OFF_par: Path,
-        base: Path,
         int_out: Path,
         int_type: Optional[int] = None,
         inverse: Optional[int] = None,
@@ -37979,9 +37978,6 @@ class PyGammaProxy(object):
         assert OFF_par.exists(), f"{OFF_par} does not exist"
         assert OFF_par.stat().st_size > 0, f"{OFF_par} has zero file size"
 
-        assert base.exists(), f"{base} does not exist"
-        assert base.stat().st_size > 0, f"{base} has zero file size"
-
         assert not int_out.exists(), f"{int_out} should _not_ exist!"
 
     def _mock_ph_slope_base_outputs(
@@ -37989,7 +37985,6 @@ class PyGammaProxy(object):
         int_in: Path,
         SLC_par: Path,
         OFF_par: Path,
-        base: Path,
         int_out: Path,
         int_type: Optional[int] = None,
         inverse: Optional[int] = None,
@@ -38008,11 +38003,10 @@ class PyGammaProxy(object):
         int_in: Path,
         SLC_par: Path,
         OFF_par: Path,
-        base: Path,
         int_out: Path,
         int_type: Optional[int] = None,
         inverse: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Subtract/add interferogram flat-Earth phase trend as estimated from initial baseline
@@ -38031,16 +38025,16 @@ class PyGammaProxy(object):
 
         if self.validate_inputs:
             self._validate_ph_slope_base(
-                int_in, SLC_par, OFF_par, base, int_out, int_type, inverse
+                int_in, SLC_par, OFF_par, int_out, int_type, inverse
             )
 
         if self.mock_outputs:
             self._mock_ph_slope_base_outputs(
-                int_in, SLC_par, OFF_par, base, int_out, int_type, inverse
+                int_in, SLC_par, OFF_par, int_out, int_type, inverse
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ph_slope_base))
-        result = self._gamma_call("ISP", "ph_slope_base", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ph_slope_base))
+        result = self._gamma_call("ISP", "ph_slope_base", ca)
 
         assert int_out.exists(), f"{int_out} does not exist"
         assert int_out.stat().st_size > 0, f"{int_out} has zero file size"
@@ -38110,7 +38104,7 @@ class PyGammaProxy(object):
         bflg: Optional[int] = None,
         SLCR_tab: Optional[Path] = None,
         scale: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate MLI mosaic from ScanSAR SLC burst data (Sentinel-1, TerraSAR-X, RCM...)
@@ -38145,8 +38139,8 @@ class PyGammaProxy(object):
                 SLC_tab, MLI, MLI_par, rlks, azlks, bflg, SLCR_tab, scale
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_look_ScanSAR))
-        result = self._gamma_call("ISP", "multi_look_ScanSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_look_ScanSAR))
+        result = self._gamma_call("ISP", "multi_look_ScanSAR", ca)
 
         assert MLI.exists(), f"{MLI} does not exist"
         assert MLI.stat().st_size > 0, f"{MLI} has zero file size"
@@ -38208,7 +38202,7 @@ class PyGammaProxy(object):
         SLC_par: Path,
         SLC: Optional[Path] = None,
         reramp: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for ASNARO-2 Spotlight, Stripmap and ScanSAR level 1.1 data
@@ -38234,8 +38228,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ASNARO2_outputs(CEOS_data, CEOS_leader, SLC_par, SLC, reramp)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ASNARO2))
-        result = self._gamma_call("ISP", "par_ASNARO2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ASNARO2))
+        result = self._gamma_call("ISP", "par_ASNARO2", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -38269,7 +38263,7 @@ class PyGammaProxy(object):
 
     def par_RSI_RSAT(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
 
@@ -38288,8 +38282,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_RSI_RSAT_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RSI_RSAT))
-        result = self._gamma_call("ISP", "par_RSI_RSAT", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RSI_RSAT))
+        result = self._gamma_call("ISP", "par_RSI_RSAT", ca)
         return result
 
     def _validate_grasses(
@@ -38356,7 +38350,7 @@ class PyGammaProxy(object):
         xinit: Optional[int] = None,
         yinit: Optional[int] = None,
         init_ph: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Phase unwrapping by region growing
@@ -38388,8 +38382,8 @@ class PyGammaProxy(object):
                 int, flag, unw, width, xmin, xmax, ymin, ymax, xinit, yinit, init_ph
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.grasses))
-        result = self._gamma_call("ISP", "grasses", args)
+        ca = self._clean_args(locals(), inspect.signature(self.grasses))
+        result = self._gamma_call("ISP", "grasses", ca)
 
         assert unw.exists(), f"{unw} does not exist"
         assert unw.stat().st_size > 0, f"{unw} has zero file size"
@@ -38419,7 +38413,7 @@ class PyGammaProxy(object):
 
     def mk_ASF_CEOS_list(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ls: */LED*: No such file or directory
@@ -38439,8 +38433,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_mk_ASF_CEOS_list_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mk_ASF_CEOS_list))
-        result = self._gamma_call("ISP", "mk_ASF_CEOS_list", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mk_ASF_CEOS_list))
+        result = self._gamma_call("ISP", "mk_ASF_CEOS_list", ca)
         return result
 
     def _validate_mask_data(
@@ -38489,7 +38483,7 @@ class PyGammaProxy(object):
         data_out: Path,
         mask: Path,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Mask float or fcomplex data using an 8-bit SUN/BMP/TIFF format raster image
@@ -38515,8 +38509,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_mask_data_outputs(data_in, width, data_out, mask, dtype)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mask_data))
-        result = self._gamma_call("ISP", "mask_data", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mask_data))
+        result = self._gamma_call("ISP", "mask_data", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -38572,7 +38566,7 @@ class PyGammaProxy(object):
         CEOS_leader: Path,
         SLC_par: Path,
         SLC: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for ESA-provided JERS and SEASAT SLC data
@@ -38595,10 +38589,8 @@ class PyGammaProxy(object):
                 CEOS_data, CEOS_leader, SLC_par, SLC
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.par_ESA_JERS_SEASAT_SLC)
-        )
-        result = self._gamma_call("ISP", "par_ESA_JERS_SEASAT_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ESA_JERS_SEASAT_SLC))
+        result = self._gamma_call("ISP", "par_ESA_JERS_SEASAT_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -38670,7 +38662,7 @@ class PyGammaProxy(object):
         SLCR_tab: Optional[Path] = None,
         dburst: Optional[int] = None,
         bound: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract and mosaic overlapping parts of ScanSAR / TOPS burst data
@@ -38708,10 +38700,8 @@ class PyGammaProxy(object):
                 SLC_tab, root_name, rlks, azlks, mode, bflg, SLCR_tab, dburst, bound
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.ScanSAR_burst_overlap)
-        )
-        result = self._gamma_call("ISP", "ScanSAR_burst_overlap", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ScanSAR_burst_overlap))
+        result = self._gamma_call("ISP", "ScanSAR_burst_overlap", ca)
 
         assert root_name.exists(), f"{root_name} does not exist"
         assert root_name.stat().st_size > 0, f"{root_name} has zero file size"
@@ -38786,7 +38776,7 @@ class PyGammaProxy(object):
         dtype: Optional[int] = None,
         sc_dB: Optional[int] = None,
         shift: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for Hisea-1 SLC data
@@ -38833,8 +38823,8 @@ class PyGammaProxy(object):
                 shift,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_HISEA1_SLC))
-        result = self._gamma_call("ISP", "par_HISEA1_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_HISEA1_SLC))
+        result = self._gamma_call("ISP", "par_HISEA1_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -38884,7 +38874,7 @@ class PyGammaProxy(object):
         interval: Optional[int] = None,
         extra: Optional[int] = None,
         mode: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate state vectors using orbit propagation and interpolation
@@ -38910,8 +38900,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ORB_prop_SLC_outputs(SLC_par, nstate, interval, extra, mode)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ORB_prop_SLC))
-        result = self._gamma_call("ISP", "ORB_prop_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ORB_prop_SLC))
+        result = self._gamma_call("ISP", "ORB_prop_SLC", ca)
         return result
 
     def _validate_interp_ad(
@@ -38969,7 +38959,7 @@ class PyGammaProxy(object):
         w_mode: Optional[int] = None,
         dtype: Optional[int] = None,
         cp_data: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Weighted interpolation of gaps in 2D data using an adaptive smoothing window
@@ -39010,8 +39000,8 @@ class PyGammaProxy(object):
                 data_in, data_out, width, r_max, np_min, np_max, w_mode, dtype, cp_data
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.interp_ad))
-        result = self._gamma_call("ISP", "interp_ad", args)
+        ca = self._clean_args(locals(), inspect.signature(self.interp_ad))
+        result = self._gamma_call("ISP", "interp_ad", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -39041,7 +39031,7 @@ class PyGammaProxy(object):
 
     def SLC_burst_corners(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ********************************************************************************************
@@ -39059,8 +39049,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_burst_corners_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_burst_corners))
-        result = self._gamma_call("ISP", "SLC_burst_corners", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_burst_corners))
+        result = self._gamma_call("ISP", "SLC_burst_corners", ca)
         return result
 
     def _validate_par_RISAT_GRD(
@@ -39130,7 +39120,7 @@ class PyGammaProxy(object):
         pix_dir: Optional[int] = None,
         cal_flg: Optional[int] = None,
         KdB: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Read RISAT-1 Ground-Range data from a CEOS data set and perform radiometric calibration
@@ -39184,8 +39174,8 @@ class PyGammaProxy(object):
                 KdB,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RISAT_GRD))
-        result = self._gamma_call("ISP", "par_RISAT_GRD", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RISAT_GRD))
+        result = self._gamma_call("ISP", "par_RISAT_GRD", ca)
 
         assert GRD_par.exists(), f"{GRD_par} does not exist"
         assert GRD_par.stat().st_size > 0, f"{GRD_par} has zero file size"
@@ -39257,7 +39247,7 @@ class PyGammaProxy(object):
         GRD: Optional[Path] = None,
         sc_dB: Optional[int] = None,
         dt: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file for SCANSAR Wide Swath Data
@@ -39285,8 +39275,8 @@ class PyGammaProxy(object):
                 CEOS_leader, CEOS_trailer, CEOS_data, GRD_par, GRD, sc_dB, dt
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RSAT_SCW))
-        result = self._gamma_call("ISP", "par_RSAT_SCW", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RSAT_SCW))
+        result = self._gamma_call("ISP", "par_RSAT_SCW", ca)
 
         assert GRD_par.exists(), f"{GRD_par} does not exist"
         assert GRD_par.stat().st_size > 0, f"{GRD_par} has zero file size"
@@ -39342,7 +39332,7 @@ class PyGammaProxy(object):
         n_thres: int,
         ymin: Optional[int] = None,
         ymax: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate phase unwrapping neutrons using image intensity
@@ -39365,8 +39355,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_neutron_outputs(intensity, flag, width, n_thres, ymin, ymax)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.neutron))
-        result = self._gamma_call("ISP", "neutron", args)
+        ca = self._clean_args(locals(), inspect.signature(self.neutron))
+        result = self._gamma_call("ISP", "neutron", ca)
         return result
 
     def _validate_SLC_mosaic_S1_TOPS(
@@ -39392,7 +39382,7 @@ class PyGammaProxy(object):
 
     def SLC_mosaic_S1_TOPS(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ******************************************************************************************
@@ -39411,8 +39401,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_mosaic_S1_TOPS_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_mosaic_S1_TOPS))
-        result = self._gamma_call("ISP", "SLC_mosaic_S1_TOPS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_mosaic_S1_TOPS))
+        result = self._gamma_call("ISP", "SLC_mosaic_S1_TOPS", ca)
         return result
 
     def _validate_multi_look(
@@ -39481,7 +39471,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         scale: Optional[float] = None,
         exp: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate a multi-look intensity (MLI) image from an SLC image
@@ -39512,8 +39502,8 @@ class PyGammaProxy(object):
                 SLC, SLC_par, MLI, MLI_par, rlks, azlks, loff, nlines, scale, exp
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_look))
-        result = self._gamma_call("ISP", "multi_look", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_look))
+        result = self._gamma_call("ISP", "multi_look", ca)
 
         assert MLI.exists(), f"{MLI} does not exist"
         assert MLI.stat().st_size > 0, f"{MLI} has zero file size"
@@ -39546,7 +39536,7 @@ class PyGammaProxy(object):
 
     def S1_TOPS_preproc(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Preprocessing of Sentinel-1 TOPS SLC products, extract SLC data and generate SLC_tab
@@ -39574,8 +39564,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_TOPS_preproc_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.S1_TOPS_preproc))
-        result = self._gamma_call("ISP", "S1_TOPS_preproc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.S1_TOPS_preproc))
+        result = self._gamma_call("ISP", "S1_TOPS_preproc", ca)
         return result
 
     def _validate_mosaic_WB(
@@ -39613,7 +39603,7 @@ class PyGammaProxy(object):
 
     def mosaic_WB(
         self, data_tab: Path, dtype: int, data_out: Path, data_par_out: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/bin/mosaic_WB.c
@@ -39640,8 +39630,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_mosaic_WB_outputs(data_tab, dtype, data_out, data_par_out)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mosaic_WB))
-        result = self._gamma_call("ISP", "mosaic_WB", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mosaic_WB))
+        result = self._gamma_call("ISP", "mosaic_WB", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -39704,7 +39694,7 @@ class PyGammaProxy(object):
         mflg: Optional[int] = None,
         min_ovr: Optional[int] = None,
         max_ovr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate mosaic of multilook ScanSAR burst data (FLOAT or FCOMPLEX)
@@ -39738,10 +39728,8 @@ class PyGammaProxy(object):
                 DATA_tab, mosaic, MLI_par, mflg, min_ovr, max_ovr
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.ScanSAR_burst_to_mosaic)
-        )
-        result = self._gamma_call("ISP", "ScanSAR_burst_to_mosaic", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ScanSAR_burst_to_mosaic))
+        result = self._gamma_call("ISP", "ScanSAR_burst_to_mosaic", ca)
 
         assert mosaic.exists(), f"{mosaic} does not exist"
         assert mosaic.stat().st_size > 0, f"{mosaic} has zero file size"
@@ -39774,7 +39762,7 @@ class PyGammaProxy(object):
 
     def offset_plot_r(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         IPTA script: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/scripts/offset_plot_r
@@ -39795,8 +39783,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_offset_plot_r_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_plot_r))
-        result = self._gamma_call("ISP", "offset_plot_r", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_plot_r))
+        result = self._gamma_call("ISP", "offset_plot_r", ca)
         return result
 
     def _validate_par_UAVSAR_SLC(
@@ -39846,7 +39834,7 @@ class PyGammaProxy(object):
         image_type: Optional[int] = None,
         image_format: Optional[int] = None,
         DOP: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP image parameter file from UAVSAR annotation file (ann) for SLC and MLC products
@@ -39875,8 +39863,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_UAVSAR_SLC_outputs(ann, SLC_par, image_type, image_format, DOP)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_UAVSAR_SLC))
-        result = self._gamma_call("ISP", "par_UAVSAR_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_UAVSAR_SLC))
+        result = self._gamma_call("ISP", "par_UAVSAR_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -39929,7 +39917,7 @@ class PyGammaProxy(object):
         start: Optional[int] = None,
         nlines: Optional[int] = None,
         zflag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate average of a set of FCOMPLEX images
@@ -39954,8 +39942,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ave_cpx_outputs(cpx_list, width, cpx_ave, start, nlines, zflag)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ave_cpx))
-        result = self._gamma_call("ISP", "ave_cpx", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ave_cpx))
+        result = self._gamma_call("ISP", "ave_cpx", ca)
 
         assert cpx_ave.exists(), f"{cpx_ave} does not exist"
         assert cpx_ave.stat().st_size > 0, f"{cpx_ave} has zero file size"
@@ -40034,7 +40022,7 @@ class PyGammaProxy(object):
         drflg: Optional[int] = None,
         SLC_par2: Optional[Path] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Copy selected burst from Sentinel-1 TOPS SLC to a file
@@ -40084,8 +40072,8 @@ class PyGammaProxy(object):
                 dtype,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ScanSAR_burst_copy))
-        result = self._gamma_call("ISP", "ScanSAR_burst_copy", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ScanSAR_burst_copy))
+        result = self._gamma_call("ISP", "ScanSAR_burst_copy", ca)
 
         assert SLC_out.exists(), f"{SLC_out} does not exist"
         assert SLC_out.stat().st_size > 0, f"{SLC_out} has zero file size"
@@ -40175,7 +40163,7 @@ class PyGammaProxy(object):
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
         SLC2R_par: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Interferometric height/ground range estimation vs. slant range
@@ -40206,8 +40194,8 @@ class PyGammaProxy(object):
                 unw, SLC_par, OFF_par, baseline, hgt, gr, ph_flag, loff, nlines, SLC2R_par
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.hgt_map))
-        result = self._gamma_call("ISP", "hgt_map", args)
+        ca = self._clean_args(locals(), inspect.signature(self.hgt_map))
+        result = self._gamma_call("ISP", "hgt_map", ca)
 
         assert hgt.exists(), f"{hgt} does not exist"
         assert hgt.stat().st_size > 0, f"{hgt} has zero file size"
@@ -40240,7 +40228,7 @@ class PyGammaProxy(object):
 
     def par_CS_SLC(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         dyld[70935]: Library not loaded: '/opt/local/lib/libhdf5.200.dylib'
@@ -40255,8 +40243,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_CS_SLC_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_CS_SLC))
-        result = self._gamma_call("ISP", "par_CS_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_CS_SLC))
+        result = self._gamma_call("ISP", "par_CS_SLC", ca)
         return result
 
     def _validate_par_TX_GRD(
@@ -40287,7 +40275,7 @@ class PyGammaProxy(object):
 
     def par_TX_GRD(
         self, annotation_XML: Path, GRD_par: Path, GRD: Path, pol: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate ground range image and image parameter file for Terrasar-X MGD data in GeoTIFF format
@@ -40310,8 +40298,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_TX_GRD_outputs(annotation_XML, GRD_par, GRD, pol)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_TX_GRD))
-        result = self._gamma_call("ISP", "par_TX_GRD", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_TX_GRD))
+        result = self._gamma_call("ISP", "par_TX_GRD", ca)
 
         assert GRD.exists(), f"{GRD} does not exist"
         assert GRD.stat().st_size > 0, f"{GRD} has zero file size"
@@ -40350,7 +40338,7 @@ class PyGammaProxy(object):
 
     def split_WB(
         self, data_in: Path, data_par_in: Path, data_tab: Path, dtype: int
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/bin/split_WB
@@ -40373,16 +40361,17 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_split_WB_outputs(data_in, data_par_in, data_tab, dtype)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.split_WB))
-        result = self._gamma_call("ISP", "split_WB", args)
+        ca = self._clean_args(locals(), inspect.signature(self.split_WB))
+        result = self._gamma_call("ISP", "split_WB", ca)
         return result
 
     def _validate_base_init(
         self,
         SLC1_par: Path,
         SLC2_par: Path,
-        OFF_par: Optional[Path] = None,
-        interf: Optional[Path] = None,
+        OFF_par: Optional[Path],
+        interf: Optional[Path],
+        baseline: Path,
         mflag: Optional[int] = None,
         nrfft: Optional[int] = None,
         nazfft: Optional[int] = None,
@@ -40409,12 +40398,15 @@ class PyGammaProxy(object):
             assert interf.exists(), f"{interf} does not exist"
             assert interf.stat().st_size > 0, f"{interf} has zero file size"
 
+        assert not baseline.exists(), f"{baseline} should _not_ exist!"
+
     def _mock_base_init_outputs(
         self,
         SLC1_par: Path,
         SLC2_par: Path,
-        OFF_par: Optional[Path] = None,
-        interf: Optional[Path] = None,
+        OFF_par: Optional[Path],
+        interf: Optional[Path],
+        baseline: Path,
         mflag: Optional[int] = None,
         nrfft: Optional[int] = None,
         nazfft: Optional[int] = None,
@@ -40426,20 +40418,23 @@ class PyGammaProxy(object):
         Mock the program base_init.
 
         """
-        pass
+
+        if baseline is not None and str(baseline) != "-":
+            baseline.touch()
 
     def base_init(
         self,
         SLC1_par: Path,
         SLC2_par: Path,
-        OFF_par: Optional[Path] = None,
-        interf: Optional[Path] = None,
+        OFF_par: Optional[Path],
+        interf: Optional[Path],
+        baseline: Path,
         mflag: Optional[int] = None,
         nrfft: Optional[int] = None,
         nazfft: Optional[int] = None,
         r_samp: Optional[int] = None,
         az_line: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Estimate initial baseline using orbit state vectors, offsets, and interferogram phase
@@ -40472,16 +40467,38 @@ class PyGammaProxy(object):
 
         if self.validate_inputs:
             self._validate_base_init(
-                SLC1_par, SLC2_par, OFF_par, interf, mflag, nrfft, nazfft, r_samp, az_line
+                SLC1_par,
+                SLC2_par,
+                OFF_par,
+                interf,
+                baseline,
+                mflag,
+                nrfft,
+                nazfft,
+                r_samp,
+                az_line,
             )
 
         if self.mock_outputs:
             self._mock_base_init_outputs(
-                SLC1_par, SLC2_par, OFF_par, interf, mflag, nrfft, nazfft, r_samp, az_line
+                SLC1_par,
+                SLC2_par,
+                OFF_par,
+                interf,
+                baseline,
+                mflag,
+                nrfft,
+                nazfft,
+                r_samp,
+                az_line,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.base_init))
-        result = self._gamma_call("ISP", "base_init", args)
+        ca = self._clean_args(locals(), inspect.signature(self.base_init))
+        result = self._gamma_call("ISP", "base_init", ca)
+
+        assert baseline.exists(), f"{baseline} does not exist"
+        assert baseline.stat().st_size > 0, f"{baseline} has zero file size"
+
         return result
 
     def _validate_par_SAOCOM_SLC(
@@ -40550,7 +40567,7 @@ class PyGammaProxy(object):
         SLC: Optional[Path] = None,
         TOPS_par: Optional[Path] = None,
         RSLC_par: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for SAOCOM stripmap and TOPS SLC data
@@ -40575,8 +40592,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_SAOCOM_SLC_outputs(data, XML, SLC_par, SLC, TOPS_par, RSLC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_SAOCOM_SLC))
-        result = self._gamma_call("ISP", "par_SAOCOM_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_SAOCOM_SLC))
+        result = self._gamma_call("ISP", "par_SAOCOM_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -40614,7 +40631,7 @@ class PyGammaProxy(object):
 
     def S1_import_SLC_from_zipfiles(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         S1_import_SLC_from_zipfiles: Script to read in and concatenate S1 TOPS SLC from zip files
@@ -40643,10 +40660,10 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_import_SLC_from_zipfiles_outputs()
 
-        args = self._clean_call_args(
+        ca = self._clean_args(
             locals(), inspect.signature(self.S1_import_SLC_from_zipfiles)
         )
-        result = self._gamma_call("ISP", "S1_import_SLC_from_zipfiles", args)
+        result = self._gamma_call("ISP", "S1_import_SLC_from_zipfiles", ca)
         return result
 
     def _validate_par_SIRC(self, CEOS_leader: Path, SLC_par: Path) -> None:
@@ -40671,7 +40688,9 @@ class PyGammaProxy(object):
         if SLC_par is not None and str(SLC_par) != "-":
             SLC_par.touch()
 
-    def par_SIRC(self, CEOS_leader: Path, SLC_par: Path) -> Tuple[int, str, str]:
+    def par_SIRC(
+        self, CEOS_leader: Path, SLC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP SLC parameter file from SIR-C CEOS leader file
@@ -40691,8 +40710,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_SIRC_outputs(CEOS_leader, SLC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_SIRC))
-        result = self._gamma_call("ISP", "par_SIRC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_SIRC))
+        result = self._gamma_call("ISP", "par_SIRC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -40780,7 +40799,7 @@ class PyGammaProxy(object):
         exp: Optional[float] = None,
         LR: Optional[int] = None,
         rasf: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate phase unwrapping validity mask using correlation and intensity
@@ -40849,8 +40868,8 @@ class PyGammaProxy(object):
                 rasf,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.rascc_mask))
-        result = self._gamma_call("ISP", "rascc_mask", args)
+        ca = self._clean_args(locals(), inspect.signature(self.rascc_mask))
+        result = self._gamma_call("ISP", "rascc_mask", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -40918,7 +40937,7 @@ class PyGammaProxy(object):
         azlks: int,
         bflg: Optional[int] = None,
         SLCR_tab: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate SLC mosaic of ScanSAR SLC burst data (Sentinel-1, TerraSAR-X, RCM...)
@@ -40951,8 +40970,8 @@ class PyGammaProxy(object):
                 SLC_tab, SLC, SLC_par, rlks, azlks, bflg, SLCR_tab
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_mosaic_ScanSAR))
-        result = self._gamma_call("ISP", "SLC_mosaic_ScanSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_mosaic_ScanSAR))
+        result = self._gamma_call("ISP", "SLC_mosaic_ScanSAR", ca)
 
         assert SLC.exists(), f"{SLC} does not exist"
         assert SLC.stat().st_size > 0, f"{SLC} has zero file size"
@@ -41009,7 +41028,7 @@ class PyGammaProxy(object):
         rpos: Optional[int] = None,
         azpos: Optional[int] = None,
         cflag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Initial SLC image offset estimation from orbit state-vectors and image parameters
@@ -41038,8 +41057,8 @@ class PyGammaProxy(object):
                 SLC1_par, SLC2_par, OFF_par, rpos, azpos, cflag
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.init_offset_orbit))
-        result = self._gamma_call("ISP", "init_offset_orbit", args)
+        ca = self._clean_args(locals(), inspect.signature(self.init_offset_orbit))
+        result = self._gamma_call("ISP", "init_offset_orbit", ca)
 
         assert OFF_par.exists(), f"{OFF_par} does not exist"
         assert OFF_par.stat().st_size > 0, f"{OFF_par} has zero file size"
@@ -41136,7 +41155,7 @@ class PyGammaProxy(object):
         rfilt: Optional[int] = None,
         azfilt: Optional[int] = None,
         s_off: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Interferogram generation using a pair of SLC images
@@ -41206,8 +41225,8 @@ class PyGammaProxy(object):
                 s_off,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.interf_SLC))
-        result = self._gamma_call("ISP", "interf_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.interf_SLC))
+        result = self._gamma_call("ISP", "interf_SLC", ca)
 
         assert MLI_1.exists(), f"{MLI_1} does not exist"
         assert MLI_1.stat().st_size > 0, f"{MLI_1} has zero file size"
@@ -41295,7 +41314,7 @@ class PyGammaProxy(object):
         interp_mode: Optional[int] = None,
         degree: Optional[int] = None,
         extrapol: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Concatenate two MLI images using B-spline interpolation
@@ -41360,8 +41379,8 @@ class PyGammaProxy(object):
                 extrapol,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.MLI_cat))
-        result = self._gamma_call("ISP", "MLI_cat", args)
+        ca = self._clean_args(locals(), inspect.signature(self.MLI_cat))
+        result = self._gamma_call("ISP", "MLI_cat", ca)
 
         assert MLI_3.exists(), f"{MLI_3} does not exist"
         assert MLI_3.stat().st_size > 0, f"{MLI_3} has zero file size"
@@ -41431,7 +41450,7 @@ class PyGammaProxy(object):
         SLC_par: Path,
         SLC: Path,
         noise_pwr: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for Radarsat Constellation SLC data from GeoTIFF or NITF file
@@ -41467,8 +41486,8 @@ class PyGammaProxy(object):
                 RCM_dir, polarization, radcal, noise, SLC_par, SLC, noise_pwr
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RCM_SLC))
-        result = self._gamma_call("ISP", "par_RCM_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RCM_SLC))
+        result = self._gamma_call("ISP", "par_RCM_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -41552,7 +41571,7 @@ class PyGammaProxy(object):
         GRD_par: Optional[Path] = None,
         GRD: Optional[Path] = None,
         rps: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate MLI and GRD image and parameter files for PALSAR + PALSAR2 level 1.5 GDH data provided by ESA
@@ -41580,8 +41599,8 @@ class PyGammaProxy(object):
                 CEOS_data, CEOS_leader, MLI_par, MLI, GRD_par, GRD, rps
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ESA_PALSAR_GDH))
-        result = self._gamma_call("ISP", "par_ESA_PALSAR_GDH", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ESA_PALSAR_GDH))
+        result = self._gamma_call("ISP", "par_ESA_PALSAR_GDH", ca)
 
         assert MLI_par.exists(), f"{MLI_par} does not exist"
         assert MLI_par.stat().st_size > 0, f"{MLI_par} has zero file size"
@@ -41655,7 +41674,7 @@ class PyGammaProxy(object):
         xmax: Optional[int] = None,
         ymin: Optional[int] = None,
         ymax: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate interferogram phase slopes in range and azimuth
@@ -41685,8 +41704,8 @@ class PyGammaProxy(object):
                 interf, slopes, width, win_sz, thres, xmin, xmax, ymin, ymax
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.phase_slope))
-        result = self._gamma_call("ISP", "phase_slope", args)
+        ca = self._clean_args(locals(), inspect.signature(self.phase_slope))
+        result = self._gamma_call("ISP", "phase_slope", ca)
 
         assert slopes.exists(), f"{slopes} does not exist"
         assert slopes.stat().st_size > 0, f"{slopes} has zero file size"
@@ -41716,7 +41735,7 @@ class PyGammaProxy(object):
 
     def par_CSG_SLC(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         dyld[70933]: Library not loaded: '/opt/local/lib/libhdf5.200.dylib'
@@ -41731,8 +41750,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_CSG_SLC_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_CSG_SLC))
-        result = self._gamma_call("ISP", "par_CSG_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_CSG_SLC))
+        result = self._gamma_call("ISP", "par_CSG_SLC", ca)
         return result
 
     def _validate_par_TX_ScanSAR(
@@ -41795,7 +41814,7 @@ class PyGammaProxy(object):
         TOPS_par: Path,
         bwflg: Optional[int] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC, SLC_par and TOPS_par from a Terrasar-X ScanSAR data set
@@ -41830,8 +41849,8 @@ class PyGammaProxy(object):
                 annot_XML, swath, SLC_par, SLC, TOPS_par, bwflg, dtype
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_TX_ScanSAR))
-        result = self._gamma_call("ISP", "par_TX_ScanSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_TX_ScanSAR))
+        result = self._gamma_call("ISP", "par_TX_ScanSAR", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -41900,7 +41919,7 @@ class PyGammaProxy(object):
         pixav_y: Optional[int] = None,
         zflag: Optional[int] = None,
         nmin: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate average of a set of FLOAT images
@@ -41932,8 +41951,8 @@ class PyGammaProxy(object):
                 im_list, width, ave_image, start, nlines, pixav_x, pixav_y, zflag, nmin
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ave_image))
-        result = self._gamma_call("ISP", "ave_image", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ave_image))
+        result = self._gamma_call("ISP", "ave_image", ca)
 
         assert ave_image.exists(), f"{ave_image} does not exist"
         assert ave_image.stat().st_size > 0, f"{ave_image} has zero file size"
@@ -41989,7 +42008,7 @@ class PyGammaProxy(object):
         SLC_par: Path,
         CEOS_data: Path,
         SLC: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for Synspective StriX SLC data
@@ -42010,8 +42029,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_STRIX_outputs(CEOS_leader, SLC_par, CEOS_data, SLC)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_STRIX))
-        result = self._gamma_call("ISP", "par_STRIX", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_STRIX))
+        result = self._gamma_call("ISP", "par_STRIX", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -42056,7 +42075,7 @@ class PyGammaProxy(object):
 
     def ASAR_LO_phase_drift(
         self, SLC1_par: Path, SLC2_par: Path, OFF_par: Path, ph_drift: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate interferometric phase correction due to drift of the ASAR local oscillator
@@ -42076,10 +42095,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ASAR_LO_phase_drift_outputs(SLC1_par, SLC2_par, OFF_par, ph_drift)
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.ASAR_LO_phase_drift)
-        )
-        result = self._gamma_call("ISP", "ASAR_LO_phase_drift", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ASAR_LO_phase_drift))
+        result = self._gamma_call("ISP", "ASAR_LO_phase_drift", ca)
 
         assert ph_drift.exists(), f"{ph_drift} does not exist"
         assert ph_drift.stat().st_size > 0, f"{ph_drift} has zero file size"
@@ -42109,7 +42126,7 @@ class PyGammaProxy(object):
 
     def par_RSI(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
 
@@ -42128,8 +42145,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_RSI_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RSI))
-        result = self._gamma_call("ISP", "par_RSI", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RSI))
+        result = self._gamma_call("ISP", "par_RSI", ca)
         return result
 
     def _validate_radcal_pwr_stat(
@@ -42195,7 +42212,7 @@ class PyGammaProxy(object):
         nr: Optional[int] = None,
         nl: Optional[int] = None,
         plist_out: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate calibrated SLC image files using point targets determined from the Mean/Sigma Ratio and Intensity
@@ -42243,8 +42260,8 @@ class PyGammaProxy(object):
                 plist_out,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.radcal_pwr_stat))
-        result = self._gamma_call("ISP", "radcal_pwr_stat", args)
+        ca = self._clean_args(locals(), inspect.signature(self.radcal_pwr_stat))
+        result = self._gamma_call("ISP", "radcal_pwr_stat", ca)
         return result
 
     def _validate_par_ICEYE_SLC(
@@ -42270,7 +42287,7 @@ class PyGammaProxy(object):
 
     def par_ICEYE_SLC(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         dyld[70961]: Library not loaded: '/opt/local/lib/libhdf5.200.dylib'
@@ -42285,8 +42302,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ICEYE_SLC_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ICEYE_SLC))
-        result = self._gamma_call("ISP", "par_ICEYE_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ICEYE_SLC))
+        result = self._gamma_call("ISP", "par_ICEYE_SLC", ca)
         return result
 
     def _validate_offset_SLC_tracking(
@@ -42400,7 +42417,7 @@ class PyGammaProxy(object):
         azstop: Optional[int] = None,
         ISZ: Optional[int] = None,
         pflag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offset tracking between SLC images using fringe visibility
@@ -42480,10 +42497,8 @@ class PyGammaProxy(object):
                 pflag,
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.offset_SLC_tracking)
-        )
-        result = self._gamma_call("ISP", "offset_SLC_tracking", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_SLC_tracking))
+        result = self._gamma_call("ISP", "offset_SLC_tracking", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -42542,7 +42557,7 @@ class PyGammaProxy(object):
         xmax: Optional[int] = None,
         ymin: Optional[int] = None,
         ymax: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Phase unwrapping tree generation with low correlation search (modified ARW algorithm)
@@ -42566,8 +42581,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_tree_cc_outputs(flag, width, mbl, xmin, xmax, ymin, ymax)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.tree_cc))
-        result = self._gamma_call("ISP", "tree_cc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.tree_cc))
+        result = self._gamma_call("ISP", "tree_cc", ca)
         return result
 
     def _validate_MLI_copy(
@@ -42630,7 +42645,7 @@ class PyGammaProxy(object):
         nr: Optional[int] = None,
         loff: Optional[int] = None,
         nl: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Copy MLI data file with options for segment extraction
@@ -42658,8 +42673,8 @@ class PyGammaProxy(object):
                 MLI_in, MLI_in_par, MLI_out, MLI_out_par, roff, nr, loff, nl
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.MLI_copy))
-        result = self._gamma_call("ISP", "MLI_copy", args)
+        ca = self._clean_args(locals(), inspect.signature(self.MLI_copy))
+        result = self._gamma_call("ISP", "MLI_copy", ca)
 
         assert MLI_out.exists(), f"{MLI_out} does not exist"
         assert MLI_out.stat().st_size > 0, f"{MLI_out} has zero file size"
@@ -42697,7 +42712,7 @@ class PyGammaProxy(object):
 
     def par_RCM_MLC(
         self, RCM_dir: Path, radcal: Optional[int], noise: Optional[int], root_name: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate parameter and image files for Radarsat Constellation MLC (Multi-Look Complex) data from GeoTIFF or NITF format
@@ -42727,8 +42742,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_RCM_MLC_outputs(RCM_dir, radcal, noise, root_name)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RCM_MLC))
-        result = self._gamma_call("ISP", "par_RCM_MLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RCM_MLC))
+        result = self._gamma_call("ISP", "par_RCM_MLC", ca)
 
         assert root_name.exists(), f"{root_name} does not exist"
         assert root_name.stat().st_size > 0, f"{root_name} has zero file size"
@@ -42761,7 +42776,7 @@ class PyGammaProxy(object):
 
     def ORRM_vec(
         self, SLC_par: Path, ORRM: Path, nstate: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate state vectors extraction from ORRM file
@@ -42781,8 +42796,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ORRM_vec_outputs(SLC_par, ORRM, nstate)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ORRM_vec))
-        result = self._gamma_call("ISP", "ORRM_vec", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ORRM_vec))
+        result = self._gamma_call("ISP", "ORRM_vec", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -42852,7 +42867,7 @@ class PyGammaProxy(object):
         mode: Optional[int] = None,
         order: Optional[int] = None,
         deramp: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Oversample SLC data in range and azimuth using 2-D Lanczos or B-spline interpolation
@@ -42886,8 +42901,8 @@ class PyGammaProxy(object):
                 SLC, SLC_par, SLC_ovr, SLC_ovr_par, r_ovr, az_ovr, mode, order, deramp
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_ovr))
-        result = self._gamma_call("ISP", "SLC_ovr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_ovr))
+        result = self._gamma_call("ISP", "SLC_ovr", ca)
 
         assert SLC_ovr.exists(), f"{SLC_ovr} does not exist"
         assert SLC_ovr.stat().st_size > 0, f"{SLC_ovr} has zero file size"
@@ -42942,7 +42957,7 @@ class PyGammaProxy(object):
         xmax: Optional[int] = None,
         ymin: Optional[int] = None,
         ymax: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Phase unwrapping tree generation (GZW algorithm)
@@ -42966,8 +42981,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_tree_gzw_outputs(flag, width, mbl, xmin, xmax, ymin, ymax)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.tree_gzw))
-        result = self._gamma_call("ISP", "tree_gzw", args)
+        ca = self._clean_args(locals(), inspect.signature(self.tree_gzw))
+        result = self._gamma_call("ISP", "tree_gzw", ca)
         return result
 
     def _validate_mcf(
@@ -43054,7 +43069,7 @@ class PyGammaProxy(object):
         r_init: Optional[int] = None,
         az_init: Optional[int] = None,
         init_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Phase unwrapping using Minimum Cost Flow (MCF) on a triangular mesh
@@ -43127,8 +43142,8 @@ class PyGammaProxy(object):
                 init_flag,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mcf))
-        result = self._gamma_call("ISP", "mcf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mcf))
+        result = self._gamma_call("ISP", "mcf", ca)
 
         assert unw.exists(), f"{unw} does not exist"
         assert unw.stat().st_size > 0, f"{unw} has zero file size"
@@ -43185,7 +43200,7 @@ class PyGammaProxy(object):
         SLC_par: Path,
         CEOS_DAT: Optional[Path] = None,
         SLC: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file generation for ERS SLC data from the PGS, VMP, and SPF processors
@@ -43206,8 +43221,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ESA_ERS_outputs(CEOS_SAR_leader, SLC_par, CEOS_DAT, SLC)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ESA_ERS))
-        result = self._gamma_call("ISP", "par_ESA_ERS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ESA_ERS))
+        result = self._gamma_call("ISP", "par_ESA_ERS", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -43294,7 +43309,7 @@ class PyGammaProxy(object):
         azstop: Optional[int] = None,
         rb: Optional[int] = None,
         azb: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offset tracking polygon calculation in MLI coordinates
@@ -43358,10 +43373,10 @@ class PyGammaProxy(object):
                 azb,
             )
 
-        args = self._clean_call_args(
+        ca = self._clean_args(
             locals(), inspect.signature(self.offset_pwr_tracking_polygons)
         )
-        result = self._gamma_call("ISP", "offset_pwr_tracking_polygons", args)
+        result = self._gamma_call("ISP", "offset_pwr_tracking_polygons", ca)
 
         assert OFF_par.exists(), f"{OFF_par} does not exist"
         assert OFF_par.stat().st_size > 0, f"{OFF_par} has zero file size"
@@ -43443,7 +43458,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         mode: Optional[int] = None,
         order: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SLC complex image resampling using 2-D Lanczos or B-spline interpolation
@@ -43494,8 +43509,8 @@ class PyGammaProxy(object):
                 order,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_interp))
-        result = self._gamma_call("ISP", "SLC_interp", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_interp))
+        result = self._gamma_call("ISP", "SLC_interp", ca)
 
         assert SLC_2R.exists(), f"{SLC_2R} does not exist"
         assert SLC_2R.stat().st_size > 0, f"{SLC_2R} has zero file size"
@@ -43589,7 +43604,7 @@ class PyGammaProxy(object):
         dtype: Optional[int] = None,
         sc_dB: Optional[int] = None,
         noise_pwr: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for Sentinel-1 SLC data
@@ -43641,8 +43656,8 @@ class PyGammaProxy(object):
                 noise_pwr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_S1_SLC))
-        result = self._gamma_call("ISP", "par_S1_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_S1_SLC))
+        result = self._gamma_call("ISP", "par_S1_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -43680,7 +43695,7 @@ class PyGammaProxy(object):
 
     def unw_correction_poly(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         unw_correction_poly: Phase unwrapping ambiguity error correction for polygon areas
@@ -43703,10 +43718,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_unw_correction_poly_outputs()
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.unw_correction_poly)
-        )
-        result = self._gamma_call("ISP", "unw_correction_poly", args)
+        ca = self._clean_args(locals(), inspect.signature(self.unw_correction_poly))
+        result = self._gamma_call("ISP", "unw_correction_poly", ca)
         return result
 
     def _validate_TX_SLC_preproc(
@@ -43732,7 +43745,7 @@ class PyGammaProxy(object):
 
     def TX_SLC_preproc(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Preprocessing of TerraSAR-X TDX1 and TSX1 SLC products using par_TX_SLC
@@ -43750,8 +43763,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_TX_SLC_preproc_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.TX_SLC_preproc))
-        result = self._gamma_call("ISP", "TX_SLC_preproc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.TX_SLC_preproc))
+        result = self._gamma_call("ISP", "TX_SLC_preproc", ca)
         return result
 
     def _validate_run_all(
@@ -43783,7 +43796,7 @@ class PyGammaProxy(object):
 
     def run_all(
         self, list: Path, command: int, log: Optional[Path] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/scripts/run_all
@@ -43809,8 +43822,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_run_all_outputs(list, command, log)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.run_all))
-        result = self._gamma_call("ISP", "run_all", args)
+        ca = self._clean_args(locals(), inspect.signature(self.run_all))
+        result = self._gamma_call("ISP", "run_all", ca)
 
         if log is not None:
             assert log.exists(), f"{log} does not exist"
@@ -43843,7 +43856,7 @@ class PyGammaProxy(object):
 
     def par_ASAR(
         self, output_name: Path, K_dB: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Extract SLC/MLI image parameters and images from ENVISAT ASAR SLC, WSS, APP, and PRI products
@@ -43866,8 +43879,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ASAR_outputs(output_name, K_dB)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ASAR))
-        result = self._gamma_call("ISP", "par_ASAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ASAR))
+        result = self._gamma_call("ISP", "par_ASAR", ca)
 
         assert output_name.exists(), f"{output_name} does not exist"
         assert output_name.stat().st_size > 0, f"{output_name} has zero file size"
@@ -43896,7 +43909,9 @@ class PyGammaProxy(object):
         if SLC_par is not None and str(SLC_par) != "-":
             SLC_par.touch()
 
-    def par_ASF_96(self, CEOS_SAR_leader: Path, SLC_par: Path) -> Tuple[int, str, str]:
+    def par_ASF_96(
+        self, CEOS_SAR_leader: Path, SLC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file for ASF data 1996-->present v1.1
@@ -43914,8 +43929,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ASF_96_outputs(CEOS_SAR_leader, SLC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ASF_96))
-        result = self._gamma_call("ISP", "par_ASF_96", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ASF_96))
+        result = self._gamma_call("ISP", "par_ASF_96", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -43946,7 +43961,7 @@ class PyGammaProxy(object):
 
     def ScanSAR_mosaic_to_burst(
         self, DATA: Path, MLI_par: Path, DATA_tab: int
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Resample image data in the MLI mosaic geometry to burst MLI geometry (FLOAT or FCOMPLEX)
@@ -43969,10 +43984,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ScanSAR_mosaic_to_burst_outputs(DATA, MLI_par, DATA_tab)
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.ScanSAR_mosaic_to_burst)
-        )
-        result = self._gamma_call("ISP", "ScanSAR_mosaic_to_burst", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ScanSAR_mosaic_to_burst))
+        result = self._gamma_call("ISP", "ScanSAR_mosaic_to_burst", ca)
         return result
 
     def _validate_OPOD_vec(
@@ -44001,7 +44014,7 @@ class PyGammaProxy(object):
 
     def OPOD_vec(
         self, SLC_par: Path, OPOD_dir: Path, nstate: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/scripts/OPOD_vec
@@ -44024,8 +44037,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_OPOD_vec_outputs(SLC_par, OPOD_dir, nstate)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.OPOD_vec))
-        result = self._gamma_call("ISP", "OPOD_vec", args)
+        ca = self._clean_args(locals(), inspect.signature(self.OPOD_vec))
+        result = self._gamma_call("ISP", "OPOD_vec", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -44102,7 +44115,7 @@ class PyGammaProxy(object):
         bndot_flag: Optional[int] = None,
         bperp_min: Optional[int] = None,
         SLC2R_par: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Least squares baseline estimation using terrain heights
@@ -44154,8 +44167,8 @@ class PyGammaProxy(object):
                 SLC2R_par,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.base_ls))
-        result = self._gamma_call("ISP", "base_ls", args)
+        ca = self._clean_args(locals(), inspect.signature(self.base_ls))
+        result = self._gamma_call("ISP", "base_ls", ca)
         return result
 
     def _validate_az_spec_SLC(
@@ -44207,7 +44220,7 @@ class PyGammaProxy(object):
         roff: Optional[int] = None,
         namb: Optional[int] = None,
         pltflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Doppler centroid estimate from SLC images
@@ -44232,8 +44245,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_az_spec_SLC_outputs(SLC, SLC_par, spectrum, roff, namb, pltflg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.az_spec_SLC))
-        result = self._gamma_call("ISP", "az_spec_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.az_spec_SLC))
+        result = self._gamma_call("ISP", "az_spec_SLC", ca)
 
         assert spectrum.exists(), f"{spectrum} does not exist"
         assert spectrum.stat().st_size > 0, f"{spectrum} has zero file size"
@@ -44312,7 +44325,7 @@ class PyGammaProxy(object):
         nl: Optional[int] = None,
         swap: Optional[int] = None,
         header_lines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Copy SLC with options for data format conversion, segment extraction, and byte swapping
@@ -44376,8 +44389,8 @@ class PyGammaProxy(object):
                 header_lines,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_copy))
-        result = self._gamma_call("ISP", "SLC_copy", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_copy))
+        result = self._gamma_call("ISP", "SLC_copy", ca)
 
         assert SLC_out.exists(), f"{SLC_out} does not exist"
         assert SLC_out.stat().st_size > 0, f"{SLC_out} has zero file size"
@@ -44433,7 +44446,7 @@ class PyGammaProxy(object):
         cflg: int,
         scale: Optional[float] = None,
         lz: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate azimuth integral of float data (unwrapped phase or azimuth offsets)
@@ -44458,8 +44471,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_az_integrate_outputs(data, width, azi, cflg, scale, lz)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.az_integrate))
-        result = self._gamma_call("ISP", "az_integrate", args)
+        ca = self._clean_args(locals(), inspect.signature(self.az_integrate))
+        result = self._gamma_call("ISP", "az_integrate", ca)
 
         assert azi.exists(), f"{azi} does not exist"
         assert azi.stat().st_size > 0, f"{azi} has zero file size"
@@ -44550,7 +44563,7 @@ class PyGammaProxy(object):
         gainflg: Optional[int] = None,
         imode: Optional[int] = None,
         order: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Concatenate a pair of SLC images with interpolation of the second scene
@@ -44618,8 +44631,8 @@ class PyGammaProxy(object):
                 order,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_cat))
-        result = self._gamma_call("ISP", "SLC_cat", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_cat))
+        result = self._gamma_call("ISP", "SLC_cat", ca)
 
         assert SLC_3.exists(), f"{SLC_3} does not exist"
         assert SLC_3.stat().st_size > 0, f"{SLC_3} has zero file size"
@@ -44652,7 +44665,7 @@ class PyGammaProxy(object):
 
     def SLC_ovr2(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ***********************************************************************************************
@@ -44670,8 +44683,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_ovr2_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_ovr2))
-        result = self._gamma_call("ISP", "SLC_ovr2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_ovr2))
+        result = self._gamma_call("ISP", "SLC_ovr2", ca)
         return result
 
     def _validate_par_NovaSAR_SLC(
@@ -44736,7 +44749,7 @@ class PyGammaProxy(object):
         dtype: Optional[int] = None,
         radcal: Optional[int] = None,
         noise: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for NovaSAR SLC data
@@ -44771,8 +44784,8 @@ class PyGammaProxy(object):
                 GeoTIFF, XML, polarization, SLC_par, SLC, dtype, radcal, noise
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_NovaSAR_SLC))
-        result = self._gamma_call("ISP", "par_NovaSAR_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_NovaSAR_SLC))
+        result = self._gamma_call("ISP", "par_NovaSAR_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -44816,7 +44829,7 @@ class PyGammaProxy(object):
 
     def SLC_corners(
         self, SLC_par: Path, terra_alt: Optional[Path] = None, kml: Optional[Path] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate SLC/MLI image corners in geodetic latitude and longitude (deg.)
@@ -44836,8 +44849,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_corners_outputs(SLC_par, terra_alt, kml)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_corners))
-        result = self._gamma_call("ISP", "SLC_corners", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_corners))
+        result = self._gamma_call("ISP", "SLC_corners", ca)
 
         if kml is not None:
             assert kml.exists(), f"{kml} does not exist"
@@ -44905,7 +44918,7 @@ class PyGammaProxy(object):
         SLC_par2: Path,
         mode: int,
         dop_ph: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate and subtract Doppler phase from an SLC image
@@ -44931,8 +44944,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_deramp_outputs(SLC_1, SLC_par1, SLC_2, SLC_par2, mode, dop_ph)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_deramp))
-        result = self._gamma_call("ISP", "SLC_deramp", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_deramp))
+        result = self._gamma_call("ISP", "SLC_deramp", ca)
 
         assert SLC_2.exists(), f"{SLC_2} does not exist"
         assert SLC_2.stat().st_size > 0, f"{SLC_2} has zero file size"
@@ -44994,7 +45007,7 @@ class PyGammaProxy(object):
         xmax: Optional[int] = None,
         ymin: Optional[int] = None,
         ymax: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Determine interferometric phase unwrapping residues
@@ -45018,8 +45031,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_residue_outputs(int, flag, width, xmin, xmax, ymin, ymax)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.residue))
-        result = self._gamma_call("ISP", "residue", args)
+        ca = self._clean_args(locals(), inspect.signature(self.residue))
+        result = self._gamma_call("ISP", "residue", ca)
         return result
 
     def _validate_par_PRI(
@@ -45058,7 +45071,7 @@ class PyGammaProxy(object):
 
     def par_PRI(
         self, CEOS_SAR_leader: Path, PRI_par: Path, CEOS_DAT: Path, PRI: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file generation for ERS PRI data from the PGS and VMP processors
@@ -45079,8 +45092,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_PRI_outputs(CEOS_SAR_leader, PRI_par, CEOS_DAT, PRI)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_PRI))
-        result = self._gamma_call("ISP", "par_PRI", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_PRI))
+        result = self._gamma_call("ISP", "par_PRI", ca)
 
         assert PRI_par.exists(), f"{PRI_par} does not exist"
         assert PRI_par.stat().st_size > 0, f"{PRI_par} has zero file size"
@@ -45140,7 +45153,7 @@ class PyGammaProxy(object):
         rlks: Optional[int] = None,
         azlks: Optional[int] = None,
         iflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Create and update ISP offset and interferogram parameter files
@@ -45172,8 +45185,8 @@ class PyGammaProxy(object):
                 SLC1_par, SLC2_par, OFF_par, algorithm, rlks, azlks, iflg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.create_offset))
-        result = self._gamma_call("ISP", "create_offset", args)
+        ca = self._clean_args(locals(), inspect.signature(self.create_offset))
+        result = self._gamma_call("ISP", "create_offset", ca)
 
         assert OFF_par.exists(), f"{OFF_par} does not exist"
         assert OFF_par.stat().st_size > 0, f"{OFF_par} has zero file size"
@@ -45203,7 +45216,7 @@ class PyGammaProxy(object):
 
     def mk_ptarg_cal(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/scripts/mk_ptarg_cal
@@ -45232,8 +45245,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_mk_ptarg_cal_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mk_ptarg_cal))
-        result = self._gamma_call("ISP", "mk_ptarg_cal", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mk_ptarg_cal))
+        result = self._gamma_call("ISP", "mk_ptarg_cal", ca)
         return result
 
     def _validate_multi_look_MLI(
@@ -45302,7 +45315,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         scale: Optional[float] = None,
         e_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Multilooking (averaging and decimation) of MLI images
@@ -45353,8 +45366,8 @@ class PyGammaProxy(object):
                 e_flag,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_look_MLI))
-        result = self._gamma_call("ISP", "multi_look_MLI", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_look_MLI))
+        result = self._gamma_call("ISP", "multi_look_MLI", ca)
 
         assert MLI_out.exists(), f"{MLI_out} does not exist"
         assert MLI_out.stat().st_size > 0, f"{MLI_out} has zero file size"
@@ -45428,7 +45441,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         roff: Optional[int] = None,
         nsamp: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate multi-look averaged or interpolated 2D image (float data)
@@ -45477,8 +45490,8 @@ class PyGammaProxy(object):
                 nsamp,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_real))
-        result = self._gamma_call("ISP", "multi_real", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_real))
+        result = self._gamma_call("ISP", "multi_real", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -45617,7 +45630,7 @@ class PyGammaProxy(object):
         sim_phase: Optional[Path] = None,
         lanczos: Optional[int] = None,
         beta: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate interferogram and MLI images from SLCs with separate averaging window dimensions and decimation factors
@@ -45696,8 +45709,8 @@ class PyGammaProxy(object):
                 beta,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_intf2))
-        result = self._gamma_call("ISP", "SLC_intf2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_intf2))
+        result = self._gamma_call("ISP", "SLC_intf2", ca)
 
         if MLI_1 is not None:
             assert MLI_1.exists(), f"{MLI_1} does not exist"
@@ -45748,7 +45761,7 @@ class PyGammaProxy(object):
 
     def SLC_copy_WB(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/ISP/scripts/SLC_copy_WB
@@ -45766,8 +45779,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_copy_WB_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_copy_WB))
-        result = self._gamma_call("ISP", "SLC_copy_WB", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_copy_WB))
+        result = self._gamma_call("ISP", "SLC_copy_WB", ca)
         return result
 
     def _validate_S1_deramp_TOPS_reference(
@@ -45793,7 +45806,7 @@ class PyGammaProxy(object):
 
     def S1_deramp_TOPS_reference(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ****************************************************************************************
@@ -45813,10 +45826,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_deramp_TOPS_reference_outputs()
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.S1_deramp_TOPS_reference)
-        )
-        result = self._gamma_call("ISP", "S1_deramp_TOPS_reference", args)
+        ca = self._clean_args(locals(), inspect.signature(self.S1_deramp_TOPS_reference))
+        result = self._gamma_call("ISP", "S1_deramp_TOPS_reference", ca)
         return result
 
     def _validate_SLC_burst_copy(
@@ -45842,7 +45853,7 @@ class PyGammaProxy(object):
 
     def SLC_burst_copy(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         **************************************************************************************
@@ -45860,8 +45871,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_SLC_burst_copy_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_burst_copy))
-        result = self._gamma_call("ISP", "SLC_burst_copy", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_burst_copy))
+        result = self._gamma_call("ISP", "SLC_burst_copy", ca)
         return result
 
     def _validate_par_ASF_PRI(
@@ -45913,7 +45924,7 @@ class PyGammaProxy(object):
         CEOS_data: Path,
         GRD_par: Path,
         GRD: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file for ASF detected ground range images (L1) Sep 1996 --> present
@@ -45934,8 +45945,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ASF_PRI_outputs(CEOS_leader, CEOS_data, GRD_par, GRD)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ASF_PRI))
-        result = self._gamma_call("ISP", "par_ASF_PRI", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ASF_PRI))
+        result = self._gamma_call("ISP", "par_ASF_PRI", ca)
 
         assert GRD_par.exists(), f"{GRD_par} does not exist"
         assert GRD_par.stat().st_size > 0, f"{GRD_par} has zero file size"
@@ -46066,7 +46077,7 @@ class PyGammaProxy(object):
         pflag: Optional[int] = None,
         pltflg: Optional[int] = None,
         ccs: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Offset estimation between SLC images using intensity cross-correlation
@@ -46160,8 +46171,8 @@ class PyGammaProxy(object):
                 ccs,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.offset_pwr))
-        result = self._gamma_call("ISP", "offset_pwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.offset_pwr))
+        result = self._gamma_call("ISP", "offset_pwr", ca)
 
         assert offs.exists(), f"{offs} does not exist"
         assert offs.stat().st_size > 0, f"{offs} has zero file size"
@@ -46210,7 +46221,7 @@ class PyGammaProxy(object):
 
     def par_ATLSCI_ERS(
         self, CEOS_SAR_leader: Path, CEOS_Image: Path, SLC_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file for ATL-SCI ERS SLC data
@@ -46230,8 +46241,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ATLSCI_ERS_outputs(CEOS_SAR_leader, CEOS_Image, SLC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ATLSCI_ERS))
-        result = self._gamma_call("ISP", "par_ATLSCI_ERS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ATLSCI_ERS))
+        result = self._gamma_call("ISP", "par_ATLSCI_ERS", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -46274,7 +46285,7 @@ class PyGammaProxy(object):
 
     def par_PRI_ESRIN_JERS(
         self, CEOS_SAR_leader: Path, PRI_par: Path, CEOS_DAT: Path, PRI: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP GRD parameter file for ESRIN processed JERS PRI data
@@ -46295,8 +46306,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_PRI_ESRIN_JERS_outputs(CEOS_SAR_leader, PRI_par, CEOS_DAT, PRI)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_PRI_ESRIN_JERS))
-        result = self._gamma_call("ISP", "par_PRI_ESRIN_JERS", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_PRI_ESRIN_JERS))
+        result = self._gamma_call("ISP", "par_PRI_ESRIN_JERS", ca)
 
         assert PRI_par.exists(), f"{PRI_par} does not exist"
         assert PRI_par.stat().st_size > 0, f"{PRI_par} has zero file size"
@@ -46376,7 +46387,7 @@ class PyGammaProxy(object):
         KC_data: Path,
         pwr: Optional[Path] = None,
         fdtab: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate ISP parameter file, Doppler table, and images for PALSAR KC Slant-Range data
@@ -46407,8 +46418,8 @@ class PyGammaProxy(object):
                 facter_m, CEOS_leader, SLC_par, pol, pls_mode, KC_data, pwr, fdtab
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_KC_PALSAR_slr))
-        result = self._gamma_call("ISP", "par_KC_PALSAR_slr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_KC_PALSAR_slr))
+        result = self._gamma_call("ISP", "par_KC_PALSAR_slr", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -46503,7 +46514,7 @@ class PyGammaProxy(object):
         osf: Optional[int] = None,
         win: Optional[int] = None,
         pltflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Point target response analysis and interpolation for SLC images
@@ -46558,8 +46569,8 @@ class PyGammaProxy(object):
                 pltflg,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ptarg_SLC))
-        result = self._gamma_call("ISP", "ptarg_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ptarg_SLC))
+        result = self._gamma_call("ISP", "ptarg_SLC", ca)
 
         assert ptr_image.exists(), f"{ptr_image} does not exist"
         assert ptr_image.stat().st_size > 0, f"{ptr_image} has zero file size"
@@ -46631,7 +46642,7 @@ class PyGammaProxy(object):
         SLC: Optional[Path] = None,
         dtype: Optional[int] = None,
         sc_dB: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC image and parameter files for PALSAR + PALSAR2 level 1.1 SLC data produced by EORC/JAXA and ESA
@@ -46660,8 +46671,8 @@ class PyGammaProxy(object):
                 CEOS_leader, SLC_par, CEOS_data, SLC, dtype, sc_dB
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_EORC_PALSAR))
-        result = self._gamma_call("ISP", "par_EORC_PALSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_EORC_PALSAR))
+        result = self._gamma_call("ISP", "par_EORC_PALSAR", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -46690,7 +46701,7 @@ class PyGammaProxy(object):
         """
         pass
 
-    def S1_burstloc(self, annotation_XML: Path) -> Tuple[int, str, str]:
+    def S1_burstloc(self, annotation_XML: Path) -> Tuple[int, List[str], List[str]]:
         """
 
         Print Burst information found in the Sentinel-1 annotation file
@@ -46708,8 +46719,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_S1_burstloc_outputs(annotation_XML)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.S1_burstloc))
-        result = self._gamma_call("ISP", "S1_burstloc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.S1_burstloc))
+        result = self._gamma_call("ISP", "S1_burstloc", ca)
         return result
 
     def _validate_par_GF3_SLC(
@@ -46762,7 +46773,7 @@ class PyGammaProxy(object):
         annotation_XML: Path,
         SLC_par: Path,
         SLC: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter file and SLC image from a Gaofen-3 data set in GeoTIFF format
@@ -46783,8 +46794,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_GF3_SLC_outputs(GeoTIFF, annotation_XML, SLC_par, SLC)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_GF3_SLC))
-        result = self._gamma_call("ISP", "par_GF3_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_GF3_SLC))
+        result = self._gamma_call("ISP", "par_GF3_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -46859,7 +46870,7 @@ class PyGammaProxy(object):
         TOPS_par: Optional[Path] = None,
         afmrate: Optional[int] = None,
         reramp: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files from EORC PALSAR2 ScanSAR burst SLC data in CEOS format
@@ -46894,10 +46905,8 @@ class PyGammaProxy(object):
                 CEOS_data, CEOS_leader, SLC_par, SLC, TOPS_par, afmrate, reramp
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.par_EORC_PALSAR_ScanSAR)
-        )
-        result = self._gamma_call("ISP", "par_EORC_PALSAR_ScanSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_EORC_PALSAR_ScanSAR))
+        result = self._gamma_call("ISP", "par_EORC_PALSAR_ScanSAR", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -46984,7 +46993,7 @@ class PyGammaProxy(object):
         xmax: Optional[int] = None,
         ymin: Optional[int] = None,
         ymax: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Estimate interferometric correlation coefficient
@@ -47022,8 +47031,8 @@ class PyGammaProxy(object):
                 interf, MLI_1, MLI_2, cc, width, bx, by, wflg, xmin, xmax, ymin, ymax
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.cc_wave))
-        result = self._gamma_call("ISP", "cc_wave", args)
+        ca = self._clean_args(locals(), inspect.signature(self.cc_wave))
+        result = self._gamma_call("ISP", "cc_wave", ca)
 
         assert cc.exists(), f"{cc} does not exist"
         assert cc.stat().st_size > 0, f"{cc} has zero file size"
@@ -47090,7 +47099,7 @@ class PyGammaProxy(object):
         polarization: Path,
         SLC_par: Path,
         SLC: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Generate SLC parameter and image files for Radarsat 2 SLC data from GeoTIFF
@@ -47116,8 +47125,8 @@ class PyGammaProxy(object):
                 product_XML, lut_XML, GeoTIFF, polarization, SLC_par, SLC
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_RSAT2_SLC))
-        result = self._gamma_call("ISP", "par_RSAT2_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_RSAT2_SLC))
+        result = self._gamma_call("ISP", "par_RSAT2_SLC", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -47175,7 +47184,7 @@ class PyGammaProxy(object):
         xmax: Optional[int] = None,
         ymin: Optional[int] = None,
         ymax: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Determine interferometric phase unwrapping residues considering low coherence regions
@@ -47199,8 +47208,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_residue_cc_outputs(int, flag, width, xmin, xmax, ymin, ymax)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.residue_cc))
-        result = self._gamma_call("ISP", "residue_cc", args)
+        ca = self._clean_args(locals(), inspect.signature(self.residue_cc))
+        result = self._gamma_call("ISP", "residue_cc", ca)
         return result
 
     def _validate_par_PulSAR(self, CEOS_SAR_leader: Path, SLC_par: Path) -> None:
@@ -47225,7 +47234,9 @@ class PyGammaProxy(object):
         if SLC_par is not None and str(SLC_par) != "-":
             SLC_par.touch()
 
-    def par_PulSAR(self, CEOS_SAR_leader: Path, SLC_par: Path) -> Tuple[int, str, str]:
+    def par_PulSAR(
+        self, CEOS_SAR_leader: Path, SLC_par: Path
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP parameter file generation for ERS SLC data from the PULSAR SAR processor
@@ -47244,8 +47255,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_PulSAR_outputs(CEOS_SAR_leader, SLC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_PulSAR))
-        result = self._gamma_call("ISP", "par_PulSAR", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_PulSAR))
+        result = self._gamma_call("ISP", "par_PulSAR", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -47283,7 +47294,7 @@ class PyGammaProxy(object):
 
     def par_ASF_91(
         self, CEOS_leader: Path, CEOS_trailer: Path, SLC_par: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         SLC parameter file for data data from theAlaska SAR Facility (1991-1996)
@@ -47303,8 +47314,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_par_ASF_91_outputs(CEOS_leader, CEOS_trailer, SLC_par)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.par_ASF_91))
-        result = self._gamma_call("ISP", "par_ASF_91", args)
+        ca = self._clean_args(locals(), inspect.signature(self.par_ASF_91))
+        result = self._gamma_call("ISP", "par_ASF_91", ca)
 
         assert SLC_par.exists(), f"{SLC_par} does not exist"
         assert SLC_par.stat().st_size > 0, f"{SLC_par} has zero file size"
@@ -47378,7 +47389,7 @@ class PyGammaProxy(object):
         azoff: Optional[int] = None,
         naz: Optional[int] = None,
         pltflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         RFI filtering for SLC image using a band-stop filter
@@ -47438,8 +47449,8 @@ class PyGammaProxy(object):
                 pltflg,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.SLC_RFI_filt2))
-        result = self._gamma_call("ISP", "SLC_RFI_filt2", args)
+        ca = self._clean_args(locals(), inspect.signature(self.SLC_RFI_filt2))
+        result = self._gamma_call("ISP", "SLC_RFI_filt2", ca)
 
         assert SLC_filt.exists(), f"{SLC_filt} does not exist"
         assert SLC_filt.stat().st_size > 0, f"{SLC_filt} has zero file size"
@@ -47495,7 +47506,7 @@ class PyGammaProxy(object):
         r_max: Optional[int] = None,
         spf_type: Optional[int] = None,
         MLI_par: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         ISP fspf: Fast spatial filter for 2D data
@@ -47530,8 +47541,8 @@ class PyGammaProxy(object):
                 data_in, data_out, width, dtype, r_max, spf_type, MLI_par
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.fspf))
-        result = self._gamma_call("ISP", "fspf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.fspf))
+        result = self._gamma_call("ISP", "fspf", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -47616,7 +47627,7 @@ class PyGammaProxy(object):
         sc_dB: Optional[int] = None,
         K_dB: Optional[int] = None,
         pix_area: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Radiometric calibration of SLC data
@@ -47690,8 +47701,8 @@ class PyGammaProxy(object):
                 pix_area,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.radcal_SLC))
-        result = self._gamma_call("ISP", "radcal_SLC", args)
+        ca = self._clean_args(locals(), inspect.signature(self.radcal_SLC))
+        result = self._gamma_call("ISP", "radcal_SLC", ca)
 
         assert CSLC.exists(), f"{CSLC} does not exist"
         assert CSLC.stat().st_size > 0, f"{CSLC} has zero file size"
@@ -47722,7 +47733,7 @@ class PyGammaProxy(object):
         """
         pass
 
-    def line_interp(self, width: int) -> Tuple[int, str, str]:
+    def line_interp(self, width: int) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/line_interp.c
@@ -47742,8 +47753,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_line_interp_outputs(width)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.line_interp))
-        result = self._gamma_call("LAT", "line_interp", args)
+        ca = self._clean_args(locals(), inspect.signature(self.line_interp))
+        result = self._gamma_call("LAT", "line_interp", ca)
         return result
 
     def _validate_product_cpx(
@@ -47798,7 +47809,7 @@ class PyGammaProxy(object):
         start: Optional[int] = None,
         nlines: Optional[int] = None,
         conjg_flg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/product_cpx.c
@@ -47824,8 +47835,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_product_cpx_outputs(f1, f2, f_out, width, start, nlines, conjg_flg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.product_cpx))
-        result = self._gamma_call("LAT", "product_cpx", args)
+        ca = self._clean_args(locals(), inspect.signature(self.product_cpx))
+        result = self._gamma_call("LAT", "product_cpx", ca)
 
         assert f_out.exists(), f"{f_out} does not exist"
         assert f_out.stat().st_size > 0, f"{f_out} has zero file size"
@@ -47872,7 +47883,7 @@ class PyGammaProxy(object):
         ras_out: Path,
         filter_width: Optional[int] = None,
         LR: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program ras_majority.c
@@ -47894,8 +47905,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ras_majority_outputs(ras_in, ras_out, filter_width, LR)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras_majority))
-        result = self._gamma_call("LAT", "ras_majority", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras_majority))
+        result = self._gamma_call("LAT", "ras_majority", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -47954,7 +47965,7 @@ class PyGammaProxy(object):
         wflg: Optional[int] = None,
         min_pt: Optional[int] = None,
         zflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT average_filter: Averaging spatial filter (float data)
@@ -47986,8 +47997,8 @@ class PyGammaProxy(object):
                 din, dout, width, bx, by, wflg, min_pt, zflg
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.average_filter))
-        result = self._gamma_call("LAT", "average_filter", args)
+        ca = self._clean_args(locals(), inspect.signature(self.average_filter))
+        result = self._gamma_call("LAT", "average_filter", ca)
 
         assert dout.exists(), f"{dout} does not exist"
         assert dout.stat().st_size > 0, f"{dout} has zero file size"
@@ -48055,7 +48066,7 @@ class PyGammaProxy(object):
         class_1: Path,
         class_n: Optional[Path] = None,
         null_value: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program mask_class.c
@@ -48116,8 +48127,8 @@ class PyGammaProxy(object):
                 null_value,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mask_class))
-        result = self._gamma_call("LAT", "mask_class", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mask_class))
+        result = self._gamma_call("LAT", "mask_class", ca)
 
         assert file_out.exists(), f"{file_out} does not exist"
         assert file_out.stat().st_size > 0, f"{file_out} has zero file size"
@@ -48186,7 +48197,7 @@ class PyGammaProxy(object):
         pixavaz: Optional[int] = None,
         LR: Optional[int] = None,
         rasf: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/ras_ratio_dB.c
@@ -48240,8 +48251,8 @@ class PyGammaProxy(object):
                 rasf,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras_ratio_dB))
-        result = self._gamma_call("LAT", "ras_ratio_dB", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras_ratio_dB))
+        result = self._gamma_call("LAT", "ras_ratio_dB", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -48292,7 +48303,7 @@ class PyGammaProxy(object):
         width: int,
         inverse_flag: Optional[int] = None,
         null_value: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/linear_to_dB.c
@@ -48321,8 +48332,8 @@ class PyGammaProxy(object):
                 data_in, data_out, width, inverse_flag, null_value
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.linear_to_dB))
-        result = self._gamma_call("LAT", "linear_to_dB", args)
+        ca = self._clean_args(locals(), inspect.signature(self.linear_to_dB))
+        result = self._gamma_call("LAT", "linear_to_dB", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -48336,8 +48347,8 @@ class PyGammaProxy(object):
         polygon: Optional[Path],
         hist: Path,
         stat: Path,
-        min: int,
-        max: int,
+        min: float,
+        max: float,
         nbins: Optional[int] = None,
         mode: Optional[int] = None,
         lin_log: Optional[int] = None,
@@ -48366,8 +48377,8 @@ class PyGammaProxy(object):
         polygon: Optional[Path],
         hist: Path,
         stat: Path,
-        min: int,
-        max: int,
+        min: float,
+        max: float,
         nbins: Optional[int] = None,
         mode: Optional[int] = None,
         lin_log: Optional[int] = None,
@@ -48391,12 +48402,12 @@ class PyGammaProxy(object):
         polygon: Optional[Path],
         hist: Path,
         stat: Path,
-        min: int,
-        max: int,
+        min: float,
+        max: float,
         nbins: Optional[int] = None,
         mode: Optional[int] = None,
         lin_log: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/histogram.c
@@ -48434,8 +48445,8 @@ class PyGammaProxy(object):
                 data_in, width, polygon, hist, stat, min, max, nbins, mode, lin_log
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.histogram))
-        result = self._gamma_call("LAT", "histogram", args)
+        ca = self._clean_args(locals(), inspect.signature(self.histogram))
+        result = self._gamma_call("LAT", "histogram", ca)
 
         assert hist.exists(), f"{hist} does not exist"
         assert hist.stat().st_size > 0, f"{hist} has zero file size"
@@ -48491,7 +48502,7 @@ class PyGammaProxy(object):
         nlooks: int,
         bx: int,
         by: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT gamma_map: Gamma Map Filter (Lopes et al., 1990)
@@ -48514,8 +48525,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_gamma_map_outputs(input_data, output_data, width, nlooks, bx, by)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.gamma_map))
-        result = self._gamma_call("LAT", "gamma_map", args)
+        ca = self._clean_args(locals(), inspect.signature(self.gamma_map))
+        result = self._gamma_call("LAT", "gamma_map", ca)
 
         assert output_data.exists(), f"{output_data} does not exist"
         assert output_data.stat().st_size > 0, f"{output_data} has zero file size"
@@ -48564,7 +48575,7 @@ class PyGammaProxy(object):
 
     def m_chi(
         self, s0: Path, m: Path, s2chi: Path, S_par: Path, c1: Path, c3: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate m-chi decomposition from Stokes parameters
@@ -48589,8 +48600,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_m_chi_outputs(s0, m, s2chi, S_par, c1, c3)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.m_chi))
-        result = self._gamma_call("LAT", "m-chi", args)
+        ca = self._clean_args(locals(), inspect.signature(self.m_chi))
+        result = self._gamma_call("LAT", "m-chi", ca)
 
         assert c1.exists(), f"{c1} does not exist"
         assert c1.stat().st_size > 0, f"{c1} has zero file size"
@@ -48655,7 +48666,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         r_start: Optional[int] = None,
         nsamp: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/reallks.c
@@ -48687,8 +48698,8 @@ class PyGammaProxy(object):
                 image, ML_image, width, rlks, azlks, start, nlines, r_start, nsamp
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.reallks))
-        result = self._gamma_call("LAT", "reallks", args)
+        ca = self._clean_args(locals(), inspect.signature(self.reallks))
+        result = self._gamma_call("LAT", "reallks", ca)
 
         assert ML_image.exists(), f"{ML_image} does not exist"
         assert ML_image.stat().st_size > 0, f"{ML_image} has zero file size"
@@ -48741,7 +48752,7 @@ class PyGammaProxy(object):
         fx: Optional[int] = None,
         sx: Optional[int] = None,
         power: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT frost: Minimum mean square error filter (similar to Frost et al., 1982)
@@ -48764,8 +48775,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_frost_outputs(pwr1, pwr1_frost, width, fx, sx, power)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.frost))
-        result = self._gamma_call("LAT", "frost", args)
+        ca = self._clean_args(locals(), inspect.signature(self.frost))
+        result = self._gamma_call("LAT", "frost", ca)
 
         assert pwr1_frost.exists(), f"{pwr1_frost} does not exist"
         assert pwr1_frost.stat().st_size > 0, f"{pwr1_frost} has zero file size"
@@ -48872,7 +48883,7 @@ class PyGammaProxy(object):
         filt_num: Optional[Path] = None,
         msr: Optional[Path] = None,
         ctr: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/mt_lee_filt
@@ -48934,8 +48945,8 @@ class PyGammaProxy(object):
                 ctr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mt_lee_filt))
-        result = self._gamma_call("LAT", "mt_lee_filt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mt_lee_filt))
+        result = self._gamma_call("LAT", "mt_lee_filt", ca)
 
         if ref_out is not None:
             assert ref_out.exists(), f"{ref_out} does not exist"
@@ -49005,7 +49016,7 @@ class PyGammaProxy(object):
         mode: int,
         rank: int,
         nmin: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/multi_stat
@@ -49034,8 +49045,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_multi_stat_outputs(im_list, width, im_out, mode, rank, nmin)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.multi_stat))
-        result = self._gamma_call("LAT", "multi_stat", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_stat))
+        result = self._gamma_call("LAT", "multi_stat", ca)
 
         assert im_out.exists(), f"{im_out} does not exist"
         assert im_out.stat().st_size > 0, f"{im_out} has zero file size"
@@ -49068,7 +49079,7 @@ class PyGammaProxy(object):
 
     def trigo(
         self, data1: Path, func: int, data2: Path, width: int
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/trigo.c
@@ -49091,8 +49102,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_trigo_outputs(data1, func, data2, width)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.trigo))
-        result = self._gamma_call("LAT", "trigo", args)
+        ca = self._clean_args(locals(), inspect.signature(self.trigo))
+        result = self._gamma_call("LAT", "trigo", ca)
 
         assert data2.exists(), f"{data2} does not exist"
         assert data2.stat().st_size > 0, f"{data2} has zero file size"
@@ -49149,7 +49160,7 @@ class PyGammaProxy(object):
         zflag: Optional[int] = None,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/temp_filt
@@ -49186,8 +49197,8 @@ class PyGammaProxy(object):
                 data_tab, width, wy, wx, wt_flag, zflag, loff, nlines
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.temp_filt))
-        result = self._gamma_call("LAT", "temp_filt", args)
+        ca = self._clean_args(locals(), inspect.signature(self.temp_filt))
+        result = self._gamma_call("LAT", "temp_filt", ca)
         return result
 
     def _validate_cpxlks(
@@ -49245,7 +49256,7 @@ class PyGammaProxy(object):
         nlines: Optional[int] = None,
         r_start: Optional[int] = None,
         nsamp: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT cpxlks: Multilooking of complex valued image
@@ -49275,8 +49286,8 @@ class PyGammaProxy(object):
                 CMPLX, ML_CMPLX, width, rlks, azlks, start, nlines, r_start, nsamp
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.cpxlks))
-        result = self._gamma_call("LAT", "cpxlks", args)
+        ca = self._clean_args(locals(), inspect.signature(self.cpxlks))
+        result = self._gamma_call("LAT", "cpxlks", ca)
 
         assert ML_CMPLX.exists(), f"{ML_CMPLX} does not exist"
         assert ML_CMPLX.stat().st_size > 0, f"{ML_CMPLX} has zero file size"
@@ -49310,7 +49321,7 @@ class PyGammaProxy(object):
 
     def ras_to_rgb(
         self, ras_out: Path, LR: Optional[int] = None, null_flag: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program ras_to_rgb.c
@@ -49338,8 +49349,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ras_to_rgb_outputs(ras_out, LR, null_flag)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras_to_rgb))
-        result = self._gamma_call("LAT", "ras_to_rgb", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras_to_rgb))
+        result = self._gamma_call("LAT", "ras_to_rgb", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -49392,7 +49403,7 @@ class PyGammaProxy(object):
         pwr_out: Path,
         width: int,
         scale_factor: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT ave2pwr: Averaging of two co-registered intensity images
@@ -49414,8 +49425,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ave2pwr_outputs(pwr1, pwr2, pwr_out, width, scale_factor)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ave2pwr))
-        result = self._gamma_call("LAT", "ave2pwr", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ave2pwr))
+        result = self._gamma_call("LAT", "ave2pwr", ca)
 
         assert pwr_out.exists(), f"{pwr_out} does not exist"
         assert pwr_out.stat().st_size > 0, f"{pwr_out} has zero file size"
@@ -49496,7 +49507,7 @@ class PyGammaProxy(object):
         scale: Optional[float] = None,
         exp: Optional[float] = None,
         rasf: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/ras_m-chi
@@ -49533,8 +49544,8 @@ class PyGammaProxy(object):
                 s1, c1, c2, c3, width, start, nlines, pixavr, pixavaz, scale, exp, rasf
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras_m_chi))
-        result = self._gamma_call("LAT", "ras_m-chi", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras_m_chi))
+        result = self._gamma_call("LAT", "ras_m-chi", ca)
 
         if rasf is not None:
             assert rasf.exists(), f"{rasf} does not exist"
@@ -49573,7 +49584,7 @@ class PyGammaProxy(object):
 
     def sigma2gamma(
         self, sigma0: Path, inc: Path, gamma0: Path, width: int
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/sigma2gamma.c
@@ -49595,8 +49606,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_sigma2gamma_outputs(sigma0, inc, gamma0, width)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.sigma2gamma))
-        result = self._gamma_call("LAT", "sigma2gamma", args)
+        ca = self._clean_args(locals(), inspect.signature(self.sigma2gamma))
+        result = self._gamma_call("LAT", "sigma2gamma", ca)
 
         assert gamma0.exists(), f"{gamma0} does not exist"
         assert gamma0.stat().st_size > 0, f"{gamma0} has zero file size"
@@ -49645,7 +49656,7 @@ class PyGammaProxy(object):
         chip_width: Optional[int] = None,
         gap: Optional[int] = None,
         height: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program hsi_color_scale.c
@@ -49669,8 +49680,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_hsi_color_scale_outputs(file_out, nval, chip_width, gap, height)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.hsi_color_scale))
-        result = self._gamma_call("LAT", "hsi_color_scale", args)
+        ca = self._clean_args(locals(), inspect.signature(self.hsi_color_scale))
+        result = self._gamma_call("LAT", "hsi_color_scale", ca)
 
         assert file_out.exists(), f"{file_out} does not exist"
         assert file_out.stat().st_size > 0, f"{file_out} has zero file size"
@@ -49699,7 +49710,9 @@ class PyGammaProxy(object):
         if cpx is not None and str(cpx) != "-":
             cpx.touch()
 
-    def unw_to_cpx(self, unw: Path, cpx: Path, width: int) -> Tuple[int, str, str]:
+    def unw_to_cpx(
+        self, unw: Path, cpx: Path, width: int
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/unw_to_cpx.c
@@ -49719,8 +49732,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_unw_to_cpx_outputs(unw, cpx, width)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.unw_to_cpx))
-        result = self._gamma_call("LAT", "unw_to_cpx", args)
+        ca = self._clean_args(locals(), inspect.signature(self.unw_to_cpx))
+        result = self._gamma_call("LAT", "unw_to_cpx", ca)
 
         assert cpx.exists(), f"{cpx} does not exist"
         assert cpx.stat().st_size > 0, f"{cpx} has zero file size"
@@ -49750,7 +49763,7 @@ class PyGammaProxy(object):
 
     def polyx(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/polyx
@@ -49781,8 +49794,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_polyx_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.polyx))
-        result = self._gamma_call("LAT", "polyx", args)
+        ca = self._clean_args(locals(), inspect.signature(self.polyx))
+        result = self._gamma_call("LAT", "polyx", ca)
         return result
 
     def _validate_pauli(
@@ -49849,7 +49862,7 @@ class PyGammaProxy(object):
         SLC_VV_par: Path,
         SLC_HV_par: Path,
         P: Path,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate Pauli polarimetric decomposition from HH, VV, and HV SLC images
@@ -49880,8 +49893,8 @@ class PyGammaProxy(object):
                 SLC_HH, SLC_VV, SLC_HV, SLC_HH_par, SLC_VV_par, SLC_HV_par, P
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.pauli))
-        result = self._gamma_call("LAT", "pauli", args)
+        ca = self._clean_args(locals(), inspect.signature(self.pauli))
+        result = self._gamma_call("LAT", "pauli", ca)
 
         assert P.exists(), f"{P} does not exist"
         assert P.stat().st_size > 0, f"{P} has zero file size"
@@ -49930,7 +49943,7 @@ class PyGammaProxy(object):
 
     def m_alpha(
         self, s0: Path, m: Path, alpha: Path, S_par: Path, c1: Path, c3: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate m-alpha decomposition from Stokes parameters
@@ -49955,8 +49968,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_m_alpha_outputs(s0, m, alpha, S_par, c1, c3)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.m_alpha))
-        result = self._gamma_call("LAT", "m-alpha", args)
+        ca = self._clean_args(locals(), inspect.signature(self.m_alpha))
+        result = self._gamma_call("LAT", "m-alpha", ca)
 
         assert c1.exists(), f"{c1} does not exist"
         assert c1.stat().st_size > 0, f"{c1} has zero file size"
@@ -50039,7 +50052,7 @@ class PyGammaProxy(object):
         azlks: int,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate Stokes parameters from SLC images with H and V receive polarization and same transmit polarization
@@ -50078,8 +50091,8 @@ class PyGammaProxy(object):
                 SLC_1, SLC_2, SLC1_par, SLC2_par, S, S_par, rlks, azlks, loff, nlines
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.stokes))
-        result = self._gamma_call("LAT", "stokes", args)
+        ca = self._clean_args(locals(), inspect.signature(self.stokes))
+        result = self._gamma_call("LAT", "stokes", ca)
 
         assert S.exists(), f"{S} does not exist"
         assert S.stat().st_size > 0, f"{S} has zero file size"
@@ -50135,7 +50148,7 @@ class PyGammaProxy(object):
         lr_flag: Optional[int] = None,
         start: Optional[int] = None,
         stop: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/histogram_ras.c
@@ -50165,8 +50178,8 @@ class PyGammaProxy(object):
                 ras_in, polygon, histograms, percent, lr_flag, start, stop
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.histogram_ras))
-        result = self._gamma_call("LAT", "histogram_ras", args)
+        ca = self._clean_args(locals(), inspect.signature(self.histogram_ras))
+        result = self._gamma_call("LAT", "histogram_ras", ca)
         return result
 
     def _validate_product(
@@ -50218,7 +50231,7 @@ class PyGammaProxy(object):
         width: int,
         bx: Optional[int] = None,
         by: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/product
@@ -50246,8 +50259,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_product_outputs(data_1, data_2, product, width, bx, by)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.product))
-        result = self._gamma_call("LAT", "product", args)
+        ca = self._clean_args(locals(), inspect.signature(self.product))
+        result = self._gamma_call("LAT", "product", ca)
 
         assert product.exists(), f"{product} does not exist"
         assert product.stat().st_size > 0, f"{product} has zero file size"
@@ -50351,7 +50364,7 @@ class PyGammaProxy(object):
         filt_num: Optional[Path] = None,
         msr: Optional[Path] = None,
         ctr: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/mt_lee_filt_cpx
@@ -50409,8 +50422,8 @@ class PyGammaProxy(object):
                 ctr,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mt_lee_filt_cpx))
-        result = self._gamma_call("LAT", "mt_lee_filt_cpx", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mt_lee_filt_cpx))
+        result = self._gamma_call("LAT", "mt_lee_filt_cpx", ca)
 
         if ref_out is not None:
             assert ref_out.exists(), f"{ref_out} does not exist"
@@ -50518,7 +50531,7 @@ class PyGammaProxy(object):
         azlks: int,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate covariance matrix C elements from HH, HV, and VV SLC data
@@ -50573,8 +50586,8 @@ class PyGammaProxy(object):
                 nlines,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.polcovar))
-        result = self._gamma_call("LAT", "polcovar", args)
+        ca = self._clean_args(locals(), inspect.signature(self.polcovar))
+        result = self._gamma_call("LAT", "polcovar", ca)
 
         assert C.exists(), f"{C} does not exist"
         assert C.stat().st_size > 0, f"{C} has zero file size"
@@ -50715,7 +50728,7 @@ class PyGammaProxy(object):
         delta: Optional[Path] = None,
         alpha: Optional[Path] = None,
         phi: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate quantitative measures derived from Stokes parameters (e.g. degree of polarization)
@@ -50773,8 +50786,8 @@ class PyGammaProxy(object):
                 phi,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.stokes_qm))
-        result = self._gamma_call("LAT", "stokes_qm", args)
+        ca = self._clean_args(locals(), inspect.signature(self.stokes_qm))
+        result = self._gamma_call("LAT", "stokes_qm", ca)
 
         if m is not None:
             assert m.exists(), f"{m} does not exist"
@@ -50886,7 +50899,7 @@ class PyGammaProxy(object):
         all_flag: Optional[Path] = None,
         null_value: Optional[int] = None,
         frame_value: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT frame: Replace values near the image edges with a user-defined value
@@ -50957,8 +50970,8 @@ class PyGammaProxy(object):
                 frame_value,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.frame))
-        result = self._gamma_call("LAT", "frame", args)
+        ca = self._clean_args(locals(), inspect.signature(self.frame))
+        result = self._gamma_call("LAT", "frame", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -50988,7 +51001,7 @@ class PyGammaProxy(object):
 
     def looks(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/looks.c
@@ -51008,8 +51021,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_looks_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.looks))
-        result = self._gamma_call("LAT", "looks", args)
+        ca = self._clean_args(locals(), inspect.signature(self.looks))
+        result = self._gamma_call("LAT", "looks", ca)
         return result
 
     def _validate_polcoh(
@@ -51096,7 +51109,7 @@ class PyGammaProxy(object):
         azlks: int,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate coherence matrix T elements from Pauli decomposition alpha, beta, gamma
@@ -51151,8 +51164,8 @@ class PyGammaProxy(object):
                 nlines,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.polcoh))
-        result = self._gamma_call("LAT", "polcoh", args)
+        ca = self._clean_args(locals(), inspect.signature(self.polcoh))
+        result = self._gamma_call("LAT", "polcoh", ca)
 
         assert T.exists(), f"{T} does not exist"
         assert T.stat().st_size > 0, f"{T} has zero file size"
@@ -51232,7 +51245,7 @@ class PyGammaProxy(object):
         pixav_x: Optional[int] = None,
         pixav_y: Optional[int] = None,
         zero_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/lin_comb.c
@@ -51295,8 +51308,8 @@ class PyGammaProxy(object):
                 zero_flag,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.lin_comb))
-        result = self._gamma_call("LAT", "lin_comb", args)
+        ca = self._clean_args(locals(), inspect.signature(self.lin_comb))
+        result = self._gamma_call("LAT", "lin_comb", ca)
 
         assert f_out.exists(), f"{f_out} does not exist"
         assert f_out.stat().st_size > 0, f"{f_out} has zero file size"
@@ -51379,7 +51392,7 @@ class PyGammaProxy(object):
         pixav_y: Optional[int] = None,
         LR: Optional[int] = None,
         color_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program multi_class_mapping.c
@@ -51442,10 +51455,8 @@ class PyGammaProxy(object):
                 color_flag,
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.multi_class_mapping)
-        )
-        result = self._gamma_call("LAT", "multi_class_mapping", args)
+        ca = self._clean_args(locals(), inspect.signature(self.multi_class_mapping))
+        result = self._gamma_call("LAT", "multi_class_mapping", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -51498,7 +51509,7 @@ class PyGammaProxy(object):
         mode: Optional[int],
         pos: int,
         pr_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/takecut
@@ -51526,8 +51537,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_takecut_outputs(data_in, width, report, mode, pos, pr_flag)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.takecut))
-        result = self._gamma_call("LAT", "takecut", args)
+        ca = self._clean_args(locals(), inspect.signature(self.takecut))
+        result = self._gamma_call("LAT", "takecut", ca)
 
         assert report.exists(), f"{report} does not exist"
         assert report.stat().st_size > 0, f"{report} has zero file size"
@@ -51565,7 +51576,7 @@ class PyGammaProxy(object):
 
     def polyx_phase(
         self, data: Path, width: int, polygon: Path, report: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/polyx_phase
@@ -51587,8 +51598,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_polyx_phase_outputs(data, width, polygon, report)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.polyx_phase))
-        result = self._gamma_call("LAT", "polyx_phase", args)
+        ca = self._clean_args(locals(), inspect.signature(self.polyx_phase))
+        result = self._gamma_call("LAT", "polyx_phase", ca)
 
         assert report.exists(), f"{report} does not exist"
         assert report.stat().st_size > 0, f"{report} has zero file size"
@@ -51663,7 +51674,7 @@ class PyGammaProxy(object):
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
         norm_pow: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/temp_lin_var
@@ -51724,8 +51735,8 @@ class PyGammaProxy(object):
                 norm_pow,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.temp_lin_var))
-        result = self._gamma_call("LAT", "temp_lin_var", args)
+        ca = self._clean_args(locals(), inspect.signature(self.temp_lin_var))
+        result = self._gamma_call("LAT", "temp_lin_var", ca)
 
         assert mean.exists(), f"{mean} does not exist"
         assert mean.stat().st_size > 0, f"{mean} has zero file size"
@@ -51766,7 +51777,7 @@ class PyGammaProxy(object):
 
     def mask_op(
         self, mask_1: Path, mask_2: Path, mask_out: Path, mode: int
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Pixel based logical mask operations on a pixel by pixel basis
@@ -51790,8 +51801,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_mask_op_outputs(mask_1, mask_2, mask_out, mode)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.mask_op))
-        result = self._gamma_call("LAT", "mask_op", args)
+        ca = self._clean_args(locals(), inspect.signature(self.mask_op))
+        result = self._gamma_call("LAT", "mask_op", ca)
 
         assert mask_out.exists(), f"{mask_out} does not exist"
         assert mask_out.stat().st_size > 0, f"{mask_out} has zero file size"
@@ -51877,7 +51888,7 @@ class PyGammaProxy(object):
         SLC_VV_par: Path,
         CP: Path,
         TX_pol: int,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Synthesize Compact Polarization Data from quad-pol HH, VV, HV, VH SLC data
@@ -51934,8 +51945,8 @@ class PyGammaProxy(object):
                 TX_pol,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.quad2cp))
-        result = self._gamma_call("LAT", "quad2cp", args)
+        ca = self._clean_args(locals(), inspect.signature(self.quad2cp))
+        result = self._gamma_call("LAT", "quad2cp", ca)
 
         assert CP.exists(), f"{CP} does not exist"
         assert CP.stat().st_size > 0, f"{CP} has zero file size"
@@ -51965,7 +51976,7 @@ class PyGammaProxy(object):
 
     def poly_math(
         self,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/poly_math
@@ -51994,8 +52005,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_poly_math_outputs()
 
-        args = self._clean_call_args(locals(), inspect.signature(self.poly_math))
-        result = self._gamma_call("LAT", "poly_math", args)
+        ca = self._clean_args(locals(), inspect.signature(self.poly_math))
+        result = self._gamma_call("LAT", "poly_math", ca)
         return result
 
     def _validate_single_class_mapping(
@@ -52068,7 +52079,7 @@ class PyGammaProxy(object):
         pixav_x: Optional[int] = None,
         pixav_y: Optional[int] = None,
         LR: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program single_class_mapping.c
@@ -52129,10 +52140,8 @@ class PyGammaProxy(object):
                 LR,
             )
 
-        args = self._clean_call_args(
-            locals(), inspect.signature(self.single_class_mapping)
-        )
-        result = self._gamma_call("LAT", "single_class_mapping", args)
+        ca = self._clean_args(locals(), inspect.signature(self.single_class_mapping))
+        result = self._gamma_call("LAT", "single_class_mapping", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -52197,7 +52206,7 @@ class PyGammaProxy(object):
         b: Optional[int] = None,
         xs: Optional[int] = None,
         zflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT drawthat: Draw an arc, polygon, cross, or point on a SUN/BMP/TIFF raster image
@@ -52228,8 +52237,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_drawthat_outputs(ras_in, ras_out, pt_list, mode, r, g, b, xs, zflg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.drawthat))
-        result = self._gamma_call("LAT", "drawthat", args)
+        ca = self._clean_args(locals(), inspect.signature(self.drawthat))
+        result = self._gamma_call("LAT", "drawthat", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -52278,7 +52287,7 @@ class PyGammaProxy(object):
 
     def m_delta(
         self, s0: Path, m: Path, delta: Path, S_par: Path, c1: Path, c3: Path
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate m-delta decomposition from Stokes parameters
@@ -52301,8 +52310,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_m_delta_outputs(s0, m, delta, S_par, c1, c3)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.m_delta))
-        result = self._gamma_call("LAT", "m-delta", args)
+        ca = self._clean_args(locals(), inspect.signature(self.m_delta))
+        result = self._gamma_call("LAT", "m-delta", ca)
 
         assert c1.exists(), f"{c1} does not exist"
         assert c1.stat().st_size > 0, f"{c1} has zero file size"
@@ -52353,7 +52362,7 @@ class PyGammaProxy(object):
         zflag: Optional[int] = None,
         loffset: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/temp_filt_ad
@@ -52381,8 +52390,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_temp_filt_ad_outputs(data_tab, width, zflag, loffset, nlines)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.temp_filt_ad))
-        result = self._gamma_call("LAT", "temp_filt_ad", args)
+        ca = self._clean_args(locals(), inspect.signature(self.temp_filt_ad))
+        result = self._gamma_call("LAT", "temp_filt_ad", ca)
         return result
 
     def _validate_bm3d(
@@ -52449,7 +52458,7 @@ class PyGammaProxy(object):
         step: Optional[int] = None,
         d_max: Optional[int] = None,
         t1d: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Denoising using Block-Matching and 3D filtering (BM3D)
@@ -52519,8 +52528,8 @@ class PyGammaProxy(object):
                 t1d,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.bm3d))
-        result = self._gamma_call("LAT", "bm3d", args)
+        ca = self._clean_args(locals(), inspect.signature(self.bm3d))
+        result = self._gamma_call("LAT", "bm3d", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -52544,7 +52553,7 @@ class PyGammaProxy(object):
         """
         pass
 
-    def restore_float(self, width: int) -> Tuple[int, str, str]:
+    def restore_float(self, width: int) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/restore_float.c
@@ -52567,8 +52576,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_restore_float_outputs(width)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.restore_float))
-        result = self._gamma_call("LAT", "restore_float", args)
+        ca = self._clean_args(locals(), inspect.signature(self.restore_float))
+        result = self._gamma_call("LAT", "restore_float", ca)
         return result
 
     def _validate_haalpha(
@@ -52683,7 +52692,7 @@ class PyGammaProxy(object):
         azlks: int,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/haalpha
@@ -52745,8 +52754,8 @@ class PyGammaProxy(object):
                 nlines,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.haalpha))
-        result = self._gamma_call("LAT", "haalpha", args)
+        ca = self._clean_args(locals(), inspect.signature(self.haalpha))
+        result = self._gamma_call("LAT", "haalpha", ca)
 
         if alpha is not None:
             assert alpha.exists(), f"{alpha} does not exist"
@@ -52849,7 +52858,7 @@ class PyGammaProxy(object):
         azlks: int,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Calculate Wolf coherence matrix from H and V polarized SLC images
@@ -52880,8 +52889,8 @@ class PyGammaProxy(object):
                 SLC_1, SLC_2, SLC1_par, SLC2_par, J, J_par, rlks, azlks, loff, nlines
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.wolf))
-        result = self._gamma_call("LAT", "wolf", args)
+        ca = self._clean_args(locals(), inspect.signature(self.wolf))
+        result = self._gamma_call("LAT", "wolf", ca)
 
         assert J.exists(), f"{J} does not exist"
         assert J.stat().st_size > 0, f"{J} has zero file size"
@@ -52937,7 +52946,7 @@ class PyGammaProxy(object):
         polygon: int,
         mode: Optional[Path] = None,
         dtype: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/poly_mask
@@ -52971,8 +52980,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_poly_mask_outputs(data_in, data_out, width, polygon, mode, dtype)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.poly_mask))
-        result = self._gamma_call("LAT", "poly_mask", args)
+        ca = self._clean_args(locals(), inspect.signature(self.poly_mask))
+        result = self._gamma_call("LAT", "poly_mask", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -53025,7 +53034,7 @@ class PyGammaProxy(object):
         nlooks: int,
         bx: int,
         by: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program lee.c
@@ -53049,8 +53058,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_lee_outputs(input_data, output_data, width, nlooks, bx, by)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.lee))
-        result = self._gamma_call("LAT", "lee", args)
+        ca = self._clean_args(locals(), inspect.signature(self.lee))
+        result = self._gamma_call("LAT", "lee", ca)
 
         assert output_data.exists(), f"{output_data} does not exist"
         assert output_data.stat().st_size > 0, f"{output_data} has zero file size"
@@ -53106,7 +53115,7 @@ class PyGammaProxy(object):
         damp: int,
         bx: int,
         by: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT enh_lee: Enhanced Lee Filter (Lopes et al., 1990)
@@ -53132,8 +53141,8 @@ class PyGammaProxy(object):
                 input_data, output_data, width, nlooks, damp, bx, by
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.enh_lee))
-        result = self._gamma_call("LAT", "enh_lee", args)
+        ca = self._clean_args(locals(), inspect.signature(self.enh_lee))
+        result = self._gamma_call("LAT", "enh_lee", ca)
 
         assert output_data.exists(), f"{output_data} does not exist"
         assert output_data.stat().st_size > 0, f"{output_data} has zero file size"
@@ -53189,7 +53198,7 @@ class PyGammaProxy(object):
         width: int,
         bx: Optional[int] = None,
         by: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT ratio: Estimate ratio of image data values: d1/d2 (float data)
@@ -53216,8 +53225,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ratio_outputs(d1, d2, ratio, width, bx, by)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ratio))
-        result = self._gamma_call("LAT", "ratio", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ratio))
+        result = self._gamma_call("LAT", "ratio", ca)
 
         assert ratio.exists(), f"{ratio} does not exist"
         assert ratio.stat().st_size > 0, f"{ratio} has zero file size"
@@ -53304,7 +53313,7 @@ class PyGammaProxy(object):
         wgt_flag: Optional[int] = None,
         loff: Optional[int] = None,
         nl: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT cc_ad: Adaptive coherence estimation with consideration of phase slope and texture
@@ -53361,8 +53370,8 @@ class PyGammaProxy(object):
                 nl,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.cc_ad))
-        result = self._gamma_call("LAT", "cc_ad", args)
+        ca = self._clean_args(locals(), inspect.signature(self.cc_ad))
+        result = self._gamma_call("LAT", "cc_ad", ca)
 
         assert cc_ad.exists(), f"{cc_ad} does not exist"
         assert cc_ad.stat().st_size > 0, f"{cc_ad} has zero file size"
@@ -53448,7 +53457,7 @@ class PyGammaProxy(object):
         pixav_x: Optional[int] = None,
         pixav_y: Optional[int] = None,
         zero_flag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/lin_comb_cpx.c
@@ -53520,8 +53529,8 @@ class PyGammaProxy(object):
                 zero_flag,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.lin_comb_cpx))
-        result = self._gamma_call("LAT", "lin_comb_cpx", args)
+        ca = self._clean_args(locals(), inspect.signature(self.lin_comb_cpx))
+        result = self._gamma_call("LAT", "lin_comb_cpx", ca)
 
         assert f_out.exists(), f"{f_out} does not exist"
         assert f_out.stat().st_size > 0, f"{f_out} has zero file size"
@@ -53577,7 +53586,7 @@ class PyGammaProxy(object):
         by: Optional[int] = None,
         min_pt: Optional[int] = None,
         zflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program median_filter.c
@@ -53604,8 +53613,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_median_filter_outputs(din, dout, width, bx, by, min_pt, zflg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.median_filter))
-        result = self._gamma_call("LAT", "median_filter", args)
+        ca = self._clean_args(locals(), inspect.signature(self.median_filter))
+        result = self._gamma_call("LAT", "median_filter", ca)
 
         assert dout.exists(), f"{dout} does not exist"
         assert dout.stat().st_size > 0, f"{dout} has zero file size"
@@ -53676,7 +53685,7 @@ class PyGammaProxy(object):
         pixav_x: Optional[int] = None,
         pixav_y: Optional[int] = None,
         LR: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT cc_monitoring: Classification based on multiple input files using single threshold
@@ -53729,8 +53738,8 @@ class PyGammaProxy(object):
                 LR,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.cc_monitoring))
-        result = self._gamma_call("LAT", "cc_monitoring", args)
+        ca = self._clean_args(locals(), inspect.signature(self.cc_monitoring))
+        result = self._gamma_call("LAT", "cc_monitoring", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -53802,7 +53811,7 @@ class PyGammaProxy(object):
         zflag: Optional[int] = None,
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/temp_log_var
@@ -53840,8 +53849,8 @@ class PyGammaProxy(object):
                 data_tab, mean, stdev, width, wy, wx, wt_flag, zflag, loff, nlines
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.temp_log_var))
-        result = self._gamma_call("LAT", "temp_log_var", args)
+        ca = self._clean_args(locals(), inspect.signature(self.temp_log_var))
+        result = self._gamma_call("LAT", "temp_log_var", ca)
 
         assert mean.exists(), f"{mean} does not exist"
         assert mean.stat().st_size > 0, f"{mean} has zero file size"
@@ -53903,7 +53912,7 @@ class PyGammaProxy(object):
         ras_out: Path,
         LR: Optional[int] = None,
         cflg: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program ras_to_hsi.c
@@ -53930,8 +53939,8 @@ class PyGammaProxy(object):
         if self.mock_outputs:
             self._mock_ras_to_hsi_outputs(HUE, SATURATION, INTENSITY, ras_out, LR, cflg)
 
-        args = self._clean_call_args(locals(), inspect.signature(self.ras_to_hsi))
-        result = self._gamma_call("LAT", "ras_to_hsi", args)
+        ca = self._clean_args(locals(), inspect.signature(self.ras_to_hsi))
+        result = self._gamma_call("LAT", "ras_to_hsi", ca)
 
         assert ras_out.exists(), f"{ras_out} does not exist"
         assert ras_out.stat().st_size > 0, f"{ras_out} has zero file size"
@@ -54020,7 +54029,7 @@ class PyGammaProxy(object):
         seg_out: Optional[Path] = None,
         line_filt: Optional[int] = None,
         max_line_std: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Detection of edges in an image using a Canny edge detector - extraction of line segments
@@ -54096,8 +54105,8 @@ class PyGammaProxy(object):
                 max_line_std,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.edge_detection))
-        result = self._gamma_call("LAT", "edge_detection", args)
+        ca = self._clean_args(locals(), inspect.signature(self.edge_detection))
+        result = self._gamma_call("LAT", "edge_detection", ca)
 
         assert data_out.exists(), f"{data_out} does not exist"
         assert data_out.stat().st_size > 0, f"{data_out} has zero file size"
@@ -54170,7 +54179,7 @@ class PyGammaProxy(object):
         r_looks: Optional[int] = None,
         az_looks: Optional[int] = None,
         data_in_mean: Optional[Path] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: Program texture.c
@@ -54226,8 +54235,8 @@ class PyGammaProxy(object):
                 data_in_mean,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.texture))
-        result = self._gamma_call("LAT", "texture", args)
+        ca = self._clean_args(locals(), inspect.signature(self.texture))
+        result = self._gamma_call("LAT", "texture", ca)
 
         assert texture.exists(), f"{texture} does not exist"
         assert texture.stat().st_size > 0, f"{texture} has zero file size"
@@ -54311,7 +54320,7 @@ class PyGammaProxy(object):
         loff: Optional[int] = None,
         nlines: Optional[int] = None,
         scale: Optional[float] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         LAT diplane_helix: Calculate Helix and Diplane composition from RR and LL circular components
@@ -54343,8 +54352,8 @@ class PyGammaProxy(object):
                 LL, RR, SLC_par, diplane, helix, MLI_par, rlks, azlks, loff, nlines, scale
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.diplane_helix))
-        result = self._gamma_call("LAT", "diplane_helix", args)
+        ca = self._clean_args(locals(), inspect.signature(self.diplane_helix))
+        result = self._gamma_call("LAT", "diplane_helix", ca)
 
         assert diplane.exists(), f"{diplane} does not exist"
         assert diplane.stat().st_size > 0, f"{diplane} has zero file size"
@@ -54424,7 +54433,7 @@ class PyGammaProxy(object):
         nr: Optional[int] = None,
         nl: Optional[int] = None,
         zflag: Optional[int] = None,
-    ) -> Tuple[int, str, str]:
+    ) -> Tuple[int, List[str], List[str]]:
         """
 
         Land Application Tools: /Users/daleroberts/Work/GAMMA_SOFTWARE-20221129/LAT/bin/lin_comb_ref.c
@@ -54482,8 +54491,8 @@ class PyGammaProxy(object):
                 zflag,
             )
 
-        args = self._clean_call_args(locals(), inspect.signature(self.lin_comb_ref))
-        result = self._gamma_call("LAT", "lin_comb_ref", args)
+        ca = self._clean_args(locals(), inspect.signature(self.lin_comb_ref))
+        result = self._gamma_call("LAT", "lin_comb_ref", ca)
 
         assert f_out.exists(), f"{f_out} does not exist"
         assert f_out.stat().st_size > 0, f"{f_out} has zero file size"

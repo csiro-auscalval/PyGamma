@@ -1,9 +1,10 @@
 from os import path
-from typing import Union
+from typing import Union, Any
 from pathlib import Path
 
 from insar.project import ProcConfig
 from insar.stack import load_stack_config
+from insar.logs import STATUS_LOGGER as LOG
 
 
 class DEMPaths:
@@ -126,10 +127,9 @@ class DEMPaths:
 
         self.dem = (proc.output_path / proc.gamma_dem_dir / proc.stack_id).with_suffix(".dem")
         self.dem_par = self.dem.with_suffix(".dem.par")
-        self.dem_primary_name = "{}_{}_{}rlks".format(
-            str(proc.ref_primary_scene), str(proc.polarisation), str(proc.range_looks)
-        )
-        self.dem_primary_name = proc.output_path / proc.dem_dir / self.dem_primary_name
+
+        fn = "{}_{}_{}rlks".format(str(proc.ref_primary_scene), str(proc.polarisation), str(proc.range_looks))
+        self.dem_primary_name = proc.output_path / proc.dem_dir / fn
         dmn = self.dem_primary_name
 
         self.dem_diff = dmn.parent / ("diff_" + dmn.name + ".par")
@@ -158,3 +158,16 @@ class DEMPaths:
         self.dem_coffsets = dmn.with_suffix(".coffsets")
         self.dem_lv_theta = dmn.parent / (dmn.name + "_geo.lv_theta")
         self.dem_lv_phi = dmn.parent / (dmn.name + "_geo.lv_phi")
+
+    def __getattr__(self, name: str) -> Any:
+        attr = self.__getattribute__(name)
+        if isinstance(attr, Path):
+            # Force to always return absolute paths
+            return attr.absolute()
+        else:
+            return attr
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if isinstance(value, str):
+            LOG.error(f"Trying to set {name}={value} as a 'str' instead of a 'Path' object")
+        super().__setattr__(name, value)

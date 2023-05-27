@@ -1,9 +1,11 @@
+import subprocess
 import shutil
+import math
 import io
 
 import insar.constant as const
 
-from typing import Union, Tuple, Optional
+from typing import Union, Tuple, Optional, Any
 from pathlib import Path
 
 from insar.project import ProcConfig
@@ -15,6 +17,7 @@ from insar.gamma.proxy import create_gamma_proxy
 from insar.subprocess_utils import working_directory
 from insar.process_utils import convert
 from insar.logs import STATUS_LOGGER as LOG
+from insar.utils import TemporaryDirectory
 
 
 class ProcessIfgException(Exception):
@@ -31,37 +34,75 @@ class TempFilePaths:
     Keeps file naming concerns separate to the processing details.
     """
 
-    __slots__ = [
-        "ifg_flat10_unw",
-        "ifg_flat1_unw",
-        "ifg_flat_diff_int_unw",
-        "unwrapped_filtered_ifg",
-        "geocode_unwrapped_ifg",
-        "geocode_flat_ifg",
-        "geocode_flat_ifg_cpx",
-        "geocode_filt_ifg",
-        "geocode_filt_ifg_cpx",
-        "geocode_flat_coherence_file",
-        "geocode_filt_coherence_file",
-    ]
+    ifg_flat10_unw: Path
+    ifg_flat1_unw: Path
+    ifg_flat_diff_int_unw: Path
+    unwrapped_filtered_ifg: Path
+    geocode_unwrapped_ifg: Path
+    geocode_flat_ifg: Path
+    geocode_flat_ifg_cpx: Path
+    geocode_filt_ifg: Path
+    geocode_filt_ifg_cpx: Path
+    geocode_flat_coherence_file: Path
+    geocode_filt_coherence_file: Path
 
     def __init__(self, ic: InterferogramPaths) -> None:
+        ifg_dir = ic.ifg_dir
+
         # set temp file paths for flattening step
         self.ifg_flat10_unw = append_suffix(ic.ifg_flat10, "_int_unw")
         self.ifg_flat1_unw = append_suffix(ic.ifg_flat1, "_int_unw")
         self.ifg_flat_diff_int_unw = append_suffix(ic.ifg_flat, "_int1_unw")
 
         # unw thinning step
-        self.unwrapped_filtered_ifg = Path("unwrapped_filtered_ifg.tmp")
+        self.unwrapped_filtered_ifg = ifg_dir / "unwrapped_filtered_ifg.tmp"
 
         # temp files from geocoding step
-        self.geocode_unwrapped_ifg = Path("geocode_unw_ifg.tmp")
-        self.geocode_flat_ifg = Path("geocode_flat_ifg.tmp")
-        self.geocode_flat_ifg_cpx = Path("geocode_flat_ifg_cpx.tmp")
-        self.geocode_filt_ifg = Path("geocode_filt_ifg.tmp")
-        self.geocode_filt_ifg_cpx = Path("geocode_filt_ifg_cpx.tmp")
-        self.geocode_flat_coherence_file = Path("geocode_flat_coherence_file.tmp.bmp")
-        self.geocode_filt_coherence_file = Path("geocode_filt_coherence_file.tmp.bmp")
+        self.geocode_unwrapped_ifg = ifg_dir / "geocode_unw_ifg.tmp"
+        self.geocode_flat_ifg = ifg_dir / "geocode_flat_ifg.tmp"
+        self.geocode_flat_ifg_cpx = ifg_dir / "geocode_flat_ifg_cpx.tmp"
+        self.geocode_filt_ifg = ifg_dir / "geocode_filt_ifg.tmp"
+        self.geocode_filt_ifg_cpx = ifg_dir / "geocode_filt_ifg_cpx.tmp"
+        self.geocode_flat_coherence_file = ifg_dir / "geocode_flat_coherence_file.tmp.bmp"
+        self.geocode_filt_coherence_file = ifg_dir / "geocode_filt_coherence_file.tmp.bmp"
+
+    def __getattr__(self, name: str) -> Any:
+        attr = self.__getattribute__(name)
+        if isinstance(attr, Path):
+            # Force to always return absolute paths
+            return attr.absolute()
+        else:
+            return attr
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if isinstance(value, str):
+            LOG.error(f"Trying to set {name}={value} as a 'str' instead of a 'Path' object")
+        super().__setattr__(name, value)
+
+
+def quicklook_real(
+    srcfn: Path,
+    width: int,
+    dstfn: Optional[Path] = None,
+    pixavx: int = 20,
+    pixavy: int = 20,
+    min: float = -math.pi,
+    max: float = math.pi,
+    cmap: str = "viridis",
+) -> Path:
+
+    if dstfn is None:
+        dstfn = srcfn.with_suffix(".png").absolute()
+
+    with TemporaryDirectory() as tmpdir:
+
+        tmpbmp = tmpdir / "tmp.bmp"
+
+        pg.ras_linear(srcfn, width, None, None, pixavx, pixavy, min, max, 1, Path(cmap).with_suffix(".cm"), tmpbmp, 0)
+
+        subprocess.run(f"convert {tmpbmp} {dstfn}", shell=True)
+
+    return dstfn
 
 
 def run_workflow(
@@ -73,16 +114,17 @@ def run_workflow(
     enable_refinement: bool = False,
     land_center_latlon: Optional[Tuple[float, float]] = None,
 ) -> None:
-    # Re-bind thread local context to IFG processing state
-    LOG.info("Running IFG workflow", ifg_width=int(ifg_width))
+
+    LOG.info(f"Running IFG workflow with ifg_width={ifg_width}")
 
     if not ic.ifg_dir.exists():
+        LOG.debug(f"Creating directory {str(ic.ifg_dir)}")
         ic.ifg_dir.mkdir(parents=True)
 
     with working_directory(ic.ifg_dir):
+
         validate_ifg_input_files(ic)
 
-        # Get land center pixel coordinates
         land_center_px = None
         if land_center_latlon:
             land_center_px = latlon_to_px(pg, ic.r_secondary_mli_par, *land_center_latlon)
@@ -93,16 +135,34 @@ def run_workflow(
         calc_int(pc, ic)
         ifg_file = initial_flattened_ifg(pc, ic, dc)
 
-        # Note: These are not needed for Sentinel-1 processing
         if enable_refinement:
+            LOG.debug("Performing refinement steps...")
+
+            # Note: These are not needed for Sentinel-1 processing
+
             ifg_file = refined_flattened_ifg(pc, ic, dc, ifg_file)
             ifg_file = precise_flattened_ifg(pc, ic, dc, tc, ifg_file, ifg_width, land_center_px)
+
         else:
+            LOG.debug("No refinement steps needed, just copying files")
+
+            LOG.debug(f"Copying {ic.ifg_base_init} to {ic.ifg_base}")
             shutil.copy(ic.ifg_base_init, ic.ifg_base)
+
+            LOG.debug(f"Copying {ifg_file} to {ic.ifg_flat}")
             shutil.copy(ifg_file, ic.ifg_flat)
 
         calc_bperp_coh_filt(pc, ic, ifg_file, ic.ifg_base, ifg_width)
-        calc_unw(pc, ic, tc, ifg_width, land_center_px)  # this calls unw thinning
+
+        try:
+
+            if pc.multi_look > 1:  # Fails if multi_look == 1, so let's skip the pain of waiting...
+                LOG.debug(f"Attempting to unwinded output with width={ifg_width} and land_center={land_center_px}")
+                calc_unw(pc, ic, tc, ifg_width, land_center_px)
+
+        except ProcessIfgException:
+            LOG.error("Failed to unwind the interferogram")
+
         do_geocode(pc, ic, dc, tc, ifg_width)
 
 
@@ -144,7 +204,7 @@ def get_ifg_width(r_primary_mli_par: io.IOBase) -> int:
     raise ProcessIfgException(msg.format(const.MatchStrings.SLC_RANGE_SAMPLES.value))
 
 
-def calc_int(pc: ProcConfig, ic: InterferogramPaths):
+def calc_int(pc: ProcConfig, ic: InterferogramPaths) -> None:
     """
     Perform InSAR INT processing step.
     :param pc: ProcConfig settings obj
@@ -198,7 +258,7 @@ def calc_int(pc: ProcConfig, ic: InterferogramPaths):
     )
 
 
-def initial_flattened_ifg(pc: ProcConfig, ic: InterferogramPaths, dc: DEMPaths):
+def initial_flattened_ifg(pc: ProcConfig, ic: InterferogramPaths, dc: DEMPaths) -> Path:
     """
     Generate initial flattened interferogram by:
         i) calculating initial baseline model using orbit state vectors;
@@ -209,18 +269,23 @@ def initial_flattened_ifg(pc: ProcConfig, ic: InterferogramPaths, dc: DEMPaths):
     :param dc: DEMPaths obj
     :returns: The path to the ifg produced
     """
+    LOG.info(f"Generating initial flattened interferogram")
 
-    # calculate initial baseline of interferogram using the annotated orbital state vectors
+    LOG.debug("Calculate initial baseline of interferogram using the annotated orbital state vectors")
+
     # the baseline is the spatial distance between the two satellite positions at the time of
     # acquisition of first and second images.
+
     pg.base_orbit(
         ic.r_primary_slc_par,
         ic.r_secondary_slc_par,
         ic.ifg_base_init,
     )
 
-    # Simulate phase from the DEM & linear baseline model
+    LOG.debug("Simulate phase from the DEM & linear baseline model")
+
     # linear baseline model may be inadequate for longer scenes, in which case use phase_sim_orb
+
     pg.phase_sim_orb(
         ic.r_primary_slc_par,
         ic.r_secondary_slc_par,
@@ -234,9 +299,11 @@ def initial_flattened_ifg(pc: ProcConfig, ic: InterferogramPaths, dc: DEMPaths):
         const.PHASE_OFFSET_MODE_SUBTRACT_PHASE,
     )
 
-    # Calculate initial flattened interferogram (baselines from orbit)
+    LOG.debug("Calculate initial flattened interferogram (baselines from orbit)")
+
     # Multi-look complex interferogram generation from co-registered SLC data and a simulated
     # interferogram derived from a DEM.
+
     pg.SLC_diff_intf(
         ic.r_primary_slc,
         ic.r_secondary_slc,
@@ -254,10 +321,12 @@ def initial_flattened_ifg(pc: ProcConfig, ic: InterferogramPaths, dc: DEMPaths):
         const.SLC_2_RANGE_PHASE_MODE_REF_FUNCTION_CENTRE,
     )
 
+    LOG.debug("Finished generating initial interferogram")
+
     return ic.ifg_flat0
 
 
-def refined_flattened_ifg(pc: ProcConfig, ic: InterferogramPaths, dc: DEMPaths, ifg_file: Path):
+def refined_flattened_ifg(pc: ProcConfig, ic: InterferogramPaths, dc: DEMPaths, ifg_file: Path) -> Path:
     """
     Generate refined flattened interferogram by:
         i) refining the initial baseline model by analysing the fringe rate in initial flattened interferogram;
@@ -268,7 +337,8 @@ def refined_flattened_ifg(pc: ProcConfig, ic: InterferogramPaths, dc: DEMPaths, 
     :param dc: DEMPaths obj
     :returns: The path to the ifg produced
     """
-    # Estimate residual baseline from the fringe rate of differential interferogram (using FFT)
+    LOG.debug(f"Estimate residual baseline from the fringe rate of differential interferogram (using FFT)")
+
     pg.base_init(
         ic.r_primary_slc_par,
         const.NOT_PROVIDED,
@@ -332,7 +402,7 @@ def precise_flattened_ifg(
     ifg_file: Path,
     ifg_width: int,
     land_center: Optional[Tuple[int, int]] = None,
-):
+) -> Path:
     """
     Generate precise flattened interferogram by:
         i) identify ground control points (GCP's) in regions of high coherence;
@@ -347,7 +417,12 @@ def precise_flattened_ifg(
     :param ifg_width:
     :returns: The path to the ifg produced
     """
-    # multi-look the flattened interferogram 10 times
+    LOG.info("** Starting precise_flattened_ifg(...)")
+
+    LOG.debug(
+        f"Multilook the flattened interferogram {ifg_file} to produce {ic.ifg_flat10} with NUM_RANGE_LOOKS={const.NUM_RANGE_LOOKS} and NUM_AZIMUTH_LOOKS={const.NUM_AZIMUTH_LOOKS}"
+    )
+
     pg.multi_cpx(
         ifg_file,
         ic.ifg_off,
@@ -355,13 +430,14 @@ def precise_flattened_ifg(
         ic.ifg_off10,
         const.NUM_RANGE_LOOKS,
         const.NUM_AZIMUTH_LOOKS,
-        const.NOT_PROVIDED,  # line offset
+        const.NOT_PROVIDED,
         const.DISPLAY_TO_EOF,
     )
 
     width10 = get_width10(ic.ifg_off10)
 
-    # Generate coherence image
+    LOG.debug("Generate the coherence image {ic.ifg_flat_coh10} using cc_wave")
+
     pg.cc_wave(
         ic.ifg_flat10,
         const.NOT_PROVIDED,
@@ -373,23 +449,26 @@ def precise_flattened_ifg(
         const.ESTIMATION_WINDOW_TRIANGULAR,
     )
 
-    # Generate validity mask with high coherence threshold for unwrapping
+    LOG.debug(
+        f"Generate validity mask {ic.ifg_float_coh10_mask} with coherence threshold MASKING_COHERENCE_THRESHOLD={const.MASKING_COHERENCE_THRESHOLD}"
+    )
+
     pg.rascc_mask(
         ic.ifg_flat_coh10,
         const.NOT_PROVIDED,
         width10,
-        const.NOT_PROVIDED,  # start_cc
-        const.NOT_PROVIDED,  # start_pwr
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
         const.DISPLAY_TO_EOF,
-        const.NOT_PROVIDED,  # pixavr
-        const.NOT_PROVIDED,  # pixavaz
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
         const.MASKING_COHERENCE_THRESHOLD,
-        const.NOT_PROVIDED,  # pwr_thresh
-        const.NOT_PROVIDED,  # cc_min
-        const.MASKING_COHERENCE_THRESHOLD,  # cc_max
-        const.NOT_PROVIDED,  # scale
-        const.NOT_PROVIDED,  # exp
-        const.NOT_PROVIDED,  # left_right_flipping
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
+        const.MASKING_COHERENCE_THRESHOLD,
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
         ic.ifg_flat_coh10_mask,
     )
 
@@ -398,9 +477,10 @@ def precise_flattened_ifg(
     az_init = const.NOT_PROVIDED
 
     if land_center is not None:
-        # divided by multilook, as that's what ifg_flat10 is
         r_init = int(land_center[0] / const.NUM_RANGE_LOOKS + 0.5)
+        LOG.debug(f"land_center defined so setting r_init={r_init} in mcf")
         az_init = int(land_center[1] / const.NUM_AZIMUTH_LOOKS + 0.5)
+        LOG.debug(f"land_center defined so setting az_init={az_init} in mcf")
 
     pg.mcf(
         ic.ifg_flat10,
@@ -550,23 +630,27 @@ def precise_flattened_ifg(
     return ic.ifg_flat
 
 
-def get_width10(ifg_off10_path: Path):
+def get_width10(ifg_off10_path: Path) -> int:
     """
     Return range/sample width from ifg_off10
     :param ifg_off10_path: Path type obj
     :return: width as integer
     """
+
     with ifg_off10_path.open() as f:
         for line in f.readlines():
             if const.MatchStrings.IFG_RANGE_SAMPLES.value in line:
                 _, value = line.split()
+                LOG.debug(f"Obtaining width of {value} from {ifg_off10_path}")
                 return int(value)
 
     msg = 'Cannot locate "{}" value in ifg offsets10 file'
     raise ProcessIfgException(msg.format(const.MatchStrings.IFG_RANGE_SAMPLES.value))
 
 
-def calc_bperp_coh_filt(pc: ProcConfig, ic: InterferogramPaths, ifg_file: Path, ifg_baseline: Path, ifg_width: int):
+def calc_bperp_coh_filt(
+    pc: ProcConfig, ic: InterferogramPaths, ifg_file: Path, ifg_baseline: Path, ifg_width: int
+) -> None:
     """
     Calculate:
         i) perpendicular baselines from baseline model;
@@ -579,6 +663,7 @@ def calc_bperp_coh_filt(pc: ProcConfig, ic: InterferogramPaths, ifg_file: Path, 
     :param ifg_width:
     :return:
     """
+    LOG.debug("* Starting calc_bperp_cog_filt(...)")
 
     # Three flattened interferogram functions:
     # A = initial; B = refined; C = precise
@@ -589,15 +674,18 @@ def calc_bperp_coh_filt(pc: ProcConfig, ic: InterferogramPaths, ifg_file: Path, 
     # iii) A + B + C
     #
     # ifg_file should point to the appropriate output depending on what combination was run
+
     if not ifg_file.exists():
         msg = f"cannot locate interferogram: {ifg_file}"
         LOG.error(msg, missing_file=ifg_file)
         raise ProcessIfgException(msg)
 
-    # Calculate perpendicular baselines
+    LOG.debug("Calculating perpendicular baselines")
+
     _, cout, _ = pg.base_perp(ifg_baseline, ic.r_primary_slc_par, ic.ifg_off)
 
-    # copy content to bperp file instead of rerunning EXE (like the old Bash code)
+    LOG.debug(f"Copying output to bperp file {ic.ifg_bperp} instead of rerunning base_perp")
+
     try:
         with ic.ifg_bperp.open("w") as f:
             f.writelines(cout)
@@ -606,20 +694,23 @@ def calc_bperp_coh_filt(pc: ProcConfig, ic: InterferogramPaths, ifg_file: Path, 
         LOG.error(msg, exception=str(ex))
         raise ex
 
-    # calculate coherence of flattened interferogram
+    LOG.debug(f"Generating coherence of flattened interferogram {ifg_file} and storing in {ic.ifg_flat_coh}")
+
     # MG: WE SHOULD THINK CAREFULLY ABOUT THE WINDOW AND WEIGHTING PARAMETERS, PERHAPS BY PERFORMING COHERENCE OPTIMISATION
+
     pg.cc_wave(
-        ifg_file,  # normalised complex interferogram
-        ic.r_primary_mli,  # multi-look intensity image of the first scene (float)
-        ic.r_secondary_mli,  # multi-look intensity image of the second scene (float)
-        ic.ifg_flat_coh,  # interferometric correlation coefficient (float)
-        ifg_width,  # number of samples/line
-        pc.ifg_coherence_window,  # estimation window size in columns
-        pc.ifg_coherence_window,  # estimation window size in lines
-        const.ESTIMATION_WINDOW_TRIANGULAR,  # estimation window "shape/style"
+        ifg_file,
+        ic.r_primary_mli,
+        ic.r_secondary_mli,
+        ic.ifg_flat_coh,
+        ifg_width,
+        pc.ifg_coherence_window,
+        pc.ifg_coherence_window,
+        const.ESTIMATION_WINDOW_TRIANGULAR,
     )
 
-    # Smooth the flattened interferogram using a Goldstein-Werner filter
+    LOG.debug(f"Smoothing the flattened interferogram {ifg_file} using a Goldstein-Werner filter and saving in {ic.ifg_filt}")
+
     pg.adf(
         ifg_file,
         ic.ifg_filt,
@@ -627,11 +718,11 @@ def calc_bperp_coh_filt(pc: ProcConfig, ic: InterferogramPaths, ifg_file: Path, 
         ifg_width,
         pc.ifg_exponent,
         pc.ifg_filtering_window,
-        const.NOT_PROVIDED,  # cc_win
-        const.NOT_PROVIDED,  # step
-        const.NOT_PROVIDED,  # loff
-        const.NOT_PROVIDED,  # nlines
-        const.NOT_PROVIDED,  # minimum fraction of points required to be non-zero in the filter window (default=0.700)
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
     )
 
 
@@ -643,7 +734,8 @@ def calc_unw(
     land_center: Optional[Tuple[int, int]] = None,
 ) -> None:
     """
-    TODO: docs, does unw == unwrapped/unwrapping?
+    Generate the unwrapped outputs using the MCF algorithm.
+
     :param pc: ProcConfig obj
     :param ic: InterferogramPaths obj
     :param tc: TempFileConfig obj
@@ -656,7 +748,7 @@ def calc_unw(
         raise ProcessIfgException(msg)
 
     pg.rascc_mask(
-        str(ic.ifg_filt_coh),  # <cc> coherence image (float)
+        ic.ifg_filt_coh,  # <cc> coherence image (float)
         const.NOT_PROVIDED,  # <pwr> intensity image (float)
         ifg_width,  # number of samples/row
         const.RASCC_MASK_DEFAULT_COHERENCE_STARTING_LINE,
@@ -671,7 +763,7 @@ def calc_unw(
         const.NOT_PROVIDED,  # [scale] intensity image display scale factor
         const.NOT_PROVIDED,  # [exp] intensity display exponent
         const.LEFT_RIGHT_FLIPPING_NORMAL,  # [LR] left/right flipping flag
-        str(ic.ifg_mask),  # [rasf] (output) validity mask
+        ic.ifg_mask,  # [rasf] (output) validity mask
     )
 
     if const.RASCC_MIN_THINNING_THRESHOLD <= int(pc.multi_look) <= const.RASCC_THINNING_THRESHOLD:
@@ -692,10 +784,10 @@ def calc_unw(
     if pc.ifg_unw_mask.lower() == const.YES:
         LOG.debug("Mask unwrapped interferogram for low coherence areas below threshold")
         pg.mask_data(
-            str(unwrapped_tmp),  # input file
+            unwrapped_tmp,  # input file
             ifg_width,
-            str(ic.ifg_unw),  # output file
-            str(ic.ifg_mask),
+            ic.ifg_unw,  # output file
+            ic.ifg_mask,
             const.DTYPE_FLOAT,
         )
         remove_files(unwrapped_tmp)
@@ -792,10 +884,11 @@ def do_geocode(
     dc: DEMPaths,
     tc: TempFilePaths,
     ifg_width: int,
-    dtype_out: int = const.DTYPE_GEOTIFF_FLOAT,
-):
+    dtype_out: int = const.DTYPE_FCOMPLEX,
+) -> None:
     """
-    TODO
+    Perform the geocoding of files.
+
     :param pc: ProcConfig obj
     :param ic: InterferogramPaths obj
     :param dc: DEMPaths obj
@@ -803,122 +896,137 @@ def do_geocode(
     :param ifg_width:
     :param dtype_out:
     """
-    # TODO: figure out how to fix the "buried" I/O here
-    width_in = get_width_in(dc.dem_diff.open())
+
+    width_in = get_width_in(dc.dem_diff)
+
+    LOG.debug(f"Obtained width_in={width_in} from {dc.dem_diff}")
 
     # sanity check the widths match from separate data sources
     if width_in != ifg_width:
         raise ProcessIfgException("width_in != ifg_width. Check for a processing error")
 
-    width_out = get_width_out(dc.geo_dem_par.open())
+    width_out = get_width_out(dc.geo_dem_par)
+
+    LOG.debug(f"Obtained width_out={width_out} from {dc.geo_dem_par}")
 
     if ic.ifg_unw.exists():
+        LOG.info(f"Geocoding unwrapped ifg {ic.ifg_unw} as {ic.ifg_unw_geocode_out}")
         geocode_unwrapped_ifg(ic, dc, tc, width_in, width_out)
 
     if ic.ifg_flat.exists():
+        LOG.info(f"Geocoding flattened ifg {ic.ifg_flat} as {ic.ifg_flat_geocode_out}")
         geocode_flattened_ifg(ic, dc, tc, width_in, width_out)
 
     if ic.ifg_filt.exists():
+        LOG.info(f"Geocoding filtered ifg {ic.ifg_filt}")
         geocode_filtered_ifg(ic, dc, tc, width_in, width_out)
 
     if ic.ifg_flat_coh.exists():
+        LOG.info(f"Geocoding flat coherence {ic.ifg_flat_coh} as {ic.ifg_flat_coh_geocode_out}")
         geocode_flat_coherence_file(ic, dc, tc, width_in, width_out)
 
     if ic.ifg_filt_coh.exists():
+        LOG.info(f"Geocoding filtered coherence {ic.ifg_filt_coh} as {ic.ifg_filt_coh_geocode_out}")
         geocode_filtered_coherence_file(ic, dc, tc, width_in, width_out)
 
     # Geotiff geocoded outputs
-    if pc.ifg_geotiff.lower() == const.YES:
+    if pc.ifg_geotiff:
+
         # unw
         if ic.ifg_unw.exists():
+            LOG.info(f"Converting {ic.ifg_unw_geocode_out} to {ic.ifg_unw_geocode_out_tiff}")
             pg.data2geotiff(
                 dc.geo_dem_par,
                 ic.ifg_unw_geocode_out,
-                dtype_out,
+                4,
                 ic.ifg_unw_geocode_out_tiff,
             )
 
         # flat ifg
         if ic.ifg_flat.exists():
+            LOG.info(f"Converting {ic.ifg_flat_geocode_out} to {ic.ifg_flat_geocode_out_tiff}")
             pg.data2geotiff(
                 dc.geo_dem_par,
                 ic.ifg_flat_geocode_out,
-                dtype_out,
+                4,
                 ic.ifg_flat_geocode_out_tiff,
             )
 
         # filt ifg
         if ic.ifg_filt.exists():
+            LOG.info(f"Converting {ic.ifg_filt_geocode_out} to {ic.ifg_filt_geocode_out_tiff}")
             pg.data2geotiff(
                 dc.geo_dem_par,
                 ic.ifg_filt_geocode_out,
-                dtype_out,
+                4,
                 ic.ifg_filt_geocode_out_tiff,
             )
 
         # flat coh
         if ic.ifg_flat_coh.exists():
+            LOG.info(f"Converting {ic.ifg_flat_coh_geocode_out} to {ic.ifg_flat_coh_geocode_out_tiff}")
             pg.data2geotiff(
                 dc.geo_dem_par,
                 ic.ifg_flat_coh_geocode_out,
-                dtype_out,
+                2,
                 ic.ifg_flat_coh_geocode_out_tiff,
             )
 
         # filt coh
         if ic.ifg_filt_coh.exists():
+            LOG.info(f"Converting {ic.ifg_filt_coh_geocode_out} to {ic.ifg_filt_coh_geocode_out_tiff}")
             pg.data2geotiff(
                 dc.geo_dem_par,
                 ic.ifg_filt_coh_geocode_out,
-                dtype_out,
+                2,
                 ic.ifg_filt_coh_geocode_out_tiff,
             )
 
     # TF: also remove all binaries and .ras files to save disc space
     #     keep flat.int since this is currently used as input for stamps processing
     # FIXME: move paths to dedicated mgmt class
+
     current = Path(".")
     all_paths = [tuple(current.glob(pattern)) for pattern in const.TEMP_FILE_GLOBS]
 
-    for path in all_paths:
-        remove_files(*path)
+    # for path in all_paths:
+    #    remove_files(*path)
 
 
-def get_width_in(dem_diff: io.IOBase):
+def get_width_in(fn: Path) -> int:
     """
     Return range/sample width from dem diff file.
 
     Obtains width from independent source to get_ifg_width(), allowing errors to be identified if
     there are problems with a particular processing step.
-
-    :param dem_diff: open file-like obj
-    :return: width as integer
     """
-    for line in dem_diff.readlines():
-        if const.RANGE_SAMPLE_1 in line:
-            _, value = line.split()
-            return int(value)
+    with open(fn, "r") as fd:
+        for line in fd.readlines():
+            if const.RANGE_SAMPLE_1 in line:
+                _, value = line.split()
+                return int(value)
 
     msg = 'Cannot locate "{}" value in DEM diff file'.format(const.RANGE_SAMPLE_1)
     raise ProcessIfgException(msg)
 
 
-def get_width_out(dem_geo_par: io.IOBase):
+def get_width_out(fn: Path) -> int:
     """
     Return range field from geo_dem_par file
-    :param dem_geo_par: open file like obj
-    :return: width as integer
     """
-    for line in dem_geo_par.readlines():
-        if const.DEM_GEO_WIDTH in line:
-            _, value = line.split()
-            return int(value)
+    with open(fn, "r") as fd:
+        for line in fd.readlines():
+            if const.DEM_GEO_WIDTH in line:
+                _, value = line.split()
+                return int(value)
 
     msg = 'Cannot locate "{}" value in DEM geo param file'.format(const.DEM_GEO_WIDTH)
     raise ProcessIfgException(msg)
 
 
-def geocode_unwrapped_ifg(ic: InterferogramPaths, dc: DEMPaths, tc: TempFilePaths, width_in: int, width_out: int):
+def geocode_unwrapped_ifg(
+    ic: InterferogramPaths, dc: DEMPaths, tc: TempFilePaths, width_in: int, width_out: int
+) -> None:
     """
     TODO docs
     :param ic: InterferogramPaths obj
@@ -931,13 +1039,13 @@ def geocode_unwrapped_ifg(ic: InterferogramPaths, dc: DEMPaths, tc: TempFilePath
     pg.geocode_back(ic.ifg_unw, width_in, dc.dem_lt_fine, tc.geocode_unwrapped_ifg, width_out)
     pg.mask_data(tc.geocode_unwrapped_ifg, width_out, ic.ifg_unw_geocode_out, dc.seamask)
 
-    # make quick-look png image
-    rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_2pi_bmp, pixavr=5, pixavaz=5, ph_scale=1.0)
-    rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_6pi_bmp, pixavr=5, pixavaz=5, ph_scale=0.33333)
-    convert(ic.ifg_unw_geocode_2pi_bmp)
-    convert(ic.ifg_unw_geocode_6pi_bmp)
-    kml_map(ic.ifg_unw_geocode_2pi_png, dc.geo_dem_par)
-    remove_files(ic.ifg_unw_geocode_2pi_bmp, ic.ifg_unw_geocode_6pi_bmp, tc.geocode_unwrapped_ifg)
+    ## make quick-look png image
+    # rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_2pi_bmp, pixavr=5, pixavaz=5, ph_scale=1.0)
+    # rasrmg_wrapper(ic.ifg_unw_geocode_out, width_out, ic.ifg_unw_geocode_6pi_bmp, pixavr=5, pixavaz=5, ph_scale=0.33333)
+    # convert(ic.ifg_unw_geocode_2pi_bmp)
+    # convert(ic.ifg_unw_geocode_6pi_bmp)
+    # kml_map(ic.ifg_unw_geocode_2pi_png, dc.geo_dem_par)
+    # remove_files(ic.ifg_unw_geocode_2pi_bmp, ic.ifg_unw_geocode_6pi_bmp, tc.geocode_unwrapped_ifg)
 
 
 def geocode_flattened_ifg(
@@ -946,7 +1054,7 @@ def geocode_flattened_ifg(
     tc: TempFilePaths,
     width_in: int,
     width_out: int,
-):
+) -> None:
     """
     TODO docs
     :param ic: InterferogramPaths obj
@@ -955,22 +1063,45 @@ def geocode_flattened_ifg(
     :param width_in:
     :param width_out:
     """
-    # # Use bicubic spline interpolation for geocoded flattened interferogram
-    # convert to float and extract phase
-    pg.geocode_back(ic.ifg_flat, width_in, dc.dem_lt_fine, tc.geocode_flat_ifg_cpx, width_out)
+
+    LOG.debug(
+        f"Geocoding flat interferogram {ic.ifg_flat} using LUT {dc.dem_lt_fine}, width_in={width_in} width_out={width_out}"
+    )
+
+    pg.geocode_back(
+        ic.ifg_flat,
+        width_in,
+        dc.dem_lt_fine,
+        tc.geocode_flat_ifg_cpx,
+        width_out,
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
+        1,
+    )
+
+    LOG.debug(
+        f"Converting from complex to float and extracting phase: {tc.geocode_flat_ifg_cpx} to {tc.geocode_flat_ifg}"
+    )
+
     pg.cpx_to_real(tc.geocode_flat_ifg_cpx, tc.geocode_flat_ifg, width_out, const.CPX_TO_REAL_OUTPUT_TYPE_PHASE)
 
-    # apply sea mask to phase data
+    LOG.debug(f"Applying seamask {dc.seamask} on phase {tc.geocode_flat_ifg}, writing to {ic.ifg_flat_geocode_out}")
+
     pg.mask_data(tc.geocode_flat_ifg, width_out, ic.ifg_flat_geocode_out, dc.seamask)
 
-    # make quick-look png image
-    rasrmg_wrapper(ic.ifg_flat_geocode_out, width_out, ic.ifg_flat_geocode_bmp, pixavr=5, pixavaz=5)
-    convert(ic.ifg_flat_geocode_bmp)
-    kml_map(ic.ifg_flat_geocode_png, dc.geo_dem_par)
-    remove_files(ic.ifg_flat_geocode_bmp, tc.geocode_flat_ifg, ic.ifg_flat_float)
+    fn = quicklook_real(ic.ifg_flat_geocode_out, width_out)
+
+    LOG.debug(f"Made quicklook .png image {fn}")
+
+    # rasrmg_wrapper(ic.ifg_flat_geocode_out, width_out, ic.ifg_flat_geocode_bmp, pixavr=5, pixavaz=5)
+    # convert(ic.ifg_flat_geocode_bmp)
+    # kml_map(ic.ifg_flat_geocode_png, dc.geo_dem_par)
+    # remove_files(ic.ifg_flat_geocode_bmp, tc.geocode_flat_ifg, ic.ifg_flat_float)
 
 
-def geocode_filtered_ifg(ic: InterferogramPaths, dc: DEMPaths, tc: TempFilePaths, width_in: int, width_out: int):
+def geocode_filtered_ifg(
+    ic: InterferogramPaths, dc: DEMPaths, tc: TempFilePaths, width_in: int, width_out: int
+) -> None:
     """
     TODO docs
     :param ic: InterferogramPaths obj
@@ -980,17 +1111,33 @@ def geocode_filtered_ifg(ic: InterferogramPaths, dc: DEMPaths, tc: TempFilePaths
     :param width_out:
     :return:
     """
-    pg.geocode_back(ic.ifg_filt, width_in, dc.dem_lt_fine, tc.geocode_filt_ifg_cpx, width_out)
+
+    LOG.debug(
+        f"Geocoding filtered interferogram {ic.ifg_filt} as {tc.geocode_filt_ifg_cpx}, width_in={width_in} width_out={width_out} dtype={1}"
+    )
+
+    pg.geocode_back(
+        ic.ifg_filt,
+        width_in,
+        dc.dem_lt_fine,
+        tc.geocode_filt_ifg_cpx,
+        width_out,
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
+        1,
+    )
+
+    LOG.debug(f"Converting complex data to real data (phase), {tc.geocode_filt_ifg_cpx} to {tc.geocode_filt_ifg}")
+
     pg.cpx_to_real(tc.geocode_filt_ifg_cpx, tc.geocode_filt_ifg, width_out, const.CPX_TO_REAL_OUTPUT_TYPE_PHASE)
 
-    # apply sea mask to phase data
+    LOG.debug(f"Applying seamask to phase data, {tc.geocode_filt_ifg} to {ic.ifg_filt_geocode_out}")
+
     pg.mask_data(tc.geocode_filt_ifg, width_out, ic.ifg_filt_geocode_out, dc.seamask)
 
-    # make quick-look png image
-    rasrmg_wrapper(ic.ifg_filt_geocode_out, width_out, ic.ifg_filt_geocode_bmp)
-    convert(ic.ifg_filt_geocode_bmp)
-    kml_map(ic.ifg_filt_geocode_png, dc.geo_dem_par)
-    remove_files(ic.ifg_filt_geocode_bmp, tc.geocode_filt_ifg, ic.ifg_filt_float)
+    fn = quicklook_real(ic.ifg_filt_geocode_out, width_out)
+
+    LOG.debug(f"Made quicklook .png image {fn}")
 
 
 def geocode_flat_coherence_file(
@@ -999,7 +1146,7 @@ def geocode_flat_coherence_file(
     tc: TempFilePaths,
     width_in: int,
     width_out: int,
-):
+) -> None:
     """
     TODO docs
     :param ic: InterferogramPaths obj
@@ -1008,18 +1155,21 @@ def geocode_flat_coherence_file(
     :param width_in:
     :param width_out:
     """
-    pg.geocode_back(ic.ifg_flat_coh, width_in, dc.dem_lt_fine, ic.ifg_flat_coh_geocode_out, width_out)
 
-    # make quick-look png image
-    rascc_wrapper(ic.ifg_flat_coh_geocode_out, width_out, tc.geocode_flat_coherence_file, pixavr=5, pixavaz=5)
-    pg.ras2ras(
-        tc.geocode_flat_coherence_file,
-        ic.ifg_flat_coh_geocode_bmp,
-        const.RAS2RAS_GREY_COLOUR_MAP,
+    pg.geocode_back(
+        ic.ifg_flat_coh,
+        width_in,
+        dc.dem_lt_fine,
+        ic.ifg_flat_coh_geocode_out,
+        width_out,
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
+        0,
     )
-    convert(ic.ifg_flat_coh_geocode_bmp)
-    kml_map(ic.ifg_flat_coh_geocode_png, dc.geo_dem_par)
-    remove_files(ic.ifg_flat_coh_geocode_bmp, tc.geocode_flat_coherence_file)
+
+    fn = quicklook_real(ic.ifg_flat_coh_geocode_out, width_out, min=0., max=1.0)
+
+    LOG.debug(f"Made quicklook .png image {fn}")
 
 
 def geocode_filtered_coherence_file(
@@ -1028,7 +1178,7 @@ def geocode_filtered_coherence_file(
     tc: TempFilePaths,
     width_in: int,
     width_out: int,
-):
+) -> None:
     """
     TODO: docs
     :param ic: InterferogramPaths obj
@@ -1037,160 +1187,171 @@ def geocode_filtered_coherence_file(
     :param width_in:
     :param width_out:
     """
-    pg.geocode_back(ic.ifg_filt_coh, width_in, dc.dem_lt_fine, ic.ifg_filt_coh_geocode_out, width_out)
+    LOG.debug(f"Geocoding filtered coherence {ic.ifg_filt_coh} to {ic.ifg_filt_coh_geocode_out}")
 
-    # make quick-look png image
-    rascc_wrapper(ic.ifg_filt_coh_geocode_out, width_out, tc.geocode_filt_coherence_file)
-    pg.ras2ras(
-        tc.geocode_filt_coherence_file,
-        ic.ifg_filt_coh_geocode_bmp,
-        const.RAS2RAS_GREY_COLOUR_MAP,
-    )
-    convert(ic.ifg_filt_coh_geocode_bmp)
-    kml_map(ic.ifg_filt_coh_geocode_png, dc.geo_dem_par)
-    remove_files(ic.ifg_filt_coh_geocode_bmp, tc.geocode_filt_coherence_file)
-
-
-def rasrmg_wrapper(
-    input_file: Union[Path, str],
-    width_out: int,
-    output_file: Union[Path, str],
-    pwr=const.NOT_PROVIDED,
-    start_pwr=const.DEFAULT_STARTING_LINE,
-    start_unw=const.DEFAULT_STARTING_LINE,
-    nlines=const.DISPLAY_TO_EOF,
-    pixavr=const.RAS_PIXEL_AVERAGE_RANGE,
-    pixavaz=const.RAS_PIXEL_AVERAGE_AZIMUTH,
-    ph_scale=const.RAS_PH_SCALE,
-    scale=const.RAS_SCALE,
-    exp=const.RAS_EXP,
-    ph_offset=const.RAS_PH_OFFSET,
-    leftright=const.LEFT_RIGHT_FLIPPING_NORMAL,
-):
-    """
-    Helper function to default rasrmg args to Geoscience Australia InSAR defaults.
-
-    Generate 8-bit raster graphics image from unwrapped phase & intensity data
-    TODO: skips some variables in docs (cc, start_cc & cc_min)
-
-    :param input_file: unwrapped phase data
-    :param width_out: samples per row of unwrapped phase and intensity files
-    :param output_file:
-    :param pwr: intensity data (float, enter - for none)
-    :param start_pwr:starting line of unwrapped phase file ('-' for default: 1)
-    :param start_unw: starting line of intensity file ('-' for default: 1)
-    :param nlines: number of lines to display (- or 0 for default: to end of file)
-    :param pixavr: number of pixels to average in range
-    :param pixavaz: number of pixels to average in azimuth
-    :param ph_scale: phase display scale factor (enter - for default: 0.33333)
-    :param scale: pwr display scale factor (- for default: 1.0)
-    :param exp: pwr display exponent (- for default: default: 0.35)
-    :param ph_offset: phase offset in radians subtracted from unw ( - is default: 0.0)
-    :param leftright: left/right mirror image (- is default, 1: normal (default), -1: mirror image)
-    :return:
-    """
-
-    # docs from gadi "/g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20191203/DISP/bin/rasrmg -h"
-    # as they do not exist as HTML in the GAMMA install
-    pg.rasrmg(
-        input_file,
-        pwr,
+    pg.geocode_back(
+        ic.ifg_filt_coh,
+        width_in,
+        dc.dem_lt_fine,
+        ic.ifg_filt_coh_geocode_out,
         width_out,
-        start_unw,
-        start_pwr,
-        nlines,
-        pixavr,
-        pixavaz,
-        ph_scale,
-        scale,
-        exp,
-        ph_offset,
-        leftright,
-        output_file,
+        const.NOT_PROVIDED,
+        const.NOT_PROVIDED,
+        0,
     )
 
+    LOG.debug(f"Applying seamask to filtered coherence {ic.ifg_filt_coh_geocode_out}")
 
-def rascc_wrapper(
-    input_file: Union[Path, str],
-    width_out: int,
-    output_file: Union[Path, str],
-    pwr=const.NOT_PROVIDED,
-    start_cc=const.DEFAULT_STARTING_LINE,
-    start_pwr=const.DEFAULT_STARTING_LINE,
-    nlines=const.DISPLAY_TO_EOF,
-    pixavr=const.RAS_PIXEL_AVERAGE_RANGE,
-    pixavaz=const.RAS_PIXEL_AVERAGE_AZIMUTH,
-    cmin=const.RASCC_MIN_CORRELATION,
-    cmax=const.RASCC_MAX_CORRELATION,
-    scale=const.RAS_SCALE,
-    exp=const.RAS_EXP,
-    leftright=const.LEFT_RIGHT_FLIPPING_NORMAL,
-):
-    """
-    Helper function to default rascc args to Geoscience Australia InSAR defaults.
+    with TemporaryDirectory() as tmpdir:
+        srcfn = tmpdir / "coh_premasked"
+        ic.ifg_filt_coh_geocode_out.rename(srcfn)
+        pg.mask_data(srcfn, width_out, ic.ifg_filt_coh_geocode_out, dc.seamask)
 
-    Generate 8-bit raster graphics image of correlation coefficient + intensity data
+    fn = quicklook_real(ic.ifg_filt_coh_geocode_out, width_out, min=0, max=1.0)
 
-    :param input_file:
-    :param width_out:
-    :param output_file:
-    :param pwr:
-    :param start_cc:
-    :param start_pwr:
-    :param nlines:
-    :param pixavr:
-    :param pixavaz:
-    :param cmin:
-    :param cmax:
-    :param scale:
-    :param exp:
-    :param leftright:
-    :return:
-    """
-    # docs from gadi "/g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20191203/DISP/bin/rascc -h"
-    # as they do not exist as HTML in the GAMMA install
-    pg.rascc(
-        input_file,
-        pwr,
-        width_out,
-        start_cc,
-        start_pwr,
-        nlines,
-        pixavr,
-        pixavaz,
-        cmin,
-        cmax,
-        scale,
-        exp,
-        leftright,
-        output_file,
-    )
+    LOG.debug(f"Made quicklook .png image {fn}")
 
 
-def kml_map(input_file: Path, dem_par: Union[Path, str], output_file=None):
-    """
-    Generates KML format XML with link to an image using geometry from a dem_par.
-    :param input_file:
-    :param dem_par:
-    :param output_file:
-    :return:
-    """
-    if output_file is None:
-        output_file = append_suffix(input_file, ".kml")
-
-    pg.kml_map(input_file, dem_par, output_file)
-
-
-def remove_files(*args):
-    """
-    Attempts to remove the given files, logging any failures
-    :param args: Path like objects
-    """
-    for path in args:
-        try:
-            if path:
-                path.unlink()
-        except FileNotFoundError:
-            LOG.error("Could not delete {}".format(path))
-
-        # TODO: add more exception handlers?
+# def rasrmg_wrapper(
+#    input_file: Union[Path, str],
+#    width_out: int,
+#    output_file: Union[Path, str],
+#    pwr=const.NOT_PROVIDED,
+#    start_pwr=const.DEFAULT_STARTING_LINE,
+#    start_unw=const.DEFAULT_STARTING_LINE,
+#    nlines=const.DISPLAY_TO_EOF,
+#    pixavr=const.RAS_PIXEL_AVERAGE_RANGE,
+#    pixavaz=const.RAS_PIXEL_AVERAGE_AZIMUTH,
+#    ph_scale=const.RAS_PH_SCALE,
+#    scale=const.RAS_SCALE,
+#    exp=const.RAS_EXP,
+#    ph_offset=const.RAS_PH_OFFSET,
+#    leftright=const.LEFT_RIGHT_FLIPPING_NORMAL,
+# ) -> None:
+#    """
+#    Helper function to default rasrmg args to Geoscience Australia InSAR defaults.
+#
+#    Generate 8-bit raster graphics image from unwrapped phase & intensity data
+#    TODO: skips some variables in docs (cc, start_cc & cc_min)
+#
+#    :param input_file: unwrapped phase data
+#    :param width_out: samples per row of unwrapped phase and intensity files
+#    :param output_file:
+#    :param pwr: intensity data (float, enter - for none)
+#    :param start_pwr:starting line of unwrapped phase file ('-' for default: 1)
+#    :param start_unw: starting line of intensity file ('-' for default: 1)
+#    :param nlines: number of lines to display (- or 0 for default: to end of file)
+#    :param pixavr: number of pixels to average in range
+#    :param pixavaz: number of pixels to average in azimuth
+#    :param ph_scale: phase display scale factor (enter - for default: 0.33333)
+#    :param scale: pwr display scale factor (- for default: 1.0)
+#    :param exp: pwr display exponent (- for default: default: 0.35)
+#    :param ph_offset: phase offset in radians subtracted from unw ( - is default: 0.0)
+#    :param leftright: left/right mirror image (- is default, 1: normal (default), -1: mirror image)
+#    :return:
+#    """
+#
+#    # docs from gadi "/g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20191203/DISP/bin/rasrmg -h"
+#    # as they do not exist as HTML in the GAMMA install
+#    pg.rasrmg(
+#        input_file,
+#        pwr,
+#        width_out,
+#        start_unw,
+#        start_pwr,
+#        nlines,
+#        pixavr,
+#        pixavaz,
+#        ph_scale,
+#        scale,
+#        exp,
+#        ph_offset,
+#        leftright,
+#        output_file,
+#    )
+#
+#
+# def rascc_wrapper(
+#    input_file: Union[Path, str],
+#    width_out: int,
+#    output_file: Union[Path, str],
+#    pwr=const.NOT_PROVIDED,
+#    start_cc=const.DEFAULT_STARTING_LINE,
+#    start_pwr=const.DEFAULT_STARTING_LINE,
+#    nlines=const.DISPLAY_TO_EOF,
+#    pixavr=const.RAS_PIXEL_AVERAGE_RANGE,
+#    pixavaz=const.RAS_PIXEL_AVERAGE_AZIMUTH,
+#    cmin=const.RASCC_MIN_CORRELATION,
+#    cmax=const.RASCC_MAX_CORRELATION,
+#    scale=const.RAS_SCALE,
+#    exp=const.RAS_EXP,
+#    leftright=const.LEFT_RIGHT_FLIPPING_NORMAL,
+# ):
+#    """
+#    Helper function to default rascc args to Geoscience Australia InSAR defaults.
+#
+#    Generate 8-bit raster graphics image of correlation coefficient + intensity data
+#
+#    :param input_file:
+#    :param width_out:
+#    :param output_file:
+#    :param pwr:
+#    :param start_cc:
+#    :param start_pwr:
+#    :param nlines:
+#    :param pixavr:
+#    :param pixavaz:
+#    :param cmin:
+#    :param cmax:
+#    :param scale:
+#    :param exp:
+#    :param leftright:
+#    :return:
+#    """
+#    # docs from gadi "/g/data/dg9/SOFTWARE/dg9-apps/GAMMA/GAMMA_SOFTWARE-20191203/DISP/bin/rascc -h"
+#    # as they do not exist as HTML in the GAMMA install
+#    pg.rascc(
+#        input_file,
+#        pwr,
+#        width_out,
+#        start_cc,
+#        start_pwr,
+#        nlines,
+#        pixavr,
+#        pixavaz,
+#        cmin,
+#        cmax,
+#        scale,
+#        exp,
+#        leftright,
+#        output_file,
+#    )
+#
+#
+# def kml_map(input_file: Path, dem_par: Union[Path, str], output_file=None) -> None:
+#    """
+#    Generates KML format XML with link to an image using geometry from a dem_par.
+#    :param input_file:
+#    :param dem_par:
+#    :param output_file:
+#    :return:
+#    """
+#    if output_file is None:
+#        output_file = append_suffix(input_file, ".kml")
+#
+#    pg.kml_map(input_file, dem_par, output_file)
+#
+#
+# def remove_files(*args) -> None:
+#    """
+#    Attempts to remove the given files, logging any failures
+#    :param args: Path like objects
+#    """
+#    for path in args:
+#        try:
+#            if path:
+#                path.unlink()
+#        except FileNotFoundError:
+#            LOG.error("Could not delete {}".format(path))
+#
+#        # TODO: add more exception handlers?

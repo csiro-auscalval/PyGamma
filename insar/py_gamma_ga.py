@@ -7,6 +7,8 @@ with a serial interface to avoid race conditions & ensure the data is returned.
 """
 
 from pathlib import Path
+from typing import List, Tuple
+
 import subprocess
 import functools
 import warnings
@@ -15,7 +17,6 @@ import socket
 import os
 
 import insar.constant as const
-
 
 from insar.parfile import GammaParFile
 from insar.logs import STATUS_LOGGER as STATUS_LOG, GAMMA_LOGGER as GAMMA_LOG
@@ -71,7 +72,7 @@ def auto_logging_decorator(func, exception_type, logger):
     :return: a decorated function
     """
 
-    def error_handler(cmd, *args, **kwargs):
+    def error_handler(cmd, *args, **kwargs) -> Tuple[int, List[str], List[str]]:
         cmd_list = [cmd]
         cmd_list.extend("-" if a is None else str(a) for a in args)
 
@@ -131,7 +132,7 @@ def auto_logging_decorator(func, exception_type, logger):
     return error_handler
 
 
-def find_gamma_installed_packages(install_dir):
+def find_gamma_installed_packages(install_dir: Path) -> Tuple[str, ...]:
     """Search install_dir for Gamma pkgs. Return list of packages."""
     try:
         res = tuple(n for n in GAMMA_PACKAGES if n in os.listdir(install_dir))
