@@ -10,14 +10,14 @@ from datetime import timedelta
 from pathlib import Path
 import fnmatch
 
-import structlog
+import insar.logs as logs
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import dates as mdates
 import numpy as np
 
 
-_LOG = structlog.get_logger("insar")
+_LOG = logs.getLogger("gamma")
 
 
 class SlcParFileParser:

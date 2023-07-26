@@ -1,10 +1,12 @@
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Any
 from pathlib import Path
 import datetime
 
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.stack import load_stack_config
+from insar.logs import STATUS_LOGGER as LOG
+
 
 class SlcPaths:
     """
@@ -43,7 +45,7 @@ class SlcPaths:
     iw_slc_tops_par: List[Path]
     """A list of GAMMA TOPS_par files for each `self.iw_slc`."""
 
-    mli: Optional[Path]
+    mli: Path
     """
     The path to the scene's multi-looked SLC product.
 
@@ -52,7 +54,7 @@ class SlcPaths:
     Note: This may be None if no range looks had been provided to the constructor.
     """
 
-    mli_par: Optional[Path]
+    mli_par: Path
     """
     The path to the GAMMA par file for `self.mli`.
 
@@ -74,7 +76,7 @@ class SlcPaths:
         stack_config: Union[ProcConfig, Path],
         date: Union[str, datetime.datetime, datetime.date],
         pol: str,
-        rlks: Optional[int] = None
+        rlks: Optional[int] = None,
     ):
         """
         Produces the SLC paths for a specified scene within a specified stack.
@@ -119,6 +121,23 @@ class SlcPaths:
         self.iw_slc_par = [slc_dir / f"{date}_{pol}_IW{i}.slc.par" for i in swaths]
         self.iw_slc_tops_par = [slc_dir / f"{date}_{pol}_IW{i}.slc.TOPS_par" for i in swaths]
 
-        if rlks is not None:
-            self.mli = slc_dir / f"{date}_{pol}_{rlks}rlks.mli"
-            self.mli_par = slc_dir / f"{date}_{pol}_{rlks}rlks.mli.par"
+        if rlks is None:
+            rlks = 1
+            LOG.debug(f"Setting rlks={rlks} for scene {date} in SlcPaths object")
+
+        self.mli = slc_dir / f"{date}_{pol}_{rlks}rlks.mli"
+        self.mli_par = slc_dir / f"{date}_{pol}_{rlks}rlks.mli.par"
+
+    def __getattr__(self, name: str) -> Any:
+        attr = self.__getattribute__(name)
+        if isinstance(attr, Path):
+            # Force to always return absolute paths
+            return attr.absolute()
+        else:
+            return attr
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if isinstance(value, str):
+            LOG.error(f"Trying to set {name}={value} as a 'str' instead of a 'Path' object")
+        super().__setattr__(name, value)
+

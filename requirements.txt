@@ -41,3 +41,12 @@ spatialist
 structlog>=21.1
 eodatasets3
 dataclasses; python_version < '3.7'
+
+## Type checking
+
+typing-extensions
+types-Pillow
+pandas-stubs
+
+# deprecated?
+data-science-types

@@ -1,6 +1,9 @@
+utils/gamma_usage*
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[cod]
+*.py[codr]
 *$py.class
 
 # backup files

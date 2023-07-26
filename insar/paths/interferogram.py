@@ -1,6 +1,9 @@
+from typing import Any
 from pathlib import Path
 
 from insar.project import ProcConfig
+from insar.logs import STATUS_LOGGER as LOG
+
 
 class InterferogramPaths:
     """
@@ -10,99 +13,86 @@ class InterferogramPaths:
     to avoid issues from repeated/duplicate definitions.
     """
 
-    # These aren't even typed yet... this was too big a change for this PR
-    # - for now, this class remains practically unchanged from it's existence
-    # in project.py.
-    #
-    # I'll hack to tackle all of these when I wrap up all the documentation work.
-    __slots__ = [
-        "ifg_dir",
-        "primary_dir",
-        "secondary_dir",
-        "r_primary_slc_name",
-        "r_primary_slc",
-        "r_primary_slc_par",
-        "r_primary_mli_name",
-        "r_primary_mli",
-        "r_primary_mli_par",
-        "r_secondary_slc_name",
-        "r_secondary_slc",
-        "r_secondary_slc_par",
-        "r_secondary_mli_name",
-        "r_secondary_mli",
-        "r_secondary_mli_par",
-        "primary_secondary_name",
-        "ifg_base",
-        "ifg_base_init",
-        "ifg_base_res",
-        "ifg_base_temp",
-        "ifg_bperp",
-        "ifg_ccp",
-        "ifg_coffs",
-        "ifg_coffsets",
-        "ifg_diff_par",
-        "ifg_filt",
-        "ifg_filt_float",
-        "ifg_filt_geocode_bmp",
-        "ifg_filt_geocode_out",
-        "ifg_filt_geocode_png",
-        "ifg_filt_mask",
-        "ifg_filt_coh",
-        "ifg_filt_coh_geocode_bmp",
-        "ifg_filt_coh_geocode_out",
-        "ifg_filt_coh_geocode_png",
-        "ifg_flat",
-        "ifg_flat_float",
-        "ifg_flat_geocode_bmp",
-        "ifg_flat_geocode_out",
-        "ifg_flat_geocode_png",
-        "ifg_flat_temp",
-        "ifg_flat0",
-        "ifg_flat1",
-        "ifg_flat10",
-        "ifg_flat_coh",
-        "ifg_flat_coh_geocode_bmp",
-        "ifg_flat_coh_geocode_out",
-        "ifg_flat_coh_geocode_png",
-        "ifg_flat_coh0",
-        "ifg_flat_coh0_mask",
-        "ifg_flat_coh10",
-        "ifg_flat_coh10_mask",
-        "ifg_gcp",
-        "ifg_gcp_ph",
-        "ifg_mask",
-        "ifg_mask_thin",
-        "ifg_off",
-        "ifg_off10",
-        "ifg_offs",
-        "ifg_sim_diff",
-        "ifg_sim_unw",
-        "ifg_sim_unw0",
-        "ifg_sim_unw1",
-        "ifg_sim_unw_ph",
-        "ifg_unw",
-        "ifg_unw_geocode_2pi_bmp",
-        "ifg_unw_geocode_6pi_bmp",
-        "ifg_unw_geocode_out",
-        "ifg_unw_geocode_2pi_png",
-        "ifg_unw_geocode_6pi_png",
-        "ifg_unw_mask",
-        "ifg_unw_model",
-        "ifg_unw_thin",
-        # vars for GeoTIFF outputs
-        "ifg_unw_geocode_out_tiff",
-        "ifg_flat_geocode_out_tiff",
-        "ifg_filt_geocode_out_tiff",
-        "ifg_flat_coh_geocode_out_tiff",
-        "ifg_filt_coh_geocode_out_tiff",
-    ]
+    ifg_dir: Path
+    primary_dir: Path
+    secondary_dir: Path
+    r_primary_slc_name: Path
+    r_primary_slc: Path
+    r_primary_slc_par: Path
+    r_primary_mli_name: Path
+    r_primary_mli: Path
+    r_primary_mli_par: Path
+    r_secondary_slc_name: Path
+    r_secondary_slc: Path
+    r_secondary_slc_par: Path
+    r_secondary_mli_name: Path
+    r_secondary_mli: Path
+    r_secondary_mli_par: Path
+    primary_secondary_name: Path
+    ifg_base: Path
+    ifg_base_init: Path
+    ifg_base_res: Path
+    ifg_base_temp: Path
+    ifg_bperp: Path
+    ifg_ccp: Path
+    ifg_coffs: Path
+    ifg_coffsets: Path
+    ifg_diff_par: Path
+    ifg_filt: Path
+    ifg_filt_float: Path
+    ifg_filt_geocode_bmp: Path
+    ifg_filt_geocode_out: Path
+    ifg_filt_geocode_png: Path
+    ifg_filt_mask: Path
+    ifg_filt_coh: Path
+    ifg_filt_coh_geocode_bmp: Path
+    ifg_filt_coh_geocode_out: Path
+    ifg_filt_coh_geocode_png: Path
+    ifg_flat: Path
+    ifg_flat_float: Path
+    ifg_flat_geocode_bmp: Path
+    ifg_flat_geocode_out: Path
+    ifg_flat_geocode_png: Path
+    ifg_flat_temp: Path
+    ifg_flat0: Path
+    ifg_flat1: Path
+    ifg_flat10: Path
+    ifg_flat_coh: Path
+    ifg_flat_coh_geocode_bmp: Path
+    ifg_flat_coh_geocode_out: Path
+    ifg_flat_coh_geocode_png: Path
+    ifg_flat_coh0: Path
+    ifg_flat_coh0_mask: Path
+    ifg_flat_coh10: Path
+    ifg_flat_coh10_mask: Path
+    ifg_gcp: Path
+    ifg_gcp_ph: Path
+    ifg_mask: Path
+    ifg_mask_thin: Path
+    ifg_off: Path
+    ifg_off10: Path
+    ifg_offs: Path
+    ifg_sim_diff: Path
+    ifg_sim_unw: Path
+    ifg_sim_unw0: Path
+    ifg_sim_unw1: Path
+    ifg_sim_unw_ph: Path
+    ifg_unw: Path
+    ifg_unw_geocode_2pi_bmp: Path
+    ifg_unw_geocode_6pi_bmp: Path
+    ifg_unw_geocode_out: Path
+    ifg_unw_geocode_2pi_png: Path
+    ifg_unw_geocode_6pi_png: Path
+    ifg_unw_mask: Path
+    ifg_unw_model: Path
+    ifg_unw_thin: Path
+    ifg_unw_geocode_out_tiff: Path
+    ifg_flat_geocode_out_tiff: Path
+    ifg_filt_geocode_out_tiff: Path
+    ifg_flat_coh_geocode_out_tiff: Path
+    ifg_filt_coh_geocode_out_tiff: Path
 
-    def __init__(
-        self,
-        proc: ProcConfig,
-        primary: str,
-        secondary: str
-    ):
+    def __init__(self, proc: ProcConfig, primary: Path, secondary: Path):
         """
         Produces interferogram paths for a specified date pair in the context of a
         specific stack.
@@ -115,15 +105,13 @@ class InterferogramPaths:
             The secondary date of the interferogram.
         """
 
-        out_dir = proc.output_path
+        out_dir = Path(proc.output_path)
 
-        self.ifg_dir = out_dir / proc.int_dir / "{}-{}".format(primary, secondary)
-        self.primary_dir = out_dir / proc.slc_dir / primary
-        self.secondary_dir = out_dir / proc.slc_dir / secondary
+        self.ifg_dir = (out_dir / proc.int_dir) / "{}-{}".format(primary, secondary)
+        self.primary_dir = (out_dir / proc.slc_dir) / primary
+        self.secondary_dir = (out_dir / proc.slc_dir) / secondary
 
-        self.r_primary_slc_name = self.primary_dir / "r{}_{}".format(
-            primary, proc.polarisation
-        )
+        self.r_primary_slc_name = self.primary_dir / "r{}_{}".format(primary, proc.polarisation)
 
         self.r_primary_slc = self.r_primary_slc_name.with_suffix(".slc")
         self.r_primary_slc_par = self.r_primary_slc_name.with_suffix(".slc.par")
@@ -145,9 +133,7 @@ class InterferogramPaths:
         self.r_secondary_mli_par = self.r_secondary_mli.with_suffix(".mli.par")
 
         # use intermed str as Path doesn't handle filename concatenation
-        _primary_secondary_name = "{}-{}_{}_{}rlks".format(
-            primary, secondary, proc.polarisation, proc.range_looks
-        )
+        _primary_secondary_name = "{}-{}_{}_{}rlks".format(primary, secondary, proc.polarisation, proc.range_looks)
         self.primary_secondary_name = self.ifg_dir / _primary_secondary_name
 
         self.ifg_base = self.ifg_dir / (_primary_secondary_name + "_base.par")
@@ -168,13 +154,9 @@ class InterferogramPaths:
         self.ifg_filt_geocode_png = Path(_primary_secondary_name + "_filt_geo_int.png")
         self.ifg_filt_mask = Path(_primary_secondary_name + "_filt_mask_int")
         self.ifg_filt_coh = Path(_primary_secondary_name + "_filt_coh")
-        self.ifg_filt_coh_geocode_bmp = Path(
-            _primary_secondary_name + "_filt_geo_coh.bmp"
-        )
+        self.ifg_filt_coh_geocode_bmp = Path(_primary_secondary_name + "_filt_geo_coh.bmp")
         self.ifg_filt_coh_geocode_out = Path(_primary_secondary_name + "_filt_geo_coh")
-        self.ifg_filt_coh_geocode_png = Path(
-            _primary_secondary_name + "_filt_geo_coh.png"
-        )
+        self.ifg_filt_coh_geocode_png = Path(_primary_secondary_name + "_filt_geo_coh.png")
 
         self.ifg_flat = Path(_primary_secondary_name + "_flat_int")
         self.ifg_flat_float = Path(_primary_secondary_name + "_flat_int_flt")
@@ -186,13 +168,9 @@ class InterferogramPaths:
         self.ifg_flat1 = Path(_primary_secondary_name + "_flat1_int")
         self.ifg_flat10 = Path(_primary_secondary_name + "_flat10_int")
         self.ifg_flat_coh = Path(_primary_secondary_name + "_flat_coh")
-        self.ifg_flat_coh_geocode_bmp = Path(
-            _primary_secondary_name + "_flat_geo_coh.bmp"
-        )
+        self.ifg_flat_coh_geocode_bmp = Path(_primary_secondary_name + "_flat_geo_coh.bmp")
         self.ifg_flat_coh_geocode_out = Path(_primary_secondary_name + "_flat_geo_coh")
-        self.ifg_flat_coh_geocode_png = Path(
-            _primary_secondary_name + "_flat_geo_coh.png"
-        )
+        self.ifg_flat_coh_geocode_png = Path(_primary_secondary_name + "_flat_geo_coh.png")
         self.ifg_flat_coh0 = Path(_primary_secondary_name + "_flat0_coh")
         self.ifg_flat_coh0_mask = Path(_primary_secondary_name + "_flat0_coh_mask.ras")
         self.ifg_flat_coh10 = Path(_primary_secondary_name + "_flat10_coh")
@@ -222,15 +200,22 @@ class InterferogramPaths:
         self.ifg_unw_thin = Path(_primary_secondary_name + "_thin_unw")
 
         self.ifg_unw_geocode_out_tiff = Path(_primary_secondary_name + "_geo_unw.tif")
-        self.ifg_flat_geocode_out_tiff = Path(
-            _primary_secondary_name + "_flat_geo_int.tif"
-        )
-        self.ifg_filt_geocode_out_tiff = Path(
-            _primary_secondary_name + "_filt_geo_int.tif"
-        )
-        self.ifg_flat_coh_geocode_out_tiff = Path(
-            _primary_secondary_name + "_flat_geo_coh.tif"
-        )
-        self.ifg_filt_coh_geocode_out_tiff = Path(
-            _primary_secondary_name + "_filt_geo_coh.tif"
-        )
+        self.ifg_flat_geocode_out_tiff = Path(_primary_secondary_name + "_flat_geo_int.tif")
+        self.ifg_filt_geocode_out_tiff = Path(_primary_secondary_name + "_filt_geo_int.tif")
+        self.ifg_flat_coh_geocode_out_tiff = Path(_primary_secondary_name + "_flat_geo_coh.tif")
+        self.ifg_filt_coh_geocode_out_tiff = Path(_primary_secondary_name + "_filt_geo_coh.tif")
+
+    def __getattr__(self, name: str) -> Any:
+        attr = self.__getattribute__(name)
+        if isinstance(attr, Path):
+            # Force to always return absolute paths
+            return attr.absolute()
+        else:
+            return attr
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if isinstance(value, str):
+            LOG.error(f"Trying to set {name}={value} as a 'str' instead of a 'Path' object")
+        super().__setattr__(name, value)
+
+

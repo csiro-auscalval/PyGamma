@@ -3,13 +3,9 @@ import signal
 import subprocess
 import contextlib
 
-import structlog
-
-
-_LOG = structlog.get_logger("insar")
+from insar.logs import STATUS_LOGGER as STATUS_LOG, GAMMA_LOGGER as GAMMA_LOG
 
 os.environ["CPL_ZIP_ENCODING"] = "UTF-8"
-
 
 @contextlib.contextmanager
 def working_directory(path):
@@ -30,21 +26,16 @@ class CommandError(RuntimeError):
     """
     Custom class to capture subprocess call errors
     """
-
     pass
 
 
-# NOTE: run_command function is directly copied from:
-# https://github.com/OpenDataCubePipelines/eugl/blob/master/eugl/fmask.py
-
-def run_command(
-    command, work_dir, timeout=None, command_name=None, return_stdout=False,
-):
+def run_command(command, work_dir, timeout=None, command_name=None, return_stdout=False):
     """
     A simple utility to execute a subprocess command.
     Raises a CalledProcessError for backwards compatibility
     """
-    _proc = subprocess.Popen(
+
+    proc = subprocess.Popen(
         " ".join([str(i) for i in command]),
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -56,42 +47,31 @@ def run_command(
     timed_out = False
 
     try:
-        _stdout, _stderr = _proc.communicate(timeout=timeout)
+        stdout, stderr = proc.communicate(timeout=timeout)
+
     except subprocess.TimeoutExpired:
-        # see https://stackoverflow.com/questions/36952245/subprocess-timeout-failure
-        os.killpg(os.getpgid(_proc.pid), signal.SIGTERM)
-        _stdout, _stderr = _proc.communicate()
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        stdout, stderr = proc.communicate()
         timed_out = True
 
-    stdout_decode = _stdout.decode("utf-8")
-    stderr_decode = _stderr.decode("utf-8")
     cmd = str(command)
-    if _proc.returncode != 0:
-        _LOG.error(
-            "command result", command=cmd, std_err=stderr_decode,
-        )
-        _LOG.info(
-            "command result", command=cmd, std_out=stdout_decode,
+
+    stdout_decode = stdout.decode("utf-8")
+    stderr_decode = stderr.decode("utf-8")
+
+    if proc.returncode != 0:
+        STATUS_LOG.error(
+            f"GAMMA command {cmd} has non-zero return code {proc.returncode}",
+            command=cmd,
+            std_err=stderr_decode,
         )
 
         if command_name is None:
-            command_name = str(command)
+            command_name = ' '.join([str(x) for x in command])
 
         if timed_out:
-            _LOG.error(
-                "command timed out", command=cmd,
-            )
-            raise CommandError('"%s" timed out' % command_name)
+            raise CommandError(f'GAMMA command `{command_name}` timed out')
         else:
-            _LOG.error(
-                "command failed", command=cmd, return_code=_proc.returncode,
-            )
-            raise CommandError(
-                '"%s" failed with return code: %s' % (command_name, str(_proc.returncode))
-            )
-    else:
-        _LOG.info(
-            "command result", command=cmd, std_out=stdout_decode,
-        )
-        if return_stdout:
-            return stdout_decode
+            raise CommandError(f'GAMMA command `{command_name}` has return code: {proc.returncode}')
+
+    return stdout_decode

@@ -1,14 +1,17 @@
 #!/usr/bin/env python
-from typing import Optional
-import tempfile
-from pathlib import Path
-from PIL import Image
+
+import insar.constant as const
 import numpy as np
 
-from insar.gamma.proxy import create_gamma_proxy
 from insar.subprocess_utils import working_directory
-import insar.constant as const
+from insar.parfile import GammaParFile as ParFile
+from insar.gamma.proxy import create_gamma_proxy
 from insar.path_util import append_suffix
+from insar.utils import TemporaryDirectory
+
+from typing import Optional
+from pathlib import Path
+from PIL import Image
 
 class SlcBackscatterException(Exception):
     pass
@@ -51,13 +54,13 @@ def generate_normalised_backscatter(
     secondary_gamma0_geo = outdir / append_suffix(dst_geo_stem, "_gamma0")
     secondary_sigma0_geo = outdir / append_suffix(dst_geo_stem, "_sigma0")
 
-    par_mli = pg.ParFile(str(src_mli.with_suffix(src_mli.suffix + ".par")))
+    par_mli = ParFile(str(src_mli.with_suffix(src_mli.suffix + ".par")))
     mli_width = par_mli.get_value("range_samples", dtype=int, index=0)
 
-    geo_dem_par_vals = pg.ParFile(str(geo_dem_par))
+    geo_dem_par_vals = ParFile(str(geo_dem_par))
     dem_width = geo_dem_par_vals.get_value("width", dtype=int, index=0)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as temp_dir:
         temp_dir = Path(temp_dir)
         temp_output = temp_dir / "temp_output"
 
@@ -202,7 +205,7 @@ def generate_nrt_backscatter(
         The destination path stem, which all outputs will be prefixed with.
     """
     dem_par_path = append_suffix(dem_path, ".par")
-    dem_par = pg.ParFile(str(dem_par_path))
+    dem_par = ParFile(str(dem_par_path))
     dem_width = dem_par.get_value("width", dtype=int, index=0)
 
     geo_dem_path = append_suffix(dst_stem, "_geo.dem")
@@ -213,7 +216,7 @@ def generate_nrt_backscatter(
     lsmap_path = append_suffix(dst_stem, "_lsmap")
 
     src_par_path = append_suffix(src_path, ".par")
-    src_par = pg.ParFile(str(src_par_path))
+    src_par = ParFile(str(src_par_path))
     src_width = src_par.get_value("range_samples", dtype=int, index=0)
 
     dst_sigma0_path = append_suffix(dst_stem, "_sigma0")

@@ -1,57 +1,24 @@
-#!/usr/bin/env python
-import os
-import traceback
-from pathlib import Path
-from typing import Dict, Any
+#!/usr/bin/env python3
 
+import warnings
 import luigi
-import luigi.configuration
+import os
 
-from insar.logs import TASK_LOGGER, STATUS_LOGGER, COMMON_PROCESSORS
+from insar.logs import STATUS_LOGGER as LOG, logging_directory
 from insar.workflow.luigi.ard import ARD
-from insar.logs import logging_directory
+from typing import Dict, Any
+from pathlib import Path
 
-@luigi.Task.event_handler(luigi.Event.FAILURE)
-def on_failure(task, exception):
-    """Capture any Task Failure here."""
-    TASK_LOGGER.exception(
-        "Task failed",
-        task=task.get_task_family(),
-        params=task.to_str_params(),
-        stack_id=getattr(task, "stack_id", ""),
-        stack_info=True,
-        status="failure",
-        exception=exception.__str__(),
-        traceback=traceback.format_exc().splitlines(),
-    )
+warnings.simplefilter(action='error', category=UserWarning)
+warnings.simplefilter(action='once', category=FutureWarning)
+
+def run() -> None:
+    print("PyGamma")
+    luigi.run()
+    print("Finished.")
 
 
-@luigi.Task.event_handler(luigi.Event.SUCCESS)
-def on_success(task):
-    """Capture any Task Succes here."""
-    TASK_LOGGER.info(
-        "Task succeeded",
-        task=task.get_task_family(),
-        params=task.to_str_params(),
-        stack_id=getattr(task, "stack_id", ""),
-        status="success",
-    )
-
-
-def run():
-    with logging_directory(os.getcwd()):
-        try:
-            luigi.run()
-        except Exception as e:
-            # Log all exceptions to the status log
-            state = e.state if hasattr(e, "state") else {}
-            STATUS_LOGGER.error("Unhandled exception running ARD workflow", exc_info=True, **state)
-
-            # But don't catch them, release them back to Luigi
-            raise e
-
-
-def run_ard_inline(args: Dict[str, Any]):
+def run_ard_inline(args: Dict[str, Any]) -> None:
     """
     This function simply runs the ARD workflow directly in the same thread of the caller.
 
@@ -120,4 +87,7 @@ def run_ard_inline(args: Dict[str, Any]):
 
 
 if __name__ == "__name__":
+    run()
+
+if __name__ == "__main__":
     run()

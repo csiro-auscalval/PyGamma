@@ -1,15 +1,16 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 
 import math
-from typing import List, Tuple, Union
-from pathlib import Path
 
+from pathlib import Path
+from typing import List, Tuple, Union
+from insar.gamma.proxy import create_gamma_proxy
+from insar.parfile import GammaParFile as ParFile
+from insar.paths.slc import SlcPaths
 from insar.project import ProcConfig
 from insar.stack import load_stack_config
-from insar.paths.slc import SlcPaths
 from insar.subprocess_utils import working_directory
-
-from insar.gamma.proxy import create_gamma_proxy
+from insar.logs import STATUS_LOGGER as LOG
 
 
 class MultilookException(Exception):
@@ -19,24 +20,31 @@ class MultilookException(Exception):
 pg = create_gamma_proxy(MultilookException)
 
 
-def calculate_slc_look_values(slc_par_file: Union[Path, str],) -> Tuple:
+def calculate_slc_look_values(
+    slc_par_file: Union[Path, str],
+) -> Tuple[float, float, float]:
     """Calculates the range and azimuth look values."""
 
-    _par_vals = pg.ParFile(Path(slc_par_file).as_posix())
+    par_vals = ParFile(Path(slc_par_file).as_posix())
 
-    azsp = _par_vals.get_value("azimuth_pixel_spacing", dtype=float, index=0)
-    rgsp = _par_vals.get_value("range_pixel_spacing", dtype=float, index=0)
-    rg = _par_vals.get_value("center_range_slc", dtype=float, index=0)
-    se = _par_vals.get_value("sar_to_earth_center", dtype=float, index=0)
-    re = _par_vals.get_value("earth_radius_below_sensor", dtype=float, index=0)
+    azsp = par_vals.get_value("azimuth_pixel_spacing", dtype=float, index=0)
+    rgsp = par_vals.get_value("range_pixel_spacing", dtype=float, index=0)
+    rg = par_vals.get_value("center_range_slc", dtype=float, index=0)
+    se = par_vals.get_value("sar_to_earth_center", dtype=float, index=0)
+    re = par_vals.get_value("earth_radius_below_sensor", dtype=float, index=0)
 
-    inc_a = (se ** 2 - re ** 2 - rg ** 2) / (2 * re * rg)
+    inc_a = (se**2 - re**2 - rg**2) / (2 * re * rg)
     inc = math.acos(inc_a)
+
+    LOG.debug(f"Calculated SLC look values are azsp={azsp} rgsp={rgsp} inc={inc} from {slc_par_file}")
 
     return azsp, rgsp, inc
 
 
-def calculate_mean_look_values(slc_par_files: List, multi_look: int,) -> Tuple:
+def calculate_mean_look_values(
+    slc_par_files: List,
+    multi_look: int,
+) -> Tuple[float, float, float, float, float]:
     """Calculate mean slc look (range, azimuth, and incidence) angles from a temporal stack.
 
     :param slc_par_files:
@@ -65,25 +73,33 @@ def calculate_mean_look_values(slc_par_files: List, multi_look: int,) -> Tuple:
     mean_inc_deg = mean_inc * 180.0 / math.pi
 
     if mean_grrgsp > mean_azsp:
+        LOG.debug("mean_grrgsp > mean_azsp")
         az_ml_factor = round(mean_grrgsp / mean_azsp)
         rlks = multi_look
         alks = multi_look * az_ml_factor
-        return rlks, alks, mean_azsp, mean_grrgsp, mean_inc_deg
+    else:
+        LOG.debug("mean_grrgsp <= mean_azsp")
+        rg_ml_factor = round(mean_azsp / mean_grrgsp)
+        rlks = multi_look * rg_ml_factor
+        alks = multi_look
 
-    rg_ml_factor = round(mean_azsp / mean_grrgsp)
-    rlks = multi_look * rg_ml_factor
-    alks = multi_look
+    LOG.debug(
+        f"Calculated mean look values from temporal stack are "
+        f"alks={alks} rlks={rlks} mean_azsp={mean_azsp} "
+        f"mean_grrgsp={mean_grrgsp} mean_inc_deg={mean_inc_deg}"
+    )
+
+    # DR Currently hardcoded for testing
+    LOG.debug("HARDCODING alks=1 rlks=1")
+    rlks, alks = 1, 1
+
     return rlks, alks, mean_azsp, mean_grrgsp, mean_inc_deg
 
 
 def multilook(
-    stack_config: Union[ProcConfig, Path],
-    slc: Union[Path, str],
-    slc_par: Union[Path, str],
-    rlks: int,
-    alks: int
+    stack_config: Union[ProcConfig, Path], slc: Union[Path, str], slc_par: Union[Path, str], rlks: int, alks: int
 ) -> None:
-    """Calculate a multi-look indensity (MLI) image from an SLC image.
+    """Calculate a multi-look intensity (MLI) image from an SLC image.
 
     The MLI file will be produced in the same directory as the provided SLC path.
 
@@ -98,6 +114,10 @@ def multilook(
     :param alks:
         Azimuth look value.
     """
+    LOG.debug(
+        f"Calculating multi-look intensity (MLI) image from SLC image "
+        f"{slc} using parfile {slc_par}, rlks={rlks}, and alks={alks}"
+    )
 
     if not isinstance(stack_config, ProcConfig):
         stack_config = load_stack_config(stack_config)
@@ -116,8 +136,8 @@ def multilook(
     paths = SlcPaths(stack_config, scene_date, pol, rlks)
 
     # Temporary, until we clean-up the multilook code to take more sensible inputs
-    assert(slc == paths.slc)
-    assert(slc_par == paths.slc_par)
+    assert slc == paths.slc
+    assert slc_par == paths.slc_par
 
     with working_directory(paths.dir.as_posix()):
         pg.multi_look(

@@ -1,23 +1,23 @@
 #!/usr/bin/env python
 
-import re
-from datetime import datetime
-from pathlib import Path
-from typing import List, Union, Dict, Optional
-
 import geopandas as gpd
 import pandas as pd
 import shapely.wkt
-from spatialist import Vector
-import structlog
+import re
 
-from insar.meta_data.s1_slc import Archive, S1DataDownload
+from typing import Optional, Union, List, Dict
+from datetime import datetime
+from pathlib import Path
+from spatialist import Vector
+from insar.meta_data.s1_slc import S1DataDownload, Archive
+from insar.logs import STATUS_LOGGER as LOG
 from insar.project import ProcConfig
 
-_LOG = structlog.get_logger("insar")
 
-
-def _check_frame_bursts(primary_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict:
+def _check_frame_bursts(
+    primary_df: gpd.GeoDataFrame,
+    input_data: Dict,
+) -> Dict:
     """Check missing primary SLC bursts.
 
     Compares input data and primary bursts to determine bursts overlaps
@@ -38,19 +38,21 @@ def _check_frame_bursts(primary_df: gpd.GeoDataFrame, input_data: Dict,) -> Dict
 
             # Get the bounds of the swath (used for determine scene extent)
             swath_bounds = [
-                geom.bounds
-                for _id in swath_val
-                for geom in swath_val[_id]["burst_extent"]
+                geom.bounds for _id in swath_val for geom in swath_val[_id]["burst_extent"]
             ]
 
-            swath_min = (min(minx for minx, _, _, _ in swath_bounds), min(miny for _, miny, _, _ in swath_bounds))
-            swath_max = (max(maxx for _, _, maxx, _ in swath_bounds), max(maxy for _, _, _, maxy in swath_bounds))
+            swath_min = (
+                min(minx for minx, _, _, _ in swath_bounds),
+                min(miny for _, miny, _, _ in swath_bounds),
+            )
+            swath_max = (
+                max(maxx for _, _, maxx, _ in swath_bounds),
+                max(maxy for _, _, _, maxy in swath_bounds),
+            )
 
             # check if primary bursts contains the centroids to determine missing bursts
             swath_centroids = [
-                geom.centroid
-                for _id in swath_val
-                for geom in swath_val[_id]["burst_extent"]
+                geom.centroid for _id in swath_val for geom in swath_val[_id]["burst_extent"]
             ]
 
             contained_bursts = []
@@ -80,7 +82,7 @@ def _check_slc_input_data(
     rel_orbit: int,
     polarization: str,
     exclude_incomplete: bool,
-    exclude_imprecise_orbit: bool
+    exclude_imprecise_orbit: bool,
 ) -> Dict:
     """
     Checks if input (results_df) has required data to form a full SLC.
@@ -148,7 +150,7 @@ def _check_slc_input_data(
 
                     slc_gpd = gpd.GeoDataFrame(
                         slc_df,
-                        crs={"init": "epsg:4326"},
+                        crs="epsg:4326",
                         geometry=slc_df["AsText(bursts_metadata.burst_extent)"].map(
                             shapely.wkt.loads
                         ),
@@ -168,8 +170,8 @@ def _check_slc_input_data(
 
         except AssertionError as err:
             # only log the information for scenes not available to form compute frame.
-            _LOG.info(
-                "scene not available to form complete frame",
+            LOG.info(
+                "Scene not available to form complete frame",
                 slc_scene_date=dt.strftime("%Y-%m-%d"),
                 err=err,
             )
@@ -185,10 +187,7 @@ def _check_slc_input_data(
             is_missing_bursts = len(slc_dict["missing_primary_bursts"]) > 0
 
             if exclude_incomplete and is_missing_bursts:
-                _LOG.info(
-                    "Ignoring queried date due to missing bursts",
-                    date=dt
-                )
+                LOG.info("Ignoring queried date due to missing bursts", date=dt)
                 excluded_dates.append(dt)
                 break
 
@@ -202,15 +201,12 @@ def _check_slc_input_data(
                     src_url = scene_data["url"]
 
                     helper = S1DataDownload(
-                        Path(src_url),
-                        [polarization],
-                        proc.poeorb_path,
-                        proc.resorb_path
+                        Path(src_url), [polarization], proc.poeorb_path, proc.resorb_path
                     )
 
                     poe_file = helper.get_poeorb_orbit_file()
                     if not poe_file:
-                        _LOG.info(
+                        LOG.info(
                             "Ignoring queried date due to missing precise orbit file",
                             date=dt,
                             scene=scene_id,
@@ -237,7 +233,7 @@ def query_slc_inputs(
     polarization: List[str],
     filter_by_sensor: str = None,
     exclude_incomplete: bool = True,
-    exclude_imprecise_orbit: bool = False
+    exclude_imprecise_orbit: bool = False,
 ) -> Dict:
     """A method to query sqlite database and generate slc input dict for a stack's scenes.
 
@@ -321,7 +317,7 @@ def query_slc_inputs(
         if slc_df is None:
             return
 
-        _LOG.info(
+        LOG.info(
             f"Querying {dbfile} with {shapefile} from {start_date} to {end_date} found {len(slc_df)} files."
         )
 
@@ -339,22 +335,28 @@ def query_slc_inputs(
 
             dst_scene_count = len(slc_df)
 
-            _LOG.info(
+            LOG.info(
                 f"Filtering by sensor '{filter_by_sensor}' reduced to {dst_scene_count} files.",
                 src_sensors=sensors,
                 src_scene_count=src_scene_count,
                 dst_sensor=filter_by_sensor,
-                dst_scene_count=dst_scene_count
+                dst_scene_count=dst_scene_count,
             )
 
         try:
-            slc_df["acquisition_start_time"] = pd.to_datetime(
-                slc_df["acquisition_start_time"]
-            )
+            slc_df["acquisition_start_time"] = pd.to_datetime(slc_df["acquisition_start_time"])
 
             #  check queried results against primary dataframe to form slc inputs
             return {
-                pol: _check_slc_input_data(proc, slc_df, gpd.read_file(shapefile), track, pol, exclude_incomplete, exclude_imprecise_orbit)
+                pol: _check_slc_input_data(
+                    proc,
+                    slc_df,
+                    gpd.read_file(shapefile),
+                    track,
+                    pol,
+                    exclude_incomplete,
+                    exclude_imprecise_orbit,
+                )
                 for pol in polarization
             }
 
@@ -362,7 +364,10 @@ def query_slc_inputs(
             raise err
 
 
-def _write_list(data: List, fid: Union[Path, str],) -> None:
+def _write_list(
+    data: List,
+    fid: Union[Path, str],
+) -> None:
     """Helper method to write files."""
 
     with open(Path(fid.as_posix()), "w") as out_fid:
@@ -381,9 +386,7 @@ def slc_inputs(slc_data_input: Dict) -> pd.DataFrame:
         A dataframe with sub-set of queried attributes needed to form SLC.
     """
 
-    _regx_uuid = (
-        r"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}"
-    )
+    _regx_uuid = r"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}"
     _swath_keys = ["IW1", "IW2", "IW3"]
     _missing_primary_bursts_key = "missing_primary_bursts"
 

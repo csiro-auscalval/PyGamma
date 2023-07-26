@@ -44,6 +44,8 @@ class ProcessSlc(luigi.Task):
 
         slc_paths = SlcPaths(proc_config, str(self.scene_date), str(self.polarization))
 
+        log.info(" * Starting SLC processing")
+
         process_s1_slc(
             slc_paths,
             str(self.polarization),
@@ -71,7 +73,7 @@ class CreateFullSlc(luigi.Task):
 
     def run(self):
         log = STATUS_LOGGER.bind(stack_id=self.stack_id)
-        log.info("create full slc task")
+        log.info("Create full SLC task")
 
         with open(self.proc_file, "r") as proc_fileobj:
             proc_config = ProcConfig.from_file(proc_fileobj)
@@ -190,7 +192,7 @@ class ProcessSlcMosaic(luigi.Task):
 
     def run(self):
         log = STATUS_LOGGER.bind(scene_date=self.scene_date, polarisation=self.polarization)
-        log.info("Beginning SLC mosaic")
+        log.info(f"Beginning SLC mosaic with rlks={self.rlks} and alks={self.alks}")
 
         slc_paths = SlcPaths(self.workdir, str(self.scene_date), str(self.polarization))
 

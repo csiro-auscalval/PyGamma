@@ -1,48 +1,45 @@
-from pathlib import Path
 import luigi
 import luigi.configuration
-from luigi.util import requires
 
+import insar.constant as const
+
+from luigi.util import requires
+from pathlib import Path
 from pathlib import Path
 
 from insar.make_gamma_dem import create_gamma_dem
-from insar.logs import STATUS_LOGGER
+from insar.logs import STATUS_LOGGER as LOG
 
-from insar.workflow.luigi.utils import tdir, load_settings, mk_clean_dir, PathParameter
+from insar.workflow.luigi.utils import tdir, load_settings,  PathParameter
 from insar.workflow.luigi.stack_setup import InitialSetup
 
 @requires(InitialSetup)
 class CreateGammaDem(luigi.Task):
     """
-    Runs create gamma dem task
+    Subset the DEM based on stack extent and convert to GAMMA format.
     """
 
     dem_img = PathParameter()
 
-    def output(self):
+    def output(self) -> luigi.LocalTarget:
         return luigi.LocalTarget(
             tdir(self.workdir) / f"{self.stack_id}_creategammadem_status_logs.out"
         )
 
-    def run(self):
-        log = STATUS_LOGGER.bind(stack_id=self.stack_id)
-        log.info("Beginning gamma DEM creation")
+    def run(self) -> None:
+        LOG.info("Beginning DEM creation")
 
         proc_config, metadata = load_settings(Path(self.proc_file))
 
-        gamma_dem_dir = Path(self.outdir) / proc_config.gamma_dem_dir
-        mk_clean_dir(gamma_dem_dir)
+        gamma_dem_dir = Path(self.outdir) / proc_config.dem_dir
+        gamma_dem_dir.mkdir(parents=True, exist_ok=True)
 
-        kwargs = {
-            "gamma_dem_dir": gamma_dem_dir,
-            "dem_img": self.dem_img,
-            "stack_id": f"{self.stack_id}",
-            "stack_extent": metadata["stack_extent"],
-        }
+        create_gamma_dem(gamma_dem_dir,
+                         self.dem_img,
+                         str(self.stack_id),
+                         metadata["stack_extent"])
 
-        create_gamma_dem(**kwargs)
-
-        log.info("Gamma DEM creation complete")
+        LOG.info("DEM creation complete")
 
         with self.output().open("w") as out_fid:
             out_fid.write("")

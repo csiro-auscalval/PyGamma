@@ -1,7 +1,6 @@
 # We base the 20211208 proxy off of the 20210701 release
 from insar.gamma.versions.v20210701 import PyGammaProxy as PyGammaProxy_v20210701
 
-
 class PyGammaProxy(PyGammaProxy_v20210701):
     pass
 

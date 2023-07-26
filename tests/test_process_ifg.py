@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 
 import insar.constant as const
 from insar import process_ifg, py_gamma_ga
-from insar.process_ifg import ProcessIfgException, TempFileConfig
+from insar.process_ifg import ProcessIfgException, TempFilePaths
 from insar.project import ProcConfig
 from insar.paths.interferogram import InterferogramPaths
 from insar.paths.dem import DEMPaths
@@ -108,7 +108,7 @@ def ic_mock():
 @pytest.fixture
 def tc_mock():
     """Returns basic mock to simulate a TempFileConfig object."""
-    tc = mock.NonCallableMagicMock(spec=TempFileConfig)
+    tc = mock.NonCallableMagicMock(spec=TempFilePaths)
     return tc
 
 
@@ -864,7 +864,7 @@ def test_remove_files_with_error(monkeypatch):
 
 
 def test_temp_files(ic_mock):
-    tc = process_ifg.TempFileConfig(ic_mock)
+    tc = process_ifg.TempFilePaths(ic_mock)
 
     # check paths in FLAT/flattening step
     assert tc.ifg_flat10_unw.as_posix()

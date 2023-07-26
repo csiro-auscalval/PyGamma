@@ -1,4 +1,3 @@
-# We base the 20210701 proxy off of the 20191203 release
 import os
 import inspect
 from pathlib import Path

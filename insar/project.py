@@ -7,13 +7,18 @@ import pathlib
 import itertools
 import enum
 import numbers
-from typing import Union
+import types
+
+from typing import Union, Optional, get_type_hints, Any
+from pathlib import Path
 
 import insar.sensors.s1 as s1
 import insar.sensors.rsat2 as rsat2
 import insar.sensors.palsar as palsar
 import insar.sensors.tsx as tsx
+import insar.constant as const
 
+from insar.logs import STATUS_LOGGER as LOG
 
 class ARDWorkflow(enum.Enum):
     """Defines all the supported workflows of the processing script"""
@@ -25,6 +30,48 @@ class ARDWorkflow(enum.Enum):
 
 class ProcConfig:
     """Container for Gamma proc files (collection of runtime settings)."""
+
+    output_path: Path
+    job_path: Path
+    database_path: Path
+    s1_path: Path
+    poeorb_path: Path
+    resorb_path: Path
+
+    envisat_orbits: Path
+    ers_orbits: Path
+    s1_orbits: Path
+
+    #FIXME: rename 'dir' to 'path' for consistency?
+    slc_dir: Path
+    dem_dir: Path
+    gamma_dem_dir: Path
+    int_dir: Path
+    list_dir: Path
+    raw_data_dir: Path
+
+    primary_dem_image: Path
+
+    ref_primary_scene: Path
+
+    stack_id : str
+    track : Optional[str]
+    orbit : Optional[str]
+    land_center : Optional[str]
+    polarisation : str
+    sensor : Optional[str]
+
+    multi_look : int
+    range_looks: int
+    azimuth_looks: int
+
+    ifg_coherence_window : int
+    ifg_coherence_threshold : float
+    ifg_exponent : float
+    ifg_filtering_window : int
+    ifg_geotiff : bool
+
+    dem_snr : float
 
     __path_attribs__ = [
         "output_path",
@@ -136,11 +183,34 @@ class ProcConfig:
         Create a ProcConfig instance.
         :param kwargs: mapping of keywords and values from a proc config settings file.
         """
+
+        type_hint = get_type_hints(self)
+
+        def the_type(k: str) -> Any:
+            t = type_hint[k]
+            if hasattr(t, '__args__') and len(t.__args__) > 1:
+                return t.__args__[0]
+            else:
+                return t
+
         for k, v in kwargs.items():
-            # auto convert string paths to Paths to clean up workflow file handling
+            #print(k.upper(), '=', v)
+
+            vv = v
+
+            if str(v).lower() == const.YES:
+                vv = True
+
+            if str(v).lower() == const.NO:
+                vv = False
+
             if "_path" in k or "_dir" in k or "_img" in k:
-                v = pathlib.Path(v)
-            setattr(self, k, v)
+                vv = pathlib.Path(v)
+
+            if k in type_hint:
+                vv = the_type(k)(v)
+
+            setattr(self, k, vv)
 
         # Convert settings to appropriate types
         if self.land_center:
@@ -156,7 +226,7 @@ class ProcConfig:
             assert(isinstance(self.land_center[1], numbers.Number))
 
         # FIXME: Should be a setting
-        self.gamma_dem_dir = "GAMMA_DEM"
+        self.gamma_dem_dir = const.GAMMA_DEM_DIR
 
 
     @classmethod
@@ -172,6 +242,7 @@ class ProcConfig:
         ]
         kv_pairs = [line.split("=") for line in raw_lines]
 
+        # FIXME: this causes bugs, fix it
         # rename any keys with hyphens
         for pair in kv_pairs:
             pair[0] = pair[0].replace("-", "_")
@@ -238,7 +309,7 @@ class ProcConfig:
 
         # Validate flag properties
         flag_values = ["YES", "NO", "ENABLE", "DISABLE", "TRUE", "FALSE"]
-        flag_properties = ["cleanup", "ifg_unw_mask", "ifg_iterative", "ifg_geotiff"]
+        flag_properties = ["cleanup", "ifg_unw_mask", "ifg_iterative", "ifg_convert_to_geotiff"]
         for name in flag_properties:
             if hasattr(self, name):
                 value = getattr(self, name)

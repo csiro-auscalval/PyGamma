@@ -4,12 +4,15 @@ from typing import List, Optional
 import re
 import tarfile
 import shutil
-import tempfile
 import os.path
 
-from insar.gamma.proxy import create_gamma_proxy
+import insar.constant as const
 
+from insar.gamma.proxy import create_gamma_proxy
+from insar.parfile import GammaParFile as ParFile
 from insar.sensors.types import SensorMetadata
+from insar.utils import TemporaryDirectory
+
 import insar.constant as const
 
 # Example: 20151215_PALSAR2_T124A_F6660.tar.gz
@@ -61,7 +64,7 @@ def get_data_swath_info(
     if not raw_data_path or not raw_data_path.is_dir():
         raise RuntimeError("Cannot get swath info from ALOS archive, only from directory")
 
-    with tempfile.TemporaryDirectory() as temp_dir_name:
+    with TemporaryDirectory(delete=const.DISCARD_TEMP_FILES) as temp_dir_name:
         temp_dir = Path(temp_dir_name)
 
         summary = list(raw_data_path.glob("*/summary.txt"))
@@ -118,8 +121,8 @@ def get_data_swath_info(
                 const.NOT_PROVIDED
             )
 
-            #sar_par = pg.ParFile(sar_par_path)
-            proc_par = pg.ParFile(proc_par_path)
+            #sar_par = ParFile(sar_par_path)
+            proc_par = ParFile(proc_par_path)
 
             scene_lat = proc_par.get_value("scene_center_latitude", dtype=float, index=0)
             scene_lon = proc_par.get_value("scene_center_longitude", dtype=float, index=0)
@@ -135,7 +138,7 @@ def get_data_swath_info(
             )
 
             # Parse SLC par
-            slc_par = pg.ParFile(slc_par_path)
+            slc_par = ParFile(slc_par_path)
 
             scene_lat = slc_par.get_value("center_latitude", dtype=float, index=0)
             scene_lon = slc_par.get_value("center_longitude", dtype=float, index=0)

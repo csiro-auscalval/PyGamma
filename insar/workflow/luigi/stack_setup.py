@@ -17,7 +17,7 @@ from insar.constant import SCENE_DATE_FMT
 from insar.sensors import identify_data_source, acquire_source_data, S1_ID, RSAT2_ID, PALSAR_ID, TSX_ID
 from insar.project import ProcConfig
 from insar.generate_slc_inputs import query_slc_inputs, slc_inputs
-from insar.logs import STATUS_LOGGER
+from insar.logs import STATUS_LOGGER as LOG
 from insar.stack import resolve_stack_scene_additional_files
 from insar.paths.stack import StackPaths
 
@@ -42,19 +42,18 @@ class DataDownload(luigi.Task):
         )
 
     def run(self):
-        log = STATUS_LOGGER.bind(data_path=self.data_path)
         failed = False
 
         try:
-            structlog.threadlocal.clear_threadlocal()
-            structlog.threadlocal.bind_threadlocal(
-                task="Data download",
-                data_path=self.data_path,
-                polarisation=self.polarization,
-                outdir=self.output_dir
-            )
+            #structlog.threadlocal.clear_threadlocal()
+            #structlog.threadlocal.bind_threadlocal(
+            #    task="Data download",
+            #    data_path=self.data_path,
+            #    polarisation=self.polarization,
+            #    outdir=self.output_dir
+            #)
 
-            log.info("Beginning data download")
+            LOG.info(f"Unpacking data from {self.data_path} to {self.output_dir}")
 
             # Setup sensor-specific data acquisition info
             constellation, _, _ = identify_data_source(self.data_path)
@@ -89,9 +88,9 @@ class DataDownload(luigi.Task):
             if product_dir:
                 (product_dir / "src_url").write_text(str(self.data_path))
 
-            log.info("Data download complete")
-        except:
-            log.error("Data download failed with exception", exc_info=True)
+            LOG.info(f"Finished unpacking {self.data_path}")
+        except Exception as e:
+            LOG.error(f"Data unpacking failed with exception `{e.message}`", exc_info=True)
             failed = True
         finally:
             with self.output().open("w") as f:
@@ -128,8 +127,7 @@ class InitialSetup(luigi.Task):
         )
 
     def _abort_stack_processing(self, msg: str):
-        log = STATUS_LOGGER.bind(stack_id=self.stack_id)
-        log.info(msg)
+        LOG.info(msg)
 
         with open(self.proc_file, "r") as proc_file_obj:
             proc_config = ProcConfig.from_file(proc_file_obj)
@@ -151,8 +149,7 @@ class InitialSetup(luigi.Task):
         Path(task_status.path).touch()
 
     def run(self):
-        log = STATUS_LOGGER.bind(stack_id=self.stack_id)
-        log.info("initial setup task", sensor=self.sensor)
+        LOG.info("Initial setup task", sensor=self.sensor)
 
         with open(self.proc_file, "r") as proc_file_obj:
             proc_config = ProcConfig.from_file(proc_file_obj)
@@ -180,7 +177,7 @@ class InitialSetup(luigi.Task):
             min_date = include_dates[0][0]
             max_date = max([d[1] for d in include_dates])
 
-            log.info(
+            LOG.info(
                 "Simplified final include dates",
                 final_dates=include_dates,
                 initial_includes=init_include_dates,
@@ -284,8 +281,8 @@ class InitialSetup(luigi.Task):
 
                     _, _, scene_date = identify_data_source(failed_file)
 
-                    log.info(
-                        f"corrupted zip file detected, removed whole date from processing",
+                    LOG.info(
+                        f"Corrupted file detected: {failed_file}, removed date {scene_date} from processing",
                         failed_file=failed_file,
                         scene_date=scene_date
                     )
@@ -332,7 +329,8 @@ class InitialSetup(luigi.Task):
         # Write reference scene before we start processing
         formatted_scene_dates = set([str(dt).replace("-", "") for dt in slc_inputs_df["date"]])
         ref_scene_date = calculate_primary(formatted_scene_dates)
-        log.info("Automatically computed primary reference scene date", ref_scene_date=ref_scene_date)
+
+        LOG.info(f"Automatically computed primary reference scene date as {ref_scene_date}")
 
         with open(paths.list_dir / 'primary_ref_scene', 'w') as ref_scene_file:
             ref_scene_file.write(ref_scene_date.strftime(SCENE_DATE_FMT))
@@ -345,8 +343,8 @@ class InitialSetup(luigi.Task):
             out_fid.write("")
 
         # Update .proc file "auto" reference scene
-        if proc_config.ref_primary_scene.lower() == "auto":
-            proc_config.ref_primary_scene = ref_scene_date.strftime(SCENE_DATE_FMT)
+        if str(proc_config.ref_primary_scene) == "auto":
+            proc_config.ref_primary_scene = Path(ref_scene_date.strftime(SCENE_DATE_FMT))
 
             with open(self.proc_file, "w") as proc_file_obj:
                 proc_config.save(proc_file_obj)

@@ -8,10 +8,11 @@ import structlog
 from insar.constant import SCENE_DATE_FMT
 from insar.project import ProcConfig
 from insar.process_backscatter import generate_normalised_backscatter
-from insar.logs import STATUS_LOGGER
+from insar.logs import STATUS_LOGGER as LOG
 
 from insar.workflow.luigi.utils import PathParameter, tdir, read_rlks_alks, read_primary_date
 from insar.workflow.luigi.coregistration import CreateCoregisterSecondaries, get_coreg_kwargs, get_coreg_date_pairs
+
 
 class ProcessBackscatter(luigi.Task):
     """
@@ -30,17 +31,13 @@ class ProcessBackscatter(luigi.Task):
     dst_stem = PathParameter()
 
     def output(self):
-        return luigi.LocalTarget(
-            tdir(self.workdir) / f"{Path(str(self.src_mli)).stem}_nbr_logs.out"
-        )
+        return luigi.LocalTarget(tdir(self.workdir) / f"{Path(str(self.src_mli)).stem}_nbr_logs.out")
 
     def run(self):
-        slc_date, slc_pol = Path(self.src_mli).stem.split('_')[:2]
+        slc_date, slc_pol = Path(self.src_mli).stem.split("_")[:2]
         slc_date = slc_date.lstrip("r")
 
-        log = STATUS_LOGGER.bind(
-            scene=self.src_mli,
-        )
+        LOG.info(f"Beginning normalised radar backscatter for {self.src_mli} and date {slc_date}")
 
         # Load the gamma proc config file
         with open(str(self.proc_file), "r") as proc_fileobj:
@@ -51,13 +48,9 @@ class ProcessBackscatter(luigi.Task):
         try:
             structlog.threadlocal.clear_threadlocal()
             structlog.threadlocal.bind_threadlocal(
-                task="Normalised radar backscatter",
-                scene_dir=self.outdir,
-                scene_date=slc_date,
-                polarisation=slc_pol
+                task="Normalised radar backscatter", scene_dir=self.outdir, scene_date=slc_date, polarisation=slc_pol
             )
 
-            log.info("Beginning normalised radar backscatter")
 
             generate_normalised_backscatter(
                 Path(self.outdir),
@@ -69,9 +62,10 @@ class ProcessBackscatter(luigi.Task):
                 Path(self.dst_stem),
             )
 
-            log.info("Normalised radar backscatter complete")
+            LOG.info(f"Normalised radar backscatter complete for {self.src_mli} and date {slc_date}")
+
         except Exception as e:
-            log.error("Normalised radar backscatter failed with exception", exc_info=True)
+            LOG.error("Normalised radar backscatter for {self.src_mli} and date {slc_date} failed with exception", exc_info=True)
             failed = True
         finally:
             # We flag a task as complete no matter if the scene failed or not!
@@ -94,15 +88,13 @@ class CreateCoregisteredBackscatter(luigi.Task):
     polarization = luigi.ListParameter(default=None)
 
     def output(self):
-        return luigi.LocalTarget(
-            tdir(self.workdir) / f"{self.stack_id}_backscatter_status_logs.out"
-        )
+        return luigi.LocalTarget(tdir(self.workdir) / f"{self.stack_id}_backscatter_status_logs.out")
 
     def get_create_coreg_task(self):
         log = STATUS_LOGGER.bind(stack_id=self.stack_id)
 
         # Note: We share identical parameters, so we just forward them a copy
-        kwargs = {k:getattr(self,k) for k,_ in self.get_params()}
+        kwargs = {k: getattr(self, k) for k, _ in self.get_params()}
 
         return CreateCoregisterSecondaries(**kwargs)
 
@@ -118,7 +110,7 @@ class CreateCoregisteredBackscatter(luigi.Task):
         triggered_dates = []
 
         nbr_outfile_pattern = "*_nbr_logs.out"
-        nbr_outfile_suffix_len = len(nbr_outfile_pattern)-1
+        nbr_outfile_suffix_len = len(nbr_outfile_pattern) - 1
 
         if reprocess_failed_scenes:
             for status_out in tdir(self.workdir).glob(nbr_outfile_pattern):
@@ -148,8 +140,7 @@ class CreateCoregisteredBackscatter(luigi.Task):
         return triggered_dates
 
     def run(self):
-        log = STATUS_LOGGER.bind(stack_id=self.stack_id)
-        log.info("backscatter task")
+        LOG.info(f"Starting Coregistered SLC backscatter ({self.stack_id})")
 
         outdir = Path(self.outdir)
 
@@ -168,7 +159,6 @@ class CreateCoregisteredBackscatter(luigi.Task):
             "proc_file": self.proc_file,
             "outdir": self.outdir,
             "workdir": self.workdir,
-
             "ellip_pix_sigma0": coreg_kwargs["ellip_pix_sigma0"],
             "dem_pix_gamma0": coreg_kwargs["dem_pix_gamma0"],
             "dem_lt_fine": coreg_kwargs["dem_lt_fine"],
@@ -179,9 +169,12 @@ class CreateCoregisteredBackscatter(luigi.Task):
 
         # Create backscatter for primary reference scene
         # we do this even though it's not coregistered
+
         primary_scene = read_primary_date(outdir).strftime(SCENE_DATE_FMT)
         primary_dir = outdir / proc_config.slc_dir / primary_scene
         primary_pol = proc_config.polarisation.upper()
+
+        LOG.info(f"Creating Backscatter task for primary reference scene {primary_scene}")
 
         for pol in list(self.polarization):
             prefix = f"{primary_scene}_{pol.upper()}_{rlks}rlks"
@@ -193,14 +186,18 @@ class CreateCoregisteredBackscatter(luigi.Task):
             kwargs["src_mli"] = primary_dir / f"{prefix}.mli"
             kwargs["dst_stem"] = primary_dir / f"{prefix}"
 
+            LOG.info(f"Creating Backscatter processing task ({kwargs})")
+
             task = ProcessBackscatter(**kwargs)
             jobs.append(task)
 
-        # Create backscatter tasks for all coregistered scenes
+
         coreg_date_pairs = get_coreg_date_pairs(outdir, proc_config)
 
         for _, secondary_date in coreg_date_pairs:
             secondary_dir = outdir / proc_config.slc_dir / secondary_date
+
+            LOG.info(f"Creating Backscatter task for secondary coregistered scene {secondary_date}")
 
             for pol in list(self.polarization):
                 prefix = f"{secondary_date}_{pol.upper()}_{rlks}rlks"
@@ -212,6 +209,7 @@ class CreateCoregisteredBackscatter(luigi.Task):
                 # backscatter to also have the 'r' prefix?  as some
                 # backscatters in the future will 'not' be coregistered...
                 kwargs["dst_stem"] = secondary_dir / f"{prefix}"
+
 
                 task = ProcessBackscatter(**kwargs)
                 jobs.append(task)

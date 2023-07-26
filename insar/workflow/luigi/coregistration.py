@@ -5,6 +5,8 @@ import luigi.configuration
 from luigi.util import requires
 import structlog
 
+import insar.constant as const
+
 from insar.constant import SCENE_DATE_FMT
 from insar.coreg_utils import read_land_center_coords, create_secondary_coreg_tree
 from insar.coregister_dem import coregister_primary
@@ -17,8 +19,7 @@ from insar.paths.slc import SlcPaths
 from insar.paths.stack import StackPaths
 from insar.paths.dem import DEMPaths
 from insar.paths.coregistration import CoregisteredPrimaryPaths, CoregisteredSlcPaths
-
-from insar.logs import STATUS_LOGGER
+from insar.logs import STATUS_LOGGER as LOG
 
 from insar.workflow.luigi.utils import read_primary_date, tdir, load_settings, read_rlks_alks, get_scenes, read_file_line, mk_clean_dir
 from insar.workflow.luigi.utils import PathParameter
@@ -120,7 +121,9 @@ class CoregisterDemPrimary(luigi.Task):
         )
 
     def run(self):
-        log = STATUS_LOGGER.bind(stack_id=self.stack_id)
+        LOG.info(f"Starting co-registration of DEM and primary scene ({self.stack_id})")
+
+        log = LOG.bind(stack_id=self.stack_id)
         outdir = Path(self.outdir)
         failed = False
 
@@ -139,7 +142,7 @@ class CoregisterDemPrimary(luigi.Task):
                 polarisation=primary_pol
             )
 
-            log.info("Beginning DEM primary coregistration")
+            LOG.info(f"Beginning DEM primary coregistration for {primary_scene} with outdir {self.outdir}")
 
             # Read rlks/alks from multilook status
             ml_file = f"{self.stack_id}_createmultilook_status_logs.out"
@@ -148,14 +151,13 @@ class CoregisterDemPrimary(luigi.Task):
             dem_outdir = outdir / proc_config.dem_dir
             mk_clean_dir(dem_outdir)
 
-            # Read land center coordinates from shape file (if it exists)
             land_center = None
             if proc_config.land_center:
                 land_center = proc_config.land_center
-                log.info("Read land center from .proc config", land_center=land_center)
+                log.info(f"Read land center from .proc config: {land_center}", land_center=land_center)
             elif self.shape_file:
                 land_center = read_land_center_coords(Path(self.shape_file))
-                log.info("Read land center from shapefile", land_center=land_center)
+                log.info(f"Read land center from shapefile: {land_center}", land_center=land_center)
 
             dem_patch_window = int(proc_config.dem_patch_window)
             dem_offset = [int(i) for i in proc_config.dem_offset.split()]
@@ -170,21 +172,24 @@ class CoregisterDemPrimary(luigi.Task):
                 rlks,
                 alks,
                 self.multi_look,
-                land_center=land_center,
+                land_center_latlon=land_center,
                 dem_patch_window=dem_patch_window,
                 dem_offset=dem_offset,
                 dem_offset_measure=dem_offset_measure,
                 dem_window=dem_window,
                 dem_snr=dem_snr,
-                dem_rad_max=dem_rad_max
+                dem_rad_max=dem_rad_max,
+                dem_ovr=const.DEM_OVERSAMPLE_RATE,
                 # TODO: More settings we're not using here
                 # - GH issue #244
             )
 
-            log.info("DEM primary coregistration complete")
+            LOG.info(f"DEM primary coregistration complete for {primary_scene} with outdir {self.outdir}")
+
         except Exception as e:
-            log.error("DEM primary coregistration failed with exception", exc_info=True)
+            LOG.error(f"DEM primary coregistration failed for {primary_scene} with exception", exc_info=True)
             failed = True
+            raise e
         finally:
             with self.output().open("w") as f:
                 f.write("FAILED" if failed else "")
@@ -241,7 +246,7 @@ class CoregisterSecondary(luigi.Task):
 
         is_secondary_pol = secondary_pol != primary_pol
 
-        log = STATUS_LOGGER.bind(
+        log = LOG.bind(
             outdir=self.outdir,
             polarisation=secondary_pol,
             secondary_date=secondary_date,
@@ -249,7 +254,7 @@ class CoregisterSecondary(luigi.Task):
             primary_date=primary_date,
             primary_scene=self.slc_primary
         )
-        log.info("Beginning SLC coregistration")
+        log.info(f"Beginning SLC coregistration for {secondary_date} with outdir {self.outdir}")
 
         kwargs = get_coreg_kwargs(self.proc_file, secondary_date, secondary_pol)
 
@@ -263,6 +268,11 @@ class CoregisterSecondary(luigi.Task):
 
         failed = False
 
+        try:
+            list_idx = int(self.list_idx)
+        except ValueError:
+            list_idx = None
+
         # Run SLC coreg in an exception handler that doesn't propagate exception into Luigi
         # This is to allow processing to fail without stopping the Luigi pipeline, and thus
         # allows as many scenes as possible to fully process even if some scenes fail.
@@ -272,7 +282,7 @@ class CoregisterSecondary(luigi.Task):
                 if proc_config.sensor.upper() == "S1":
                     coregister_s1_secondary(
                         proc_config,
-                        self.list_idx,
+                        list_idx,
                         coreg_slc_paths.primary.slc,
                         coreg_slc_paths.secondary.slc,
                         rlks,
@@ -331,6 +341,7 @@ class CoregisterSecondary(luigi.Task):
         except Exception as e:
             log.error("SLC coregistration failed with exception", exc_info=True)
             failed = True
+            raise e
         finally:
             # We flag a task as complete no matter if the scene failed or not!
             # - however we do write if the scene failed, so it can be reprocessed
@@ -357,7 +368,7 @@ class CreateCoregisterSecondaries(luigi.Task):
         )
 
     def trigger_resume(self, reprocess_dates: List[str], reprocess_failed_scenes: bool):
-        log = STATUS_LOGGER.bind(stack_id=self.stack_id)
+        log = LOG.bind(stack_id=self.stack_id)
 
         # Remove our output to re-trigger this job, which will trigger CoregisterSecondary
         # for all dates, however only those missing outputs will run.
@@ -397,8 +408,8 @@ class CreateCoregisterSecondaries(luigi.Task):
         return triggered_pairs
 
     def run(self):
-        log = STATUS_LOGGER.bind(stack_id=self.stack_id)
-        log.info("co-register primary-secondaries task")
+        log = LOG.bind(stack_id=self.stack_id)
+        log.info("Co-register primary-secondaries task")
 
         outdir = Path(self.outdir)
 
